@@ -106,6 +106,21 @@ public partial class ListenPage
     private string? _playlistArtworkPreviewUrl;
     private string? _playlistNavigationConfig;
     private List<Guid> _playlistOrder = [];
+    private Guid? _draggingPlaylistId;
+    private bool _playlistCreateMenuOpen;
+    private bool _playlistCreateOpen;
+    private bool _playlistCreateSaving;
+    private string _playlistCreateKind = "Playlist";
+    private string _playlistCreateTitle = string.Empty;
+    private string _playlistCreateDescription = string.Empty;
+    private bool _playlistCreateVisibleInProfile;
+    private IBrowserFile? _playlistCreateArtworkFile;
+    private string? _playlistCreateArtworkPreviewUrl;
+    private string _smartRuleField = "artist";
+    private string _smartRuleOperator = "contains";
+    private string _smartRuleValue = string.Empty;
+    private bool _smartRuleEnabled = true;
+    private bool _smartLiveUpdating = true;
 
     private string CurrentPath => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
     private string NormalizedSection => string.IsNullOrWhiteSpace(Section) ? string.Empty : Section.Trim().ToLowerInvariant();
@@ -156,6 +171,9 @@ public partial class ListenPage
         .Where(IsUserVisiblePlaylist)
         .OrderBy(GetPlaylistOrderIndex)
         .ThenBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    private IReadOnlyList<ManagedCollectionViewModel> ManualPlaylistCollections => PlaylistCollections
+        .Where(CanAcceptPlaylistItems)
         .ToList();
     private bool HasPlaylistCollections => PlaylistCollections.Count > 0;
     private IReadOnlyList<ListenPlaylistCard> HomePlaylistCards => PlaylistCollections
@@ -501,6 +519,177 @@ public partial class ListenPage
         _playlistOrder = orderedIds;
         await SavePlaylistOrderAsync();
     }
+
+    private void BeginPlaylistReorder(Guid playlistId)
+    {
+        _draggingPlaylistId = playlistId;
+    }
+
+    private void EndPlaylistReorder()
+    {
+        _draggingPlaylistId = null;
+    }
+
+    private async Task DropPlaylistReorderAsync(Guid targetPlaylistId)
+    {
+        if (!_draggingPlaylistId.HasValue || _draggingPlaylistId.Value == targetPlaylistId)
+            return;
+
+        var orderedIds = PlaylistCollections.Select(playlist => playlist.Id).ToList();
+        var sourceIndex = orderedIds.IndexOf(_draggingPlaylistId.Value);
+        var targetIndex = orderedIds.IndexOf(targetPlaylistId);
+        if (sourceIndex < 0 || targetIndex < 0)
+            return;
+
+        var movedId = orderedIds[sourceIndex];
+        orderedIds.RemoveAt(sourceIndex);
+        if (sourceIndex < targetIndex)
+            targetIndex--;
+
+        orderedIds.Insert(targetIndex, movedId);
+        _playlistOrder = orderedIds;
+        _draggingPlaylistId = null;
+        await SavePlaylistOrderAsync();
+    }
+
+    private void TogglePlaylistCreateMenu()
+    {
+        _playlistCreateMenuOpen = !_playlistCreateMenuOpen;
+    }
+
+    private void OpenPlaylistCreateDialog(string kind)
+    {
+        _playlistCreateMenuOpen = false;
+        _playlistCreateKind = kind;
+        _playlistCreateTitle = string.Empty;
+        _playlistCreateDescription = string.Empty;
+        _playlistCreateVisibleInProfile = false;
+        _playlistCreateArtworkFile = null;
+        _playlistCreateArtworkPreviewUrl = null;
+        _smartRuleField = "artist";
+        _smartRuleOperator = "contains";
+        _smartRuleValue = string.Empty;
+        _smartRuleEnabled = kind == "Smart";
+        _smartLiveUpdating = true;
+        _playlistCreateOpen = true;
+    }
+
+    private void ClosePlaylistCreateDialog()
+    {
+        _playlistCreateOpen = false;
+        _playlistCreateArtworkFile = null;
+        _playlistCreateArtworkPreviewUrl = null;
+    }
+
+    private async Task OnPlaylistCreateArtworkSelected(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        _playlistCreateArtworkFile = file;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            _playlistCreateArtworkPreviewUrl = $"data:{(file.ContentType ?? "image/jpeg")};base64,{Convert.ToBase64String(ms.ToArray())}";
+        }
+        catch
+        {
+            _playlistCreateArtworkPreviewUrl = null;
+            Snackbar.Add("Artwork preview could not be loaded.", Severity.Warning);
+        }
+    }
+
+    private async Task SavePlaylistCreateDialogAsync()
+    {
+        if (_activeProfileId is null)
+        {
+            Snackbar.Add("An active profile is required to create playlists.", Severity.Warning);
+            return;
+        }
+
+        var title = _playlistCreateTitle.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            Snackbar.Add("Playlist title is required.", Severity.Warning);
+            return;
+        }
+
+        var rules = BuildPlaylistCreateRules();
+        if (_playlistCreateKind == "Smart" && _smartRuleEnabled && rules.Count == 0)
+        {
+            Snackbar.Add("Smart playlists need a rule value.", Severity.Warning);
+            return;
+        }
+
+        _playlistCreateSaving = true;
+        try
+        {
+            var collectionId = await ApiClient.CreateCollectionAndReturnIdAsync(
+                title,
+                string.IsNullOrWhiteSpace(_playlistCreateDescription) ? null : _playlistCreateDescription.Trim(),
+                IconForPlaylistCreateKind(_playlistCreateKind),
+                _playlistCreateKind,
+                rules,
+                "all",
+                null,
+                "desc",
+                _playlistCreateKind == "Smart" && _smartLiveUpdating,
+                _playlistCreateVisibleInProfile ? "shared" : "private",
+                _activeProfileId);
+
+            if (!collectionId.HasValue)
+            {
+                Snackbar.Add("Playlist could not be created.", Severity.Error);
+                return;
+            }
+
+            if (_playlistCreateArtworkFile is not null)
+            {
+                await using var stream = _playlistCreateArtworkFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                await ApiClient.UploadCollectionSquareArtworkAsync(collectionId.Value, stream, _playlistCreateArtworkFile.Name, _activeProfileId);
+            }
+
+            _playlistOrder = [.. PlaylistCollections.Select(playlist => playlist.Id), collectionId.Value];
+            await SavePlaylistOrderAsync();
+            Snackbar.Add($"{PlaylistCreateTitle} created.", Severity.Success);
+            ClosePlaylistCreateDialog();
+            await LoadAsync();
+        }
+        finally
+        {
+            _playlistCreateSaving = false;
+        }
+    }
+
+    private List<CollectionRulePredicateViewModel> BuildPlaylistCreateRules()
+    {
+        if (_playlistCreateKind != "Smart" || !_smartRuleEnabled || string.IsNullOrWhiteSpace(_smartRuleValue))
+            return [];
+
+        return
+        [
+            new()
+            {
+                Field = _smartRuleField,
+                Op = _smartRuleOperator,
+                Value = _smartRuleValue.Trim(),
+            },
+        ];
+    }
+
+    private string PlaylistCreateTitle => _playlistCreateKind switch
+    {
+        "Smart" => "Smart Playlist",
+        "PlaylistFolder" => "Playlist Folder",
+        _ => "New Playlist",
+    };
+
+    private static string IconForPlaylistCreateKind(string kind) => kind switch
+    {
+        "Smart" => Icons.Material.Outlined.AutoAwesomeMotion,
+        "PlaylistFolder" => Icons.Material.Outlined.Folder,
+        _ => Icons.Material.Outlined.QueueMusic,
+    };
 
     private async Task SavePlaylistOrderAsync()
     {
@@ -895,14 +1084,14 @@ public partial class ListenPage
 
     private async Task OpenMusicModeAsync()
     {
-        await PersistModePreferenceAsync("music");
         NavigateTo(MusicHomeRoute);
+        await PersistModePreferenceAsync("music");
     }
 
     private async Task OpenAudiobooksModeAsync()
     {
-        await PersistModePreferenceAsync("audiobooks");
         NavigateTo(AudiobooksRoute);
+        await PersistModePreferenceAsync("audiobooks");
     }
 
     private string ResolveConfiguredEntryRoute()
@@ -1690,6 +1879,7 @@ public partial class ListenPage
         => collection.CollectionType switch
         {
             "Smart" => Icons.Material.Outlined.AutoAwesomeMotion,
+            "PlaylistFolder" => Icons.Material.Outlined.Folder,
             "Mix" => Icons.Material.Outlined.GraphicEq,
             "System" => Icons.Material.Outlined.SettingsSuggest,
             _ => Icons.Material.Outlined.QueueMusic,
@@ -1704,8 +1894,13 @@ public partial class ListenPage
             return false;
         }
 
-        return string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.CollectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool CanAcceptPlaylistItems(ManagedCollectionViewModel collection)
+        => string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
 
     private static string Pluralize(int count, string singular)
         => count == 1 ? $"1 {singular}" : $"{count} {singular}s";

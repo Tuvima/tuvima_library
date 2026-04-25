@@ -201,7 +201,8 @@ public sealed class UiShellRenderTests : TestContext
             Assert.True(playlists > quickAccess, "Playlists should render below Quick access.");
             Assert.Single(cut.FindAll(".listen-rail__section-toggle"));
             Assert.Contains("Summer Movies", markup);
-            Assert.Contains("Move playlist up", markup);
+            Assert.Contains("Add playlist", markup);
+            Assert.Contains("Drag to reorder Summer Movies", markup);
             Assert.DoesNotContain("Edit playlist", markup);
             Assert.DoesNotContain("All Songs", markup);
         });

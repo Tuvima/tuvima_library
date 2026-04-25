@@ -4464,6 +4464,21 @@ public sealed class EngineApiClient : IEngineApiClient
         string visibility,
         Guid? profileId = null,
         CancellationToken ct = default)
+        => await CreateCollectionAndReturnIdAsync(name, description, iconName, collectionType, rules, matchMode, sortField, sortDirection, liveUpdating, visibility, profileId, ct) is not null;
+
+    public async Task<Guid?> CreateCollectionAndReturnIdAsync(
+        string name,
+        string? description,
+        string? iconName,
+        string collectionType,
+        List<CollectionRulePredicateViewModel> rules,
+        string matchMode,
+        string? sortField,
+        string sortDirection,
+        bool liveUpdating,
+        string visibility,
+        Guid? profileId = null,
+        CancellationToken ct = default)
     {
         try
         {
@@ -4482,13 +4497,19 @@ public sealed class EngineApiClient : IEngineApiClient
             };
             var url = AppendCollectionProfileQuery("/collections", profileId);
             var response = await _http.PostAsJsonAsync(url, body, ct);
-            return response.IsSuccessStatusCode;
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+            return result.TryGetProperty("id", out var idProperty) && Guid.TryParse(idProperty.GetString(), out var id)
+                ? id
+                : null;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /collections failed");
             LastError = ex.Message;
-            return false;
+            return null;
         }
     }
 

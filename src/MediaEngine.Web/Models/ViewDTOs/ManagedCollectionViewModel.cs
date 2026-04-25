@@ -249,6 +249,7 @@ public sealed class ManagedCollectionViewModel
         "System"   => "System",
         "Mix"      => "Mix",
         "Playlist" => "Playlist",
+        "PlaylistFolder" => "Folder",
         _          => CollectionType,
     };
 

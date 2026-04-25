@@ -70,21 +70,35 @@ else
                 </section>
 
                 <section class="listen-rail__section">
-                    <button type="button"
-                            class="listen-rail__section-toggle"
-                            aria-expanded="@_playlistsExpanded"
-                            @onclick="@(() => _playlistsExpanded = !_playlistsExpanded)">
-                        <span>Playlists</span>
-                        <span class="listen-rail__meta">@PlaylistCollections.Count</span>
-                        <MudIcon Icon="@(_playlistsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)" Style="font-size: 18px;" />
-                    </button>
+                    <div class="listen-rail__section-heading">
+                        <button type="button"
+                                class="listen-rail__section-toggle"
+                                aria-expanded="@_playlistsExpanded"
+                                @onclick="@(() => _playlistsExpanded = !_playlistsExpanded)">
+                            <span>Playlists</span>
+                            <MudIcon Icon="@(_playlistsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)" Style="font-size: 18px;" />
+                        </button>
+                        <button type="button"
+                                class="listen-rail__add"
+                                aria-label="Add playlist"
+                                @onclick="TogglePlaylistCreateMenu">
+                            <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 18px;" />
+                        </button>
+                        @if (_playlistCreateMenuOpen)
+                        {
+                            <div class="listen-rail__create-menu">
+                                <button type="button" @onclick='@(() => OpenPlaylistCreateDialog("Playlist"))'>New Playlist</button>
+                                <button type="button" @onclick='@(() => OpenPlaylistCreateDialog("Smart"))'>New Smart Playlist</button>
+                                <button type="button" @onclick='@(() => OpenPlaylistCreateDialog("PlaylistFolder"))'>New Playlist Folder</button>
+                            </div>
+                        }
+                    </div>
 
                     @if (_playlistsExpanded)
                     {
                         <button type="button" class="listen-rail__item @(IsRouteActive(PlaylistsRoute) ? "is-active" : null)" @onclick="@(() => NavigateTo(PlaylistsRoute))">
                             <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 18px;" />
                             <span>All Playlists</span>
-                            <span class="listen-rail__meta">@PlaylistCollections.Count</span>
                         </button>
 
                         @if (PlaylistCollections.Count == 0)
@@ -98,16 +112,24 @@ else
                         }
                         else
                         {
-                            var index = 0;
                             @foreach (var playlist in PlaylistCollections)
                             {
-                                var playlistIndex = index++;
-                                <div class="listen-rail__playlist-row">
+                                <div class="listen-rail__playlist-row @(playlist.Id == _draggingPlaylistId ? "is-dragging" : null)"
+                                     @ondragover:preventDefault="true"
+                                     @ondrop="@(() => DropPlaylistReorderAsync(playlist.Id))">
+                                    <button type="button"
+                                            class="listen-rail__drag"
+                                            draggable="true"
+                                            aria-label="@($"Drag to reorder {playlist.Name}")"
+                                            @ondragstart="@(() => BeginPlaylistReorder(playlist.Id))"
+                                            @ondragend="EndPlaylistReorder">
+                                        <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Style="font-size: 18px;" />
+                                    </button>
                                     <button type="button"
                                             class="listen-rail__item is-child @(IsRouteActive($"/listen/music/playlists/{playlist.Id}") ? "is-active" : null)"
                                             @onclick="@(() => NavigateTo($"/listen/music/playlists/{playlist.Id}"))"
                                             @ondragover:preventDefault="true"
-                                            @ondrop="@(() => HandlePlaylistDropAsync(playlist.Id))">
+                                            @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
                                         @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
                                         {
                                             <span class="listen-rail__thumb"><img src="@playlist.SquareArtworkUrl" alt="" /></span>
@@ -117,16 +139,7 @@ else
                                             <MudIcon Icon="@PlaylistIconFor(playlist)" Style="font-size: 18px;" />
                                         }
                                         <span>@playlist.Name</span>
-                                        <span class="listen-rail__meta">@playlist.ItemCount</span>
                                     </button>
-                                    <div class="listen-rail__playlist-order" aria-label="@($"Reorder {playlist.Name}")">
-                                        <button type="button" aria-label="Move playlist up" disabled="@(playlistIndex == 0)" @onclick="@(() => MovePlaylistAsync(playlist.Id, -1))">
-                                            <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowUp" Style="font-size: 16px;" />
-                                        </button>
-                                        <button type="button" aria-label="Move playlist down" disabled="@(playlistIndex >= PlaylistCollections.Count - 1)" @onclick="@(() => MovePlaylistAsync(playlist.Id, 1))">
-                                            <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Style="font-size: 16px;" />
-                                        </button>
-                                    </div>
                                 </div>
                             }
                         }
@@ -647,7 +660,7 @@ else
                                         <summary class="listen-row-menu__summary">Add to playlist</summary>
                                         <div class="listen-row-menu__panel">
                                             <button type="button" class="listen-row-menu__action" @onclick="@(() => AddSelectedTracksToPlaylistAsync())">Create new playlist</button>
-                                            @foreach (var playlist in PlaylistCollections)
+                                            @foreach (var playlist in ManualPlaylistCollections)
                                             {
                                                 <button type="button" class="listen-row-menu__action" @onclick="@(() => AddSelectedTracksToPlaylistAsync(playlist.Id))">Add to @playlist.Name</button>
                                             }
@@ -902,6 +915,73 @@ else
             }
         </main>
 
+        @if (_playlistCreateOpen)
+        {
+            <div class="listen-modal-backdrop" @onclick="ClosePlaylistCreateDialog"></div>
+            <section class="listen-create-modal" @onclick:stopPropagation="true">
+                <div class="listen-create-modal__header">
+                    <h2>@PlaylistCreateTitle</h2>
+                </div>
+
+                @if (_playlistCreateKind == "Smart")
+                {
+                    <div class="listen-create-modal__rules">
+                        <label class="listen-checkbox-row">
+                            <input type="checkbox" @bind="_smartRuleEnabled" />
+                            <span>Match for the following rule:</span>
+                        </label>
+                        <div class="listen-smart-rule">
+                            <select class="listen-filter-input" @bind="_smartRuleField" disabled="@(!_smartRuleEnabled)">
+                                <option value="artist">Artist</option>
+                                <option value="album">Album</option>
+                                <option value="genre">Genre</option>
+                                <option value="title">Title</option>
+                                <option value="media_type">Media Type</option>
+                            </select>
+                            <select class="listen-filter-input" @bind="_smartRuleOperator" disabled="@(!_smartRuleEnabled)">
+                                <option value="contains">contains</option>
+                                <option value="eq">is</option>
+                                <option value="neq">is not</option>
+                            </select>
+                            <input class="listen-filter-input" @bind="_smartRuleValue" disabled="@(!_smartRuleEnabled)" />
+                        </div>
+                        <label class="listen-checkbox-row">
+                            <input type="checkbox" @bind="_smartLiveUpdating" />
+                            <span>Live updating</span>
+                        </label>
+                    </div>
+                }
+                else
+                {
+                    <label class="listen-create-art">
+                        @if (!string.IsNullOrWhiteSpace(_playlistCreateArtworkPreviewUrl))
+                        {
+                            <img src="@_playlistCreateArtworkPreviewUrl" alt="Selected playlist artwork" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.AddCircle" Style="font-size: 22px;" />
+                        }
+                        <InputFile OnChange="OnPlaylistCreateArtworkSelected" accept=".jpg,.jpeg,.png" />
+                    </label>
+                }
+
+                <div class="listen-create-modal__fields">
+                    <input class="listen-filter-input" placeholder="Playlist Title" @bind="_playlistCreateTitle" />
+                    <textarea class="listen-filter-input listen-filter-input--textarea" placeholder="Description (Optional)" @bind="_playlistCreateDescription"></textarea>
+                    <label class="listen-checkbox-row">
+                        <input type="checkbox" @bind="_playlistCreateVisibleInProfile" />
+                        <span>Show in My Profile and in Search</span>
+                    </label>
+                </div>
+
+                <div class="listen-create-modal__actions">
+                    <button type="button" class="listen-button listen-button--primary" @onclick="SavePlaylistCreateDialogAsync" disabled="@_playlistCreateSaving">Create</button>
+                    <button type="button" class="listen-button listen-button--secondary" @onclick="ClosePlaylistCreateDialog" disabled="@_playlistCreateSaving">Cancel</button>
+                </div>
+            </section>
+        }
+
         @if (_trackContextMenuWorkId.HasValue && ContextMenuTrack is not null)
         {
             <div class="listen-context-menu" style="left:@($"{_trackContextMenuX}px"); top:@($"{_trackContextMenuY}px");" @onclick:stopPropagation="true">
@@ -920,7 +1000,7 @@ else
                     <summary class="listen-row-menu__summary">Add to playlist</summary>
                     <div class="listen-row-menu__panel">
                         <button type="button" class="listen-row-menu__action" @onclick="@(() => AddContextMenuTrackToPlaylistAsync())">Create new playlist</button>
-                        @foreach (var playlist in PlaylistCollections)
+                        @foreach (var playlist in ManualPlaylistCollections)
                         {
                             <button type="button" class="listen-row-menu__action" @onclick="@(() => AddContextMenuTrackToPlaylistAsync(playlist.Id))">Add to @playlist.Name</button>
                         }
