@@ -21,37 +21,7 @@ public sealed class DiscoveryComposerService
 
     public async Task<DiscoveryPageViewModel> BuildHomeAsync(CancellationToken ct = default)
     {
-        var displayPage = await _api.GetDisplayHomeAsync(ct);
-        if (displayPage is not null)
-        {
-            return FromDisplayPage(displayPage);
-        }
-
-        var worksTask = _api.GetLibraryWorksAsync(ct);
-        var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
-        var groupsTask = _api.GetContentGroupsAsync(ct);
-        var musicAlbumGroupsTask = _api.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album", ct: ct);
-        var musicArtistGroupsTask = _api.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist", ct: ct);
-        var tvShowGroupsTask = _api.GetSystemViewGroupsAsync(mediaType: "TV", groupField: "show_name", ct: ct);
-
-        await Task.WhenAll(worksTask, journeyTask, groupsTask, musicAlbumGroupsTask, musicArtistGroupsTask, tvShowGroupsTask);
-
-        var works = await worksTask;
-        var journey = await journeyTask;
-        var groups = await groupsTask;
-        var musicAlbumGroups = await musicAlbumGroupsTask;
-        var musicArtistGroups = await musicArtistGroupsTask;
-        var tvShowGroups = await tvShowGroupsTask;
-        var tasteProfile = await LoadActiveTasteProfileAsync(ct);
-        var previewImages = await LoadCollectionPreviewImagesAsync(
-            groups
-                .OrderByDescending(group => group.WorkCount)
-                .ThenByDescending(group => group.CreatedAt)
-                .Where(group => string.IsNullOrWhiteSpace(group.CoverUrl) && string.IsNullOrWhiteSpace(group.ArtistPhotoUrl))
-                .Take(18),
-            ct);
-
-        return ComposeHome(works, journey, groups, previewImages, musicAlbumGroups, musicArtistGroups, tvShowGroups, tasteProfile);
+        return FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayHomeAsync(ct), "home"));
     }
 
     public static DiscoveryPageViewModel FromDisplayPage(DisplayPageDto page)
@@ -172,475 +142,23 @@ public sealed class DiscoveryComposerService
 
     public async Task<DiscoveryPageViewModel> BuildReadAsync(CancellationToken ct = default)
     {
-        var displayPage = await _api.GetDisplayBrowseAsync(lane: "read", grouping: "all", ct: ct);
-        if (displayPage is not null)
-        {
-            return FromDisplayPage(displayPage);
-        }
-
-        var worksTask = _api.GetLibraryWorksAsync(ct);
-        var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
-        var groupsTask = _api.GetContentGroupsAsync(ct);
-
-        await Task.WhenAll(worksTask, journeyTask, groupsTask);
-
-        var works = await worksTask;
-        var journey = await journeyTask;
-        var groups = await groupsTask;
-        var previewImages = await LoadCollectionPreviewImagesAsync(
-            groups
-                .Where(group => IsReadKind(NormalizeDisplayKind(group.PrimaryMediaType)))
-                .OrderByDescending(group => group.WorkCount)
-                .ThenByDescending(group => group.CreatedAt)
-                .Where(group => string.IsNullOrWhiteSpace(group.CoverUrl) && string.IsNullOrWhiteSpace(group.ArtistPhotoUrl))
-                .Take(12),
-            ct);
-
-        return ComposeRead(works, journey, groups, previewImages);
+        return FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayBrowseAsync(lane: "read", grouping: "all", ct: ct), "read"));
     }
 
     public async Task<DiscoveryPageViewModel> BuildWatchAsync(CancellationToken ct = default)
     {
-        var displayPage = await _api.GetDisplayBrowseAsync(lane: "watch", grouping: "all", ct: ct);
-        if (displayPage is not null)
-        {
-            return FromDisplayPage(displayPage);
-        }
-
-        var worksTask = _api.GetLibraryWorksAsync(ct);
-        var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
-        var groupsTask = _api.GetContentGroupsAsync(ct);
-
-        await Task.WhenAll(worksTask, journeyTask, groupsTask);
-
-        var works = await worksTask;
-        var journey = await journeyTask;
-        var groups = await groupsTask;
-        var previewImages = await LoadCollectionPreviewImagesAsync(
-            groups
-                .Where(group => IsWatchKind(NormalizeDisplayKind(group.PrimaryMediaType)))
-                .OrderByDescending(group => group.WorkCount)
-                .ThenByDescending(group => group.CreatedAt)
-                .Where(group => string.IsNullOrWhiteSpace(group.CoverUrl) && string.IsNullOrWhiteSpace(group.ArtistPhotoUrl))
-                .Take(12),
-            ct);
-
-        return ComposeWatch(works, journey, groups, previewImages);
+        return FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayBrowseAsync(lane: "watch", grouping: "all", ct: ct), "watch"));
     }
 
     public async Task<DiscoveryPageViewModel> BuildListenAsync(CancellationToken ct = default)
     {
-        var displayPage = await _api.GetDisplayBrowseAsync(lane: "listen", grouping: "all", ct: ct);
-        if (displayPage is not null)
-        {
-            return FromDisplayPage(displayPage);
-        }
-
-        var worksTask = _api.GetLibraryWorksAsync(ct);
-        var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
-        var groupsTask = _api.GetContentGroupsAsync(ct);
-
-        await Task.WhenAll(worksTask, journeyTask, groupsTask);
-
-        var works = await worksTask;
-        var journey = await journeyTask;
-        var groups = await groupsTask;
-        var previewImages = await LoadCollectionPreviewImagesAsync(
-            groups
-                .Where(group => IsListenKind(NormalizeDisplayKind(group.PrimaryMediaType)))
-                .OrderByDescending(group => group.WorkCount)
-                .ThenByDescending(group => group.CreatedAt)
-                .Where(group => string.IsNullOrWhiteSpace(group.CoverUrl) && string.IsNullOrWhiteSpace(group.ArtistPhotoUrl))
-                .Take(12),
-            ct);
-
-        return ComposeListen(works, journey, groups, previewImages);
+        return FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayBrowseAsync(lane: "listen", grouping: "all", ct: ct), "listen"));
     }
 
-    public DiscoveryPageViewModel ComposeHome(
-        IReadOnlyList<WorkViewModel> works,
-        IReadOnlyList<JourneyItemViewModel> journey,
-        IReadOnlyList<ContentGroupViewModel> groups,
-        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages = null,
-        IReadOnlyList<ContentGroupViewModel>? musicAlbumGroups = null,
-        IReadOnlyList<ContentGroupViewModel>? musicArtistGroups = null,
-        IReadOnlyList<ContentGroupViewModel>? tvShowGroups = null,
-        TasteProfile? tasteProfile = null)
+    private static async Task<DisplayPageDto> RequireDisplayPageAsync(Task<DisplayPageDto?> request, string surface)
     {
-        var orderedWorks = works.OrderByDescending(GetHomeSortTimestamp).ThenByDescending(work => ParseYear(work.Year)).ToList();
-        var progressLookup = BuildProgressLookup(journey);
-        var workLookup = works.ToDictionary(work => work.Id);
-        var catalog = orderedWorks
-            .Where(work => !SuppressIndividualOnHome(work))
-            .Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id)))
-            .ToList();
-        var orderedMusicAlbumGroups = (musicAlbumGroups ?? [])
-            .OrderByDescending(group => group.WorkCount)
-            .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        var orderedMusicArtistGroups = (musicArtistGroups ?? [])
-            .OrderByDescending(group => group.WorkCount)
-            .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        var orderedTvShowGroups = (tvShowGroups ?? [])
-            .OrderByDescending(group => group.WorkCount)
-            .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        var groupLookup = groups
-            .Where(group => group.CollectionId != Guid.Empty)
-            .GroupBy(group => group.CollectionId)
-            .ToDictionary(group => group.Key, group => group.First());
-
-        var continueCards = RankHomeCards(
-            BuildHomeContinueCards(journey, workLookup, groupLookup, groupPreviewImages),
-            tasteProfile);
-        var freshArrivalCards = RankHomeCards(
-            BuildHomeFreshArrivalCards(orderedWorks, groupLookup, groupPreviewImages),
-            tasteProfile);
-
-        var shelves = new List<DiscoveryShelfViewModel>();
-        shelves.AddRange(BuildHomeSurfaceShelves(continueCards, freshArrivalCards, tasteProfile));
-
-        shelves.AddRange(BuildHomeCollectionShelves(groups, orderedMusicAlbumGroups, orderedMusicArtistGroups, orderedTvShowGroups, groupPreviewImages));
-
-        foreach (var shelf in BuildAffinityShelves(
-                     catalog.Where(card => IsReadKind(card.MediaKind)).ToList(),
-                     catalog.Where(card => IsWatchKind(card.MediaKind)).ToList(),
-                     catalog.Where(card => IsListenKind(card.MediaKind)).ToList(),
-                     journey))
-        {
-            shelves.Add(shelf);
-        }
-
-        return new DiscoveryPageViewModel
-        {
-            Key = "home",
-            AccentColor = "#1CE783",
-            Hero = BuildHomeHero(continueCards, freshArrivalCards, groups, orderedMusicAlbumGroups, groupPreviewImages, "#1CE783", tasteProfile),
-            Hubs = [],
-            Shelves = shelves,
-            Catalog = catalog,
-            EmptyTitle = "Your home screen is waiting for its first story",
-            EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own.",
-        };
-    }
-
-    public DiscoveryPageViewModel ComposeRead(
-        IReadOnlyList<WorkViewModel> works,
-        IReadOnlyList<JourneyItemViewModel> journey,
-        IReadOnlyList<ContentGroupViewModel> groups,
-        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages = null)
-    {
-        var readWorks = works
-            .Where(work => IsReadBucket(GetBucket(work.MediaType)))
-            .OrderByDescending(GetSortTimestamp)
-            .ThenByDescending(work => ParseYear(work.Year))
-            .ToList();
-
-        var readJourney = journey
-            .Where(item => IsReadBucket(GetBucket(item.MediaType)))
-            .OrderByDescending(item => item.LastAccessed)
-            .ToList();
-
-        var readGroups = groups
-            .Where(group => IsReadKind(NormalizeDisplayKind(group.PrimaryMediaType)))
-            .Where(ShouldDisplayCollectionGroup)
-            .OrderByDescending(group => group.WorkCount)
-            .ThenByDescending(group => group.CreatedAt)
-            .ToList();
-
-        var progressLookup = BuildProgressLookup(readJourney);
-        var catalog = readWorks.Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id))).ToList();
-
-        var authorShelves = readWorks
-            .Where(work => !string.IsNullOrWhiteSpace(work.Author))
-            .GroupBy(work => work.Author!, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Count() >= 2)
-            .OrderByDescending(group => group.Count())
-            .Take(3)
-            .Select(group => new DiscoveryShelfViewModel
-            {
-                Title = group.Key,
-                Subtitle = $"{group.Count()} titles",
-                Items = TakeShelfItems(
-                    group
-                        .OrderByDescending(GetSortTimestamp)
-                        .Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id))),
-                    10),
-            })
-            .ToList();
-
-        var shelves = new List<DiscoveryShelfViewModel>();
-
-        if (readJourney.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Continue reading",
-                Subtitle = "Books and comics already in motion",
-                Items = TakeShelfItems(readJourney.Select(item => ToJourneyCard(item)), 10),
-            });
-        }
-
-        if (readGroups.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Collections to explore",
-                Subtitle = "Series and grouped reading pulled from your library",
-                Items = TakeShelfItems(
-                    readGroups.Select(group => ToCollectionCard(
-                        group,
-                        DiscoveryCardShape.Portrait,
-                        GetPreviewImages(groupPreviewImages, group.CollectionId))),
-                    10),
-                SeeAllRoute = "/collections",
-            });
-        }
-
-        if (catalog.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Recently added to read",
-                Subtitle = "Fresh pages ready to pick up",
-                Items = TakeShelfItems(catalog, 12),
-            });
-        }
-
-        shelves.AddRange(authorShelves);
-
-        return new DiscoveryPageViewModel
-        {
-            Key = "read",
-            AccentColor = "#5DCAA5",
-            Hero = BuildHero(
-                journey: readJourney,
-                works: readWorks,
-                groups: readGroups,
-                groupPreviewImages: groupPreviewImages,
-                accentColor: "#5DCAA5",
-                journeyEyebrow: "Continue reading",
-                workEyebrow: "New on your shelf",
-                groupEyebrow: "Series to explore"),
-            Hubs = readGroups.Take(8).Select(group => ToHub(group, GetPreviewImages(groupPreviewImages, group.CollectionId))).ToList(),
-            Shelves = shelves,
-            Catalog = catalog,
-            EmptyTitle = "Nothing to read yet",
-            EmptySubtitle = "Books and comics appear here with searchable discovery once they are in the library.",
-        };
-    }
-
-    public DiscoveryPageViewModel ComposeWatch(
-        IReadOnlyList<WorkViewModel> works,
-        IReadOnlyList<JourneyItemViewModel> journey,
-        IReadOnlyList<ContentGroupViewModel> groups,
-        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages = null)
-    {
-        var watchWorks = works
-            .Where(work => IsWatchBucket(GetBucket(work.MediaType)))
-            .OrderByDescending(GetSortTimestamp)
-            .ThenByDescending(work => ParseYear(work.Year))
-            .ToList();
-
-        var watchJourney = journey
-            .Where(item => IsWatchBucket(GetBucket(item.MediaType)))
-            .OrderByDescending(item => item.LastAccessed)
-            .ToList();
-
-        var watchGroups = groups
-            .Where(group => IsWatchKind(NormalizeDisplayKind(group.PrimaryMediaType)))
-            .Where(ShouldDisplayCollectionGroup)
-            .OrderByDescending(group => group.WorkCount)
-            .ThenByDescending(group => group.CreatedAt)
-            .ToList();
-
-        var progressLookup = BuildProgressLookup(watchJourney);
-        var catalog = watchWorks.Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id))).ToList();
-
-        var shelves = new List<DiscoveryShelfViewModel>();
-
-        if (watchGroups.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Collections to watch",
-                Subtitle = "Shows, series, and grouped franchises from your library",
-                Items = TakeShelfItems(
-                    watchGroups.Select(group => ToCollectionCard(
-                        group,
-                        DiscoveryCardShape.Landscape,
-                        GetPreviewImages(groupPreviewImages, group.CollectionId))),
-                    10),
-                SeeAllRoute = "/collections",
-            });
-        }
-
-        var movieCards = TakeShelfItems(
-            catalog.Where(card => string.Equals(card.MediaKind, "Movie", StringComparison.OrdinalIgnoreCase)),
-            12);
-        if (movieCards.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Movies in your library",
-                Subtitle = "Library discovery in a Plex-style grid and row flow",
-                Items = movieCards,
-            });
-        }
-
-        var tvCards = TakeShelfItems(
-            catalog.Where(card => string.Equals(card.MediaKind, "TV", StringComparison.OrdinalIgnoreCase)),
-            12);
-        if (tvCards.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "TV in your library",
-                Subtitle = "Jump back into shows and seasons quickly",
-                Items = tvCards,
-            });
-        }
-
-        var genreShelves = watchWorks
-            .Where(work => work.Genres.Count > 0)
-            .SelectMany(work => work.Genres.Select(genre => (Genre: genre, Work: work)))
-            .GroupBy(item => item.Genre, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Count() >= 3)
-            .OrderByDescending(group => group.Count())
-            .Take(3)
-            .Select(group => new DiscoveryShelfViewModel
-            {
-                Title = group.Key,
-                Subtitle = $"{group.Count()} titles",
-                Items = TakeShelfItems(
-                    group.Select(item => ToWorkCard(item.Work, progressLookup.GetValueOrDefault(item.Work.Id))),
-                    10),
-            });
-
-        shelves.AddRange(genreShelves);
-
-        return new DiscoveryPageViewModel
-        {
-            Key = "watch",
-            AccentColor = "#60A5FA",
-            Hero = BuildHero(
-                journey: watchJourney,
-                works: watchWorks,
-                groups: watchGroups,
-                groupPreviewImages: groupPreviewImages,
-                accentColor: "#60A5FA",
-                journeyEyebrow: "Continue watching",
-                workEyebrow: "Featured from your library",
-                groupEyebrow: "Featured collection"),
-            Hubs = watchGroups.Take(8).Select(group => ToHub(group, GetPreviewImages(groupPreviewImages, group.CollectionId))).ToList(),
-            Shelves = shelves,
-            Catalog = catalog,
-            EmptyTitle = "Nothing to watch yet",
-            EmptySubtitle = "Movies and TV become searchable and filterable here once they are imported.",
-        };
-    }
-
-    public DiscoveryPageViewModel ComposeListen(
-        IReadOnlyList<WorkViewModel> works,
-        IReadOnlyList<JourneyItemViewModel> journey,
-        IReadOnlyList<ContentGroupViewModel> groups,
-        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages = null)
-    {
-        var listenWorks = works
-            .Where(work => IsListenBucket(GetBucket(work.MediaType)))
-            .OrderByDescending(GetSortTimestamp)
-            .ThenByDescending(work => ParseYear(work.Year))
-            .ToList();
-
-        var listenJourney = journey
-            .Where(item => IsListenBucket(GetBucket(item.MediaType)))
-            .OrderByDescending(item => item.LastAccessed)
-            .ToList();
-
-        var listenGroups = groups
-            .Where(group => IsListenKind(NormalizeDisplayKind(group.PrimaryMediaType)))
-            .Where(ShouldDisplayCollectionGroup)
-            .OrderByDescending(group => group.WorkCount)
-            .ThenByDescending(group => group.CreatedAt)
-            .ToList();
-
-        var progressLookup = BuildProgressLookup(listenJourney);
-        var catalog = listenWorks.Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id))).ToList();
-
-        var shelves = new List<DiscoveryShelfViewModel>();
-
-        if (listenJourney.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Continue listening",
-                Subtitle = "Resume music and audiobooks already in progress",
-                Items = TakeShelfItems(listenJourney.Select(item => ToJourneyCard(item)), 10),
-            });
-        }
-
-        if (listenGroups.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Collections and mixes",
-                Subtitle = "Dynamic albums, artist groupings, and audiobook series",
-                Items = TakeShelfItems(
-                    listenGroups.Select(group => ToCollectionCard(
-                        group,
-                        OverrideShapeForGroup(group, "listen"),
-                        GetPreviewImages(groupPreviewImages, group.CollectionId))),
-                    10),
-                SeeAllRoute = "/collections",
-            });
-        }
-
-        var musicCards = TakeShelfItems(
-            catalog.Where(card => string.Equals(card.MediaKind, "Music", StringComparison.OrdinalIgnoreCase)),
-            12);
-        if (musicCards.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "New music in your library",
-                Subtitle = "Album art first, like a streaming browse surface",
-                Items = musicCards,
-            });
-        }
-
-        var audiobookCards = TakeShelfItems(
-            catalog.Where(card => string.Equals(card.MediaKind, "Audiobook", StringComparison.OrdinalIgnoreCase)),
-            12);
-        if (audiobookCards.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Audiobooks on deck",
-                Subtitle = "A separate browse mode for spoken-word titles",
-                Items = audiobookCards,
-            });
-        }
-
-        return new DiscoveryPageViewModel
-        {
-            Key = "listen",
-            AccentColor = "#1ED760",
-            Hero = BuildHero(
-                journey: listenJourney,
-                works: listenWorks,
-                groups: listenGroups,
-                groupPreviewImages: groupPreviewImages,
-                accentColor: "#1ED760",
-                journeyEyebrow: "Continue listening",
-                workEyebrow: "Featured from your library",
-                groupEyebrow: "Featured collection"),
-            Hubs = listenGroups.Take(8).Select(group => ToHub(group, GetPreviewImages(groupPreviewImages, group.CollectionId))).ToList(),
-            Shelves = shelves,
-            Catalog = catalog,
-            EmptyTitle = "Nothing to listen to yet",
-            EmptySubtitle = "Music and audiobooks show up here with dedicated discovery views once the library has them.",
-        };
+        var page = await request;
+        return page ?? throw new InvalidOperationException($"Display API did not return a page for {surface}.");
     }
 
     public DiscoveryPageViewModel ComposeMusicHome(
@@ -1345,9 +863,9 @@ public sealed class DiscoveryComposerService
     private static string BuildContinueStatus(JourneyItemViewModel item, DiscoveryBucket bucket) => bucket switch
     {
         DiscoveryBucket.Tv when !string.IsNullOrWhiteSpace(item.SeasonNumber) && !string.IsNullOrWhiteSpace(item.EpisodeNumber)
-            => $"Continue S{item.SeasonNumber}:E{item.EpisodeNumber} · {Math.Max(1, item.ProgressPct):F0}%",
+            => $"Continue S{item.SeasonNumber}:E{item.EpisodeNumber} Â· {Math.Max(1, item.ProgressPct):F0}%",
         DiscoveryBucket.Music when !string.IsNullOrWhiteSpace(item.TrackNumber)
-            => $"Continue album · Track {item.TrackNumber}",
+            => $"Continue album Â· Track {item.TrackNumber}",
         DiscoveryBucket.Music => "Continue album",
         _ => item.ActionLabel,
     };
@@ -2557,12 +2075,12 @@ public sealed class DiscoveryComposerService
     {
         if (group.SeasonCount is > 1)
         {
-            return $"{group.SeasonCount} seasons · {group.WorkCount} items";
+            return $"{group.SeasonCount} seasons Â· {group.WorkCount} items";
         }
 
         if (group.AlbumCount is > 1)
         {
-            return $"{group.AlbumCount} albums · {group.WorkCount} items";
+            return $"{group.AlbumCount} albums Â· {group.WorkCount} items";
         }
 
         return $"{group.WorkCount} items";
@@ -2608,7 +2126,7 @@ public sealed class DiscoveryComposerService
     }
 
     private static string JoinParts(params string?[] parts) =>
-        string.Join(" · ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+        string.Join(" Â· ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private static string? TrimTo(string? text, int maxLength)
     {
