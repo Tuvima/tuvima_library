@@ -20,6 +20,7 @@
     <!-- Tuvima.Wikidata.AspNetCore: DI registration extension for WikidataReconciler.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageReference Include="Tuvima.Wikidata.AspNetCore" />
+    <PackageReference Include="MediaInfo.Wrapper.Core" />
   </ItemGroup>
 
   <ItemGroup>

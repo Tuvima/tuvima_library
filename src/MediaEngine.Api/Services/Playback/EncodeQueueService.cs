@@ -97,6 +97,7 @@ public sealed class EncodeQueueService : BackgroundService
 
     private string BuildOutputPath(LeasedEncodeJob job, string sourcePath)
     {
+        var transcoding = _config.LoadTranscoding();
         var root = _config.LoadCore().LibraryRoot;
         if (string.IsNullOrWhiteSpace(root))
         {
@@ -111,7 +112,13 @@ public sealed class EncodeQueueService : BackgroundService
                 : ".mp4";
 
         var fileName = $"{Path.GetFileNameWithoutExtension(sourcePath)}.{profile}{extension}";
-        return Path.Combine(root, ".data", "variants", job.AssetId.ToString("N"), profile, fileName);
+        var variantRoot = string.IsNullOrWhiteSpace(transcoding.VariantCachePath)
+            ? Path.Combine(root, ".data", "variants")
+            : Path.IsPathRooted(transcoding.VariantCachePath)
+                ? transcoding.VariantCachePath
+                : Path.Combine(root, transcoding.VariantCachePath);
+
+        return Path.Combine(variantRoot, job.AssetId.ToString("N"), profile, fileName);
     }
 
     private static string BuildArguments(string inputPath, string outputPath, string profileKey)

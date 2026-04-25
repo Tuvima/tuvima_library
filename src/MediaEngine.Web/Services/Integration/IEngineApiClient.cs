@@ -25,6 +25,10 @@ public interface IEngineApiClient
 
     Task<PlaybackDiagnosticsDto?> GetPlaybackDiagnosticsAsync(CancellationToken ct = default);
 
+    Task<TranscodingSettings?> GetTranscodingSettingsAsync(CancellationToken ct = default);
+
+    Task<TranscodingSettings?> SaveTranscodingSettingsAsync(TranscodingSettings settings, CancellationToken ct = default);
+
     /// <summary>GET /system/status — lightweight connectivity probe.</summary>
     Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);
 

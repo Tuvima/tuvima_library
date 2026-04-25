@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.Playback
+@using MediaEngine.Storage.Models
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
@@ -45,7 +46,7 @@
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="@AddProfile">Add profile</MudButton>
         </MudStack>
 
-        <MudTable Items="_profiles" Dense="true" Hover="true">
+        <MudTable Items="_settings.QualityProfiles" Dense="true" Hover="true">
             <HeaderContent>
                 <MudTh>Profile</MudTh>
                 <MudTh>Target</MudTh>
@@ -55,8 +56,8 @@
             </HeaderContent>
             <RowTemplate>
                 <MudTd>@context.Name</MudTd>
-                <MudTd>@context.Target</MudTd>
-                <MudTd>@context.Codec</MudTd>
+                <MudTd>@context.Resolution</MudTd>
+                <MudTd>@context.Codec / @context.AudioCodec</MudTd>
                 <MudTd>@context.Container</MudTd>
                 <MudTd>@context.SizeGuidance</MudTd>
             </RowTemplate>
@@ -80,8 +81,8 @@
                 </MudItem>
                 <MudItem xs="12" md="4">
                     <MudText Typo="Typo.subtitle2">MediaInfo</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Warning">
-                        @(_diagnostics.MediaInfoAvailable ? "Available" : "Not wired yet")
+                    <MudText Typo="Typo.body2" Color="@(_diagnostics.MediaInfoAvailable ? Color.Success : Color.Warning)">
+                        @(_diagnostics.MediaInfoAvailable ? "Available" : "Unavailable")
                     </MudText>
                 </MudItem>
                 <MudItem xs="12" md="4">
@@ -92,12 +93,14 @@
         }
     </MudPaper>
 
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6" OnClick="@SaveAsync">
-        Save Encode Settings
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6" OnClick="@SaveAsync" Disabled="@_saving">
+        @(_saving ? "Saving..." : "Save Encode Settings")
     </MudButton>
 </div>
 
 @code {
+    private TranscodingSettings _settings = new();
+    private bool _saving;
     private bool _scheduledEncodesEnabled = true;
     private string _maintenanceWindow = "01:00-05:00";
     private int _maxConcurrentJobs = 1;
@@ -107,27 +110,56 @@
     private int _retentionDays = 30;
     private bool _cleanupLru = true;
     private PlaybackDiagnosticsDto? _diagnostics;
-    private readonly List<EncodeProfileRow> _profiles =
-    [
-        new("mobile-small", "480p/540p", "H.264/AAC", "MP4", "400-700 MB for a typical 2-hour movie"),
-        new("mobile-standard", "720p", "H.264/AAC", "MP4", "Offline-friendly quality"),
-        new("tv-direct-hls", "Source-limited TV", "H.264 or HEVC/AAC", "HLS", "High-quality TV fallback"),
-        new("audio-mobile", "Audio", "AAC/MP3", "M4A/MP3", "Lower bitrate audiobook/music option"),
-    ];
 
     protected override async Task OnInitializedAsync()
     {
+        _settings = await ApiClient.GetTranscodingSettingsAsync() ?? new TranscodingSettings();
+        HydrateForm(_settings);
         _diagnostics = await ApiClient.GetPlaybackDiagnosticsAsync();
     }
 
     private void AddProfile() =>
-        Snackbar.Add("Custom encode profile editing will persist once settings storage is wired.", Severity.Info);
+        Snackbar.Add("Profile creation UI is next; existing profiles now persist through config/transcoding.json.", Severity.Info);
 
-    private Task SaveAsync()
+    private async Task SaveAsync()
     {
-        Snackbar.Add("Encode settings model saved locally for this session. Engine persistence is the next backend step.", Severity.Info);
-        return Task.CompletedTask;
+        _saving = true;
+        ApplyForm(_settings);
+        var saved = await ApiClient.SaveTranscodingSettingsAsync(_settings);
+        _saving = false;
+
+        if (saved is null)
+        {
+            Snackbar.Add("Encode settings could not be saved.", Severity.Error);
+            return;
+        }
+
+        _settings = saved;
+        HydrateForm(_settings);
+        Snackbar.Add("Encode settings saved.", Severity.Success);
     }
 
-    private sealed record EncodeProfileRow(string Name, string Target, string Codec, string Container, string SizeGuidance);
+    private void HydrateForm(TranscodingSettings settings)
+    {
+        _scheduledEncodesEnabled = settings.ScheduledEncodesEnabled;
+        _maintenanceWindow = settings.MaintenanceWindow;
+        _maxConcurrentJobs = settings.MaxConcurrentTranscodes;
+        _hardwarePreference = settings.HardwareAcceleration;
+        _variantRoot = settings.VariantCachePath;
+        _cacheSizeGb = settings.ShadowStorageLimitGb;
+        _retentionDays = settings.VariantRetentionDays;
+        _cleanupLru = settings.CleanupLruEnabled;
+    }
+
+    private void ApplyForm(TranscodingSettings settings)
+    {
+        settings.ScheduledEncodesEnabled = _scheduledEncodesEnabled;
+        settings.MaintenanceWindow = _maintenanceWindow;
+        settings.MaxConcurrentTranscodes = _maxConcurrentJobs;
+        settings.HardwareAcceleration = _hardwarePreference;
+        settings.VariantCachePath = _variantRoot;
+        settings.ShadowStorageLimitGb = _cacheSizeGb;
+        settings.VariantRetentionDays = _retentionDays;
+        settings.CleanupLruEnabled = _cleanupLru;
+    }
 }

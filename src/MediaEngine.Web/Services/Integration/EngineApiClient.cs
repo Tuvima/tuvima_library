@@ -109,6 +109,40 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── GET /system/status ────────────────────────────────────────────────────
 
+    public async Task<TranscodingSettings?> GetTranscodingSettingsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<TranscodingSettings>("/settings/transcoding", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/transcoding failed");
+            return null;
+        }
+    }
+
+    public async Task<TranscodingSettings?> SaveTranscodingSettingsAsync(TranscodingSettings settings, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync("/settings/transcoding", settings, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<TranscodingSettings>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/transcoding failed");
+            return null;
+        }
+    }
+
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
     {
         try

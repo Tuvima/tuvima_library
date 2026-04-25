@@ -12,6 +12,7 @@
   <!-- TagLibSharp: Audio metadata reader (ID3, MP4 atoms, Vorbis); LGPL-2.1. -->
   <ItemGroup>
     <PackageReference Include="TagLibSharp" />
+    <PackageReference Include="SharpCompress" />
   </ItemGroup>
 
   <!-- SkiaSharp: Cross-platform image processing for hero banner generation; MIT. -->

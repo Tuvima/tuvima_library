@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
+using SharpCompress.Archives;
 
 namespace MediaEngine.Processors.Processors;
 
@@ -107,7 +108,7 @@ public sealed class ComicProcessor : IMediaProcessor
         claims.Add(Claim("container", container == ComicContainer.Cbz ? "CBZ" : "CBR", 1.0));
 
         // Page count — CBZ only.
-        if (container == ComicContainer.Cbz)
+        if (container is ComicContainer.Cbz or ComicContainer.Cbr)
         {
             int? pageCount = CountPages(filePath);
             if (pageCount.HasValue)
@@ -191,12 +192,20 @@ public sealed class ComicProcessor : IMediaProcessor
     {
         try
         {
-            using var zip = ZipFile.OpenRead(filePath);
-            int count = zip.Entries.Count(IsImageEntry);
+            using var archive = ArchiveFactory.Open(filePath);
+            int count = archive.Entries.Count(IsImageEntry);
             return count > 0 ? count : null;
         }
         catch (InvalidDataException) { return null; }
         catch (IOException)          { return null; }
+        catch (SharpCompress.Common.ArchiveException) { return null; }
+    }
+
+    private static bool IsImageEntry(SharpCompress.Archives.IArchiveEntry entry)
+    {
+        if (entry.IsDirectory) return false;
+        var ext = Path.GetExtension(entry.Key ?? string.Empty);
+        return ImageExtensions.Contains(ext);
     }
 
     private static bool IsImageEntry(ZipArchiveEntry entry)
@@ -220,14 +229,15 @@ public sealed class ComicProcessor : IMediaProcessor
     {
         try
         {
-            using var zip = ZipFile.OpenRead(filePath);
+            using var archive = ArchiveFactory.Open(filePath);
 
-            var comicInfoEntry = zip.Entries
-                .FirstOrDefault(e => e.Name.Equals("ComicInfo.xml", StringComparison.OrdinalIgnoreCase));
+            var comicInfoEntry = archive.Entries
+                .FirstOrDefault(e => !e.IsDirectory
+                                     && string.Equals(Path.GetFileName(e.Key), "ComicInfo.xml", StringComparison.OrdinalIgnoreCase));
 
             if (comicInfoEntry is null) return;
 
-            using var stream = comicInfoEntry.Open();
+            using var stream = comicInfoEntry.OpenEntryStream();
             var doc = XDocument.Load(stream);
             var root = doc.Root;
             if (root is null) return;
@@ -245,6 +255,7 @@ public sealed class ComicProcessor : IMediaProcessor
         }
         catch (InvalidDataException) { /* corrupt ZIP — already handled by earlier steps */ }
         catch (IOException)          { /* file access issue */ }
+        catch (SharpCompress.Common.ArchiveException) { /* unsupported/corrupt archive */ }
         catch (System.Xml.XmlException) { /* malformed XML — skip silently */ }
     }
 

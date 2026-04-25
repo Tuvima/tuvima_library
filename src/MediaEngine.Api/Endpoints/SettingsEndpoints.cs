@@ -88,6 +88,43 @@ public static class SettingsEndpoints
         .Produces<AuthSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
+        grp.MapGet("/transcoding", (IConfigurationLoader configLoader) =>
+        {
+            return Results.Ok(configLoader.LoadTranscoding());
+        })
+        .WithName("GetTranscodingSettings")
+        .WithSummary("Returns playback encode, FFmpeg, and offline variant policy.")
+        .Produces<TranscodingSettings>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        grp.MapPut("/transcoding", (
+            TranscodingSettings request,
+            IConfigurationLoader configLoader) =>
+        {
+            request.MaxConcurrentTranscodes = Math.Clamp(request.MaxConcurrentTranscodes, 1, 8);
+            request.ShadowStorageLimitGb = Math.Clamp(request.ShadowStorageLimitGb, 1, 10_000);
+            request.VariantRetentionDays = Math.Clamp(request.VariantRetentionDays, 1, 3650);
+            request.HardwareAcceleration = string.IsNullOrWhiteSpace(request.HardwareAcceleration)
+                ? "auto"
+                : request.HardwareAcceleration.Trim().ToLowerInvariant();
+            request.MaintenanceWindow = string.IsNullOrWhiteSpace(request.MaintenanceWindow)
+                ? "01:00-05:00"
+                : request.MaintenanceWindow.Trim();
+            request.VariantCachePath = string.IsNullOrWhiteSpace(request.VariantCachePath)
+                ? ".data/variants"
+                : request.VariantCachePath.Trim();
+            request.DefaultMobileProfile = string.IsNullOrWhiteSpace(request.DefaultMobileProfile)
+                ? request.QualityProfiles.FirstOrDefault()?.Name ?? "mobile-small"
+                : request.DefaultMobileProfile.Trim();
+
+            configLoader.SaveTranscoding(request);
+            return Results.Ok(request);
+        })
+        .WithName("UpdateTranscodingSettings")
+        .WithSummary("Saves playback encode, FFmpeg, and offline variant policy.")
+        .Produces<TranscodingSettings>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
         // ── GET /settings/folders ──────────────────────────────────────────────
 
         grp.MapGet("/folders", (IConfigurationLoader configLoader) =>

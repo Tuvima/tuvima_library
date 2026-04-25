@@ -6,6 +6,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
+using MediaInfo;
 
 namespace MediaEngine.Api.Services.Playback;
 
@@ -71,6 +72,7 @@ public sealed class PlaybackCapabilitiesService
         }
 
         MediaProbeResult? probe = null;
+        MediaInfoWrapper? mediaInfo = null;
         if (File.Exists(asset.FilePathRoot) && _ffmpeg.IsAvailable && (VideoExtensions.Contains(extension) || AudioExtensions.Contains(extension)))
         {
             try
@@ -88,6 +90,22 @@ public sealed class PlaybackCapabilitiesService
             warnings.Add("FFmpeg/FFprobe is unavailable; codec-level direct-play decisions are limited.");
         }
 
+        if (File.Exists(asset.FilePathRoot) && (VideoExtensions.Contains(extension) || AudioExtensions.Contains(extension)))
+        {
+            try
+            {
+                var inspected = new MediaInfoWrapper(asset.FilePathRoot, null);
+                if (inspected.Success)
+                {
+                    mediaInfo = inspected;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "MediaInfo inspection failed for asset {AssetId}", assetId);
+            }
+        }
+
         var sourceHash = BuildSourceHash(asset);
         if (File.Exists(asset.FilePathRoot))
         {
@@ -96,17 +114,17 @@ public sealed class PlaybackCapabilitiesService
                 assetId,
                 sourceHash,
                 info.Length,
-                probe?.Duration.TotalSeconds,
-                extension.TrimStart('.').ToLowerInvariant(),
-                probe is null ? null : JsonSerializer.Serialize(probe),
+                mediaInfo?.Duration > 0 ? mediaInfo.Duration : probe?.Duration.TotalSeconds,
+                mediaInfo?.Format ?? extension.TrimStart('.').ToLowerInvariant(),
+                mediaInfo is not null ? mediaInfo.Text : probe is null ? null : JsonSerializer.Serialize(probe),
                 ct);
         }
 
-        var directPlay = IsDirectPlaySupported(extension, profile, probe);
+        var directPlay = IsDirectPlaySupported(extension, profile, mediaInfo, probe);
         var recommendedDelivery = GetRecommendedDelivery(mediaType, normalizedClient, directPlay);
         var conversionReason = directPlay
             ? null
-            : GetConversionReason(extension, profile, probe);
+            : GetConversionReason(extension, profile, mediaInfo, probe);
         if (recommendedDelivery == PlaybackDeliveryModes.Hls)
         {
             warnings.Add("HLS generation is planned for this profile but no generated HLS variant is available yet.");
@@ -125,9 +143,9 @@ public sealed class PlaybackCapabilitiesService
             DirectStreamUrl = File.Exists(asset.FilePathRoot) ? $"/stream/{assetId}" : null,
             HlsUrl = null,
             Profile = profile,
-            AudioTracks = BuildAudioTracks(probe),
-            SubtitleTracks = BuildSubtitleTracks(probe),
-            Chapters = BuildChapters(probe),
+            AudioTracks = BuildAudioTracks(mediaInfo, probe),
+            SubtitleTracks = BuildSubtitleTracks(mediaInfo, probe),
+            Chapters = BuildChapters(mediaInfo, probe),
             OfflineVariants = variants,
             Resume = await LoadResumeAsync(assetId, ct),
             Warnings = warnings,
@@ -169,8 +187,8 @@ public sealed class PlaybackCapabilitiesService
         {
             FFmpegAvailable = _ffmpeg.IsAvailable,
             FFmpegVersion = _ffmpeg.FfmpegPath,
-            MediaInfoAvailable = false,
-            MediaInfoVersion = null,
+            MediaInfoAvailable = TryGetMediaInfoVersion(out var mediaInfoVersion),
+            MediaInfoVersion = mediaInfoVersion,
             ActiveJobs = activeJobs,
             Warnings = warnings,
         };
@@ -245,7 +263,7 @@ public sealed class PlaybackCapabilitiesService
         return $"{asset.ContentHash}:{info.Length}:{info.LastWriteTimeUtc.Ticks}";
     }
 
-    private static bool IsDirectPlaySupported(string extension, PlaybackProfileDto profile, MediaProbeResult? probe)
+    private static bool IsDirectPlaySupported(string extension, PlaybackProfileDto profile, MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
     {
         var container = extension.TrimStart('.').ToLowerInvariant();
         if (!profile.SupportedContainers.Contains(container, StringComparer.OrdinalIgnoreCase))
@@ -253,21 +271,25 @@ public sealed class PlaybackCapabilitiesService
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(probe?.VideoCodec)
+        var videoCodec = NormalizeCodecName(mediaInfo?.VideoCodec ?? probe?.VideoCodec);
+        var audioCodec = NormalizeCodecName(mediaInfo?.AudioCodec ?? probe?.AudioCodec);
+        var height = mediaInfo?.Height > 0 ? mediaInfo.Height : probe?.Height;
+
+        if (!string.IsNullOrWhiteSpace(videoCodec)
             && profile.SupportedVideoCodecs.Count > 0
-            && !profile.SupportedVideoCodecs.Contains(probe.VideoCodec, StringComparer.OrdinalIgnoreCase))
+            && !profile.SupportedVideoCodecs.Contains(videoCodec, StringComparer.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(probe?.AudioCodec)
+        if (!string.IsNullOrWhiteSpace(audioCodec)
             && profile.SupportedAudioCodecs.Count > 0
-            && !profile.SupportedAudioCodecs.Contains(probe.AudioCodec, StringComparer.OrdinalIgnoreCase))
+            && !profile.SupportedAudioCodecs.Contains(audioCodec, StringComparer.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        if (profile.MaxHeight.HasValue && probe?.Height > profile.MaxHeight.Value)
+        if (profile.MaxHeight.HasValue && height > profile.MaxHeight.Value)
         {
             return false;
         }
@@ -291,27 +313,31 @@ public sealed class PlaybackCapabilitiesService
         return directPlay ? PlaybackDeliveryModes.DirectStream : PlaybackDeliveryModes.Hls;
     }
 
-    private static string GetConversionReason(string extension, PlaybackProfileDto profile, MediaProbeResult? probe)
+    private static string GetConversionReason(string extension, PlaybackProfileDto profile, MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
     {
         var container = extension.TrimStart('.').ToLowerInvariant();
+        var videoCodec = NormalizeCodecName(mediaInfo?.VideoCodec ?? probe?.VideoCodec);
+        var audioCodec = NormalizeCodecName(mediaInfo?.AudioCodec ?? probe?.AudioCodec);
+        var height = mediaInfo?.Height > 0 ? mediaInfo.Height : probe?.Height;
+
         if (!profile.SupportedContainers.Contains(container, StringComparer.OrdinalIgnoreCase))
         {
             return $"{profile.DisplayName} does not direct-play .{container} containers.";
         }
 
-        if (!string.IsNullOrWhiteSpace(probe?.VideoCodec)
-            && !profile.SupportedVideoCodecs.Contains(probe.VideoCodec, StringComparer.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(videoCodec)
+            && !profile.SupportedVideoCodecs.Contains(videoCodec, StringComparer.OrdinalIgnoreCase))
         {
-            return $"{profile.DisplayName} does not direct-play {probe.VideoCodec} video.";
+            return $"{profile.DisplayName} does not direct-play {videoCodec} video.";
         }
 
-        if (!string.IsNullOrWhiteSpace(probe?.AudioCodec)
-            && !profile.SupportedAudioCodecs.Contains(probe.AudioCodec, StringComparer.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(audioCodec)
+            && !profile.SupportedAudioCodecs.Contains(audioCodec, StringComparer.OrdinalIgnoreCase))
         {
-            return $"{profile.DisplayName} does not direct-play {probe.AudioCodec} audio.";
+            return $"{profile.DisplayName} does not direct-play {audioCodec} audio.";
         }
 
-        if (profile.MaxHeight.HasValue && probe?.Height > profile.MaxHeight.Value)
+        if (profile.MaxHeight.HasValue && height > profile.MaxHeight.Value)
         {
             return $"{profile.DisplayName} profile is capped at {profile.MaxHeight.Value}p.";
         }
@@ -319,8 +345,23 @@ public sealed class PlaybackCapabilitiesService
         return "The client profile requires a compatible HLS or offline variant.";
     }
 
-    private static IReadOnlyList<PlaybackTrackDto> BuildAudioTracks(MediaProbeResult? probe)
+    private static IReadOnlyList<PlaybackTrackDto> BuildAudioTracks(MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
     {
+        if (mediaInfo?.AudioStreams.Count > 0)
+        {
+            return mediaInfo.AudioStreams.Select((stream, index) => new PlaybackTrackDto
+            {
+                Index = index,
+                Kind = "audio",
+                Language = FirstNonBlank(stream.LanguageIetf, stream.Language),
+                Codec = NormalizeCodecName(stream.Codec.ToString()),
+                DisplayName = FirstNonBlank(stream.Name, stream.LanguageIetf, stream.Language, $"Audio {index + 1}"),
+                IsDefault = stream.Default || index == 0,
+                Channels = stream.Channel > 0 ? stream.Channel : null,
+                BitrateKbps = stream.Bitrate > 0 ? (int)Math.Round(stream.Bitrate / 1000d) : null,
+            }).ToList();
+        }
+
         if (probe is null || string.IsNullOrWhiteSpace(probe.AudioCodec))
         {
             return [];
@@ -333,7 +374,7 @@ public sealed class PlaybackCapabilitiesService
                 Index = 0,
                 Kind = "audio",
                 Language = probe.AudioLanguage,
-                Codec = probe.AudioCodec,
+                Codec = NormalizeCodecName(probe.AudioCodec),
                 DisplayName = string.IsNullOrWhiteSpace(probe.AudioLanguage) ? "Default audio" : $"Audio ({probe.AudioLanguage})",
                 IsDefault = true,
                 Channels = probe.Channels,
@@ -342,8 +383,21 @@ public sealed class PlaybackCapabilitiesService
         ];
     }
 
-    private static IReadOnlyList<PlaybackSubtitleTrackDto> BuildSubtitleTracks(MediaProbeResult? probe)
+    private static IReadOnlyList<PlaybackSubtitleTrackDto> BuildSubtitleTracks(MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
     {
+        if (mediaInfo?.Subtitles.Count > 0)
+        {
+            return mediaInfo.Subtitles.Select((stream, index) => new PlaybackSubtitleTrackDto
+            {
+                Index = index,
+                Language = FirstNonBlank(stream.LanguageIetf, stream.Language),
+                Codec = NormalizeCodecName(stream.Codec.ToString()),
+                DisplayName = FirstNonBlank(stream.Name, stream.LanguageIetf, stream.Language, $"Subtitles {index + 1}"),
+                IsDefault = stream.Default,
+                IsForced = stream.Forced,
+            }).ToList();
+        }
+
         if (probe?.SubtitleLanguages.Count is not > 0)
         {
             return [];
@@ -358,8 +412,18 @@ public sealed class PlaybackCapabilitiesService
         }).ToList();
     }
 
-    private static IReadOnlyList<PlaybackChapterDto> BuildChapters(MediaProbeResult? probe)
+    private static IReadOnlyList<PlaybackChapterDto> BuildChapters(MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
     {
+        if (mediaInfo?.Chapters.Count > 0)
+        {
+            return mediaInfo.Chapters.Select((chapter, index) => new PlaybackChapterDto
+            {
+                Index = index,
+                Title = FirstNonBlank(chapter.Name, $"Chapter {index + 1}"),
+                StartSeconds = 0,
+            }).ToList();
+        }
+
         if (probe?.ChapterCount is not > 0)
         {
             return [];
@@ -373,6 +437,48 @@ public sealed class PlaybackCapabilitiesService
                 StartSeconds = 0,
             })
             .ToList();
+    }
+
+    private static string NormalizeCodecName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant().Replace("_", string.Empty).Replace("-", string.Empty);
+        return normalized switch
+        {
+            "avc" or "mpeg4avc" or "h264" => "h264",
+            "hevc" or "h265" => "hevc",
+            "aaclc" or "aac" => "aac",
+            "mpeg1audiolayer3" or "mp3" => "mp3",
+            "pcm" or "pcms16le" => "pcm_s16le",
+            "vorbis" => "vorbis",
+            "opus" => "opus",
+            "flac" => "flac",
+            "vp8" => "vp8",
+            "vp9" => "vp9",
+            "av1" => "av1",
+            _ => value.Trim().ToLowerInvariant(),
+        };
+    }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+
+    private static bool TryGetMediaInfoVersion(out string? version)
+    {
+        try
+        {
+            version = typeof(MediaInfoWrapper).Assembly.GetName().Version?.ToString();
+            return !string.IsNullOrWhiteSpace(version);
+        }
+        catch
+        {
+            version = null;
+            return false;
+        }
     }
 
     private static string NormalizeClient(string? client) =>
