@@ -271,6 +271,8 @@ builder.Services.AddSingleton<IProcessorRegistry>(sp =>
 });
 
 builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
+builder.Services.AddScoped<MediaEngine.Api.Services.Display.IDisplayProjectionRepository, MediaEngine.Api.Services.Display.DisplayProjectionRepository>();
+builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayCardBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayComposerService>();
 
 // ── Intelligence ──────────────────────────────────────────────────────────────

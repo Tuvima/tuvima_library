@@ -80,6 +80,7 @@ public sealed class DisplayContractTests
         Assert.Contains("group.MapGet(\"/continue\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/search\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/groups/{groupId:guid}\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("includeCatalog", endpointSource, StringComparison.Ordinal);
         Assert.Contains("RequireAnyRole", endpointSource, StringComparison.Ordinal);
         Assert.Contains("app.MapDisplayEndpoints();", programSource, StringComparison.Ordinal);
     }
@@ -88,15 +89,16 @@ public sealed class DisplayContractTests
     public void DisplayBrowse_LaneRequestsUseRichConsumerPageComposition()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayComposerService.cs"));
+        var cardBuilderSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayCardBuilder.cs"));
 
-        Assert.Contains("BuildLaneAsync(normalizedLane, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("BuildLaneAsync(normalizedLane, includeCatalog, ct)", source, StringComparison.Ordinal);
         Assert.Contains("BuildWatchShelves", source, StringComparison.Ordinal);
         Assert.Contains("BuildReadShelves", source, StringComparison.Ordinal);
         Assert.Contains("BuildListenShelves", source, StringComparison.Ordinal);
         Assert.Contains("\"continue-watching\"", source, StringComparison.Ordinal);
         Assert.Contains("\"continue-reading\"", source, StringComparison.Ordinal);
         Assert.Contains("\"continue-listening\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"openCollection\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"openCollection\"", cardBuilderSource, StringComparison.Ordinal);
     }
 
     [Fact]
