@@ -536,7 +536,7 @@ public sealed class WikidataBridgeWorker
                 var collectedEntries = ctx.CollectedBridgeIds
                     .Select(kvp => new BridgeIdEntry
                     {
-                        EntityId         = job.EntityId,
+                        EntityId         = ResolveBridgeIdEntityId(lineage, job.EntityId, kvp.Key),
                         IdType           = kvp.Key,
                         IdValue          = kvp.Value,
                         ProviderId       = reconAdapter.ProviderId.ToString(),
@@ -1253,6 +1253,16 @@ public sealed class WikidataBridgeWorker
             _logger.LogWarning(ex,
                 "Phase 3b Work routing failed for asset {AssetId}", assetId);
         }
+    }
+
+    private static Guid ResolveBridgeIdEntityId(WorkLineage? lineage, Guid assetId, string key)
+    {
+        if (lineage is null)
+            return assetId;
+
+        return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
+            ? lineage.TargetForParentScope
+            : assetId;
     }
 
     // -------------------------------------------------------------------------

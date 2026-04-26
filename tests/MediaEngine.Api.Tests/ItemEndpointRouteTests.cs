@@ -84,6 +84,18 @@ public sealed class ItemEndpointRouteTests
         Assert.DoesNotContain("VaultCanonicalApplyRequest", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ItemCanonicalEndpoints_RouteManualWritesByLineageScope()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+
+        Assert.Contains("IWorkRepository workRepo", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveScopedTarget(context.AssetId, lineage, key)", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveScopedTarget(context.AssetId, lineage, kv.Key)", source, StringComparison.Ordinal);
+        Assert.Contains("ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)", source, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(ma.id, child_ma.id, grandchild_ma.id)", source, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

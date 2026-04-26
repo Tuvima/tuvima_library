@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -782,7 +783,7 @@ public sealed class RetailMatchWorker
                 .Where(c => BridgeIdHelper.IsBridgeId(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
                 .Select(c => new BridgeIdEntry
                 {
-                    EntityId   = job.EntityId,
+                    EntityId   = ResolveBridgeIdEntityId(lineage, job.EntityId, c.Key),
                     IdType     = c.Key,
                     IdValue    = c.Value,
                     ProviderId = providerId.ToString(),
@@ -1469,7 +1470,7 @@ public sealed class RetailMatchWorker
                 .Where(c => BridgeIdHelper.IsBridgeId(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
                 .Select(c => new BridgeIdEntry
                 {
-                    EntityId   = job.EntityId,
+                    EntityId   = ResolveBridgeIdEntityId(lineage, job.EntityId, c.Key),
                     IdType     = c.Key,
                     IdValue    = c.Value,
                     ProviderId = providerId.ToString(),
@@ -2486,7 +2487,7 @@ public sealed class RetailMatchWorker
                         .Where(c => BridgeIdHelper.IsBridgeId(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
                         .Select(c => new BridgeIdEntry
                         {
-                            EntityId = job.EntityId,
+                            EntityId = ResolveBridgeIdEntityId(lineage, job.EntityId, c.Key),
                             IdType = c.Key,
                             IdValue = c.Value,
                             ProviderId = provider.ProviderId.ToString(),
@@ -2629,4 +2630,14 @@ public sealed class RetailMatchWorker
         bool CreatorContradiction,
         bool AutoAcceptBlocked,
         string MatchContext);
+
+    private static Guid ResolveBridgeIdEntityId(WorkLineage? lineage, Guid assetId, string key)
+    {
+        if (lineage is null)
+            return assetId;
+
+        return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
+            ? lineage.TargetForParentScope
+            : assetId;
+    }
 }

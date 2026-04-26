@@ -3,6 +3,7 @@ using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -26,6 +27,7 @@ public static class ItemCanonicalEndpoints
             ISystemActivityRepository activityRepo,
             IWriteBackService writeBack,
             IEventPublisher publisher,
+            IWorkRepository workRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -40,16 +42,18 @@ public static class ItemCanonicalEndpoints
             var claims = new List<MetadataClaim>();
             var canonicals = new List<CanonicalValue>();
             var updatedKeys = new List<string>();
+            var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
 
             foreach (var (key, value) in request.Fields)
             {
                 if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
                     continue;
 
+                var targetId = ResolveScopedTarget(context.AssetId, lineage, key);
                 claims.Add(new MetadataClaim
                 {
                     Id = Guid.NewGuid(),
-                    EntityId = context.AssetId,
+                    EntityId = targetId,
                     ProviderId = WellKnownProviders.UserManual,
                     ClaimKey = key,
                     ClaimValue = value,
@@ -60,7 +64,7 @@ public static class ItemCanonicalEndpoints
 
                 canonicals.Add(new CanonicalValue
                 {
-                    EntityId = context.AssetId,
+                    EntityId = targetId,
                     Key = key,
                     Value = value,
                     LastScoredAt = now,
@@ -306,6 +310,7 @@ public static class ItemCanonicalEndpoints
             IWriteBackService writeBack,
             IEventPublisher publisher,
             ICollectionRepository collectionRepo,
+            IWorkRepository workRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -331,16 +336,18 @@ public static class ItemCanonicalEndpoints
 
             var claims = new List<MetadataClaim>();
             var canonicals = new List<CanonicalValue>();
+            var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
 
             foreach (var (key, value) in selectedFields.Concat(request.QidFields))
             {
                 if (string.IsNullOrWhiteSpace(value))
                     continue;
 
+                var targetId = ResolveScopedTarget(context.AssetId, lineage, key);
                 claims.Add(new MetadataClaim
                 {
                     Id = Guid.NewGuid(),
-                    EntityId = context.AssetId,
+                    EntityId = targetId,
                     ProviderId = WellKnownProviders.UserManual,
                     ClaimKey = key,
                     ClaimValue = value,
@@ -351,7 +358,7 @@ public static class ItemCanonicalEndpoints
 
                 canonicals.Add(new CanonicalValue
                 {
-                    EntityId = context.AssetId,
+                    EntityId = targetId,
                     Key = key,
                     Value = value,
                     LastScoredAt = now,
@@ -366,7 +373,7 @@ public static class ItemCanonicalEndpoints
             if (canonicals.Count > 0)
                 await canonicalRepo.UpsertBatchAsync(canonicals, ct);
 
-            var clearedIds = await ClearStaleIdsAsync(context.AssetId, policy, request, canonicalRepo, db, ct);
+            var clearedIds = await ClearStaleIdsAsync(context.AssetId, lineage, policy, request, canonicalRepo, db, ct);
 
             if (request.BridgeIds.Count > 0)
             {
@@ -374,7 +381,7 @@ public static class ItemCanonicalEndpoints
                     .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
                     .Select(kv => new BridgeIdEntry
                     {
-                        EntityId = context.AssetId,
+                        EntityId = ResolveScopedTarget(context.AssetId, lineage, kv.Key),
                         IdType = kv.Key,
                         IdValue = kv.Value,
                         ProviderId = WellKnownProviders.UserManual.ToString(),
@@ -387,7 +394,7 @@ public static class ItemCanonicalEndpoints
                 var bridgeClaims = bridgeEntries.Select(entry => new MetadataClaim
                 {
                     Id = Guid.NewGuid(),
-                    EntityId = context.AssetId,
+                    EntityId = entry.EntityId,
                     ProviderId = WellKnownProviders.UserManual,
                     ClaimKey = entry.IdType,
                     ClaimValue = entry.IdValue,
@@ -397,7 +404,7 @@ public static class ItemCanonicalEndpoints
                 }).ToList();
                 var bridgeCanonicals = bridgeEntries.Select(entry => new CanonicalValue
                 {
-                    EntityId = context.AssetId,
+                    EntityId = entry.EntityId,
                     Key = entry.IdType,
                     Value = entry.IdValue,
                     LastScoredAt = now,
@@ -420,13 +427,17 @@ public static class ItemCanonicalEndpoints
                     WHERE id = @workId
                     """;
                 cmd.Parameters.AddWithValue("@qid", globalQid);
-                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                var qidTargetId = ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid);
+                cmd.Parameters.AddWithValue("@workId", qidTargetId.ToString());
                 cmd.ExecuteNonQuery();
-                await collectionRepo.UpdateWorkWikidataStatusAsync(entityId, "confirmed", ct);
+                await collectionRepo.UpdateWorkWikidataStatusAsync(qidTargetId, "confirmed", ct);
             }
             else if (string.Equals(NormalizeLinkState(request.LinkState), "provider_only", StringComparison.Ordinal))
             {
-                await collectionRepo.UpdateWorkWikidataStatusAsync(entityId, "missing", ct);
+                await collectionRepo.UpdateWorkWikidataStatusAsync(
+                    ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid),
+                    "missing",
+                    ct);
             }
 
             await activityRepo.LogAsync(new SystemActivityEntry
@@ -505,17 +516,24 @@ public static class ItemCanonicalEndpoints
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT
-                ma.id,
-                COALESCE(MAX(CASE WHEN cv.key = 'media_type' THEN cv.value END), ''),
+                COALESCE(ma.id, child_ma.id, grandchild_ma.id),
+                COALESCE(NULLIF(w.media_type, ''), MAX(CASE WHEN cv.key = 'media_type' THEN cv.value END), ''),
                 COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), ''),
                 COALESCE(MAX(CASE WHEN cv.key IN ('author', 'artist', 'director') THEN cv.value END), ''),
                 COALESCE(MAX(CASE WHEN cv.key = 'year' THEN cv.value END), '')
             FROM works w
-            INNER JOIN editions e ON e.work_id = w.id
-            INNER JOIN media_assets ma ON ma.edition_id = e.id
-            LEFT JOIN canonical_values cv ON cv.entity_id = ma.id
-            WHERE w.id = @workId
-            GROUP BY ma.id
+            LEFT JOIN editions e ON e.work_id = w.id
+            LEFT JOIN media_assets ma ON ma.edition_id = e.id
+            LEFT JOIN works child ON child.parent_work_id = w.id
+            LEFT JOIN editions child_e ON child_e.work_id = child.id
+            LEFT JOIN media_assets child_ma ON child_ma.edition_id = child_e.id
+            LEFT JOIN works grandchild ON grandchild.parent_work_id = child.id
+            LEFT JOIN editions grandchild_e ON grandchild_e.work_id = grandchild.id
+            LEFT JOIN media_assets grandchild_ma ON grandchild_ma.edition_id = grandchild_e.id
+            LEFT JOIN canonical_values cv ON cv.entity_id = COALESCE(ma.id, child_ma.id, grandchild_ma.id)
+            WHERE w.id = @workId OR ma.id = @workId
+            GROUP BY COALESCE(ma.id, child_ma.id, grandchild_ma.id), w.media_type
+            ORDER BY COALESCE(ma.id, child_ma.id, grandchild_ma.id)
             LIMIT 1
             """;
         cmd.Parameters.AddWithValue("@workId", workId.ToString());
@@ -892,6 +910,7 @@ public static class ItemCanonicalEndpoints
 
     private static async Task<IReadOnlyList<string>> ClearStaleIdsAsync(
         Guid assetId,
+        WorkLineage? lineage,
         CanonicalTargetPolicy policy,
         ItemCanonicalApplyRequest request,
         ICanonicalValueRepository canonicalRepo,
@@ -905,28 +924,39 @@ public static class ItemCanonicalEndpoints
         var toClear = groupIdKeys.Where(key => !retainedIdKeys.Contains(key)).ToList();
 
         foreach (var key in toClear)
-            await canonicalRepo.DeleteByKeyAsync(assetId, key, ct);
+            await canonicalRepo.DeleteByKeyAsync(ResolveScopedTarget(assetId, lineage, key), key, ct);
 
         if (toClear.Count > 0)
         {
             using var conn = db.CreateConnection();
             foreach (var key in toClear)
             {
+                var targetId = ResolveScopedTarget(assetId, lineage, key);
                 using var claimCmd = conn.CreateCommand();
                 claimCmd.CommandText = "DELETE FROM metadata_claims WHERE entity_id = @entityId AND claim_key = @key";
-                claimCmd.Parameters.AddWithValue("@entityId", assetId.ToString());
+                claimCmd.Parameters.AddWithValue("@entityId", targetId.ToString());
                 claimCmd.Parameters.AddWithValue("@key", key);
                 claimCmd.ExecuteNonQuery();
 
                 using var bridgeCmd = conn.CreateCommand();
                 bridgeCmd.CommandText = "DELETE FROM bridge_ids WHERE entity_id = @entityId AND id_type = @key";
-                bridgeCmd.Parameters.AddWithValue("@entityId", assetId.ToString());
+                bridgeCmd.Parameters.AddWithValue("@entityId", targetId.ToString());
                 bridgeCmd.Parameters.AddWithValue("@key", key);
                 bridgeCmd.ExecuteNonQuery();
             }
         }
 
         return toClear;
+    }
+
+    private static Guid ResolveScopedTarget(Guid assetId, WorkLineage? lineage, string key)
+    {
+        if (lineage is null)
+            return assetId;
+
+        return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
+            ? lineage.TargetForParentScope
+            : assetId;
     }
 
     private static string NormalizeLinkState(string linkState) => linkState.Trim().ToLowerInvariant() switch
