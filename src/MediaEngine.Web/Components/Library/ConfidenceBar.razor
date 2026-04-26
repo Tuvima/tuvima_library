@@ -10,9 +10,9 @@
 
     private string _fillColor => Confidence switch
     {
-        >= 0.80 => "#5DCAA5",
-        >= 0.60 => "#EF9F27",
-        _ => "#A05050",
+        >= 0.80 => "var(--tl-status-success)",
+        >= 0.60 => "var(--tl-status-warning)",
+        _ => "var(--tl-status-danger)",
     };
 }
 

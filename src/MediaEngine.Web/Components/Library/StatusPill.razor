@@ -19,11 +19,11 @@
     private AppStatusTone _tone => Status switch
     {
         LibraryStatus.Verified => AppStatusTone.Success,
-        LibraryStatus.Provisional => AppStatusTone.Primary,
+        LibraryStatus.Provisional => AppStatusTone.Warning,
         LibraryStatus.NeedsReview => AppStatusTone.Warning,
         LibraryStatus.Quarantined => AppStatusTone.Error,
         LibraryStatus.WaitingForProvider => AppStatusTone.Info,
-        LibraryStatus.RetailMatched => AppStatusTone.Primary,
+        LibraryStatus.RetailMatched => AppStatusTone.Success,
         _ => AppStatusTone.Neutral,
     };
 

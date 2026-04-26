@@ -287,13 +287,15 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void CollectionEditor_SmartPlaylistMode_RendersIconPickerAndRuleAddControls()
+    public void CollectionEditor_SmartPlaylistMode_RendersSimplifiedMusicRuleControls()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
 
         Assert.Contains("SmartPlaylist", source);
         Assert.Contains("Smart Playlist", source);
-        Assert.Contains("app-icon-picker__item", source);
+        Assert.DoesNotContain("app-icon-picker__item", source);
+        Assert.DoesNotContain("Show in My Profile and Search", source);
+        Assert.DoesNotContain("<MudSelectItem T=\"string\" Value=\"@(\"media_type\")\">Media Type</MudSelectItem>", source);
         Assert.Contains("Add rule", source);
         Assert.Contains("collection-editor-rule-row", source);
         Assert.Contains("app-dialog-select", source);

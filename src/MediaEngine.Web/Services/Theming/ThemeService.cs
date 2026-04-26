@@ -4,7 +4,7 @@ namespace MediaEngine.Web.Services.Theming;
 
 /// <summary>
 /// Manages the active UI theme. Dark mode only; light mode has been removed.
-/// The theme is aligned to the centralized hybrid Paces + Metronic admin system.
+/// The theme is aligned to the centralized Tuvima design tokens.
 /// </summary>
 public sealed class ThemeService
 {
@@ -12,7 +12,7 @@ public sealed class ThemeService
     public bool IsDarkMode => true;
 
     /// <summary>
-    /// The active MudBlazor theme. Uses the centralized dark admin palette.
+    /// The active MudBlazor theme. Uses the centralized dark media-library palette.
     /// </summary>
     public MudTheme Theme { get; } = BuildTheme();
 
@@ -23,40 +23,40 @@ public sealed class ThemeService
 
     private static MudTheme BuildTheme()
     {
-        const string primaryHex = "#236DC9";
+        const string primaryHex = "#8B5CF6";
 
         return new MudTheme
         {
             LayoutProperties = new LayoutProperties
             {
-                DefaultBorderRadius = "5px",
+                DefaultBorderRadius = "8px",
             },
 
             PaletteDark = new PaletteDark
             {
                 Primary          = primaryHex,
-                PrimaryDarken    = DarkenHex(primaryHex),
-                PrimaryLighten   = LightenHex(primaryHex),
-                Secondary        = "#7B70EF",
-                SecondaryDarken  = "#8391A2",
-                Background       = "#17181E",
-                BackgroundGray   = "#1E1F27",
-                Surface          = "#1E1F27",
-                AppbarBackground = "#1E1F27",
-                DrawerBackground = "#1E1F27",
-                DrawerText       = "#AAB8C5",
-                DrawerIcon       = "#8391A2",
-                TextPrimary      = "#AAB8C5",
-                TextSecondary    = "#8391A2",
-                TextDisabled     = "rgba(131,145,162,0.52)",
-                ActionDefault    = "#8391A2",
-                LinesDefault     = "#293036",
-                Divider          = "#293036",
+                PrimaryDarken    = "#7652D6",
+                PrimaryLighten   = "#9F78FF",
+                Secondary        = "#38BDF8",
+                SecondaryDarken  = "#0284C7",
+                Background       = "#070A12",
+                BackgroundGray   = "#0B1020",
+                Surface          = "#111827",
+                AppbarBackground = "#0B1020",
+                DrawerBackground = "#0B1020",
+                DrawerText       = "#F5F7FB",
+                DrawerIcon       = "#B6C2D6",
+                TextPrimary      = "#F5F7FB",
+                TextSecondary    = "#B6C2D6",
+                TextDisabled     = "rgba(127,141,165,0.58)",
+                ActionDefault    = "#B6C2D6",
+                LinesDefault     = "rgba(148,163,184,0.16)",
+                Divider          = "rgba(148,163,184,0.10)",
                 OverlayDark      = "rgba(0,0,0,0.72)",
-                Error            = "#F8285A",
-                Warning          = "#F6C000",
-                Info             = "#5BC3E1",
-                Success          = "#17C653",
+                Error            = "#EF4444",
+                Warning          = "#F59E0B",
+                Info             = "#38BDF8",
+                Success          = "#22C55E",
             },
 
             Typography = new Typography

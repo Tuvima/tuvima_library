@@ -1,0 +1,110 @@
+/* ---------------------------------------------------------------------------
+   Tuvima Library design tokens
+   Canonical source for app colors, spacing, radius, shadows, surfaces, and
+   semantic status colors. Component styles should consume these variables
+   directly, or via the legacy --app-* aliases in app.css.
+   -------------------------------------------------------------------------- */
+
+:root {
+    color-scheme: dark;
+
+    --tl-accent-primary: #8B5CF6;
+    --tl-accent-primary-hover: #9F78FF;
+    --tl-accent-primary-active: #7652D6;
+    --tl-accent-primary-soft: rgba(139, 92, 246, 0.14);
+    --tl-accent-primary-border: rgba(139, 92, 246, 0.42);
+    --tl-accent-primary-glow: rgba(139, 92, 246, 0.28);
+    --tl-accent-secondary: #38BDF8;
+    --tl-accent-secondary-soft: rgba(56, 189, 248, 0.14);
+    --tl-accent-secondary-border: rgba(56, 189, 248, 0.36);
+
+    --tl-bg-root: #070A12;
+    --tl-bg-shell: #0B1020;
+    --tl-bg-surface: #111827;
+    --tl-bg-surface-raised: #151E2F;
+    --tl-bg-surface-hover: #1A2438;
+    --tl-bg-surface-elevated: #1D2940;
+    --tl-bg-overlay: rgba(0, 0, 0, 0.72);
+    --tl-bg-app-gradient:
+        radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), transparent 30%),
+        radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), transparent 28%),
+        linear-gradient(180deg, #070A12 0%, #0B1020 46%, #070A12 100%);
+    --tl-bg-shell-gradient:
+        linear-gradient(180deg, rgba(11, 16, 32, 0.98) 0%, rgba(7, 10, 18, 0.98) 100%);
+
+    --tl-text-primary: #F5F7FB;
+    --tl-text-secondary: #B6C2D6;
+    --tl-text-muted: #7F8DA5;
+    --tl-text-disabled: rgba(127, 141, 165, 0.58);
+    --tl-text-on-accent: #FFFFFF;
+    --tl-text-on-warning: #1F1303;
+
+    --tl-border-subtle: rgba(148, 163, 184, 0.10);
+    --tl-border-default: rgba(148, 163, 184, 0.16);
+    --tl-border-strong: rgba(182, 194, 214, 0.24);
+    --tl-divider: rgba(148, 163, 184, 0.10);
+
+    --tl-status-success: #22C55E;
+    --tl-status-success-soft: rgba(34, 197, 94, 0.14);
+    --tl-status-success-border: rgba(34, 197, 94, 0.34);
+    --tl-status-info: #38BDF8;
+    --tl-status-info-soft: rgba(56, 189, 248, 0.14);
+    --tl-status-info-border: rgba(56, 189, 248, 0.34);
+    --tl-status-warning: #F59E0B;
+    --tl-status-warning-soft: rgba(245, 158, 11, 0.14);
+    --tl-status-warning-border: rgba(245, 158, 11, 0.38);
+    --tl-status-danger: #EF4444;
+    --tl-status-danger-soft: rgba(239, 68, 68, 0.14);
+    --tl-status-danger-border: rgba(239, 68, 68, 0.34);
+    --tl-status-unmatched: #FB7185;
+    --tl-status-unmatched-soft: rgba(251, 113, 133, 0.14);
+    --tl-status-idle: #7F8DA5;
+    --tl-status-idle-soft: rgba(127, 141, 165, 0.12);
+
+    --tl-status-registered: var(--tl-status-success);
+    --tl-status-healthy: var(--tl-status-success);
+    --tl-status-matched: var(--tl-status-success);
+    --tl-status-canonical: var(--tl-accent-primary);
+    --tl-status-wikidata: var(--tl-accent-primary);
+    --tl-status-processing: var(--tl-status-info);
+    --tl-status-review: var(--tl-status-warning);
+    --tl-status-provisional: var(--tl-status-warning);
+    --tl-status-failed: var(--tl-status-danger);
+    --tl-status-error: var(--tl-status-danger);
+    --tl-status-skipped: var(--tl-status-idle);
+
+    --tl-media-book: #A78BFA;
+    --tl-media-audio: #38BDF8;
+    --tl-media-video: #F472B6;
+    --tl-media-comic: #F59E0B;
+    --tl-media-game: #22C55E;
+    --tl-media-document: #B6C2D6;
+    --tl-media-unknown: #7F8DA5;
+
+    --tl-radius-xs: 4px;
+    --tl-radius-sm: 6px;
+    --tl-radius-md: 8px;
+    --tl-radius-lg: 8px;
+    --tl-radius-xl: 12px;
+    --tl-radius-pill: 999px;
+
+    --tl-space-1: 4px;
+    --tl-space-2: 8px;
+    --tl-space-3: 12px;
+    --tl-space-4: 16px;
+    --tl-space-5: 20px;
+    --tl-space-6: 24px;
+    --tl-space-8: 32px;
+    --tl-space-10: 40px;
+
+    --tl-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+    --tl-shadow-md: 0 12px 32px rgba(0, 0, 0, 0.26);
+    --tl-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.36);
+    --tl-shadow-focus: 0 0 0 3px rgba(139, 92, 246, 0.22);
+    --tl-shadow-raised: 0 18px 44px rgba(0, 0, 0, 0.28);
+
+    --tl-gradient-primary: linear-gradient(135deg, var(--tl-accent-primary) 0%, var(--tl-accent-primary-active) 100%);
+    --tl-gradient-warning: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    --tl-gradient-info: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
+    --tl-gradient-surface: linear-gradient(180deg, var(--tl-bg-surface-raised) 0%, var(--tl-bg-surface) 100%);
+}

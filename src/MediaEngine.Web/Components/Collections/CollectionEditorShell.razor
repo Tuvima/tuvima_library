@@ -51,7 +51,14 @@
             </ChildContent>
             <FooterContent>
                 <div class="collection-editor-footer">
-                <div class="collection-editor-footer-copy">@FooterSummary</div>
+                @if (!string.IsNullOrWhiteSpace(FooterSummary))
+                {
+                    <div class="collection-editor-footer-copy">@FooterSummary</div>
+                }
+                else
+                {
+                    <div></div>
+                }
 
                 <div class="collection-editor-footer-actions">
                     <MudButton Variant="Variant.Text"
@@ -70,7 +77,7 @@
                         {
                             <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                         }
-                        @SaveButtonText
+                        @(IsPlaylistDialog ? "Create" : SaveButtonText)
                     </MudButton>
                 </div>
                 </div>
@@ -151,25 +158,23 @@
 
     private string HeaderSubtitle =>
         IsSmartPlaylistLaunch
-            ? "Build a live playlist from simple rules."
+            ? "Choose artwork, name it, then add the rule that keeps it updated."
             : IsPlaylistLaunch
-                ? "Create a saved playlist for your profile."
+                ? "Choose artwork and name a playlist for this profile."
                 : EditingCollection is null
                     ? "Create a saved collection using either live rules or manual membership."
                     : "Update the collection settings, rules, and saved items without leaving the collections page.";
 
     private int ActiveTabIndex => GetSelectedIndex(VisibleTabs.Select(tab => tab.Id), _activeTab);
 
-    private string FooterSummary =>
-        IsPlaylistLaunch
-            ? "Manual playlist. Add tracks from Listen after it is created."
-        : IsSmartPlaylistLaunch
-                ? "Smart playlist. Matching tracks update automatically."
-                : SupportsManualItems
-            ? $"{_manualItems.Count} item(s) staged for this collection."
-            : _previewResult is null
-                ? "Rule-based collection. Add at least one rule value to preview matching items."
-                : $"{_previewResult.Count} item(s) currently match these rules.";
+    private string? FooterSummary =>
+        IsPlaylistDialog
+            ? null
+            : SupportsManualItems
+                ? $"{_manualItems.Count} item(s) staged for this collection."
+                : _previewResult is null
+                    ? "Rule-based collection. Add at least one rule value to preview matching items."
+                    : $"{_previewResult.Count} item(s) currently match these rules.";
     private string SaveButtonText => EditingCollection is not null
         ? "Save"
         : IsSmartPlaylistLaunch
@@ -709,8 +714,6 @@
 
     private RenderFragment RenderDetailsTab() => @<div class="collection-editor-pane">
         <section class="collection-editor-section">
-            <div class="collection-editor-section-title">Details</div>
-
             @if (IsPlaylistDialog)
             {
                 <label class="app-artwork-picker collection-editor-artwork-picker">
@@ -749,24 +752,6 @@
                           Lines="3"
                           Immediate="true"
                           Class="collection-editor-field app-dialog-field app-dialog-textarea" />
-
-            @if (IsSmartPlaylistLaunch)
-            {
-                <div class="app-icon-picker collection-editor-icon-picker" role="group" aria-label="Smart playlist icon">
-                    @foreach (var choice in IconChoices)
-                    {
-                        var selected = string.Equals(_iconName, choice.Icon, StringComparison.Ordinal);
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Inherit"
-                                   Class="@($"app-icon-picker__item {(selected ? "is-selected" : string.Empty)}")"
-                                   title="@choice.Label"
-                                   OnClick="@(() => _iconName = choice.Icon)">
-                            <MudIcon Icon="@choice.Icon" Style="font-size: 18px;" />
-                            <span>@choice.Label</span>
-                        </MudButton>
-                    }
-                </div>
-            }
 
             @if (!IsPlaylistDialog)
             {
@@ -811,16 +796,7 @@
             }
         </section>
 
-        @if (IsPlaylistDialog)
-        {
-            <MudCheckBox T="bool"
-                         Value="@(_visibility == "shared")"
-                         ValueChanged="@SetProfileVisibilityAsync"
-                         Color="Color.Primary"
-                         Dense="true"
-                         Label="Show in My Profile and Search" />
-        }
-        else
+        @if (!IsPlaylistDialog)
         {
             <section class="collection-editor-section">
                 <div class="collection-editor-section-title">Access</div>
@@ -852,12 +828,6 @@
         }
     </div>;
 
-    private Task SetProfileVisibilityAsync(bool visible)
-    {
-        _visibility = visible ? "shared" : "private";
-        return Task.CompletedTask;
-    }
-
     private RenderFragment RenderRulesTab() => @<div class="collection-editor-pane">
         @RenderRulesSection()
     </div>;
@@ -886,7 +856,6 @@
                                    Dense="true"
                                    Class="app-dialog-field app-dialog-select"
                                    ValueChanged="@(value => OnRuleFieldChanged(rule, value))">
-                            <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
                             <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
                             <MudSelectItem T="string" Value="@("author")">Artist</MudSelectItem>
                             <MudSelectItem T="string" Value="@("album")">Album</MudSelectItem>

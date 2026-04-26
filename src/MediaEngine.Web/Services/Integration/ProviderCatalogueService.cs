@@ -12,7 +12,7 @@ namespace MediaEngine.Web.Services.Integration;
 /// The catalogue is loaded lazily on first use and cached in memory for the session.
 /// All lookup methods return safe fallback values when the Engine is unreachable.
 /// Fallback display names and accent colours are sourced from <see cref="ProviderAccentMap"/>
-/// â€” the single authoritative static map â€” rather than being duplicated here.
+///  -  the single authoritative static map  -  rather than being duplicated here.
 /// </para>
 /// </summary>
 public sealed class ProviderCatalogueService
@@ -26,7 +26,7 @@ public sealed class ProviderCatalogueService
         _api = api;
     }
 
-    // â”€â”€ Catalogue access â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Catalogue access ------------------------------------------------------
 
     /// <summary>Returns the full catalogue, loading it from the Engine on first call.</summary>
     public async Task<IReadOnlyList<ProviderCatalogueDto>> GetCatalogueAsync(
@@ -64,7 +64,7 @@ public sealed class ProviderCatalogueService
             string.Equals(p.ProviderId, providerId, StringComparison.OrdinalIgnoreCase));
     }
 
-    // â”€â”€ Convenience accessors (safe fallbacks when catalogue not loaded) â”€â”€â”€â”€â”€â”€â”€
+    // -- Convenience accessors (safe fallbacks when catalogue not loaded) -------
 
     /// <summary>
     /// Returns the hex accent colour for a provider config name.
@@ -173,7 +173,7 @@ public sealed class ProviderCatalogueService
     /// <summary>Invalidates the cached catalogue, forcing a reload on the next call.</summary>
     public void Invalidate() => _catalogue = null;
 
-    // â”€â”€ Private helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Private helpers -------------------------------------------------------
 
     private static string ResolveMediaTypePath(string? mediaType)
     {

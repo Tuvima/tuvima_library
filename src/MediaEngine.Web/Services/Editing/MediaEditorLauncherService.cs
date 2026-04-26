@@ -30,6 +30,7 @@ public sealed class MediaEditorLauncherService
                     MaxWidth = MaxWidth.Small,
                     FullWidth = true,
                     BackdropClick = true,
+                    CloseOnEscapeKey = true,
                 });
             if (confirmDialog is null)
                 return false;
@@ -51,6 +52,7 @@ public sealed class MediaEditorLauncherService
                 MaxWidth = MaxWidth.Large,
                 FullWidth = false,
                 BackdropClick = false,
+                CloseOnEscapeKey = true,
             });
         if (dialog is null)
             return false;

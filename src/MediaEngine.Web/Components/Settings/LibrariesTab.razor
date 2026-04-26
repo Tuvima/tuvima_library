@@ -599,6 +599,7 @@ else
             MaxWidth    = MaxWidth.Small,
             FullWidth   = true,
             CloseButton = true,
+            CloseOnEscapeKey = true,
         };
 
         var dialog = await DialogService.ShowAsync<FolderBrowserDialog>(L["Libraries_BrowseFolders"], parameters, options);

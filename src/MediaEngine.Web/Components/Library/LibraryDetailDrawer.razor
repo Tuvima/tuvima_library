@@ -6,13 +6,13 @@
 @inject IEngineApiClient ApiClient
 @inject NavigationManager Nav
 
-@* â”€â”€ Backdrop â”€â”€ *@
+@* -- Backdrop -- *@
 <div class="vdd-backdrop" @onclick="OnClose"></div>
 
-@* â”€â”€ Drawer Panel â”€â”€ *@
+@* -- Drawer Panel -- *@
 <div class="vdd-drawer" @onclick:stopPropagation="true">
 
-    @* â”€â”€ 1. Pinned Header â”€â”€ *@
+    @* -- 1. Pinned Header -- *@
     <div class="vdd-header">
         <MudIconButton Icon="@Icons.Material.Outlined.Close"
                        Size="Size.Small"
@@ -21,7 +21,7 @@
 
         @if (MediaItem is not null)
         {
-            @* â”€â”€ Media Header â”€â”€ *@
+            @* -- Media Header -- *@
             <div class="vdd-header-content">
                 <div class="vdd-thumb-wrap">
                     @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
@@ -86,7 +86,7 @@
         }
         else if (Person is not null)
         {
-            @* â”€â”€ Person Header â”€â”€ *@
+            @* -- Person Header -- *@
             <div class="vdd-header-content">
                 <div class="vdd-avatar-round">
                     @if (!string.IsNullOrEmpty(Person.HeadshotUrl))
@@ -129,7 +129,7 @@
         }
         else if (Universe is not null)
         {
-            @* â”€â”€ Universe Header â”€â”€ *@
+            @* -- Universe Header -- *@
             <div class="vdd-header-content">
                 <div class="vdd-universe-icon">
                     <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 48px; color: #A78BFA;" />
@@ -145,11 +145,11 @@
         }
     </div>
 
-    @* â”€â”€ 2. Scrollable Body â”€â”€ *@
+    @* -- 2. Scrollable Body -- *@
     <div class="vdd-body">
         @if (MediaItem is not null)
         {
-            @* â”€â”€ NeedsReview problem banner â”€â”€ *@
+            @* -- NeedsReview problem banner -- *@
             @if (MediaItem.LibraryDisplayStatus == LibraryStatus.NeedsReview && !string.IsNullOrEmpty(MediaItem.ReviewTrigger))
             {
                 <div class="vdd-problem-banner">
@@ -180,7 +180,7 @@
 
             var hasPipelineProblem = !IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid);
 
-            @* â”€â”€ Details (file path + Current / Original metadata tabs) â”€â”€ *@
+            @* -- Details (file path + Current / Original metadata tabs) -- *@
             <DrawerSection @key="@($"details-{MediaItem.EntityId}")" Title="Details" Icon="@Icons.Material.Outlined.Description"
                            DefaultOpen="@(!hasPipelineProblem)">
                 @{
@@ -197,7 +197,7 @@
                 <div class="vdd-details-path">
                     <div class="vdd-details-path-name">
                         <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 14px; color: rgba(255,255,255,0.35);" />
-                        <span>@(MediaItem.FileName ?? "â€”")</span>
+                        <span>@(MediaItem.FileName ?? " - ")</span>
                     </div>
                     @if (!string.IsNullOrEmpty(detailsFolder))
                     {
@@ -274,7 +274,7 @@
                 }
             </DrawerSection>
 
-            @* â”€â”€ Pipeline (circles + Retail/Wikidata tabs) â”€â”€ *@
+            @* -- Pipeline (circles + Retail/Wikidata tabs) -- *@
             <DrawerSection @key="@($"pipeline-{MediaItem.EntityId}")" Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
                            HasProblem="@hasPipelineProblem"
                            DefaultOpen="@hasPipelineProblem">
@@ -288,7 +288,7 @@
                         @bind-SelectedStage="_selectedStage" />
                 </div>
 
-                @* â”€â”€ Tab content (selected via pipeline circles) â”€â”€ *@
+                @* -- Tab content (selected via pipeline circles) -- *@
                 @{
                     var hasRetail = IsRealRetailMatch(MediaItem?.RetailMatch) || IsRealRetailMatch(MediaItem?.RetailMatchDetail);
                     var hasWikidata = IsWikidataMatched(MediaItem?.WikidataQid);
@@ -303,7 +303,7 @@
                 @switch (ActiveTab)
                 {
                     case 0:
-                        @* â”€â”€ RETAIL TAB â”€â”€ *@
+                        @* -- RETAIL TAB -- *@
                         <div class="vdd-tab-content">
                             @* Always-visible filter-based search (at the top) *@
                             <div class="vdd-tab-search" style="margin-top: 0; padding-top: 0; border-top: none;">
@@ -507,7 +507,7 @@
                                             <div class="vdd-field-compare">
                                                 <div class="vdd-compare-header-row">
                                                     <span class="vdd-compare-col-label">YOUR FILE</span>
-                                                    <span class="vdd-compare-col-label" style="text-align: center;">â†”</span>
+                                                    <span class="vdd-compare-col-label" style="text-align: center;">&lt;-&gt;</span>
                                                     <span class="vdd-compare-col-label">PROVIDER MATCH</span>
                                                     <span class="vdd-compare-col-label" style="text-align: right;">SCORE</span>
                                                 </div>
@@ -516,11 +516,11 @@
                                                     <div class="vdd-compare-row">
                                                         <div class="vdd-compare-cell vdd-compare-cell--yours">
                                                             <span class="vdd-compare-field-name">@comp.FieldLabel</span>
-                                                            <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.YourValue) ? "â€”" : comp.YourValue)</span>
+                                                            <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.YourValue) ? " - " : comp.YourValue)</span>
                                                         </div>
-                                                        <span class="vdd-compare-arrow">â†”</span>
+                                                        <span class="vdd-compare-arrow">&lt;-&gt;</span>
                                                         <div class="vdd-compare-cell vdd-compare-cell--theirs">
-                                                            <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.ProviderValue) ? "â€”" : comp.ProviderValue)</span>
+                                                            <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.ProviderValue) ? " - " : comp.ProviderValue)</span>
                                                         </div>
                                                         <div class="vdd-compare-cell vdd-compare-cell--score">
                                                             @if (comp.Score.HasValue)
@@ -532,7 +532,7 @@
                                                             }
                                                             else
                                                             {
-                                                                <span style="color: rgba(255,255,255,0.2); font-size: 11px;">â€”</span>
+                                                                <span style="color: rgba(255,255,255,0.2); font-size: 11px;"> - </span>
                                                             }
                                                         </div>
                                                     </div>
@@ -673,7 +673,7 @@
                         break;
 
                     case 1:
-                        @* â”€â”€ WIKIDATA TAB â”€â”€ *@
+                        @* -- WIKIDATA TAB -- *@
                         <div class="vdd-tab-content">
                             @* Always-visible Wikidata search (at the top) *@
                             <div class="vdd-tab-search" style="margin-top: 0; padding-top: 0; border-top: none;">
@@ -820,7 +820,7 @@
                                                 <div class="vdd-field-compare">
                                                     <div class="vdd-compare-header-row">
                                                         <span class="vdd-compare-col-label">YOUR FILE</span>
-                                                        <span class="vdd-compare-col-label" style="text-align: center;">â†”</span>
+                                                        <span class="vdd-compare-col-label" style="text-align: center;">&lt;-&gt;</span>
                                                         <span class="vdd-compare-col-label">WIKIDATA</span>
                                                         <span class="vdd-compare-col-label" style="text-align: right;">SCORE</span>
                                                     </div>
@@ -829,11 +829,11 @@
                                                         <div class="vdd-compare-row">
                                                             <div class="vdd-compare-cell vdd-compare-cell--yours">
                                                                 <span class="vdd-compare-field-name">@comp.FieldLabel</span>
-                                                                <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.YourValue) ? "â€”" : comp.YourValue)</span>
+                                                                <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.YourValue) ? " - " : comp.YourValue)</span>
                                                             </div>
-                                                            <span class="vdd-compare-arrow">â†”</span>
+                                                            <span class="vdd-compare-arrow">&lt;-&gt;</span>
                                                             <div class="vdd-compare-cell vdd-compare-cell--theirs">
-                                                                <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.ProviderValue) ? "â€”" : comp.ProviderValue)</span>
+                                                                <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.ProviderValue) ? " - " : comp.ProviderValue)</span>
                                                             </div>
                                                             <div class="vdd-compare-cell vdd-compare-cell--score">
                                                                 @if (comp.Score.HasValue)
@@ -845,7 +845,7 @@
                                                                 }
                                                                 else
                                                                 {
-                                                                    <span style="color: rgba(255,255,255,0.2); font-size: 11px;">â€”</span>
+                                                                    <span style="color: rgba(255,255,255,0.2); font-size: 11px;"> - </span>
                                                                 }
                                                             </div>
                                                         </div>
@@ -967,7 +967,7 @@
                         break;
 
                     case 2:
-                        @* â”€â”€ UNIVERSE TAB â”€â”€ *@
+                        @* -- UNIVERSE TAB -- *@
                         <div class="vdd-tab-content">
                             @if (!string.IsNullOrEmpty(MediaItem?.UniverseName))
                             {
@@ -1056,7 +1056,7 @@
         }
         else if (Person is not null)
         {
-            @* â”€â”€ Person: delegate to PersonBiographyDrawer â”€â”€ *@
+            @* -- Person: delegate to PersonBiographyDrawer -- *@
             <PersonBiographyDrawer Person="@Person"
                                    Aliases="@_aliases"
                                    PersonCredits="@_personCredits"
@@ -1065,11 +1065,11 @@
                                    MemberOfGroups="@_personDetail?.MemberOfGroups"
                                    OnPersonAliasClicked="@OnPersonAliasClicked" />
 
-            @* Old person sections removed â€” all person content is now in PersonBiographyDrawer *@
+            @* Old person sections removed  -  all person content is now in PersonBiographyDrawer *@
         }
         else if (Universe is not null)
         {
-            @* â”€â”€ Universe Sections â”€â”€ *@
+            @* -- Universe Sections -- *@
 
             @* Health Score Ring *@
             @if (_universeHealth is not null)
@@ -1168,7 +1168,7 @@
                     </div>
                     @if (_universeCharacters.Count > 12)
                     {
-                        <p class="vdd-stage-hint" style="margin-top: 8px;">+@(_universeCharacters.Count - 12) more â€” open Universe Explorer to see all</p>
+                        <p class="vdd-stage-hint" style="margin-top: 8px;">+@(_universeCharacters.Count - 12) more  -  open Universe Explorer to see all</p>
                     }
                 }
             </DrawerSection>
@@ -1206,7 +1206,7 @@
                 </div>
             </DrawerSection>
 
-            @* â”€â”€ History Timeline â”€â”€ *@
+            @* -- History Timeline -- *@
             <DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
                 <LibraryTimeline EntityId="@Universe.Id" />
             </DrawerSection>
@@ -1225,7 +1225,7 @@
         }
     </div>
 
-    @* â”€â”€ 3. Pinned Footer (Media only) â”€â”€ *@
+    @* -- 3. Pinned Footer (Media only) -- *@
     @if (MediaItem is not null)
     {
         <div class="vdd-footer">
@@ -1341,7 +1341,7 @@
     /// <summary>Looks up the Wikipedia URL from claims, falling back to GoToLinkedPage for persons without claims.</summary>
     private string? GetWikipediaUrl()
     {
-        // Try claims first â€” stored wikipedia_url from Wikidata provider
+        // Try claims first  -  stored wikipedia_url from Wikidata provider
         if (_claims is not null && _claims.Count > 0)
         {
             var wikiClaim = _claims.FirstOrDefault(c =>
@@ -1435,10 +1435,10 @@
 
             // Pre-fill retail search fields from file metadata.
             // Primary field matches each provider's highest-priority search strategy:
-            //   Comics â†’ series (ComicVine volume_search)
-            //   TV â†’ show_name (TMDB show search)
-            //   Music â†’ artist (Apple API artistTerm)
-            //   Books/Audiobooks/Movies â†’ title
+            //   Comics -> series (ComicVine volume_search)
+            //   TV -> show_name (TMDB show search)
+            //   Music -> artist (Apple API artistTerm)
+            //   Books/Audiobooks/Movies -> title
             _searchFilters = [];
             switch (MediaItem.MediaType)
             {
@@ -1573,7 +1573,7 @@
         if (string.IsNullOrWhiteSpace(_wikidataSearchQuery) || string.IsNullOrWhiteSpace(_canonicalTargetGroup) || MediaItem is null)
             return;
 
-        // Direct QID entry â€” show as a result for confirmation, don't auto-confirm
+        // Direct QID entry  -  show as a result for confirmation, don't auto-confirm
         var trimmed = _wikidataSearchQuery.Trim();
         if (trimmed.StartsWith("Q", StringComparison.OrdinalIgnoreCase) && trimmed.Length > 1 && trimmed[1..].All(char.IsDigit))
         {
@@ -1591,7 +1591,7 @@
                     RequiredFields = [],
                     SuggestedFields = [],
                     QidFields = BuildDirectQidFields(directQid),
-                    Description = "Direct QID entry â€” confirm to link this item",
+                    Description = "Direct QID entry  -  confirm to link this item",
                 }
             ];
             _canonicalSearchResponse = new ItemCanonicalSearchResponseDto
@@ -1733,7 +1733,7 @@
         if (!string.IsNullOrEmpty(result.Author))
         {
             allFields["author"] = result.Author;
-            // Music display uses "artist" while providers use "author" â€” expose under both keys.
+            // Music display uses "artist" while providers use "author"  -  expose under both keys.
             allFields.TryAdd("artist", result.Author);
         }
         if (!string.IsNullOrEmpty(result.Director)) allFields["director"] = result.Director;
@@ -1898,7 +1898,7 @@
         // Reload claims to reflect the new match
         _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
 
-        // Switch to Wikidata tab â€” Wikidata lookup kicks off automatically after retail match
+        // Switch to Wikidata tab  -  Wikidata lookup kicks off automatically after retail match
         _selectedStage = 1;
 
         await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
@@ -1984,7 +1984,7 @@
         }
     }
 
-    /// <summary>Formats a claim key â€” delegates to shared LibraryHelpers.</summary>
+    /// <summary>Formats a claim key  -  delegates to shared LibraryHelpers.</summary>
     private static string FormatClaimKey(string key) => LibraryHelpers.FormatClaimKey(key);
 
     private static string FormatDuration(string? duration)
@@ -2266,7 +2266,7 @@
         await OnApplyMatch.InvokeAsync(entityId);
     }
 
-    // â”€â”€ Field comparison helpers â”€â”€
+    // -- Field comparison helpers --
 
     private record FieldComparison(string FieldLabel, string? YourValue, string? ProviderValue, double? Score);
 
@@ -2400,7 +2400,7 @@
 }
 
 <style>
-    /* â”€â”€ Pipeline Circles + Stage Panel wrapper â”€â”€ */
+    /* -- Pipeline Circles + Stage Panel wrapper -- */
     .vdd-pipeline-circles-wrap {
         margin: 0 -4px;
         border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -2431,7 +2431,7 @@
         width: 100%;
     }
 
-    /* â”€â”€ Backdrop â”€â”€ */
+    /* -- Backdrop -- */
     .vdd-backdrop {
         position: fixed;
         inset: 0;
@@ -2447,7 +2447,7 @@
         to { opacity: 1; }
     }
 
-    /* â”€â”€ Drawer panel â”€â”€ */
+    /* -- Drawer panel -- */
     .vdd-drawer {
         position: fixed;
         top: 64px;
@@ -2468,7 +2468,7 @@
         to { transform: translateX(0); }
     }
 
-    /* â”€â”€ Header â”€â”€ */
+    /* -- Header -- */
     .vdd-header {
         padding: 32px 24px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -2653,7 +2653,7 @@
         color: rgba(255, 255, 255, 0.4);
     }
 
-    /* â”€â”€ Body â”€â”€ */
+    /* -- Body -- */
     .vdd-body {
         flex: 1;
         overflow-y: auto;
@@ -2661,7 +2661,7 @@
         scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
     }
 
-    /* â”€â”€ Source section â”€â”€ */
+    /* -- Source section -- */
     .vdd-source {
         display: flex;
         flex-direction: column;
@@ -2747,7 +2747,7 @@
         color: rgba(255, 255, 255, 0.7);
     }
 
-    /* â”€â”€ Pipeline section â”€â”€ */
+    /* -- Pipeline section -- */
     .vdd-pipeline {
         display: flex;
         flex-direction: column;
@@ -2915,7 +2915,7 @@
         padding-top: 4px;
     }
 
-    /* â”€â”€ Assets section â”€â”€ */
+    /* -- Assets section -- */
     .vdd-assets {
         display: flex;
         flex-direction: column;
@@ -3003,7 +3003,7 @@
         color: rgba(255, 255, 255, 0.2);
     }
 
-    /* â”€â”€ Lifecycle section â”€â”€ */
+    /* -- Lifecycle section -- */
     .vdd-lifecycle {
         display: flex;
         gap: 12px;
@@ -3034,7 +3034,7 @@
         font-size: 11px;
     }
 
-    /* â”€â”€ Identities section â”€â”€ */
+    /* -- Identities section -- */
     .vdd-identities {
         display: flex;
         flex-direction: column;
@@ -3061,13 +3061,13 @@
         font-weight: 600;
     }
 
-    /* â”€â”€ Universe section â”€â”€ */
+    /* -- Universe section -- */
     .vdd-universe-content {
         font-size: 12px;
         color: rgba(255, 255, 255, 0.6);
     }
 
-    /* â”€â”€ Empty hints â”€â”€ */
+    /* -- Empty hints -- */
     .vdd-empty-hint {
         font-size: 12px;
         color: rgba(255, 255, 255, 0.25);
@@ -3075,7 +3075,7 @@
         margin: 0;
     }
 
-    /* â”€â”€ Person Library Presence list â”€â”€ */
+    /* -- Person Library Presence list -- */
     .vdd-presence-list {
         display: flex;
         flex-direction: column;
@@ -3105,7 +3105,7 @@
         letter-spacing: 0.06em;
     }
 
-    /* â”€â”€ Review banner â”€â”€ */
+    /* -- Review banner -- */
     .vdd-review-banner {
         display: flex;
         align-items: center;
@@ -3133,7 +3133,7 @@
         font-weight: 700;
     }
 
-    /* â”€â”€ Manual search â”€â”€ */
+    /* -- Manual search -- */
     .vdd-search-block {
         display: flex;
         flex-direction: column;
@@ -3443,7 +3443,7 @@
         color: #60A5FA;
     }
 
-    /* â”€â”€ Pen name linking â”€â”€ */
+    /* -- Pen name linking -- */
     .vdd-identity-link {
         display: flex;
         align-items: center;
@@ -3476,7 +3476,7 @@
         flex-shrink: 0;
     }
 
-    /* â”€â”€ Footer â”€â”€ */
+    /* -- Footer -- */
     .vdd-footer {
         padding: 20px 24px;
         border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -3514,7 +3514,7 @@
         color: rgba(255, 80, 80, 1);
     }
 
-    /* â”€â”€ Universe Health Ring â”€â”€ */
+    /* -- Universe Health Ring -- */
     .vdd-health-ring-wrap {
         display: flex;
         align-items: center;
@@ -3560,7 +3560,7 @@
         color: rgba(255, 255, 255, 0.6);
     }
 
-    /* â”€â”€ Entity Counts â”€â”€ */
+    /* -- Entity Counts -- */
     .vdd-entity-counts {
         display: flex;
         flex-direction: column;
@@ -3589,7 +3589,7 @@
         color: white;
     }
 
-    /* â”€â”€ Character Grid â”€â”€ */
+    /* -- Character Grid -- */
     .vdd-characters-grid {
         display: flex;
         flex-direction: column;
@@ -3663,7 +3663,7 @@
         align-self: flex-start;
     }
 
-    /* â”€â”€ Character Roles (Person view) â”€â”€ */
+    /* -- Character Roles (Person view) -- */
     .vdd-role-universe-group {
         margin-bottom: 14px;
     }
@@ -3692,7 +3692,7 @@
         width: 60px;
     }
 
-    /* â”€â”€ Universe Action Buttons â”€â”€ */
+    /* -- Universe Action Buttons -- */
     .vdd-universe-actions {
         display: flex;
         flex-direction: column;
@@ -3772,7 +3772,7 @@
         color: rgba(255,255,255,0.9);
     }
 
-    /* â”€â”€ Pipeline matched lines â”€â”€ */
+    /* -- Pipeline matched lines -- */
     .vdd-pipeline-matched {
         display: flex;
         flex-direction: column;
@@ -3819,7 +3819,7 @@
         text-decoration: underline;
     }
 
-    /* â”€â”€ Unified search â”€â”€ */
+    /* -- Unified search -- */
     .vdd-unified-search {
         margin-top: 8px;
     }
@@ -3839,7 +3839,7 @@
         min-width: 100px;
     }
 
-    /* â”€â”€ Filter-based search UI â”€â”€ */
+    /* -- Filter-based search UI -- */
     .vdd-search-bar-wrap { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
     .vdd-search-type-row { display: flex; align-items: center; gap: 8px; }
     .vdd-search-type-label { font-size: 11px; color: rgba(255,255,255,0.4); }
@@ -3911,7 +3911,7 @@
     }
     .vdd-filter-pill-remove:hover { color: rgba(255,255,255,0.6); }
 
-    /* â”€â”€ Result detail below (not beside) â”€â”€ */
+    /* -- Result detail below (not beside) -- */
     .vdd-search-result-detail-below {
         padding: 10px 12px 12px;
         border-top: 1px solid rgba(255,255,255,0.04);
@@ -3939,7 +3939,7 @@
         gap: 6px;
     }
 
-    /* â”€â”€ Bridge ID chips â”€â”€ */
+    /* -- Bridge ID chips -- */
     .vdd-bridge-chips {
         display: flex;
         gap: 4px;
@@ -3955,7 +3955,7 @@
         color: rgba(93,202,165,0.7);
     }
 
-    /* â”€â”€ Status section â”€â”€ */
+    /* -- Status section -- */
     .vdd-status {
         display: flex;
         flex-direction: column;
@@ -3968,7 +3968,7 @@
         gap: 12px;
     }
 
-    /* â”€â”€ Metadata section â”€â”€ */
+    /* -- Metadata section -- */
     .vdd-metadata {
         display: flex;
         flex-direction: column;
@@ -4013,7 +4013,7 @@
         gap: 6px;
     }
 
-    /* â”€â”€ Claims rows (FIX A6) â”€â”€ */
+    /* -- Claims rows (FIX A6) -- */
     .vdd-claim-row {
         display: flex;
         align-items: baseline;
@@ -4039,7 +4039,7 @@
         flex-shrink: 0;
     }
 
-    /* â”€â”€ Provider URL link (FIX A7) â”€â”€ */
+    /* -- Provider URL link (FIX A7) -- */
     .vdd-provider-link {
         display: inline-flex;
         align-items: center;
@@ -4058,7 +4058,7 @@
         text-underline-offset: 2px;
     }
 
-    /* â”€â”€ Alias avatar (FIX B1) â”€â”€ */
+    /* -- Alias avatar (FIX B1) -- */
     .vdd-alias-avatar {
         width: 28px;
         height: 28px;
@@ -4098,7 +4098,7 @@
         flex-shrink: 0;
     }
 
-    /* â”€â”€ Added date subtitle â”€â”€ */
+    /* -- Added date subtitle -- */
     .vdd-added-date {
         font-size: 10px;
         font-weight: 600;
@@ -4107,7 +4107,7 @@
         margin-bottom: 0;
     }
 
-    /* â”€â”€ NeedsReview problem banner â”€â”€ */
+    /* -- NeedsReview problem banner -- */
     .vdd-problem-banner {
         background: rgba(239, 159, 39, 0.08);
         border-left: 3px solid #EF9F27;
@@ -4201,7 +4201,7 @@
         color: rgba(255, 255, 255, 0.3);
     }
 
-    /* â”€â”€ Tab Content â”€â”€ */
+    /* -- Tab Content -- */
     .vdd-tab-content {
         padding: 12px 4px 0;
     }
@@ -4225,7 +4225,7 @@
         margin-top: 4px;
     }
 
-    /* â”€â”€ Original Metadata Collapse â”€â”€ */
+    /* -- Original Metadata Collapse -- */
     .vdd-original-meta {
         margin-top: 14px;
         border-top: 1px solid rgba(255,255,255,0.04);
@@ -4245,7 +4245,7 @@
         color: rgba(255,255,255,0.6);
     }
 
-    /* â”€â”€ Match Status â”€â”€ */
+    /* -- Match Status -- */
     .vdd-match-status {
         display: flex;
         align-items: center;
@@ -4278,7 +4278,7 @@
         line-height: 1.4;
     }
 
-    /* â”€â”€ Tab Search â”€â”€ */
+    /* -- Tab Search -- */
     .vdd-tab-search {
         margin-top: 12px;
         padding-top: 12px;
@@ -4294,7 +4294,7 @@
         margin-top: 6px;
     }
 
-    /* â”€â”€ File Information section â”€â”€ */
+    /* -- File Information section -- */
     .vdd-file-info {
         display: flex;
         flex-direction: column;
@@ -4332,7 +4332,7 @@
         max-width: 240px;
     }
 
-    /* â”€â”€ Result card (full-width, one at a time) â”€â”€ */
+    /* -- Result card (full-width, one at a time) -- */
     .vdd-result-card {
         background: rgba(15, 23, 42, 0.5);
         border: 1px solid rgba(255, 255, 255, 0.06);
@@ -4544,7 +4544,7 @@
         opacity: 1;
     }
 
-    /* â”€â”€ Field comparison table â”€â”€ */
+    /* -- Field comparison table -- */
     .vdd-field-compare {
         display: flex;
         flex-direction: column;
@@ -4639,7 +4639,7 @@
         border-top: 1px solid rgba(255, 255, 255, 0.04);
     }
 
-    /* â”€â”€ Details section: pinned file path + Current/Original tabs â”€â”€ */
+    /* -- Details section: pinned file path + Current/Original tabs -- */
     .vdd-details-path {
         padding: 8px 12px 10px;
         margin: 0 0 10px;

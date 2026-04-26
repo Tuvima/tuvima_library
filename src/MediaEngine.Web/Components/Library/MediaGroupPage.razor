@@ -20,7 +20,7 @@ else if (_detail is null)
 }
 else
 {
-    @* â”€â”€ BACK BUTTON â”€â”€ *@
+    @* -- BACK BUTTON -- *@
     <div class="mgp-breadcrumb">
         <button class="mgp-back-btn" @onclick="() => OnBack.InvokeAsync()">
             <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
@@ -28,7 +28,7 @@ else
         </button>
     </div>
 
-    @* â”€â”€ HEADER â”€â”€ *@
+    @* -- HEADER -- *@
     <div class="mgp-header">
         @if (GroupType == "artist")
         {
@@ -72,9 +72,9 @@ else
                 <h1 class="mgp-title">@_detail.DisplayName</h1>
             }
             @* Suppress creator line when it would simply duplicate the title (e.g. artist views).
-               TV shows also suppress the creator line â€” the show's top billed cast is shown as
+               TV shows also suppress the creator line  -  the show's top billed cast is shown as
                clickable chips below the meta-line, and the show's network is displayed as a
-               badge next to the year/genre. Showing "Director: â€¦" on a TV row is misleading
+               badge next to the year/genre. Showing "Director: ..." on a TV row is misleading
                because TV direction is episode-scoped. *@
             @if (GroupType != "tv-show"
                  && !string.IsNullOrEmpty(_detail.Creator)
@@ -151,7 +151,7 @@ else
         </div>
     </div>
 
-    @* â”€â”€ ITEM LIST â”€â”€ *@
+    @* -- ITEM LIST -- *@
     <div class="mgp-content">
         @if (GroupType == "artist" && _detail.Seasons.Count > 0)
         {
@@ -222,7 +222,7 @@ else
         }
     </div>
 
-    @* â”€â”€ BATCH BAR â”€â”€ *@
+    @* -- BATCH BAR -- *@
     <LibraryBatchBar SelectedCount="@_selectedItems.Count"
                    OnDelete="OnBatchDelete"
                    OnSyncNow="OnBatchSync"
@@ -230,7 +230,7 @@ else
 }
 
 @code {
-    // â”€â”€ Parameters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Parameters --------------------------------------------------------------
 
     /// <summary>Discriminator: "tv-show" | "album" | "book-series" | "movie-series" | "artist" | "comic-series"</summary>
     [Parameter] public string GroupType { get; set; } = "";
@@ -287,7 +287,7 @@ else
     /// <summary>Fires when the artist photo is clicked. Passes the person record ID.</summary>
     [Parameter] public EventCallback<Guid> OnPersonClicked { get; set; }
 
-    // â”€â”€ Private state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Private state ------------------------------------------------------------
 
     private CollectionGroupDetailViewModel? _detail;
     private bool _loading = true;
@@ -296,12 +296,12 @@ else
     private string? _lastLoadedCacheKey;
 
     /// <summary>Composite key of all parameters that affect data loading.
-    /// For system view groups the GroupId is the same system collection â€”
+    /// For system view groups the GroupId is the same system collection -
     /// GroupName/ArtistName distinguishes them.</summary>
     private string GetCacheKey() =>
         $"{GroupId}|{GroupType}|{ArtistName}|{GroupName}|{GroupField}|{string.Join(",", ArtistAlbumCollectionIds ?? [])}";
 
-    // â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Lifecycle ----------------------------------------------------------------
 
     protected override async Task OnParametersSetAsync()
     {
@@ -322,7 +322,7 @@ else
         }
         else if (GroupType == "artist" || string.Equals(GroupField, "artist", StringComparison.OrdinalIgnoreCase))
         {
-            // Artist drill-down â€” always prefer the by-name endpoint so we get
+            // Artist drill-down  -  always prefer the by-name endpoint so we get
             // per-album covers, unowned-track merging, and the artist headshot.
             // GroupName takes priority over ArtistName when arriving from system-view tiles.
             var nameForLookup = !string.IsNullOrWhiteSpace(GroupName) ? GroupName : ArtistName;
@@ -345,7 +345,7 @@ else
         StateHasChanged();
     }
 
-    // â”€â”€ Season helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Season helpers -----------------------------------------------------------
 
     private bool IsSeasonExpanded(int season) => !_collapsedSeasons.Contains(season);
 
@@ -357,7 +357,7 @@ else
             _collapsedSeasons.Add(season);
     }
 
-    // â”€â”€ Batch / selection helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Batch / selection helpers ------------------------------------------------
 
     private void ToggleSelect(Guid workId)
     {
@@ -373,7 +373,7 @@ else
         StateHasChanged();
     }
 
-    // â”€â”€ Container delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Container delete --------------------------------------------------------
 
     private List<Guid> CollectAllOwnedIds()
     {
@@ -397,7 +397,7 @@ else
         }
     }
 
-    // â”€â”€ Toggle show-unowned â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Toggle show-unowned ------------------------------------------------------
 
     private async Task ToggleShowUnowned()
     {
@@ -416,7 +416,7 @@ else
             await OnPersonClicked.InvokeAsync(personId);
     }
 
-    // â”€â”€ Label helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Label helpers ------------------------------------------------------------
 
     private string GetGroupTypeLabel() => GroupType switch
     {
@@ -462,7 +462,7 @@ else
         _               => Icons.Material.Outlined.Folder
     };
 
-    // â”€â”€ Render helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Render helpers -----------------------------------------------------------
 
     private RenderFragment RenderWorkList(
         List<CollectionGroupWorkViewModel> items,
@@ -538,7 +538,7 @@ else
             // Duration cell
             builder.OpenElement(seq++, "td");
             builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--duration");
-            builder.AddContent(seq++, item.Duration ?? "â€”");
+            builder.AddContent(seq++, item.Duration ?? " - ");
             builder.CloseElement(); // td
 
             // Actions cell (edit button)
@@ -565,7 +565,7 @@ else
 }
 
 <style>
-    /* â”€â”€ Loading / Empty â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Loading / Empty -------------------------------------------------------- */
     .mgp-loading,
     .mgp-empty {
         display: flex;
@@ -576,7 +576,7 @@ else
         gap: 16px;
     }
 
-    /* â”€â”€ Breadcrumb â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Breadcrumb ------------------------------------------------------------- */
     .mgp-breadcrumb {
         display: flex;
         align-items: center;
@@ -616,7 +616,7 @@ else
         color: rgba(255, 255, 255, 0.25);
     }
 
-    /* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Header ----------------------------------------------------------------- */
     .mgp-header {
         display: flex;
         gap: 32px;
@@ -649,7 +649,7 @@ else
         justify-content: center;
     }
 
-    /* â”€â”€ Artist photo (circular) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Artist photo (circular) -------------------------------------------- */
     .mgp-artist-photo {
         width: 220px;
         min-width: 220px;
@@ -688,7 +688,7 @@ else
         justify-content: center;
     }
 
-    /* â”€â”€ Album collapsible sections (artist view) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Album collapsible sections (artist view) -------------------------- */
     .mgp-album-collapsible {
         margin-bottom: 16px;
         border-radius: 12px;
@@ -772,7 +772,7 @@ else
         padding: 4px 0 8px 0;
     }
 
-    /* â”€â”€ Album section header (legacy â€” kept for non-artist uses if any) â”€â”€â”€â”€ */
+    /* -- Album section header (legacy  -  kept for non-artist uses if any) ---- */
     .mgp-album-section {
         margin-bottom: 24px;
     }
@@ -956,12 +956,12 @@ else
         color: rgba(96, 165, 250, 0.8);
     }
 
-    /* â”€â”€ Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Content ---------------------------------------------------------------- */
     .mgp-content {
         padding: 0 32px 32px;
     }
 
-    /* â”€â”€ Season sections (TV / Artist) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Season sections (TV / Artist) ----------------------------------------- */
     .mgp-season {
         margin-bottom: 8px;
     }
@@ -997,7 +997,7 @@ else
         margin-left: auto;
     }
 
-    /* â”€â”€ Track table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Track table ------------------------------------------------------------ */
     .mgp-track-table {
         width: 100%;
         border-collapse: collapse;
@@ -1123,7 +1123,7 @@ else
         text-align: center;
     }
 
-    /* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Responsive ------------------------------------------------------------- */
     @@media (max-width: 768px) {
         .mgp-header {
             flex-direction: column;

@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 
-@* â”€â”€ Renders editable fields for one or more selected items â”€â”€ *@
+@* -- Renders editable fields for one or more selected items -- *@
 
 @foreach (var field in Fields)
 {
@@ -13,7 +13,7 @@
         <label class="vef-label">@field.Label</label>
         @if (isReadOnly)
         {
-            <span class="vef-value vef-value--readonly">@(state.DisplayValue ?? "â€”")</span>
+            <span class="vef-value vef-value--readonly">@(state.DisplayValue ?? " - ")</span>
         }
         else if (state.IsMultiple && !isEdited)
         {

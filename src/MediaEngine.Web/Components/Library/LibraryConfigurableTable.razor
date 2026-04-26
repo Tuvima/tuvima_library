@@ -456,11 +456,11 @@ else
                                                     var subParts = new List<string>();
                                                     if (!string.IsNullOrEmpty(item.Network)) subParts.Add(item.Network!);
                                                     if (item.Year is not null) subParts.Add(item.Year);
-                                                    <p class="vmt-subtitle">@string.Join(" â€¢ ", subParts)</p>
+                                                    <p class="vmt-subtitle">@string.Join(" - ", subParts)</p>
                                                 }
                                                 else
                                                 {
-                                                    <p class="vmt-subtitle">@LibraryHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"â€¢ {item.Year}" : "")</p>
+                                                    <p class="vmt-subtitle">@LibraryHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"- {item.Year}" : "")</p>
                                                 }
                                                 @{
                                                     var creatorName = GetCreatorForMediaType(item);
@@ -494,11 +494,11 @@ else
                                                     <p class="vmt-provider-waiting">
                                                         @if (!string.IsNullOrEmpty(item.FailedProviderName))
                                                         {
-                                                            @($"Waiting for {item.FailedProviderName} to come back onlineâ€¦")
+                                                            @($"Waiting for {item.FailedProviderName} to come back online...")
                                                         }
                                                         else
                                                         {
-                                                            @("Waiting for provider to come back onlineâ€¦")
+                                                            @("Waiting for provider to come back online...")
                                                         }
                                                     </p>
                                                 }
@@ -536,7 +536,7 @@ else
                                         break;
 
                                     case ColumnRenderType.Duration:
-                                        <span class="vct-text-cell">â€”</span>
+                                        <span class="vct-text-cell"> - </span>
                                         break;
 
                                     case ColumnRenderType.FileSize:
@@ -544,7 +544,7 @@ else
                                         break;
 
                                     case ColumnRenderType.Rating:
-                                        <span class="vct-text-cell">â€”</span>
+                                        <span class="vct-text-cell"> - </span>
                                         break;
 
                                     case ColumnRenderType.TypeBadge:
@@ -591,7 +591,7 @@ else
                                         }
                                         else
                                         {
-                                            <span class="vct-text-cell">â€”</span>
+                                            <span class="vct-text-cell"> - </span>
                                         }
                                         break;
 
@@ -692,7 +692,7 @@ else
                                         break;
 
                                     default:
-                                        <span class="vct-text-cell">â€”</span>
+                                        <span class="vct-text-cell"> - </span>
                                         break;
                                 }
                             </td>
@@ -703,7 +703,7 @@ else
         </MudSimpleTable>
     };
 
-    // â”€â”€ Grouping â”€â”€
+    // -- Grouping --
 
     private record TableGroup(string Key, string Label, List<LibraryItemViewModel> Items);
 
@@ -740,7 +740,7 @@ else
             var verified   = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.Verified).ToList();
             var provisional = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.Provisional).ToList();
             var review      = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.NeedsReview).ToList();
-            var failed      = new List<LibraryItemViewModel>(); // Failed status removed â€” maps to NeedsReview
+            var failed      = new List<LibraryItemViewModel>(); // Failed status removed  -  maps to NeedsReview
             var quarantined = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.Quarantined).ToList();
             var waiting     = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.WaitingForProvider).ToList();
             if (verified.Count > 0)    groups.Add(new TableGroup("verified",    "Verified",              verified));
@@ -815,7 +815,7 @@ else
         return [new TableGroup("all", "All", Items)];
     }
 
-    // â”€â”€ Helpers â”€â”€
+    // -- Helpers --
 
     private static string? GetCreatorForMediaType(LibraryItemViewModel item) => item.MediaType switch
     {
@@ -907,40 +907,40 @@ else
     private static string GetTextValue(LibraryItemViewModel item, string? propertyName) =>
         propertyName switch
         {
-            "ParentContext"  => item.ShowName ?? item.Series ?? item.Album ?? "â€”",
-            "Author"        => item.Author ?? "â€”",
-            "Director"      => item.Director ?? "â€”",
-            "Artist"        => item.Artist ?? "â€”",
+            "ParentContext"  => item.ShowName ?? item.Series ?? item.Album ?? " - ",
+            "Author"        => item.Author ?? " - ",
+            "Director"      => item.Director ?? " - ",
+            "Artist"        => item.Artist ?? " - ",
             "Year"          => FormatYear(item.Year),
-            "Series"         => item.Series ?? item.UniverseName ?? "â€”",
-            "SeriesPosition" => item.SeriesPosition ?? "â€”",
-            "Narrator"       => item.Narrator ?? item.Author ?? "â€”",
-            "Genre"          => item.Genre ?? "â€”",
-            "Runtime" or "Duration" => item.Runtime ?? "â€”",
-            "Rating"         => item.Rating ?? "â€”",
-            "Album"          => item.Album ?? "â€”",
-            "TrackNumber"    => item.TrackNumber ?? "â€”",
-            "Season"        => item.Season ?? "â€”",
-            "Episode"       => item.Episode ?? "â€”",
-            "Network"       => item.Network ?? "â€”",
-            "EpisodeTitle"  => item.EpisodeTitle ?? "â€”",
-            "IssueNumber"   => "â€”",                   // placeholder
+            "Series"         => item.Series ?? item.UniverseName ?? " - ",
+            "SeriesPosition" => item.SeriesPosition ?? " - ",
+            "Narrator"       => item.Narrator ?? item.Author ?? " - ",
+            "Genre"          => item.Genre ?? " - ",
+            "Runtime" or "Duration" => item.Runtime ?? " - ",
+            "Rating"         => item.Rating ?? " - ",
+            "Album"          => item.Album ?? " - ",
+            "TrackNumber"    => item.TrackNumber ?? " - ",
+            "Season"        => item.Season ?? " - ",
+            "Episode"       => item.Episode ?? " - ",
+            "Network"       => item.Network ?? " - ",
+            "EpisodeTitle"  => item.EpisodeTitle ?? " - ",
+            "IssueNumber"   => " - ",                   // placeholder
             "Name"          => item.Title,            // Collections tab
-            "Type"          => item.MediaType ?? "â€”", // Collections tab
-            "SeriesCount"   => "â€”",                   // Universes tab
-            "PeopleCount"   => "â€”",                   // Universes tab
-            "ItemCount"     => "â€”",                   // Collections tab
-            "Featured"      => "â€”",                   // Collections tab
-            "WorkCount"     => item.TrackCount ?? "â€”", // container: work/episode/issue count
-            "SeasonCount"   => item.SeasonCount ?? "â€”", // container: season count
-            "AlbumCount"    => item.AlbumCount ?? "â€”",  // container: album count for music artists
-            "Creator"       => item.Author ?? "â€”",     // container: creator
-            _ => "â€”",
+            "Type"          => item.MediaType ?? " - ", // Collections tab
+            "SeriesCount"   => " - ",                   // Universes tab
+            "PeopleCount"   => " - ",                   // Universes tab
+            "ItemCount"     => " - ",                   // Collections tab
+            "Featured"      => " - ",                   // Collections tab
+            "WorkCount"     => item.TrackCount ?? " - ", // container: work/episode/issue count
+            "SeasonCount"   => item.SeasonCount ?? " - ", // container: season count
+            "AlbumCount"    => item.AlbumCount ?? " - ",  // container: album count for music artists
+            "Creator"       => item.Author ?? " - ",     // container: creator
+            _ => " - ",
         };
 
     private static string FormatYear(string? year)
     {
-        if (string.IsNullOrEmpty(year)) return "â€”";
+        if (string.IsNullOrEmpty(year)) return " - ";
         // If it looks like a date (YYYY-MM-DD or longer), extract just the year.
         if (year.Length >= 4 && char.IsDigit(year[0]) && char.IsDigit(year[1])
             && char.IsDigit(year[2]) && char.IsDigit(year[3])
@@ -968,12 +968,12 @@ else
 }
 
 <style>
-    /* â”€â”€ Row selection â”€â”€ */
+    /* -- Row selection -- */
     .vmt-row--selected {
         background: rgba(96, 165, 250, 0.08);
     }
 
-    /* â”€â”€ Checkbox â”€â”€ */
+    /* -- Checkbox -- */
     .vct-checkbox {
         width: 16px;
         height: 16px;
@@ -981,7 +981,7 @@ else
         cursor: pointer;
     }
 
-    /* â”€â”€ Text cell â”€â”€ */
+    /* -- Text cell -- */
     .vct-text-cell {
         font-size: 13px;
         font-weight: 500;
@@ -991,7 +991,7 @@ else
         text-overflow: ellipsis;
     }
 
-    /* â”€â”€ Reuse all vmt-* classes from VaultMediaTable â”€â”€ */
+    /* -- Reuse all vmt-* classes from VaultMediaTable -- */
     .vmt-container {
         /* outer wrapper */
     }
@@ -1066,7 +1066,7 @@ else
         gap: 16px;
     }
 
-    /* â”€â”€ Compact cell (dense list rows â€” Apple Music style) â”€â”€ */
+    /* -- Compact cell (dense list rows  -  Apple Music style) -- */
     .vmt-compact-cell {
         display: flex;
         align-items: center;
@@ -1117,7 +1117,7 @@ else
         opacity: 1;
     }
 
-    /* Artist circular avatar â€” used in Music By Artist container view */
+    /* Artist circular avatar  -  used in Music By Artist container view */
     .vmt-artist-photo {
         border-radius: 50%;
         overflow: hidden;
@@ -1342,7 +1342,7 @@ else
         padding: 24px;
     }
 
-    /* â”€â”€ Sort header button â”€â”€ */
+    /* -- Sort header button -- */
     .vmt-sort-header {
         display: inline-flex;
         align-items: center;
@@ -1392,7 +1392,7 @@ else
         color: #ff4f76;
     }
 
-    /* â”€â”€ Tablet â”€â”€ */
+    /* -- Tablet -- */
     @@media (max-width: 1024px) {
         .vmt-media-cell {
             gap: 10px;
@@ -1404,7 +1404,7 @@ else
         }
     }
 
-    /* â”€â”€ Mobile â”€â”€ */
+    /* -- Mobile -- */
     @@media (max-width: 768px) {
         .vmt-table-wrap {
             border-radius: 12px;
@@ -1439,7 +1439,7 @@ else
             min-width: 0;
         }
 
-        /* Hide middle columns on mobile â€” keep first two (checkbox, media) and last (status) */
+        /* Hide middle columns on mobile  -  keep first two (checkbox, media) and last (status) */
         .vmt-td:nth-child(n+3):not(:last-child) {
             display: none;
         }
@@ -1475,7 +1475,7 @@ else
         }
     }
 
-    /* â”€â”€ Small mobile â”€â”€ */
+    /* -- Small mobile -- */
     @@media (max-width: 480px) {
         .vmt-row {
             padding: 6px 8px;
@@ -1495,7 +1495,7 @@ else
         }
     }
 
-    /* â”€â”€ TypeBadge column chip â”€â”€ */
+    /* -- TypeBadge column chip -- */
     .vault-type-badge {
         font-size: 9px;
         font-weight: 900;
@@ -1507,7 +1507,7 @@ else
         white-space: nowrap;
     }
 
-    /* â”€â”€ Drillable row indicator â”€â”€ */
+    /* -- Drillable row indicator -- */
     .vmt-row--drillable:hover .vmt-drill-chevron {
         opacity: 0.6;
     }
@@ -1521,7 +1521,7 @@ else
         justify-content: flex-end;
     }
 
-    /* â”€â”€ Manage actions â”€â”€ */
+    /* -- Manage actions -- */
     .vmt-manage-actions {
         display: flex;
         align-items: center;
@@ -1560,7 +1560,7 @@ else
         border-color: rgba(239, 68, 68, 0.3);
     }
 
-    /* â”€â”€ Cover Thumb â”€â”€ */
+    /* -- Cover Thumb -- */
     .vmt-cover-thumb {
         display: flex;
         align-items: center;
@@ -1576,7 +1576,7 @@ else
         object-fit: cover;
     }
 
-    /* â”€â”€ Title Cell â”€â”€ */
+    /* -- Title Cell -- */
     .vmt-title-cell {
         display: flex;
         align-items: center;

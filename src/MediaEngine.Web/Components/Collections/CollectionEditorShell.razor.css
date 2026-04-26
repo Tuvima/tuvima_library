@@ -96,14 +96,14 @@
 
 ::deep .collection-editor-tabs .mud-tab {
     min-height: 2.75rem;
-    padding: 10px 14px;
-    border-radius: var(--app-radius-md) var(--app-radius-md) 0 0;
+    padding: 0 16px 10px;
+    border-radius: 0;
     color: rgba(255, 255, 255, 0.56);
 }
 
 ::deep .collection-editor-tabs .mud-tab.mud-tab-active {
-    color: rgba(255, 255, 255, 0.96);
-    box-shadow: inset 0 -2px 0 #c53a38;
+    color: var(--app-accent-blue);
+    box-shadow: none;
 }
 
 .collection-editor-body {
@@ -114,7 +114,7 @@
 }
 
 .collection-editor-artwork-picker {
-    margin-bottom: 16px;
+    margin: 0 auto 16px;
 }
 
 .collection-editor-icon-picker {
@@ -138,7 +138,21 @@
 }
 
 .collection-editor-field {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+}
+
+.collection-editor-field ::deep .mud-input-control,
+.collection-editor-field ::deep .mud-input {
+    min-height: 42px !important;
+}
+
+.collection-editor-field ::deep input.mud-input-root {
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+}
+
+.collection-editor-field.app-dialog-textarea {
+    margin-top: 8px;
 }
 
 .collection-editor-grid,
@@ -175,9 +189,13 @@
 
 .collection-editor-rule-row {
     display: grid;
-    grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(180px, 1.15fr) auto auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto;
     gap: 8px;
     align-items: center;
+}
+
+.collection-editor-rule-row > * {
+    min-width: 0;
 }
 
 .collection-editor-rule-extras {

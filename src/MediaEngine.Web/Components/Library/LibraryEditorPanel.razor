@@ -6,7 +6,7 @@
 @inject ISnackbar Snackbar
 
 <div class="vep-panel">
-    @* â”€â”€ Header â”€â”€ *@
+    @* -- Header -- *@
     <div class="vep-header">
         <MudIconButton Icon="@Icons.Material.Filled.Close"
                        Size="Size.Small"
@@ -69,7 +69,7 @@
         }
     </div>
 
-    @* â”€â”€ Tabs â”€â”€ *@
+    @* -- Tabs -- *@
     <MudTabs ActivePanelIndex="@ActiveTabIndex"
              ActivePanelIndexChanged="OnTabChanged"
                          Rounded="false"
@@ -82,7 +82,7 @@
         }
     </MudTabs>
 
-    @* â”€â”€ Tab content â”€â”€ *@
+    @* -- Tab content -- *@
     <div class="vep-body">
         @switch (_activeTab)
         {
@@ -99,7 +99,7 @@
                     <div class="vep-readonly-section">
                         <div class="vef-row">
                             <label class="vef-label">Format</label>
-                            <span class="vef-value vef-value--readonly">@(SingleItem.Specs ?? "â€”")</span>
+                            <span class="vef-value vef-value--readonly">@(SingleItem.Specs ?? " - ")</span>
                         </div>
                         <div class="vef-row">
                             <label class="vef-label">Size</label>
@@ -150,7 +150,7 @@
                     }
                     else if (!IsSingleItem)
                     {
-                        <p style="color: rgba(255,255,255,0.3); font-size: 0.85rem;">@Items.Count items selected â€” artwork editing coming soon.</p>
+                        <p style="color: rgba(255,255,255,0.3); font-size: 0.85rem;">@Items.Count items selected  -  artwork editing coming soon.</p>
                     }
                     else
                     {
@@ -188,7 +188,7 @@
         }
     </div>
 
-    @* â”€â”€ Footer â”€â”€ *@
+    @* -- Footer -- *@
     <div class="vep-footer">
         @if (IsSingleItem && _editedValues.Count == 0)
         {

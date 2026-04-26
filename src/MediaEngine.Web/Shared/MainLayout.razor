@@ -15,7 +15,7 @@
 
 <MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="true" />
 <MudPopoverProvider />
-<MudDialogProvider />
+<MudDialogProvider CloseOnEscapeKey="true" />
 <MudSnackbarProvider />
 
 @if (!DeviceContext.IsFeatureDisabled("command_palette"))

@@ -3,7 +3,7 @@
 <div class="vmc-card @(IsQuarantined ? "vmc-card--quarantined" : "")"
      @onclick="() => OnCardClicked.InvokeAsync(Item.EntityId)">
 
-    @* â”€â”€ Delete button (hover, top-right) â”€â”€ *@
+    @* -- Delete button (hover, top-right) -- *@
     @if (!NeedsAction)
     {
         <button class="vmc-delete-btn"
@@ -13,7 +13,7 @@
         </button>
     }
 
-    @* â”€â”€ Header: thumbnail + status â”€â”€ *@
+    @* -- Header: thumbnail + status -- *@
     <div class="vmc-header">
         <div class="vmc-thumb">
             @if (!string.IsNullOrEmpty(Item.CoverUrl))
@@ -29,10 +29,10 @@
         <StatusPill Status="@Item.LibraryDisplayStatus" QuarantineDays="@Item.QuarantineDays" />
     </div>
 
-    @* â”€â”€ Title â”€â”€ *@
+    @* -- Title -- *@
     <h3 class="vmc-title @(Item.LibraryDisplayStatus == LibraryStatus.Quarantined ? "vmc-title--muted" : "")">@Item.Title</h3>
 
-    @* â”€â”€ Footer: pipeline + confidence â”€â”€ *@
+    @* -- Footer: pipeline + confidence -- *@
     <div class="vmc-footer">
         <div class="vmc-pipeline">
             <StageGate Stage="@Item.Stage1" />
@@ -73,7 +73,7 @@
         opacity: 0.5;
     }
 
-    /* â”€â”€ Delete button â”€â”€ */
+    /* -- Delete button -- */
     .vmc-delete-btn {
         position: absolute;
         top: 8px;
@@ -98,7 +98,7 @@
         background: rgba(160, 80, 80, 0.1);
     }
 
-    /* â”€â”€ Header â”€â”€ */
+    /* -- Header -- */
     .vmc-header {
         display: flex;
         justify-content: space-between;
@@ -126,7 +126,7 @@
         opacity: 0.6;
     }
 
-    /* â”€â”€ Title â”€â”€ */
+    /* -- Title -- */
     .vmc-title {
         font-size: 14px;
         font-weight: 700;
@@ -143,7 +143,7 @@
         color: rgba(255, 255, 255, 0.4);
     }
 
-    /* â”€â”€ Footer â”€â”€ */
+    /* -- Footer -- */
     .vmc-footer {
         display: flex;
         justify-content: space-between;

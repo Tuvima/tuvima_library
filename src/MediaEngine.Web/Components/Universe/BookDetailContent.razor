@@ -804,7 +804,8 @@ else
         {
             MaxWidth = MaxWidth.Small,
             FullWidth = false,
-            BackdropClick = true
+            BackdropClick = true,
+            CloseOnEscapeKey = true
         };
         var dialog = await DialogService.ShowAsync<ReportProblemDialog>("Report a problem", parameters, options);
         var result = await dialog.Result;

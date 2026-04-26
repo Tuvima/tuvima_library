@@ -128,7 +128,7 @@ else
     {
     <div class="vo-grid @(ReadOnly ? "vo-grid--readonly" : string.Empty)">
 
-        @* â”€â”€ Intake Summary â”€â”€ *@
+        @* -- Intake Summary -- *@
         <div class="vo-card vo-card--wide" @onclick='() => HandleNavigate("new")'>
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Style="font-size: 18px; opacity: 0.4;" />
@@ -152,7 +152,7 @@ else
             </div>
         </div>
 
-        @* â”€â”€ Review Backlog â”€â”€ *@
+        @* -- Review Backlog -- *@
         <div class="vo-card @(_data.ReviewTotal > 0 ? "vo-card--alert" : "")"
              @onclick='() => HandleNavigate("action_center")'>
             <div class="vo-card-header">
@@ -177,7 +177,7 @@ else
             }
         </div>
 
-        @* â”€â”€ Pipeline Health â”€â”€ *@
+        @* -- Pipeline Health -- *@
         <div class="vo-card">
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Timeline" Style="font-size: 18px; opacity: 0.4;" />
@@ -201,7 +201,7 @@ else
             }
         </div>
 
-        @* â”€â”€ Enrichment Progress â”€â”€ *@
+        @* -- Enrichment Progress -- *@
         <div class="vo-card">
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Science" Style="font-size: 18px; opacity: 0.4;" />
@@ -228,7 +228,7 @@ else
             </div>
         </div>
 
-        @* â”€â”€ Universe Coverage â”€â”€ *@
+        @* -- Universe Coverage -- *@
         <div class="vo-card" @onclick='() => HandleNavigate("new")'>
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Visibility" Style="font-size: 18px; opacity: 0.4;" />
@@ -278,7 +278,7 @@ else
             </div>
         </div>
 
-        @* â”€â”€ Stale Items â”€â”€ *@
+        @* -- Stale Items -- *@
         <div class="vo-card @(_data.StaleItems > 20 ? "vo-card--warn" : "")">
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Update" Style="font-size: 18px; opacity: 0.4;" />
@@ -288,7 +288,7 @@ else
             <div class="vo-card-subtitle">items older than 30 days</div>
         </div>
 
-        @* â”€â”€ Media Type Breakdown â”€â”€ *@
+        @* -- Media Type Breakdown -- *@
         <div class="vo-card vo-card--wide">
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Category" Style="font-size: 18px; opacity: 0.4;" />

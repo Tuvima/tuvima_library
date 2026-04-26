@@ -417,7 +417,7 @@
             { nameof(AddToCollectionDialog.WorkTitle), Item.Title }
         };
 
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, BackdropClick = true, CloseButton = true };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, BackdropClick = true, CloseButton = true, CloseOnEscapeKey = true };
         var dialog = await DialogService.ShowAsync<AddToCollectionDialog>("Add to collection", parameters, options);
         await dialog.Result;
         _expanded = false;

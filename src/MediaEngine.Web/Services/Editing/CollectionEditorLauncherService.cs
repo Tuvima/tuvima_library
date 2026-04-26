@@ -31,6 +31,7 @@ public sealed class CollectionEditorLauncherService
                 MaxWidth = isManualPlaylist ? MaxWidth.Small : isSmartPlaylist ? MaxWidth.Medium : MaxWidth.Large,
                 FullWidth = false,
                 BackdropClick = false,
+                CloseOnEscapeKey = true,
             });
 
         if (dialog is null)

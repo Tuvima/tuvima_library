@@ -7,7 +7,7 @@
     @if (Item is not null)
     {
         <div class="vmd-content">
-            @* â”€â”€ Header â”€â”€ *@
+            @* -- Header -- *@
             <div class="vmd-header">
                 <div class="vmd-thumb">
                     @if (!string.IsNullOrEmpty(Item.CoverUrl))
@@ -22,11 +22,11 @@
                 </div>
                 <div class="vmd-info">
                     <h3 class="vmd-title">@Item.Title</h3>
-                    <p class="vmd-subtitle">@LibraryHelpers.FormatMediaType(Item.MediaType) @(Item.Year is not null ? $"â€¢ {Item.Year}" : "")</p>
+                    <p class="vmd-subtitle">@LibraryHelpers.FormatMediaType(Item.MediaType) @(Item.Year is not null ? $"- {Item.Year}" : "")</p>
                 </div>
             </div>
 
-            @* â”€â”€ Pipeline + Confidence â”€â”€ *@
+            @* -- Pipeline + Confidence -- *@
             <div class="vmd-pipeline-row">
                 <div class="vmd-stages">
                     <StageGate Stage="@Item.Stage1" />
@@ -36,12 +36,12 @@
                 <ConfidenceBar Confidence="@Item.Confidence" />
             </div>
 
-            @* â”€â”€ Status â”€â”€ *@
+            @* -- Status -- *@
             <div class="vmd-status-row">
                 <StatusPill Status="@Item.LibraryDisplayStatus" QuarantineDays="@Item.QuarantineDays" />
             </div>
 
-            @* â”€â”€ Actions â”€â”€ *@
+            @* -- Actions -- *@
             <div class="vmd-actions">
                 @if (Item.LibraryDisplayStatus == LibraryStatus.NeedsReview)
                 {

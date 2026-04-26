@@ -73,7 +73,7 @@ public static class LibraryHelpers
 
     /// <summary>Returns the confidence bar fill color based on score.</summary>
     /// <remarks>
-    /// Thresholds: â‰¥0.85 = green (matches AutoLinkThreshold), â‰¥0.60 = amber (matches ConflictThreshold).
+    /// Thresholds: >=0.85 = green (matches AutoLinkThreshold), >=0.60 = amber (matches ConflictThreshold).
     /// TODO: drive thresholds from ScoringConfiguration once LibraryHelpers is no longer static.
     /// </remarks>
     public static string GetConfidenceColor(double confidence)
@@ -99,7 +99,7 @@ public static class LibraryHelpers
     public static string HexToRgba(string hex, double alpha)
     {
         if (string.IsNullOrEmpty(hex)) return $"rgba(255,255,255,{alpha})";
-        // Already an rgba value â€” just return it
+        // Already an rgba value  -  just return it
         if (hex.StartsWith("rgba", StringComparison.OrdinalIgnoreCase)) return hex;
         hex = hex.TrimStart('#');
         if (hex.Length < 6) return $"rgba(255,255,255,{alpha})";
@@ -119,7 +119,7 @@ public static class LibraryHelpers
     /// <summary>Formats file size in human-readable form.</summary>
     public static string FormatFileSize(long? bytes)
     {
-        if (bytes is null or 0) return "â€”";
+        if (bytes is null or 0) return " - ";
         return bytes.Value switch
         {
             < 1024 => $"{bytes} B",
@@ -165,18 +165,18 @@ public static class LibraryHelpers
     public static string FormatRating(string? rating)
     {
         if (string.IsNullOrWhiteSpace(rating))
-            return "Ã¢â‚¬â€";
+            return "-";
 
         if (int.TryParse(rating, NumberStyles.Integer, CultureInfo.InvariantCulture, out var wholeStars))
         {
             wholeStars = Math.Clamp(wholeStars, 0, 5);
-            return wholeStars == 0 ? "Ã¢â‚¬â€" : new string('★', wholeStars);
+            return wholeStars == 0 ? "-" : new string('*', wholeStars);
         }
 
         if (double.TryParse(rating, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
         {
             var rounded = (int)Math.Round(Math.Clamp(numeric, 0d, 5d), MidpointRounding.AwayFromZero);
-            return rounded == 0 ? "Ã¢â‚¬â€" : new string('★', rounded);
+            return rounded == 0 ? "-" : new string('*', rounded);
         }
 
         return rating;
@@ -267,14 +267,14 @@ public static class LibraryHelpers
         "AuthorityMatchFailed"   => "The metadata authority couldn't verify this item's identity.",
         "ContentMatchFailed"     => "No content provider recognized this file.",
         "RetailMatchAmbiguous"   => "A possible match was found but it's not certain. Please verify.",
-        "AmbiguousMediaType"     => "The file type is ambiguous â€” it could be music or an audiobook.",
+        "AmbiguousMediaType"     => "The file type is ambiguous  -  it could be music or an audiobook.",
         "MissingQid"             => "A retail match was found but it hasn't been linked to Wikidata yet.",
         "StagedUnidentifiable"   => "This file couldn't be identified. Check the filename and embedded metadata.",
         "PlaceholderTitle"       => "The title appears to be a placeholder (e.g. 'Unknown'). Please provide the real title.",
         "ArtworkUnconfirmed"     => "Cover art was found via text search and may not be accurate.",
         "LanguageMismatch"       => "This file's language doesn't match your library's configured language.",
         "UserReport"             => "You flagged this item for review.",
-        "RootWatchFolder"        => "This file was placed in the root watch folder â€” its media type couldn't be determined.",
+        "RootWatchFolder"        => "This file was placed in the root watch folder  -  its media type couldn't be determined.",
         "UserFixMatch"           => "You requested to fix the match for this item.",
         "WritebackFailed"        => "Re-tagging this file failed. It may be locked, corrupt, or unwritable.",
         _ => "This item needs your attention.",
@@ -296,12 +296,12 @@ public static class LibraryHelpers
         "MediaTypeAmbiguous" => "Could not determine the media type",
         "MissingQid" => "No Wikidata identity found for this item",
         "MultipleQidMatches" => "Multiple possible Wikidata matches found",
-        "RootWatchFolder" => "Dropped into root watch folder â€” please confirm the media type",
-        "WritebackFailed" => "Re-tag failed â€” file may be locked or corrupt",
+        "RootWatchFolder" => "Dropped into root watch folder  -  please confirm the media type",
+        "WritebackFailed" => "Re-tag failed  -  file may be locked or corrupt",
         _ => trigger ?? "This item needs review",
     };
 
-    // â”€â”€ Well-known provider GUIDs â†’ display names â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Well-known provider GUIDs -> display names -----------------------------
 
     private static readonly Dictionary<Guid, string> ProviderDisplayNames = new()
     {

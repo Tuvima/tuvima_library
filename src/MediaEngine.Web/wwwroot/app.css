@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
-   Tuvima Library — Global Stylesheet (Cinematic Minimalist Design)
+   Tuvima Library - Global Stylesheet (Cinematic Minimalist Design)
    Component-level styles live in their respective .razor files.
    This file owns global / body-level rules and CSS custom properties.
    -------------------------------------------------------------------------- */
@@ -69,10 +69,10 @@
     --app-shadow-md:          0 16px 36px rgba(15, 23, 42, 0.16);
     --app-shadow-lg:          0 22px 48px rgba(15, 23, 42, 0.24);
     --app-inset-glow:         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    --app-dock-width:         0px;   /* Dock is floating — does not offset content */
+    --app-dock-width:         0px;   /* Dock is floating - does not offset content */
     --app-topbar-height:      72px;
 
-    /* Dock panel — dark blue glassmorphic */
+    /* Dock panel - dark blue glassmorphic */
     --app-dock-bg:            rgba(8, 13, 30, 0.92);
     --app-dock-border:        rgba(255, 255, 255, 0.09);
     --app-dock-text:          rgba(248, 248, 248, 0.82);
@@ -205,6 +205,42 @@ body {
 .mud-dialog {
     z-index: var(--app-z-modal) !important;
 }
+/* Collection editors use the Mud dialog itself as the form surface. */
+.mud-dialog.collection-editor-dialog {
+    background: #1b1c22 !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-md) !important;
+    box-shadow: var(--app-shadow-lg) !important;
+    overflow: hidden !important;
+}
+
+.mud-dialog.collection-editor-dialog .mud-dialog-content {
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.mud-dialog.collection-editor-dialog .app-dialog-shell {
+    width: 100% !important;
+    max-height: min(88vh, 900px) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.mud-dialog.collection-editor-dialog .collection-editor-field:not(.app-dialog-textarea) .mud-input-control,
+.mud-dialog.collection-editor-dialog .collection-editor-field:not(.app-dialog-textarea) .mud-input {
+    min-height: 42px !important;
+}
+
+.mud-dialog.collection-editor-dialog .collection-editor-field:not(.app-dialog-textarea) input.mud-input-root {
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+}
+
+.mud-dialog.collection-editor-dialog .collection-editor-field.app-dialog-textarea {
+    margin-top: 8px !important;
+}
 
 
 /* Paces-style default tabs: simple bordered navigation, no heavy pill/card treatment. */
@@ -256,7 +292,7 @@ body {
     background: rgba(255, 255, 255, 0.03) !important;
 }
 
-/* -- Shared primary CTA button — used by CollectionHero + CollectionDetail -------- */
+/* -- Shared primary CTA button - used by CollectionHero + CollectionDetail -------- */
 .collection-primary-cta {
     position: relative;
     display: flex;
@@ -304,7 +340,7 @@ body {
     transition: width 0.4s ease;
 }
 
-/* -- Page ambient background — dominant colour radiates from hero across full viewport -- */
+/* -- Page ambient background - dominant colour radiates from hero across full viewport -- */
 /* Fixed behind all content, uses the hero collection's dominant hex colour as a soft top glow.  */
 .page-ambient-bg {
     position: fixed;
@@ -324,7 +360,7 @@ body {
    Settings and other management pages use these classes to stay consistent
    with the Vault's visual language. ------------------------------------ */
 
-/* Section card — replaces MudPaper inline styles */
+/* Section card - replaces MudPaper inline styles */
 .st-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -342,7 +378,7 @@ body {
     margin-bottom: 16px;
 }
 
-/* Section header label — small caps above a section */
+/* Section header label - small caps above a section */
 .st-label {
     font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 10px;
@@ -353,7 +389,7 @@ body {
     margin-bottom: 4px;
 }
 
-/* Section title — larger heading above content block */
+/* Section title - larger heading above content block */
 .st-section-title {
     font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.85rem;
@@ -363,7 +399,7 @@ body {
     margin-bottom: 4px;
 }
 
-/* Accent section title — golden for featured panels */
+/* Accent section title - golden for featured panels */
 .st-section-title--accent {
     color: #C9922E;
 }
@@ -385,7 +421,7 @@ body {
     flex-shrink: 0;
 }
 
-/* Toggle row — label + description on left, control on right */
+/* Toggle row - label + description on left, control on right */
 .st-toggle-row {
     display: flex;
     align-items: center;
@@ -480,7 +516,7 @@ body {
     object-position: center top;
 }
 
-/* When no hero.jpg exists — CSS-blur the cover art as fallback. */
+/* When no hero.jpg exists - CSS-blur the cover art as fallback. */
 .detail-hero-cover-blur img {
     filter: blur(40px) saturate(0.6);
     transform: scale(1.1);
@@ -862,32 +898,40 @@ body {
 
 .app-line-tabs .mud-tabs-toolbar,
 .mud-tabs-toolbar {
-    min-height: 48px;
+    min-height: 42px !important;
     background: transparent !important;
-    border-bottom: 1px solid var(--app-border);
+    border-bottom: 1px solid var(--app-border) !important;
 }
 
 .app-line-tabs .mud-tab,
 .mud-tab {
-    min-height: 48px;
-    padding: 0 16px !important;
+    min-height: 42px !important;
+    padding: 0 16px 10px !important;
+    border-radius: 0 !important;
     color: var(--app-text-muted) !important;
     font-size: 14px !important;
     font-weight: 700 !important;
     text-transform: none !important;
+    white-space: nowrap !important;
+    max-width: 180px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
+.app-line-tabs .mud-tab:hover,
+.mud-tab:hover,
 .app-line-tabs .mud-tab.mud-tab-active,
 .mud-tab.mud-tab-active {
-    color: var(--app-primary) !important;
+    color: var(--app-accent-blue) !important;
+    background: transparent !important;
 }
 
 .mud-tabs-toolbar .mud-tabs-toolbar-content .mud-tabs-toolbar-inner {
-    min-height: 48px;
+    min-height: 42px !important;
 }
 
 .mud-tab-slider {
-    background: var(--app-primary) !important;
+    background: var(--app-accent-blue) !important;
     height: 2px !important;
 }
 
@@ -1503,3 +1547,419 @@ code,
 .app-media-card__meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 
 .settings-internal-tool { display: flex; flex-direction: column; gap: 16px; padding: 0; }
+
+/* ---------------------------------------------------------------------------
+   Tuvima token-backed application system
+   Final cascade layer: maps legacy app variables to the canonical token file
+   and provides shared cards, buttons, tabs, filters, forms, tables, statuses.
+   -------------------------------------------------------------------------- */
+
+:root {
+    --app-font-sans: "Nunito", "Segoe UI", sans-serif;
+    --app-font-brand: "Montserrat", "Segoe UI", sans-serif;
+    --app-bg: var(--tl-bg-root);
+    --app-shell-bg: var(--tl-bg-shell);
+    --app-surface: var(--tl-bg-surface);
+    --app-surface-1: var(--tl-bg-surface);
+    --app-surface-2: var(--tl-bg-surface-raised);
+    --app-surface-3: var(--tl-bg-surface-hover);
+    --app-surface-elev-1: var(--tl-bg-surface-elevated);
+    --app-surface-muted: rgba(21, 30, 47, 0.72);
+    --app-border: var(--tl-border-default);
+    --app-border-subtle: var(--tl-border-subtle);
+    --app-border-strong: var(--tl-border-strong);
+    --app-text-primary: var(--tl-text-primary);
+    --app-text-secondary: var(--tl-text-secondary);
+    --app-text-muted: var(--tl-text-muted);
+    --app-text-soft: var(--tl-text-secondary);
+    --app-text-faint: var(--tl-text-disabled);
+    --app-primary: var(--tl-accent-primary);
+    --app-primary-hover: var(--tl-accent-primary-hover);
+    --app-primary-active: var(--tl-accent-primary-active);
+    --app-secondary: var(--tl-accent-secondary);
+    --app-accent: var(--tl-accent-primary);
+    --app-accent-blue: var(--tl-accent-secondary);
+    --app-success: var(--tl-status-success);
+    --app-info: var(--tl-status-info);
+    --app-warning: var(--tl-status-warning);
+    --app-error: var(--tl-status-danger);
+    --app-radius-xs: var(--tl-radius-xs);
+    --app-radius-sm: var(--tl-radius-sm);
+    --app-radius-md: var(--tl-radius-md);
+    --app-radius-lg: var(--tl-radius-lg);
+    --app-radius-xl: var(--tl-radius-xl);
+    --app-card-padding: var(--tl-space-5);
+    --app-section-padding: var(--tl-space-6);
+    --app-shadow: var(--tl-shadow-sm);
+    --app-shadow-md: var(--tl-shadow-md);
+    --app-shadow-lg: var(--tl-shadow-lg);
+    --app-topbar-height: 65px;
+    --app-hover-overlay: rgba(255, 255, 255, 0.04);
+    --app-active-overlay: var(--tl-accent-primary-soft);
+    --app-glass-bg: var(--app-surface);
+    --app-glass-border: var(--app-border);
+    --app-glass-inner-bg: var(--app-surface-2);
+    --app-glass-inner-border: var(--app-border);
+    --app-focus-ring: var(--tl-shadow-focus);
+}
+
+html,
+body,
+.app-bg,
+.mud-main-content {
+    background: var(--tl-bg-app-gradient) fixed !important;
+    color: var(--tl-text-primary) !important;
+}
+
+.layout-shell__appbar,
+.mud-appbar,
+.mud-drawer {
+    background: var(--tl-bg-shell) !important;
+    color: var(--tl-text-primary) !important;
+    border-color: var(--tl-divider) !important;
+}
+
+.layout-shell__nav-link {
+    color: var(--tl-text-secondary) !important;
+    border: 1px solid transparent;
+}
+
+.layout-shell__nav-link:hover,
+.layout-shell__nav-link--active {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-accent-primary-soft) !important;
+    border-color: var(--tl-accent-primary-border) !important;
+}
+
+.layout-shell__nav-link::after {
+    background: var(--tl-accent-primary) !important;
+}
+
+.tl-page,
+.st-page {
+    width: 100%;
+    min-height: 100%;
+    color: var(--tl-text-primary);
+}
+
+.tl-page-header,
+.app-page-header,
+.st-page-header {
+    color: var(--tl-text-primary);
+}
+
+.tl-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-4);
+}
+
+.tl-card,
+.app-card,
+.app-section-card,
+.app-table-shell,
+.st-card,
+.settings-overview-card,
+.settings-system-card,
+.settings-system-shell,
+.app-surface-card,
+.mud-paper {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface) !important;
+    border: 1px solid var(--tl-border-subtle) !important;
+    border-radius: var(--tl-radius-lg) !important;
+    box-shadow: none !important;
+}
+
+.tl-card-raised,
+.st-card--accent,
+.app-stat-card,
+.settings-overview-metric,
+.settings-system-metric {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-raised) !important;
+    border: 1px solid var(--tl-border-default) !important;
+    border-radius: var(--tl-radius-lg) !important;
+    box-shadow: var(--tl-shadow-md) !important;
+}
+
+.tl-card-selected,
+.app-media-card.is-selected,
+.mud-table-row.selected,
+.mud-table-row.mud-selected,
+.mud-data-grid .mud-selected {
+    background: var(--tl-accent-primary-soft) !important;
+    border-color: var(--tl-accent-primary-border) !important;
+}
+
+.tl-card-warning,
+.tl-card-review {
+    background: var(--tl-status-warning-soft) !important;
+    border-color: var(--tl-status-warning-border) !important;
+}
+
+.tl-button-primary,
+.mud-button-filled-primary,
+.collection-primary-cta,
+.listen-player__play {
+    color: var(--tl-text-on-accent) !important;
+    background: var(--tl-gradient-primary) !important;
+    border-color: var(--tl-accent-primary-border) !important;
+    box-shadow: none !important;
+}
+
+.tl-button-primary:hover,
+.mud-button-filled-primary:hover,
+.collection-primary-cta:hover {
+    background: var(--tl-accent-primary-hover) !important;
+}
+
+.tl-button-secondary,
+.mud-button-outlined,
+.mud-button-filled-secondary {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-raised) !important;
+    border-color: var(--tl-border-default) !important;
+}
+
+.tl-button-quiet,
+.tl-button-ghost,
+.mud-button-text,
+.mud-icon-button {
+    color: var(--tl-text-secondary) !important;
+    background: transparent !important;
+}
+
+.tl-button-quiet:hover,
+.tl-button-ghost:hover,
+.mud-button-text:hover,
+.mud-icon-button:hover {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-hover) !important;
+}
+
+.tl-button-warning,
+.mud-button-filled-warning {
+    color: var(--tl-text-on-warning) !important;
+    background: var(--tl-status-warning) !important;
+}
+
+.tl-button-danger,
+.mud-button-filled-error {
+    color: var(--tl-text-on-accent) !important;
+    background: var(--tl-status-danger) !important;
+}
+
+.tl-status-pill,
+.app-status-badge,
+.mud-chip,
+.mud-badge {
+    border-radius: var(--tl-radius-sm) !important;
+    font-weight: 700 !important;
+}
+
+.app-status-badge--success,
+.tl-status-pill--success,
+.health-online {
+    color: var(--tl-status-success) !important;
+    background: var(--tl-status-success-soft) !important;
+    border-color: var(--tl-status-success-border) !important;
+}
+
+.app-status-badge--warning,
+.tl-status-pill--warning,
+.health-degraded {
+    color: var(--tl-status-warning) !important;
+    background: var(--tl-status-warning-soft) !important;
+    border-color: var(--tl-status-warning-border) !important;
+}
+
+.app-status-badge--error,
+.app-status-badge--danger,
+.tl-status-pill--danger,
+.health-offline {
+    color: var(--tl-status-danger) !important;
+    background: var(--tl-status-danger-soft) !important;
+    border-color: var(--tl-status-danger-border) !important;
+}
+
+.app-status-badge--info,
+.tl-status-pill--info {
+    color: var(--tl-status-info) !important;
+    background: var(--tl-status-info-soft) !important;
+    border-color: var(--tl-status-info-border) !important;
+}
+
+.app-status-badge--primary,
+.tl-status-pill--primary {
+    color: var(--tl-accent-primary) !important;
+    background: var(--tl-accent-primary-soft) !important;
+    border-color: var(--tl-accent-primary-border) !important;
+}
+
+.tl-tabs,
+.app-line-tabs .mud-tabs-toolbar,
+.mud-tabs-toolbar {
+    background: transparent !important;
+    border-bottom: 1px solid var(--tl-divider) !important;
+}
+
+.tl-tabs .mud-tab,
+.mud-tab {
+    color: var(--tl-text-secondary) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--tl-radius-sm) var(--tl-radius-sm) 0 0 !important;
+}
+
+.tl-tabs .mud-tab:hover,
+.mud-tab:hover {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-hover) !important;
+}
+
+.tl-tabs .mud-tab.mud-tab-active,
+.mud-tab.mud-tab-active {
+    color: var(--tl-accent-primary) !important;
+    background: var(--tl-accent-primary-soft) !important;
+    border-color: var(--tl-accent-primary-border) !important;
+}
+
+.mud-tab-slider,
+.mud-tabs-toolbar .mud-tabs-inkbar {
+    background: var(--tl-accent-primary) !important;
+}
+
+.tl-toolbar,
+.app-filter-bar,
+.app-toolbar {
+    background: var(--tl-bg-surface-raised) !important;
+    border: 1px solid var(--tl-border-subtle) !important;
+    border-radius: var(--tl-radius-lg) !important;
+}
+
+.mud-input-slot,
+.mud-input-outlined,
+.mud-input-filled-control,
+.mud-select-input,
+.mud-autocomplete,
+.layout-shell__search .mud-input-slot {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-raised) !important;
+    border-radius: var(--tl-radius-sm) !important;
+}
+
+.mud-input-outlined-border,
+.layout-shell__search .mud-input-outlined-border {
+    border-color: var(--tl-border-default) !important;
+}
+
+.mud-input-focused .mud-input-outlined-border,
+.mud-input-outlined-border:focus-within {
+    border-color: var(--tl-accent-primary) !important;
+    box-shadow: var(--tl-shadow-focus) !important;
+}
+
+.mud-table-container,
+.mud-data-grid,
+.mud-simple-table,
+.listen-track-grid {
+    background: var(--tl-bg-surface) !important;
+    border-color: var(--tl-border-subtle) !important;
+}
+
+.mud-table thead th,
+.mud-data-grid thead th,
+.mud-simple-table thead th,
+.mud-table-cell.column-header {
+    color: var(--tl-text-muted) !important;
+    background: var(--tl-bg-surface-raised) !important;
+    border-bottom-color: var(--tl-divider) !important;
+}
+
+.mud-table tbody td,
+.mud-data-grid tbody td,
+.mud-simple-table tbody td,
+.mud-table-cell,
+.app-activity-row,
+.listen-player-panel__item,
+.listen-player-panel__item-main {
+    border-bottom-color: var(--tl-divider) !important;
+}
+
+.mud-table-hover .mud-table-row:hover,
+.mud-data-grid .mud-table-row:hover,
+.mud-table tbody tr:hover {
+    background: var(--tl-bg-surface-hover) !important;
+}
+
+.mud-menu,
+.mud-popover,
+.mud-list,
+.mud-dialog,
+.mud-dialog.sme-dialog,
+.mud-dialog.sme-dialog .mud-dialog-content {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-elevated) !important;
+    border-color: var(--tl-border-default) !important;
+    box-shadow: var(--tl-shadow-lg) !important;
+}
+
+.mud-progress-linear {
+    background: var(--tl-bg-surface-raised) !important;
+}
+
+.tl-muted,
+.app-card-subtitle,
+.app-section-card__description,
+.app-settings-header__description,
+.st-body,
+.st-label,
+.st-page-subtitle,
+.app-page-header__subtitle,
+.app-surface-card__description {
+    color: var(--tl-text-muted) !important;
+}
+
+.tl-divider,
+.st-rule {
+    background: var(--tl-divider) !important;
+    border-color: var(--tl-divider) !important;
+}
+/* Dialog-specific overrides must stay after the global surface layer. */
+.mud-dialog.collection-editor-dialog {
+    background: #1b1c22 !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-md) !important;
+    box-shadow: var(--app-shadow-lg) !important;
+    overflow: hidden !important;
+}
+
+.mud-dialog.collection-editor-dialog .mud-dialog-content {
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.mud-dialog.collection-editor-dialog .app-dialog-shell {
+    width: 100% !important;
+    max-height: min(88vh, 900px) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.mud-dialog.sme-dialog {
+    width: min(100vw - 32px, 1040px) !important;
+    max-width: 1040px !important;
+    background: #1b1c22 !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-md) !important;
+    box-shadow: var(--app-shadow-lg) !important;
+    overflow: hidden !important;
+}
+
+.mud-dialog.sme-dialog .mud-dialog-content {
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: transparent !important;
+}

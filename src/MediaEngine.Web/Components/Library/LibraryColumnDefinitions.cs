@@ -24,7 +24,7 @@ public sealed class LibraryColumnDef
     /// <summary>Sort parameter key (maps to API sort param).</summary>
     public string? SortKey { get; init; }
 
-    /// <summary>Column render type â€” determines which template the table uses.</summary>
+    /// <summary>Column render type  -  determines which template the table uses.</summary>
     public ColumnRenderType RenderType { get; init; } = ColumnRenderType.Text;
 
     /// <summary>Property path on LibraryItemViewModel to read value from (for Text/Date columns).</summary>
@@ -74,7 +74,7 @@ public enum ColumnRenderType
     ManageActions,
     /// <summary>Compact cell: small icon + title only, for dense list views (Apple Music style).</summary>
     CompactCell,
-    /// <summary>Clickable text â€” splits on common delimiters and renders each part as a button invoking OnAuthorClicked.</summary>
+    /// <summary>Clickable text  -  splits on common delimiters and renders each part as a button invoking OnAuthorClicked.</summary>
     ClickableText,
     /// <summary>Small standalone cover art thumbnail (32x32, no overlay badge).</summary>
     CoverThumb,
@@ -119,7 +119,7 @@ public static class LibraryColumnDefinitions
         RenderType = ColumnRenderType.TitleCell,
     };
 
-    // â”€â”€ People tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- People tab ------------------------------------------------------------
 
     /// <summary>Returns the column definitions for the People tab.</summary>
     public static List<LibraryColumnDef> GetPeopleColumns() =>
@@ -130,7 +130,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "presence", Label = "In Library", Width = "20%", Align = "right", Sortable = true, SortKey = "presence", RenderType = ColumnRenderType.PresenceCount },
     ];
 
-    // â”€â”€ Universes tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Universes tab ---------------------------------------------------------
 
     /// <summary>Returns the column definitions for the Universes tab.</summary>
     public static List<LibraryColumnDef> GetUniverseColumns() =>
@@ -142,7 +142,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "peoplecount",    Label = "People",    Width = "15%", Align = "center", Sortable = true, SortKey = "people_count", RenderType = ColumnRenderType.Count,          PropertyName = "PeopleCount" },
     ];
 
-    // â”€â”€ Collections tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Collections tab --------------------------------------------------------------
 
     /// <summary>Returns the column definitions for the Collections tab.</summary>
     public static List<LibraryColumnDef> GetCollectionColumns() =>
@@ -155,7 +155,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "featured",  Label = "Featured", Width = "10%", Align = "center", RenderType = ColumnRenderType.Text, PropertyName = "Featured" },
     ];
 
-    // â”€â”€ Action Center tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Action Center tab ----------------------------------------------------
 
     /// <summary>Returns the column definitions for the Action Center tab.</summary>
     public static List<LibraryColumnDef> GetActionCenterColumns() =>
@@ -168,9 +168,9 @@ public static class LibraryColumnDefinitions
         new() { Key = "manage", Label = "",       Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // â”€â”€ Per-tab flat columns (metadata-focused) â”€â”€
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // =======================================================================
+    // -- Per-tab flat columns (metadata-focused) --
+    // =======================================================================
 
     /// <summary>Resolves columns by tab ID for the per-media-type tab layout.</summary>
     public static List<LibraryColumnDef> GetColumnsByTab(string tabId) =>
@@ -203,7 +203,7 @@ public static class LibraryColumnDefinitions
         };
     }
 
-    // â”€â”€ New (recently added) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- New (recently added) ---------------------------------------------
 
     private static List<LibraryColumnDef> NewTabColumns() =>
     [
@@ -217,7 +217,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "size",    Label = "Size",    Width = "80px",  Sortable = true, SortKey = "size", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
     ];
 
-    // â”€â”€ Movies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Movies -----------------------------------------------------------
 
     private static List<LibraryColumnDef> MoviesColumns() =>
     [
@@ -231,7 +231,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "size",     Label = "Size",       Width = "80px", Sortable = true, SortKey = "size",     RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
     ];
 
-    // â”€â”€ TV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- TV ---------------------------------------------------------------
 
     private static List<LibraryColumnDef> TvColumns() =>
     [
@@ -245,7 +245,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "size",     Label = "Size",       Width = "80px", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
     ];
 
-    // â”€â”€ Music â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Music ------------------------------------------------------------
 
     private static List<LibraryColumnDef> MusicColumns() =>
     [
@@ -275,7 +275,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "year",         Label = "Year",         Width = "80px",  Align = "center", DefaultVisible = false, Sortable = true, SortKey = "year",         RenderType = ColumnRenderType.Text,        PropertyName = "Year" },
     ];
 
-    // â”€â”€ Books â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Books ------------------------------------------------------------
 
     private static List<LibraryColumnDef> BooksColumns() =>
     [
@@ -288,7 +288,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "format", Label = "Format", Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
     ];
 
-    // â”€â”€ Audiobooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Audiobooks -------------------------------------------------------
 
     private static List<LibraryColumnDef> AudiobooksColumns() =>
     [
@@ -303,7 +303,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "format",   Label = "Format",   Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
     ];
 
-    // â”€â”€ Comics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Comics -----------------------------------------------------------
 
     private static List<LibraryColumnDef> ComicsColumns() =>
     [
@@ -317,9 +317,9 @@ public static class LibraryColumnDefinitions
         new() { Key = "format",   Label = "Format", Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
     ];
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // â”€â”€ Container-level columns (for grouped/container views) â”€â”€
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // =======================================================================
+    // -- Container-level columns (for grouped/container views) --
+    // =======================================================================
 
     /// <summary>Resolves container-level columns by tab ID.</summary>
     public static List<LibraryColumnDef> GetContainerColumnsByTab(string tabId) =>
@@ -344,7 +344,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "year",      Label = "Year",     Width = "80px", Align = "center", RenderType = ColumnRenderType.Text, PropertyName = "Year" },
     ];
 
-    // â”€â”€ Movie Series containers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Movie Series containers ------------------------------------------
 
     private static List<LibraryColumnDef> MovieSeriesContainerColumns() =>
     [
@@ -354,7 +354,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "year",      Label = "Year Range", Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Year" },
     ];
 
-    // â”€â”€ TV Show containers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- TV Show containers -----------------------------------------------
 
     private static List<LibraryColumnDef> TvShowContainerColumns() =>
     [
@@ -366,7 +366,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "year",      Label = "Year",      Width = "80px", Align = "center", RenderType = ColumnRenderType.Text, PropertyName = "Year" },
     ];
 
-    // â”€â”€ Music Artist containers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Music Artist containers ------------------------------------------
 
     private static List<LibraryColumnDef> MusicArtistContainerColumns() =>
     [
@@ -376,7 +376,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "tracks",    Label = "Tracks",    Width = "80px", Align = "center", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
     ];
 
-    // â”€â”€ Book Series containers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Book Series containers -------------------------------------------
 
     private static List<LibraryColumnDef> BookSeriesContainerColumns() =>
     [
@@ -386,7 +386,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "books",     Label = "Books",     Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
     ];
 
-    // â”€â”€ Audiobook Series containers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Audiobook Series containers --------------------------------------
 
     private static List<LibraryColumnDef> AudiobookSeriesContainerColumns() =>
     [
@@ -396,7 +396,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "audiobooks", Label = "Audiobooks",  Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
     ];
 
-    // â”€â”€ Comic Series containers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Comic Series containers ------------------------------------------
 
     private static List<LibraryColumnDef> ComicSeriesContainerColumns() =>
     [

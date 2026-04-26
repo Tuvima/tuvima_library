@@ -157,7 +157,7 @@
 
             if (string.IsNullOrWhiteSpace(key))
             {
-                // No container â€” emit as a standalone single-item group.
+                // No container  -  emit as a standalone single-item group.
                 result.Add(new ContainerGroup(item.EntityId.ToString(), item.Title, [item]));
                 continue;
             }
@@ -464,7 +464,7 @@
         background: rgba(244, 63, 94, 0.15);
     }
 
-    /* â”€â”€ Mobile â”€â”€ */
+    /* -- Mobile -- */
     @@media (max-width: 768px) {
         .vac-summary {
             padding: 8px 12px;

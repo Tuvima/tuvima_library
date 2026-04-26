@@ -2485,7 +2485,7 @@ public sealed class EngineApiClient : IEngineApiClient
     /// Cleared on next successful call.
     /// </summary>
 
-    // â”€â”€ Fan-out metadata search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Fan-out metadata search -----------------------------------------
 
     public async Task<FanOutSearchResponseViewModel?> SearchMetadataFanOutAsync(
         string query, string? mediaType = null, string? providerId = null,
@@ -2548,7 +2548,7 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
 
-    // â”€â”€ Canonical values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Canonical values ------------------------------------------------
 
     public async Task<List<CanonicalFieldViewModel>> GetCanonicalValuesAsync(
         Guid entityId, CancellationToken ct = default)
@@ -2571,7 +2571,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // â”€â”€ Cover from URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Cover from URL --------------------------------------------------
 
     public async Task<bool> ApplyCoverFromUrlAsync(
         Guid entityId, string imageUrl, CancellationToken ct = default)

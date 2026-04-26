@@ -2,13 +2,13 @@
 @namespace MediaEngine.Web.Components.Library
 @inject IStringLocalizer<SharedStrings> L
 
-@* â”€â”€ Person Biography Drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+@* -- Person Biography Drawer -------------------------------------------------
    Renders the full biography layout for a person inside a detail drawer.
    Can be used from LibraryDetailDrawer, future Work detail pages, or any
    context where a person is clicked.
-   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+   ---------------------------------------------------------------------------- *@
 
-@* â”€â”€ Biography section â”€â”€ *@
+@* -- Biography section -- *@
 <DrawerSection Title="Biography" Icon="@Icons.Material.Outlined.AutoStories" DefaultOpen="true">
     @if (!string.IsNullOrEmpty(Person.Biography))
     {
@@ -20,15 +20,15 @@
     }
 </DrawerSection>
 
-@* â”€â”€ Social Links â”€â”€ *@
+@* -- Social Links -- *@
 @{
     bool hasSocialLinks = !string.IsNullOrEmpty(Person.Biography); // fallback check via Occupation
     // Compute social link presence from the PersonListItemDto fields
-    // PersonListItemDto doesn't have social fields â€” those live in PersonDetailViewModel
+    // PersonListItemDto doesn't have social fields  -  those live in PersonDetailViewModel
     // So we just render nothing if Person doesn't have them (will be enhanced in future)
 }
 
-@* â”€â”€ In Your Library â”€â”€ *@
+@* -- In Your Library -- *@
 <DrawerSection Title="In Your Library" Icon="@Icons.Material.Outlined.LibraryBooks" DefaultOpen="true">
     @if (_roleGroups.Count > 0)
     {
@@ -86,7 +86,7 @@
     }
 </DrawerSection>
 
-@* â”€â”€ Linked Identities â”€â”€ *@
+@* -- Linked Identities -- *@
 <DrawerSection Title="@L["VaultDetail_SectionLinkedIdentities"]" Icon="@Icons.Material.Outlined.Fingerprint" DefaultOpen="false">
     <div class="pbd-identities">
         <span class="vdd-field-label">@(Person.IsPseudonym ? L["VaultDetail_FieldRealPeople"] : L["VaultDetail_FieldPenNames"])</span>
@@ -121,7 +121,7 @@
     </div>
 </DrawerSection>
 
-@* â”€â”€ Members (for groups/bands) â”€â”€ *@
+@* -- Members (for groups/bands) -- *@
 @if (Person.IsGroup && GroupMembers?.Count > 0)
 {
     <DrawerSection Title="Members" Icon="@Icons.Material.Outlined.Groups" DefaultOpen="true">
@@ -146,7 +146,7 @@
     </DrawerSection>
 }
 
-@* â”€â”€ Member of (for individuals who belong to groups) â”€â”€ *@
+@* -- Member of (for individuals who belong to groups) -- *@
 @if (!Person.IsGroup && MemberOfGroups?.Count > 0)
 {
     <DrawerSection Title="Member of" Icon="@Icons.Material.Outlined.Groups" DefaultOpen="true">
@@ -171,7 +171,7 @@
     </DrawerSection>
 }
 
-@* â”€â”€ Character Roles â”€â”€ *@
+@* -- Character Roles -- *@
 @if (PersonCharacterRoles.Count > 0)
 {
     <DrawerSection Title="@L["VaultDetail_SectionCharacterRoles"]" Icon="@Icons.Material.Outlined.TheaterComedy" DefaultOpen="false">
@@ -208,12 +208,12 @@
     </DrawerSection>
 }
 
-@* â”€â”€ History Timeline â”€â”€ *@
+@* -- History Timeline -- *@
 <DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
     <LibraryTimeline EntityId="@Person.Id" />
 </DrawerSection>
 
-@* â”€â”€ Assets â”€â”€ *@
+@* -- Assets -- *@
 <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
     <div class="vdd-assets">
         @* Headshot *@
@@ -334,7 +334,7 @@
 }
 
 <style>
-    /* â”€â”€ Biography text â”€â”€ */
+    /* -- Biography text -- */
     .pbd-biography {
         font-size: 13px;
         line-height: 1.7;
@@ -342,7 +342,7 @@
         margin: 0;
     }
 
-    /* â”€â”€ Occupation subtitle in header â”€â”€ */
+    /* -- Occupation subtitle in header -- */
     .pbd-occupation {
         font-size: 11px;
         font-style: italic;
@@ -350,14 +350,14 @@
         margin-top: 2px;
     }
 
-    /* â”€â”€ Last enriched tiny date â”€â”€ */
+    /* -- Last enriched tiny date -- */
     .pbd-last-enriched {
         font-size: 10px;
         color: rgba(255, 255, 255, 0.2);
         margin-top: 4px;
     }
 
-    /* â”€â”€ Social link buttons â”€â”€ */
+    /* -- Social link buttons -- */
     .pbd-social-row {
         display: flex;
         flex-wrap: wrap;
@@ -385,7 +385,7 @@
         color: rgba(255, 255, 255, 0.9);
     }
 
-    /* â”€â”€ Role groups â”€â”€ */
+    /* -- Role groups -- */
     .pbd-role-group {
         display: flex;
         flex-direction: column;
@@ -411,7 +411,7 @@
         gap: 2px;
     }
 
-    /* â”€â”€ Work row â”€â”€ */
+    /* -- Work row -- */
     .pbd-work-row {
         display: flex;
         align-items: center;
@@ -474,7 +474,7 @@
         letter-spacing: 0.04em;
     }
 
-    /* â”€â”€ Identity items â”€â”€ */
+    /* -- Identity items -- */
     .pbd-identity-items {
         display: flex;
         flex-direction: column;
@@ -482,21 +482,21 @@
         margin-top: 6px;
     }
 
-    /* â”€â”€ Identities container â”€â”€ */
+    /* -- Identities container -- */
     .pbd-identities {
         display: flex;
         flex-direction: column;
         gap: 4px;
     }
 
-    /* â”€â”€ Members list â”€â”€ */
+    /* -- Members list -- */
     .pbd-members-list {
         display: flex;
         flex-direction: column;
         gap: 2px;
     }
 
-    /* â”€â”€ Empty hint â”€â”€ */
+    /* -- Empty hint -- */
     .pbd-empty-hint {
         font-size: 12px;
         font-style: italic;
@@ -505,7 +505,7 @@
         padding: 4px 0;
     }
 
-    /* â”€â”€ Show more button â”€â”€ */
+    /* -- Show more button -- */
     .pbd-show-more-btn {
         display: flex;
         align-items: center;
