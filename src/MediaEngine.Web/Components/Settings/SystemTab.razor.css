@@ -1,4 +1,4 @@
-.settings-system-page {
+﻿.settings-system-page {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -58,7 +58,7 @@
     gap: 1.25rem;
 }
 
-::deep .settings-system-shell .st-page {
+::deep .settings-system-shell .tl-page {
     padding: 0;
     background: transparent;
     border: none;

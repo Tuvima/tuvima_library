@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Collections
+﻿@namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
 
@@ -449,7 +449,7 @@
     }
 
     .collections-tab-row {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
         padding-bottom: 12px;
     }
 
@@ -486,7 +486,7 @@
     }
 
     .collections-table-wrap {
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: var(--app-radius-md);
         background: rgba(7, 11, 19, 0.88);
     }
@@ -560,7 +560,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--tl-divider);
         color: rgba(248, 248, 248, 0.45);
     }
 
@@ -593,12 +593,12 @@
     }
 
     .collections-status-active {
-        background: rgba(93, 202, 165, 0.18) !important;
+        background: var(--tl-status-success-soft) !important;
         color: var(--tl-status-success) !important;
     }
 
     .collections-status-disabled {
-        background: rgba(255, 255, 255, 0.08) !important;
+        background: var(--tl-border-subtle) !important;
         color: rgba(248, 248, 248, 0.55) !important;
     }
 

@@ -1,9 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
-
-@* TrackRow — Compact Spotify-style row used by ListenPage "All Songs".
-   Layout: [index] [cover] [title + artist] [album] [duration] [play hover].
-   The Album and Duration columns collapse on narrow viewports. *@
-
+﻿@namespace MediaEngine.Web.Components.Universe
 <div class="track-row" @onclick="HandleClick">
     <div class="track-row-index">
         <span class="track-row-number">@(Index?.ToString() ?? "\u2022")</span>
@@ -19,7 +14,7 @@
         else
         {
             <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MusicNote"
-                     Style="font-size: 18px; color: rgba(255,255,255,0.25);" />
+                     Style="font-size: 18px; color: var(--tl-text-faint);" />
         }
     </div>
 
@@ -66,7 +61,7 @@
     }
 
     .track-row:hover {
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
     }
 
     .track-row-index {

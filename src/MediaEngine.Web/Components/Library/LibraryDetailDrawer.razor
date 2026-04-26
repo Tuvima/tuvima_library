@@ -16,7 +16,7 @@
     <div class="vdd-header">
         <MudIconButton Icon="@Icons.Material.Outlined.Close"
                        Size="Size.Small"
-                       Style="position:absolute;top:24px;right:24px;color:rgba(255,255,255,0.5);"
+                       Style="position:absolute;top:24px;right:24px;color:var(--tl-text-muted);"
                        OnClick="OnClose" />
 
         @if (MediaItem is not null)
@@ -196,7 +196,7 @@
                 @* Pinned file path header *@
                 <div class="vdd-details-path">
                     <div class="vdd-details-path-name">
-                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 14px; color: rgba(255,255,255,0.35);" />
+                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 14px; color: var(--tl-text-muted);" />
                         <span>@(MediaItem.FileName ?? " - ")</span>
                     </div>
                     @if (!string.IsNullOrEmpty(detailsFolder))
@@ -247,7 +247,7 @@
                             @if (_claimsLoading)
                             {
                                 <div style="padding: 8px 0; text-align: center;">
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
                                 </div>
                             }
                             else
@@ -339,7 +339,7 @@
                                     @* Main search row *@
                                     <div class="vdd-search-main-row">
                                         <div class="vdd-search-input-group">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: var(--tl-text-muted);" />
 
                                             @* Primary field selector *@
                                             <MudSelect T="string"
@@ -433,7 +433,7 @@
                             @if (_searching)
                             {
                                 <div style="padding: 8px 0; text-align: center;">
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
                                 </div>
                             }
                             else if (_hasSearched && _retailSearchResults.Count == 0)
@@ -476,7 +476,7 @@
                                                     }
                                                     else
                                                     {
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 24px; color: rgba(255,255,255,0.15);" />
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 24px; color: var(--tl-border-strong);" />
                                                     }
                                                 </div>
                                                 <div class="vdd-result-title-block">
@@ -532,7 +532,7 @@
                                                             }
                                                             else
                                                             {
-                                                                <span style="color: rgba(255,255,255,0.2); font-size: 11px;"> - </span>
+                                                                <span style="color: var(--tl-text-faint); font-size: 11px;"> - </span>
                                                             }
                                                         </div>
                                                     </div>
@@ -636,7 +636,7 @@
                             @* Existing match status (below search and results) *@
                             @if (hasRetail)
                             {
-                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--tl-divider);">
                                     @{
                                         var retailDisplayName = GetRetailProviderDisplayName();
                                         var isManualMatch = MediaItem?.RetailMatch?.Equals("user_manual", StringComparison.OrdinalIgnoreCase) == true;
@@ -706,7 +706,7 @@
                                     </div>
                                     <div class="vdd-search-main-row">
                                         <div class="vdd-search-input-group">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: var(--tl-text-muted);" />
                                             <MudTextField T="string"
                                                           @bind-Value="_wikidataSearchQuery"
                                                           Placeholder="@(hasWikidata ? "Search for a different canonical entity..." : "Search by name or enter a QID...")"
@@ -735,7 +735,7 @@
                             @if (_searchingWikidata)
                             {
                                 <div style="padding: 8px 0; text-align: center;">
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
                                 </div>
                             }
                             else if (_hasSearchedWikidata && _wikidataSearchResults.Count == 0)
@@ -845,7 +845,7 @@
                                                                 }
                                                                 else
                                                                 {
-                                                                    <span style="color: rgba(255,255,255,0.2); font-size: 11px;"> - </span>
+                                                                    <span style="color: var(--tl-text-faint); font-size: 11px;"> - </span>
                                                                 }
                                                             </div>
                                                         </div>
@@ -933,7 +933,7 @@
                             @* Existing QID status (below search and results) *@
                             @if (hasWikidata)
                             {
-                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--tl-divider);">
                                     <div class="vdd-match-status vdd-match-status--ok">
                                         <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
                                         <a href="https://www.wikidata.org/wiki/@MediaItem?.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem?.WikidataQid</a>
@@ -1015,7 +1015,7 @@
                                 </div>
                             }
                             <div class="vdd-asset-slot">
-                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
                                 <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
                             </div>
                         </div>
@@ -1032,7 +1032,7 @@
                                 </div>
                             }
                             <div class="vdd-asset-slot">
-                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
                                 <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
                             </div>
                         </div>
@@ -1044,7 +1044,7 @@
                             <span class="vdd-asset-label">@assetType</span>
                             <div class="vdd-asset-items">
                                 <div class="vdd-asset-slot">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
                                     <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
                                 </div>
                             </div>
@@ -1083,7 +1083,7 @@
                     }
                     <div class="vdd-health-ring">
                         <svg width="64" height="64" viewBox="0 0 64 64">
-                            <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6" />
+                            <circle cx="32" cy="32" r="22" fill="none" stroke="var(--tl-border-subtle)" stroke-width="6" />
                             <circle cx="32" cy="32" r="22" fill="none"
                                     stroke="@ringColor" stroke-width="6"
                                     stroke-dasharray="@circumference.ToString("F1")"
@@ -1129,7 +1129,7 @@
                 @if (_loadingUniverseData)
                 {
                     <div style="padding: 12px 0; text-align: center;">
-                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
                     </div>
                 }
                 else if (_universeCharacters.Count == 0)
@@ -1149,7 +1149,7 @@
                                     }
                                     else
                                     {
-                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 20px; color: rgba(255,255,255,0.15);" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 20px; color: var(--tl-border-strong);" />
                                     }
                                 </div>
                                 <div class="vdd-character-info">
@@ -1198,7 +1198,7 @@
                         <div class="vdd-asset-row">
                             <span class="vdd-asset-label">@assetType</span>
                             <div class="vdd-asset-slot">
-                                <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: rgba(255,255,255,0.08);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: var(--tl-border-subtle);" />
                                 <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
                             </div>
                         </div>
@@ -1276,7 +1276,6 @@
     private string _selectedMediaType = "";
     private string _searchMediaType = "";
     private string _canonicalTargetGroup = "";
-    // New filter-based search state (replaces _activeSearchFields + _searchFieldValues)
     private string _primarySearchField = "title";
     private string _primarySearchValue = "";
     private List<(string FieldKey, string Value)> _searchFilters = [];
@@ -1303,13 +1302,9 @@
         _primarySearchValue = "";
         _searchFilters = [];
     }
-
-    // Universe data
     private UniverseHealthDto? _universeHealth;
     private IReadOnlyList<UniverseCharacterDto> _universeCharacters = [];
     private bool _loadingUniverseData;
-
-    // Person character roles
     private IReadOnlyList<CharacterRoleDto> _personCharacterRoles = [];
 
     private bool IsInLibrary => MediaItem?.IsReadyForLibrary == true
@@ -1327,21 +1322,14 @@
             _ => "vdd-location-chip--pending",
         };
     }
-
-    /// <summary>Returns true if the retail match is from an actual retail provider (not local_processor or library_scanner).</summary>
     private static bool IsRealRetailMatch(string? retailMatch) =>
         retailMatch is not "none" and not "" and not null
         && !retailMatch.Equals("local_processor", StringComparison.OrdinalIgnoreCase)
         && !retailMatch.Equals("library_scanner", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Returns true if a valid Wikidata QID is present (not null, empty, or NF-prefixed).</summary>
     private static bool IsWikidataMatched(string? qid) =>
         !string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Looks up the Wikipedia URL from claims, falling back to GoToLinkedPage for persons without claims.</summary>
     private string? GetWikipediaUrl()
     {
-        // Try claims first  -  stored wikipedia_url from Wikidata provider
         if (_claims is not null && _claims.Count > 0)
         {
             var wikiClaim = _claims.FirstOrDefault(c =>
@@ -1350,8 +1338,6 @@
                 && Uri.IsWellFormedUriString(c.ClaimValue, UriKind.Absolute));
             if (wikiClaim is not null) return wikiClaim.ClaimValue;
         }
-
-        // Fallback: construct from QID (media item or person)
         var qid = MediaItem?.WikidataQid ?? Person?.WikidataQid;
         if (!string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
             return $"https://www.wikidata.org/wiki/Special:GoToLinkedPage/{qid}/enwiki";
@@ -1432,13 +1418,6 @@
             StateHasChanged();
             _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
             _claimsLoading = false;
-
-            // Pre-fill retail search fields from file metadata.
-            // Primary field matches each provider's highest-priority search strategy:
-            //   Comics -> series (ComicVine volume_search)
-            //   TV -> show_name (TMDB show search)
-            //   Music -> artist (Apple API artistTerm)
-            //   Books/Audiobooks/Movies -> title
             _searchFilters = [];
             switch (MediaItem.MediaType)
             {
@@ -1496,8 +1475,6 @@
             }
             if (!string.IsNullOrEmpty(MediaItem.Year) && !_searchFilters.Any(f => f.FieldKey == "year"))
                 _searchFilters.Add(("year", MediaItem.Year));
-
-            // Pre-fill Wikidata search with title
             _wikidataSearchQuery = MediaItem.Title ?? "";
             _canonicalTargetGroup = GetDefaultCanonicalTargetGroup(MediaItem.MediaType);
         }
@@ -1572,8 +1549,6 @@
     {
         if (string.IsNullOrWhiteSpace(_wikidataSearchQuery) || string.IsNullOrWhiteSpace(_canonicalTargetGroup) || MediaItem is null)
             return;
-
-        // Direct QID entry  -  show as a result for confirmation, don't auto-confirm
         var trimmed = _wikidataSearchQuery.Trim();
         if (trimmed.StartsWith("Q", StringComparison.OrdinalIgnoreCase) && trimmed.Length > 1 && trimmed[1..].All(char.IsDigit))
         {
@@ -1632,8 +1607,6 @@
         _searchingWikidata = false;
         _hasSearchedWikidata = true;
     }
-
-    /// <summary>Gets the current resolved metadata for the File tab.</summary>
     private List<(string Label, string Value)> GetCurrentMetadataRows()
     {
         var rows = new List<(string, string)>();
@@ -1652,8 +1625,6 @@
         if (!string.IsNullOrEmpty(MediaItem.Series))
             rows.Add(("Series", MediaItem.Series + (!string.IsNullOrEmpty(MediaItem.SeriesPosition) ? $" #{MediaItem.SeriesPosition}" : "")));
         if (!string.IsNullOrEmpty(MediaItem.UniverseName)) rows.Add(("Universe", MediaItem.UniverseName));
-
-        // Music-specific
         if (MediaItem.MediaType == "Music")
         {
             if (!string.IsNullOrEmpty(MediaItem.Album)) rows.Add(("Album", MediaItem.Album));
@@ -1667,8 +1638,6 @@
             if (!string.IsNullOrEmpty(MediaItem.DiscNumber)) rows.Add(("Disc", MediaItem.DiscNumber));
             if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
         }
-
-        // TV-specific
         if (MediaItem.MediaType == "TV")
         {
             if (!string.IsNullOrEmpty(MediaItem.ShowName)) rows.Add(("Show", MediaItem.ShowName));
@@ -1679,8 +1648,6 @@
             if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Runtime", FormatDuration(MediaItem.Duration)));
             if (!string.IsNullOrEmpty(MediaItem.TopCast)) rows.Add(("Top Cast", MediaItem.TopCast));
         }
-
-        // Audiobooks
         if (MediaItem.MediaType == "Audiobooks" && !string.IsNullOrEmpty(MediaItem.Duration))
             rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
 
@@ -1690,16 +1657,12 @@
 
         return rows;
     }
-
-    /// <summary>Returns a display name for the retail provider that matched this item.</summary>
     private string GetRetailProviderDisplayName()
     {
         if (MediaItem is null) return "a retail provider";
         var match = !string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch;
         return LibraryHelpers.FormatSourceName(match ?? "");
     }
-
-    /// <summary>Returns a short explanation of the Wikidata match for the Wikidata tab.</summary>
     private string GetWikidataExplanation()
     {
         if (MediaItem is null) return "";
@@ -1707,52 +1670,35 @@
         if (string.IsNullOrEmpty(qid)) return "";
         return $"Matched to {qid} on Wikidata. Canonical data (title, author, year, genre) is sourced from Wikidata.";
     }
-
-    /// <summary>Result display data extracted from a retail candidate using the media type libraryItem.</summary>
     private sealed record RetailResultDisplay(
         string? Subline,
         string? Tertiary,
         List<(string Label, string Value)> Details,
         List<(string Label, string Value)> BridgeIds);
-
-    /// <summary>
-    /// Builds media-type-aware display data for a retail search result.
-    /// Uses MediaTypeFieldCatalog to determine which fields to show per media type.
-    /// </summary>
     private RetailResultDisplay GetRetailResultFields(RetailCandidateDto result)
     {
-        // Parse the media type enum
         if (!Enum.TryParse<MediaType>(_searchMediaType, true, out var mediaType))
             mediaType = MediaType.Books;
 
         var config = MediaTypeFieldCatalog.GetSearchDisplay(mediaType);
-
-        // Build a lookup from all available fields on the result
         var allFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrEmpty(result.Title)) allFields["title"] = result.Title;
         if (!string.IsNullOrEmpty(result.Author))
         {
             allFields["author"] = result.Author;
-            // Music display uses "artist" while providers use "author"  -  expose under both keys.
             allFields.TryAdd("artist", result.Author);
         }
         if (!string.IsNullOrEmpty(result.Director)) allFields["director"] = result.Director;
         if (!string.IsNullOrEmpty(result.Year)) allFields["year"] = result.Year;
         if (!string.IsNullOrEmpty(result.Description)) allFields["description"] = result.Description;
         if (!string.IsNullOrEmpty(result.ProviderItemId)) allFields["provider_item_id"] = result.ProviderItemId;
-
-        // Merge extra fields from the provider
         foreach (var (k, v) in result.ExtraFields)
         {
             if (!string.IsNullOrWhiteSpace(v))
                 allFields.TryAdd(k, v);
         }
-
-        // Extract display values using the config
         string? subline = allFields.GetValueOrDefault(config.Subline);
         string? tertiary = allFields.GetValueOrDefault(config.Tertiary);
-
-        // Detail fields (excluding any already shown in subline/tertiary)
         var details = new List<(string, string)>();
         foreach (var fieldKey in config.DetailFields)
         {
@@ -1760,8 +1706,6 @@
             if (allFields.TryGetValue(fieldKey, out var val) && !string.IsNullOrWhiteSpace(val))
                 details.Add((FormatClaimKey(fieldKey), val.Length > 80 ? val[..77] + "\u2026" : val));
         }
-
-        // Bridge IDs
         var bridges = new List<(string, string)>();
         foreach (var bridgeKey in config.BridgeLabels)
         {
@@ -1894,11 +1838,7 @@
         _searchFilters = [];
         _confirmingRetailMatch = false;
         _hasSearched = false;
-
-        // Reload claims to reflect the new match
         _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
-
-        // Switch to Wikidata tab  -  Wikidata lookup kicks off automatically after retail match
         _selectedStage = 1;
 
         await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
@@ -1958,7 +1898,6 @@
 
     private void SelectSearchResult(LibraryCatalogItemViewModel result)
     {
-        // Toggle: clicking same item deselects, clicking different item selects
         _pendingMatch = _pendingMatch?.EntityId == result.EntityId ? null : result;
     }
 
@@ -1983,14 +1922,11 @@
             _confirmPurge = true;
         }
     }
-
-    /// <summary>Formats a claim key  -  delegates to shared LibraryHelpers.</summary>
     private static string FormatClaimKey(string key) => LibraryHelpers.FormatClaimKey(key);
 
     private static string FormatDuration(string? duration)
     {
         if (string.IsNullOrEmpty(duration)) return "";
-        // Try to parse as milliseconds (common from providers)
         if (long.TryParse(duration, out var ms))
         {
             var ts = TimeSpan.FromMilliseconds(ms);
@@ -2266,8 +2202,6 @@
         await OnApplyMatch.InvokeAsync(entityId);
     }
 
-    // -- Field comparison helpers --
-
     private record FieldComparison(string FieldLabel, string? YourValue, string? ProviderValue, double? Score);
 
     private List<FieldComparison> GetRetailFieldComparisons(RetailCandidateDto result)
@@ -2363,16 +2297,9 @@
 
     private static string GetScoreColor(double score) =>
         score >= 0.85 ? "var(--tl-status-success)" : score >= 0.60 ? "var(--tl-status-warning)" : "var(--tl-status-danger)";
-
-    /// <summary>
-    /// Builds the best available external URL for the current item's retail provider match,
-    /// using bridge IDs found in loaded claims data.
-    /// </summary>
     private (string Label, string Url)? GetRetailProviderUrl()
     {
         if (MediaItem is null || _claims.Count == 0) return null;
-
-        // Bridge ID keys in priority order per media type
         string[] bridgeKeys = (MediaItem.MediaType ?? "").ToLowerInvariant() switch
         {
             var t when t.Contains("movie") || t.Contains("video") => ["tmdb_id", "imdb_id"],
@@ -2400,15 +2327,15 @@
 }
 
 <style>
-    /* -- Pipeline Circles + Stage Panel wrapper -- */
+
     .vdd-pipeline-circles-wrap {
         margin: 0 -4px;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
     }
 
     .vdd-stage-panel-wrap {
         padding: 12px 4px 14px;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
         margin-bottom: 4px;
     }
 
@@ -2431,7 +2358,7 @@
         width: 100%;
     }
 
-    /* -- Backdrop -- */
+
     .vdd-backdrop {
         position: fixed;
         inset: 0;
@@ -2447,7 +2374,7 @@
         to { opacity: 1; }
     }
 
-    /* -- Drawer panel -- */
+
     .vdd-drawer {
         position: fixed;
         top: 64px;
@@ -2455,7 +2382,7 @@
         width: 36rem;
         height: calc(100vh - 64px);
         background: #0d0f12;
-        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        border-left: 1px solid var(--tl-border-subtle);
         z-index: 10001;
         display: flex;
         flex-direction: column;
@@ -2468,10 +2395,10 @@
         to { transform: translateX(0); }
     }
 
-    /* -- Header -- */
+
     .vdd-header {
         padding: 32px 24px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
         background: rgba(255, 255, 255, 0.01);
         flex-shrink: 0;
         position: relative;
@@ -2488,7 +2415,7 @@
         min-height: 128px;
         border-radius: 12px;
         background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -2507,7 +2434,7 @@
         height: 128px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -2581,14 +2508,14 @@
         text-decoration: none;
         padding: 2px 8px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--tl-divider);
+        border: 1px solid var(--tl-border-subtle);
         transition: color 0.15s, background 0.15s;
     }
 
     .vdd-wiki-badge:hover {
         color: rgba(255, 255, 255, 0.8);
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
     }
 
     .vdd-role-chip {
@@ -2620,7 +2547,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         margin-top: 4px;
     }
 
@@ -2653,15 +2580,15 @@
         color: rgba(255, 255, 255, 0.4);
     }
 
-    /* -- Body -- */
+
     .vdd-body {
         flex: 1;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+        scrollbar-color: var(--tl-border-subtle) transparent;
     }
 
-    /* -- Source section -- */
+
     .vdd-source {
         display: flex;
         flex-direction: column;
@@ -2737,7 +2664,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         flex-shrink: 0;
     }
 
@@ -2747,7 +2674,7 @@
         color: rgba(255, 255, 255, 0.7);
     }
 
-    /* -- Pipeline section -- */
+
     .vdd-pipeline {
         display: flex;
         flex-direction: column;
@@ -2756,7 +2683,7 @@
 
     .vdd-stage-block {
         background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-divider);
         border-radius: 10px;
         padding: 16px;
         display: flex;
@@ -2803,7 +2730,7 @@
         padding: 2px 8px;
         border-radius: 4px;
         background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid var(--tl-border-default);
         color: rgba(255, 255, 255, 0.4);
         cursor: pointer;
         transition: all 0.15s;
@@ -2847,7 +2774,7 @@
         text-transform: uppercase;
         letter-spacing: 0.06em;
         flex-shrink: 0;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
     }
 
     .vdd-match-tag--provider { color: var(--tl-status-info); }
@@ -2855,7 +2782,7 @@
 
     .vdd-stage-hint {
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         font-style: italic;
         margin: 0;
     }
@@ -2873,9 +2800,9 @@
         letter-spacing: 0.06em;
         padding: 4px 10px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.5);
+        background: var(--tl-divider);
+        border: 1px solid var(--tl-border-subtle);
+        color: var(--tl-text-muted);
         cursor: pointer;
         transition: all 0.15s;
     }
@@ -2909,13 +2836,13 @@
 
     .vdd-cascade-note {
         font-size: 9px;
-        color: rgba(255, 255, 255, 0.2);
+        color: var(--tl-text-faint);
         font-style: italic;
         margin: 0;
         padding-top: 4px;
     }
 
-    /* -- Assets section -- */
+
     .vdd-assets {
         display: flex;
         flex-direction: column;
@@ -2934,7 +2861,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         flex-shrink: 0;
     }
 
@@ -2972,7 +2899,7 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         background: rgba(0, 0, 0, 0.7);
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
         text-align: center;
         padding: 2px 0;
     }
@@ -2981,7 +2908,7 @@
         width: 48px;
         height: 48px;
         border-radius: 6px;
-        border: 1px dashed rgba(255, 255, 255, 0.08);
+        border: 1px dashed var(--tl-border-subtle);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -2992,7 +2919,7 @@
     }
 
     .vdd-asset-slot:hover {
-        border-color: rgba(255, 255, 255, 0.2);
+        border-color: var(--tl-text-faint);
     }
 
     .vdd-asset-upload {
@@ -3000,10 +2927,10 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: rgba(255, 255, 255, 0.2);
+        color: var(--tl-text-faint);
     }
 
-    /* -- Lifecycle section -- */
+
     .vdd-lifecycle {
         display: flex;
         gap: 12px;
@@ -3012,7 +2939,7 @@
     .vdd-lifecycle-card {
         flex: 1;
         background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-divider);
         border-radius: 10px;
         padding: 12px 14px;
         display: flex;
@@ -3034,7 +2961,7 @@
         font-size: 11px;
     }
 
-    /* -- Identities section -- */
+
     .vdd-identities {
         display: flex;
         flex-direction: column;
@@ -3061,21 +2988,21 @@
         font-weight: 600;
     }
 
-    /* -- Universe section -- */
+
     .vdd-universe-content {
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
     }
 
-    /* -- Empty hints -- */
+
     .vdd-empty-hint {
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         font-style: italic;
         margin: 0;
     }
 
-    /* -- Person Library Presence list -- */
+
     .vdd-presence-list {
         display: flex;
         flex-direction: column;
@@ -3089,7 +3016,7 @@
         padding: 8px 12px;
         border-radius: 8px;
         background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-divider);
     }
 
     .vdd-presence-title {
@@ -3105,7 +3032,7 @@
         letter-spacing: 0.06em;
     }
 
-    /* -- Review banner -- */
+
     .vdd-review-banner {
         display: flex;
         align-items: center;
@@ -3133,7 +3060,7 @@
         font-weight: 700;
     }
 
-    /* -- Manual search -- */
+
     .vdd-search-block {
         display: flex;
         flex-direction: column;
@@ -3144,11 +3071,11 @@
     .vdd-search-input {
         flex: 1;
         background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 8px;
         padding: 8px 12px;
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         outline: none;
         transition: border-color 0.15s;
     }
@@ -3158,7 +3085,7 @@
     }
 
     .vdd-search-input::placeholder {
-        color: rgba(255, 255, 255, 0.2);
+        color: var(--tl-text-faint);
     }
 
     .vdd-search-btn {
@@ -3208,7 +3135,7 @@
     }
 
     .vdd-search-result-item:hover {
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--tl-divider);
     }
 
     .vdd-search-result-row {
@@ -3243,15 +3170,15 @@
     .vdd-confirm-prompt {
         font-size: 11px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
     }
 
     .vdd-cancel-match-btn {
         padding: 4px 12px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--tl-text-muted);
         font-size: 10px;
         font-weight: 800;
         text-transform: uppercase;
@@ -3276,7 +3203,7 @@
         content: '';
         flex: 1;
         height: 1px;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
     }
 
     .vdd-or-divider span {
@@ -3284,7 +3211,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
     }
 
     .vdd-purge-confirm-row {
@@ -3303,9 +3230,9 @@
     .vdd-purge-cancel-btn {
         padding: 6px 14px;
         border-radius: 8px;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--tl-text-muted);
         font-size: 10px;
         font-weight: 800;
         text-transform: uppercase;
@@ -3323,7 +3250,7 @@
         height: 52px;
         border-radius: 4px;
         background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -3355,7 +3282,7 @@
         display: block;
         font-size: 12px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -3364,7 +3291,7 @@
     .vdd-search-result-meta {
         display: block;
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -3373,7 +3300,7 @@
     .vdd-search-result-desc {
         display: block;
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         margin-top: 2px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -3387,14 +3314,14 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         padding: 6px 0 2px;
     }
 
     .vdd-confirm-match-btn {
         padding: 4px 12px;
         border-radius: 6px;
-        background: rgba(93, 202, 165, 0.15);
+        background: var(--tl-status-success-soft);
         border: 1px solid rgba(93, 202, 165, 0.3);
         color: var(--tl-status-success);
         font-size: 10px;
@@ -3428,7 +3355,7 @@
         padding: 4px 10px;
         border-radius: 6px;
         background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.4);
         font-size: 10px;
         font-weight: 800;
@@ -3443,7 +3370,7 @@
         color: var(--tl-status-info);
     }
 
-    /* -- Pen name linking -- */
+
     .vdd-identity-link {
         display: flex;
         align-items: center;
@@ -3471,15 +3398,15 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         margin-left: auto;
         flex-shrink: 0;
     }
 
-    /* -- Footer -- */
+
     .vdd-footer {
         padding: 20px 24px;
-        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        border-top: 1px solid var(--tl-divider);
         flex-shrink: 0;
     }
 
@@ -3514,14 +3441,14 @@
         color: rgba(255, 80, 80, 1);
     }
 
-    /* -- Universe Health Ring -- */
+
     .vdd-health-ring-wrap {
         display: flex;
         align-items: center;
         gap: 16px;
         padding: 16px 24px;
         background: rgba(255, 255, 255, 0.02);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
     }
 
     .vdd-health-ring {
@@ -3557,10 +3484,10 @@
 
     .vdd-health-sub {
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
     }
 
-    /* -- Entity Counts -- */
+
     .vdd-entity-counts {
         display: flex;
         flex-direction: column;
@@ -3589,7 +3516,7 @@
         color: white;
     }
 
-    /* -- Character Grid -- */
+
     .vdd-characters-grid {
         display: flex;
         flex-direction: column;
@@ -3663,7 +3590,7 @@
         align-self: flex-start;
     }
 
-    /* -- Character Roles (Person view) -- */
+
     .vdd-role-universe-group {
         margin-bottom: 14px;
     }
@@ -3673,7 +3600,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         display: block;
         margin-bottom: 8px;
     }
@@ -3692,13 +3619,13 @@
         width: 60px;
     }
 
-    /* -- Universe Action Buttons -- */
+
     .vdd-universe-actions {
         display: flex;
         flex-direction: column;
         gap: 8px;
         padding: 16px 24px;
-        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        border-top: 1px solid var(--tl-divider);
     }
 
     .vdd-action-btn {
@@ -3721,9 +3648,9 @@
     }
 
     .vdd-action-btn:hover {
-        background: rgba(255, 255, 255, 0.04);
-        color: rgba(255, 255, 255, 0.85);
-        border-color: rgba(255, 255, 255, 0.2);
+        background: var(--tl-divider);
+        color: var(--tl-text-primary);
+        border-color: var(--tl-text-faint);
     }
 
     .vdd-action-btn--primary {
@@ -3744,8 +3671,8 @@
     }
 
     .vdd-type-dropdown {
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.12);
+        background: var(--tl-border-subtle);
+        border: 1px solid var(--tl-border-default);
         border-radius: 4px;
         color: rgba(255,255,255,0.7);
         font-size: 11px;
@@ -3772,7 +3699,7 @@
         color: rgba(255,255,255,0.9);
     }
 
-    /* -- Pipeline matched lines -- */
+
     .vdd-pipeline-matched {
         display: flex;
         flex-direction: column;
@@ -3819,7 +3746,7 @@
         text-decoration: underline;
     }
 
-    /* -- Unified search -- */
+
     .vdd-unified-search {
         margin-top: 8px;
     }
@@ -3839,38 +3766,38 @@
         min-width: 100px;
     }
 
-    /* -- Filter-based search UI -- */
+
     .vdd-search-bar-wrap { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
     .vdd-search-type-row { display: flex; align-items: center; gap: 8px; }
     .vdd-search-type-label { font-size: 11px; color: rgba(255,255,255,0.4); }
     .vdd-search-main-row { display: flex; gap: 8px; align-items: stretch; }
     .vdd-search-input-group {
         flex: 1; display: flex; align-items: center; gap: 8px;
-        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+        background: var(--tl-divider); border: 1px solid var(--tl-border-subtle);
         border-radius: 12px; padding: 8px 12px;
     }
     .vdd-search-primary-input {
         flex: 1; background: transparent; border: none; outline: none;
         color: rgba(255,255,255,0.9); font-size: 13px; font-family: inherit;
     }
-    .vdd-search-primary-input::placeholder { color: rgba(255,255,255,0.25); }
+    .vdd-search-primary-input::placeholder { color: var(--tl-text-faint); }
     .vdd-primary-field-btn {
         display: flex; align-items: center; gap: 2px;
-        font-size: 11px; color: rgba(255,255,255,0.6);
-        background: rgba(255,255,255,0.06); border: none;
+        font-size: 11px; color: var(--tl-text-secondary);
+        background: var(--tl-border-subtle); border: none;
         padding: 3px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; font-family: inherit;
     }
     .vdd-primary-field-btn:hover { background: rgba(255,255,255,0.1); }
     .vdd-add-filter-btn {
         display: flex; align-items: center; gap: 4px;
-        font-size: 11px; color: rgba(255,255,255,0.5);
-        background: none; border: 1px solid rgba(255,255,255,0.08);
+        font-size: 11px; color: var(--tl-text-muted);
+        background: none; border: 1px solid var(--tl-border-subtle);
         padding: 3px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; font-family: inherit;
     }
-    .vdd-add-filter-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+    .vdd-add-filter-btn:hover { background: var(--tl-border-subtle); color: rgba(255,255,255,0.7); }
     .vdd-search-execute-btn {
         padding: 8px 20px; font-size: 13px; border-radius: 12px;
-        background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+        background: var(--tl-border-subtle); border: 1px solid var(--tl-border-subtle);
         color: rgba(255,255,255,0.7); cursor: pointer; white-space: nowrap; font-family: inherit;
     }
     .vdd-search-execute-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); }
@@ -3882,7 +3809,7 @@
         background: none; border: 1px solid rgba(255,255,255,0.1);
         padding: 4px 12px; border-radius: 10px; cursor: pointer; font-family: inherit;
     }
-    .vdd-dropdown-btn:hover { background: rgba(255,255,255,0.06); }
+    .vdd-dropdown-btn:hover { background: var(--tl-border-subtle); }
     .vdd-dropdown-menu {
         position: absolute; left: 0; top: calc(100% + 4px); z-index: 10;
         min-width: 160px; background: #121826; border: 1px solid rgba(255,255,255,0.1);
@@ -3892,11 +3819,11 @@
         padding: 8px 14px; font-size: 13px; color: rgba(255,255,255,0.7);
         cursor: pointer;
     }
-    .vdd-dropdown-item:hover { background: rgba(255,255,255,0.06); }
+    .vdd-dropdown-item:hover { background: var(--tl-border-subtle); }
     .vdd-filter-pills { display: flex; flex-wrap: wrap; gap: 8px; }
     .vdd-filter-pill {
         display: flex; align-items: center; gap: 6px;
-        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+        background: var(--tl-divider); border: 1px solid var(--tl-border-subtle);
         border-radius: 10px; padding: 6px 10px;
     }
     .vdd-filter-pill-label { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
@@ -3904,17 +3831,17 @@
         background: transparent; border: none; outline: none;
         color: rgba(255,255,255,0.8); font-size: 12px; width: 100px; font-family: inherit;
     }
-    .vdd-filter-pill-input::placeholder { color: rgba(255,255,255,0.2); }
+    .vdd-filter-pill-input::placeholder { color: var(--tl-text-faint); }
     .vdd-filter-pill-remove {
-        background: none; border: none; color: rgba(255,255,255,0.3);
+        background: none; border: none; color: var(--tl-text-muted);
         cursor: pointer; padding: 0; display: flex;
     }
-    .vdd-filter-pill-remove:hover { color: rgba(255,255,255,0.6); }
+    .vdd-filter-pill-remove:hover { color: var(--tl-text-secondary); }
 
-    /* -- Result detail below (not beside) -- */
+
     .vdd-search-result-detail-below {
         padding: 10px 12px 12px;
-        border-top: 1px solid rgba(255,255,255,0.04);
+        border-top: 1px solid var(--tl-divider);
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -3922,7 +3849,7 @@
 
     .vdd-detail-description {
         font-size: 12px;
-        color: rgba(255,255,255,0.5);
+        color: var(--tl-text-muted);
         line-height: 1.5;
         margin: 0;
     }
@@ -3939,7 +3866,7 @@
         gap: 6px;
     }
 
-    /* -- Bridge ID chips -- */
+
     .vdd-bridge-chips {
         display: flex;
         gap: 4px;
@@ -3955,7 +3882,7 @@
         color: var(--tl-status-success);
     }
 
-    /* -- Status section -- */
+
     .vdd-status {
         display: flex;
         flex-direction: column;
@@ -3968,7 +3895,7 @@
         gap: 12px;
     }
 
-    /* -- Metadata section -- */
+
     .vdd-metadata {
         display: flex;
         flex-direction: column;
@@ -3999,7 +3926,7 @@
     }
 
     .vdd-meta-tab:hover {
-        color: rgba(255,255,255,0.6);
+        color: var(--tl-text-secondary);
     }
 
     .vdd-meta-tab--active {
@@ -4013,7 +3940,7 @@
         gap: 6px;
     }
 
-    /* -- Claims rows (FIX A6) -- */
+
     .vdd-claim-row {
         display: flex;
         align-items: baseline;
@@ -4039,7 +3966,7 @@
         flex-shrink: 0;
     }
 
-    /* -- Provider URL link (FIX A7) -- */
+
     .vdd-provider-link {
         display: inline-flex;
         align-items: center;
@@ -4058,12 +3985,12 @@
         text-underline-offset: 2px;
     }
 
-    /* -- Alias avatar (FIX B1) -- */
+
     .vdd-alias-avatar {
         width: 28px;
         height: 28px;
         border-radius: 50%;
-        background: rgba(255,255,255,0.04);
+        background: var(--tl-divider);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -4094,20 +4021,20 @@
     .vdd-alias-qid {
         font-size: 10px;
         font-family: 'JetBrains Mono', monospace;
-        color: rgba(255,255,255,0.2);
+        color: var(--tl-text-faint);
         flex-shrink: 0;
     }
 
-    /* -- Added date subtitle -- */
+
     .vdd-added-date {
         font-size: 10px;
         font-weight: 600;
-        color: rgba(255,255,255,0.25);
+        color: var(--tl-text-faint);
         margin-top: 6px;
         margin-bottom: 0;
     }
 
-    /* -- NeedsReview problem banner -- */
+
     .vdd-problem-banner {
         background: rgba(239, 159, 39, 0.08);
         border-left: 3px solid var(--tl-status-warning);
@@ -4163,7 +4090,7 @@
         height: 28px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -4186,7 +4113,7 @@
     .vdd-person-name-link {
         font-size: 13px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
     }
 
     .vdd-person-row:hover .vdd-person-name-link {
@@ -4198,10 +4125,10 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
     }
 
-    /* -- Tab Content -- */
+
     .vdd-tab-content {
         padding: 12px 4px 0;
     }
@@ -4211,7 +4138,7 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: rgba(255,255,255,0.5);
+        color: var(--tl-text-muted);
         margin: 0 0 10px;
     }
 
@@ -4225,10 +4152,10 @@
         margin-top: 4px;
     }
 
-    /* -- Original Metadata Collapse -- */
+
     .vdd-original-meta {
         margin-top: 14px;
-        border-top: 1px solid rgba(255,255,255,0.04);
+        border-top: 1px solid var(--tl-divider);
         padding-top: 10px;
     }
 
@@ -4242,10 +4169,10 @@
     }
 
     .vdd-original-meta-summary:hover {
-        color: rgba(255,255,255,0.6);
+        color: var(--tl-text-secondary);
     }
 
-    /* -- Match Status -- */
+
     .vdd-match-status {
         display: flex;
         align-items: center;
@@ -4268,7 +4195,7 @@
 
     .vdd-match-status--fail {
         background: rgba(160,80,80,0.08);
-        color: rgba(255,255,255,0.5);
+        color: var(--tl-text-muted);
     }
 
     .vdd-match-explanation {
@@ -4278,11 +4205,11 @@
         line-height: 1.4;
     }
 
-    /* -- Tab Search -- */
+
     .vdd-tab-search {
         margin-top: 12px;
         padding-top: 12px;
-        border-top: 1px solid rgba(255,255,255,0.04);
+        border-top: 1px solid var(--tl-divider);
     }
 
     .vdd-rematch-warning {
@@ -4294,7 +4221,7 @@
         margin-top: 6px;
     }
 
-    /* -- File Information section -- */
+
     .vdd-file-info {
         display: flex;
         flex-direction: column;
@@ -4307,7 +4234,7 @@
         align-items: baseline;
         gap: 16px;
         padding: 4px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
     }
 
     .vdd-file-info-row:last-child {
@@ -4332,10 +4259,10 @@
         max-width: 240px;
     }
 
-    /* -- Result card (full-width, one at a time) -- */
+
     .vdd-result-card {
         background: rgba(15, 23, 42, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 12px;
         padding: 16px;
         margin-bottom: 12px;
@@ -4364,8 +4291,8 @@
         width: 64px;
         height: 96px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: var(--tl-divider);
+        border: 1px solid var(--tl-border-subtle);
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -4437,7 +4364,7 @@
         margin-top: 8px;
         padding: 10px 12px;
         background: rgba(255, 255, 255, 0.015);
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-divider);
         border-radius: 6px;
         display: flex;
         flex-direction: column;
@@ -4537,19 +4464,19 @@
         width: 8px;
         height: 4px;
         border-radius: 1px;
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
     }
 
     .vdd-score-seg--filled {
         opacity: 1;
     }
 
-    /* -- Field comparison table -- */
+
     .vdd-field-compare {
         display: flex;
         flex-direction: column;
         gap: 0;
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-divider);
         border-radius: 8px;
         overflow: hidden;
     }
@@ -4560,7 +4487,7 @@
         gap: 8px;
         padding: 8px 12px;
         background: rgba(255, 255, 255, 0.03);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
     }
 
     .vdd-compare-col-label {
@@ -4568,7 +4495,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.12em;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
     }
 
     .vdd-compare-row {
@@ -4601,7 +4528,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
     }
 
     .vdd-compare-field-val {
@@ -4615,14 +4542,14 @@
 
     .vdd-compare-arrow {
         text-align: center;
-        color: rgba(255, 255, 255, 0.15);
+        color: var(--tl-border-strong);
         font-size: 11px;
     }
 
     .vdd-score-mini-bar {
         width: 48px;
         height: 3px;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         border-radius: 2px;
         overflow: hidden;
     }
@@ -4636,14 +4563,14 @@
     .vdd-result-actions {
         margin-top: 12px;
         padding-top: 12px;
-        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        border-top: 1px solid var(--tl-divider);
     }
 
-    /* -- Details section: pinned file path + Current/Original tabs -- */
+
     .vdd-details-path {
         padding: 8px 12px 10px;
         margin: 0 0 10px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
     }
 
     .vdd-details-path-name {
@@ -4652,7 +4579,7 @@
         gap: 6px;
         font-size: 12px;
         font-weight: 600;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         word-break: break-all;
     }
 
@@ -4678,7 +4605,7 @@
     }
 
     ::deep .vdd-details-tabs .mud-tab {
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--tl-text-muted);
         padding: 8px 12px;
         font-size: 11px;
         font-weight: 600;
@@ -4687,7 +4614,7 @@
     }
 
     ::deep .vdd-details-tabs .mud-tab:hover {
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
     }
 
     ::deep .vdd-details-tabs .mud-tab.mud-tab-active {

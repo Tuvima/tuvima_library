@@ -1,8 +1,4 @@
-@* CollectionShell — universal layout frame for all Collection views.
-   Provides three slots: toolbar (optional), sidebar (optional), and content (required).
-   Knows nothing about the data or view type inside it. *@
-
-<div class="collection-shell">
+﻿<div class="collection-shell">
     @if (ShowToolbar && ToolbarContent is not null)
     {
         <div class="collection-shell-toolbar">
@@ -27,19 +23,10 @@
 </div>
 
 @code {
-    /// <summary>Optional toolbar area above the main content (media type toggles, filters).</summary>
     [Parameter] public RenderFragment? ToolbarContent { get; set; }
-
-    /// <summary>Optional left sidebar (item list, navigation).</summary>
     [Parameter] public RenderFragment? SidebarContent { get; set; }
-
-    /// <summary>Main content area (BookDetail, PosterGrid, etc.). Required.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
-
-    /// <summary>Sidebar width in pixels. Only used when SidebarContent is provided.</summary>
     [Parameter] public int SidebarWidth { get; set; } = 260;
-
-    /// <summary>Whether to show the toolbar area.</summary>
     [Parameter] public bool ShowToolbar { get; set; } = true;
 }
 
@@ -47,7 +34,7 @@
     .collection-shell {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 56px); /* below TopBar */
+        height: calc(100vh - 56px);
         overflow: hidden;
         margin-left: 0;
     }
@@ -59,7 +46,7 @@
         padding: 8px 16px;
         background: rgba(8, 13, 30, 0.7);
         backdrop-filter: blur(8px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
         flex-shrink: 0;
         flex-wrap: wrap;
     }
@@ -80,7 +67,7 @@
         display: flex;
         flex-direction: column;
         background: rgba(8, 13, 30, 0.5);
-        border-right: 1px solid rgba(255, 255, 255, 0.06);
+        border-right: 1px solid var(--tl-border-subtle);
         overflow: hidden;
     }
 

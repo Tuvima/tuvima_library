@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Watch
+﻿@namespace MediaEngine.Web.Components.Watch
 @using MediaEngine.Web.Models.ViewDTOs
 
 @if (VisibleSpecs.Count > 0)
@@ -45,7 +45,7 @@
         gap: 0;
         border-radius: 14px;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid var(--tl-border-default);
         background: rgba(18, 22, 32, 0.72);
         backdrop-filter: blur(10px);
     }
@@ -53,7 +53,7 @@
     .watch-specs__chip {
         min-width: 132px;
         padding: 10px 16px 11px;
-        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        border-right: 1px solid var(--tl-border-subtle);
     }
 
     .watch-specs__chip:last-child {
@@ -80,7 +80,7 @@
         .watch-specs__chip {
             flex: 1 1 120px;
             min-width: 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid var(--tl-border-subtle);
         }
 
         .watch-specs__chip:last-child {

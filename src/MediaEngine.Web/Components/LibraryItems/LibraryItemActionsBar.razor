@@ -1,9 +1,7 @@
 ﻿@using MudBlazor
 
 <div class="rab-container">
-
-    @* â”€â”€ Auto-register slider â”€â”€ *@
-    <div class="rab-auto-section">
+<div class="rab-auto-section">
         <button class="rab-auto-btn" @onclick="OnAutoRegister"
                 disabled="@(Processing || EligibleCount == 0)">
             @if (Processing)
@@ -27,9 +25,7 @@
             <span class="rab-eligible">@EligibleCount eligible</span>
         }
     </div>
-
-    @* â”€â”€ Retry failed â”€â”€ *@
-    @if (FailedCount > 0)
+@if (FailedCount > 0)
     {
         <button class="rab-retry-btn" @onclick="OnRetryFailed" disabled="@Processing">
             <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 13px;" />
@@ -63,14 +59,14 @@
         padding: 8px 16px;
         background: rgba(8, 13, 30, 0.80);
         backdrop-filter: blur(12px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
         position: sticky;
         top: 104px;
         z-index: 14;
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* â”€â”€ Auto-register section â”€â”€ */
+
     .rab-auto-section {
         display: flex;
         align-items: center;
@@ -85,7 +81,7 @@
         padding: 5px 10px;
         border-radius: 8px;
         background: rgba(93, 202, 165, 0.08);
-        border: 1px solid rgba(93, 202, 165, 0.18);
+        border: 1px solid var(--tl-status-success-soft);
         color: rgba(93, 202, 165, 0.80);
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 11px;
@@ -105,7 +101,7 @@
         cursor: not-allowed;
     }
 
-    /* â”€â”€ Slider â”€â”€ */
+
     .rab-slider-wrap {
         display: flex;
         align-items: center;
@@ -117,7 +113,7 @@
         height: 4px;
         -webkit-appearance: none;
         appearance: none;
-        background: rgba(255, 255, 255, 0.10);
+        background: var(--tl-border-default);
         border-radius: 2px;
         outline: none;
         cursor: pointer;
@@ -157,7 +153,7 @@
         white-space: nowrap;
     }
 
-    /* â”€â”€ Retry failed â”€â”€ */
+
     .rab-retry-btn {
         display: inline-flex;
         align-items: center;

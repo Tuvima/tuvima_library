@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 @using MudBlazor
 
@@ -11,8 +11,7 @@
     }
     else if (IsPerson)
     {
-        @* ── Person view ── *@
-        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+@if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
             <div class="ids-cover-row">
                 <div class="ids-hover-wrap">
@@ -44,7 +43,7 @@
         </div>
         <div class="ids-row">
             <span class="ids-key">Occupation</span>
-            <span class="ids-value">@(string.IsNullOrWhiteSpace(Detail?.Description) ? "—" : Detail.Description)</span>
+            <span class="ids-value">@(string.IsNullOrWhiteSpace(Detail?.Description) ? "-" : Detail.Description)</span>
         </div>
         <div class="ids-row ids-row--last">
             <span class="ids-key">Added</span>
@@ -90,7 +89,7 @@
                     </div>
                     <div class="ids-universe-cell">
                         <span class="ids-universe-label">Root</span>
-                        <strong>@(summary.NarrativeRootQid ?? "—")</strong>
+                        <strong>@(summary.NarrativeRootQid ?? "-")</strong>
                     </div>
                     <div class="ids-universe-cell">
                         <span class="ids-universe-label">Entities</span>
@@ -132,8 +131,7 @@
     }
     else
     {
-        @* ── Media file view ── *@
-        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+@if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
             <div class="ids-cover-row">
                 <div class="ids-hover-wrap">
@@ -144,9 +142,7 @@
                 </div>
             </div>
         }
-
-        @* ── Match Status chip ── *@
-        <div class="ids-match-status">
+<div class="ids-match-status">
             <MudTooltip Text="@GetMatchStatusDisplay().Tooltip" Arrow="true" Placement="Placement.Top">
                 <span class="ids-match-chip" style="background: @HexToRgba(GetMatchStatusDisplay().Color, 0.15); color: @GetMatchStatusDisplay().Color;">@GetMatchStatusDisplay().Label</span>
             </MudTooltip>
@@ -224,7 +220,7 @@
                     </div>
                     <div class="ids-universe-cell">
                         <span class="ids-universe-label">Root</span>
-                        <strong>@(summary.NarrativeRootQid ?? "—")</strong>
+                        <strong>@(summary.NarrativeRootQid ?? "-")</strong>
                     </div>
                     <div class="ids-universe-cell">
                         <span class="ids-universe-label">Entities</span>
@@ -263,9 +259,7 @@
                 </div>
             </div>
         }
-
-        @* ── Linked Data section ── *@
-        @if (HasLinkedData())
+@if (HasLinkedData())
         {
             <div class="ids-linked-data">
                 <span class="ids-linked-data-label">Linked Data</span>
@@ -333,7 +327,7 @@
 
     private static string FormatFileSize(long? bytes)
     {
-        if (bytes is null or 0) return "—";
+        if (bytes is null or 0) return "-";
         return bytes switch
         {
             < 1024 => $"{bytes} B",
@@ -350,8 +344,8 @@
         {
             "edition"     => ("Fully Linked", "var(--tl-status-success)", "Matched to a specific edition and linked to the wider catalogue"),
             "retail_only" => ("Identified",   "var(--tl-accent-primary)", "Cover and metadata confirmed but not yet linked to the wider catalogue"),
-            "unlinked"    => ("Unlinked",     "#6B6B8A", "No external match found — metadata from file only"),
-            _             => ("Linked",       "#5C7A99", "Matched to the catalogue but edition-specific data is unavailable"),
+            "unlinked"    => ("Unlinked",     "var(--tl-status-idle)", "No external match found - metadata from file only"),
+            _             => ("Linked",       "var(--tl-status-info)", "Matched to the catalogue but edition-specific data is unavailable"),
         };
     }
 
@@ -417,7 +411,7 @@
 
     .ids-value {
         font-size: 13px;
-        color: #e0dce8;
+        color: var(--tl-text-primary);
         font-weight: 400;
         line-height: 1.4;
         word-break: break-word;
@@ -433,8 +427,8 @@
 
     .ids-qid-badge {
         display: inline-block;
-        background: rgba(140, 120, 180, 0.12);
-        color: #c0b8e0;
+        background: var(--tl-accent-primary-border);
+        color: var(--tl-text-secondary);
         padding: 2px 8px;
         border-radius: 12px;
         font-size: 11px;
@@ -444,8 +438,8 @@
     }
 
     .ids-qid-badge:hover {
-        background: rgba(140, 120, 180, 0.22);
-        color: #d4cef0;
+        background: var(--tl-accent-primary-soft);
+        color: var(--tl-text-secondary);
         text-decoration: none;
     }
 
@@ -466,7 +460,7 @@
         line-height: 1.5;
     }
 
-    /* ── Cover art / headshot in details ── */
+
     .ids-cover-row {
         display: flex;
         justify-content: flex-start;
@@ -478,7 +472,7 @@
         max-height: 180px;
         height: auto;
         border-radius: 6px;
-        border: 1px solid rgba(140, 120, 180, 0.12);
+        border: 1px solid var(--tl-accent-primary-border);
         object-fit: contain;
     }
 
@@ -486,11 +480,11 @@
         width: 90px;
         height: 90px;
         border-radius: 50%;
-        border: 2px solid rgba(140, 120, 180, 0.15);
+        border: 2px solid var(--tl-accent-primary-border);
         object-fit: cover;
     }
 
-    /* ── Hover popup for images ── */
+
     .ids-hover-wrap {
         position: relative;
         display: inline-block;
@@ -504,7 +498,7 @@
         top: 0;
         padding: 4px;
         background: rgba(10, 8, 20, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid var(--tl-border-default);
         border-radius: 8px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
         pointer-events: none;
@@ -521,7 +515,7 @@
         display: block;
     }
 
-    /* ── Match status chip ── */
+
     .ids-match-status {
         margin-bottom: 14px;
     }
@@ -537,12 +531,12 @@
         cursor: default;
     }
 
-    /* ── Linked Data section ── */
+
     .ids-linked-data {
         margin-top: 16px;
         padding: 10px 12px;
         background: rgba(255, 255, 255, 0.025);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 6px;
     }
 
@@ -570,15 +564,15 @@
         color: rgba(192, 184, 224, 0.65);
         text-decoration: none;
         padding: 3px 9px;
-        background: rgba(140, 120, 180, 0.08);
-        border: 1px solid rgba(140, 120, 180, 0.12);
+        background: var(--tl-accent-primary-soft);
+        border: 1px solid var(--tl-accent-primary-border);
         border-radius: 4px;
         transition: background 0.15s ease, color 0.15s ease;
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
     .ids-link-pill:hover {
-        background: rgba(140, 120, 180, 0.18);
+        background: var(--tl-accent-primary-border);
         color: rgba(212, 206, 240, 0.95);
         text-decoration: none;
     }
@@ -599,7 +593,7 @@
         font-size: 9px;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: rgba(201, 146, 46, 0.70);
+        color: var(--tl-status-warning);
     }
 
     .ids-link-icon {
@@ -613,7 +607,7 @@
         margin-top: 16px;
         padding: 12px;
         background: rgba(255, 255, 255, 0.025);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 8px;
     }
 
@@ -648,7 +642,7 @@
 
     .ids-universe-cell strong {
         font-size: 12px;
-        color: #e8e2f2;
+        color: var(--tl-text-primary);
         word-break: break-word;
     }
 

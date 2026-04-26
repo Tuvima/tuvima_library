@@ -1,10 +1,6 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @using MediaEngine.Web.Models.ViewDTOs
-
-@* Internal text fragment for CollectionHero — renders title, badges, author, description, and CTA.
-   Extracted as a component to avoid duplicating markup between portrait and landscape layouts. *@
-
 @if (!string.IsNullOrEmpty(Data?.Subtitle))
 {
     <p class="hero-subtitle-label">@Data.Subtitle</p>
@@ -93,7 +89,7 @@
 }
 
 <style>
-    /* ── Text styles — scoped to CollectionHeroText ─────────────────────────── */
+
 
     .hero-title {
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
@@ -130,11 +126,11 @@
         letter-spacing: 0.04em;
         padding: clamp(4px, 0.35vw, 6px) clamp(10px, 0.8vw, 14px);
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.12);
-        color: rgba(255, 255, 255, 0.85);
+        background: var(--tl-border-default);
+        color: var(--tl-text-primary);
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        border: 1px solid var(--tl-border-default);
         text-transform: uppercase;
     }
 
@@ -168,7 +164,7 @@
         text-shadow: 0 1px 4px rgba(0, 0, 0, 0.30);
     }
 
-    /* ── Mobile text sizing ──────────────────────────────────────────── */
+
     @@media (max-width: 768px) {
         .hero-title {
             font-size: 1.3rem;
@@ -195,7 +191,7 @@
             overflow: hidden;
         }
 
-        /* Center CTA button on mobile */
+
         .collection-primary-cta {
             margin-left: auto;
             margin-right: auto;

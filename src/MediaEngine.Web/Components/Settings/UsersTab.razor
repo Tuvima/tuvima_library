@@ -1,14 +1,9 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
-
-@* Users — profile management: list, create, and delete profiles. *@
-
-<div class="st-page">
-
-    @* ── Header ──────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Group" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["Users_PageTitle"]</MudText>
         <MudSpacer />
@@ -117,8 +112,6 @@
     }
 
 </div>
-
-@* ── Create Profile dialog ────────────────────────────────────────────────── *@
 <MudDialog @bind-Visible="_createOpen" Options="_dialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6">
@@ -193,7 +186,7 @@
             <MudStack Spacing="2" Class="mb-4">
                 @foreach (var login in _externalLogins)
                 {
-                    <MudPaper Elevation="0" Style="@LinkedAccountStyle">
+                    <MudPaper Elevation="0" Class="tl-card tl-card--compact">
                         <MudStack Row="true" AlignItems="AlignItems.Center">
                             <MudStack Spacing="0" Style="flex:1; min-width: 0;">
                                 <MudText Typo="Typo.body2" Style="font-weight:600;">@login.Provider</MudText>
@@ -259,7 +252,7 @@
 
     private const string TdStyle =
         "padding: 14px 16px; " +
-        "border-bottom: 1px solid rgba(255,255,255,0.04); " +
+        "border-bottom: 1px solid var(--tl-divider); " +
         "vertical-align: middle;";
 
     private const string LinkedAccountStyle =
@@ -267,8 +260,6 @@
         "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 8px; " +
         "padding: 12px;";
-
-    // ── View model used in the table ─────────────────────────────────────────────
 
     private sealed record UserRow(
         Guid   Id,
@@ -281,12 +272,8 @@
         string Status,
         bool   IsSeed);
 
-    // ── State ────────────────────────────────────────────────────────────────────
-
     private bool           _loading  = true;
     private List<UserRow>  _allRows  = [];
-
-    // Create dialog state
     private bool   _createOpen;
     private bool   _creating;
     private string _newDisplayName = string.Empty;
@@ -309,14 +296,10 @@
         CloseOnEscapeKey = true,
     };
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────────
-
     protected override async Task OnInitializedAsync()
     {
         await RefreshProfilesAsync();
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────────
 
     private static Color RoleColor(string role) => role switch
     {
@@ -332,9 +315,9 @@
     {
         var (bg, color) = status switch
         {
-            "Active"  => ("rgba(16,185,129,0.15)", "#10b981"),
-            "Pending" => ("rgba(245,158,11,0.15)",  "var(--tl-status-warning)"),
-            _         => ("rgba(148,163,184,0.15)", "#94a3b8"),
+            "Active"  => ("var(--tl-status-success-soft)", "var(--tl-status-success)"),
+            "Pending" => ("var(--tl-status-warning-soft)",  "var(--tl-status-warning)"),
+            _         => ("var(--tl-status-idle-soft)", "var(--tl-text-muted)"),
         };
         return $"display: inline-block; padding: 2px 10px; border-radius: 9999px; " +
                $"background: {bg}; color: {color}; font-size: 0.75rem; font-weight: 500;";
@@ -351,16 +334,11 @@
         };
     }
 
-    // ── Data ─────────────────────────────────────────────────────────────────────
-
     private async Task RefreshProfilesAsync()
     {
         _loading = true;
 
         var profiles = await Orchestrator.GetProfilesAsync();
-
-        // Map API profiles to display rows. Supplement with stub preview rows
-        // when no profiles exist yet (e.g. fresh install) to demonstrate layout.
         if (profiles.Count > 0)
         {
             var rows = new List<UserRow>();
@@ -383,7 +361,6 @@
         }
         else
         {
-            // Placeholder rows shown until real profiles are created.
             _allRows =
             [
                 new(Guid.Empty, "Bob Smith",    "BS", "#7C4DFF", "Administrator", 0, "Now",        "Active",  true),
@@ -394,8 +371,6 @@
 
         _loading = false;
     }
-
-    // ── Handlers ─────────────────────────────────────────────────────────────────
 
     private void OpenCreateDialog()
     {

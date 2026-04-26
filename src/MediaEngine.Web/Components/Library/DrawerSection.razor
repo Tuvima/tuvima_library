@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 
 <div class="drawer-section @(_hasProblem ? "drawer-section--problem" : "")">
     <MudButton Variant="Variant.Text"
@@ -7,11 +7,11 @@
                FullWidth="true"
                OnClick="Toggle">
         <div class="drawer-section-header-left">
-            <MudIcon Icon="@Icon" Style="@($"font-size: 16px; color: {(_hasProblem ? "var(--tl-status-warning)" : "rgba(255,255,255,0.35)")};")" />
+            <MudIcon Icon="@Icon" Style="@($"font-size: 16px; color: {(_hasProblem ? "var(--tl-status-warning)" : "var(--tl-text-muted)")};")" />
             <span class="drawer-section-title @(_hasProblem ? "drawer-section-title--problem" : "")">@Title</span>
         </div>
         <MudIcon Icon="@(_isOpen ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                 Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+                 Style="font-size: 16px; color: var(--tl-text-faint);" />
     </MudButton>
     @if (_isOpen)
     {
@@ -41,7 +41,7 @@
 
 <style>
     .drawer-section {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
     }
 
     .drawer-section--problem {
@@ -79,7 +79,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
     }
 
     .drawer-section-title--problem {

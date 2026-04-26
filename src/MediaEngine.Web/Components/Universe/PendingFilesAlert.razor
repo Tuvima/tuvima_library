@@ -1,17 +1,8 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer State
 @inject NavigationManager Nav
 @implements IDisposable
-
-@* Pending Files Alert — shown on the Home page when files are in the
-   review queue.  Provides a "Review Now" button that navigates to Needs Review.
-
-   Display modes (driven by device context):
-     "expandable" → Default: full alert with expand/collapse file list
-     "badge"      → Mobile: compact badge with count only, no file list
-     "hidden"     → TV/Automotive: not rendered (parent handles this) *@
-
 @if (_files.Count > 0 && DisplayMode != "hidden")
 {
     @if (string.Equals(DisplayMode, "badge", StringComparison.OrdinalIgnoreCase))
@@ -88,11 +79,6 @@
 
 @code {
     [Parameter] public string? Class { get; set; }
-
-    /// <summary>
-    /// Display mode: "expandable" (default), "badge" (compact), or "hidden".
-    /// Driven by <c>DeviceContext.Settings.Pages.Home.PendingFilesDisplay</c>.
-    /// </summary>
     [Parameter] public string DisplayMode { get; set; } = "expandable";
 
     private List<MediaEngine.Web.Models.ViewDTOs.WatchFolderFileViewModel> _files = [];
@@ -108,11 +94,6 @@
     {
         _files = await Orchestrator.GetWatchFolderAsync();
     }
-
-    /// <summary>
-    /// Refresh when the state container fires (e.g. on MediaAdded SignalR event).
-    /// A file that was successfully processed will no longer appear in the Watch Folder.
-    /// </summary>
     private void OnStateChanged()
     {
         InvokeAsync(async () =>

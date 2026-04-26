@@ -1,10 +1,6 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @inject IJSRuntime JS
-
-@* SwimlaneSection — Renders a swimlane with the appropriate card variant.
-   Wraps the scroll container, header, and card selection logic. *@
-
 @if (Items is { Count: > 0 })
 {
     <div class="swimlane-section @Class">
@@ -85,7 +81,7 @@
                 _atEnd = state.AtEnd;
                 await InvokeAsync(StateHasChanged);
             }
-            catch { /* JS not ready */ }
+            catch {  }
         }
     }
 

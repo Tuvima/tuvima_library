@@ -1,11 +1,6 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @using MediaEngine.Web.Models.ViewDTOs
-
-@* PersonCard — Compact author/narrator/director card.
-   Horizontal layout: headshot (48px rounded square) + name + role label.
-   Falls back to MudAvatar with initials when no headshot is available. *@
-
 <div class="person-card" @onclick="OnClick">
     <div class="person-card-avatar">
         @if (!string.IsNullOrEmpty(Person.LocalHeadshotUrl))
@@ -25,7 +20,7 @@
         else
         {
             <MudAvatar Size="MudBlazor.Size.Large"
-                       Style="width: 48px; height: 48px; font-size: 0.95rem; font-weight: 600; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.50);">
+                       Style="width: 48px; height: 48px; font-size: 0.95rem; font-weight: 600; background: var(--tl-border-subtle); color: rgba(255,255,255,0.50);">
                 @Person.Initials
             </MudAvatar>
         }
@@ -52,14 +47,14 @@
         padding: 10px 14px;
         border-radius: 10px;
         background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         cursor: pointer;
         transition: background 0.2s ease;
         min-width: 180px;
     }
 
     .person-card:hover {
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
     }
 
     .person-card-avatar {

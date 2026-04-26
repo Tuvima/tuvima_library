@@ -1,12 +1,8 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-
-@* MetadataEditDialog — reusable inline MudDialog for manually editing metadata
-   fields. Pre-fills with current canonical values and returns only changed fields. *@
-
 <MudDialog @bind-Visible="Visible" Options="_dialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6">
@@ -38,9 +34,7 @@
                 No editable fields available for this entity.
             </MudAlert>
         }
-
-        @* ── Cover art upload ──────────────────────────────────────────── *@
-        <MudDivider Class="my-3" />
+<MudDivider Class="my-3" />
         <MudText Typo="Typo.subtitle2" Class="mb-2">Cover Art</MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
             @if (_coverPreviewUrl is not null)
@@ -81,20 +75,11 @@
 </MudDialog>
 
 @code {
-    /// <summary>Two-way bound visibility toggle.</summary>
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
-
-    /// <summary>The entity whose metadata is being edited.</summary>
     [Parameter] public Guid EntityId { get; set; }
-
-    /// <summary>The media type, used to determine which fields to show.</summary>
     [Parameter] public string? MediaType { get; set; }
-
-    /// <summary>Current canonical values for the entity (key → value).</summary>
     [Parameter] public Dictionary<string, string>? CurrentValues { get; set; }
-
-    /// <summary>Fired when save succeeds. Returns the map of changed fields.</summary>
     [Parameter] public EventCallback<Dictionary<string, string>> OnSaved { get; set; }
 
     private readonly DialogOptions _dialogOptions = new()
@@ -108,15 +93,8 @@
     private Dictionary<string, string> _originalValues = new();
     private bool _saving;
     private string? _entityTitle;
-
-    // Cover upload state.
     private IBrowserFile? _coverFile;
     private string? _coverPreviewUrl;
-
-    /// <summary>
-    /// Fields to present based on media type. Core fields first, then any
-    /// existing canonical values not yet listed.
-    /// </summary>
     private static readonly string[] CommonFields =
     [
         "title", "author", "description", "genre", "year",
@@ -142,8 +120,6 @@
     {
         _editableFields = [];
         var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // Add common fields (ordered).
         foreach (var key in CommonFields)
         {
             if (!ShouldShowField(key)) continue;
@@ -155,12 +131,9 @@
             });
             added.Add(key);
         }
-
-        // Add any remaining canonical values not yet listed.
         foreach (var (key, value) in _originalValues)
         {
             if (added.Contains(key)) continue;
-            // Skip bridge/internal fields — users shouldn't edit these directly.
             if (GetFieldCategory(key) == "Bridge") continue;
 
             _editableFields.Add(new EditableField
@@ -171,10 +144,6 @@
             added.Add(key);
         }
     }
-
-    /// <summary>
-    /// Filter fields based on media type relevance.
-    /// </summary>
     private bool ShouldShowField(string key)
     {
         var mt = MediaType?.ToLowerInvariant();
@@ -199,8 +168,6 @@
 
         _saving = true;
         StateHasChanged();
-
-        // Upload cover first (if selected).
         if (_coverFile is not null)
         {
             try
@@ -214,11 +181,9 @@
             }
             catch (Exception)
             {
-                Snackbar.Add("Cover upload failed — file may be too large.", Severity.Warning);
+                Snackbar.Add("Cover upload failed - file may be too large.", Severity.Warning);
             }
         }
-
-        // Build the changed-fields dictionary.
         var changes = new Dictionary<string, string>();
         foreach (var field in _editableFields)
         {
@@ -251,12 +216,9 @@
         await Close();
     }
 
-    // ── Cover file helpers ──────────────────────────────────────────────────
-
     private async Task OnCoverFileSelected(IBrowserFile file)
     {
         _coverFile = file;
-        // Generate preview data URL.
         try
         {
             await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
@@ -292,8 +254,6 @@
         public string Key { get; init; } = string.Empty;
         public string? Value { get; set; }
     }
-
-    // ── Inline field metadata helpers (replaces the removed FieldDictionary) ─────
 
     private static readonly IReadOnlyDictionary<string, (string DisplayName, string Category, string Icon)> s_fieldMap =
         new Dictionary<string, (string, string, string)>(StringComparer.OrdinalIgnoreCase)

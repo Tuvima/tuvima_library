@@ -1,12 +1,11 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @using MediaEngine.Web.Models.ViewDTOs
 
 @if (CurrentItem is not null)
 {
     <div class="hero-carousel">
         <div class="hero-layout">
-            @* ── Cover art ── *@
-            <div class="hero-cover">
+<div class="hero-cover">
                 @if (!string.IsNullOrEmpty(CurrentItem.CoverUrl))
                 {
                     <img src="@CurrentItem.CoverUrl" alt="@CurrentItem.Title"
@@ -14,18 +13,14 @@
                 }
                 <div class="hero-cover-ring"></div>
             </div>
-
-            @* ── Info panel ── *@
-            <div class="hero-info">
+<div class="hero-info">
                 @* Now Playing pill *@
                 <div class="hero-context-pill">
                     <MudIcon Icon="@TypeIcon" Size="Size.Small"
                              Style="@($"font-size: 12px; color: {TypeColor};")" />
                     <span class="hero-context-text">@NowContext</span>
                 </div>
-
-                @* Title — split on colon for multi-line *@
-                <h2 class="hero-title">
+<h2 class="hero-title">
                     @{
                         var parts = CurrentItem.Title.Split(':');
                         for (var i = 0; i < parts.Length; i++)
@@ -102,7 +97,6 @@
     [Parameter, EditorRequired] public IReadOnlyList<HeroData> Items { get; set; } = [];
     [Parameter] public EventCallback<HeroData> OnItemSelected { get; set; }
     [Parameter] public EventCallback<HeroData> OnCtaClicked { get; set; }
-    /// <summary>Called when the active item changes, so the parent can update the ambient background.</summary>
     [Parameter] public EventCallback<HeroData> OnActiveItemChanged { get; set; }
 
     private int _currentIndex;
@@ -196,7 +190,7 @@
         }
     }
 
-    /* ── Cover ── */
+
     .hero-cover {
         position: relative;
         flex-shrink: 0;
@@ -220,11 +214,11 @@
         position: absolute;
         inset: 0;
         border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        border: 1px solid var(--tl-border-default);
         pointer-events: none;
     }
 
-    /* ── Info ── */
+
     .hero-info {
         position: relative;
         z-index: 20;
@@ -240,7 +234,7 @@
         }
     }
 
-    /* Context pill */
+
     .hero-context-pill {
         display: inline-flex;
         align-items: center;
@@ -261,7 +255,7 @@
         letter-spacing: 0.2em;
     }
 
-    /* Title */
+
     .hero-title {
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 2.5rem;
@@ -283,7 +277,7 @@
         display: block;
     }
 
-    /* Meta */
+
     .hero-meta {
         display: flex;
         align-items: center;
@@ -319,7 +313,7 @@
         font-size: 9px;
     }
 
-    /* Actions */
+
     .hero-actions {
         display: flex;
         flex-direction: column;
@@ -366,8 +360,8 @@
         justify-content: center;
         width: 48px;
         height: 48px;
-        background: rgba(255, 255, 255, 0.10);
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: var(--tl-border-default);
+        border: 1px solid var(--tl-border-default);
         border-radius: 50%;
         color: white;
         cursor: pointer;
@@ -378,7 +372,7 @@
         background: rgba(255, 255, 255, 0.20);
     }
 
-    /* Progress */
+
     .hero-progress {
         width: 100%;
         max-width: 280px;
@@ -394,7 +388,7 @@
     .hero-progress-track {
         height: 2.5px;
         width: 100%;
-        background: rgba(255, 255, 255, 0.10);
+        background: var(--tl-border-default);
         border-radius: 999px;
         overflow: hidden;
     }
@@ -407,7 +401,7 @@
         transition: width 1s ease;
     }
 
-    /* Dots */
+
     .hero-dots {
         display: flex;
         align-items: center;

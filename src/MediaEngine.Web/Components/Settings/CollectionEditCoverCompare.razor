@@ -1,8 +1,5 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
-
-@* ── Side-by-side cover art comparison ──────────────────────────────────────── *@
-
 <div class="cover-compare-wrap">
     <div class="cover-compare-section">
         <span class="cover-compare-label">Current</span>
@@ -80,7 +77,7 @@
         gap: 12px;
         padding: 12px;
         background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 8px;
     }
 
@@ -119,8 +116,8 @@
         width: 100px;
         height: 150px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--tl-divider);
+        border: 1px solid var(--tl-border-subtle);
         display: flex;
         align-items: center;
         justify-content: center;

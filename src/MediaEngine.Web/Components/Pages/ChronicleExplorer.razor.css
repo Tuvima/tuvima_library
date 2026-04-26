@@ -1,4 +1,4 @@
-.chronicle-explorer-title {
+﻿.chronicle-explorer-title {
     font-family: var(--app-font-sans, 'Nunito', sans-serif);
 }
 
@@ -15,7 +15,7 @@
     height: 600px;
     background: rgba(17, 17, 17, 0.94);
     border-radius: var(--app-radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--tl-border-default);
 }
 
 .chronicle-explorer-panel {

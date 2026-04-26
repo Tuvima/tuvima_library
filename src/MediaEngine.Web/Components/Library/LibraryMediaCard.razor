@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 <div class="vmc-card @(IsQuarantined ? "vmc-card--quarantined" : "")"
      @onclick="() => OnCardClicked.InvokeAsync(Item.EntityId)">
@@ -73,7 +73,7 @@
         opacity: 0.5;
     }
 
-    /* -- Delete button -- */
+
     .vmc-delete-btn {
         position: absolute;
         top: 8px;
@@ -82,7 +82,7 @@
         border-radius: 8px;
         background: transparent;
         border: none;
-        color: rgba(255, 255, 255, 0.2);
+        color: var(--tl-text-faint);
         cursor: pointer;
         opacity: 0;
         transition: all 0.15s;
@@ -98,7 +98,7 @@
         background: rgba(160, 80, 80, 0.1);
     }
 
-    /* -- Header -- */
+
     .vmc-header {
         display: flex;
         justify-content: space-between;
@@ -111,7 +111,7 @@
         height: 48px;
         border-radius: 12px;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         background: rgba(255, 255, 255, 0.02);
         display: flex;
         align-items: center;
@@ -126,11 +126,11 @@
         opacity: 0.6;
     }
 
-    /* -- Title -- */
+
     .vmc-title {
         font-size: 14px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         margin: 0 0 4px 0;
         line-height: 1.3;
         display: -webkit-box;
@@ -143,14 +143,14 @@
         color: rgba(255, 255, 255, 0.4);
     }
 
-    /* -- Footer -- */
+
     .vmc-footer {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-top: 16px;
         padding-top: 16px;
-        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        border-top: 1px solid var(--tl-divider);
     }
 
     .vmc-pipeline {

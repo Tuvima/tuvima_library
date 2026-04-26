@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 
 @inject IEngineApiClient ApiClient
@@ -7,14 +7,14 @@
 @if (_loading)
 {
     <div class="vup-loading">
-        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.15);" />
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-border-strong);" />
     </div>
 }
 else if (_candidates.Count == 0)
 {
     <div class="vup-empty">
         <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No pending universe candidates.</p>
+        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">No pending universe candidates.</p>
     </div>
 }
 else
@@ -127,17 +127,17 @@ else
         border: 1px solid rgba(76,175,80,0.2); border-radius: 8px; color: rgba(76,175,80,0.8);
         font-size: 0.8rem; cursor: pointer; transition: background 0.15s;
     }
-    .vup-batch-btn:hover { background: rgba(76,175,80,0.15); }
+    .vup-batch-btn:hover { background: var(--tl-status-success-soft); }
     .vup-queue { display: flex; flex-direction: column; gap: 8px; }
     .vup-card {
         display: flex; align-items: center; justify-content: space-between; padding: 14px 16px;
-        background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+        background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle);
         border-radius: 10px; transition: background 0.15s;
     }
     .vup-card:hover { background: rgba(255,255,255,0.05); }
     .vup-card-left { flex: 1; min-width: 0; }
     .vup-card-title {
-        font-size: 0.9rem; font-weight: 500; color: rgba(255,255,255,0.85);
+        font-size: 0.9rem; font-weight: 500; color: var(--tl-text-primary);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;
     }
     .vup-type-badge {
@@ -149,7 +149,7 @@ else
         font-size: 0.75rem; color: rgba(92,159,202,0.7); font-family: monospace;
     }
     .vup-card-type-label {
-        font-size: 0.7rem; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.03em;
+        font-size: 0.7rem; color: var(--tl-text-muted); text-transform: uppercase; letter-spacing: 0.03em;
     }
     .vup-card-actions { display: flex; gap: 8px; flex-shrink: 0; }
     .vup-action {

@@ -106,12 +106,12 @@
         width: 52px;
         height: 52px;
         border-radius: 50%;
-        border: 3px solid rgba(255,255,255,0.15);
+        border: 3px solid var(--tl-border-strong);
         display: flex;
         align-items: center;
         justify-content: center;
         transition: all 0.2s ease;
-        background: rgba(255,255,255,0.04);
+        background: var(--tl-divider);
     }
 
     .pipeline-circle.selected {
@@ -123,13 +123,13 @@
     .pipeline-circle.state-running { border-color: #90CAF9; }
     .pipeline-circle.state-warning { border-color: var(--tl-status-warning); }
     .pipeline-circle.state-failed { border-color: var(--tl-status-danger); }
-    .pipeline-circle.state-pending { border-color: rgba(255,255,255,0.12); }
+    .pipeline-circle.state-pending { border-color: var(--tl-border-default); }
 
     .pipeline-circle.state-completed.selected { background: var(--tl-status-success-soft); box-shadow: 0 0 20px var(--tl-status-success-border); }
     .pipeline-circle.state-running.selected { background: rgba(144,202,249,0.15); box-shadow: 0 0 20px rgba(144,202,249,0.4); }
     .pipeline-circle.state-warning.selected { background: var(--tl-status-warning-soft); box-shadow: 0 0 20px var(--tl-status-warning-border); }
     .pipeline-circle.state-failed.selected { background: rgba(160,80,80,0.15); box-shadow: 0 0 20px rgba(160,80,80,0.4); }
-    .pipeline-circle.state-pending.selected { background: rgba(255,255,255,0.08); box-shadow: 0 0 20px rgba(255,255,255,0.15); }
+    .pipeline-circle.state-pending.selected { background: var(--tl-border-subtle); box-shadow: 0 0 20px var(--tl-border-strong); }
 
     .pipeline-circle.running {
         animation: circle-pulse 1.4s ease-in-out infinite;
@@ -144,7 +144,7 @@
 
     .circle-label {
         font-size: 11px;
-        color: rgba(255,255,255,0.5);
+        color: var(--tl-text-muted);
         text-transform: uppercase;
         letter-spacing: 0.5px;
         white-space: nowrap;
@@ -159,7 +159,7 @@
         width: 28px;
         height: 2px;
         margin-bottom: 22px;
-        background: rgba(255,255,255,0.12);
+        background: var(--tl-border-default);
         flex-shrink: 0;
     }
 
@@ -167,6 +167,6 @@
     .pipeline-connector.state-running { background: #90CAF9; }
     .pipeline-connector.state-warning { background: var(--tl-status-warning); }
     .pipeline-connector.state-failed { background: var(--tl-status-danger); }
-    .pipeline-connector.state-pending { background: rgba(255,255,255,0.12); }
+    .pipeline-connector.state-pending { background: var(--tl-border-default); }
 </style>
 

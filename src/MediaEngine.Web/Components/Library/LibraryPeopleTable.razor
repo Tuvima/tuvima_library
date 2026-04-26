@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 @inject IStringLocalizer<SharedStrings> L
 
@@ -6,7 +6,7 @@
 {
     <div class="vpt-empty">
         <MudIcon Icon="@Icons.Material.Outlined.People" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">@L["VaultPeople_NoPeopleFound"]</p>
+        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">@L["VaultPeople_NoPeopleFound"]</p>
     </div>
 }
 else
@@ -62,7 +62,7 @@ else
                             else
                             {
                                 <MudIcon Icon="@Icons.Material.Outlined.Person"
-                                         Style="font-size: 16px; color: rgba(255,255,255,0.25);" />
+                                         Style="font-size: 16px; color: var(--tl-text-faint);" />
                             }
                         </div>
                         <div class="vpt-person-info">
@@ -70,7 +70,7 @@ else
                                 @if (person.IsGroup)
                                 {
                                     <MudIcon Icon="@Icons.Material.Filled.Groups"
-                                             Style="font-size: 12px; color: rgba(255,255,255,0.35); margin-right: 4px; vertical-align: middle;" />
+                                             Style="font-size: 12px; color: var(--tl-text-muted); margin-right: 4px; vertical-align: middle;" />
                                 }
                                 @person.Name
                             </span>
@@ -126,7 +126,7 @@ else
     {
         <div class="vpt-loading">
             <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                 Style="color: rgba(255,255,255,0.15);" />
+                                 Style="color: var(--tl-border-strong);" />
         </div>
     }
 }
@@ -207,7 +207,7 @@ else
     }
 
     ::deep .vpt-table .mud-table-head {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
         background: rgba(15, 23, 42, 0.5);
         position: sticky;
         top: 0;
@@ -220,7 +220,7 @@ else
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.15em;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
     }
 
     .vpt-th--center {
@@ -228,7 +228,7 @@ else
     }
 
     .vpt-sort-header {
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         font-size: 9px;
         font-weight: 900;
         letter-spacing: 0.15em;
@@ -280,7 +280,7 @@ else
         height: 36px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -323,7 +323,7 @@ else
     .vpt-description {
         font-size: 10px;
         font-style: italic;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         display: block;
         white-space: nowrap;
         overflow: hidden;
@@ -340,7 +340,7 @@ else
         padding: 2px 7px;
         border-radius: 4px;
         background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.45);
         white-space: nowrap;
     }
@@ -355,18 +355,18 @@ else
     .vpt-role-more {
         font-size: 9px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         margin-left: 4px;
     }
 
     .vpt-count {
         font-size: 12px;
         font-weight: 900;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
     }
 
     .vpt-count--muted {
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         font-weight: 700;
     }
 
@@ -392,7 +392,7 @@ else
 
     .vpt-muted {
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         font-style: italic;
     }
 

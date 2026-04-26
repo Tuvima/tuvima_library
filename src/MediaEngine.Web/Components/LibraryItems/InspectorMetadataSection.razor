@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 @using MudBlazor
 
@@ -15,8 +15,7 @@
     }
     else
     {
-        @* ── Sub-tab toggle: Matched / File ── *@
-        <div class="ims-subtabs">
+<div class="ims-subtabs">
             <button class="ims-subtab @(_subtab == "matched" ? "ims-subtab--active" : "")"
                     @onclick='() => _subtab = "matched"'>
                 Matched
@@ -34,9 +33,7 @@
                 }
             </button>
         </div>
-
-        @* ── Field list ── *@
-        @if (VisibleFields.Count == 0)
+@if (VisibleFields.Count == 0)
         {
             <div class="ims-empty">No @(_subtab == "file" ? "file" : "matched") metadata</div>
         }
@@ -78,8 +75,6 @@
     [Parameter] public bool Loading { get; set; }
 
     private string _subtab = "matched";
-
-    /// <summary>Fields that are suppressed from the metadata view.</summary>
     private static readonly HashSet<string> SuppressedKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "cover", "cover_url", "headshot_url", "hero", "hero_url",
@@ -170,12 +165,12 @@
         padding: 24px 0;
     }
 
-    /* ── Sub-tabs ── */
+
     .ims-subtabs {
         display: flex;
         gap: 0;
         margin-bottom: 12px;
-        border-bottom: 1px solid rgba(140, 120, 180, 0.10);
+        border-bottom: 1px solid var(--tl-accent-primary-soft);
     }
 
     .ims-subtab {
@@ -224,14 +219,14 @@
     }
 
     .ims-subtab--active .ims-subtab-count {
-        color: rgba(201, 146, 46, 0.60);
-        background: rgba(201, 146, 46, 0.10);
+        color: var(--tl-status-warning);
+        background: var(--tl-status-warning-soft);
     }
 
-    /* ── Fields ── */
+
     .ims-field {
         padding: 8px 0;
-        border-bottom: 1px solid rgba(140, 120, 180, 0.08);
+        border-bottom: 1px solid var(--tl-accent-primary-soft);
     }
 
     .ims-field:last-child {
@@ -268,8 +263,8 @@
         font-weight: 600;
         font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
         color: var(--tl-status-success);
-        background: rgba(93, 202, 165, 0.10);
-        border: 1px solid rgba(93, 202, 165, 0.20);
+        background: var(--tl-status-success-soft);
+        border: 1px solid var(--tl-status-success-border);
         padding: 2px 8px;
         border-radius: 4px;
         letter-spacing: 0.02em;
@@ -278,7 +273,7 @@
     }
 
     .ims-qid-chip:hover {
-        background: rgba(93, 202, 165, 0.18);
-        border-color: rgba(93, 202, 165, 0.35);
+        background: var(--tl-status-success-soft);
+        border-color: var(--tl-status-success-border);
     }
 </style>

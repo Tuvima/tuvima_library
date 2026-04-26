@@ -1,4 +1,4 @@
-using Bunit;
+﻿using Bunit;
 using MediaEngine.Web.Components.Collections;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Pages;
@@ -17,6 +17,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
+using System.Text.RegularExpressions;
 
 namespace MediaEngine.Web.Tests;
 
@@ -329,6 +330,43 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("--tl-form-row-gap: 16px;", tokens);
         Assert.Contains("--tl-form-section-gap: 24px;", tokens);
         Assert.Contains("--tl-card-padding: 20px;", tokens);
+        Assert.Contains("--tl-text-faint:", tokens);
+        Assert.Contains("--tl-font-mono:", tokens);
+    }
+
+    [Fact]
+    public void AppCss_UsesSingleAliasRootAndSharedFoundation()
+    {
+        var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "app.css"));
+
+        Assert.Single(Regex.Matches(css, @"(?m)^:root\s*\{"));
+        Assert.Contains(".tl-setting-row", css);
+        Assert.Contains(".tl-card--flush", css);
+        Assert.Contains(".tl-empty-state", css);
+        Assert.Contains(".search-result-row", css);
+        Assert.DoesNotContain("Legacy settings shared UI components", css);
+    }
+
+    [Fact]
+    public void WebUiSource_DoesNotContainLegacySettingsClassesOrMojibake()
+    {
+        var root = GetRepoFile("src", "MediaEngine.Web", "Components");
+        var files = Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
+            .Where(file => file.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)
+                           || file.EndsWith(".css", StringComparison.OrdinalIgnoreCase)
+                           || file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase));
+
+        foreach (var file in files)
+        {
+            var source = File.ReadAllText(file);
+
+            Assert.DoesNotMatch(@"class=""[^""]*\bst-page\b", source);
+            Assert.DoesNotMatch(@"class=""[^""]*\bst-card\b", source);
+            Assert.DoesNotMatch(@"class=""[^""]*\bst-toggle-row\b", source);
+            Assert.DoesNotContain("Ã‚", source);
+            Assert.DoesNotContain("Ã¢", source);
+            Assert.DoesNotContain("ï¿½", source);
+        }
     }
 
     [Fact]

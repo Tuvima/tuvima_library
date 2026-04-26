@@ -1,29 +1,19 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
-
-@* Maintenance — Housekeeping tools: library reconciliation, crawl, and weekly sync.
-   Activity timeline and retention policy have moved to the dedicated Activity tab
-   under the Metadata settings group. *@
-
-<div class="st-page">
-
-    @* ── Section Header ──────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Build" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["Maintenance_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["Maintenance_PageDescription"]
     </MudText>
-
-    @* ── Section 1: Library Reconciliation ──────────────────────────────── *@
-
-    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+<MudPaper Elevation="0" Class="tl-card mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Outlined.FactCheck"
                      Color="Color.Default" Class="mr-2" />
@@ -47,15 +37,12 @@
             {
                 <MudChip T="string" Size="Size.Small" Color="Color.Default"
                          Style="opacity: 0.8;">
-                    @_lastResult.TotalScanned scanned · @_lastResult.MissingCount missing · @(_lastResult.ElapsedMs)ms
+                    @_lastResult.TotalScanned scanned  -  @_lastResult.MissingCount missing  -  @(_lastResult.ElapsedMs)ms
                 </MudChip>
             }
         </MudStack>
     </MudPaper>
-
-    @* ── Section 2: Universe Enrichment ─────────────────────────────────── *@
-
-    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+<MudPaper Elevation="0" Class="tl-card mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Filled.AutoFixHigh"
                      Color="Color.Default" Class="mr-2" />
@@ -83,10 +70,7 @@
             }
         </MudStack>
     </MudPaper>
-
-    @* ── Section 3: Auto Re-tag Sweep ───────────────────────────────────── *@
-
-    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+<MudPaper Elevation="0" Class="tl-card mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Outlined.LabelImportant"
                      Color="Color.Default" Class="mr-2" />
@@ -127,7 +111,7 @@
                         @if (d.RemovedFields.Count > 0)
                         {
                             <MudText Typo="Typo.caption" Style="color: #e57373;">
-                                − @string.Join(", ", d.RemovedFields)
+                                - @string.Join(", ", d.RemovedFields)
                             </MudText>
                         }
                     </div>
@@ -142,9 +126,9 @@
                                    Color="Color.Primary"
                                    Value="@(_retagProgress.IsFinal ? 100 : 0)" />
                 <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    Processed @_retagProgress.Processed ·
-                    @_retagProgress.Succeeded written ·
-                    @_retagProgress.Transient retrying ·
+                    Processed @_retagProgress.Processed  -
+                    @_retagProgress.Succeeded written  -
+                    @_retagProgress.Transient retrying  -
                     @_retagProgress.Terminal failed
                 </MudText>
             </MudStack>
@@ -168,10 +152,7 @@
             </MudButton>
         </MudStack>
     </MudPaper>
-
-    @* ── Section 4: Initial Library Sweep ─────────────────────────────── *@
-
-    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+<MudPaper Elevation="0" Class="tl-card mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Outlined.Fingerprint"
                      Color="Color.Default" Class="mr-2" />
@@ -182,7 +163,7 @@
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
             Fingerprints every media file across all configured library source paths.
             The hash cache lets Tuvima detect moved and renamed files without re-reading
-            every byte — subsequent sweeps only re-hash files whose size or modification
+            every byte - subsequent sweeps only re-hash files whose size or modification
             time have changed.
         </MudText>
 
@@ -195,10 +176,10 @@
                          Rounded="false"
                                     Size="Size.Medium" />
                 <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    @_sweepProgress.Processed / @_sweepProgress.Discovered files ·
-                    @_sweepProgress.Hashed hashed ·
-                    @_sweepProgress.Cached cached ·
-                    @_sweepProgress.Failed failed ·
+                    @_sweepProgress.Processed / @_sweepProgress.Discovered files  -
+                    @_sweepProgress.Hashed hashed  -
+                    @_sweepProgress.Cached cached  -
+                    @_sweepProgress.Failed failed  -
                     @FormatBytes(_sweepProgress.BytesHashed)
                 </MudText>
             </MudStack>
@@ -206,7 +187,7 @@
         else if (_sweepComplete && _sweepProgress is not null)
         {
             <MudAlert Severity="Severity.Success" Variant="Variant.Text" Dense="true" Class="mb-3">
-                Completed — @_sweepProgress.Discovered files discovered,
+                Completed - @_sweepProgress.Discovered files discovered,
                 @_sweepProgress.Hashed hashed,
                 @_sweepProgress.Cached from cache,
                 @_sweepProgress.Failed failed
@@ -221,14 +202,11 @@
                        StartIcon="@Icons.Material.Filled.PlayArrow"
                        OnClick="@RunInitialSweepAsync"
                        Disabled="@_sweepRunning">
-                @(_sweepRunning ? "Sweeping…" : "Run Sweep Now")
+                @(_sweepRunning ? "Sweeping..." : "Run Sweep Now")
             </MudButton>
         </MudStack>
     </MudPaper>
-
-    @* ── Section 5: Library Crawl (stub) ────────────────────────────────── *@
-
-    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+<MudPaper Elevation="0" Class="tl-card mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Outlined.FindInPage"
                      Color="Color.Secondary" Class="mr-2" />
@@ -240,10 +218,7 @@
             @L["Maintenance_LibraryCrawlDescription"]
         </MudText>
     </MudPaper>
-
-    @* ── Section 5: Weekly Sync (stub) ──────────────────────────────────── *@
-
-    <MudPaper Elevation="0" Style="@InnerCardStyle">
+<MudPaper Elevation="0" Class="tl-card">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Outlined.Sync"
                      Color="Color.Secondary" Class="mr-2" />
@@ -259,15 +234,12 @@
 </div>
 
 @code {
-    // ── Style constants ──────────────────────────────────────────────────────────
 
     private const string InnerCardStyle =
         "background: var(--app-glass-inner-bg); " +
         "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 8px; " +
         "padding: 24px;";
-
-    // ── State ────────────────────────────────────────────────────────────────────
 
     private bool _reconciling;
     private ReconciliationResultDto? _lastResult;
@@ -279,13 +251,9 @@
     private RetagSweepProgressDto? _retagProgress;
     private bool _retagBusy;
     private bool _retagRunning;
-
-    // Initial sweep state
     private InitialSweepProgressDto? _sweepProgress;
     private bool _sweepRunning;
     private bool _sweepComplete;
-
-    // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
@@ -317,12 +285,9 @@
     {
         _retagProgress = ev;
         _retagRunning  = false;
-        // Refresh the pending diff — after a successful pass the hashes are current.
         _retagState = await Orchestrator.GetRetagSweepStateAsync();
         await InvokeAsync(StateHasChanged);
     }
-
-    // ── Retag Sweep Actions ──────────────────────────────────────────────────────
 
     private async Task ApplyRetagPendingAsync()
     {
@@ -333,12 +298,12 @@
             if (ok)
             {
                 _retagRunning = true;
-                Snackbar.Add("Applied — the re-tag sweep is starting.", Severity.Success);
+                Snackbar.Add("Applied - the re-tag sweep is starting.", Severity.Success);
                 _retagState = await Orchestrator.GetRetagSweepStateAsync();
             }
             else
             {
-                Snackbar.Add("Apply failed — see Engine logs.", Severity.Error);
+                Snackbar.Add("Apply failed - see Engine logs.", Severity.Error);
             }
         }
         finally
@@ -369,8 +334,6 @@
         }
     }
 
-    // ── Actions ──────────────────────────────────────────────────────────────────
-
     private async Task RunReconciliationAsync()
     {
         _reconciling = true;
@@ -383,7 +346,7 @@
         {
             _lastResult = result;
             var msg = result.MissingCount > 0
-                ? $"Reconciliation found {result.MissingCount} missing file(s) — cleaned up"
+                ? $"Reconciliation found {result.MissingCount} missing file(s) - cleaned up"
                 : L["Maintenance_ReconciliationComplete"];
             Snackbar.Add(msg, result.MissingCount > 0 ? Severity.Warning : Severity.Success);
         }
@@ -392,8 +355,6 @@
             Snackbar.Add(L["Maintenance_ReconciliationError"], Severity.Error);
         }
     }
-
-    // ── Initial Sweep Actions ────────────────────────────────────────────────────
 
     private double SweepPercent =>
         _sweepProgress is { Discovered: > 0 }
@@ -435,11 +396,9 @@
         if (!ok)
         {
             _sweepRunning = false;
-            Snackbar.Add("Could not start the sweep — check Engine connection.", Severity.Error);
+            Snackbar.Add("Could not start the sweep - check Engine connection.", Severity.Error);
         }
     }
-
-    // ── Pass 2 Actions ───────────────────────────────────────────────────────────
 
     private async Task TriggerPass2Async()
     {

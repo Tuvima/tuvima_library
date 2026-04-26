@@ -1,11 +1,11 @@
-.app-dialog-shell {
+﻿.app-dialog-shell {
     display: flex;
     flex-direction: column;
     width: min(100vw - 32px, 980px);
     max-height: min(86vh, 900px);
     overflow: hidden;
     border-radius: var(--app-radius-md, 8px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--tl-border-subtle);
     background: linear-gradient(180deg, rgba(24, 26, 32, 0.98), rgba(15, 17, 22, 0.98));
     color: var(--app-text-primary, rgba(255, 255, 255, 0.92));
 }

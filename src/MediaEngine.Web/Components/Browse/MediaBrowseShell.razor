@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Browse
+﻿@namespace MediaEngine.Web.Components.Browse
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Contracts.Display
@@ -125,7 +125,7 @@
     @if (_loading && !_hasLoadedOnce)
     {
         <div class="browse-shell__loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.25);" />
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: var(--tl-text-faint);" />
         </div>
     }
     else if (_isGroupDrilldown && _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType))
@@ -1326,7 +1326,7 @@
             group.WorkCount > 0 ? $"{group.WorkCount} items" : null,
         }.Where(part => !string.IsNullOrWhiteSpace(part));
 
-        return string.Join(" · ", parts);
+        return string.Join("  -  ", parts);
     }
 
     private static string JoinParts(params string?[] parts) =>

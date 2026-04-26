@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Playback
+﻿@namespace MediaEngine.Web.Components.Playback
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
@@ -9,9 +9,7 @@
                        OnClick="OnClose" />
     </div>
     <div class="reader-drawer-content reader-settings-content">
-
-        @* ── Theme ── *@
-        <div class="settings-section">
+<div class="settings-section">
             <MudText Typo="Typo.subtitle2" Class="settings-label">Theme</MudText>
             <div class="theme-picker">
                 <button class="theme-chip theme-dark @(Settings.Theme == "dark" ? "active" : "")"
@@ -28,9 +26,7 @@
                 </button>
             </div>
         </div>
-
-        @* ── Font Family ── *@
-        <div class="settings-section">
+<div class="settings-section">
             <MudText Typo="Typo.subtitle2" Class="settings-label">Font</MudText>
             <div class="font-picker">
                 @foreach (var font in _fonts)
@@ -43,9 +39,7 @@
                 }
             </div>
         </div>
-
-        @* ── Font Size ── *@
-        <div class="settings-section">
+<div class="settings-section">
             <MudText Typo="Typo.subtitle2" Class="settings-label">
                 Size: @(Settings.FontSize)px
             </MudText>
@@ -64,9 +58,7 @@
                                OnClick="IncreaseFontSize" />
             </div>
         </div>
-
-        @* ── Line Height ── *@
-        <div class="settings-section">
+<div class="settings-section">
             <MudText Typo="Typo.subtitle2" Class="settings-label">
                 Line Spacing: @Settings.LineHeight.ToString("F1")
             </MudText>
@@ -76,9 +68,7 @@
                        Min="1.2" Max="2.4" Step="0.1"
                        Color="Color.Warning" />
         </div>
-
-        @* ── Margins ── *@
-        <div class="settings-section">
+<div class="settings-section">
             <MudText Typo="Typo.subtitle2" Class="settings-label">
                 Margins: @(Settings.Margins)px
             </MudText>

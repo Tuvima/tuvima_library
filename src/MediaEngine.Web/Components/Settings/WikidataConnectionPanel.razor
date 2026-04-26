@@ -1,17 +1,8 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 
 @using MediaEngine.Web.Models.ViewDTOs
-
-@* Wikidata Vault Panel — Wikidata-specific editing surface shown inside the
-   Connection Vault when Wikidata is expanded. Shows editable connection details
-   (API URL, SPARQL URL, throttle, concurrency), test button, and a read-only
-   categorized view of all universe properties so the user understands what
-   data the Universe stage collects. *@
-
 <div class="wikidata-vault-panel">
-
-    @* ── Connection Details (editable) ──────────────────────────────────── *@
-    <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-1"
+<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-1"
              Style="letter-spacing: 0.08em;">
         CONNECTION DETAILS
     </MudText>
@@ -56,9 +47,7 @@
                              Disabled="@(!IsAdmin)" />
         </MudItem>
     </MudGrid>
-
-    @* ── Test button ──────────────────────────────────────────────────────── *@
-    <MudStack Row="true" Spacing="2" Class="mt-3 mb-4">
+<MudStack Row="true" Spacing="2" Class="mt-3 mb-4">
         <MudButton Variant="Variant.Outlined"
                    Color="Color.Primary"
                    Size="Size.Small"
@@ -68,7 +57,7 @@
             @if (IsTesting)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                @:Testing…
+                @:Testing...
             }
             else
             {
@@ -76,9 +65,7 @@
             }
         </MudButton>
     </MudStack>
-
-    @* ── Test result ──────────────────────────────────────────────────────── *@
-    @if (TestResult is not null)
+@if (TestResult is not null)
     {
         <MudAlert Severity="@(TestResult.Success ? Severity.Success : Severity.Error)"
                   Class="mb-4"
@@ -90,16 +77,12 @@
             }
         </MudAlert>
     }
-
-    @* ── Bridge Identifiers + Property Map (read-only) ─────────────────────── *@
-    <MudDivider Class="mb-3" />
+<MudDivider Class="mb-3" />
 
     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-        The sections below are read-only — they show what Wikidata collects for your library.
+        The sections below are read-only - they show what Wikidata collects for your library.
     </MudText>
-
-    @* ── Bridge Identifiers ──────────────────────────────────────────────── *@
-    <MudExpansionPanels Elevation="0" Dense="true" Class="mb-4"
+<MudExpansionPanels Elevation="0" Dense="true" Class="mb-4"
                         Style="background: transparent;">
         <MudExpansionPanel MaxHeight="2000"
                            Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 8px;">
@@ -116,7 +99,7 @@
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
                     Bridges connect Wikidata to your other providers. When a Wikidata entry is found,
                     these bridge properties cross-reference with Apple Books, Open Library, and more.
-                    Order determines priority — the first matching bridge wins.
+                    Order determines priority - the first matching bridge wins.
                 </MudText>
 
                 <MudSimpleTable Dense="true" Hover="true" Style="background: transparent;">
@@ -141,7 +124,7 @@
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                         <MudText Typo="Typo.body2" Style="font-weight: 600;">@bridge.PCode</MudText>
                                         <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                            — @WikidataPropertyDefaults.GetBridgeLabel(bridge.PCode)
+                                            - @WikidataPropertyDefaults.GetBridgeLabel(bridge.PCode)
                                         </MudText>
                                     </MudStack>
                                 </td>
@@ -161,9 +144,7 @@
             </ChildContent>
         </MudExpansionPanel>
     </MudExpansionPanels>
-
-    @* ── Property Map ────────────────────────────────────────────────────── *@
-    <MudExpansionPanels Elevation="0" Dense="true"
+<MudExpansionPanels Elevation="0" Dense="true"
                         Style="background: transparent;">
         <MudExpansionPanel MaxHeight="4000"
                            Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 8px;">
@@ -244,9 +225,7 @@
             </ChildContent>
         </MudExpansionPanel>
     </MudExpansionPanels>
-
-    @* ── Save button ──────────────────────────────────────────────────────── *@
-    @if (IsAdmin)
+@if (IsAdmin)
     {
         <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
             <MudButton Variant="Variant.Filled"
@@ -258,7 +237,7 @@
                 @if (IsSaving)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                    @:Saving…
+                    @:Saving...
                 }
                 else
                 {
@@ -270,29 +249,14 @@
 </div>
 
 @code {
-    /// <summary>The Wikidata provider being edited.</summary>
     [Parameter, EditorRequired]
     public ProviderStatusDto Provider { get; set; } = default!;
-
-    /// <summary>Whether the current user has admin access.</summary>
     [Parameter] public bool IsAdmin { get; set; }
-
-    /// <summary>Fires when the test button is clicked.</summary>
     [Parameter] public EventCallback OnTestClicked { get; set; }
-
-    /// <summary>Fires when save is clicked with the assembled config.</summary>
     [Parameter] public EventCallback<ProviderConfigUpdateDto> OnSaveClicked { get; set; }
-
-    /// <summary>Latest test result.</summary>
     [Parameter] public ProviderTestResultDto? TestResult { get; set; }
-
-    /// <summary>Whether a test is currently running.</summary>
     [Parameter] public bool IsTesting { get; set; }
-
-    /// <summary>Whether a save operation is in progress.</summary>
     [Parameter] public bool IsSaving { get; set; }
-
-    // ── State ────────────────────────────────────────────────────────────────
 
     private string _wikidataApiUrl = string.Empty;
     private string _sparqlUrl = string.Empty;
@@ -305,11 +269,8 @@
     private Dictionary<string, List<WikidataPropertyDefaults.WikidataPropertyInfo>> _propertiesByCategory = new();
     private int _propertyCount;
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
-
     protected override void OnParametersSet()
     {
-        // Pre-fill connection details from provider config.
         if (string.IsNullOrEmpty(_wikidataApiUrl) && Provider.Endpoints is { Count: > 0 })
         {
             _wikidataApiUrl = Provider.Endpoints.TryGetValue("wikidata_api", out var api) ? api : string.Empty;
@@ -332,8 +293,6 @@
             .ToDictionary(g => g.Key, g => g.OrderBy(p => p.PCode).ToList());
         _propertyCount = allProps.Count;
     }
-
-    // ── Save ──────────────────────────────────────────────────────────────────
 
     private async Task DoSave()
     {

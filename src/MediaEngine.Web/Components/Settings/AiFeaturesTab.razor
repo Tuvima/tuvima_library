@@ -1,28 +1,16 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
-
-@* AiFeaturesTab — AI feature toggles grouped by trigger type.
-   Four expansion panels: Ingestion (automatic), Enrichment (background),
-   On Demand (user-triggered), and Scheduled (cron-based).
-   Tier-aware: shows why a feature is limited by the current hardware profile. *@
-
-<div class="st-page">
-
-    @* ── Header ────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.ToggleOn" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["AiFeatures_AiFeatures"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["AiFeatures_AiFeaturesDescription"]
     </MudText>
-
-    @* ── Expansion panels ───────────────────────────────────────────────── *@
-    <MudExpansionPanels MultiExpansion="true">
-
-        @* ── 1. Ingestion (Automatic) ─────────────────────────────────── *@
-        <MudExpansionPanel @bind-Expanded="_panel1Open"
+<MudExpansionPanels MultiExpansion="true">
+<MudExpansionPanel @bind-Expanded="_panel1Open"
                            Style="@PanelStyle">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -81,16 +69,14 @@
                         @if (!IsFeatureAvailable(feature.Key))
                         {
                             <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] — @GetUpgradeHint(feature.Key)
+                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] - @GetUpgradeHint(feature.Key)
                             </MudText>
                         }
                     </div>
                 }
             </ChildContent>
         </MudExpansionPanel>
-
-        @* ── 2. Enrichment (Background) ──────────────────────────────── *@
-        <MudExpansionPanel @bind-Expanded="_panel2Open"
+<MudExpansionPanel @bind-Expanded="_panel2Open"
                            Style="@PanelStyle">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -149,16 +135,14 @@
                         @if (!IsFeatureAvailable(feature.Key))
                         {
                             <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] — @GetUpgradeHint(feature.Key)
+                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] - @GetUpgradeHint(feature.Key)
                             </MudText>
                         }
                     </div>
                 }
             </ChildContent>
         </MudExpansionPanel>
-
-        @* ── 3. On Demand (User-Triggered) ──────────────────────────── *@
-        <MudExpansionPanel @bind-Expanded="_panel3Open"
+<MudExpansionPanel @bind-Expanded="_panel3Open"
                            Style="@PanelStyle">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -217,16 +201,14 @@
                         @if (!IsFeatureAvailable(feature.Key))
                         {
                             <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] — @GetUpgradeHint(feature.Key)
+                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] - @GetUpgradeHint(feature.Key)
                             </MudText>
                         }
                     </div>
                 }
             </ChildContent>
         </MudExpansionPanel>
-
-        @* ── 4. Scheduled (Background Cron) ─────────────────────────── *@
-        <MudExpansionPanel @bind-Expanded="_panel4Open"
+<MudExpansionPanel @bind-Expanded="_panel4Open"
                            Style="@PanelStyle">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -285,7 +267,7 @@
                         @if (!IsFeatureAvailable(feature.Key))
                         {
                             <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] — @GetUpgradeHint(feature.Key)
+                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] - @GetUpgradeHint(feature.Key)
                             </MudText>
                         }
                     </div>
@@ -299,27 +281,19 @@
 
 @code {
 
-    // ── Styles ────────────────────────────────────────────────────────────────────
-
     private const string PanelStyle =
         "background: var(--app-surface-2); " +
         "border: 1px solid var(--app-border); " +
         "border-radius: 8px; " +
         "margin-bottom: 12px;";
-
-    // Each feature row: flex row with name+desc, role chip, and toggle
     private const string FeatureRowStyle =
         "display: flex; align-items: center; gap: 12px; " +
         "padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);";
-
-    // ── Panel open state (all initially open) ─────────────────────────────────────
 
     private bool _panel1Open = true;
     private bool _panel2Open = true;
     private bool _panel3Open = true;
     private bool _panel4Open = true;
-
-    // ── Hardware profile (for tier awareness) ────────────────────────────────────
 
     private HardwareProfileDto? _profile;
 
@@ -352,8 +326,6 @@
         _                                               => "a GPU will significantly improve performance",
     };
 
-    // ── Feature descriptor ────────────────────────────────────────────────────────
-
     private sealed class AiFeature
     {
         public string Key         { get; init; } = string.Empty;   // machine-readable key for tier checks
@@ -362,8 +334,6 @@
         public string ModelRole   { get; init; } = string.Empty;   // "text_quality" | "text_fast" | "audio" | ""
         public bool   Enabled     { get; set; }
     }
-
-    // ── Feature data ─────────────────────────────────────────────────────────────
 
     private readonly List<AiFeature> _ingestionFeatures =
     [
@@ -508,8 +478,6 @@
             Enabled     = false,
         },
     ];
-
-    // ── Helpers ───────────────────────────────────────────────────────────────────
 
     private static int EnabledCount(List<AiFeature> features) =>
         features.Count(f => f.Enabled);

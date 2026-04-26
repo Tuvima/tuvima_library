@@ -1,4 +1,4 @@
-.app-surface-card {
+﻿.app-surface-card {
     padding: var(--app-card-padding, 20px);
     border-radius: var(--app-radius-lg, 8px);
     border: 1px solid var(--app-border, #293036);

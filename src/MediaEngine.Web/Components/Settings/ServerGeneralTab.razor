@@ -1,15 +1,10 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
-
-@* Server General — friendly name + regional settings (language, country, date/time format). *@
-
 <MudStack Spacing="4">
-
-    @* ── Server Identity ─────────────────────────────────────────────── *@
-    <div class="st-page">
+<div class="tl-page">
         <MudStack Spacing="3">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.Dns" Color="Color.Primary" />
@@ -28,9 +23,7 @@
                           Disabled="@_saving" />
         </MudStack>
     </div>
-
-    @* ── Regional Settings ───────────────────────────────────────────── *@
-    <div class="st-page">
+<div class="tl-page">
         <MudStack Spacing="3">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.Language" Color="Color.Primary" />
@@ -136,9 +129,7 @@
             }
         </MudStack>
     </div>
-
-    @* ── Save button ─────────────────────────────────────────────────── *@
-    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+<MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
         <MudButton Variant="Variant.Outlined"
                    Color="Color.Default"
                    OnClick="@ResetAsync"
@@ -157,7 +148,6 @@
 </MudStack>
 
 @code {
-    // ── State ────────────────────────────────────────────────────────────────
 
     private bool _loading = true;
     private bool _saving  = false;
@@ -194,8 +184,6 @@
     private string _originalDateFormat = "system";
     private string _originalTimeFormat = "system";
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────
-
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
@@ -221,8 +209,6 @@
         }
         _loading = false;
     }
-
-    // ── Actions ──────────────────────────────────────────────────────────────
 
     private async Task SaveAsync()
     {
@@ -260,8 +246,6 @@
 
             if (_languageChanged)
             {
-                // Navigate to the culture-setter endpoint which writes the culture cookie,
-                // then redirects back here — triggering a full reload with the new locale.
                 var redirectBack = Uri.EscapeDataString(Nav.Uri);
                 Nav.NavigateTo($"/culture/set?culture={Uri.EscapeDataString(_displayLanguage)}&redirectUri={redirectBack}", forceLoad: true);
             }
@@ -278,8 +262,6 @@
     {
         await LoadAsync();
     }
-
-    // ── Date / time preview examples ─────────────────────────────────────────
 
     private static readonly DateTime _now = DateTime.Now;
 
@@ -298,8 +280,6 @@
         return new HashSet<string>(left, StringComparer.OrdinalIgnoreCase)
             .SetEquals(right);
     }
-
-    // ── Static data — curated language and country lists ─────────────────────
 
     private static readonly (string Code, string Label)[] Languages =
     [

@@ -1,26 +1,17 @@
-@namespace MediaEngine.Web.Components.Universe
-
-@* CompactHero — Shared spotlight strip used by /read, /watch and /listen.
-   Three modes tune the cover aspect ratio (Portrait / Landscape / Square).
-   Max height ≈ 280 px. Cover is deliberately large so the image reads as
-   the primary content, not a thumbnail tucked inside a huge banner. *@
-
+﻿@namespace MediaEngine.Web.Components.Universe
 @if (Data is not null)
 {
     <div class="spotlight spotlight-@(ModeClass)"
          style="--accent: @AccentColor;"
          @onclick="HandleClick">
-        @* ── Blurred backdrop ── *@
-        <div class="spotlight-backdrop" aria-hidden="true">
+<div class="spotlight-backdrop" aria-hidden="true">
             @if (!string.IsNullOrEmpty(Data.HeroUrl ?? Data.CoverUrl))
             {
                 <img src="@(Data.HeroUrl ?? Data.CoverUrl)" alt="" class="spotlight-backdrop-img" />
             }
             <div class="spotlight-vignette"></div>
         </div>
-
-        @* ── Content ── *@
-        <div class="spotlight-content">
+<div class="spotlight-content">
             @if (!string.IsNullOrEmpty(Data.CoverUrl))
             {
                 <div class="spotlight-cover">
@@ -116,7 +107,7 @@
         grid-area: 1 / 1;
     }
 
-    /* ── Backdrop ── */
+
     .spotlight-backdrop {
         width: 100%;
         height: 100%;
@@ -142,7 +133,7 @@
         );
     }
 
-    /* ── Content ── */
+
     .spotlight-content {
         position: relative;
         z-index: 1;
@@ -159,19 +150,19 @@
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
     }
 
-    /* Portrait — books, comics, audiobooks (2:3) */
+
     .spotlight-portrait .spotlight-cover {
         width: 160px;
         height: 240px;
     }
 
-    /* Landscape — movies, tv (16:9) */
+
     .spotlight-landscape .spotlight-cover {
         width: 320px;
         height: 180px;
     }
 
-    /* Square — music (1:1) */
+
     .spotlight-square .spotlight-cover {
         width: 220px;
         height: 220px;
@@ -240,7 +231,7 @@
         flex: 1;
         max-width: 220px;
         height: 4px;
-        background: rgba(255, 255, 255, 0.10);
+        background: var(--tl-border-default);
         border-radius: 2px;
         overflow: hidden;
     }
@@ -289,7 +280,7 @@
         box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
     }
 
-    /* ── Mobile ── */
+
     @@media (max-width: 768px) {
         .spotlight {
             border-radius: 12px;

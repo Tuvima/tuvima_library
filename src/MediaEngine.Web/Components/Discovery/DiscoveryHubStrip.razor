@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Discovery
+﻿@namespace MediaEngine.Web.Components.Discovery
 
 @if (Hubs.Count > 0)
 {
@@ -120,7 +120,7 @@
         overflow: hidden;
         min-height: 160px;
         border-radius: var(--app-radius-md);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         background:
             radial-gradient(circle at top left, color-mix(in srgb, var(--hub-accent) 35%, transparent) 0%, transparent 54%),
             linear-gradient(180deg, rgba(13, 18, 30, 0.98) 0%, rgba(7, 10, 18, 0.98) 100%);
@@ -131,7 +131,7 @@
 
     .discovery-hub-card:hover {
         transform: translateY(-3px);
-        border-color: color-mix(in srgb, var(--hub-accent) 50%, rgba(255,255,255,0.12));
+        border-color: color-mix(in srgb, var(--hub-accent) 50%, var(--tl-border-default));
     }
 
     .discovery-hub-image {
@@ -185,7 +185,7 @@
         padding: 5px 9px;
         border-radius: var(--app-radius-sm);
         background: rgba(2, 6, 16, 0.64);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 10px;
         font-weight: 800;

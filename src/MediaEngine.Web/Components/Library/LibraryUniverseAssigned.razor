@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 
 @inject IEngineApiClient ApiClient
@@ -6,14 +6,14 @@
 @if (_loading)
 {
     <div class="vua-loading">
-        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.15);" />
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-border-strong);" />
     </div>
 }
 else if (_universes.Count == 0)
 {
     <div class="vua-empty">
         <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No universes assigned yet.</p>
+        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">No universes assigned yet.</p>
     </div>
 }
 else
@@ -64,7 +64,7 @@ else
         display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;
     }
     .vua-count {
-        font-size: 0.8rem; color: rgba(255,255,255,0.3); margin-bottom: 12px;
+        font-size: 0.8rem; color: var(--tl-text-muted); margin-bottom: 12px;
     }
     .vua-list { display: flex; flex-direction: column; gap: 2px; }
     .vua-row {
@@ -76,11 +76,11 @@ else
     .vua-row-icon { flex-shrink: 0; }
     .vua-row-info { flex: 1; min-width: 0; }
     .vua-row-name {
-        font-size: 0.9rem; font-weight: 500; color: rgba(255,255,255,0.85);
+        font-size: 0.9rem; font-weight: 500; color: var(--tl-text-primary);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .vua-row-desc {
-        font-size: 0.75rem; color: rgba(255,255,255,0.3); margin-top: 2px;
+        font-size: 0.75rem; color: var(--tl-text-muted); margin-top: 2px;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .vua-row-meta { flex-shrink: 0; }

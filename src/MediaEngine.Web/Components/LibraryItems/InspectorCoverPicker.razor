@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
 
@@ -8,16 +8,14 @@
 <div class="coverpicker">
     @if (_covers.Count == 0 && !_loading)
     {
-        @* Empty state — no message needed, covers load automatically on candidate selection *@
-    }
+}
     else
     {
-        @* ── Alias dropdown (only when aliases are available) ── *@
-        @if (_aliases.Count > 1)
+@if (_aliases.Count > 1)
         {
             <div class="coverpicker-alias-row">
                 <MudIcon Icon="@Icons.Material.Outlined.TravelExplore"
-                         Style="font-size: 13px; color: rgba(200,190,220,0.35);" />
+                         Style="font-size: 13px; color: var(--tl-text-muted);" />
                 <select class="coverpicker-alias-select" @onchange="HandleAliasChanged">
                     @foreach (var alias in _aliases)
                     {
@@ -41,7 +39,7 @@
                              onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
                         <div class="coverpicker-img-fallback" style="display: none;">
                             <MudIcon Icon="@Icons.Material.Outlined.BrokenImage"
-                                     Style="font-size: 14px; color: rgba(200,190,220,0.2);" />
+                                     Style="font-size: 14px; color: var(--tl-text-faint);" />
                         </div>
                     </div>
                     @if (!string.IsNullOrEmpty(cover.Label))
@@ -51,7 +49,7 @@
                     @if (isSelected)
                     {
                         <span class="coverpicker-check">
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size: 14px; color: #4A90D9;" />
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size: 14px; color: var(--tl-status-info);" />
                         </span>
                     }
                 </div>
@@ -61,7 +59,7 @@
             {
                 <div class="coverpicker-thumb coverpicker-thumb--loading">
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 16px; height: 16px; color: rgba(200,190,220,0.35);" />
+                                         Style="width: 16px; height: 16px; color: var(--tl-text-muted);" />
                 </div>
             }
 
@@ -110,8 +108,6 @@
     private bool _hasMore;
     private string? _lastQuery;
     private List<RetailCandidateDto> _allRetailResults = [];
-
-    // ── Alias dropdown state ─────────────────────────────────────────────────
     private List<string> _aliases = [];
     private string? _activeSearchTitle;
     private string? _lastAliasQid;
@@ -127,22 +123,18 @@
         _allRetailResults = [];
         _hasMore = false;
         _activeSearchTitle = CandidateTitle;
-
-        // Fetch aliases when QID changes
         if (CandidateQid != _lastAliasQid)
         {
             _lastAliasQid = CandidateQid;
             _aliases = [];
             if (!string.IsNullOrWhiteSpace(CandidateQid))
             {
-                // Fire-and-forget style: aliases load in background, covers load immediately
                 _ = LoadAliasesAsync(CandidateQid);
             }
         }
 
         if (string.IsNullOrWhiteSpace(CandidateTitle))
         {
-            // No candidate selected — show file cover only if present
             if (!string.IsNullOrEmpty(FileCoverUrl))
             {
                 var fileCover = new CoverOption { Url = FileCoverUrl, Label = "From File" };
@@ -152,8 +144,6 @@
             }
             return;
         }
-
-        // Add file cover first (always position 1 if available)
         if (!string.IsNullOrEmpty(FileCoverUrl))
         {
             var fileCover = new CoverOption { Url = FileCoverUrl, Label = "From File" };
@@ -161,8 +151,6 @@
             _selectedCover = fileCover;
             await OnCoverSelected.InvokeAsync(fileCover.Url);
         }
-
-        // Load retail covers
         await LoadRetailCovers();
     }
 
@@ -170,14 +158,12 @@
     {
         try
         {
-            // Orchestrator prepends canonicalTitle if not already present
             _aliases = await Orchestrator.GetAliasesAsync(qid, CandidateTitle);
             _activeSearchTitle = _aliases.Count > 0 ? _aliases[0] : CandidateTitle;
             StateHasChanged();
         }
         catch
         {
-            // Silent fail — alias dropdown is optional
         }
     }
 
@@ -187,8 +173,6 @@
         if (string.IsNullOrWhiteSpace(selected) || selected == _activeSearchTitle) return;
 
         _activeSearchTitle = selected;
-
-        // Clear retail covers and re-search with the selected alias
         _covers.RemoveAll(c => c.Label != "From File");
         _allRetailResults = [];
         _hasMore = false;
@@ -210,7 +194,6 @@
                 searchQuery += " " + CandidateAuthor;
 
             var mt = string.IsNullOrEmpty(MediaType) ? "Books" : MediaType;
-            // Request more than we need so we have stock for "Load More"
             var result = await Orchestrator.SearchRetailAsync(searchQuery, mt, 20);
             _allRetailResults = result;
 
@@ -218,12 +201,9 @@
         }
         catch
         {
-            // Silent fail — covers are optional
         }
 
         _loading = false;
-
-        // If no covers were loaded and file cover didn't exist, nothing is selected
         if (_selectedCover is null && _covers.Count > 0)
         {
             _selectedCover = _covers[0];
@@ -233,7 +213,6 @@
 
     private void AppendNextBatch()
     {
-        // Take up to 4 (first load, to make total ~5 with file cover) or 5 (subsequent)
         var existingRetailCount = _covers.Count(c => c.Label != "From File");
         var batchSize = existingRetailCount == 0 ? 4 : 5;
         var skip = existingRetailCount;
@@ -246,7 +225,6 @@
 
         foreach (var r in batch)
         {
-            // Deduplicate by URL
             if (_covers.Any(c => c.Url == r.CoverUrl)) continue;
             _covers.Add(new CoverOption
             {
@@ -294,7 +272,7 @@
         gap: 6px;
         padding: 16px 12px;
         border-radius: 10px;
-        border: 1px dashed rgba(140, 120, 180, 0.12);
+        border: 1px dashed var(--tl-accent-primary-border);
         background: rgba(140, 120, 180, 0.03);
     }
 
@@ -304,7 +282,7 @@
         color: rgba(200, 190, 220, 0.22);
     }
 
-    /* ── Alias dropdown row ── */
+
     .coverpicker-alias-row {
         display: flex;
         align-items: center;
@@ -314,8 +292,8 @@
 
     .coverpicker-alias-select {
         flex: 1;
-        background: rgba(140, 120, 180, 0.06);
-        border: 1px solid rgba(140, 120, 180, 0.15);
+        background: var(--tl-accent-primary-soft);
+        border: 1px solid var(--tl-accent-primary-border);
         border-radius: 6px;
         color: rgba(200, 190, 220, 0.75);
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
@@ -328,15 +306,15 @@
     }
 
     .coverpicker-alias-select:hover {
-        border-color: rgba(140, 120, 180, 0.30);
+        border-color: var(--tl-accent-primary-border);
     }
 
     .coverpicker-alias-select:focus {
-        border-color: rgba(74, 144, 217, 0.50);
+        border-color: var(--tl-status-info-border);
     }
 
     .coverpicker-alias-select option {
-        background: #12162a;
+        background: var(--tl-bg-surface-raised);
         color: rgba(200, 190, 220, 0.85);
     }
 
@@ -344,7 +322,7 @@
         display: flex;
         gap: 8px;
         overflow-x: auto;
-        /* Extra top padding gives room for the hover popup that appears above thumbs */
+
         padding: 260px 0 4px;
         margin-top: -256px;
         scrollbar-width: none;
@@ -360,19 +338,19 @@
         width: 80px;
         height: 120px;
         border-radius: 6px;
-        border: 2px solid rgba(140, 120, 180, 0.12);
-        background: rgba(140, 120, 180, 0.04);
+        border: 2px solid var(--tl-accent-primary-border);
+        background: var(--tl-accent-primary-soft);
         cursor: pointer;
-        /* overflow: hidden removed — popup must escape the thumb bounds */
+
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    /* Square variant for audiobooks */
+
     .coverpicker-thumb--square {
         height: 80px;
     }
 
-    /* Inner wrapper clips the image content, leaving the thumb free to show the popup */
+
     .coverpicker-img-wrap {
         position: absolute;
         inset: 0;
@@ -381,16 +359,16 @@
     }
 
     .coverpicker-thumb:hover {
-        border-color: rgba(140, 120, 180, 0.30);
+        border-color: var(--tl-accent-primary-border);
     }
 
     .coverpicker-thumb--selected {
-        border-color: rgba(74, 144, 217, 0.70);
-        box-shadow: 0 0 0 1px rgba(74, 144, 217, 0.35);
+        border-color: var(--tl-status-info-border);
+        box-shadow: 0 0 0 1px var(--tl-status-info-border);
     }
 
     .coverpicker-thumb--selected:hover {
-        border-color: rgba(74, 144, 217, 0.85);
+        border-color: var(--tl-status-info);
     }
 
     .coverpicker-thumb--loading {
@@ -445,8 +423,8 @@
         width: 80px;
         height: 120px;
         border-radius: 6px;
-        border: 1px dashed rgba(140, 120, 180, 0.18);
-        background: rgba(140, 120, 180, 0.04);
+        border: 1px dashed var(--tl-accent-primary-border);
+        background: var(--tl-accent-primary-soft);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -461,14 +439,14 @@
     }
 
     .coverpicker-more:hover {
-        border-color: rgba(140, 120, 180, 0.35);
+        border-color: var(--tl-accent-primary-border);
         color: rgba(200, 190, 220, 0.55);
-        background: rgba(140, 120, 180, 0.08);
+        background: var(--tl-accent-primary-soft);
     }
 
     .coverpicker-more--square {
         height: 80px;
     }
 
-    /* Cover hover popup rendered on document.body via JS interop (cover-popup.js). */
+
 </style>

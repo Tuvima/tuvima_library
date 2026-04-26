@@ -1,4 +1,4 @@
-@* Amber chip shown on libraryItem items that have no Wikidata QID (status 'missing' or 'manual'). *@
+﻿@* Amber chip shown on libraryItem items that have no Wikidata QID (status 'missing' or 'manual'). *@
 
 @if (Show)
 {
@@ -15,13 +15,8 @@
 }
 
 @code {
-    /// <summary>Whether to show the chip. Bind to item.MissingUniverse.</summary>
     [Parameter] public bool Show { get; set; }
-
-    /// <summary>Chip label. Defaults differ for 'missing' vs 'manual' status.</summary>
     [Parameter] public string Label { get; set; } = "Missing Universe";
-
-    /// <summary>Tooltip message.</summary>
     [Parameter] public string TooltipText { get; set; } =
         "This item has no Wikidata identity. Use 'Find Match' to link it to the universe.";
 }

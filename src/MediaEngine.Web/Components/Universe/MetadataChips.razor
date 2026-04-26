@@ -1,8 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
-
-@* MetadataChips — Renders a list of labels as chip elements.
-   If QIDs are present, chips include a subtle indicator for future entity navigation. *@
-
+﻿@namespace MediaEngine.Web.Components.Universe
 @if (Labels is not null && Labels.Count > 0)
 {
     <div class="metadata-chips">
@@ -23,10 +19,7 @@
 }
 
 @code {
-    /// <summary>Display labels to render as chips.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<string> Labels { get; set; } = [];
-
-    /// <summary>Optional QIDs matching Labels by position. Chips with QIDs are styled as clickable (future: navigate to entity page).</summary>
     [Parameter] public IReadOnlyList<string>? Qids { get; set; }
 }
 
@@ -54,7 +47,7 @@
     }
 
     .metadata-chip.has-qid:hover {
-        border-color: rgba(201, 146, 46, 0.60) !important;
+        border-color: var(--tl-status-warning) !important;
         background: rgba(201, 146, 46, 0.08) !important;
     }
 </style>

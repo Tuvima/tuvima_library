@@ -1,10 +1,10 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
-<div class="st-page">
+<div class="tl-page">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.DownloadForOffline" Class="mr-2" />
         <MudText Typo="Typo.h6">Offline Downloads</MudText>
@@ -18,7 +18,7 @@
         <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.DeleteSweep" OnClick="@CleanupAsync">Run cleanup</MudButton>
     </MudStack>
 
-    <MudPaper Elevation="0" Class="pa-4">
+    <MudPaper Elevation="0" Class="tl-card">
         <MudText Typo="Typo.overline" Color="Color.Secondary">Encode Queue</MudText>
         @if (_loading)
         {
@@ -61,7 +61,7 @@
         }
     </MudPaper>
 
-    <MudPaper Elevation="0" Class="pa-4 mt-4">
+    <MudPaper Elevation="0" Class="tl-card mt-4">
         <MudText Typo="Typo.overline" Color="Color.Secondary">Prepared Variant Actions</MudText>
         <MudGrid Class="mt-2">
             <MudItem xs="12" md="4">

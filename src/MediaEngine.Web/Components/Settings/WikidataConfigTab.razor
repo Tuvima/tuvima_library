@@ -1,27 +1,14 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
-
-@* Wikidata Configuration — Stage 2 (Identity & Core Data) and Stage 3 (Universe Data) settings.
-   Wikidata is the sole identity authority: every media item is identified by its Q-identifier.
-   Stage 2 runs during ingestion hydration. Stage 3 runs deferred in the background.
-   All state is local; no Engine API calls are made yet. *@
-
-<div class="st-page">
-
-    @* ── Header ──────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Public" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["Wikidata_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["Wikidata_PageDescription"]
     </MudText>
-
-    @* ════════════════════════════════════════════════════════════════════
-       Stage 2 — Identity & Core Data
-       ════════════════════════════════════════════════════════════════════ *@
-
-    <MudPaper Elevation="0" Class="pa-5 mb-4" Style="@SectionCardStyle">
+<MudPaper Elevation="0" Class="tl-card pa-5 mb-4">
 
         @* Section label *@
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
@@ -39,9 +26,7 @@
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
             @L["Wikidata_Stage2Description"]
         </MudText>
-
-        @* ── Properties pulled (read-only) ───────────────────────────── *@
-        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
+<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
                  Style="letter-spacing: 0.08em; display: block;">
             @L["Wikidata_PropertiesFetched"]
         </MudText>
@@ -58,9 +43,7 @@
                 </MudChip>
             }
         </MudStack>
-
-        @* ── QID matching thresholds ──────────────────────────────────── *@
-        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
+<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
                  Style="letter-spacing: 0.08em; display: block;">
             @L["Wikidata_MatchingThresholds"]
         </MudText>
@@ -116,9 +99,7 @@
         </MudGrid>
 
         <MudDivider Class="my-4" />
-
-        @* ── Pipeline options ─────────────────────────────────────────── *@
-        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
+<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
                  Style="letter-spacing: 0.08em; display: block;">
             @L["Wikidata_PipelineOptions"]
         </MudText>
@@ -157,12 +138,7 @@
         </MudGrid>
 
     </MudPaper>
-
-    @* ════════════════════════════════════════════════════════════════════
-       Stage 3 — Universe Data
-       ════════════════════════════════════════════════════════════════════ *@
-
-    <MudPaper Elevation="0" Class="pa-5 mb-4" Style="@SectionCardStyle">
+<MudPaper Elevation="0" Class="tl-card pa-5 mb-4">
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
             <MudIcon Icon="@Icons.Material.Outlined.AccountTree"
@@ -184,14 +160,12 @@
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
             @L["Wikidata_Stage3Description"]
         </MudText>
-
-        @* ── Data groups ──────────────────────────────────────────────── *@
-        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
+<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
                  Style="letter-spacing: 0.08em; display: block;">
             @L["Wikidata_DataGroups"]
         </MudText>
 
-        <MudPaper Elevation="0" Class="pa-3 mb-2" Style="@ToggleRowStyle">
+        <MudPaper Elevation="0" Class="tl-setting-row pa-3 mb-2">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.Person"
                          Size="Size.Small" Color="Color.Default" />
@@ -207,7 +181,7 @@
             </MudStack>
         </MudPaper>
 
-        <MudPaper Elevation="0" Class="pa-3 mb-2" Style="@ToggleRowStyle">
+        <MudPaper Elevation="0" Class="tl-setting-row pa-3 mb-2">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.Collections"
                          Size="Size.Small" Color="Color.Default" />
@@ -223,7 +197,7 @@
             </MudStack>
         </MudPaper>
 
-        <MudPaper Elevation="0" Class="pa-3 mb-4" Style="@ToggleRowStyle">
+        <MudPaper Elevation="0" Class="tl-setting-row pa-3 mb-4">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Outlined.DeviceHub"
                          Size="Size.Small" Color="Color.Default" />
@@ -240,9 +214,7 @@
         </MudPaper>
 
         <MudDivider Class="my-4" />
-
-        @* ── Scheduling & depth ───────────────────────────────────────── *@
-        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
+<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
                  Style="letter-spacing: 0.08em; display: block;">
             @L["Wikidata_SchedulingDepth"]
         </MudText>
@@ -356,9 +328,7 @@
         </MudGrid>
 
         <MudDivider Class="my-4" />
-
-        @* ── Manual trigger ────────────────────────────────────────────── *@
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
             <div style="flex: 1;">
                 <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
                     @L["Wikidata_Stage3TriggerNow"]
@@ -388,9 +358,7 @@
         </MudStack>
 
     </MudPaper>
-
-    @* ── Save row ─────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+<MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
         <MudButton Variant="Variant.Text"
                    Color="Color.Default"
                    Size="Size.Small"
@@ -420,8 +388,6 @@
 
 @code {
 
-    // ── Stage 2 — properties pulled (display only) ───────────────────────────────
-
     private static readonly string[] _stage2Properties =
     [
         "Title",
@@ -434,15 +400,11 @@
         "Wikipedia Description",
     ];
 
-    // ── State — Stage 2 ──────────────────────────────────────────────────────────
-
     private int  _autoAcceptThreshold = 95;
     private int  _reviewThreshold     = 70;
     private bool _continueOnFailure   = true;
     private int  _maxQidCandidates    = 5;
     private int  _wikipediaMaxChars   = 1000;
-
-    // ── State — Stage 3 ──────────────────────────────────────────────────────────
 
     private bool   _stage3Enabled           = true;
     private bool   _enrichPeople            = true;
@@ -455,12 +417,8 @@
     private int    _stage3BatchSize         = 50;
     private int    _stage3RefreshDays       = 30;
 
-    // ── Shared ───────────────────────────────────────────────────────────────────
-
     private bool _saving;
     private bool _triggering;
-
-    // ── Actions ──────────────────────────────────────────────────────────────────
 
     private void ResetToDefaults()
     {
@@ -485,7 +443,6 @@
     private async Task TriggerManualSweepAsync()
     {
         _triggering = true;
-        // No Engine API wired yet — simulate a brief acknowledgement delay.
         await Task.Delay(600);
         _triggering = false;
     }
@@ -493,12 +450,9 @@
     private async Task SaveAsync()
     {
         _saving = true;
-        // No Engine API yet — simulate a brief save operation.
         await Task.Delay(400);
         _saving = false;
     }
-
-    // ── Styles ───────────────────────────────────────────────────────────────────
 
     private const string SectionCardStyle =
         "background: var(--app-glass-inner-bg); " +

@@ -1,4 +1,4 @@
-@inject UIOrchestratorService Orchestrator
+﻿@inject UIOrchestratorService Orchestrator
 
 <div class="manual-form">
     <h4 class="manual-form-title">Create Manual Entry</h4>
@@ -33,7 +33,7 @@
                    OnClick="SubmitManualEntry"
                    Disabled="@(_submitting || string.IsNullOrWhiteSpace(_title))"
                    Size="Size.Small">
-            @(_submitting ? "Saving…" : "Create Entry")
+            @(_submitting ? "Saving..." : "Create Entry")
         </MudButton>
     </div>
 </div>
@@ -43,7 +43,7 @@
         margin-top: 12px;
         padding: 16px;
         background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 8px;
     }
 

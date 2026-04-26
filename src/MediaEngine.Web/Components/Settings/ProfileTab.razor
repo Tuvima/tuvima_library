@@ -1,17 +1,10 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
 @inject NavigationManager Nav
 @implements IDisposable
-
-@* ProfileTab — Profile identity, visual preferences, and locale settings.
-   Layout driven by device context:
-     "full"       → Web: all sections visible (profile + avatar colour + locale)
-     "stacked"    → Mobile: compact profile, fewer swatches
-     "theme-only" → Television / Automotive: minimal display *@
-
 @{
     var layout       = DeviceContext.Settings.Pages.Preferences.GeneralTabLayout;
     var showProfile  = !DeviceContext.IsFeatureDisabled("profile_section") && layout != "theme-only";
@@ -20,10 +13,8 @@
     var initials = _displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?";
 }
 
-<div class="st-page">
-
-    @* ── Section header: Account Identity ───────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6" Spacing="2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6" Spacing="2">
         <MudIcon Icon="@Icons.Material.Outlined.Fingerprint" Color="Color.Default" Class="mr-1" />
         <MudText Typo="Typo.h6">@L["Profile_AccountIdentity"]</MudText>
     </MudStack>
@@ -34,9 +25,7 @@
     }
     else
     {
-        @* ── Profile section (hidden on TV/automotive) ─────────────────── *@
-
-        @if (showProfile)
+@if (showProfile)
         {
             @* Avatar + fields row *@
             <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 2rem; margin-bottom: 1.5rem;">
@@ -46,8 +35,7 @@
                     <MudAvatar Style="@($"background: {_avatarColor}; width: 128px; height: 128px; font-size: 2.5rem; border-radius: 2.5rem;")">
                         @initials
                     </MudAvatar>
-                    @* Camera icon overlay — bottom-right corner, future avatar upload *@
-                    <div style="position: absolute; bottom: 0; right: 0;
+<div style="position: absolute; bottom: 0; right: 0;
                                 width: 32px; height: 32px; border-radius: 50%;
                                 background: rgba(17,20,25,0.9); border: 1px solid rgba(51,65,85,0.6);
                                 display: flex; align-items: center; justify-content: center;
@@ -57,9 +45,7 @@
                                  Style="font-size: 1rem; color: var(--mud-palette-text-secondary);" />
                     </div>
                 </div>
-
-                @* Display Name + Role — 2-column grid *@
-                <div style="flex: 1; min-width: 0;">
+<div style="flex: 1; min-width: 0;">
                     <MudGrid Spacing="3">
                         @* Display Name *@
                         <MudItem xs="12" sm="6">
@@ -78,9 +64,7 @@
                                 <MudText Typo="Typo.body1">@_displayName</MudText>
                             }
                         </MudItem>
-
-                        @* Role — read-only *@
-                        <MudItem xs="12" sm="6">
+<MudItem xs="12" sm="6">
                             <div style="border: 1px solid rgba(255,255,255,0.23); border-radius: 4px; padding: 16.5px 14px; cursor: not-allowed; opacity: 0.7;">
                                 <div style="font-size: 0.75rem; color: var(--mud-palette-text-secondary); margin-bottom: 4px; line-height: 1;">
                                     @L["Profile_Role"]
@@ -97,10 +81,7 @@
 
             <MudDivider Class="my-6" />
         }
-
-        @* ── Locale section ──────────────────────────────────────────────── *@
-
-        @if (showLocale && DeviceContext.Settings.Constraints.AllowTextInput)
+@if (showLocale && DeviceContext.Settings.Constraints.AllowTextInput)
         {
             <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
                      Style="letter-spacing: 0.08em;">
@@ -137,10 +118,7 @@
 
             <MudDivider Class="my-6" />
         }
-
-        @* ── Language Preferences section ──────────────────────────────── *@
-
-        @if (showLocale && DeviceContext.Settings.Constraints.AllowTextInput)
+@if (showLocale && DeviceContext.Settings.Constraints.AllowTextInput)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Filled.Translate" Color="Color.Default" Class="mr-1" />
@@ -214,10 +192,7 @@
 
             <MudDivider Class="my-6" />
         }
-
-        @* ── Save button (only when profile section is visible) ──────── *@
-
-        @if (showProfile)
+@if (showProfile)
         {
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
@@ -233,22 +208,14 @@
 
 @code {
 
-    // ── Avatar colour presets ────────────────────────────────────────────────────
-
-    // ── State ────────────────────────────────────────────────────────────────────
-
     private bool   _loading     = true;
     private bool   _saving;
     private Guid   _profileId;
     private string _displayName = string.Empty;
     private string _avatarColor = "#7C4DFF";
     private string _role        = "Administrator";
-
-    // Locale preferences — stored locally, no API round-trip yet
     private string _dateFormat  = "System";
     private string _timeFormat  = "System";
-
-    // Language preferences
     private string _savedDisplayLanguage = "en";  // track original to detect changes
     private string _displayLanguage    = "en";
     private string _metadataLanguage   = "en";
@@ -275,8 +242,6 @@
         ("tr", "Turkish"),
     ];
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────────
-
     protected override async Task OnInitializedAsync()
     {
         DeviceContext.OnChanged += OnDeviceChanged;
@@ -290,8 +255,6 @@
     }
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
-
-    // ── Profile ──────────────────────────────────────────────────────────────────
 
     private async Task LoadProfileAsync()
     {
@@ -332,8 +295,6 @@
             Snackbar.Add(L["Profile_ProfileUpdated"], Severity.Success);
         else
             Snackbar.Add(L["Profile_CouldNotSaveProfile"], Severity.Error);
-
-        // Save language preferences to Engine config
         var currentSettings = await Orchestrator.GetServerGeneralAsync();
         if (currentSettings is not null)
         {
@@ -347,8 +308,6 @@
             var langOk = await Orchestrator.UpdateServerGeneralAsync(updated);
             if (!langOk)
                 Snackbar.Add(L["Profile_CouldNotSaveLanguagePreferences"], Severity.Warning);
-
-            // If display language changed, set culture cookie and reload page
             if (langOk && !string.Equals(_displayLanguage, _savedDisplayLanguage, StringComparison.OrdinalIgnoreCase))
             {
                 var redirectBack = Uri.EscapeDataString(Nav.Uri);
@@ -359,7 +318,5 @@
 
         _saving = false;
     }
-
-    // ── Swatch styles ────────────────────────────────────────────────────────────
 
 }

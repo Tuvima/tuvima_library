@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 @inject IStringLocalizer<SharedStrings> L
 
@@ -6,7 +6,7 @@
 {
     <div class="vut-empty">
         <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">@L["VaultUniverses_NoUniversesFound"]</p>
+        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">@L["VaultUniverses_NoUniversesFound"]</p>
     </div>
 }
 else
@@ -81,7 +81,7 @@ else
     {
         <div class="vut-loading">
             <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                 Style="color: rgba(255,255,255,0.15);" />
+                                 Style="color: var(--tl-border-strong);" />
         </div>
     }
 }
@@ -114,7 +114,7 @@ else
     }
 
     ::deep .vut-table .mud-table-head {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
         background: rgba(15, 23, 42, 0.5);
         position: sticky;
         top: 0;
@@ -127,7 +127,7 @@ else
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.15em;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
     }
 
     .vut-th--center {
@@ -198,7 +198,7 @@ else
     .vut-description {
         font-size: 10px;
         font-style: italic;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         display: block;
         white-space: nowrap;
         overflow: hidden;
@@ -208,11 +208,11 @@ else
     .vut-count {
         font-size: 12px;
         font-weight: 900;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
     }
 
     .vut-count--muted {
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         font-weight: 700;
     }
 
@@ -224,7 +224,7 @@ else
     }
 
     .vut-media-text--empty {
-        color: rgba(255, 255, 255, 0.2);
+        color: var(--tl-text-faint);
     }
 
     .vut-empty {

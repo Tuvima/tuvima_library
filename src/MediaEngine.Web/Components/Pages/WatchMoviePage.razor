@@ -1,4 +1,4 @@
-@page "/watch/movie/{WorkId:guid}"
+﻿@page "/watch/movie/{WorkId:guid}"
 @using MediaEngine.Web.Components.Watch
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
@@ -150,7 +150,7 @@ else
                                 var person = new { Roles = new[] { GetCastRole(cast) } };
                             }
                             <div class="watch-tv-cast-card__name">@GetCastName(cast)</div>
-                            <div class="watch-tv-cast-card__role">@string.Join(" · ", person.Roles.Take(2))</div>
+                            <div class="watch-tv-cast-card__role">@string.Join(" - ", person.Roles.Take(2))</div>
                         </button>
                     }
                 </div>
@@ -500,7 +500,7 @@ else
     .watch-movie-hero__meta span {
         padding: 0.5rem 0.8rem;
         border-radius: var(--app-radius-sm);
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.72);
         font-size: 0.8rem;
         font-weight: 700;
@@ -517,7 +517,7 @@ else
         padding: 14px 16px;
         border-radius: 18px;
         background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
     }
 
     .watch-movie-hero__stat-label {
@@ -550,7 +550,7 @@ else
         justify-self: end;
         border-radius: 24px;
         overflow: hidden;
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
         box-shadow: 0 26px 56px rgba(0, 0, 0, 0.34);
     }
 

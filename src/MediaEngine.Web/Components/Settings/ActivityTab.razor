@@ -1,24 +1,16 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
-
-@* Activity Log — chronological timeline of Engine actions with filter chips and
-   configurable retention. *@
-
-<div class="st-page">
-
-    @* ── Header ──────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Timeline" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["Activity_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["Activity_PageDescription"]
     </MudText>
-
-    @* ── Retention policy ────────────────────────────────────────────────── *@
-    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+<MudPaper Elevation="0" Class="tl-card mb-6">
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
             <MudIcon Icon="@Icons.Material.Outlined.Schedule"
@@ -57,9 +49,7 @@
         </MudStack>
 
     </MudPaper>
-
-    @* ── Filter chips ─────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Style="flex-wrap: wrap; gap: 8px;">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Style="flex-wrap: wrap; gap: 8px;">
         <MudText Typo="Typo.caption" Color="Color.Secondary"
                  Style="text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px;">
             @L["Activity_Filter"]
@@ -83,9 +73,7 @@
             </MudChip>
         }
     </MudStack>
-
-    @* ── Timeline ─────────────────────────────────────────────────────────── *@
-    <MudStack Spacing="0">
+<MudStack Spacing="0">
         @{
             var visible = FilteredEntries.Take(_visibleCount).ToList();
             string? lastDate = null;
@@ -161,9 +149,7 @@
             </MudAlert>
         }
     </MudStack>
-
-    @* ── Load more ────────────────────────────────────────────────────────── *@
-    @if (FilteredEntries.Count > _visibleCount)
+@if (FilteredEntries.Count > _visibleCount)
     {
         <MudButton Variant="Variant.Outlined"
                    Color="Color.Default"
@@ -178,8 +164,6 @@
 </div>
 
 @code {
-
-    // ── Style constants ──────────────────────────────────────────────────────────
 
     private const string InnerCardStyle =
         "background: var(--app-glass-inner-bg); " +
@@ -200,9 +184,7 @@
 
     private const string ConnectorStyle =
         "position: absolute; left: 15px; top: 34px; bottom: 0; " +
-        "width: 2px; background: rgba(255,255,255,0.06);";
-
-    // ── Filter definitions ───────────────────────────────────────────────────────
+        "width: 2px; background: var(--tl-border-subtle);";
 
     private sealed record FilterDef(string Key, string Label);
 
@@ -217,8 +199,6 @@
         new("ActivityPruned",    "Pruned"),
     ];
 
-    // ── Domain model ─────────────────────────────────────────────────────────────
-
     private sealed record ActivityEntry(
         string ActionType,
         string DateGroup,
@@ -227,28 +207,24 @@
         string? EntityType,
         string? Detail);
 
-    // ── Sample data ──────────────────────────────────────────────────────────────
-
     private static readonly List<ActivityEntry> _sampleEntries =
     [
         new("FileIngested",      "Today",      "2 hours ago",   "Dune",                    "Audiobook", "Dune.m4b moved to library"),
-        new("MetadataHydrated",  "Today",      "2 hours ago",   "Dune",                    "Work",      "QID Q190159 resolved — 38 claims added"),
-        new("PersonHydrated",    "Today",      "3 hours ago",   null,                       "Person",    "Frank Herbert enriched — headshot and biography fetched"),
+        new("MetadataHydrated",  "Today",      "2 hours ago",   "Dune",                    "Work",      "QID Q190159 resolved - 38 claims added"),
+        new("PersonHydrated",    "Today",      "3 hours ago",   null,                       "Person",    "Frank Herbert enriched - headshot and biography fetched"),
         new("FileIngested",      "Today",      "5 hours ago",   "The Three-Body Problem",  "Epub",      "three-body-problem.epub moved to library"),
-        new("MetadataHydrated",  "Today",      "5 hours ago",   "The Three-Body Problem",  "Work",      "QID Q15809585 resolved — 31 claims added"),
-        new("ReviewResolved",    "Today",      "6 hours ago",   "Foundation",              "Work",      "User confirmed QID Q208460 · 1 claim locked"),
-        new("HashVerified",      "Today",      "8 hours ago",   null,                       null,        "2,412 files verified — 0 missing"),
+        new("MetadataHydrated",  "Today",      "5 hours ago",   "The Three-Body Problem",  "Work",      "QID Q15809585 resolved - 31 claims added"),
+        new("ReviewResolved",    "Today",      "6 hours ago",   "Foundation",              "Work",      "User confirmed QID Q208460  -  1 claim locked"),
+        new("HashVerified",      "Today",      "8 hours ago",   null,                       null,        "2,412 files verified - 0 missing"),
         new("FileIngested",      "Yesterday",  "1 day ago",     "Blade Runner 2049",       "Movie",     "blade-runner-2049.mkv moved to library"),
-        new("MetadataHydrated",  "Yesterday",  "1 day ago",     "Blade Runner 2049",       "Work",      "TMDB ID P4947 resolved — TMDB 335984"),
-        new("PersonHydrated",    "Yesterday",  "1 day ago",     null,                       "Person",    "Denis Villeneuve enriched — 12 properties fetched"),
+        new("MetadataHydrated",  "Yesterday",  "1 day ago",     "Blade Runner 2049",       "Work",      "TMDB ID P4947 resolved - TMDB 335984"),
+        new("PersonHydrated",    "Yesterday",  "1 day ago",     null,                       "Person",    "Denis Villeneuve enriched - 12 properties fetched"),
         new("PathUpdated",       "Yesterday",  "1 day ago",     "Dune Part Two",           "Work",      "Reorganised to new folder template with QID suffix"),
         new("FileIngested",      "Yesterday",  "2 days ago",    "Watchmen",                "Comic",     "watchmen-01.cbz moved to library"),
         new("ActivityPruned",    "Last Week",  "5 days ago",    null,                       null,        "Deleted 142 entries older than 60 days"),
-        new("MetadataHydrated",  "Last Week",  "6 days ago",    "The Hobbit",              "Work",      "QID Q74287 resolved — 44 claims added"),
+        new("MetadataHydrated",  "Last Week",  "6 days ago",    "The Hobbit",              "Work",      "QID Q74287 resolved - 44 claims added"),
         new("FileIngested",      "Last Week",  "7 days ago",    "The Hobbit",              "Epub",      "hobbit.epub moved to library"),
     ];
-
-    // ── State ────────────────────────────────────────────────────────────────────
 
     private int              _retentionDays  = 60;
     private bool             _pruning;
@@ -260,17 +236,15 @@
             ? _sampleEntries
             : _sampleEntries.Where(e => _activeFilters.Contains(e.ActionType)).ToList();
 
-    // ── Helpers ──────────────────────────────────────────────────────────────────
-
     private static string ActionColor(string actionType) => actionType switch
     {
-        "FileIngested"     => "#10b981",   // emerald
-        "MetadataHydrated" => "#6366f1",   // indigo
-        "PersonHydrated"   => "#8b5cf6",   // violet
-        "ReviewResolved"   => "#3b82f6",   // blue
-        "HashVerified"     => "#14b8a6",   // teal
+        "FileIngested"     => "var(--tl-status-success)",   // emerald
+        "MetadataHydrated" => "var(--tl-accent-primary)",   // indigo
+        "PersonHydrated"   => "var(--tl-accent-primary)",   // violet
+        "ReviewResolved"   => "var(--tl-status-info)",   // blue
+        "HashVerified"     => "var(--tl-status-info)",   // teal
         "PathUpdated"      => "var(--tl-status-warning)",   // amber
-        "ActivityPruned"   => "#ef4444",   // red
+        "ActivityPruned"   => "var(--tl-status-danger)",   // red
         _                  => "#64748b",   // slate
     };
 
@@ -298,8 +272,6 @@
         _                  => actionType,
     };
 
-    // ── Interaction ──────────────────────────────────────────────────────────────
-
     private void ToggleFilter(string key)
     {
         if (!_activeFilters.Remove(key))
@@ -319,9 +291,6 @@
     {
         _pruning = true;
         StateHasChanged();
-
-        // Attempt a live prune via the Orchestrator; fall back gracefully if
-        // the endpoint does not yet exist.
         try
         {
             await Task.Delay(800); // simulate round-trip for demo
@@ -340,6 +309,6 @@
 
 <style>
     .activity-entry:last-child > div:nth-child(2) {
-        display: none;   /* hide connector line on the final entry */
+        display: none;
     }
 </style>

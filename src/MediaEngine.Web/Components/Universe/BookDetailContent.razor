@@ -29,9 +29,7 @@ else
     @{
         var useContainedHero = Embedded;
     }
-
-    @* â€” Hero background â€” *@
-    @if (!string.IsNullOrEmpty(_work.HeroUrl))
+@if (!string.IsNullOrEmpty(_work.HeroUrl))
     {
         <div class="@(useContainedHero ? "bdc-hero-contained" : "detail-hero-fixed")">
             <img src="@_work.HeroUrl" alt="" />
@@ -45,12 +43,8 @@ else
         </div>
         <div class="@(useContainedHero ? "bdc-hero-fade-contained" : "detail-hero-fade")"></div>
     }
-
-    @* â€” Scrollable content layer â€” *@
-    <div class="detail-content-layer book-detail-page">
-
-        @* â€” Breadcrumb â€” *@
-        <div class="book-detail-breadcrumb-outer">
+<div class="detail-content-layer book-detail-page">
+<div class="book-detail-breadcrumb-outer">
             <nav class="book-detail-breadcrumb">
                 <button class="book-detail-bc-link" @onclick="@(() => Nav.NavigateTo("/"))">Home</button>
                 <span class="book-detail-bc-sep">/</span>
@@ -74,16 +68,10 @@ else
                 <span class="book-detail-bc-current">@_work.Title</span>
             </nav>
         </div>
-
-        @* â€” Main 3-column panel â€” *@
-        <div class="book-detail-main-outer">
+<div class="book-detail-main-outer">
             <div class="book-detail-main-panel">
-
-                @* â€” Left sidebar â€” *@
-                <aside class="book-detail-sidebar">
-
-                    @* â€” Author slot (reserved height to prevent layout shift) â€” *@
-                    <div class="book-detail-sidebar-item book-detail-sidebar-person-slot" style="min-height: 80px;">
+<aside class="book-detail-sidebar">
+<div class="book-detail-sidebar-item book-detail-sidebar-person-slot" style="min-height: 80px;">
                         <span class="book-detail-sidebar-label">Author</span>
                         @if (!string.IsNullOrEmpty(_work.Author))
                         {
@@ -121,9 +109,7 @@ else
                             <MudSkeleton SkeletonType="SkeletonType.Circle" Width="40px" Height="40px" Class="mt-2" />
                         }
                     </div>
-
-                    @* â€” Narrator slot (only shown for audiobooks) â€” *@
-                    @if (string.Equals(ActiveWork?.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+@if (string.Equals(ActiveWork?.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
                          || _narratorPerson is not null
                          || !string.IsNullOrEmpty(ActiveWork?.Narrator))
                     {
@@ -234,9 +220,7 @@ else
                     }
 
                 </aside>
-
-                @* â€” Shared variables â€” *@
-                @{
+@{
                     var activeCoverUrl = ActiveWork?.CoverUrl ?? _work.CoverUrl;
                     var coverIsAudio   = ActiveFormatKey == "audiobook";
                     var progressPct    = _activeJourney?.ProgressPct ?? 0;
@@ -248,15 +232,9 @@ else
                     var hasYear        = !string.IsNullOrEmpty(_work.Year);
                     var metaCount      = (hasRating ? 1 : 0) + (hasTime ? 1 : 0) + (hasYear ? 1 : 0);
                 }
-
-                @* â€” Center content â€” *@
-                <div class="book-detail-content">
-
-                    @* Title â€” desktop *@
-                    <h1 class="book-detail-title book-desktop-only">@_work.Title</h1>
-
-                    @* Format slider â€” desktop only *@
-                    @if (_fmts.Count > 1)
+<div class="book-detail-content">
+<h1 class="book-detail-title book-desktop-only">@_work.Title</h1>
+@if (_fmts.Count > 1)
                     {
                         <div class="book-format-slider book-desktop-only">
                             @foreach (var fmt in _fmts)
@@ -305,9 +283,7 @@ else
                             }
                         </div>
                     }
-
-                    @* Genre chips â€” center column *@
-                    @if (GenreTags.Count > 0)
+@if (GenreTags.Count > 0)
                     {
                         <div class="book-detail-genre-badges">
                             @foreach (var tag in GenreTags.Take(4))
@@ -316,9 +292,7 @@ else
                             }
                         </div>
                     }
-
-                    @* Primary CTA â€” desktop only *@
-                    <button class="collection-primary-cta book-desktop-only" @onclick="@OnPrimaryAction">
+<button class="collection-primary-cta book-desktop-only" @onclick="@OnPrimaryAction">
                         <div class="collection-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
                                      Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
@@ -331,9 +305,7 @@ else
                             </div>
                         }
                     </button>
-
-                    @* Secondary action circles â€” desktop only *@
-                    <div class="book-detail-actions book-desktop-only">
+<div class="book-detail-actions book-desktop-only">
 
                         <button class="book-detail-action-btn" @onclick="@OnAddTo">
                             <div class="book-detail-action-circle">
@@ -431,15 +403,9 @@ else
                     }
 
                 </div>
-
-                @* â€” Right panel: cover art (desktop); full stack (mobile) â€” *@
-                <div class="book-detail-cover-panel">
-
-                    @* Title â€” mobile only *@
-                    <h1 class="book-detail-title book-mobile-only">@_work.Title</h1>
-
-                    @* Format slider â€” mobile only *@
-                    @if (_fmts.Count > 1)
+<div class="book-detail-cover-panel">
+<h1 class="book-detail-title book-mobile-only">@_work.Title</h1>
+@if (_fmts.Count > 1)
                     {
                         <div class="book-format-slider book-mobile-only">
                             @foreach (var fmt in _fmts)
@@ -470,9 +436,7 @@ else
                             </div>
                         }
                     </div>
-
-                    @* Primary CTA â€” mobile only *@
-                    <button class="collection-primary-cta book-mobile-only" @onclick="@OnPrimaryAction">
+<button class="collection-primary-cta book-mobile-only" @onclick="@OnPrimaryAction">
                         <div class="collection-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
                                      Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
@@ -485,9 +449,7 @@ else
                             </div>
                         }
                     </button>
-
-                    @* Secondary action circles â€” mobile only *@
-                    <div class="book-detail-actions book-mobile-only">
+<div class="book-detail-actions book-mobile-only">
 
                         <button class="book-detail-action-btn" @onclick="@OnAddTo">
                             <div class="book-detail-action-circle">
@@ -552,9 +514,7 @@ else
 
             </div>
         </div>
-
-        @* â€” "More by this author" swimlane â€” *@
-        @if (_related is not null && _related.Collections.Count > 0)
+@if (_related is not null && _related.Collections.Count > 0)
         {
             <div class="book-detail-related-section">
                 <PosterSwimlane Title="@_related.SectionTitle"
@@ -567,8 +527,6 @@ else
 
     </div>
 }
-
-@* â€” Cover art lightbox â€” *@
 @{
     var _lbCoverUrl = _work is not null ? (ActiveWork?.CoverUrl ?? _work.CoverUrl) : null;
 }
@@ -586,8 +544,6 @@ else
         </button>
     </div>
 }
-
-@* â€” Toast â€” *@
 @if (_toastMessage is not null)
 {
     <div class="book-detail-toast">@_toastMessage</div>
@@ -595,24 +551,11 @@ else
 
 @code {
     [Parameter] public Guid WorkId { get; set; }
-
-    /// <summary>When set, this item is in the review queue â€” enables auto-open of edit panel.</summary>
     [Parameter] public Guid? ReviewItemId { get; set; }
-
-    /// <summary>Pre-loaded pipeline candidates JSON for review items.</summary>
     [Parameter] public string? CandidatesJson { get; set; }
-
-    /// <summary>When true, the edit panel opens automatically on load.</summary>
     [Parameter] public bool AutoOpenEdit { get; set; }
-
-    /// <summary>Notifies the parent (e.g. LibraryItem) when a match is applied or metadata changes.</summary>
     [Parameter] public EventCallback OnItemChanged { get; set; }
-
-    /// <summary>When true, the component is embedded inside a container (e.g. CollectionShell).
-    /// Hero uses absolute positioning within the container instead of fixed to viewport.</summary>
     [Parameter] public bool Embedded { get; set; }
-
-    /// <summary>Optional view preference: "read" or "listen".</summary>
     [Parameter] public string? PreferredMode { get; set; }
 
     private bool                    _loading            = true;
@@ -622,7 +565,7 @@ else
     private PersonViewModel?        _authorPerson;
     private PersonViewModel?        _narratorPerson;
     private JourneyItemViewModel?   _activeJourney;
-#pragma warning disable CS0649 // _related intentionally unassigned â€” related collections deferred until collection intelligence is enabled
+#pragma warning disable CS0649 // _related intentionally unassigned - related collections deferred until collection intelligence is enabled
     private RelatedCollectionsViewModel?   _related;
 #pragma warning restore CS0649
     private string?                 _toastMessage;
@@ -630,12 +573,8 @@ else
     private bool                    _showAllGenres;
     private bool                    _lightboxOpen;
     private System.Threading.Timer? _toastTimer;
-    /// <summary>Currently selected format key ("epub", "audiobook").
-    /// Null means default (primary media type).</summary>
     private string?                 _selectedFormatKey;
     private string?                 _cachedSearchResults;
-
-    // â€” Lifecycle â€”
 
     protected override async Task OnParametersSetAsync()
     {
@@ -644,12 +583,8 @@ else
         _showAllGenres       = false;
         _lightboxOpen        = false;
         _selectedFormatKey   = NormalizePreferredMode(PreferredMode);
-
-        // Load works directly (work-first architecture â€” collections deferred to Universe phase)
         var allWorks = await Orchestrator.GetLibraryWorksAsync();
         _work = allWorks.FirstOrDefault(w => w.Id == WorkId);
-
-        // If not in library works, check staging/library/items via detail endpoint
         if (_work is null)
         {
             var detail = await Orchestrator.GetLibraryItemDetailAsync(WorkId);
@@ -690,7 +625,6 @@ else
 
         if (_work is not null)
         {
-            // Find sibling works (same QID, different format) for format switcher
             _siblingWorks = string.IsNullOrEmpty(_work.WikidataQid)
                 ? [_work]
                 : allWorks.Where(w => w.WikidataQid == _work.WikidataQid).ToList();
@@ -703,11 +637,7 @@ else
             {
                 _selectedFormatKey = null;
             }
-
-            // Create a synthetic collection for backward compat with code that references _collection
             _collection = new CollectionViewModel { Works = _siblingWorks };
-
-            // Load persons linked to this work (author, narrator, etc.)
             try
             {
                 var persons = await Orchestrator.GetPersonsByWorkAsync(_work.Id);
@@ -717,10 +647,7 @@ else
             }
             catch
             {
-                // Persons lookup non-fatal
             }
-
-            // Progress resolution
             var assetId = await Orchestrator.ResolveWorkToAssetAsync(_work.Id);
             if (assetId.HasValue)
             {
@@ -746,8 +673,6 @@ else
                 }
             }
         }
-
-        // Load cached search results (30-day TTL)
         if (_work is not null && string.IsNullOrEmpty(CandidatesJson))
         {
             _cachedSearchResults = await Orchestrator.GetSearchResultsCacheAsync(_work.Id);
@@ -758,8 +683,6 @@ else
         if (AutoOpenEdit)
             await OpenMediaItemEditor();
     }
-
-    // â€” Action handlers â€”
 
     private async Task OnPrimaryAction()
     {
@@ -810,7 +733,7 @@ else
         var dialog = await DialogService.ShowAsync<ReportProblemDialog>("Report a problem", parameters, options);
         var result = await dialog.Result;
         if (result is { Canceled: false })
-            ShowToast("Report submitted â€” thank you");
+            ShowToast("Report submitted - thank you");
     }
 
     private async Task OnMarkFinished()
@@ -893,8 +816,6 @@ else
         StateHasChanged();
     }
 
-    // â€” Display helpers â€”
-
     private List<string> GenreTags =>
         _work?.Genres.Count > 0
             ? _work.Genres.ToList()
@@ -903,14 +824,7 @@ else
                 .Where(g => g != "|")
                 .ToList() ?? [];
 
-    // â€” Format selector helpers (ebook vs audiobook editions of the same work) â€”
-
     private record FormatOption(string Key, string Label, string Icon, WorkViewModel Work);
-
-    /// <summary>
-    /// Builds format options from sibling works in the same collection that share
-    /// the same title (different editions of the same work in different formats).
-    /// </summary>
     private List<FormatOption> AvailableFormats()
     {
         if (_work is null) return [];
@@ -1038,11 +952,6 @@ else
 
     private static string Truncate(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
-
-    /// <summary>
-    /// Resolves the best-matching Author person using QID-based matching.
-    /// Same algorithm as CollectionDetail.
-    /// </summary>
     private static PersonViewModel? ResolveAuthorPerson(
         IReadOnlyList<PersonViewModel> persons, string? authorQidCanonical,
         string? canonicalAuthor)
@@ -1096,7 +1005,7 @@ else
 }
 
 <style>
-    /* -- Page shell -- */
+
     .book-detail-page {
         min-height: 100vh;
         padding-bottom: 5rem;
@@ -1111,7 +1020,7 @@ else
         outline: none;
     }
 
-    /* -- Breadcrumb -- */
+
     .book-detail-breadcrumb-outer {
         max-width: 1400px;
         margin: 0 auto;
@@ -1140,7 +1049,7 @@ else
     }
 
     .book-detail-bc-link:hover     { color: rgba(248, 248, 248, 0.85); }
-    .book-detail-bc-author         { color: rgba(201, 146, 46, 0.70); }
+    .book-detail-bc-author         { color: var(--tl-status-warning); }
     .book-detail-bc-author:hover   { color: var(--tl-accent-primary); }
 
     .book-detail-bc-sep {
@@ -1159,14 +1068,14 @@ else
         line-height: 1;
     }
 
-    /* -- Main panel outer -- */
+
     .book-detail-main-outer {
         max-width: 1400px;
         margin: 0 auto;
         padding: 0 40px;
     }
 
-    /* -- 3-column panel -- */
+
     .book-detail-main-panel {
         display: flex;
         gap: 28px;
@@ -1175,7 +1084,7 @@ else
         margin-bottom: 48px;
     }
 
-    /* -- Left sidebar -- */
+
     .book-detail-sidebar {
         width: 130px;
         flex-shrink: 0;
@@ -1234,7 +1143,7 @@ else
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(201, 146, 46, 0.10);
+        background: var(--tl-status-warning-soft);
         color: var(--tl-accent-primary);
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 1.0rem;
@@ -1257,7 +1166,7 @@ else
         margin-left: 3px;
     }
 
-    /* Genre chips -- center column */
+
     .book-detail-genre-badges {
         display: flex;
         flex-wrap: wrap;
@@ -1272,14 +1181,14 @@ else
         letter-spacing: 0.04em;
         padding: 4px 10px;
         border-radius: 20px;
-        background: rgba(255, 255, 255, 0.10);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: var(--tl-border-default);
+        border: 1px solid var(--tl-border-default);
         color: rgba(248, 248, 248, 0.70);
         white-space: nowrap;
         text-transform: uppercase;
     }
 
-    /* Genre chips -- sidebar */
+
     .book-detail-genre-row {
         display: flex;
         flex-wrap: wrap;
@@ -1315,7 +1224,7 @@ else
 
     .book-detail-genre-more:hover { color: #e0aa50; }
 
-    /* -- Center content column -- */
+
     .book-detail-content {
         flex: 1;
         min-width: 0;
@@ -1325,7 +1234,7 @@ else
         padding-top: 14px;
     }
 
-    /* Metadata rows */
+
     .book-detail-meta-rows {
         display: flex;
         flex-direction: column;
@@ -1369,7 +1278,7 @@ else
         user-select: none;
     }
 
-    /* Person slots â€” reserved space to prevent layout shift */
+
     .book-detail-sidebar-person-slot {
         min-height: 80px;
     }
@@ -1380,7 +1289,7 @@ else
         gap: 2px;
     }
 
-    /* Description */
+
     .book-detail-description-wrap { display: flex; flex-direction: column; gap: 8px; }
 
     .book-detail-description {
@@ -1417,7 +1326,7 @@ else
 
     .book-detail-expand-btn:hover { color: #e0aa50; }
 
-    /* Progress label row */
+
     .book-detail-progress-wrap {
         display: flex;
         align-items: center;
@@ -1429,7 +1338,7 @@ else
         max-width: 200px;
         height: 3px;
         border-radius: 2px;
-        background: rgba(255, 255, 255, 0.10);
+        background: var(--tl-border-default);
         overflow: hidden;
     }
 
@@ -1447,7 +1356,7 @@ else
         color: var(--tl-accent-primary);
     }
 
-    /* -- Right panel: cover art -- */
+
     .book-detail-cover-panel {
         flex-shrink: 0;
         width: 400px;
@@ -1456,7 +1365,7 @@ else
         gap: 12px;
     }
 
-    /* Title */
+
     .book-detail-title {
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 2.2rem;
@@ -1468,11 +1377,11 @@ else
         word-break: break-word;
     }
 
-    /* -- Format slider toggle -- */
+
     .book-format-slider {
         display: inline-flex;
         background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        border: 1px solid var(--tl-border-default);
         border-radius: 100px;
         padding: 3px;
         gap: 2px;
@@ -1499,10 +1408,10 @@ else
 
     .book-format-slider-btn:hover:not(.active) {
         color: rgba(248, 248, 248, 0.80);
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
     }
 
-    /* Active segment: golden fill + breathing glow + comet border trace */
+
     .book-format-slider-btn.active {
         background: transparent;
         color: #111111;
@@ -1560,7 +1469,7 @@ else
         50%       { box-shadow: 0 0 18px 7px rgba(201, 146, 46, 0.55); }
     }
 
-    /* -- Cover art -- */
+
     .book-detail-cover-wrap {
         cursor: zoom-in;
     }
@@ -1581,8 +1490,8 @@ else
     }
 
     .book-detail-cover-placeholder {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--tl-divider);
+        border: 1px solid var(--tl-border-subtle);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1594,7 +1503,7 @@ else
         object-fit: contain;
     }
 
-    /* -- Primary CTA size modifiers -- */
+
     .collection-primary-cta.book-desktop-only {
         min-width: 180px;
         max-width: 280px;
@@ -1607,7 +1516,7 @@ else
         margin: 0 auto;
     }
 
-    /* -- Secondary action circles -- */
+
     .book-detail-actions {
         display: flex;
         align-items: flex-start;
@@ -1653,7 +1562,7 @@ else
 
     .book-detail-action-btn:hover .book-detail-action-circle {
         background: rgba(255, 255, 255, 0.20);
-        border-color: rgba(255, 255, 255, 0.35);
+        border-color: var(--tl-text-muted);
     }
 
     .book-detail-action-label {
@@ -1664,7 +1573,7 @@ else
         white-space: nowrap;
     }
 
-    /* -- Cover art lightbox -- */
+
     .book-cover-lightbox {
         position: fixed;
         inset: 0;
@@ -1691,7 +1600,7 @@ else
         position: absolute;
         top: 24px;
         right: 28px;
-        background: rgba(255, 255, 255, 0.10);
+        background: var(--tl-border-default);
         border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 50%;
         width: 44px;
@@ -1708,7 +1617,7 @@ else
         background: rgba(255, 255, 255, 0.22);
     }
 
-    /* -- Related section -- */
+
     .book-detail-related-section { margin-bottom: 0; }
 
     .book-detail-related-section .swimlane-section {
@@ -1719,7 +1628,7 @@ else
         padding-right: 40px;
     }
 
-    /* -- Toast -- */
+
     .book-detail-toast {
         position: fixed;
         bottom: 28px;
@@ -1727,7 +1636,7 @@ else
         transform: translateX(-50%);
         background: rgba(20, 24, 40, 0.96);
         backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        border: 1px solid var(--tl-border-default);
         color: rgba(248, 248, 248, 0.88);
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.85rem;
@@ -1739,12 +1648,12 @@ else
         pointer-events: none;
     }
 
-    /* -- Responsive show/hide -- */
+
     @@media (min-width: 901px) {
         .book-mobile-only { display: none !important; }
     }
 
-    /* -- Responsive layout -- */
+
     @@media (max-width: 900px) {
         .book-desktop-only { display: none !important; }
 
@@ -1798,7 +1707,7 @@ else
 
     }
 
-    /* â”€â”€ Embedded mode (inside CollectionShell) â”€â”€ */
+
     .bdc-embedded-wrap {
         position: relative;
         overflow-y: auto;
@@ -1806,9 +1715,9 @@ else
     }
 
     .bdc-embedded-wrap::-webkit-scrollbar { width: 5px; }
-    .bdc-embedded-wrap::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+    .bdc-embedded-wrap::-webkit-scrollbar-thumb { background: var(--tl-border-subtle); border-radius: 3px; }
 
-    /* When embedded, the detail-content-layer doesn't need viewport z-index */
+
     .bdc-embedded-wrap .detail-content-layer {
         position: relative;
         z-index: 2;

@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
 
@@ -34,7 +34,7 @@
 
             <MudTextField T="string" @bind-Value="_note" Label="Details (optional)"
                           Variant="Variant.Outlined" Lines="3"
-                          Placeholder="Describe the problem…"
+                          Placeholder="Describe the problem..."
                           Margin="Margin.Dense" />
         </div>
     </DialogContent>
@@ -105,6 +105,6 @@
         padding: 8px 10px;
         background: rgba(255, 255, 255, 0.03);
         border-radius: 8px;
-        border: 0.5px solid rgba(255, 255, 255, 0.06);
+        border: 0.5px solid var(--tl-border-subtle);
     }
 </style>

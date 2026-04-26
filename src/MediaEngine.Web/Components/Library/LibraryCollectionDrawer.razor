@@ -1,18 +1,12 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Library
 @inject IStringLocalizer<SharedStrings> L
-
-@* ── Backdrop ── *@
 <div class="collection-drawer-backdrop" @onclick="OnClose"></div>
-
-@* ── Drawer Panel ── *@
 <div class="collection-drawer" @onclick:stopPropagation="true">
-
-    @* ── 1. Pinned Header ── *@
-    <div class="collection-drawer-header">
+<div class="collection-drawer-header">
         <MudIconButton Icon="@Icons.Material.Outlined.Close"
                        Size="Size.Small"
-                       Style="position:absolute;top:32px;right:32px;color:rgba(255,255,255,0.5);"
+                       Style="position:absolute;top:32px;right:32px;color:var(--tl-text-muted);"
                        OnClick="OnClose" />
 
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -28,27 +22,23 @@
             @Collection.Name
         </div>
 
-        <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">
+        <div style="font-size:10px;color:var(--tl-text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">
             @(Collection.Scope == "user" ? L["VaultCollection_ScopePerUser"] : L["VaultCollection_ScopeLibrary"])
         </div>
     </div>
-
-    @* ── 2. Scrollable Body ── *@
-    <div class="collection-drawer-body">
-
-        @* ── Section 1: CONFIGURATION ── *@
-        <div class="collection-section">
+<div class="collection-drawer-body">
+<div class="collection-section">
             <MudButton Variant="Variant.Text"
                        Color="Color.Inherit"
                        FullWidth="true"
                        Class="collection-section-header"
                        OnClick="ToggleConfigSection">
                 <div style="display:flex;align-items:center;gap:12px;">
-                    <MudIcon Icon="@Icons.Material.Outlined.Settings" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Settings" Style="font-size:16px;color:var(--tl-text-muted);" />
                     <span class="collection-section-title">@L["VaultCollection_SectionConfiguration"]</span>
                 </div>
                 <MudIcon Icon="@(_configOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
-                         Style="font-size:16px;color:rgba(255,255,255,0.35);" />
+                         Style="font-size:16px;color:var(--tl-text-muted);" />
             </MudButton>
 
             @if (_configOpen)
@@ -110,11 +100,11 @@
                     {
                         <div class="collection-config-row">
                             <span class="collection-config-label">@L["VaultCollection_LabelLogic"]</span>
-                            <span class="collection-config-value" style="font-style:italic;color:rgba(255,255,255,0.5);">@(Collection.Description ?? "—")</span>
+                            <span class="collection-config-value" style="font-style:italic;color:var(--tl-text-muted);">@(Collection.Description ?? "-")</span>
                         </div>
                         <div class="collection-config-row">
                             <span class="collection-config-label">@L["VaultCollection_LabelRefreshSchedule"]</span>
-                            <span class="collection-config-value" style="color:rgba(255,255,255,0.5);">@(Collection.RefreshSchedule ?? L["VaultCollection_ValueDaily"])</span>
+                            <span class="collection-config-value" style="color:var(--tl-text-muted);">@(Collection.RefreshSchedule ?? L["VaultCollection_ValueDaily"])</span>
                         </div>
                         <div class="collection-config-row" style="border-bottom:none;">
                             <span class="collection-config-label">@L["VaultCollection_LabelGenerateForAllUsers"]</span>
@@ -133,7 +123,7 @@
                         </div>
                         <div class="collection-config-row">
                             <span class="collection-config-label">@L["VaultCollection_LabelMediaTypes"]</span>
-                            <span class="collection-config-value" style="font-style:italic;color:rgba(255,255,255,0.5);">@L["VaultCollection_ValueDerivedFromContents"]</span>
+                            <span class="collection-config-value" style="font-style:italic;color:var(--tl-text-muted);">@L["VaultCollection_ValueDerivedFromContents"]</span>
                         </div>
                         <div class="collection-config-row">
                             <span class="collection-config-label">@L["VaultCollection_LabelItems"]</span>
@@ -145,26 +135,24 @@
                         </div>
                         <div class="collection-config-row" style="border-bottom:none;">
                             <span class="collection-config-label">@L["VaultCollection_LabelLastModified"]</span>
-                            <span class="collection-config-value">@(Collection.ModifiedAt?.ToString("yyyy-MM-dd") ?? "—")</span>
+                            <span class="collection-config-value">@(Collection.ModifiedAt?.ToString("yyyy-MM-dd") ?? "-")</span>
                         </div>
                     }
                 </div>
             }
         </div>
-
-        @* ── Section 2: ITEMS PREVIEW ── *@
-        <div class="collection-section">
+<div class="collection-section">
             <MudButton Variant="Variant.Text"
                        Color="Color.Inherit"
                        FullWidth="true"
                        Class="collection-section-header"
                        OnClick="ToggleItemsSection">
                 <div style="display:flex;align-items:center;gap:12px;">
-                    <MudIcon Icon="@Icons.Material.Outlined.List" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.List" Style="font-size:16px;color:var(--tl-text-muted);" />
                     <span class="collection-section-title">@L["VaultCollection_SectionItemsPreview"]</span>
                 </div>
                 <MudIcon Icon="@(_itemsOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
-                         Style="font-size:16px;color:rgba(255,255,255,0.35);" />
+                         Style="font-size:16px;color:var(--tl-text-muted);" />
             </MudButton>
 
             @if (_itemsOpen)
@@ -172,7 +160,7 @@
                 <div class="collection-section-body">
                     @if (Items.Count == 0)
                     {
-                        <div style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;padding:8px 0;">
+                        <div style="font-size:11px;color:var(--tl-text-muted);font-style:italic;padding:8px 0;">
                             @L["VaultCollection_NoItemsYet"]
                         </div>
                     }
@@ -202,27 +190,25 @@
                     {
                         <div style="margin-top:12px;">
                             <span style="font-size:10px;font-weight:900;color:var(--tl-accent-primary);cursor:pointer;letter-spacing:0.04em;">
-                                @L["VaultCollection_ViewAllItems", Collection.ItemCount] →
+                                @L["VaultCollection_ViewAllItems", Collection.ItemCount] ->
                             </span>
                         </div>
                     }
                 </div>
             }
         </div>
-
-        @* ── Section 3: ASSETS ── *@
-        <div class="collection-section">
+<div class="collection-section">
             <MudButton Variant="Variant.Text"
                        Color="Color.Inherit"
                        FullWidth="true"
                        Class="collection-section-header"
                        OnClick="ToggleAssetsSection">
                 <div style="display:flex;align-items:center;gap:12px;">
-                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size:16px;color:var(--tl-text-muted);" />
                     <span class="collection-section-title">@L["VaultCollection_SectionAssets"]</span>
                 </div>
                 <MudIcon Icon="@(_assetsOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
-                         Style="font-size:16px;color:rgba(255,255,255,0.35);" />
+                         Style="font-size:16px;color:var(--tl-text-muted);" />
             </MudButton>
 
             @if (_assetsOpen)
@@ -234,7 +220,7 @@
                         var isLast    = i == _assetTypes.Length - 1;
                         <div class="collection-config-row" style="@(isLast ? "border-bottom:none;" : "")">
                             <span class="collection-config-label">@assetType</span>
-                            <span style="font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;">
+                            <span style="font-size:11px;color:var(--tl-text-muted);font-style:italic;">
                                 @(assetType == "Cover Art" ? L["VaultCollection_AssetAutoComposed"] : L["VaultCollection_AssetDropOrUpload"])
                             </span>
                         </div>
@@ -244,9 +230,7 @@
         </div>
 
     </div>
-
-    @* ── 3. Pinned Action Bar ── *@
-    <div class="collection-drawer-actions">
+<div class="collection-drawer-actions">
         @if (Collection.CollectionType == "Smart")
         {
             <div style="display:flex;gap:8px;">
@@ -269,7 +253,7 @@
         else if (Collection.CollectionType == "System")
         {
             <div style="text-align:center;">
-                <span style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.25);">
+                <span style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:var(--tl-text-faint);">
                     @L["VaultCollection_SystemManaged"]
                 </span>
             </div>
@@ -287,9 +271,9 @@
         else if (Collection.CollectionType == "Playlist")
         {
             <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-                <span style="font-size:10px;color:rgba(255,255,255,0.3);">@L["VaultCollection_ManagedByOwner"]</span>
+                <span style="font-size:10px;color:var(--tl-text-muted);">@L["VaultCollection_ManagedByOwner"]</span>
                 <span style="font-size:11px;font-weight:900;color:var(--tl-accent-primary);cursor:pointer;letter-spacing:0.04em;">
-                    @L["VaultCollection_OpenInMyLibrary"] →
+                    @L["VaultCollection_OpenInMyLibrary"] ->
                 </span>
             </div>
         }
@@ -303,8 +287,6 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<(Guid Id, bool Enabled)> OnEnabledToggled { get; set; }
     [Parameter] public EventCallback<(Guid Id, bool Featured)> OnFeaturedToggled { get; set; }
-
-    // Section open/closed state — individual booleans avoids Razor string-escape issues
     private bool _configOpen = true;
     private bool _itemsOpen  = true;
     private bool _assetsOpen = false;
@@ -327,7 +309,7 @@
                 var rules = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Collection.RuleJson);
                 if (rules is { Count: > 0 }) return rules;
             }
-            catch { /* malformed JSON — fall through */ }
+            catch {  }
         }
 
         return [Collection.Description ?? Collection.CollectionType];
@@ -376,7 +358,7 @@
         width: 36rem;
         height: 100vh;
         background: #0d0f12;
-        border-left: 1px solid rgba(255, 255, 255, 0.04);
+        border-left: 1px solid var(--tl-divider);
         z-index: 10001;
         display: flex;
         flex-direction: column;
@@ -400,7 +382,7 @@
         flex: 1;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+        scrollbar-color: var(--tl-border-subtle) transparent;
     }
 
     .collection-drawer-actions {
@@ -456,7 +438,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--tl-text-muted);
     }
 
     .collection-section-body {
@@ -494,7 +476,7 @@
         padding: 2px 7px;
         border-radius: 4px;
         background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.7);
         white-space: nowrap;
     }

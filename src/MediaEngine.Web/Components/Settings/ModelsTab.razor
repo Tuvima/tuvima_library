@@ -1,25 +1,15 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
-
-@* ModelsTab — AI model management dashboard.
-   Displays hardware profile card, then three model cards (text_fast, text_quality, audio)
-   with status indicators, RAM/size info, and download/load/unload/delete actions.
-   Also shows models directory config and idle-unload settings. *@
-
-<div class="st-page">
-
-    @* ── Header ────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Memory" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["Models_AiModels"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["Models_AiModelsDescription"]
     </MudText>
-
-    @* ── Hardware Profile ─────────────────────────────────────────────── *@
-    <MudPaper Class="pa-4 mb-4 app-section-card">
+<MudPaper Class="pa-4 mb-4 app-section-card">
         <div class="d-flex align-center justify-space-between mb-3">
             <MudText Typo="Typo.h6" Style="color: var(--tl-accent-primary);">@L["Models_HardwareProfile"]</MudText>
             <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
@@ -81,9 +71,7 @@
             </MudText>
         }
     </MudPaper>
-
-    @* ── Resource Monitor ────────────────────────────────────────────────── *@
-    <MudPaper Class="pa-4 mb-4 app-section-card">
+<MudPaper Class="pa-4 mb-4 app-section-card">
         <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 12px;">@L["Models_ResourceMonitor"]</MudText>
         <div class="d-flex gap-6 flex-wrap">
             <div>
@@ -109,9 +97,7 @@
             </div>
         </div>
     </MudPaper>
-
-    @* ── Model Cards Grid ───────────────────────────────────────────────── *@
-    <MudGrid Spacing="3" Class="mb-6">
+<MudGrid Spacing="3" Class="mb-6">
         @foreach (var model in _models)
         {
             var m = model; @* capture for lambda *@
@@ -179,9 +165,7 @@
                     @* Action buttons *@
                     <MudStack Row="true" AlignItems="AlignItems.Center"
                               Spacing="1" Style="flex-wrap: wrap; gap: 4px;">
-
-                        @* Download — only when not downloaded *@
-                        @if (m.Status == ModelStatus.NotDownloaded)
+@if (m.Status == ModelStatus.NotDownloaded)
                         {
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Filled"
@@ -191,9 +175,7 @@
                                 @L["Models_Download"]
                             </MudButton>
                         }
-
-                        @* Load — when downloaded but not loaded *@
-                        @if (m.Status == ModelStatus.Downloaded)
+@if (m.Status == ModelStatus.Downloaded)
                         {
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Outlined"
@@ -203,9 +185,7 @@
                                 @L["Models_Load"]
                             </MudButton>
                         }
-
-                        @* Unload — when currently loaded or active *@
-                        @if (m.Status is ModelStatus.Loaded or ModelStatus.Active)
+@if (m.Status is ModelStatus.Loaded or ModelStatus.Active)
                         {
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Outlined"
@@ -218,9 +198,7 @@
 
                         @* Spacer *@
                         <MudSpacer />
-
-                        @* Delete — only when downloaded (and not currently active) *@
-                        @if (m.Status is ModelStatus.Downloaded or ModelStatus.Loaded)
+@if (m.Status is ModelStatus.Downloaded or ModelStatus.Loaded)
                         {
                             <MudTooltip Text="@L["Models_DeleteModelFiles"]">
                                 <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
@@ -236,9 +214,7 @@
             </MudItem>
         }
     </MudGrid>
-
-    @* ── Configuration card ─────────────────────────────────────────────── *@
-    <div style="@ModelCardStyle">
+<div style="@ModelCardStyle">
 
         <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 16px;">
             @L["Models_StorageAndRuntimeSettings"]
@@ -282,8 +258,6 @@
 </div>
 
 @code {
-
-    // ── Hardware Profile ──────────────────────────────────────────────────────────
 
     private HardwareProfileDto?  _profile;
     private bool                 _benchmarking;
@@ -330,16 +304,12 @@
         _    => "Low",
     };
 
-    // ── Styles ────────────────────────────────────────────────────────────────────
-
     private const string ModelCardStyle =
         "background: var(--app-surface-2); " +
         "border: 1px solid var(--app-border); " +
         "border-radius: 8px; " +
         "padding: 20px; " +
         "height: 100%;";
-
-    // ── Model status enum ─────────────────────────────────────────────────────────
 
     private enum ModelStatus
     {
@@ -349,8 +319,6 @@
         Loaded,
         Active
     }
-
-    // ── Model descriptor ──────────────────────────────────────────────────────────
 
     private sealed class ModelInfo
     {
@@ -362,8 +330,6 @@
         public string      FileSize         { get; init; } = string.Empty;
         public int         DownloadProgress { get; set; }
     }
-
-    // ── State ─────────────────────────────────────────────────────────────────────
 
     private readonly List<ModelInfo> _models =
     [
@@ -389,7 +355,7 @@
         {
             Role      = "text_scholar",
             ModelName = "Llama 3.1 8B Q4_K_M",
-            Purpose   = "Deep enrichment — themes, mood, people extraction",
+            Purpose   = "Deep enrichment - themes, mood, people extraction",
             Status    = ModelStatus.Downloaded,
             RamUsage  = "~4.9GB",
             FileSize  = "~4.6GB",
@@ -398,7 +364,7 @@
         {
             Role      = "text_cjk",
             ModelName = "Qwen 2.5 3B Instruct Q4_K_M",
-            Purpose   = "CJK content analysis — Chinese, Japanese, Korean",
+            Purpose   = "CJK content analysis - Chinese, Japanese, Korean",
             Status    = ModelStatus.NotDownloaded,
             RamUsage  = "~2.4GB",
             FileSize  = "~2GB",
@@ -417,8 +383,6 @@
     private string _modelsDirectory    = "/models";
     private int    _idleTimeoutSeconds = 300;
     private bool   _gpuEnabled;
-
-    // ── Helpers ───────────────────────────────────────────────────────────────────
 
     private static Color RoleBadgeColor(string role) => role switch
     {
@@ -450,8 +414,6 @@
         _                         => "Unknown",
     };
 
-    // ── Actions ───────────────────────────────────────────────────────────────────
-
     private void ChangeStatus(ModelInfo model, ModelStatus newStatus)
     {
         model.Status = newStatus;
@@ -463,8 +425,6 @@
         model.Status = ModelStatus.Downloading;
         model.DownloadProgress = 0;
         StateHasChanged();
-
-        // Simulate progress in increments
         while (model.DownloadProgress < 100)
         {
             await Task.Delay(80);

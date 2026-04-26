@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.MediaEditor
+﻿@namespace MediaEngine.Web.Components.MediaEditor
 
 <MudDialog Class="smb-dialog">
     <DialogContent>
@@ -42,7 +42,7 @@
         min-width: min(560px, 100%);
         padding: 28px 24px 20px;
         border-radius: 14px;
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid var(--tl-border-subtle);
         display: flex;
         flex-direction: column;
         gap: 22px;
@@ -65,7 +65,7 @@
     .smb-actions {
         display: flex;
         gap: 12px;
-        border-top: 1px solid rgba(255,255,255,0.08);
+        border-top: 1px solid var(--tl-border-subtle);
         padding-top: 18px;
     }
 
@@ -90,7 +90,7 @@
     }
 
     .smb-btn--secondary {
-        background: rgba(255,255,255,0.08);
+        background: var(--tl-border-subtle);
         color: rgba(255,255,255,0.9);
     }
 

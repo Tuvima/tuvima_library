@@ -13,7 +13,7 @@
         }
         else
         {
-            <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: rgba(255,255,255,0.15);" />
+            <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: var(--tl-border-strong);" />
         }
     </div>
     <div class="src-card-body">
@@ -21,7 +21,7 @@
             @if (Mode == SearchMode.Wikidata && !string.IsNullOrEmpty(Qid))
             {
                 <span class="src-card-qid">@Qid</span>
-                <span> Â· </span>
+                <span>  -  </span>
             }
             @GetFieldValue(DisplayConfig.Headline)
         </div>
@@ -32,7 +32,7 @@
             }
             @if (!string.IsNullOrEmpty(tertiaryVal))
             {
-                <span> Â· @tertiaryVal</span>
+                <span>  -  @tertiaryVal</span>
             }
         </div>
         @if (DisplayConfig.DetailFields.Count > 0)
@@ -54,7 +54,7 @@
                 var bridgeVal = GetFieldValue(bridgeKey);
                 if (!string.IsNullOrEmpty(bridgeVal))
                 {
-                    <span class="src-card-bridge-chip src-card-bridge-chip--present">@FormatFieldLabel(bridgeKey) âœ“</span>
+                    <span class="src-card-bridge-chip src-card-bridge-chip--present">@FormatFieldLabel(bridgeKey) OK</span>
                 }
             }
             @if (!string.IsNullOrEmpty(ProviderName))
@@ -137,14 +137,14 @@
         padding: 8px 10px;
         border-radius: 6px;
         background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.06);
+        border: 1px solid var(--tl-border-subtle);
         cursor: pointer;
         transition: background 0.15s;
         align-items: flex-start;
     }
 
     .src-card:hover {
-        background: rgba(255,255,255,0.06);
+        background: var(--tl-border-subtle);
     }
 
     .src-card--selected {
@@ -161,7 +161,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255,255,255,0.04);
+        background: var(--tl-divider);
     }
 
     .src-card-thumb img {
@@ -202,7 +202,7 @@
 
     .src-card-subline {
         font-size: 11.5px;
-        color: rgba(255,255,255,0.5);
+        color: var(--tl-text-muted);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -210,7 +210,7 @@
 
     .src-card-details {
         font-size: 11px;
-        color: rgba(255,255,255,0.35);
+        color: var(--tl-text-muted);
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
@@ -232,8 +232,8 @@
         font-size: 10px;
         padding: 1px 5px;
         border-radius: 3px;
-        background: rgba(255,255,255,0.06);
-        color: rgba(255,255,255,0.35);
+        background: var(--tl-border-subtle);
+        color: var(--tl-text-muted);
     }
 
     .src-card-bridge-chip--present {
@@ -243,7 +243,7 @@
 
     .src-card-source {
         font-size: 10px;
-        color: rgba(255,255,255,0.25);
+        color: var(--tl-text-faint);
         margin-left: auto;
     }
 

@@ -1,13 +1,11 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 
 <div class="rc-wrap @(IsFocused ? "rc-wrap--focused" : "") @(IsSelected ? "rc-wrap--selected" : "") @(NeedsReview ? "rc-wrap--review" : "")"
      @onclick="HandleClick"
      @onclick:stopPropagation="true"
      style="@CardStateStyle">
-
-    @* ── Thumbnail ── *@
-    @{
+@{
         var isAudiobookThumb = string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
     }
     <div class="rc-thumb @(isAudiobookThumb ? "rc-thumb--square" : "")">
@@ -22,30 +20,22 @@
                          Style="font-size: 1.4rem; opacity: 0.25;" />
             </div>
         }
-
-        @* ── Review corner badge (top-left diagonal ribbon) ── *@
-        @if (NeedsReview)
+@if (NeedsReview)
         {
             var (_, trigColor, trigIcon) = LibraryItemHelpers.FormatReviewTrigger(Item.ReviewTrigger);
             <span class="rc-corner-badge" style="--badge-color: @trigColor;">
                 <MudIcon Icon="@trigIcon" Style="font-size: 0.55rem; color: #fff;" />
             </span>
         }
-
-        @* ── Selected indicator (top-right, only in selection mode) ── *@
-        @if (SelectionModeActive)
+@if (SelectionModeActive)
         {
             <span class="rc-sel-mark @(IsSelected ? "rc-sel-mark--on" : "")"></span>
         }
-
-        @* ── Media type badge (bottom-right) ── *@
-        <span class="rc-type-badge">
+<span class="rc-type-badge">
             <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
-                     Style="font-size: 0.7rem; color: rgba(255,255,255,0.85);" />
+                     Style="font-size: 0.7rem; color: var(--tl-text-primary);" />
         </span>
-
-        @* ── Quick-action hover buttons (bottom-left) ── *@
-        @if (!SelectionModeActive && NeedsReview)
+@if (!SelectionModeActive && NeedsReview)
         {
             <div class="rc-quick-actions">
                 <button class="rc-quick-btn rc-quick-btn--approve"
@@ -61,9 +51,7 @@
             </div>
         }
     </div>
-
-    @* ── Title (below thumbnail, always visible) ── *@
-    <div class="rc-title">
+<div class="rc-title">
         <span class="rc-type-icon" title="@Item.MediaType">
             <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
                      Style="font-size: 0.65rem; opacity: 0.4;" />
@@ -84,19 +72,16 @@
     private bool NeedsReview =>
         !string.IsNullOrEmpty(Item.ReviewTrigger) ||
         (Item.Confidence > 0 && Item.Confidence < 0.85 && !Item.HasUserLocks);
-
-    /// <summary>Four-state left border + identified dimming per LibraryItem spec.</summary>
     private string CardStateStyle
     {
         get
         {
-            // Determine the four-state classification
             var isIdentified = !string.IsNullOrEmpty(Item.WikidataQid)
                 && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)
                 && string.IsNullOrEmpty(Item.ReviewTrigger);
 
             if (Item.ReviewTrigger == "Rejected")
-                return "border-left: 3px solid #EF5350; border-radius: 0; opacity: 0.55;";
+                return "border-left: 3px solid var(--tl-status-danger); border-radius: 0; opacity: 0.55;";
 
             if (NeedsReview)
                 return "border-left: 3px solid var(--tl-status-warning); border-radius: 0;";
@@ -130,7 +115,7 @@
         cursor: pointer;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
         z-index: 1;
-        border-radius: 4px; /* overridden to 0 by inline state style when left-border is active */
+        border-radius: 4px;
     }
     .rc-wrap:hover {
         transform: translateY(-2px);
@@ -147,7 +132,7 @@
         border-color: var(--tl-accent-primary);
     }
 
-    /* ── Thumbnail ── */
+
     .rc-thumb {
         position: relative;
         width: var(--rc-card-width, 80px);
@@ -155,17 +140,17 @@
         border-radius: 4px;
         overflow: hidden;
         background: #0D1230;
-        border: 2px solid rgba(255,255,255,0.06);
+        border: 2px solid var(--tl-border-subtle);
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    /* Square variant for audiobooks — 1:1 instead of 2:3 */
+
     .rc-thumb--square {
         height: var(--rc-card-width, 80px);
     }
     .rc-wrap:hover .rc-thumb {
         box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        border-color: rgba(255,255,255,0.15);
+        border-color: var(--tl-border-strong);
     }
     .rc-wrap--review .rc-thumb {
         border-color: rgba(176,137,64,0.35);
@@ -185,7 +170,7 @@
         background: linear-gradient(135deg, #0D1230 0%, #1a1a3e 100%);
     }
 
-    /* ── Title ── */
+
     .rc-type-icon {
         display: inline-flex;
         align-items: center;
@@ -194,7 +179,7 @@
     }
     .rc-title {
         font-size: 0.65rem;
-        color: rgba(255,255,255,0.6);
+        color: var(--tl-text-secondary);
         margin-top: 4px;
         line-height: 1.3;
         display: -webkit-box;
@@ -205,7 +190,7 @@
         max-width: var(--rc-card-width, 80px);
     }
 
-    /* ── Corner badge (diagonal ribbon, top-left) ── */
+
     .rc-corner-badge {
         position: absolute;
         top: 0;
@@ -235,7 +220,7 @@
         margin: 2px 0 0 2px;
     }
 
-    /* ── Selection mark ── */
+
     .rc-sel-mark {
         position: absolute;
         top: 3px;
@@ -243,7 +228,7 @@
         width: 18px;
         height: 18px;
         border-radius: 3px;
-        border: 1.5px solid rgba(255,255,255,0.6);
+        border: 1.5px solid var(--tl-text-secondary);
         background: rgba(0,0,0,0.6);
         transition: all 0.15s ease;
     }
@@ -262,7 +247,7 @@
         margin: 1px 0 0 5px;
     }
 
-    /* ── Media type badge ── */
+
     .rc-type-badge {
         position: absolute;
         bottom: 3px;
@@ -274,10 +259,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid rgba(255,255,255,0.12);
+        border: 1px solid var(--tl-border-default);
     }
 
-    /* ── Quick-action hover buttons ── */
+
     .rc-quick-actions {
         position: absolute;
         bottom: 3px;
@@ -301,7 +286,7 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        border: 1px solid rgba(255,255,255,0.15);
+        border: 1px solid var(--tl-border-strong);
         transition: background 0.12s ease, border-color 0.12s ease;
     }
 

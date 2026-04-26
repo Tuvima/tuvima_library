@@ -1,11 +1,6 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-
-@* Curator's Drawer — glassmorphic side drawer for metadata correction.
-   Opens when the user wants to "Fix Match" on a work/edition.
-   Search → select candidate → confirm correction → user-locked claim. *@
-
 <MudDrawer Open="@Open"
            OpenChanged="@OnOpenChangedHandler"
            Anchor="Anchor.End"
@@ -13,9 +8,7 @@
            Overlay="true"
            Variant="DrawerVariant.Temporary"
            Style="@DrawerStyle">
-
-    @* ── Header ─────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="pa-4">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="pa-4">
         <MudIcon Icon="@Icons.Material.Outlined.EditNote" Color="Color.Primary" Class="mr-2" />
         <MudText Typo="Typo.h6" Style="flex: 1;">Correct Metadata</MudText>
         <MudIconButton Icon="@Icons.Material.Filled.Close"
@@ -25,18 +18,14 @@
     </MudStack>
 
     <MudDivider Class="mb-2" />
-
-    @* ── Entity context ──────────────────────────────────────────────── *@
-    @if (EntityId != Guid.Empty)
+@if (EntityId != Guid.Empty)
     {
-        <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mx-4 mb-4">
+        <MudPaper Elevation="0" Class="tl-card mx-4 mb-4">
             <MudText Typo="Typo.caption" Color="Color.Secondary">Currently editing</MudText>
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@CurrentTitle</MudText>
         </MudPaper>
     }
-
-    @* ── Search ──────────────────────────────────────────────────────── *@
-    <div class="px-4 mb-4">
+<div class="px-4 mb-4">
         <MudTextField @bind-Value="_query"
                       Label="Search by title, ISBN, or Wikidata ID"
                       Variant="Variant.Outlined"
@@ -48,9 +37,7 @@
                       OnDebounceIntervalElapsed="@SearchAsync"
                       Margin="Margin.Dense" />
     </div>
-
-    @* ── Search results ──────────────────────────────────────────────── *@
-    @if (_searching)
+@if (_searching)
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mx-4 mb-2" />
     }
@@ -98,12 +85,10 @@
             No results found for "@_query".
         </MudText>
     }
-
-    @* ── Selected candidate preview ──────────────────────────────────── *@
-    @if (_selectedResult is not null)
+@if (_selectedResult is not null)
     {
         <MudDivider Class="my-3" />
-        <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mx-4 mb-2">
+        <MudPaper Elevation="0" Class="tl-card mx-4 mb-2">
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
                 New values from selected candidate:
             </MudText>
@@ -141,9 +126,7 @@
             </MudButton>
         </div>
     }
-
-    @* ── Claim history ───────────────────────────────────────────────── *@
-    @if (EntityId != Guid.Empty)
+@if (EntityId != Guid.Empty)
     {
         <MudDivider Class="my-2" />
         <MudExpansionPanels Elevation="0" Class="px-4 mb-4">
@@ -164,7 +147,7 @@
                 {
                     @foreach (var claim in _claims)
                     {
-                        <MudPaper Elevation="0" Style="@ClaimCardStyle" Class="mb-1">
+                        <MudPaper Elevation="0" Class="tl-card tl-card--compact mb-1">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                 <MudChip T="string" Size="Size.Small"
                                          Color="@(claim.IsUserLocked ? Color.Warning : Color.Default)"
@@ -220,26 +203,14 @@
 
     private const string ClaimCardStyle =
         "background: rgba(255,255,255,0.03); " +
-        "border: 1px solid rgba(255,255,255,0.06); " +
+        "border: 1px solid var(--tl-border-subtle); " +
         "border-radius: 4px; " +
         "padding: 8px 12px;";
-
-    // ── Parameters ──────────────────────────────────────────────────────────────
-
-    /// <summary>Whether the drawer is open. Two-way bound from parent.</summary>
     [Parameter] public bool Open { get; set; }
     [Parameter] public EventCallback<bool> OpenChanged { get; set; }
-
-    /// <summary>The entity (Work or Edition) being corrected.</summary>
     [Parameter] public Guid EntityId { get; set; }
-
-    /// <summary>Current title of the entity for display.</summary>
     [Parameter] public string CurrentTitle { get; set; } = string.Empty;
-
-    /// <summary>Fires after a correction is successfully applied.</summary>
     [Parameter] public EventCallback OnCorrected { get; set; }
-
-    // ── State ────────────────────────────────────────────────────────────────────
 
     private string                     _query          = string.Empty;
     private bool                       _searching;
@@ -249,8 +220,6 @@
     private bool                       _claimsLoading;
     private List<ClaimHistoryDto>      _claims         = [];
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────────
-
     protected override async Task OnParametersSetAsync()
     {
         if (Open && EntityId != Guid.Empty)
@@ -258,8 +227,6 @@
             await LoadClaimHistoryAsync();
         }
     }
-
-    // ── Handlers ─────────────────────────────────────────────────────────────────
 
     private async Task SearchAsync()
     {
@@ -284,12 +251,8 @@
     {
         if (_selectedResult is null || EntityId == Guid.Empty) return;
         _applying = true;
-
-        // Lock the title claim.
         var titleOk = await Orchestrator.LockClaimAsync(
             EntityId, "title", _selectedResult.Title);
-
-        // Lock the author claim if available.
         bool authorOk = true;
         if (!string.IsNullOrEmpty(_selectedResult.Author))
         {
@@ -301,20 +264,16 @@
 
         if (titleOk && authorOk)
         {
-            Snackbar.Add("Metadata corrected — user-locked claims applied.", Severity.Success);
+            Snackbar.Add("Metadata corrected - user-locked claims applied.", Severity.Success);
             _selectedResult = null;
             _query = string.Empty;
             _results = [];
-
-            // Refresh claim history.
             await LoadClaimHistoryAsync();
-
-            // Notify parent.
             await OnCorrected.InvokeAsync();
         }
         else
         {
-            Snackbar.Add("Could not apply correction — is the Engine running?", Severity.Error);
+            Snackbar.Add("Could not apply correction - is the Engine running?", Severity.Error);
         }
     }
 

@@ -20,7 +20,7 @@
         LibraryStageState.Warning => "var(--tl-status-warning)",
         LibraryStageState.Failed => "var(--tl-status-danger)",
         LibraryStageState.Running => "#90CAF9",
-        _ => "rgba(255,255,255,0.12)",
+        _ => "var(--tl-border-default)",
     };
 
     private string DotShadow => Stage.State switch
@@ -34,7 +34,7 @@
 
     private string LineColor => Stage.State == LibraryStageState.Completed
         ? "var(--tl-status-success-border)"
-        : "rgba(255,255,255,0.08)";
+        : "var(--tl-border-subtle)";
 }
 
 <style>

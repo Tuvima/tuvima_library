@@ -132,8 +132,6 @@
         await OnBulkDeleteClicked.InvokeAsync(new HashSet<Guid>(_selectedIds));
         _selectedIds.Clear();
     }
-
-    /// <summary>One row per show/album/series in the Action Center; standalone items become single-item groups.</summary>
     private sealed record ContainerGroup(string Key, string Label, List<LibraryItemViewModel> Items);
 
     private static List<ContainerGroup> GroupByContainer(List<LibraryItemViewModel> items)
@@ -144,7 +142,6 @@
 
         foreach (var item in items)
         {
-            // Pick the most specific container key available for this media type.
             var (key, label) = item.MediaType switch
             {
                 "TV"        => (item.ShowName, item.ShowName),
@@ -157,7 +154,6 @@
 
             if (string.IsNullOrWhiteSpace(key))
             {
-                // No container  -  emit as a standalone single-item group.
                 result.Add(new ContainerGroup(item.EntityId.ToString(), item.Title, [item]));
                 continue;
             }
@@ -188,7 +184,6 @@
 
     private async Task DeleteGroup(ContainerGroup group)
     {
-        // Cascade delete: route every member through the bulk delete callback.
         var ids = new HashSet<Guid>(group.Items.Select(i => i.EntityId));
         await OnBulkDeleteClicked.InvokeAsync(ids);
     }
@@ -317,7 +312,7 @@
     }
 
     .vac-row:not(:last-child) {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
     }
 
     .vac-row:hover {
@@ -371,7 +366,7 @@
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.02em;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
     }
 
     .vac-row-right {
@@ -408,13 +403,13 @@
 
     .vac-action-btn {
         border-radius: 4px;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         transition: all 0.15s ease;
     }
 
     .vac-action-btn:hover {
-        background: rgba(255, 255, 255, 0.06);
-        color: rgba(255, 255, 255, 0.6);
+        background: var(--tl-border-subtle);
+        color: var(--tl-text-secondary);
     }
 
     .vac-action-btn--danger:hover {
@@ -464,7 +459,7 @@
         background: rgba(244, 63, 94, 0.15);
     }
 
-    /* -- Mobile -- */
+
     @@media (max-width: 768px) {
         .vac-summary {
             padding: 8px 12px;

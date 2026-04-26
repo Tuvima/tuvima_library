@@ -2,8 +2,7 @@
 @using MudBlazor
 
 <div class="rfb-bar">
-    @* â”€â”€ Tabs: Review / No Match / Failed / All â”€â”€ *@
-    <div class="rfb-tabs">
+<div class="rfb-tabs">
         <button class="rfb-tab rfb-tab--review @(ActiveTab == "review" ? "rfb-tab--on" : "")"
                 @onclick="@(() => SetTab("review"))">
             In Review <span class="rfb-tab-ct rfb-tab-ct--review">@(FourStateCounts?.InReview ?? Counts?.NeedsReview ?? 0)</span>
@@ -21,26 +20,20 @@
             All <span class="rfb-tab-ct">@(FourStateCounts?.All ?? Counts?.Total ?? 0)</span>
         </button>
     </div>
-
-    @* â”€â”€ Search â”€â”€ *@
-    <div class="rfb-search">
+<div class="rfb-search">
         <FuzzySearchField Value="@SearchText"
                           ValueChanged="SearchTextChanged"
                           Placeholder="Filter items..."
                           Style="max-width: 240px;" />
     </div>
-
-    @* â”€â”€ Select toggle â”€â”€ *@
-    <button class="rfb-icon-btn @(SelectionMode ? "rfb-icon-btn--on" : "")"
+<button class="rfb-icon-btn @(SelectionMode ? "rfb-icon-btn--on" : "")"
             @onclick="ToggleSelectionMode"
             title="Toggle selection mode">
         <MudIcon Icon="@Icons.Material.Outlined.ChecklistRtl" Style="font-size: 1.1rem;" />
     </button>
 
     <div class="rfb-spacer"></div>
-
-    @* â”€â”€ Group By dropdown â”€â”€ *@
-    <div class="rfb-dropdowns">
+<div class="rfb-dropdowns">
         <MudSelect T="string" Value="@GroupBy" ValueChanged="OnGroupByChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense"
                    Dense="true" Label="Group by"
@@ -50,9 +43,7 @@
             <MudSelectItem Value="@("confidence")">Confidence</MudSelectItem>
             <MudSelectItem Value="@("status")">Status</MudSelectItem>
         </MudSelect>
-
-        @* â”€â”€ Sort â”€â”€ *@
-        <MudSelect T="string" Value="@SortBy" ValueChanged="OnSortChanged"
+<MudSelect T="string" Value="@SortBy" ValueChanged="OnSortChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense"
                    Dense="true" Label="Sort"
                    Style="font-size: 0.78rem; width: 130px;">
@@ -64,9 +55,7 @@
 </div>
 
 @code {
-    // Backward-compat: original two-state counts
     [Parameter] public LibraryItemStatusCountsDto? Counts { get; set; }
-    // New four-state counts; takes precedence when present
     [Parameter] public LibraryItemLifecycleCountsDto? FourStateCounts { get; set; }
 
     [Parameter] public string ActiveTab { get; set; } = "all";
@@ -79,8 +68,6 @@
     [Parameter] public EventCallback<bool> SelectionModeChanged { get; set; }
     [Parameter] public string SortBy { get; set; } = "newest";
     [Parameter] public EventCallback<string> SortByChanged { get; set; }
-
-    // Kept for backward compat â€” no longer rendered but callers may still bind these
     [Parameter] public int MaxDays { get; set; } = 60;
     [Parameter] public EventCallback<int> MaxDaysChanged { get; set; }
     [Parameter] public int CardSize { get; set; } = 80;
@@ -115,7 +102,7 @@
         padding: 10px 16px 10px 88px;
         background: rgba(8,13,30,0.8);
         backdrop-filter: blur(10px);
-        border-bottom: 1px solid rgba(255,255,255,0.04);
+        border-bottom: 1px solid var(--tl-divider);
         position: sticky;
         top: 56px;
         z-index: 20;
@@ -123,11 +110,11 @@
         row-gap: 8px;
     }
 
-    /* â”€â”€ Tabs â”€â”€ */
+
     .rfb-tabs {
         display: flex;
         gap: 2px;
-        background: rgba(255,255,255,0.04);
+        background: var(--tl-divider);
         border-radius: 6px;
         padding: 2px;
         flex-shrink: 0;
@@ -136,7 +123,7 @@
         background: transparent;
         border: none;
         color: rgba(255,255,255,0.4);
-        font-size: 0.6875rem; /* 11px */
+        font-size: 0.6875rem;
         font-weight: 400;
         padding: 6px 14px;
         border-radius: 4px;
@@ -149,42 +136,42 @@
     }
     .rfb-tab:hover { color: rgba(255,255,255,0.7); }
 
-    /* Active â€” default (All tab): white */
+
     .rfb-tab--on {
-        background: rgba(255,255,255,0.08);
+        background: var(--tl-border-subtle);
         color: #fff;
         font-weight: 500;
     }
 
-    /* Active state â€” Review: amber */
+
     .rfb-tab--review.rfb-tab--on {
         background: var(--tl-status-warning-soft);
         color: var(--tl-status-warning);
     }
 
-    /* Active state â€” No Match: gray */
+
     .rfb-tab--nomatch.rfb-tab--on {
         background: rgba(180,178,169,0.12);
         color: #B4B2A9;
     }
 
-    /* Active state â€” Failed: red */
+
     .rfb-tab--failed.rfb-tab--on {
         background: rgba(239,83,80,0.12);
-        color: #EF5350;
+        color: var(--tl-status-danger);
     }
 
-    /* â”€â”€ Count badges â”€â”€ */
+
     .rfb-tab-ct {
-        font-size: 0.6875rem; /* 11px */
+        font-size: 0.6875rem;
         font-weight: 500;
         opacity: 0.6;
-        background: rgba(255,255,255,0.06);
+        background: var(--tl-border-subtle);
         padding: 1px 6px;
         border-radius: 8px;
     }
 
-    /* Badge colors when tab is active */
+
     .rfb-tab--review.rfb-tab--on .rfb-tab-ct,
     .rfb-tab-ct--review {
         background: var(--tl-status-warning-soft);
@@ -199,15 +186,15 @@
     }
     .rfb-tab--failed.rfb-tab--on .rfb-tab-ct,
     .rfb-tab-ct--failed {
-        background: rgba(239,83,80,0.15);
-        color: #EF5350;
+        background: var(--tl-status-danger-soft);
+        color: var(--tl-status-danger);
         opacity: 1;
     }
 
-    /* â”€â”€ Search â”€â”€ */
+
     .rfb-search { flex-shrink: 0; }
 
-    /* â”€â”€ Icon button (select toggle) â”€â”€ */
+
     .rfb-icon-btn {
         display: flex;
         align-items: center;
@@ -215,7 +202,7 @@
         width: 36px;
         height: 36px;
         border-radius: 6px;
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid var(--tl-border-subtle);
         background: rgba(255,255,255,0.03);
         color: rgba(255,255,255,0.4);
         cursor: pointer;
@@ -224,8 +211,8 @@
     }
     .rfb-icon-btn:hover {
         color: rgba(255,255,255,0.7);
-        border-color: rgba(255,255,255,0.15);
-        background: rgba(255,255,255,0.06);
+        border-color: var(--tl-border-strong);
+        background: var(--tl-border-subtle);
     }
     .rfb-icon-btn--on {
         background: var(--tl-accent-primary-soft);
@@ -235,14 +222,14 @@
 
     .rfb-spacer { flex: 1; min-width: 4px; }
 
-    /* â”€â”€ Dropdowns group â”€â”€ */
+
     .rfb-dropdowns {
         display: flex;
         gap: 8px;
         flex-shrink: 0;
     }
 
-    /* â”€â”€ Mobile responsive â”€â”€ */
+
     @@media (max-width: 768px) {
         .rfb-bar {
             padding-left: 12px;

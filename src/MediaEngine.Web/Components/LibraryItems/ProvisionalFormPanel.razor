@@ -1,21 +1,17 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
 
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-
-@* ── Info box ── *@
 <div class="pfp-info-box">
     <div class="pfp-info-icon">
-        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 13px; color: rgba(200,190,220,0.5);" />
+        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 13px; color: var(--tl-text-muted);" />
     </div>
     <span class="pfp-info-text">
-        Marking as provisional — enter enough detail so users can find it and Wikidata can re-match when it becomes available.
+        Marking as provisional - enter enough detail so users can find it and Wikidata can re-match when it becomes available.
     </span>
 </div>
-
-@* ── Provisional metadata form ── *@
 <div class="pfp-form-section">
     <span class="pfp-section-label">PROVISIONAL METADATA</span>
 
@@ -37,17 +33,15 @@
         <label class="pfp-label">Title <span class="pfp-required">*</span></label>
         <input class="pfp-input"
                type="text"
-               placeholder="Enter title…"
+               placeholder="Enter title..."
                @bind="_title"
                @bind:event="oninput" />
     </div>
-
-    @* Creator — label changes by type *@
-    <div class="pfp-field">
+<div class="pfp-field">
         <label class="pfp-label">@CreatorLabel</label>
         <input class="pfp-input"
                type="text"
-               placeholder="@($"Enter {CreatorLabel.ToLower()}…")"
+               placeholder="@($"Enter {CreatorLabel.ToLower()}...")"
                @bind="_creator"
                @bind:event="oninput" />
     </div>
@@ -66,14 +60,12 @@
     <div class="pfp-field">
         <label class="pfp-label">Description</label>
         <textarea class="pfp-textarea"
-                  placeholder="Optional short description…"
+                  placeholder="Optional short description..."
                   rows="3"
                   @bind="_description"
                   @bind:event="oninput"></textarea>
     </div>
-
-    @* ── Type-specific fields ── *@
-    <div class="pfp-type-fields">
+<div class="pfp-type-fields">
         <span class="pfp-divider-label">Type-specific fields</span>
 
         @* Book *@
@@ -82,7 +74,7 @@
             <div class="pfp-field-row">
                 <div class="pfp-field pfp-field--half">
                     <label class="pfp-label">ISBN / ASIN</label>
-                    <input class="pfp-input" type="text" placeholder="e.g. 978-…"
+                    <input class="pfp-input" type="text" placeholder="e.g. 978-..."
                            @bind="_isbn" @bind:event="oninput" />
                 </div>
                 <div class="pfp-field pfp-field--half">
@@ -104,7 +96,7 @@
                 </div>
                 <div class="pfp-field pfp-field--half">
                     <label class="pfp-label">ISBN / ASIN</label>
-                    <input class="pfp-input" type="text" placeholder="e.g. B0…"
+                    <input class="pfp-input" type="text" placeholder="e.g. B0..."
                            @bind="_isbn" @bind:event="oninput" />
                 </div>
             </div>
@@ -173,15 +165,13 @@
         </span>
     </div>
 </div>
-
-@* ── Actions ── *@
 <div class="pfp-actions-section">
     <button class="pfp-btn-save" @onclick="SaveProvisional" disabled="@(_saving || string.IsNullOrWhiteSpace(_title))">
         @if (_saving)
         {
             <MudProgressCircular Size="Size.Small" Indeterminate="true"
                                  Style="width: 13px; height: 13px; color: rgba(192,184,224,0.7);" />
-            <span>Saving…</span>
+            <span>Saving...</span>
         }
         else
         {
@@ -191,7 +181,7 @@
     </button>
 
     <button class="pfp-btn-cancel" @onclick="() => OnCancelled.InvokeAsync()" disabled="@_saving">
-        Cancel — back to resolve
+        Cancel - back to resolve
     </button>
 </div>
 
@@ -205,8 +195,6 @@
     private string _creator = "";
     private string _year = "";
     private string _description = "";
-
-    // Type-specific fields
     private string _narrator = "";
     private string _isbn = "";
     private string _director = "";
@@ -229,8 +217,6 @@
         _title = Item.Title ?? "";
         _creator = Item.Author ?? "";
         _mediaType = Item.MediaType is { Length: > 0 } mt ? mt : "Books";
-
-        // Reset type-specific fields when item changes
         _year = "";
         _description = "";
         _narrator = "";
@@ -302,7 +288,7 @@
 }
 
 <style>
-    /* ── Info box ── */
+
     .pfp-info-box {
         display: flex;
         align-items: flex-start;
@@ -327,10 +313,10 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* ── Form section ── */
+
     .pfp-form-section {
         padding: 14px 16px 12px;
-        border-top: 1px solid rgba(140, 120, 180, 0.10);
+        border-top: 1px solid var(--tl-accent-primary-soft);
         margin-top: 12px;
     }
 
@@ -345,7 +331,7 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* ── Fields ── */
+
     .pfp-field {
         display: flex;
         flex-direction: column;
@@ -381,9 +367,9 @@
     .pfp-input,
     .pfp-select,
     .pfp-textarea {
-        background: rgba(140, 120, 180, 0.06);
-        border: 1px solid rgba(140, 120, 180, 0.20);
-        color: #e0dce8;
+        background: var(--tl-accent-primary-soft);
+        border: 1px solid var(--tl-accent-primary-border);
+        color: var(--tl-text-primary);
         border-radius: 8px;
         padding: 7px 10px;
         font-size: 12px;
@@ -412,7 +398,7 @@
         cursor: pointer;
         -webkit-appearance: none;
         appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(200,190,220,0.35)' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='var(--tl-text-muted)' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 10px center;
         padding-right: 28px;
@@ -420,7 +406,7 @@
 
     .pfp-select option {
         background: #0c0a14;
-        color: #e0dce8;
+        color: var(--tl-text-primary);
     }
 
     .pfp-textarea {
@@ -429,7 +415,7 @@
         line-height: 1.5;
     }
 
-    /* ── Type-specific divider ── */
+
     .pfp-type-fields {
         margin-top: 4px;
     }
@@ -443,11 +429,11 @@
         color: rgba(200, 190, 220, 0.20);
         margin-bottom: 8px;
         padding-top: 6px;
-        border-top: 1px solid rgba(140, 120, 180, 0.08);
+        border-top: 1px solid var(--tl-accent-primary-soft);
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* ── Re-check notice ── */
+
     .pfp-recheck-box {
         display: flex;
         align-items: flex-start;
@@ -464,10 +450,10 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* ── Actions section ── */
+
     .pfp-actions-section {
         padding: 10px 16px 14px;
-        border-top: 1px solid rgba(140, 120, 180, 0.10);
+        border-top: 1px solid var(--tl-accent-primary-soft);
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -486,14 +472,14 @@
         font-weight: 500;
         cursor: pointer;
         transition: background 0.15s ease, opacity 0.15s ease;
-        background: rgba(140, 120, 180, 0.12);
-        border: 1px solid rgba(140, 120, 180, 0.20);
-        color: #c0b8e0;
+        background: var(--tl-accent-primary-border);
+        border: 1px solid var(--tl-accent-primary-border);
+        color: var(--tl-text-secondary);
     }
 
     .pfp-btn-save:hover:not(:disabled) {
-        background: rgba(140, 120, 180, 0.18);
-        border-color: rgba(140, 120, 180, 0.30);
+        background: var(--tl-accent-primary-border);
+        border-color: var(--tl-accent-primary-border);
     }
 
     .pfp-btn-save:disabled {
@@ -514,14 +500,14 @@
         cursor: pointer;
         transition: background 0.15s ease, color 0.15s ease;
         background: transparent;
-        border: 1px solid rgba(140, 120, 180, 0.10);
+        border: 1px solid var(--tl-accent-primary-soft);
         color: rgba(200, 190, 220, 0.40);
     }
 
     .pfp-btn-cancel:hover:not(:disabled) {
-        background: rgba(140, 120, 180, 0.06);
+        background: var(--tl-accent-primary-soft);
         color: rgba(200, 190, 220, 0.65);
-        border-color: rgba(140, 120, 180, 0.18);
+        border-color: var(--tl-accent-primary-border);
     }
 
     .pfp-btn-cancel:disabled {

@@ -1,21 +1,14 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 @implements IDisposable
-
-@* General — Profile identity + visual preferences.
-   Layout driven by device context:
-     "full"       → Web: all sections visible (profile + avatar colour)
-     "stacked"    → Mobile: compact profile, fewer swatches
-     "theme-only" → Television / Automotive: minimal display *@
-
 @{
     var layout = DeviceContext.Settings.Pages.Preferences.GeneralTabLayout;
     var showProfile = !DeviceContext.IsFeatureDisabled("profile_section") && layout != "theme-only";
 }
 
-<div class="st-page">
+<div class="tl-page">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Tune" Color="Color.Default" Class="mr-2" />
@@ -31,9 +24,7 @@
     }
     else
     {
-        @* ── Profile section (hidden on TV/automotive) ─────────────────── *@
-
-        @if (showProfile)
+@if (showProfile)
         {
             @* Avatar preview *@
             <MudStack AlignItems="AlignItems.Center" Class="mb-6">
@@ -42,9 +33,7 @@
                     @(_displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?")
                 </MudAvatar>
             </MudStack>
-
-            @* Display name — hidden when text input is disallowed (TV/automotive) *@
-            @if (DeviceContext.Settings.Constraints.AllowTextInput)
+@if (DeviceContext.Settings.Constraints.AllowTextInput)
             {
                 <MudTextField @bind-Value="_displayName"
                               Label="Display Name"
@@ -66,10 +55,7 @@
 
             <MudDivider Class="my-6" />
         }
-
-        @* ── Save button (only when profile section is visible) ──────── *@
-
-        @if (showProfile)
+@if (showProfile)
         {
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
@@ -85,18 +71,12 @@
 
 @code {
 
-    // ── Avatar colour presets ────────────────────────────────────────────────────
-
-    // ── State ────────────────────────────────────────────────────────────────────
-
     private bool    _loading     = true;
     private bool    _saving;
     private Guid    _profileId;
     private string  _displayName = string.Empty;
     private string  _avatarColor = "#7C4DFF";
     private string  _role        = "Administrator";
-
-    // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,8 +90,6 @@
     }
 
     private void OnDeviceChanged() => InvokeAsync(StateHasChanged);
-
-    // ── Profile ──────────────────────────────────────────────────────────────────
 
     private async Task LoadProfileAsync()
     {
@@ -137,11 +115,9 @@
         if (ok)
             Snackbar.Add("Profile updated", Severity.Success);
         else
-            Snackbar.Add("Could not save profile — is the Engine running?", Severity.Error);
+            Snackbar.Add("Could not save profile - is the Engine running?", Severity.Error);
 
         _saving = false;
     }
-
-    // ── Swatch styles ────────────────────────────────────────────────────────────
 
 }

@@ -1,4 +1,4 @@
-@page "/watch/player/{AssetId:guid}"
+﻿@page "/watch/player/{AssetId:guid}"
 @using Microsoft.AspNetCore.Components
 @using Microsoft.JSInterop
 @using MediaEngine.Contracts.Playback
@@ -212,7 +212,7 @@ else
         font-weight: 800;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--tl-text-muted);
     }
 
     .watch-player-page h1 {
@@ -226,7 +226,7 @@ else
     .watch-player-page__surface {
         overflow: hidden;
         border-radius: 26px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         background: #020307;
         box-shadow: 0 26px 54px rgba(0, 0, 0, 0.32);
     }
@@ -264,8 +264,8 @@ else
         min-height: 42px;
         padding: 0 14px;
         border-radius: var(--app-radius-md);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-default);
+        background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.92);
         font-weight: 800;
         cursor: pointer;

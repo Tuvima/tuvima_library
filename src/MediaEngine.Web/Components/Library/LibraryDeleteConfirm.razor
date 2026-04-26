@@ -1,4 +1,4 @@
-<div class="vdc-backdrop" @onclick="OnCancel">
+﻿<div class="vdc-backdrop" @onclick="OnCancel">
     <div class="vdc-modal" @onclick:stopPropagation="true">
         <div class="vdc-icon-wrap">
             <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 32px;" />
@@ -51,7 +51,7 @@
         width: 100%;
         max-width: 384px;
         border-radius: var(--app-radius-md);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         padding: 32px;
         text-align: center;
         box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
@@ -73,7 +73,7 @@
         align-items: center;
         justify-content: center;
         margin: 0 auto 24px;
-        color: #E24B4A;
+        color: var(--tl-status-danger);
     }
 
     .vdc-text {

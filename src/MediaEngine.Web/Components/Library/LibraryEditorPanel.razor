@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Theming
 
@@ -137,7 +137,7 @@
                 {
                     <div class="vep-pipeline-placeholder">
                         <MudIcon Icon="@Icons.Material.Outlined.Timeline" Style="font-size: 2rem; opacity: 0.15; margin-bottom: 8px;" />
-                        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">Pipeline search and match UI will be migrated from the detail drawer in a subsequent phase.</p>
+                        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">Pipeline search and match UI will be migrated from the detail drawer in a subsequent phase.</p>
                     </div>
                 }
                 break;
@@ -150,11 +150,11 @@
                     }
                     else if (!IsSingleItem)
                     {
-                        <p style="color: rgba(255,255,255,0.3); font-size: 0.85rem;">@Items.Count items selected  -  artwork editing coming soon.</p>
+                        <p style="color: var(--tl-text-muted); font-size: 0.85rem;">@Items.Count items selected  -  artwork editing coming soon.</p>
                     }
                     else
                     {
-                        <p style="color: rgba(255,255,255,0.3); font-size: 0.85rem;">No cover art available.</p>
+                        <p style="color: var(--tl-text-muted); font-size: 0.85rem;">No cover art available.</p>
                     }
                 </div>
                 break;
@@ -283,12 +283,8 @@
         if (Items.Count == 0) return [];
 
         var mediaTypes = Items.Select(i => i.MediaType?.ToUpperInvariant()).Distinct().ToList();
-
-        // If all same type, show type-specific fields; if mixed, show common fields only
         if (mediaTypes.Count == 1)
             return GetFieldsForType(mediaTypes[0] ?? "");
-
-        // Common fields across all media types
         return
         [
             new() { Key = "title", Label = "Title" },
@@ -448,12 +444,12 @@
         flex-direction: column;
         height: 100%;
         background: rgba(12, 16, 32, 0.97);
-        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        border-left: 1px solid var(--tl-border-subtle);
     }
 
     .vep-header {
         padding: 16px 20px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
         position: relative;
     }
 
@@ -461,13 +457,13 @@
         position: absolute;
         top: 12px;
         right: 12px;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         border-radius: 4px;
     }
 
     .vep-close:hover,
     .vep-close:focus-visible {
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
         background: rgba(255, 255, 255, 0.05);
     }
 
@@ -561,7 +557,7 @@
 
     .vep-thumb-more {
         font-size: 0.7rem;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         margin-left: 4px;
     }
 
@@ -585,7 +581,7 @@
     }
 
     ::deep .vep-tabs .mud-tab.mud-tab-active {
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         box-shadow: inset 0 -2px 0 var(--tl-accent-primary);
     }
 
@@ -598,7 +594,7 @@
     .vep-readonly-section {
         margin-top: 16px;
         padding-top: 12px;
-        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        border-top: 1px solid var(--tl-divider);
     }
 
     .vep-file-path {
@@ -629,7 +625,7 @@
 
     .vep-preview-line {
         font-size: 0.8rem;
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
         margin-bottom: 2px;
     }
 
@@ -677,7 +673,7 @@
 
     .vep-action-btn:hover,
     .vep-action-btn:focus-visible {
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
     }
 
     .vep-action-btn--danger {
@@ -691,7 +687,7 @@
 
     .vep-actions-divider {
         height: 1px;
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--tl-divider);
         margin: 4px 0;
     }
 
@@ -700,7 +696,7 @@
         align-items: center;
         gap: 8px;
         padding: 12px 20px;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        border-top: 1px solid var(--tl-border-subtle);
     }
 
     .vep-footer-btn {
@@ -726,13 +722,13 @@
     }
 
     .vep-footer-btn--secondary {
-        background: rgba(255, 255, 255, 0.06);
-        color: rgba(255, 255, 255, 0.6);
+        background: var(--tl-border-subtle);
+        color: var(--tl-text-secondary);
     }
 
     .vep-footer-btn--secondary:hover,
     .vep-footer-btn--secondary:focus-visible {
-        background: rgba(255, 255, 255, 0.10);
+        background: var(--tl-border-default);
     }
 
     .vep-footer-btn--danger {

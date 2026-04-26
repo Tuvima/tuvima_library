@@ -1,8 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
-
-@* GreetingBar — Compact contextual header with time-of-day greeting and library stat.
-   Fades out on scroll via CSS. *@
-
+﻿@namespace MediaEngine.Web.Components.Universe
 <div class="greeting-bar" style="@(string.IsNullOrEmpty(AccentColor) ? "" : $"--greeting-accent: {AccentColor};")">
     <div class="greeting-text">
         <span class="greeting-main">@GreetingText</span>

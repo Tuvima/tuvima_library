@@ -1,4 +1,4 @@
-@page "/listen/player-popup"
+﻿@page "/listen/player-popup"
 @layout MediaEngine.Web.Shared.PopupLayout
 @using System.Globalization
 @using System.Text.Json
@@ -311,7 +311,7 @@
     .listen-popup__row-thumb {
         flex-shrink: 0;
         overflow: hidden;
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
         border-radius: 10px;
         display: flex;
         align-items: center;
@@ -378,7 +378,7 @@
     .listen-popup__tab {
         min-height: 38px;
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.78);
         font-weight: 700;
     }
@@ -431,7 +431,7 @@
     .listen-popup__icon:hover,
     .listen-popup__play:hover {
         transform: translateY(-1px);
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
     }
 
     .listen-popup__row-duration {
@@ -444,7 +444,7 @@
         width: 34px;
         height: 34px;
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.82);
         display: inline-flex;
         align-items: center;

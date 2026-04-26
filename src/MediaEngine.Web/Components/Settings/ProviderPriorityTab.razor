@@ -1,23 +1,16 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject IEngineApiClient ApiClient
 @inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
 @using MediaEngine.Domain.Enums
 @using MediaEngine.Storage.Models
 @using MediaEngine.Web.Models.ViewDTOs
-
-@* Providers — full-width priority chain design.
-   Icon-above-label category selector. Provider cards flow responsively.
-   Clicking a card opens a slide-in config overlay from the right.
-   "+ Add" opens a dialog to pick from the available provider catalogue.
-   Reorder with chevron buttons; remove via the config overlay. *@
-
 <style>
     .provider-page { width: 100%; padding: 24px; box-sizing: border-box; }
 
-    /* ── Category selector ── */
+
     .category-strip {
         display: flex; gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch;
-        margin-bottom: 32px; border-bottom: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+        margin-bottom: 32px; border-bottom: 1px solid var(--app-glass-inner-border, var(--tl-border-subtle));
     }
     .category-item {
         display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -33,7 +26,7 @@
     .category-item .cat-icon { font-size: 1.5rem; line-height: 1; }
     .category-item .cat-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
 
-    /* ── Priority chain ── */
+
     .chain-container {
         display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 24px;
     }
@@ -57,7 +50,7 @@
         min-width: 100px; height: 40px; flex-shrink: 0;
     }
 
-    /* ── Mobile: stack vertically ── */
+
     @@media (max-width: 600px) {
         .provider-page { padding: 12px; }
         .category-item { padding: 10px 12px 8px; min-width: 48px; }
@@ -69,19 +62,19 @@
         .drawer-panel { width: 100% !important; top: 48px !important; }
     }
 
-    /* ── Tablet: 2-col cards ── */
+
     @@media (min-width: 601px) and (max-width: 960px) {
         .chain-card { max-width: none; flex: 1 1 calc(50% - 24px); }
     }
 
-    /* ── Small chip ── */
+
     .provider-chip {
         display: inline-block; font-size: 0.66rem; padding: 1px 6px;
         border-radius: var(--app-radius-lg, 8px); border: 1px solid var(--app-border, #293036);
         color: var(--mud-palette-text-secondary); line-height: 1.6;
     }
 
-    /* ── Drawer ── */
+
     .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1200; }
     .drawer-panel {
         position: fixed; top: 64px; right: 0; bottom: 0; width: 380px;
@@ -91,7 +84,7 @@
         display: flex; flex-direction: column;
     }
     .drawer-header {
-        padding: 24px 24px 16px; border-bottom: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+        padding: 24px 24px 16px; border-bottom: 1px solid var(--app-glass-inner-border, var(--tl-border-subtle));
     }
     .drawer-icon-circle {
         width: 44px; height: 44px; border-radius: var(--app-radius-lg, 8px);
@@ -101,7 +94,7 @@
     .drawer-stats-row {
         display: flex; gap: 16px; margin-top: 14px; padding: 10px 12px;
         background: var(--app-glass-inner-bg, rgba(255,255,255,0.03));
-        border: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.06));
+        border: 1px solid var(--app-glass-inner-border, var(--tl-border-subtle));
         border-radius: 8px;
     }
     .drawer-stat {
@@ -120,29 +113,25 @@
         display: flex; align-items: center; margin-bottom: 4px;
     }
 
-    /* ── Save bar ── */
+
     .save-bar {
         display: flex; justify-content: flex-end; gap: 12px; align-items: center;
         padding-top: 16px; margin-top: 24px;
-        border-top: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+        border-top: 1px solid var(--app-glass-inner-border, var(--tl-border-subtle));
     }
 </style>
 
 <div class="provider-page">
-
-    @* ── Header ──────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
         <MudIcon Icon="@Icons.Material.Outlined.Collections" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">Providers</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
         Build a priority chain for each media type. Choose a strategy to control
-        how providers interact — waterfall stops at the first match, cascade
+        how providers interact - waterfall stops at the first match, cascade
         merges results from all, sequential chains providers together.
     </MudText>
-
-    @* ── Category selector (icons on top) ────────────────────────────────── *@
-    <div class="category-strip">
+<div class="category-strip">
         @foreach (var mt in _mediaTypes)
         {
             var mediaType = mt;
@@ -153,14 +142,10 @@
             </button>
         }
     </div>
-
-    @* ── Priority chain for active tab ───────────────────────────────────── *@
-    @{
+@{
         var chain = GetChain(_activeTab);
     }
-
-    @* ── Pipeline strategy ── *@
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
         <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary); white-space: nowrap;">
             Strategy:
         </MudText>
@@ -172,13 +157,13 @@
                    Dense="true"
                    Style="max-width: 220px;">
             <MudSelectItem T="string" Value="@("Waterfall")">
-                Waterfall — first match wins
+                Waterfall - first match wins
             </MudSelectItem>
             <MudSelectItem T="string" Value="@("Cascade")">
-                Cascade — all run, merge results
+                Cascade - all run, merge results
             </MudSelectItem>
             <MudSelectItem T="string" Value="@("Sequential")">
-                Sequential — chained, each feeds next
+                Sequential - chained, each feeds next
             </MudSelectItem>
         </MudSelect>
     </div>
@@ -193,16 +178,12 @@
             var posLabel = strategy == "Sequential"
                 ? $"Step {idx + 1}"
                 : idx == 0 ? "Primary" : idx == 1 ? "Secondary" : $"Rank {idx + 1}";
-            var enabledDot = assignment.Enabled ? "#4caf50" : "#f44336";
-
-            @* ── Provider card ── *@
-            <div class="chain-card"
+            var enabledDot = assignment.Enabled ? "var(--tl-status-success)" : "var(--tl-status-danger)";
+<div class="chain-card"
                  @onclick="@(() => OpenDrawer(_activeTab, idx))"
                  role="button"
                  tabindex="0">
-
-                @* Status dot — top right *@
-                <div style="position: absolute; top: 10px; right: 10px;
+<div style="position: absolute; top: 10px; right: 10px;
                             width: 9px; height: 9px; border-radius: 50%;
                             background: @enabledDot;" />
 
@@ -228,11 +209,9 @@
                         <span class="provider-chip">@mt</span>
                     }
                 </div>
-
-                @* Stats — prefer live health data, fall back to catalogue *@
-                <MudText Typo="Typo.caption"
+<MudText Typo="Typo.caption"
                          Style="color: var(--mud-palette-text-secondary); display: block; line-height: 1.6;">
-                    @GetLatencyDisplay(assignment.Name) · @GetSuccessRateDisplay(assignment.Name)
+                    @GetLatencyDisplay(assignment.Name)  -  @GetSuccessRateDisplay(assignment.Name)
                 </MudText>
 
                 @* Reorder buttons *@
@@ -251,16 +230,12 @@
                 </div>
 
             </div>
-
-            @* ── Connector line between cards ── *@
-            @if (idx < chain.Count - 1)
+@if (idx < chain.Count - 1)
             {
                 <div class="chain-connector" />
             }
         }
-
-        @* ── + Add button ── *@
-        @if (chain.Count > 0)
+@if (chain.Count > 0)
         {
             <div class="chain-connector" />
         }
@@ -278,18 +253,14 @@
         </MudButton>
 
     </div>
-
-    @* ── Empty state ── *@
-    @if (chain.Count == 0)
+@if (chain.Count == 0)
     {
         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4"
                  Style="display: block;">
             No providers assigned. Click Add to build a priority chain.
         </MudText>
     }
-
-    @* ── Save bar ────────────────────────────────────────────────────────── *@
-    <div class="save-bar">
+<div class="save-bar">
         <MudButton Variant="Variant.Text"
                    Color="Color.Default"
                    Size="Size.Small"
@@ -306,7 +277,7 @@
             @if (_saving)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                @:Saving…
+                @:Saving...
             }
             else
             {
@@ -316,11 +287,6 @@
     </div>
 
 </div>
-
-@* ════════════════════════════════════════════════════════════════════════════
-   Config Drawer — slide-in overlay from the right
-   ════════════════════════════════════════════════════════════════════════════ *@
-
 @if (_drawerOpen)
 {
     @* Backdrop *@
@@ -333,9 +299,7 @@
             var drawerInfo = GetProviderInfo(_drawerAssignment?.Name ?? "");
             var positionLabel = _drawerIndex == 0 ? "Primary" : _drawerIndex == 1 ? "Secondary" : "Fallback";
         }
-
-        @* ── Header section ── *@
-        <div class="drawer-header">
+<div class="drawer-header">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
                 <div class="drawer-icon-circle">
                     <MudIcon Icon="@GetProviderIcon(_drawerAssignment?.Name ?? "")"
@@ -347,7 +311,7 @@
                     </MudText>
                     <MudText Typo="Typo.caption"
                              Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 2px;">
-                        @(drawerInfo?.Type ?? "") provider · @positionLabel
+                        @(drawerInfo?.Type ?? "") provider  -  @positionLabel
                     </MudText>
                 </div>
                 <MudIconButton Icon="@Icons.Material.Filled.Close"
@@ -355,11 +319,9 @@
                                OnClick="CloseDrawer"
                                Style="align-self: flex-start;" />
             </div>
-
-            @* Stats row — prefer live health data *@
-            @if (drawerInfo is not null)
+@if (drawerInfo is not null)
             {
-                var healthColor = IsProviderHealthy(_drawerAssignment?.Name ?? "") ? "#4caf50" : "#f44336";
+                var healthColor = IsProviderHealthy(_drawerAssignment?.Name ?? "") ? "var(--tl-status-success)" : "var(--tl-status-danger)";
                 <div class="drawer-stats-row">
                     <div class="drawer-stat">
                         <MudIcon Icon="@Icons.Material.Outlined.Speed" Size="Size.Small"
@@ -382,8 +344,7 @@
 
         @if (_drawerAssignment is not null)
         {
-            @* ── Status section ── *@
-            <div class="drawer-section">
+<div class="drawer-section">
                 <span class="drawer-section-label">STATUS</span>
                 <div class="drawer-field-row">
                     <MudText Typo="Typo.body2" Style="flex: 1;">Enabled</MudText>
@@ -395,15 +356,13 @@
                 <div class="drawer-field-row" style="gap: 8px;">
                     <MudIcon Icon="@Icons.Material.Outlined.FiberManualRecord"
                              Size="Size.Small"
-                             Style="@($"color: {(_drawerAssignment.Enabled ? "#4caf50" : "#f44336")}; flex-shrink: 0;")" />
+                             Style="@($"color: {(_drawerAssignment.Enabled ? "var(--tl-status-success)" : "var(--tl-status-danger)")}; flex-shrink: 0;")" />
                     <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
                         @(_drawerAssignment.Enabled ? "Provider is active and will be queried" : "Provider is disabled and will be skipped")
                     </MudText>
                 </div>
             </div>
-
-            @* ── Connection section ── *@
-            <div class="drawer-section">
+<div class="drawer-section">
                 <span class="drawer-section-label">CONNECTION</span>
 
                 @if (drawerInfo?.RequiresKey == true)
@@ -459,12 +418,10 @@
                 </MudButton>
                 <MudText Typo="Typo.caption"
                          Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 8px;">
-                    Last tested: —
+                    Last tested: -
                 </MudText>
             </div>
-
-            @* ── Behaviour section ── *@
-            <div class="drawer-section">
+<div class="drawer-section">
                 <span class="drawer-section-label">BEHAVIOUR</span>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -503,9 +460,7 @@
                     your metadata language, English, or both.
                 </MudText>
             </div>
-
-            @* ── Media types section ── *@
-            <div class="drawer-section">
+<div class="drawer-section">
                 <span class="drawer-section-label">SUPPORTED MEDIA</span>
                 <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                     @foreach (var mt in GetProviderMediaTypes(_drawerAssignment.Name))
@@ -514,9 +469,7 @@
                     }
                 </div>
             </div>
-
-            @* ── Save bar (inside drawer) ── *@
-            <div style="padding: 20px 24px 0;">
+<div style="padding: 20px 24px 0;">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Save"
@@ -528,7 +481,7 @@
                     @if (_drawerSaving)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                        @:Saving…
+                        @:Saving...
                     }
                     else
                     {
@@ -538,14 +491,12 @@
                 @if (!string.IsNullOrEmpty(_drawerSaveMessage))
                 {
                     <MudText Typo="Typo.caption"
-                             Style="@($"color: {(_drawerSaveSuccess ? "#4caf50" : "#f44336")}; display: block; margin-bottom: 8px;")">
+                             Style="@($"color: {(_drawerSaveSuccess ? "var(--tl-status-success)" : "var(--tl-status-danger)")}; display: block; margin-bottom: 8px;")">
                         @_drawerSaveMessage
                     </MudText>
                 }
             </div>
-
-            @* ── Danger zone ── *@
-            <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(244,67,54,0.2);">
+<div style="margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(244,67,54,0.2);">
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Error"
                            StartIcon="@Icons.Material.Outlined.RemoveCircleOutline"
@@ -560,21 +511,16 @@
 
     </div>
 }
-
-@* ════════════════════════════════════════════════════════════════════════════
-   Add Provider Dialog
-   ════════════════════════════════════════════════════════════════════════════ *@
-
 <MudDialog @bind-Visible="_addDialogOpen"
            Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true })">
     <TitleContent>
-        <MudText Typo="Typo.h6">Add Provider — @_addDialogMediaType</MudText>
+        <MudText Typo="Typo.h6">Add Provider - @_addDialogMediaType</MudText>
     </TitleContent>
     <DialogContent>
 
         <MudTextField T="string"
                       @bind-Value="_addDialogSearch"
-                      Placeholder="Search providers…"
+                      Placeholder="Search providers..."
                       Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Outlined.Search"
                       Variant="Variant.Outlined"
@@ -616,7 +562,7 @@
                             @pCapture.Name
                         </MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            @pCapture.Type · @(pCapture.RequiresKey ? "Requires key" : "Zero-key")
+                            @pCapture.Type  -  @(pCapture.RequiresKey ? "Requires key" : "Zero-key")
                         </MudText>
                     </MudStack>
 
@@ -635,8 +581,6 @@
 </MudDialog>
 
 @code {
-
-    // ── Provider catalogue ────────────────────────────────────────────────────────
 
     private sealed record ProviderInfo(
         string   Name,
@@ -657,8 +601,6 @@
         new("Wikidata",       "Open",   false, ["Books","Movies","TV","Music","Comics","Audiobooks"], 300, 0.85),
         new("Fanart.tv",      "Image",  true,  ["Movies","TV","Music"],                           180, 0.91),
     ];
-
-    // ── Per-media-type provider assignment ────────────────────────────────────────
 
     private sealed class ProviderAssignment
     {
@@ -703,51 +645,32 @@
         ["Fanart.tv"]      = ["Movies", "TV", "Music"],
     };
 
-    // ── State ────────────────────────────────────────────────────────────────────
-
     private readonly string[] _mediaTypes =
         ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics"];
 
     private string _activeTab = "Books";
-
-    // Working copy: mediaType → ordered list of assignments
     private Dictionary<string, List<ProviderAssignment>> _assignments = new();
-
-    // Pipeline strategy per media type
     private Dictionary<string, string> _strategies = new();
     private PipelineConfiguration _pipelineConfiguration = new();
-
-    // Drawer state
     private bool               _drawerOpen        = false;
     private string             _drawerMediaType   = "";
     private int                _drawerIndex       = -1;
     private ProviderAssignment? _drawerAssignment  = null;
-
-    // Add dialog state
     private bool   _addDialogOpen      = false;
     private string _addDialogMediaType = "";
     private string _addDialogSearch    = "";
 
     private bool _saving = false;
-
-    // Drawer save state
     private bool   _drawerSaving       = false;
     private string _drawerSaveMessage  = "";
     private bool   _drawerSaveSuccess  = false;
 
-    // ── Health data ─────────────────────────────────────────────────────────────
-
     private Dictionary<string, ProviderHealthDto> _healthData = new(StringComparer.OrdinalIgnoreCase);
-
-    // ── Lifecycle ────────────────────────────────────────────────────────────────
-
-    // ── Live catalogue (populated on init from ProviderCatalogueService) ─────────
     private IReadOnlyList<ProviderCatalogueDto> _liveCatalogue = [];
     private Dictionary<string, ProviderStatusDto> _providerStatusByKey = new(StringComparer.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
-        // Load live catalogue first so subsequent helpers have access to it.
         _liveCatalogue = await CatalogueService.GetCatalogueAsync();
         await LoadFromEngineAsync();
         await LoadHealthDataAsync();
@@ -763,11 +686,9 @@
             {
                 ApplyPipelineConfiguration(pipelines);
                 return;
-
-                    // Normalize key to title case (e.g. "books" → "Books")
             }
         }
-        catch { /* Fall through to defaults */ }
+        catch {  }
 
         ResetToDefaults();
     }
@@ -791,7 +712,6 @@
 
     private ProviderAssignment CreateAssignmentFromProviderKey(string providerSlotName)
     {
-        // Slot names are stored as "apple_api", "google_books" etc. — convert to display name.
         var displayName = ResolveDisplayName(providerSlotName);
         var info = AllProviderCatalogue.FirstOrDefault(p =>
             p.Name.Replace(" ", "_").Equals(providerSlotName, StringComparison.OrdinalIgnoreCase));
@@ -871,12 +791,9 @@
 
     private static string ResolveDisplayName(string slotName)
     {
-        // Try to match against the known catalogue first.
         var match = AllProviderCatalogue.FirstOrDefault(p =>
             p.Name.Replace(" ", "_").Equals(slotName, StringComparison.OrdinalIgnoreCase));
         if (match is not null) return match.Name;
-
-        // Fallback: title-case the slot name (e.g. "apple_api" → "Apple Api")
         return string.Join(' ', slotName.Split('_')
             .Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
     }
@@ -891,10 +808,8 @@
                 _healthData[h.ProviderId] = h;
             }
         }
-        catch { /* ignore — catalogue defaults will be used */ }
+        catch {  }
     }
-
-    // ── Chain helpers ────────────────────────────────────────────────────────────
 
     private List<ProviderAssignment> GetChain(string mediaType)
     {
@@ -919,8 +834,6 @@
         if (idx >= chain.Count - 1) return;
         (chain[idx], chain[idx + 1]) = (chain[idx + 1], chain[idx]);
     }
-
-    // ── Drawer ───────────────────────────────────────────────────────────────────
 
     private void OpenDrawer(string mediaType, int idx)
     {
@@ -947,7 +860,6 @@
     private async Task TestConnectionAsync()
     {
         if (_drawerAssignment is null) return;
-        // Save first so the Engine has the latest API key, then test.
         await SaveDrawerAsync();
 
         var providerName = _drawerAssignment.Name.Replace(" ", "_").ToLowerInvariant();
@@ -958,7 +870,7 @@
             {
                 _drawerSaveSuccess = result.Success;
                 _drawerSaveMessage = result.Success
-                    ? $"Connected in {result.ResponseTimeMs}ms — {result.SampleFields?.Count ?? 0} fields returned"
+                    ? $"Connected in {result.ResponseTimeMs}ms - {result.SampleFields?.Count ?? 0} fields returned"
                     : $"Test failed: {result.Message}";
             }
             else
@@ -988,7 +900,6 @@
             {
                 if (info.AuthType == "basic")
                 {
-                    // Metron uses basic auth — send as "username:password"
                     apiKeyValue = $"{_drawerAssignment.Username}:{_drawerAssignment.Password}";
                 }
                 else
@@ -1007,7 +918,7 @@
 
             var success = await ApiClient.SaveProviderConfigAsync(providerName, config);
             _drawerSaveSuccess = success;
-            _drawerSaveMessage = success ? "Saved successfully" : "Failed to save — check Engine connection";
+            _drawerSaveMessage = success ? "Saved successfully" : "Failed to save - check Engine connection";
         }
         catch (Exception ex)
         {
@@ -1020,8 +931,6 @@
         }
     }
 
-    // ── Add dialog ───────────────────────────────────────────────────────────────
-
     private void OpenAddDialog(string mediaType)
     {
         _addDialogMediaType = mediaType;
@@ -1033,8 +942,6 @@
     {
         var chain   = GetChain(mediaType);
         var inChain = chain.Select(a => a.Name).ToHashSet();
-
-        // Build from live catalogue when available
         if (_liveCatalogue.Count > 0)
         {
             return _liveCatalogue
@@ -1052,8 +959,6 @@
                     AuthType:    p.AuthType))
                 .ToList();
         }
-
-        // Fallback to hardcoded catalogue
         return AllProviderCatalogue
             .Where(p => !inChain.Contains(p.Name) &&
                         (p.Supports.Contains(mediaType) || p.Name == "Wikidata"))
@@ -1065,8 +970,6 @@
         GetChain(_addDialogMediaType).Add(CreateAssignmentFromProviderName(name));
         _addDialogOpen = false;
     }
-
-    // ── Actions ──────────────────────────────────────────────────────────────────
 
     private void ResetToDefaults()
     {
@@ -1100,7 +1003,6 @@
         _saving = true;
         try
         {
-            // Save per-provider configs (enabled, API key, timeout) for each provider in all chains.
             var savedProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var (_, chain) in _assignments)
             {
@@ -1134,7 +1036,6 @@
         }
         catch
         {
-            // Silently degrade — toast system not yet integrated.
         }
         finally
         {
@@ -1193,8 +1094,6 @@
         return providerName.Replace(" ", "_").ToLowerInvariant();
     }
 
-    // ── Display helpers ──────────────────────────────────────────────────────────
-
     private static string GetMediaTypeIcon(string mediaType) => mediaType switch
     {
         "Books"      => Icons.Material.Outlined.MenuBook,
@@ -1208,7 +1107,6 @@
 
     private string GetProviderIcon(string provider)
     {
-        // Prefer live catalogue icon (resolves via MaterialIconLookup in ProviderAccentMap)
         var catalogueEntry = _liveCatalogue.FirstOrDefault(p =>
             string.Equals(p.DisplayName, provider, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(p.Name.Replace("_", " "), provider, StringComparison.OrdinalIgnoreCase));
@@ -1218,8 +1116,6 @@
                 catalogueEntry.Name, catalogueEntry.MaterialIcon);
             return icon;
         }
-
-        // Fallback switch for hardcoded catalogue entries (when Engine is unreachable)
         return provider switch
         {
             "Apple API"                     => Icons.Material.Outlined.MenuBook,
@@ -1235,7 +1131,6 @@
 
     private ProviderInfo? GetProviderInfo(string name)
     {
-        // First try live catalogue
         var live = _liveCatalogue.FirstOrDefault(p =>
             string.Equals(p.DisplayName, name, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(p.Name.Replace("_", " "), name, StringComparison.OrdinalIgnoreCase));
@@ -1246,25 +1141,20 @@
                 Type:        live.Category,
                 RequiresKey: live.RequiresKey,
                 Supports:    [.. live.MediaTypes],
-                LatencyMs:   120,       // not in catalogue — health data used at runtime
-                SuccessRate: 0.90,      // not in catalogue — health data used at runtime
+                LatencyMs:   120,       // not in catalogue - health data used at runtime
+                SuccessRate: 0.90,      // not in catalogue - health data used at runtime
                 AuthType:    live.AuthType);
         }
-        // Fall back to hardcoded catalogue
         return AllProviderCatalogue.FirstOrDefault(p => p.Name == name);
     }
-
-    /// <summary>Returns live latency string from health data, or catalogue default.</summary>
     private string GetLatencyDisplay(string providerName)
     {
         var key = providerName.Replace(" ", "_").ToLowerInvariant();
         if (_healthData.TryGetValue(key, out var h) && h.LastSuccessAt is not null)
             return h.Status;
         var info = GetProviderInfo(providerName);
-        return info is not null ? $"{info.LatencyMs} ms" : "—";
+        return info is not null ? $"{info.LatencyMs} ms" : "-";
     }
-
-    /// <summary>Returns live success rate or status from health data, or catalogue default.</summary>
     private string GetSuccessRateDisplay(string providerName)
     {
         var key = providerName.Replace(" ", "_").ToLowerInvariant();
@@ -1274,15 +1164,13 @@
             {
                 "Healthy"  => "Healthy",
                 "Degraded" => $"Degraded ({h.ConsecutiveFailures} failures)",
-                "Down"     => $"Down — {h.LastFailureReason ?? "unknown"}",
+                "Down"     => $"Down - {h.LastFailureReason ?? "unknown"}",
                 _          => h.Status,
             };
         }
         var info = GetProviderInfo(providerName);
-        return info is not null ? $"{(info.SuccessRate * 100):F0}%" : "—";
+        return info is not null ? $"{(info.SuccessRate * 100):F0}%" : "-";
     }
-
-    /// <summary>Returns true if health data indicates the provider is not down.</summary>
     private bool IsProviderHealthy(string providerName)
     {
         var key = providerName.Replace(" ", "_").ToLowerInvariant();
@@ -1293,14 +1181,11 @@
 
     private string[] GetProviderMediaTypes(string provider)
     {
-        // Prefer live catalogue
         var live = _liveCatalogue.FirstOrDefault(p =>
             string.Equals(p.DisplayName, provider, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(p.Name.Replace("_", " "), provider, StringComparison.OrdinalIgnoreCase));
         if (live is not null && live.MediaTypes.Count > 0)
             return [.. live.MediaTypes];
-
-        // Fall back to hardcoded dictionary
         return ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];
     }
 }

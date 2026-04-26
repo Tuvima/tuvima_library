@@ -197,13 +197,9 @@
 
         return rows;
     }
-
-    /// <summary>Get the actual retail provider display name, not "local_processor".</summary>
     private string GetRetailProviderDisplayName()
     {
         if (Item is null) return "a provider";
-
-        // First check RetailMatchDetail  -  this often has the actual provider name
         var detail = Item.RetailMatchDetail;
         if (!string.IsNullOrEmpty(detail))
         {
@@ -211,8 +207,6 @@
             if (formatted != "File Scan" && formatted != "Library Scanner" && formatted != "Unknown")
                 return formatted;
         }
-
-        // Fall back to RetailMatch field
         var match = Item.RetailMatch;
         if (!string.IsNullOrEmpty(match))
         {
@@ -220,8 +214,6 @@
             if (formatted != "File Scan" && formatted != "Library Scanner" && formatted != "Unknown")
                 return formatted;
         }
-
-        // Last resort: try to infer from claims data
         var retailClaim = Claims.FirstOrDefault(c =>
             !LibraryHelpers.IsFileSource(c.ProviderId) &&
             !LibraryHelpers.IsUserSource(c.ProviderId) &&
@@ -231,13 +223,9 @@
 
         return "a provider";
     }
-
-    /// <summary>Build a plain-English explanation of how the Wikidata link was made.</summary>
     private string GetWikidataExplanation()
     {
         if (Item is null) return "";
-
-        // Check which bridge ID was used
         var bridgeId = Claims.FirstOrDefault(c => c.ClaimKey is "isbn" or "isbn_13" or "isbn_10"
             && !LibraryHelpers.IsFileSource(c.ProviderId));
         if (bridgeId is not null)
@@ -257,8 +245,6 @@
             && !LibraryHelpers.IsFileSource(c.ProviderId));
         if (bridgeId is not null)
             return $"Linked to Wikidata using Open Library ID {bridgeId.ClaimValue}";
-
-        // Fallback based on WikidataMatch field
         var match = Item.WikidataMatch?.ToLowerInvariant() ?? "";
         if (match.Contains("bridge")) return $"Linked to Wikidata via bridge ID from {GetRetailProviderDisplayName()}";
         if (match.Contains("title")) return "Found on Wikidata by title search";
@@ -267,17 +253,9 @@
 
         return "Confirmed on Wikidata";
     }
-
-    /// <summary>
-    /// Get claims relevant to a specific pipeline stage:
-    /// 0 = file sources, 1 = retail providers, 2 = Wikidata/Wikipedia.
-    /// Returns best claim per key, sorted.
-    /// </summary>
     private List<ClaimHistoryDto> GetStageClaims(int stage)
     {
         if (Claims.Count == 0) return [];
-
-        // Wikidata provider GUID prefix
         const string wikidataGuidPrefix = "b3000003";
 
         var filtered = stage switch
@@ -288,8 +266,6 @@
             2 => Claims.Where(c => c.ProviderId.ToString().StartsWith(wikidataGuidPrefix)),
             _ => Enumerable.Empty<ClaimHistoryDto>(),
         };
-
-        // Best claim per key
         return filtered
             .GroupBy(c => c.ClaimKey)
             .Select(g => g.OrderByDescending(c => c.Confidence).First())
@@ -362,10 +338,10 @@
     .stage-panel-content { display: flex; flex-direction: column; gap: 10px; }
     .stage-panel-heading { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
     .stage-panel-sub { font-size: 11px; color: rgba(255,255,255,0.4); margin: 8px 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
-    .stage-panel-hint { font-size: 12px; color: rgba(255,255,255,0.35); font-style: italic; line-height: 1.5; margin: 4px 0 0 0; }
+    .stage-panel-hint { font-size: 12px; color: var(--tl-text-muted); font-style: italic; line-height: 1.5; margin: 4px 0 0 0; }
     .metadata-grid { display: flex; flex-direction: column; gap: 4px; }
     .meta-row { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: baseline; }
-    .meta-label { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+    .meta-label { font-size: 11px; font-weight: 500; color: var(--tl-text-muted); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
     .meta-value { font-size: 13px; color: rgba(255,255,255,0.8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .embedded-cover { margin-top: 8px; }
     .cover-thumbnail { width: 80px; height: auto; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); display: block; }
@@ -373,16 +349,16 @@
     .match-badge--completed { background: var(--tl-status-success-soft); border: 1px solid var(--tl-status-success-border); color: var(--tl-status-success); }
     .match-badge--warning { background: var(--tl-status-warning-soft); border: 1px solid var(--tl-status-warning-border); color: var(--tl-status-warning); }
     .match-badge--pending { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
-    .match-detail { font-size: 12px; color: rgba(255,255,255,0.5); margin: 4px 0 0 0; line-height: 1.4; }
+    .match-detail { font-size: 12px; color: var(--tl-text-muted); margin: 4px 0 0 0; line-height: 1.4; }
     .qid-badge { display: inline-flex; }
     .qid-link { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25); color: #A78BFA; text-decoration: none; letter-spacing: 0.3px; }
     .qid-link:hover { background: rgba(167,139,250,0.2); text-decoration: none; }
     .universe-info { display: flex; flex-direction: column; gap: 6px; }
 
-    /* Claims section */
+
     .claims-section { margin-top: 4px; }
     .claim-row { display: grid; grid-template-columns: 100px 1fr; gap: 6px; align-items: baseline; padding: 2px 0; }
-    .claim-key { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+    .claim-key { font-size: 10px; font-weight: 500; color: var(--tl-text-muted); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
     .claim-val { font-size: 12px; color: rgba(255,255,255,0.65); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 

@@ -3,12 +3,6 @@
 @inject NavigationManager Nav
 @inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
-
-@* Global Command Palette â€” keyboard-driven navigation and live search (Section 2.2 of the UI ASD).
-   Toggled with Ctrl+K.  Uses MudAutocomplete so results appear as the user types,
-   calling GET /collections/search for queries â‰¥ 2 characters and falling back to
-   static navigation links for empty / short queries.                               *@
-
 @if (_open)
 {
     <MudOverlay Visible="true" OnClick="@Close" DarkBackground="true" ZIndex="1300" />
@@ -60,21 +54,16 @@
     private bool _open = false;
     private MudAutocomplete<PaletteItem>? _autocomplete;
 
-    // â”€â”€ Static navigation items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     private PaletteItem[] StaticItems =>
     [
         new(L["CmdPalette_Library"],  "/",         Icons.Material.Outlined.CollectionsBookmark, "var(--tl-status-info)", null),
         new(L["CmdPalette_Settings"], "/settings", Icons.Material.Outlined.Settings,            "#94A3B8", L["CmdPalette_SettingsSubtitle"]),
     ];
 
-    // â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     private async Task<IEnumerable<PaletteItem>> SearchAsync(
         string value,
         CancellationToken ct)
     {
-        // Empty / too-short query â†’ return static nav links.
         if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 2)
             return StaticItems;
 
@@ -99,13 +88,10 @@
         Nav.NavigateTo(item.Href);
     }
 
-    // â”€â”€ Public surface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     public void Open()
     {
         _open = true;
         StateHasChanged();
-        // MudAutocomplete focuses itself when rendered.
     }
 
     public void Close()
@@ -121,8 +107,6 @@
         if (_open && _autocomplete is not null)
             await _autocomplete.FocusAsync();
     }
-
-    // â”€â”€ Private helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static string MediaIcon(string mediaType) =>
         UniverseMapper.ClassifyBucketPublic(mediaType) switch
@@ -149,7 +133,7 @@
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(r.Author)) parts.Add(r.Author);
         if (!string.IsNullOrEmpty(r.CollectionDisplayName)) parts.Add($"in {r.CollectionDisplayName}");
-        return string.Join(" Â· ", parts);
+        return string.Join("  -  ", parts);
     }
 
     private sealed record PaletteItem(

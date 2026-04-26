@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
 <div class="irpt-section">
@@ -6,7 +6,7 @@
         <MudIcon Icon="@(_expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
                  Style="font-size: 14px; color: rgba(255,255,255,0.30);" />
         <span class="irpt-label">REPORTS (@Reports.Count)</span>
-        <span class="irpt-badge" style="background: rgba(239,83,80,0.15); color: #EF5350;">@Reports.Count</span>
+        <span class="irpt-badge" style="background: var(--tl-status-danger-soft); color: var(--tl-status-danger);">@Reports.Count</span>
     </button>
 
     @if (_expanded)
@@ -15,7 +15,7 @@
         {
             <div class="irpt-loading">
                 <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                     Style="width: 16px; height: 16px; color: rgba(255,255,255,0.2);" />
+                                     Style="width: 16px; height: 16px; color: var(--tl-text-faint);" />
             </div>
         }
         else if (Reports.Count == 0)
@@ -79,7 +79,7 @@
 
 <style>
     .irpt-section {
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        border-top: 1px solid var(--tl-border-subtle);
     }
 
     .irpt-toggle {
@@ -103,7 +103,7 @@
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 1px;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         text-transform: uppercase;
         flex: 1;
         text-align: left;
@@ -139,8 +139,8 @@
     }
 
     .irpt-card {
-        background: rgba(239, 83, 80, 0.04);
-        border: 0.5px solid rgba(239, 83, 80, 0.12);
+        background: var(--tl-status-danger-soft);
+        border: 0.5px solid var(--tl-status-danger-border);
         border-radius: 8px;
         padding: 8px 10px;
         display: flex;
@@ -157,20 +157,20 @@
     .irpt-category {
         font-size: 11px;
         font-weight: 500;
-        color: rgba(239, 83, 80, 0.80);
+        color: var(--tl-status-danger);
     }
 
     .irpt-time {
         font-size: 10px;
         font-weight: 300;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
     }
 
     .irpt-note {
         font-size: 11px;
         font-weight: 400;
         font-style: italic;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         line-height: 1.4;
     }
 
@@ -215,7 +215,7 @@
 
     .irpt-action-btn--dismiss {
         color: rgba(255, 255, 255, 0.30);
-        text-decoration-color: rgba(255, 255, 255, 0.12);
+        text-decoration-color: var(--tl-border-default);
     }
 
     .irpt-action-btn--dismiss:hover {

@@ -398,17 +398,13 @@
 </div>
 
 @code {
-    // -- Parameters --
     [Parameter] public string? Tab { get; set; }
     [Parameter] public bool ReviewOnly { get; set; }
     [Parameter] public bool ShowReviewOverview { get; set; } = true;
     [Parameter] public bool HideTitleRow { get; set; }
     [Parameter] public string ReviewRoute { get; set; } = "/review";
     [Parameter] public LibrarySurfacePreset? Preset { get; set; }
-
-    // -- State --
     private string _activeTab = "overview";
-    // _groupBy removed  -  grouping is no longer supported in the Vault
     private string _sortBy = "newest";
     private string? _activeSortKey;
     private bool _sortAscending = true;
@@ -420,19 +416,13 @@
     private bool _loadingUniverses;
     #pragma warning restore CS0414
     private Dictionary<Guid, int>? _universePeopleCounts;
-
-    // -- View mode + preferences --
     private LibraryPreferencesSettings _vaultPrefs = new();
     private List<ContentGroupViewModel> _tabContentGroups = [];
     private List<LibraryItemViewModel> _containerDisplayItems = [];
-
-    // -- Filter state --
     private bool _filterReview;
     private bool _filterQuarantine;
     private bool _filterProvisional;
     private bool _filterWaitingForProvider;
-
-    // -- Data --
     private List<LibraryItemViewModel> _mediaItems = [];
     private List<PersonListItemDto> _people = [];
     private List<CollectionViewModel> _universes = [];
@@ -443,52 +433,25 @@
     private Dictionary<string, int> _mediaTypeCounts = new();
     private bool _hasMore;
     private int _loadedCount;
-    // -- Collection drawer state --
     private ManagedCollectionViewModel? _selectedCollection;
     private List<CollectionItemViewModel> _selectedCollectionItems = [];
-
-    // -- Computed counts --
     private int _needsReviewCount => _counts.InReview;
     private int _provisionalCount => _counts.Provisional;
     private int _quarantinedCount => _counts.Rejected;
     private int _waitingForProviderCount => _counts.WaitingForProvider;
     private int _actionCenterTotal => _needsReviewCount + _quarantinedCount + _waitingForProviderCount;
-
-    /// <summary>
-    /// Count of universes that have fictional entities older than 30 days -
-    /// populated by a LoreDeltaDiscovered SignalR event.
-    /// Shown as an informational amber banner in the Vault header.
-    /// </summary>
     private int _staleUniverseCount;
-
-    // -- Collection type filter --
     private HashSet<string> _enabledCollectionTypes = new(["Smart", "System", "Mix", "Playlist", "ContentGroups"]);
-
-    // -- People state --
     private Dictionary<string, Dictionary<string, int>> _personPresence = new();
     private int _peopleDisplayCount = 50;
     private const int PeoplePageSize = 50;
-
-    // -- URL state --
     private Guid? _pendingItemId;
-
-    // -- Poster size --
     private int _posterSize = 48;
-
-    // -- Add media drawer --
     private bool _addMediaOpen;
-
-    // -- Batch selection state --
     private HashSet<Guid> _selectedItems = [];
-
-    // -- Column picker state --
     private bool _showColumnPicker;
     private List<string> _visibleColumnKeys = [];
-
-    // -- Table ref for expand/collapse all --
     private LibraryConfigurableTable? _configurableTableRef;
-
-    // -- Group drill-down sub-page state --
     private string? _activeGroupType;
     private Guid? _activeGroupId;
     private List<Guid>? _artistAlbumCollectionIds;
@@ -496,36 +459,21 @@
     private string? _activeGroupName;
     private string? _activeGroupField;
     private string? _activeGroupMediaType;
-
-    // -- Detail drawer state --
     private LibraryItemViewModel? _selectedMedia;
     private PersonListItemDto? _selectedPerson;
     private CollectionViewModel? _selectedUniverse;
-
-    // -- Delete confirm state --
     private Guid? _deleteItemId;
     private string _deleteItemTitle = "";
     private bool _showBatchDeleteConfirm;
-
-    // -- Editor panel state --
     private List<LibraryItemViewModel> _editorPanelItems = [];
-
-    // -- Action Center state --
-    // _actionCenterExpanded removed  -  Action Center tab always shows expanded
     private List<LibraryItemViewModel>? _conflictItems;
-
-    // -- Collection counts (used by LoadManagedCollections) --
     private Dictionary<string, int> _collectionCounts = new();
-
-    // -- Primary tab categories --
     private static readonly (string Id, string Label, string Icon)[] _primaryTabs =
     [
         ("overview",           "Overview",           Icons.Material.Outlined.Dashboard),
         ("media",              "Media",              Icons.Material.Outlined.VideoLibrary),
         ("universe_alignment", "Universe Alignment", Icons.Material.Outlined.Collections),
     ];
-
-    // -- Sub-tabs per primary category --
     private static readonly Dictionary<string, (string Id, string Label, string Icon)[]> _subTabs = new()
     {
         ["media"] =
@@ -547,8 +495,6 @@
     };
 
     private string _primaryTab = "overview";
-
-    // -- Legacy tab list (kept for URL parsing compatibility) --
     private static readonly (string Id, string Label, string Icon)[] _tabs =
     [
         ("overview",    "Overview",           Icons.Material.Outlined.Dashboard),
@@ -604,8 +550,6 @@
     private int ActivePrimaryTabIndex => GetSelectedIndex(PrimaryTabsForDisplay.Select(tab => tab.Id), _primaryTab);
     private int ActiveSubTabIndex => GetSelectedIndex(ActiveSubTabs.Select(tab => tab.Id), _activeTab);
 
-    // -- Tab helpers --
-
     private static readonly string[] _mediaTabIds = ["new", "movies", "tv", "music", "books", "audiobooks", "comics"];
 
     private IReadOnlyList<LibraryTabDescriptor> BuildTabDescriptors(IEnumerable<(string Id, string Label, string Icon)> tabs) =>
@@ -655,10 +599,6 @@
         "comics"     => "Comics",
         _            => null, // "new" tab  -  no type filter
     };
-
-    /// <summary>True when the current tab + view mode is showing containers (not individual files).
-    /// Note: "albums" is intentionally excluded  -  LibraryMusicGrid handles album grouping from the flat
-    /// _mediaItems list itself, so LoadMediaItems() (not LoadContainerItems()) must run for that view.</summary>
     private bool IsContainerView => _viewMode is "shows" or "artists" or "series";
 
     private bool IsAlbumGridView => _activeTab == "music" && _viewMode == "albums";
@@ -727,14 +667,10 @@
         ],
         _ => [],
     };
-
-    /// <summary>Returns the default view mode for a given tab (from saved preferences or built-in defaults).</summary>
     private string GetDefaultViewMode(string tabId)
     {
         if (Preset?.DefaultViewModes.TryGetValue(tabId, out var presetMode) == true)
             return NormalizeViewMode(tabId, presetMode);
-
-        // TV is always by-show  -  never flat
         if (tabId == "tv") return "shows";
         return _vaultPrefs.ViewModes.TryGetValue(tabId, out var saved) ? NormalizeViewMode(tabId, saved) : tabId switch
         {
@@ -743,8 +679,6 @@
             _           => "all",
         };
     }
-
-    /// <summary>Maps a view mode to the content group type for drill-down.</summary>
     private string? GetGroupTypeForContainerTab(string tabId) => tabId switch
     {
         "movies" => "movie-series",
@@ -785,8 +719,6 @@
         && ShouldShowIngestionProgress(progress)
             ? progress
             : null;
-
-    // -- Lifecycle --
 
     private static string FormatIngestionStageLabel(string stage) => stage switch
     {
@@ -848,8 +780,6 @@
         Orchestrator.OnLoreDeltaDiscovered += OnLoreDeltaDiscovered;
         Nav.LocationChanged += OnLocationChanged;
         StateContainer.OnStateChanged += OnBatchProgressChanged;
-
-        // Load vault preferences (view modes, show unowned)
         _vaultPrefs = await ApiClient.GetLibraryPreferencesAsync() ?? new LibraryPreferencesSettings();
 
         if (ReviewOnly)
@@ -861,8 +791,6 @@
         else
         {
             ReadUrlState();
-
-            // Set view mode from preferences if not overridden by URL
             if (_viewMode == "all" && IsMediaTab(_activeTab))
                 _viewMode = GetDefaultViewMode(_activeTab);
         }
@@ -885,7 +813,6 @@
 
         if (_activeTab == "overview" || _activeTab.StartsWith("ua_"))
         {
-            // Overview and Universe Alignment tabs don't need media data on init
         }
         else if (IsContainerView) await LoadContainerItems();
         else if (IsMediaTab(_activeTab)) await LoadMediaItems();
@@ -935,8 +862,6 @@
         });
     }
 
-    // -- Data loading --
-
     private async Task LoadCounts()
     {
         var counts = await ApiClient.GetLibraryItemLifecycleCountsAsync();
@@ -959,11 +884,6 @@
 
         var offset = append ? _loadedCount : 0;
         var isNewTab = _activeTab == "new";
-
-        // For flat collection views (e.g. "All Songs"), bypass the libraryItem visibility filter
-        // so items that are still in the pipeline (no QID, no review) are included.
-        // Only used on the first page load (append=false)  -  pagination falls back to
-        // the libraryItem path to avoid duplicates.
         var flatCollectionName = GetSystemViewFlatCollectionName();
         if (flatCollectionName is not null && !append && statusFilter is null && string.IsNullOrWhiteSpace(_searchText))
         {
@@ -1013,11 +933,6 @@
             return; // Containers don't paginate for now
         await LoadMediaItems(append: true);
     }
-
-    /// <summary>
-    /// Maps the current tab + view mode to the group_by_field used in System view collections.
-    /// Returns null when the view is not backed by a system view collection.
-    /// </summary>
     private static Guid GenerateDeterministicGuid(string name)
     {
         var bytes = System.Security.Cryptography.MD5.HashData(
@@ -1035,22 +950,11 @@
         ("comics", "series")    => "series",
         _                       => null,
     };
-
-    /// <summary>
-    /// Maps tab + view mode to the name of a System flat collection (no grouping field).
-    /// When this returns a non-null name, <see cref="LoadMediaItems"/> resolves the
-    /// named collection via <c>GET /collections/resolve/by-name</c> instead of the libraryItem
-    /// endpoint.  This bypasses the libraryItem visibility filter so music items that
-    /// are still in the pipeline (no QID, no review, no provisional state) are
-    /// included in the "All Songs" view rather than being silently hidden.
-    /// </summary>
     private string? GetSystemViewFlatCollectionName() => (_activeTab, _viewMode) switch
     {
         ("music", "all" or "tracks") => "All Songs",
         _                            => null,
     };
-
-    /// <summary>Loads content groups for the current tab's container view and converts to display items.</summary>
     private async Task LoadContainerItems()
     {
         _loading = true;
@@ -1061,7 +965,6 @@
 
         if (systemGroupField is not null)
         {
-            // This view is backed by a System view collection seeded by CollectionSeeder  -  resolve via system-views endpoint.
             var groups = await ApiClient.GetSystemViewGroupsAsync(mediaType, systemGroupField);
 
             if (!string.IsNullOrWhiteSpace(_searchText))
@@ -1071,8 +974,6 @@
             _tabContentGroups = groups;
             _containerDisplayItems = groups.Select(g => new LibraryItemViewModel
             {
-                // System view groups share the same CollectionId  -  generate a unique deterministic ID
-                // from the display name so the click handler can distinguish them.
                 EntityId = GenerateDeterministicGuid(g.DisplayName),
                 Title    = g.DisplayName,
                 MediaType = g.PrimaryMediaType,
@@ -1088,7 +989,6 @@
         }
         else
         {
-            // Fallback: use ContentGroup collections (albums/series created during ingestion by MediaEntityChainFactory)
             if (_contentGroups.Count == 0)
                 _contentGroups = await ApiClient.GetContentGroupsAsync();
 
@@ -1187,8 +1087,6 @@
         _conflictItems = [.. reviewItems, .. rejectedItems];
     }
 
-    // -- Action Center handlers --
-
     private async Task OnActionCenterEdit(Guid entityId)
     {
         var item = _conflictItems?.FirstOrDefault(i => i.EntityId == entityId);
@@ -1258,8 +1156,6 @@
         Snackbar.Add($"{ids.Count} item(s) queued for retry.", Severity.Info);
     }
 
-    // -- Tab switching --
-
     private async Task OnVisibleMediaTabChanged(int index)
     {
         if (index < 0 || index >= VisibleMediaTabsForDisplay.Count)
@@ -1296,7 +1192,6 @@
         if (primaryId == "action_center")
         {
             _activeTab = "action_center";
-            // action center always expanded when tab is selected
             await LoadConflictItems();
         }
         else if (primaryId == "overview")
@@ -1322,26 +1217,20 @@
         if (_activeTab == tabId) return; // already on this tab
         _activeTab = tabId;
         _searchText = "";
-        // groupBy removed
         _activeGroupType = null;
         _activeGroupId = null;
         _selectedItems.Clear();
         ClearStatusFilters();
-
-        // Update primary tab to match sub-tab selection
         if (IsMediaTab(tabId))
             _primaryTab = "media";
         else if (tabId.StartsWith("ua_"))
             _primaryTab = "universe_alignment";
         else if (tabId == "overview")
             _primaryTab = "overview";
-
-        // Set view mode from saved preferences
         _viewMode = IsMediaTab(tabId) ? NormalizeViewMode(tabId, GetDefaultViewMode(tabId)) : "all";
 
         if (tabId.StartsWith("ua_"))
         {
-            // Universe alignment data loading  -  placeholder for Phase 3
             StateHasChanged();
         }
         else if (tabId == "overview")
@@ -1359,8 +1248,6 @@
 
         UpdateUrl();
     }
-
-    /// <summary>Navigate to a specific tab from the Overview dashboard cards.</summary>
     private async Task OnOverviewNavigate(string target)
     {
         if (target == "action_center")
@@ -1376,8 +1263,6 @@
             await SwitchTab(target);
         }
     }
-
-    // -- Toolbar callbacks --
 
     private async Task OnSearchChanged(string text)
     {
@@ -1417,16 +1302,12 @@
         else await LoadMediaItems();
     }
 
-    // -- View mode handler --
-
     private async Task OnViewModeChanged(string newMode)
     {
         var normalizedMode = NormalizeViewMode(_activeTab, newMode);
         if (_viewMode == normalizedMode) return;
         _viewMode = normalizedMode;
         _selectedItems.Clear();
-
-        // Save preference
         _vaultPrefs.ViewModes[_activeTab] = normalizedMode;
         _ = ApiClient.SaveLibraryPreferencesAsync(_vaultPrefs); // fire-and-forget
 
@@ -1438,8 +1319,6 @@
         UpdateUrl();
     }
 
-    // -- Container row click handler --
-
     private void OnContainerRowClicked(Guid collectionId)
     {
         var groupType = GetGroupTypeForContainerTab(_activeTab);
@@ -1447,18 +1326,13 @@
 
         var container = _containerDisplayItems.FirstOrDefault(i => i.EntityId == collectionId);
         var containerName = container?.Title;
-
-        // Check if this is a system-view-backed container (all items share the same collection ID)
         var systemGroupField = GetSystemViewGroupField();
 
         if (systemGroupField is not null && !string.IsNullOrWhiteSpace(containerName))
         {
-            // System-view mode: pass group name/field for generic drill-down
             _activeGroupName = containerName;
             _activeGroupField = systemGroupField;
             _activeGroupMediaType = GetMediaTypeForTab(_activeTab);
-
-            // For artist view, also set artist-specific fields for legacy path
             if (_viewMode == "artists" && _activeTab == "music")
             {
                 _activeArtistName = containerName;
@@ -1482,8 +1356,6 @@
         return Task.CompletedTask;
     }
 
-    // -- Author link handler --
-
     private async Task OnAuthorLinkClicked(string authorName)
     {
         if (_people.Count == 0) await LoadPeople();
@@ -1498,8 +1370,6 @@
             await InvokeAsync(StateHasChanged);
         }
     }
-
-    // -- Alert toggle handlers --
 
     private async Task ToggleReviewFilter()
     {
@@ -1540,8 +1410,6 @@
         await LoadMediaItems();
         UpdateUrl();
     }
-
-    // -- Row click handlers (open detail drawer) --
 
     private async Task OnMediaRowClicked(Guid entityId)
     {
@@ -1613,8 +1481,6 @@
         UpdateUrl();
     }
 
-    // -- Match / alias handlers --
-
     private async Task OnApplyMatchClicked(Guid matchEntityId)
     {
         Snackbar.Add("Match applied  -  re-identifying item...", Severity.Info);
@@ -1631,9 +1497,6 @@
 
         await LoadMediaItems();
         _mediaTypeCounts = await ApiClient.GetLibraryItemTypeCountsAsync();
-
-        // Refresh the detail drawer with updated data so Wikidata info appears
-        // immediately after confirming a match  -  without this, the drawer shows stale data.
         if (_selectedMedia is not null)
         {
             var refreshed = _mediaItems.FirstOrDefault(m => m.EntityId == matchEntityId);
@@ -1676,8 +1539,6 @@
         }
     }
 
-    // -- Collection drawer --
-
     private async Task OnCollectionClicked(Guid collectionId)
     {
         _selectedCollection = _managedCollections.FirstOrDefault(h => h.Id == collectionId);
@@ -1701,16 +1562,12 @@
         NavigateToGroup("ContentGroup", collectionId);
     }
 
-    // -- Show unowned toggle handler --
-
     private async Task OnShowUnownedChanged(bool showUnowned)
     {
         _vaultPrefs.ShowUnowned = showUnowned;
         _ = ApiClient.SaveLibraryPreferencesAsync(_vaultPrefs); // fire-and-forget
         await InvokeAsync(StateHasChanged);
     }
-
-    // -- Group drill-down navigation --
 
     public void NavigateToGroup(string groupType, Guid groupId)
     {
@@ -1749,7 +1606,6 @@
     private void OnAlbumNameClickedFromGroup(string albumName)
     {
         if (string.IsNullOrWhiteSpace(albumName)) return;
-        // Drill into the album using a system-view lookup keyed by canonical 'album' value.
         _activeGroupName     = albumName;
         _activeGroupField    = "album";
         _activeGroupMediaType = "Music";
@@ -1802,8 +1658,6 @@
         _filterWaitingForProvider = false;
     }
 
-    // -- Delete confirm --
-
     private async Task OnDeleteConfirmed()
     {
         if (_showBatchDeleteConfirm)
@@ -1832,8 +1686,6 @@
         _showBatchDeleteConfirm = false;
     }
 
-    // -- Batch selection --
-
     private Task OnSelectionChanged(HashSet<Guid> selected)
     {
         _selectedItems = selected;
@@ -1851,7 +1703,6 @@
     private async Task OnContainerRefresh(List<Guid> workIds)
     {
         if (workIds is null || workIds.Count == 0) return;
-        // Single batched refresh  -  one queue trip per work, deduplicated by the engine.
         foreach (var id in workIds.Distinct())
             await ApiClient.TriggerHydrationAsync(id);
         Snackbar.Add($"Queued refresh for {workIds.Count} items", Severity.Info);
@@ -1875,8 +1726,6 @@
         Snackbar.Add($"{_selectedItems.Count} items queued for sync", Severity.Info);
         _selectedItems.Clear();
     }
-
-    // -- Editor panel --
 
     private void OnBatchEdit()
     {
@@ -2015,7 +1864,6 @@
 
     private async Task OnEditorApplied()
     {
-        // Refresh data after edits applied
         _editorPanelItems = [];
         _selectedItems.Clear();
         if (IsContainerView) await LoadContainerItems();
@@ -2046,16 +1894,12 @@
         Snackbar.Add($"{ids.Count} item(s) queued for enrichment refresh.", Severity.Info);
     }
 
-    // -- Column picker --
-
     private Task OnColumnVisibilityChanged(List<string> visibleKeys)
     {
         _visibleColumnKeys = visibleKeys;
         StateHasChanged();
         return Task.CompletedTask;
     }
-
-    // -- URL state management --
 
     private void UpdateUrl(bool replace = false)
     {
@@ -2067,8 +1911,6 @@
                 ? routeBase
                 : $"{routeBase}/{tab}";
         var queryParts = new List<string>();
-
-        // Encode drill-down group state so the browser back button works
         if (_activeGroupId.HasValue && !string.IsNullOrEmpty(_activeGroupType))
         {
             queryParts.Add($"group={_activeGroupId.Value}");
@@ -2116,14 +1958,9 @@
         if (!string.IsNullOrEmpty(Tab))
         {
             var tabLower = Tab.ToLowerInvariant();
-            // Redirect old "media" tab to "new"
             if (tabLower == "media") tabLower = "new";
-            // Redirect old "people" tab to "people_all"
             if (tabLower == "people") tabLower = "people_all";
-            // Redirect old "universes" tab to "universes_all"
             if (tabLower == "universes") tabLower = "universes_all";
-
-            // Check legacy tabs or new sub-tab IDs
             var allSubTabIds = _subTabs.Values.SelectMany(arr => arr).Select(t => t.Id).ToHashSet();
             if (_tabs.Any(t => t.Id == tabLower) || allSubTabIds.Contains(tabLower))
             {
@@ -2159,8 +1996,6 @@
             _sortBy = sort;
 
         _pendingItemId = query["item"] is string itemStr && Guid.TryParse(itemStr, out var itemId) ? itemId : null;
-
-        // Restore group drill-down state from URL (enables browser back button to work)
         if (query["group"] is string groupStr && Guid.TryParse(groupStr, out var groupId)
             && query["groupType"] is string groupType && !string.IsNullOrEmpty(groupType))
         {
@@ -2246,8 +2081,6 @@
         get
         {
             IEnumerable<PersonListItemDto> result = _people;
-
-            // Filter by people sub-tab
             result = _activeTab switch
             {
                 "people_authors"   => result.Where(p => p.Roles.Any(r => r is "Author" or "Narrator")),
@@ -2304,17 +2137,17 @@
     .vault-layout {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 64px); /* 64px = TopBar height */
+        height: calc(100vh - 64px);
         overflow: hidden;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         font-family: inherit;
         padding: 0;
     }
 
-    /* -- Header -- */
+
     .vault-header {
         padding: 24px 0 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
         flex-shrink: 0;
     }
 
@@ -2341,7 +2174,7 @@
         margin: 0;
     }
 
-    /* -- Tab bar -- */
+
     .vault-tab-bar {
         flex: 1;
         min-width: 0;
@@ -2365,12 +2198,12 @@
     }
 
     .vault-tab-bar .mud-tab.mud-tab-active {
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         color: #fff;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
-    /* -- Sub-tab row -- */
+
     .vault-subtab-row {
         display: flex;
         padding: 0 24px;
@@ -2384,7 +2217,7 @@
     .vault-tab-bar--sub .mud-tab {
         min-height: 2.35rem;
         font-size: 0.72rem;
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
     }
 
     .vault-tab--sub {
@@ -2414,14 +2247,14 @@
         color: rgba(201, 146, 46, 0.85);
     }
 
-    /* -- Tab badges -- */
+
     .vault-tab-badge {
         font-size: 9px;
         font-weight: 800;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         border-radius: 8px;
         padding: 1px 6px;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         min-width: 18px;
         text-align: center;
         line-height: 1.4;
@@ -2432,13 +2265,13 @@
         color: var(--tl-status-info);
     }
 
-    /* -- Toolbar row -- */
+
     .vault-toolbar-row {
         display: flex;
         align-items: center;
         gap: 12px;
         padding: 16px 24px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
         flex-shrink: 0;
         flex-wrap: wrap;
     }
@@ -2466,7 +2299,7 @@
     }
 
     .vault-search-field .mud-input-adornment {
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
     }
 
     .vault-view-modes {
@@ -2491,7 +2324,7 @@
         color: var(--tl-status-info);
     }
 
-    /* -- Add button -- */
+
     .vault-add-btn {
         border-radius: 12px;
         font-size: 12px;
@@ -2503,7 +2336,7 @@
         flex-shrink: 0;
     }
 
-    /* -- Body (full-width content) -- */
+
     .vault-body {
         display: flex;
         flex: 1;
@@ -2511,7 +2344,7 @@
         min-height: 0;
     }
 
-    /* -- Editor panel container -- */
+
     .vault-editor-panel-container {
         position: fixed;
         top: 64px;
@@ -2528,7 +2361,7 @@
         to   { transform: translateX(0); }
     }
 
-    /* -- Content -- */
+
     .vault-content {
         flex: 1;
         overflow-y: auto;
@@ -2541,7 +2374,7 @@
         margin-bottom: 20px;
     }
 
-    /* -- Tablet -- */
+
     @@media (max-width: 1024px) {
         .vault-title-row {
             padding: 0 16px;
@@ -2568,7 +2401,7 @@
         }
     }
 
-    /* -- Mobile -- */
+
     @@media (max-width: 768px) {
         .vault-header {
             padding: 12px 0 8px;
@@ -2647,7 +2480,7 @@
         }
     }
 
-    /* -- Small mobile -- */
+
     @@media (max-width: 480px) {
         .vault-title {
             font-size: 20px;
@@ -2679,9 +2512,9 @@
     .vault-load-more-btn {
         padding: 10px 32px;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         background: rgba(255, 255, 255, 0.02);
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--tl-text-muted);
         font-size: 12px;
         font-weight: 700;
         cursor: pointer;
@@ -2693,7 +2526,7 @@
         color: rgba(255, 255, 255, 0.8);
     }
 
-    /* -- Ingestion progress banner -- */
+
     .vault-progress-banner {
         padding: 10px 20px;
         background: rgba(201, 146, 46, 0.08);
@@ -2720,7 +2553,7 @@
         letter-spacing: 0.06em;
     }
     .vault-progress-count {
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
     }
     .vault-progress-current {
         color: rgba(255, 255, 255, 0.42);
@@ -2730,12 +2563,12 @@
         white-space: nowrap;
     }
     .vault-progress-eta {
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         margin-left: auto;
     }
     .vault-progress-bar-track {
         height: 3px;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         border-radius: 2px;
         overflow: hidden;
     }
@@ -2755,11 +2588,11 @@
         color: rgba(255, 255, 255, 0.45);
         padding: 2px 8px;
         border-radius: var(--app-radius-sm);
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--tl-divider);
     }
     .vault-progress-recent {
         font-size: 11px;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -2788,7 +2621,7 @@
     }
     .vault-progress-feed-detail {
         grid-column: 2;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
     }
 </style>
 

@@ -1,4 +1,4 @@
-/* ---------------------------------------------------------------------------
+﻿/* ---------------------------------------------------------------------------
    Tuvima Library - Global Stylesheet (Cinematic Minimalist Design)
    Component-level styles live in their respective .razor files.
    This file owns global / body-level rules and CSS custom properties.
@@ -14,71 +14,8 @@
     font-display: swap;
 }
 
-/* -- CSS custom properties (dark-only cinematic theme) ------------------ */
-
-:root {
-    --app-font-sans:          "Nunito", "Segoe UI", sans-serif;
-    --app-accent:             var(--tl-accent-primary);
-    --app-text-primary:       var(--tl-text-primary);
-    --app-text-secondary:     var(--tl-text-secondary);
-    --app-text-disabled:      var(--tl-text-disabled);
-    --app-glass-bg:           var(--tl-bg-surface);
-    --app-glass-border:       var(--tl-border-default);
-    --app-glass-inner-bg:     var(--tl-bg-surface-raised);
-    --app-glass-inner-border: var(--tl-border-subtle);
-    --app-text-muted:         var(--tl-text-muted);
-    --app-text-soft:          var(--tl-text-secondary);
-    --app-text-faint:         var(--tl-text-disabled);
-    --app-surface-1:          var(--tl-bg-surface);
-    --app-surface-2:          var(--tl-bg-surface-raised);
-    --app-surface-3:          var(--tl-bg-surface-hover);
-    --app-border-subtle:      var(--tl-border-subtle);
-    --app-border-strong:      var(--tl-border-strong);
-    --app-icon-muted:         var(--tl-text-muted);
-    --app-icon-soft:          var(--tl-text-secondary);
-    --app-hover-overlay:      var(--tl-bg-surface-hover);
-    --app-active-overlay:     var(--tl-accent-primary-soft);
-    --app-radius-xs:          0;
-    --app-radius-sm:          2px;
-    --app-radius-md:          4px;
-    --app-radius-lg:          4px;
-    --app-surface-elev-1:     var(--tl-bg-surface-elevated);
-    --app-success:            var(--tl-status-success);
-    --app-warning:            var(--tl-status-warning);
-    --app-error:              var(--tl-status-danger);
-    --app-info:               var(--tl-status-info);
-    --app-confidence-high:    var(--tl-status-success);
-    --app-confidence-medium:  var(--tl-status-warning);
-    --app-confidence-low:     var(--tl-status-danger);
-    --app-z-dropdown:         1100;
-    --app-z-drawer:           1200;
-    --app-z-modal-backdrop:   1300;
-    --app-z-modal:            1400;
-    --app-z-context-menu:     1500;
-    --app-z-toast:            1600;
-    --app-tab-border:         var(--tl-border-subtle);
-    --app-tab-text:           var(--tl-text-secondary);
-    --app-tab-text-hover:     var(--tl-text-primary);
-    --app-tab-text-active:    var(--tl-accent-primary);
-    --app-tab-meta:           var(--tl-text-muted);
-    --app-tab-badge-bg:       var(--tl-bg-surface-raised);
-    --app-tab-badge-text:     var(--tl-text-secondary);
-    --app-swatch-border:      var(--tl-border-default);
-    --app-swatch-active:      var(--tl-text-primary);
-    --app-shadow:             var(--tl-shadow-sm);
-    --app-shadow-md:          var(--tl-shadow-md);
-    --app-shadow-lg:          var(--tl-shadow-lg);
-    --app-inset-glow:         0 0 0 1px var(--tl-border-subtle) inset;
-    --app-dock-width:         0px;   /* Dock is floating - does not offset content */
-    --app-topbar-height:      72px;
-
-    /* Dock panel - dark blue glassmorphic */
-    --app-dock-bg:            var(--tl-bg-shell);
-    --app-dock-border:        var(--tl-border-default);
-    --app-dock-text:          var(--tl-text-secondary);
-    --app-dock-text-muted:    var(--tl-text-muted);
-    --app-dock-hover:         var(--tl-bg-surface-hover);
-}
+/* -- Legacy layout rules. Theme variables are provided by tuvima.tokens.css
+   and the final token alias block later in this file. ------------------- */
 
 /* -- Cinematic background ----------------------------------------------- */
 
@@ -267,13 +204,13 @@ body {
 
 .mud-tab:hover,
 .mud-tab.mud-tab-active {
-    color: var(--app-accent-blue) !important;
+    color: var(--tl-accent-primary) !important;
     background: transparent !important;
 }
 
 .mud-tabs-toolbar .mud-tabs-inkbar {
     height: 2px !important;
-    background: var(--app-accent-blue) !important;
+    background: var(--tl-accent-primary) !important;
 }
 
 .mud-tab .mud-ripple {
@@ -352,136 +289,6 @@ body {
     );
     opacity: 0.14;
     transition: opacity 0.6s ease;
-}
-
-/* -- Vault-standard shared UI components -----------------------------
-   Settings and other management pages use these classes to stay consistent
-   with the Vault's visual language. ------------------------------------ */
-
-/* Section card - replaces MudPaper inline styles */
-.st-card {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--app-radius-md);
-    padding: 20px 24px;
-    margin-bottom: 16px;
-}
-
-/* Section card with amber accent border (for primary/featured sections) */
-.st-card--accent {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--tl-accent-primary-border);
-    border-radius: var(--app-radius-md);
-    padding: 20px 24px;
-    margin-bottom: 16px;
-}
-
-/* Section header label - small caps above a section */
-.st-label {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: rgba(248, 248, 248, 0.35);
-    margin-bottom: 4px;
-}
-
-/* Section title - larger heading above content block */
-.st-section-title {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: rgba(248, 248, 248, 0.85);
-    margin-bottom: 4px;
-}
-
-/* Accent section title - golden for featured panels */
-.st-section-title--accent {
-    color: var(--tl-accent-primary);
-}
-
-/* Section body text */
-.st-body {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    font-size: 0.82rem;
-    color: rgba(248, 248, 248, 0.5);
-    line-height: 1.5;
-    margin-bottom: 16px;
-}
-
-/* Thin horizontal rule between sections */
-.st-rule {
-    height: 1px;
-    background: rgba(255, 255, 255, 0.04);
-    margin: 16px 0;
-    flex-shrink: 0;
-}
-
-/* Toggle row - label + description on left, control on right */
-.st-toggle-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.st-toggle-row:last-child {
-    border-bottom: none;
-}
-
-.st-toggle-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.st-toggle-name {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: rgba(248, 248, 248, 0.85);
-    margin-bottom: 2px;
-}
-
-.st-toggle-desc {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    font-size: 0.78rem;
-    color: rgba(248, 248, 248, 0.45);
-    line-height: 1.4;
-}
-
-/* Settings page outer wrapper */
-.st-page {
-    width: 100%;
-    padding: 24px;
-    box-sizing: border-box;
-}
-
-/* Page heading area */
-.st-page-header {
-    margin-bottom: 24px;
-}
-
-.st-page-title {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    font-size: 1.5rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: rgba(248, 248, 248, 0.92);
-    margin: 0 0 4px 0;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.st-page-subtitle {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    font-size: 0.82rem;
-    color: rgba(248, 248, 248, 0.4);
-    margin: 0;
-    line-height: 1.5;
 }
 
 /* -- Blazor error boundary --------------------------------------------- */
@@ -698,53 +505,9 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Hybrid Paces + Metronic dark admin system
-   This final layer intentionally centralizes the current visual system and
-   overrides older cinematic/glass styles without requiring page rewrites.
+   Legacy Hybrid Paces + Metronic dark admin migration layer.
+   Kept temporarily while remaining page-local selectors move to tl-*.
    -------------------------------------------------------------------------- */
-
-:root {
-    --app-font-sans: "Nunito", "Segoe UI", sans-serif;
-    --app-font-brand: "Montserrat", "Segoe UI", sans-serif;
-    --app-bg: var(--tl-bg-root);
-    --app-surface: var(--tl-bg-surface);
-    --app-surface-1: var(--tl-bg-surface);
-    --app-surface-2: var(--tl-bg-surface-raised);
-    --app-surface-3: var(--tl-bg-surface-hover);
-    --app-surface-muted: rgba(21, 30, 47, 0.72);
-    --app-border: var(--tl-border-default);
-    --app-border-subtle: var(--tl-border-subtle);
-    --app-border-strong: var(--tl-border-strong);
-    --app-text-primary: var(--tl-text-primary);
-    --app-text-secondary: var(--tl-text-secondary);
-    --app-text-muted: var(--tl-text-muted);
-    --app-text-soft: var(--tl-text-secondary);
-    --app-text-faint: var(--tl-text-disabled);
-    --app-primary: var(--tl-accent-primary);
-    --app-primary-hover: var(--tl-accent-primary-hover);
-    --app-secondary: var(--tl-accent-secondary);
-    --app-success: var(--tl-status-success);
-    --app-info: var(--tl-status-info);
-    --app-warning: var(--tl-status-warning);
-    --app-error: var(--tl-status-danger);
-    --app-radius-xs: 4px;
-    --app-radius-sm: 5px;
-    --app-radius-md: 5px;
-    --app-radius-lg: 8px;
-    --app-radius-xl: 8px;
-    --app-card-padding: 20px;
-    --app-section-padding: 24px;
-    --app-shadow: var(--tl-shadow-sm);
-    --app-shadow-md: var(--tl-shadow-md);
-    --app-shadow-lg: var(--tl-shadow-lg);
-    --app-topbar-height: 65px;
-    --app-hover-overlay: rgba(255, 255, 255, 0.035);
-    --app-active-overlay: var(--tl-accent-primary-soft);
-    --app-glass-bg: var(--app-surface);
-    --app-glass-border: var(--app-border);
-    --app-glass-inner-bg: var(--app-surface-2);
-    --app-glass-inner-border: var(--app-border);
-}
 
 html,
 body {
@@ -920,7 +683,7 @@ body {
 .mud-tab:hover,
 .app-line-tabs .mud-tab.mud-tab-active,
 .mud-tab.mud-tab-active {
-    color: var(--app-accent-blue) !important;
+    color: var(--tl-accent-primary) !important;
     background: transparent !important;
 }
 
@@ -929,7 +692,7 @@ body {
 }
 
 .mud-tab-slider {
-    background: var(--app-accent-blue) !important;
+    background: var(--tl-accent-primary) !important;
     height: 2px !important;
 }
 
@@ -1576,7 +1339,6 @@ code,
     --app-primary-active: var(--tl-accent-primary-active);
     --app-secondary: var(--tl-accent-secondary);
     --app-accent: var(--tl-accent-primary);
-    --app-accent-blue: var(--tl-accent-secondary);
     --app-success: var(--tl-status-success);
     --app-info: var(--tl-status-info);
     --app-warning: var(--tl-status-warning);
@@ -1599,6 +1361,34 @@ code,
     --app-glass-inner-bg: var(--app-surface-2);
     --app-glass-inner-border: var(--app-border);
     --app-focus-ring: var(--tl-shadow-focus);
+    --app-dock-width: 0px;
+    --app-dock-bg: var(--tl-bg-shell);
+    --app-dock-border: var(--tl-border-subtle);
+    --app-dock-hover: var(--tl-bg-surface-hover);
+    --app-dock-text: var(--tl-text-secondary);
+    --app-dock-text-muted: var(--tl-text-muted);
+    --app-icon-soft: var(--tl-text-secondary);
+    --app-icon-muted: var(--tl-text-muted);
+    --app-inset-glow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    --app-confidence-high: var(--tl-status-success);
+    --app-confidence-medium: var(--tl-status-warning);
+    --app-confidence-low: var(--tl-status-danger);
+    --app-swatch-active: var(--tl-accent-primary);
+    --app-swatch-border: var(--tl-border-default);
+    --app-tab-badge-bg: var(--tl-bg-surface-raised);
+    --app-tab-badge-text: var(--tl-text-secondary);
+    --app-tab-border: var(--tl-border-subtle);
+    --app-tab-meta: var(--tl-text-muted);
+    --app-tab-text: var(--tl-text-secondary);
+    --app-tab-text-hover: var(--tl-text-primary);
+    --app-tab-text-active: var(--tl-accent-primary);
+    --app-z-dropdown: var(--tl-z-dropdown);
+    --app-z-sticky: var(--tl-z-sticky);
+    --app-z-drawer: var(--tl-z-sticky);
+    --app-z-modal: var(--tl-z-modal);
+    --app-z-modal-backdrop: calc(var(--tl-z-modal) - 1);
+    --app-z-context-menu: var(--tl-z-dropdown);
+    --app-z-toast: var(--tl-z-toast);
 }
 
 html,
@@ -1924,6 +1714,172 @@ body,
     border-color: var(--tl-divider) !important;
 }
 
+.tl-text-strong {
+    color: var(--tl-text-primary) !important;
+    font-weight: 700 !important;
+}
+
+.tl-text-meta {
+    color: var(--tl-text-muted) !important;
+    font-size: 0.82rem !important;
+}
+
+.tl-kicker {
+    color: var(--tl-text-muted) !important;
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+}
+
+.tl-code {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 8px;
+    color: var(--tl-status-info) !important;
+    background: var(--tl-bg-surface-raised) !important;
+    border: 1px solid var(--tl-border-subtle) !important;
+    border-radius: var(--tl-radius-sm) !important;
+    font-family: var(--tl-font-mono) !important;
+    font-size: 0.82rem !important;
+}
+
+.tl-wrap {
+    flex-wrap: wrap !important;
+}
+
+.tl-nowrap {
+    white-space: nowrap !important;
+}
+
+.tl-progress-muted {
+    opacity: 0.82;
+}
+
+.tl-stat-icon {
+    font-size: 2rem !important;
+}
+
+.tl-stat-icon--success {
+    color: var(--tl-status-success) !important;
+}
+
+.tl-stat-icon--primary {
+    color: var(--tl-accent-primary) !important;
+}
+
+.tl-stat-icon--warning {
+    color: var(--tl-status-warning) !important;
+}
+
+.tl-stat-icon--info {
+    color: var(--tl-status-info) !important;
+}
+
+.tl-stat-value {
+    margin-top: var(--tl-space-3) !important;
+    color: var(--tl-text-primary) !important;
+    font-weight: 800 !important;
+}
+
+.tl-chip-compact {
+    min-height: 24px !important;
+    font-size: 0.75rem !important;
+}
+
+.tl-empty-state {
+    display: flex;
+    min-height: 280px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--tl-space-8) var(--tl-space-5);
+    text-align: center;
+}
+
+.tl-empty-state__icon {
+    color: var(--tl-text-faint) !important;
+    margin-bottom: var(--tl-space-5) !important;
+}
+
+.tl-empty-state__title {
+    color: var(--tl-text-secondary) !important;
+    margin-bottom: var(--tl-space-2) !important;
+}
+
+.tl-empty-state__description {
+    max-width: 400px;
+    color: var(--tl-text-muted) !important;
+}
+
+.search-result-row {
+    display: flex;
+    gap: var(--tl-control-gap);
+    padding: var(--tl-space-3) var(--tl-space-4);
+    cursor: pointer;
+    border-bottom: 1px solid var(--tl-divider);
+    border-left: 3px solid transparent;
+    transition: background var(--tl-control-transition), border-color var(--tl-control-transition);
+}
+
+.search-result-row:hover {
+    background: var(--tl-bg-surface-hover);
+}
+
+.search-result-row.search-result-selected {
+    background: var(--tl-accent-primary-soft);
+    border-left-color: var(--tl-accent-primary);
+}
+
+.search-result-row__thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 120px;
+    width: 120px;
+    height: 180px;
+    overflow: hidden;
+    background: var(--tl-bg-surface-raised);
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--tl-radius-sm);
+}
+
+.search-result-row__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.search-result-row__body {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--tl-space-1);
+}
+
+.search-result-row__description {
+    display: -webkit-box;
+    margin-top: 2px !important;
+    overflow: hidden;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
+    font-size: 0.8rem !important;
+    line-height: 1.4 !important;
+}
+
+.search-result-row__meta {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--tl-space-1);
+    padding-top: 2px;
+    text-align: right;
+}
+
 /* ---------------------------------------------------------------------------
    Control and form foundation
    Migration-safe primitives for new UI work. Legacy settings/dialog classes
@@ -1995,6 +1951,15 @@ body,
     background: var(--tl-bg-surface-raised) !important;
     border-color: var(--tl-border-default) !important;
     box-shadow: var(--tl-shadow-md) !important;
+}
+
+.tl-card--compact {
+    padding: var(--tl-space-3) !important;
+}
+
+.tl-card--flush {
+    padding: 0 !important;
+    overflow: hidden;
 }
 
 .tl-card--selected,
@@ -2078,6 +2043,12 @@ body,
 .tl-select,
 .tl-textarea,
 .tl-search-control,
+.watch-tv-toolbar input,
+.watch-tv-toolbar select,
+.isearch-input,
+.isearch-type-select,
+.coverpicker-alias-select,
+.collection-editor-field,
 .tl-filter-bar input,
 .tl-filter-bar select,
 .app-dialog-field input,
@@ -2097,7 +2068,12 @@ body,
 .tl-input,
 .tl-select,
 .tl-textarea,
-.tl-search-control {
+.tl-search-control,
+.watch-tv-toolbar input,
+.watch-tv-toolbar select,
+.isearch-input,
+.isearch-type-select,
+.coverpicker-alias-select {
     width: 100%;
     padding: 0 var(--tl-control-padding-x);
     border: 1px solid var(--tl-border-default);
@@ -2105,7 +2081,9 @@ body,
 }
 
 .tl-textarea,
-textarea.tl-textarea {
+textarea.tl-textarea,
+.app-dialog-textarea textarea,
+.sme-textarea textarea {
     min-height: 92px;
     padding-top: var(--tl-space-3);
     padding-bottom: var(--tl-space-3);

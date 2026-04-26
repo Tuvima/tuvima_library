@@ -1,14 +1,7 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
-
-@* Vibe Vocabulary — Editable mood and atmosphere tag lists per media type.
-   The AI uses these lists as preferred candidates when generating vibe tags
-   during enrichment, but is not constrained to them. *@
-
-<div class="st-page">
-
-    @* ── Section Header ──────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Style" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["Vibes_PageTitle"]</MudText>
     </MudStack>
@@ -18,9 +11,7 @@
     <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true" Class="mb-6">
         @L["Vibes_InfoAlert"]
     </MudAlert>
-
-    @* ── Expansion Panels ────────────────────────────────────────────────── *@
-    <MudExpansionPanels MultiExpansion="true">
+<MudExpansionPanels MultiExpansion="true">
 
         @foreach (var category in _vocabulary.Keys)
         {
@@ -83,9 +74,7 @@
         }
 
     </MudExpansionPanels>
-
-    @* ── Reset footer ─────────────────────────────────────────────────────── *@
-    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6">
+<MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6">
         <MudButton Variant="Variant.Text"
                    Color="Color.Default"
                    Size="Size.Small"
@@ -97,8 +86,6 @@
 </div>
 
 @code {
-
-    // ── Default vocabulary ───────────────────────────────────────────────────────
 
     private static Dictionary<string, List<string>> BuildDefaults() => new()
     {
@@ -121,23 +108,14 @@
         ],
     };
 
-    // ── State ────────────────────────────────────────────────────────────────────
-
     private Dictionary<string, List<string>> _vocabulary = BuildDefaults();
-
-    // One input buffer per category
     private Dictionary<string, string> _newTagInputs = [];
-
-    // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override void OnInitialized()
     {
-        // Initialise one input buffer per category
         foreach (var key in _vocabulary.Keys)
             _newTagInputs[key] = string.Empty;
     }
-
-    // ── Tag operations ───────────────────────────────────────────────────────────
 
     private void AddTag(string category)
     {

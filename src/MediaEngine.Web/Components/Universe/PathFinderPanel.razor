@@ -1,9 +1,6 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
-
-@* Mode 2 — Six Degrees path finder *@
-
 <div class="pathfinder-panel">
     <MudText Typo="Typo.subtitle1" Class="mb-3" Style="color: var(--tl-accent-primary); font-weight: 600;">
         Six Degrees
@@ -43,7 +40,7 @@
             }
             else
             {
-                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="color: #3b82f6;" />
+                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="color: var(--tl-status-info);" />
                 <MudText Typo="Typo.caption" Style="color: #e0e0e0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     @_endLabel
                 </MudText>
@@ -81,7 +78,7 @@
     else if (_paths?.Count > 0)
     {
         <MudText Typo="Typo.caption" Style="color: #888;" Class="mb-2">
-            @_paths.Count path(s) found — shortest: @(_paths[0].Count - 1) hop(s)
+            @_paths.Count path(s) found - shortest: @(_paths[0].Count - 1) hop(s)
         </MudText>
 
         @for (var pi = 0; pi < Math.Min(_paths.Count, 3); pi++)
@@ -91,7 +88,7 @@
             <div class="path-trail @(pathIndex == _selectedPath ? "path-trail-selected" : "")"
                  @onclick="@(() => SelectPath(pathIndex))">
                 <MudText Typo="Typo.caption" Style="color: #888;" Class="mb-1">
-                    Path @(pathIndex + 1) — @(path.Count - 1) hop(s)
+                    Path @(pathIndex + 1) - @(path.Count - 1) hop(s)
                 </MudText>
                 <div class="hop-chain">
                     @for (var hi = 0; hi < path.Count; hi++)
@@ -103,9 +100,9 @@
                             var rel = path[hi + 1].Relationship;
                             <span class="hop-arrow">
                                 @if (!string.IsNullOrWhiteSpace(rel))
-                                { <span style="color: #888;">→ (@rel) →</span> }
+                                { <span style="color: #888;">-> (@rel) -></span> }
                                 else
-                                { <span style="color: #555;">→</span> }
+                                { <span style="color: #555;">-></span> }
                             </span>
                         }
                     }
@@ -180,8 +177,6 @@
     private bool _noPathFound;
     private List<List<PathHopDto>>? _paths;
     private int _selectedPath = 0;
-
-    /// <summary>Called by parent when user clicks a node in the graph.</summary>
     public void SetNode(string qid, string label)
     {
         if (_startQid is null)

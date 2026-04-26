@@ -1,12 +1,6 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject ISnackbar Snackbar
-
-@* PlaybackTab — Default playback preferences for all built-in players.
-   State is local (UI-ready placeholders with sensible defaults).
-   No Engine API calls are made yet — these settings will be persisted
-   via the profile API in a future sprint. *@
-
-<div class="st-page">
+<div class="tl-page">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Color="Color.Default" Class="mr-2" />
@@ -15,10 +9,7 @@
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         Default playback settings applied to all built-in media players.
     </MudText>
-
-    @* ── General ─────────────────────────────────────────────────────────── *@
-
-    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
              Style="letter-spacing: 0.08em;">
         Client Profiles
     </MudText>
@@ -69,18 +60,18 @@
     @* Playback speed *@
     <MudText Typo="Typo.subtitle2" Class="mb-1">Playback Speed</MudText>
     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Default speed for audio and video players. &nbsp;Current: <strong>@_playbackSpeed.ToString("0.##")×</strong>
+        Default speed for audio and video players. &nbsp;Current: <strong>@_playbackSpeed.ToString("0.##")x</strong>
     </MudText>
     <MudSlider @bind-Value="_playbackSpeed"
                Min="0.5" Max="3.0" Step="0.25"
                Color="Color.Primary"
                Class="mb-6">
         <MudStack Row="true" Justify="Justify.SpaceBetween">
-            <MudText Typo="Typo.caption">0.5×</MudText>
-            <MudText Typo="Typo.caption">1×</MudText>
-            <MudText Typo="Typo.caption">1.5×</MudText>
-            <MudText Typo="Typo.caption">2×</MudText>
-            <MudText Typo="Typo.caption">3×</MudText>
+            <MudText Typo="Typo.caption">0.5x</MudText>
+            <MudText Typo="Typo.caption">1x</MudText>
+            <MudText Typo="Typo.caption">1.5x</MudText>
+            <MudText Typo="Typo.caption">2x</MudText>
+            <MudText Typo="Typo.caption">3x</MudText>
         </MudStack>
     </MudSlider>
 
@@ -101,10 +92,7 @@
     </MudRadioGroup>
 
     <MudDivider Class="my-6" />
-
-    @* ── Skip Intervals ───────────────────────────────────────────────────── *@
-
-    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
              Style="letter-spacing: 0.08em;">
         Skip Intervals
     </MudText>
@@ -135,10 +123,7 @@
     </MudGrid>
 
     <MudDivider Class="my-6" />
-
-    @* ── Sleep Timer ─────────────────────────────────────────────────────── *@
-
-    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
              Style="letter-spacing: 0.08em;">
         Sleep Timer
     </MudText>
@@ -158,10 +143,7 @@
     </MudSelect>
 
     <MudDivider Class="my-6" />
-
-    @* ── Video ────────────────────────────────────────────────────────────── *@
-
-    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
              Style="letter-spacing: 0.08em;">
         Video
     </MudText>
@@ -183,10 +165,7 @@
     </MudSlider>
 
     <MudDivider Class="my-6" />
-
-    @* ── Subtitles ────────────────────────────────────────────────────────── *@
-
-    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
              Style="letter-spacing: 0.08em;">
         Subtitles
     </MudText>
@@ -226,10 +205,7 @@
     </MudToggleGroup>
 
     <MudDivider Class="my-6" />
-
-    @* ── Save ────────────────────────────────────────────────────────────── *@
-
-    <MudButton Variant="Variant.Filled"
+<MudButton Variant="Variant.Filled"
                Color="Color.Primary"
                FullWidth="true"
                OnClick="@SaveAsync"
@@ -241,11 +217,7 @@
 
 @code {
 
-    // ── State ────────────────────────────────────────────────────────────────────
-
     private bool   _saving;
-
-    // General
     private double _playbackSpeed    = 1.0;
     private string _resumeBehaviour  = "resume";
     private string _webDelivery = "direct";
@@ -254,27 +226,16 @@
     private string _defaultAudioLanguage = "auto";
     private string _defaultSubtitleLanguage = "forced";
     private bool _forcedSubtitles = true;
-
-    // Skip intervals (seconds)
     private int    _skipForwardSeconds  = 30;
     private int    _skipBackwardSeconds = 15;
-
-    // Sleep timer
     private string _sleepTimer = "off";
-
-    // Video
     private int    _watchedThreshold = 90;   // percent
-
-    // Subtitles
     private int    _subtitleSize     = 100;  // percent
     private string _subtitlePosition = "bottom";
-
-    // ── Persist ──────────────────────────────────────────────────────────────────
 
     private async Task SaveAsync()
     {
         _saving = true;
-        // TODO: persist via Orchestrator.SavePlaybackSettingsAsync() in a future sprint.
         await Task.Delay(400);   // simulate a brief save round-trip
         Snackbar.Add("Playback settings saved", Severity.Success);
         _saving = false;

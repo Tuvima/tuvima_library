@@ -1,71 +1,56 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
-
-@* Status Dashboard — server health overview with stat cards and engine info. *@
-
-<div class="st-page">
-
-    @* ── Header ──────────────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.SpaceDashboard" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["Status_StatusDashboard"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["Status_StatusDashboardDescription"]
     </MudText>
-
-    @* ── Stat Cards ───────────────────────────────────────────────────────── *@
-    <MudGrid Spacing="3" Class="mb-6">
-
-        @* Card 1 — Uptime *@
-        <MudItem xs="12" sm="6" md="3">
+<MudGrid Spacing="3" Class="mb-6">
+<MudItem xs="12" sm="6" md="3">
             <div class="app-stat-card">
                 <MudStack Spacing="1">
                     <MudIcon Icon="@Icons.Material.Outlined.RadioButtonChecked"
-                             Style="color: #10b981; font-size: 2rem;" />
-                    <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
+                             Class="tl-stat-icon tl-stat-icon--success" />
+                    <MudText Typo="Typo.h5" Class="tl-stat-value">
                         12d 4h 32m
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_ServerUptime"]</MudText>
                 </MudStack>
             </div>
         </MudItem>
-
-        @* Card 2 — Indexed Assets *@
-        <MudItem xs="12" sm="6" md="3">
+<MudItem xs="12" sm="6" md="3">
             <div class="app-stat-card">
                 <MudStack Spacing="1">
                     <MudIcon Icon="@Icons.Material.Outlined.Storage"
-                             Style="color: #6366f1; font-size: 2rem;" />
-                    <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
+                             Class="tl-stat-icon tl-stat-icon--primary" />
+                    <MudText Typo="Typo.h5" Class="tl-stat-value">
                         2,412
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_TotalAssets"]</MudText>
                 </MudStack>
             </div>
         </MudItem>
-
-        @* Card 3 — Database Size *@
-        <MudItem xs="12" sm="6" md="3">
+<MudItem xs="12" sm="6" md="3">
             <div class="app-stat-card">
                 <MudStack Spacing="1">
                     <MudIcon Icon="@Icons.Material.Outlined.SdStorage"
-                             Style="color: var(--tl-status-warning); font-size: 2rem;" />
-                    <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
+                             Class="tl-stat-icon tl-stat-icon--warning" />
+                    <MudText Typo="Typo.h5" Class="tl-stat-value">
                         245 MB
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_Database"]</MudText>
                 </MudStack>
             </div>
         </MudItem>
-
-        @* Card 4 — Cache *@
-        <MudItem xs="12" sm="6" md="3">
+<MudItem xs="12" sm="6" md="3">
             <div class="app-stat-card">
                 <MudStack Spacing="1">
                     <MudIcon Icon="@Icons.Material.Outlined.Layers"
-                             Style="color: #3b82f6; font-size: 2rem;" />
-                    <MudText Typo="Typo.h5" Style="font-weight: 700; margin-top: 12px;">
+                             Class="tl-stat-icon tl-stat-icon--info" />
+                    <MudText Typo="Typo.h5" Class="tl-stat-value">
                         1.2 TB
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
@@ -75,26 +60,24 @@
                                        Color="Color.Info"
                          Rounded="false"
                                        Size="Size.Small"
-                                       Style="opacity: 0.8;" />
+                                       Class="tl-progress-muted" />
                     <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Status_CacheUsed"]</MudText>
                 </MudStack>
             </div>
         </MudItem>
 
     </MudGrid>
-
-    @* ── Engine Info ──────────────────────────────────────────────────────── *@
-    <MudPaper Elevation="0" Style="@InnerCardStyle">
+<MudPaper Elevation="0" Class="tl-card">
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
             <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@L["Status_EngineInformation"]</MudText>
+            <MudText Typo="Typo.subtitle1" Class="tl-text-strong">@L["Status_EngineInformation"]</MudText>
         </MudStack>
 
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6">
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-kicker">
                         @L["Status_ServerName"]
                     </MudText>
                     <MudText Typo="Typo.body1">Tuvima Library</MudText>
@@ -102,19 +85,17 @@
             </MudItem>
             <MudItem xs="12" sm="6">
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-kicker">
                         @L["Status_EngineUrl"]
                     </MudText>
-                    <code style="font-family: monospace; font-size: 0.875rem;
-                                  background: rgba(0,0,0,0.25); padding: 2px 8px;
-                                  border-radius: 4px;">
+                    <code class="tl-code">
                         http://localhost:61495
                     </code>
                 </MudStack>
             </MudItem>
             <MudItem xs="12" sm="6">
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-kicker">
                         @L["Status_Version"]
                     </MudText>
                     <MudText Typo="Typo.body1">0.1.0-dev</MudText>
@@ -122,21 +103,21 @@
             </MudItem>
             <MudItem xs="12" sm="6">
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; letter-spacing: 0.08em;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-kicker">
                         @L["Status_AiModels"]
                     </MudText>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap: wrap;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="tl-wrap">
                         <MudChip T="string" Size="Size.Small" Color="Color.Success"
-                                 Style="font-size: 0.75rem;">
-                            text_quality · Active
+                                 Class="tl-chip-compact">
+                            text_quality  -  Active
                         </MudChip>
                         <MudChip T="string" Size="Size.Small" Color="Color.Info"
-                                 Style="font-size: 0.75rem;">
-                            text_fast · Loaded
+                                 Class="tl-chip-compact">
+                            text_fast  -  Loaded
                         </MudChip>
                         <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                 Style="font-size: 0.75rem; opacity: 0.6;">
-                            audio · Not Downloaded
+                                 Class="tl-chip-compact tl-muted">
+                            audio  -  Not Downloaded
                         </MudChip>
                     </MudStack>
                 </MudStack>
@@ -146,12 +127,3 @@
     </MudPaper>
 
 </div>
-
-@code {
-
-    private const string InnerCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 24px;";
-}

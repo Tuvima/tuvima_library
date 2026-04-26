@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 
 <MudDialog>
@@ -10,8 +10,7 @@
     </TitleContent>
 
     <DialogContent>
-        @* ── Breadcrumb / current path ──────────────────────────── *@
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
             <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
                            Size="Size.Small"
                            Disabled="@(string.IsNullOrEmpty(_currentPath) || _loading)"
@@ -29,9 +28,7 @@
                 @(string.IsNullOrEmpty(_currentPath) ? "My Computer" : _currentPath)
             </MudText>
         </MudStack>
-
-        @* ── Directory list ─────────────────────────────────────── *@
-        <div style="min-height: 260px; max-height: 360px; overflow-y: auto;
+<div style="min-height: 260px; max-height: 360px; overflow-y: auto;
                     border: 1px solid var(--app-glass-inner-border); border-radius: 6px;
                     background: var(--app-glass-inner-bg);">
 
@@ -90,7 +87,7 @@
         transition: background 0.12s ease;
     }
     .folder-browser-row:hover {
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
     }
     .folder-browser-row:active {
         background: rgba(255, 255, 255, 0.1);
@@ -101,19 +98,13 @@
 
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; } = null!;
-
-    /// <summary>Initial path to open the dialog at. Null/empty starts at drive roots.</summary>
     [Parameter]
     public string? InitialPath { get; set; }
-
-    // ── State ──────────────────────────────────────────────────────────────────
 
     private string        _currentPath = string.Empty;
     private string?       _parentPath;
     private List<string>  _directories = [];
     private bool          _loading;
-
-    // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
@@ -122,8 +113,6 @@
         else
             await LoadAsync(null);
     }
-
-    // ── Navigation ─────────────────────────────────────────────────────────────
 
     private async Task LoadAsync(string? path)
     {
@@ -160,8 +149,6 @@
 
     private Task NavigateToRootAsync()
         => LoadAsync(null);
-
-    // ── Dialog actions ─────────────────────────────────────────────────────────
 
     private void Select()
         => MudDialog.Close(DialogResult.Ok(_currentPath));

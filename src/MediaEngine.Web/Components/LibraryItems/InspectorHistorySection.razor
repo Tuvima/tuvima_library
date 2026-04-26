@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
 <div class="ihs-panel">
@@ -53,20 +53,10 @@
     [Parameter] public EventCallback OnLoadMore { get; set; }
 
     private sealed record Milestone(string Label, string? Detail, DateTimeOffset OccurredAt, string DotBg, string DotCore);
-
-    /// <summary>
-    /// Collapses raw system_activity entries into a short pipeline summary:
-    /// File picked up → Metadata extracted → Searched → Matched/No match →
-    /// Sent for review / Cover art downloaded → Registered.
-    /// </summary>
     private static List<Milestone> CondenseToMilestones(List<LibraryItemHistoryDto> raw)
     {
         var milestones = new List<Milestone>();
-
-        // Walk oldest-first so the timeline reads top-to-bottom chronologically
         var ordered = raw.OrderBy(e => e.OccurredAt).ToList();
-
-        // Track which milestone phases we've already emitted
         var emitted = new HashSet<string>();
 
         foreach (var entry in ordered)
@@ -77,20 +67,20 @@
 
             var (label, detail, dotBg, dotCore) = phase switch
             {
-                "picked_up"    => ("File picked up", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
-                "extracted"    => ("Metadata extracted", SummarizeExtraction(ordered), "rgba(55,138,221,0.15)", "#85B7EB"),
-                "searched"     => ("Searched for match", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
-                "retail_match" => ("Retail match identified", SummarizeRetailMatch(ordered), "rgba(55,138,221,0.15)", "#85B7EB"),
-                "matched"      => ("Wikidata match", SummarizeMatch(ordered), "rgba(76,175,80,0.15)", "#66BB6A"),
+                "picked_up"    => ("File picked up", (string?)null, "var(--tl-status-info-soft)", "var(--tl-status-info)"),
+                "extracted"    => ("Metadata extracted", SummarizeExtraction(ordered), "var(--tl-status-info-soft)", "var(--tl-status-info)"),
+                "searched"     => ("Searched for match", (string?)null, "var(--tl-status-info-soft)", "var(--tl-status-info)"),
+                "retail_match" => ("Retail match identified", SummarizeRetailMatch(ordered), "var(--tl-status-info-soft)", "var(--tl-status-info)"),
+                "matched"      => ("Wikidata match", SummarizeMatch(ordered), "var(--tl-status-success-soft)", "var(--tl-status-success)"),
                 "no_match"     => ("No match found", (string?)null, "var(--tl-status-warning-soft)", "var(--tl-status-warning)"),
                 "review"       => ("Sent for review", SummarizeReview(ordered), "var(--tl-status-warning-soft)", "var(--tl-status-warning)"),
-                "cover_art"    => ("Cover art downloaded", (string?)null, "rgba(55,138,221,0.15)", "#85B7EB"),
-                "identified"   => ("Moved to Identified", SummarizeResolved(ordered), "rgba(76,175,80,0.15)", "#66BB6A"),
-                "rejected"     => ("Rejected", (string?)null, "rgba(229,115,115,0.15)", "#E57373"),
-                "recovered"    => ("Recovered", (string?)null, "rgba(76,175,80,0.15)", "#66BB6A"),
-                "person_enriched" => ("Author enriched", SummarizePersonEnrichment(ordered), "rgba(140,120,180,0.15)", "#B39DDB"),
-                "manual_edit"  => ("Manually edited", (string?)null, "rgba(140,120,180,0.15)", "#B39DDB"),
-                _              => (entry.Label, (string?)null, "rgba(140,120,180,0.12)", "rgba(200,190,220,0.35)"),
+                "cover_art"    => ("Cover art downloaded", (string?)null, "var(--tl-status-info-soft)", "var(--tl-status-info)"),
+                "identified"   => ("Moved to Identified", SummarizeResolved(ordered), "var(--tl-status-success-soft)", "var(--tl-status-success)"),
+                "rejected"     => ("Rejected", (string?)null, "var(--tl-status-danger-soft)", "var(--tl-status-danger)"),
+                "recovered"    => ("Recovered", (string?)null, "var(--tl-status-success-soft)", "var(--tl-status-success)"),
+                "person_enriched" => ("Author enriched", SummarizePersonEnrichment(ordered), "rgba(140,120,180,0.15)", "var(--tl-accent-primary)"),
+                "manual_edit"  => ("Manually edited", (string?)null, "rgba(140,120,180,0.15)", "var(--tl-accent-primary)"),
+                _              => (entry.Label, (string?)null, "rgba(140,120,180,0.12)", "var(--tl-text-muted)"),
             };
 
             milestones.Add(new Milestone(label, detail, entry.OccurredAt, dotBg, dotCore));
@@ -98,8 +88,6 @@
 
         return milestones;
     }
-
-    /// <summary>Maps raw event types to simplified pipeline phases.</summary>
     private static string? ClassifyPhase(string eventType) => eventType switch
     {
         "FileDetected" or "FileIngested" or "FileHashed"  => "picked_up",
@@ -127,7 +115,7 @@
         if (match?.Detail is not null)
         {
             var d = match.Detail.Trim();
-            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length > 60) d = d[..57] + "...";
             if (d.Length >= 3) return d;
         }
         return null;
@@ -135,14 +123,12 @@
 
     private static string? SummarizeResolved(List<LibraryItemHistoryDto> ordered)
     {
-        // Show the detail from the ReviewItemResolved or Promoted event so users can
-        // see WHAT was resolved — title, QID, or confirmation method.
         var resolved = ordered.LastOrDefault(e =>
             e.EventType == "ReviewItemResolved" || e.EventType == "Promoted");
         if (resolved?.Detail is not null)
         {
             var d = resolved.Detail.Trim();
-            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length > 60) d = d[..57] + "...";
             if (d.Length >= 3) return d;
         }
         return null;
@@ -153,9 +139,8 @@
         var extracted = ordered.FirstOrDefault(e => e.EventType == "MetadataExtracted");
         if (extracted?.Detail is not null)
         {
-            // Try to pull something short from the detail
             var d = extracted.Detail.Trim();
-            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length > 60) d = d[..57] + "...";
             if (d.Length >= 3) return d;
         }
         return null;
@@ -167,7 +152,7 @@
         if (match?.Detail is not null)
         {
             var d = match.Detail.Trim();
-            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length > 60) d = d[..57] + "...";
             if (d.Length >= 3) return d;
         }
         return null;
@@ -179,7 +164,7 @@
         if (review?.Detail is not null)
         {
             var d = review.Detail.Trim();
-            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length > 60) d = d[..57] + "...";
             if (d.Length >= 3) return d;
         }
         return null;
@@ -192,7 +177,7 @@
         if (personEvents.Count == 1 && personEvents[0].Detail is not null)
         {
             var d = personEvents[0].Detail!.Trim();
-            if (d.Length > 60) d = d[..57] + "…";
+            if (d.Length > 60) d = d[..57] + "...";
             return d.Length >= 3 ? d : null;
         }
         return $"{personEvents.Count} people enriched";
@@ -274,7 +259,7 @@
         width: 1px;
         flex: 1;
         min-height: 6px;
-        background: rgba(140, 120, 180, 0.1);
+        background: var(--tl-accent-primary-soft);
         margin: 4px 0;
     }
 

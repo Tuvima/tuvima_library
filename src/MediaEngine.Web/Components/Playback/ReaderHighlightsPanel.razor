@@ -69,7 +69,7 @@
     private static string GetColor(string? color) => color switch
     {
         "Yellow" or "yellow" or "#EAB308" => "#EAB308",
-        "Blue" or "blue" or "#60A5FA" => "#60A5FA",
+        "Blue" or "blue" or "var(--tl-status-info)" => "var(--tl-status-info)",
         "Green" or "green" or "#34D399" => "#34D399",
         "Pink" or "pink" or "#F472B6" => "#F472B6",
         "Purple" or "purple" or "#A78BFA" => "#A78BFA",

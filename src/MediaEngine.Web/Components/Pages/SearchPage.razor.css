@@ -1,4 +1,4 @@
-.search-page {
+﻿.search-page {
     display: flex;
     flex-direction: column;
     gap: 2rem;
@@ -72,7 +72,7 @@
 
 .search-recent-cover-placeholder {
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--tl-border-subtle);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -80,7 +80,7 @@
 
 .search-recent-placeholder-icon {
     font-size: 28px;
-    color: rgba(255, 255, 255, 0.25);
+    color: var(--tl-text-faint);
 }
 
 .search-recent-name {
@@ -103,7 +103,7 @@
     align-items: center;
     gap: 12px;
     padding: 32px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--tl-border-subtle);
     background: rgba(255, 255, 255, 0.02);
     color: rgba(248, 248, 248, 0.70);
     text-align: center;

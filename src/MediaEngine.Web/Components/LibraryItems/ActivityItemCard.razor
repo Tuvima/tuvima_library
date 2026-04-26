@@ -1,21 +1,17 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
 <div class="aic-row @(IsSelected ? "aic-row--selected" : "") @(IsChecked ? "aic-row--checked" : "")"
      style="border-left: 3px solid @LibraryItemHelpers.GetStatusColor(Item.Status);"
      @onclick="HandleRowClick">
-
-    @* ── Checkbox (when selection mode is active) ── *@
-    @if (ShowCheckbox)
+@if (ShowCheckbox)
     {
         <div class="aic-checkbox" @onclick="HandleCheckboxClick" @onclick:stopPropagation="true">
             <MudIcon Icon="@(IsChecked ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)"
-                     Style="@($"font-size: 18px; color: {(IsChecked ? "var(--tl-status-success)" : "rgba(200,190,220,0.25)")};")" />
+                     Style="@($"font-size: 18px; color: {(IsChecked ? "var(--tl-status-success)" : "var(--tl-text-faint)")};")" />
         </div>
     }
-
-    @* ── Cover thumbnail ── *@
-    <div class="aic-thumb-wrap">
+<div class="aic-thumb-wrap">
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
             <div class="cover-hover-wrap" style="width: 100%; height: 100%;">
@@ -39,19 +35,15 @@
                 </svg>
             </div>
         }
-
-        @* ── Media type badge (bottom-right of thumbnail) ── *@
-        @if (!string.IsNullOrEmpty(Item.MediaType))
+@if (!string.IsNullOrEmpty(Item.MediaType))
         {
             <span class="aic-type-badge" title="@LibraryItemHelpers.FormatMediaType(Item.MediaType)">
                 <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
-                         Style="font-size: 0.6rem; color: rgba(255,255,255,0.85);" />
+                         Style="font-size: 0.6rem; color: var(--tl-text-primary);" />
             </span>
         }
     </div>
-
-    @* ── Main content ── *@
-    <div class="aic-body">
+<div class="aic-body">
         <div class="aic-title-row">
             <span class="aic-title">@Item.Title</span>
 
@@ -63,9 +55,7 @@
             {
                 <span class="aic-subtitle">@SubtitleText</span>
             }
-
-            @* Review trigger chip — only shown when ShowTriggerChip is true *@
-            @if (ShowTriggerChip && !string.IsNullOrEmpty(Item.ReviewTrigger))
+@if (ShowTriggerChip && !string.IsNullOrEmpty(Item.ReviewTrigger))
             {
                 var (trigLabel, trigColor, trigIcon) = LibraryItemHelpers.FormatReviewTrigger(Item.ReviewTrigger);
                 <span class="aic-trigger-chip"
@@ -76,9 +66,7 @@
                 </span>
             }
         </div>
-
-        @* Rejected: purge countdown + un-reject ── *@
-        @if (Item.Status == "Rejected")
+@if (Item.Status == "Rejected")
         {
             <div class="aic-rejected-row" @onclick:stopPropagation="true">
                 <span class="aic-purge-badge">
@@ -94,12 +82,8 @@
             </div>
         }
     </div>
-
-    @* ── Timestamp ── *@
-    <div class="aic-timestamp">@RelativeTime</div>
-
-    @* ── Quick reject ── *@
-    @if (Item.Status != "Rejected" && OnQuickReject.HasDelegate)
+<div class="aic-timestamp">@RelativeTime</div>
+@if (Item.Status != "Rejected" && OnQuickReject.HasDelegate)
     {
         <div class="aic-quick-reject" @onclick:stopPropagation="true">
             @if (_confirmingReject)
@@ -135,8 +119,6 @@
 
     private bool _confirmingReject;
 
-    // ── Computed display values ────────────────────────────────────────────
-
     private string SubtitleText
     {
         get
@@ -144,7 +126,7 @@
             var parts = new List<string>();
             if (!string.IsNullOrEmpty(Item.Author))   parts.Add(Item.Author);
             if (!string.IsNullOrEmpty(Item.Year))     parts.Add(Item.Year);
-            return string.Join(" · ", parts);
+            return string.Join("  -  ", parts);
         }
     }
 
@@ -163,8 +145,6 @@
             };
         }
     }
-
-    /// <summary>Mock purge countdown — 7 days from ingestion for Rejected items.</summary>
     private string PurgeCountdown
     {
         get
@@ -177,8 +157,6 @@
         }
     }
 
-    // ── Event handlers ─────────────────────────────────────────────────────
-
     private static string GetTriggerTooltip(string trigger) => trigger switch
     {
         "MultipleQidMatches"    => "Pick the correct Wikidata entity",
@@ -186,7 +164,7 @@
         "AuthorityMatchFailed"  => "No match found in Wikidata",
         "RetailMatchFailed"     => "No retail match found",
         "ContentMatchFailed"    => "No cover art found",
-        "AmbiguousMediaType"    => "Unclear media type — needs classification",
+        "AmbiguousMediaType"    => "Unclear media type - needs classification",
         "MissingQid"            => "Needs a manual match to Wikidata",
         "PlaceholderTitle"      => "Missing title metadata",
         "StagedUnidentifiable"  => "Cannot identify this file",
@@ -194,7 +172,7 @@
         "MetadataConflict"      => "Conflicting metadata from different sources",
         "UserFixMatch"          => "User requested correction",
         "ArbiterNeedsReview"    => "Review how this was grouped",
-        "LanguageMismatch"      => "Foreign language — may need different provider",
+        "LanguageMismatch"      => "Foreign language - may need different provider",
         "UserReport"            => "Users flagged a problem with this item",
         _                       => string.Empty
     };
@@ -232,7 +210,7 @@
 }
 
 <style>
-    /* ── Row ───────────────────────────────────────────────────────────────── */
+
     .aic-row {
         display: flex;
         align-items: center;
@@ -244,26 +222,26 @@
         min-height: 54px;
         box-sizing: border-box;
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        /* left border set inline — semantic color per status */
+
     }
 
     .aic-row:hover {
-        background: rgba(140, 120, 180, 0.1);
+        background: var(--tl-accent-primary-soft);
     }
 
     .aic-row--selected {
-        background: rgba(140, 120, 180, 0.06);
+        background: var(--tl-accent-primary-soft);
     }
 
     .aic-row--selected:hover {
-        background: rgba(140, 120, 180, 0.12);
+        background: var(--tl-accent-primary-border);
     }
 
     .aic-row--checked {
-        background: rgba(93, 202, 165, 0.04);
+        background: var(--tl-status-success-soft);
     }
 
-    /* ── Checkbox ─────────────────────────────────────────────────────────── */
+
     .aic-checkbox {
         flex-shrink: 0;
         display: flex;
@@ -276,19 +254,19 @@
     }
 
     .aic-checkbox:hover {
-        background: rgba(93, 202, 165, 0.12);
+        background: var(--tl-status-success-soft);
     }
 
-    /* ── Thumbnail ─────────────────────────────────────────────────────────── */
+
     .aic-thumb-wrap {
         position: relative;
         width: 48px;
         height: 72px;
         flex-shrink: 0;
         border-radius: 3px;
-        /* overflow: visible so the hover popup can escape the container */
+
         background: rgba(20, 16, 42, 0.9);
-        border: 1px solid rgba(140, 120, 180, 0.12);
+        border: 1px solid var(--tl-accent-primary-border);
     }
 
     .aic-thumb-img {
@@ -299,7 +277,7 @@
         border-radius: 3px;
     }
 
-    /* ── Cover art hover popup ── */
+
     .cover-hover-wrap {
         position: relative;
     }
@@ -313,7 +291,7 @@
         transform: translateX(-50%);
         padding: 4px;
         background: rgba(10, 8, 20, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid var(--tl-border-default);
         border-radius: 8px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
         pointer-events: none;
@@ -337,7 +315,7 @@
         align-items: center;
         justify-content: center;
         background: rgba(20, 16, 42, 0.6);
-        border: 1px dashed rgba(140, 120, 180, 0.18);
+        border: 1px dashed var(--tl-accent-primary-border);
         border-radius: 2px;
         box-sizing: border-box;
     }
@@ -348,7 +326,7 @@
         flex-shrink: 0;
     }
 
-    /* ── Media type badge (bottom-right of thumbnail) ── */
+
     .aic-type-badge {
         position: absolute;
         bottom: 2px;
@@ -357,7 +335,7 @@
         height: 16px;
         border-radius: 50%;
         background: rgba(0, 0, 0, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        border: 1px solid var(--tl-border-default);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -365,7 +343,7 @@
         z-index: 2;
     }
 
-    /* ── Body ──────────────────────────────────────────────────────────────── */
+
     .aic-body {
         flex: 1;
         min-width: 0;
@@ -384,7 +362,7 @@
     .aic-title {
         font-size: 0.78rem;
         font-weight: 500;
-        color: #e0dce8;
+        color: var(--tl-text-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -394,7 +372,7 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* ── Meta row ──────────────────────────────────────────────────────────── */
+
     .aic-meta-row {
         display: flex;
         align-items: center;
@@ -412,7 +390,7 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* ── Review trigger chip ───────────────────────────────────────────────── */
+
     .aic-trigger-chip {
         display: inline-flex;
         align-items: center;
@@ -427,10 +405,10 @@
         letter-spacing: 0.01em;
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         flex-shrink: 0;
-        /* color + border-color set inline */
+
     }
 
-    /* ── Rejected row ──────────────────────────────────────────────────────── */
+
     .aic-rejected-row {
         display: flex;
         align-items: center;
@@ -443,7 +421,7 @@
         align-items: center;
         gap: 3px;
         font-size: 0.60rem;
-        color: rgba(226, 75, 74, 0.75);
+        color: var(--tl-status-danger);
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
@@ -455,8 +433,8 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-weight: 600;
         color: rgba(200, 190, 220, 0.85);
-        background: rgba(140, 120, 180, 0.10);
-        border: 1px solid rgba(140, 120, 180, 0.20);
+        background: var(--tl-accent-primary-soft);
+        border: 1px solid var(--tl-accent-primary-border);
         border-radius: 6px;
         padding: 3px 10px;
         cursor: pointer;
@@ -465,12 +443,12 @@
     }
 
     .aic-unreject-btn:hover {
-        background: rgba(93, 202, 165, 0.15);
+        background: var(--tl-status-success-soft);
         color: var(--tl-status-success);
-        border-color: rgba(93, 202, 165, 0.35);
+        border-color: var(--tl-status-success-border);
     }
 
-    /* ── Timestamp ─────────────────────────────────────────────────────────── */
+
     .aic-timestamp {
         font-size: 0.60rem;
         color: rgba(200, 190, 220, 0.40);
@@ -481,7 +459,7 @@
         padding-top: 2px;
     }
 
-    /* ── Quick reject ── */
+
     .aic-quick-reject {
         display: flex;
         align-items: center;
@@ -496,7 +474,7 @@
         justify-content: center;
         background: none;
         border: none;
-        color: rgba(226, 75, 74, 0.35);
+        color: var(--tl-status-danger-border);
         cursor: pointer;
         padding: 4px;
         border-radius: 4px;
@@ -509,17 +487,17 @@
     }
 
     .aic-reject-btn:hover {
-        color: #E24B4A;
-        background: rgba(226, 75, 74, 0.12);
+        color: var(--tl-status-danger);
+        background: var(--tl-status-danger-soft);
     }
 
     .aic-reject-confirm {
         display: flex;
         align-items: center;
         gap: 3px;
-        background: rgba(226, 75, 74, 0.12);
-        border: 1px solid rgba(226, 75, 74, 0.30);
-        color: #E24B4A;
+        background: var(--tl-status-danger-soft);
+        border: 1px solid var(--tl-status-danger-border);
+        color: var(--tl-status-danger);
         cursor: pointer;
         padding: 3px 8px;
         border-radius: 6px;
@@ -530,7 +508,7 @@
     }
 
     .aic-reject-confirm:hover {
-        background: rgba(226, 75, 74, 0.20);
+        background: var(--tl-status-danger-soft);
     }
 
     .aic-reject-cancel {
@@ -538,7 +516,7 @@
         align-items: center;
         justify-content: center;
         background: none;
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        border: 1px solid var(--tl-border-default);
         color: rgba(255, 255, 255, 0.50);
         cursor: pointer;
         padding: 3px;
@@ -547,6 +525,6 @@
     }
 
     .aic-reject-cancel:hover {
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
     }
 </style>

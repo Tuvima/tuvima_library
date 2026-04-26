@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 
 @inject IEngineApiClient ApiClient
@@ -7,14 +7,14 @@
 @if (_loading)
 {
     <div class="vuu-loading">
-        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.15);" />
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-border-strong);" />
     </div>
 }
 else if (_unlinked.Count == 0)
 {
     <div class="vuu-empty">
         <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">All identified works have universe properties.</p>
+        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">All identified works have universe properties.</p>
     </div>
 }
 else
@@ -92,11 +92,11 @@ else
 
     .vuu-count {
         font-size: 0.8rem;
-        color: rgba(255,255,255,0.3);
+        color: var(--tl-text-muted);
     }
 
     .vuu-table-wrap {
-        border: 1px solid rgba(255,255,255,0.06);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 12px;
         overflow: hidden;
         background: rgba(17,20,25,0.32);
@@ -111,7 +111,7 @@ else
     }
 
     ::deep .vuu-table .mud-table-head {
-        border-bottom: 1px solid rgba(255,255,255,0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
         background: rgba(15,23,42,0.45);
     }
 
@@ -121,7 +121,7 @@ else
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: rgba(255,255,255,0.3);
+        color: var(--tl-text-muted);
         text-align: left;
     }
 
@@ -162,6 +162,6 @@ else
 
     .vuu-reason {
         font-size: 0.75rem;
-        color: rgba(255,255,255,0.25);
+        color: var(--tl-text-faint);
     }
 </style>

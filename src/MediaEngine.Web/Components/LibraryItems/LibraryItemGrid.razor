@@ -1,10 +1,10 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 @if (Items.Count == 0 && !Loading)
 {
     <div class="rg-empty">
         <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 3rem; opacity: 0.2; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.3); font-size: 0.85rem;">No items match your filters.</p>
+        <p style="color: var(--tl-text-muted); font-size: 0.85rem;">No items match your filters.</p>
     </div>
 }
 else
@@ -22,7 +22,7 @@ else
                     @if (!string.IsNullOrEmpty(group.HeaderIcon))
                     {
                         <MudIcon Icon="@group.HeaderIcon" Size="Size.Small"
-                                 Style="@($"font-size: 0.9rem; color: {group.HeaderColor ?? "rgba(255,255,255,0.6)"}; opacity: 0.6;")" />
+                                 Style="@($"font-size: 0.9rem; color: {group.HeaderColor ?? "var(--tl-text-secondary)"}; opacity: 0.6;")" />
                     }
                     <span class="rg-section-label">@group.Label</span>
                     <span class="rg-section-count">@group.Items.Count</span>
@@ -65,7 +65,7 @@ else
             <div class="rg-load-more">
                 <MudButton Variant="Variant.Text" Size="Size.Small"
                            OnClick="OnLoadMore" FullWidth="true"
-                           Style="color: rgba(255,255,255,0.3); font-size: 0.75rem;">
+                           Style="color: var(--tl-text-muted); font-size: 0.75rem;">
                     Load more...
                 </MudButton>
             </div>
@@ -75,7 +75,7 @@ else
         {
             <div class="rg-loading">
                 <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                     Style="color: rgba(255,255,255,0.2);" />
+                                     Style="color: var(--tl-text-faint);" />
             </div>
         }
     </div>
@@ -114,8 +114,6 @@ else
     {
         if (_expandedSections.TryGetValue(key, out var expanded))
             return expanded;
-
-        // Default: all expanded for Needs Review, only first for All
         if (NeedsReviewFilter)
             return true;
 
@@ -143,11 +141,8 @@ else
         };
     }
 
-    // ── Review groups (by trigger reason) ────────────────────────────────────
-
     private List<SectionGroup> GetReviewGroups()
     {
-        // Each entry: (groupKey, label, triggers[]) — triggers with the same key are merged.
         var order = new (string Key, string Label, string[] Triggers)[]
         {
             ("AuthorityMatchFailed", "No Match Found",       ["AuthorityMatchFailed"]),
@@ -184,8 +179,6 @@ else
             result.Add(new SectionGroup(key, label, grpItems,
                 IsReviewGroup: true, HeaderIcon: icon, HeaderColor: color));
         }
-
-        // Catch-all for items with unrecognised or null trigger
         var remaining = Items
             .Where(i => !allKnownTriggers.Contains(i.ReviewTrigger ?? ""))
             .OrderBy(i => i.Title != null && i.Title.Length > 0 && char.IsDigit(i.Title[0]) ? 0 : 1)
@@ -197,8 +190,6 @@ else
 
         return result;
     }
-
-    // ── Date groups ───────────────────────────────────────────────────────────
 
     private List<SectionGroup> GetDateGroups()
     {
@@ -243,8 +234,6 @@ else
             .ToList();
     }
 
-    // ── Media type groups ─────────────────────────────────────────────────────
-
     private List<SectionGroup> GetMediaTypeGroups()
     {
         var order = new[] { "Books", "Audiobooks", "Movies", "TV", "Comics", "Music" };
@@ -256,7 +245,6 @@ else
             if (byType.TryGetValue(mt, out var items) && items.Count > 0)
                 result.Add(new SectionGroup(mt, mt, items));
         }
-        // Anything not in the order list
         foreach (var kvp in byType)
         {
             if (!order.Contains(kvp.Key) && kvp.Value.Count > 0)
@@ -264,8 +252,6 @@ else
         }
         return result;
     }
-
-    // ── Confidence groups ─────────────────────────────────────────────────────
 
     private List<SectionGroup> GetConfidenceGroups()
     {
@@ -275,18 +261,16 @@ else
 
         var result = new List<SectionGroup>();
         if (high.Count > 0)
-            result.Add(new SectionGroup("high", "High Confidence (≥85%)", high,
+            result.Add(new SectionGroup("high", "High Confidence (>=85%)", high,
                 HeaderIcon: Icons.Material.Filled.VerifiedUser, HeaderColor: "#5A8A5E"));
         if (medium.Count > 0)
-            result.Add(new SectionGroup("medium", "Medium Confidence (60–85%)", medium,
+            result.Add(new SectionGroup("medium", "Medium Confidence (60-85%)", medium,
                 HeaderIcon: Icons.Material.Filled.Info, HeaderColor: "#B08940"));
         if (low.Count > 0)
             result.Add(new SectionGroup("low", "Low Confidence (<60%)", low,
                 HeaderIcon: Icons.Material.Filled.Warning, HeaderColor: "var(--tl-status-danger)"));
         return result;
     }
-
-    // ── Status groups ─────────────────────────────────────────────────────────
 
     private List<SectionGroup> GetStatusGroups()
     {
@@ -314,7 +298,7 @@ else
         padding: 12px 16px 40px 88px;
     }
 
-    /* ── Section ── */
+
     .rg-section {
         margin-bottom: 16px;
     }
@@ -337,18 +321,18 @@ else
         background: rgba(255,255,255,0.03);
     }
     .rg-section-header--review {
-        border-left: 2px solid var(--rg-header-accent, rgba(255,255,255,0.08));
+        border-left: 2px solid var(--rg-header-accent, var(--tl-border-subtle));
         padding-left: 10px;
     }
     .rg-section-label {
         font-size: 0.78rem;
         font-weight: 600;
-        color: rgba(255,255,255,0.6);
+        color: var(--tl-text-secondary);
         letter-spacing: 0.02em;
     }
     .rg-section-count {
         font-size: 0.65rem;
-        color: rgba(255,255,255,0.3);
+        color: var(--tl-text-muted);
         background: rgba(255,255,255,0.05);
         padding: 1px 6px;
         border-radius: 8px;
@@ -359,7 +343,7 @@ else
         gap: 2px;
     }
 
-    /* ── Grid ── */
+
     .rg-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(var(--rc-card-width, 80px), 1fr));
@@ -367,7 +351,7 @@ else
         padding: 4px 0;
     }
 
-    /* ── Load more / loading ── */
+
     .rg-load-more {
         padding: 16px 0;
     }
@@ -377,7 +361,7 @@ else
         padding: 24px;
     }
 
-    /* ── Empty state ── */
+
     .rg-empty {
         display: flex;
         flex-direction: column;
@@ -387,7 +371,7 @@ else
         text-align: center;
     }
 
-    /* ── Mobile ── */
+
     @@media (max-width: 768px) {
         .rg-container {
             padding-left: 12px;

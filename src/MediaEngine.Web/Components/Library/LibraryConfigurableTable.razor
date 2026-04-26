@@ -9,7 +9,7 @@
 {
     <div class="vmt-empty">
         <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No items match your current filters.</p>
+        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">No items match your current filters.</p>
     </div>
 }
 else
@@ -58,7 +58,7 @@ else
         {
             <div class="vmt-loading">
                 <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                     Style="color: rgba(255,255,255,0.15);" />
+                                     Style="color: var(--tl-border-strong);" />
             </div>
         }
     </div>
@@ -91,17 +91,11 @@ else
     [Parameter] public bool ActivateOnEnter { get; set; }
     [Parameter] public bool EnableRowContextMenu { get; set; }
     [Parameter] public bool EnableRowDragging { get; set; }
-
-    // Batch selection
     [Parameter] public HashSet<Guid> SelectedItems { get; set; } = [];
     [Parameter] public EventCallback<HashSet<Guid>> SelectedItemsChanged { get; set; }
-
-    // Sort callback
     [Parameter] public string? ActiveSortKey { get; set; }
     [Parameter] public bool SortAscending { get; set; } = true;
     [Parameter] public EventCallback<(string sortKey, bool ascending)> OnSortRequested { get; set; }
-
-    // Drillable row indicator
     [Parameter] public Func<LibraryItemViewModel, bool>? IsDrillable { get; set; }
 
     private readonly Dictionary<string, bool> _expandedGroups = new();
@@ -437,7 +431,6 @@ else
                                             <div class="vmt-media-info">
                                                 @{
                                                     var isTv = string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
-                                                    // For TV: prefer episode title over generic title; show name moves to a badge under the title.
                                                     var displayTitle = isTv && !string.IsNullOrWhiteSpace(item.EpisodeTitle)
                                                         ? item.EpisodeTitle!
                                                         : item.Title;
@@ -703,8 +696,6 @@ else
         </MudSimpleTable>
     };
 
-    // -- Grouping --
-
     private record TableGroup(string Key, string Label, List<LibraryItemViewModel> Items);
 
     private bool IsGroupExpanded(string key)
@@ -815,8 +806,6 @@ else
         return [new TableGroup("all", "All", Items)];
     }
 
-    // -- Helpers --
-
     private static string? GetCreatorForMediaType(LibraryItemViewModel item) => item.MediaType switch
     {
         "Movies" => item.Director ?? item.Author,
@@ -838,13 +827,6 @@ else
         var color = LibraryHelpers.GetMediaTypeColor(mediaType ?? "");
         return $"color: {color}; background: {LibraryHelpers.HexToRgba(color, 0.12)}; border-color: {LibraryHelpers.HexToRgba(color, 0.2)};";
     }
-
-    /// <summary>
-    /// Subtitle shown under the container title in ContainerCell cells.
-    /// TV shows display the top billed cast (from P161) so the row reads
-    /// "Breaking Bad / Bryan Cranston, Aaron Paul, Anna Gunn" rather than
-    /// repeating the director. Other media types keep the author/creator line.
-    /// </summary>
     private static string? GetContainerSubtitle(LibraryItemViewModel item)
     {
         if (string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
@@ -941,7 +923,6 @@ else
     private static string FormatYear(string? year)
     {
         if (string.IsNullOrEmpty(year)) return " - ";
-        // If it looks like a date (YYYY-MM-DD or longer), extract just the year.
         if (year.Length >= 4 && char.IsDigit(year[0]) && char.IsDigit(year[1])
             && char.IsDigit(year[2]) && char.IsDigit(year[3])
             && (year.Length == 4 || year[4] == '-'))
@@ -968,12 +949,12 @@ else
 }
 
 <style>
-    /* -- Row selection -- */
+
     .vmt-row--selected {
         background: var(--tl-status-info-soft);
     }
 
-    /* -- Checkbox -- */
+
     .vct-checkbox {
         width: 16px;
         height: 16px;
@@ -981,7 +962,7 @@ else
         cursor: pointer;
     }
 
-    /* -- Text cell -- */
+
     .vct-text-cell {
         font-size: 13px;
         font-weight: 500;
@@ -991,9 +972,9 @@ else
         text-overflow: ellipsis;
     }
 
-    /* -- Reuse all vmt-* classes from VaultMediaTable -- */
+
     .vmt-container {
-        /* outer wrapper */
+
     }
 
     .vmt-table-wrap {
@@ -1011,7 +992,7 @@ else
     }
 
     .vmt-thead-row {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom: 1px solid var(--tl-border-subtle);
         background: rgb(32, 32, 32);
         position: sticky;
         top: 0;
@@ -1032,7 +1013,7 @@ else
 
     .vmt-row {
         height: 40px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--tl-divider);
         transition: background 0.15s;
     }
 
@@ -1066,7 +1047,7 @@ else
         gap: 16px;
     }
 
-    /* -- Compact cell (dense list rows  -  Apple Music style) -- */
+
     .vmt-compact-cell {
         display: flex;
         align-items: center;
@@ -1078,7 +1059,7 @@ else
     .vmt-compact-title {
         font-size: 13px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1096,7 +1077,7 @@ else
     .vmt-thumb {
         border-radius: 6px;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         background: rgba(255, 255, 255, 0.02);
         flex-shrink: 0;
         display: flex;
@@ -1117,12 +1098,12 @@ else
         opacity: 1;
     }
 
-    /* Artist circular avatar  -  used in Music By Artist container view */
+
     .vmt-artist-photo {
         border-radius: 50%;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-border-default);
+        background: var(--tl-divider);
         flex-shrink: 0;
         display: flex;
         align-items: center;
@@ -1154,7 +1135,7 @@ else
         max-height: 300px;
         object-fit: cover;
         border-radius: 12px;
-        box-shadow: 0 16px 64px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.08);
+        box-shadow: 0 16px 64px rgba(0,0,0,0.9), 0 0 0 1px var(--tl-border-subtle);
     }
 
     @@keyframes vmt-hover-fade-in {
@@ -1174,7 +1155,7 @@ else
         display: flex;
         align-items: center;
         justify-content: center;
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
         z-index: 2;
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     }
@@ -1186,7 +1167,7 @@ else
     .vmt-title {
         font-size: 14px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         line-height: 1.3;
         white-space: nowrap;
         overflow: hidden;
@@ -1211,7 +1192,7 @@ else
     .vmt-subtitle {
         font-size: 10px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         text-transform: uppercase;
         letter-spacing: 0.02em;
         margin: 0;
@@ -1237,7 +1218,7 @@ else
         font-weight: 800;
         letter-spacing: 0.05em;
         text-transform: uppercase;
-        color: rgba(255,255,255,0.3);
+        color: var(--tl-text-muted);
         margin-top: 2px;
         background: none;
         border: none;
@@ -1255,7 +1236,7 @@ else
 
     .vmt-creator-sep {
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
     }
 
     .vmt-review-reason {
@@ -1292,7 +1273,7 @@ else
         font-weight: 800;
         letter-spacing: 0.05em;
         text-transform: uppercase;
-        color: rgba(255,255,255,0.2);
+        color: var(--tl-text-faint);
     }
 
     .vmt-group {
@@ -1309,13 +1290,13 @@ else
         user-select: none;
         border-radius: 8px;
         background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-divider);
     }
 
     .vmt-group-label {
         font-size: 10px;
         font-weight: 800;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         text-transform: uppercase;
         letter-spacing: 0.15em;
         white-space: nowrap;
@@ -1324,7 +1305,7 @@ else
     .vmt-group-line {
         flex: 1;
         height: 1px;
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--tl-divider);
     }
 
     .vmt-empty {
@@ -1342,13 +1323,13 @@ else
         padding: 24px;
     }
 
-    /* -- Sort header button -- */
+
     .vmt-sort-header {
         display: inline-flex;
         align-items: center;
         background: none;
         border: none;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         font-size: 9px;
         font-weight: 800;
         text-transform: uppercase;
@@ -1361,7 +1342,7 @@ else
     .vmt-sort-header:hover {
         color: rgba(255, 255, 255, 0.8);
         text-decoration: underline;
-        text-decoration-color: rgba(255, 255, 255, 0.3);
+        text-decoration-color: var(--tl-text-muted);
     }
 
     .vmt-sort-header--icon {
@@ -1384,7 +1365,7 @@ else
     }
 
     .vmt-favorite-button:hover {
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.78);
     }
 
@@ -1392,7 +1373,7 @@ else
         color: #ff4f76;
     }
 
-    /* -- Tablet -- */
+
     @@media (max-width: 1024px) {
         .vmt-media-cell {
             gap: 10px;
@@ -1404,7 +1385,7 @@ else
         }
     }
 
-    /* -- Mobile -- */
+
     @@media (max-width: 768px) {
         .vmt-table-wrap {
             border-radius: 12px;
@@ -1439,7 +1420,7 @@ else
             min-width: 0;
         }
 
-        /* Hide middle columns on mobile  -  keep first two (checkbox, media) and last (status) */
+
         .vmt-td:nth-child(n+3):not(:last-child) {
             display: none;
         }
@@ -1475,7 +1456,7 @@ else
         }
     }
 
-    /* -- Small mobile -- */
+
     @@media (max-width: 480px) {
         .vmt-row {
             padding: 6px 8px;
@@ -1495,7 +1476,7 @@ else
         }
     }
 
-    /* -- TypeBadge column chip -- */
+
     .vault-type-badge {
         font-size: 9px;
         font-weight: 900;
@@ -1507,7 +1488,7 @@ else
         white-space: nowrap;
     }
 
-    /* -- Drillable row indicator -- */
+
     .vmt-row--drillable:hover .vmt-drill-chevron {
         opacity: 0.6;
     }
@@ -1515,13 +1496,13 @@ else
     .vmt-drill-chevron {
         opacity: 0;
         transition: opacity 0.15s;
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--tl-text-muted);
         display: flex;
         align-items: center;
         justify-content: flex-end;
     }
 
-    /* -- Manage actions -- */
+
     .vmt-manage-actions {
         display: flex;
         align-items: center;
@@ -1542,7 +1523,7 @@ else
         width: 28px;
         height: 28px;
         border-radius: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         background: rgba(255, 255, 255, 0.03);
         color: rgba(255, 255, 255, 0.4);
         cursor: pointer;
@@ -1550,7 +1531,7 @@ else
     }
 
     .vmt-manage-btn:hover {
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.8);
     }
 
@@ -1560,7 +1541,7 @@ else
         border-color: rgba(239, 68, 68, 0.3);
     }
 
-    /* -- Cover Thumb -- */
+
     .vmt-cover-thumb {
         display: flex;
         align-items: center;
@@ -1576,7 +1557,7 @@ else
         object-fit: cover;
     }
 
-    /* -- Title Cell -- */
+
     .vmt-title-cell {
         display: flex;
         align-items: center;
@@ -1596,13 +1577,13 @@ else
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         font-size: 0.875rem;
     }
 
     .vmt-original-title-sub {
         font-size: 0.7rem;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

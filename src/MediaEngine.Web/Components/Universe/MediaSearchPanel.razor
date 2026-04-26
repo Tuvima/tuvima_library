@@ -1,10 +1,7 @@
 ﻿@inject UIOrchestratorService Orchestrator
 
 <div class="search-panel">
-
-
-    @* â”€â”€ Comparison View (renders in-place when a candidate is selected) â”€â”€ *@
-    @if (_comparisonCandidate != null)
+@if (_comparisonCandidate != null)
     {
         <div class="sp-comparison-view">
             @* Back link *@
@@ -88,7 +85,7 @@
                 @if (_comparisonCandidate is UniverseCandidateDto uc)
                 {
                     <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Style="margin-right: 4px; color: var(--tl-accent-primary);" />
-                    <span>Source: <strong>Wikidata</strong> Â· <span class="sp-qid-pill">@uc.Qid</span></span>
+                    <span>Source: <strong>Wikidata</strong>  -  <span class="sp-qid-pill">@uc.Qid</span></span>
                 }
                 else if (_comparisonCandidate is RetailCandidateDto rc)
                 {
@@ -99,8 +96,7 @@
 
             @if (_comparisonCandidate is UniverseCandidateDto)
             {
-                @* â”€â”€ Wikidata: All-or-nothing preview (read-only) â”€â”€ *@
-                <div class="sp-wikidata-notice">
+<div class="sp-wikidata-notice">
                     <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" Style="color: var(--tl-accent-primary);" />
                     <span>Linking to Wikidata applies <strong>all</strong> available data. Only fields Wikidata does not have can be edited afterward.</span>
                 </div>
@@ -117,10 +113,10 @@
                         <div class="sp-diff-row @(row.IsDifferent ? "sp-diff-row-changed" : "")">
                             <span class="sp-diff-col-field sp-diff-field-name">@row.FieldName</span>
                             <span class="sp-diff-col-current sp-diff-value @(string.IsNullOrEmpty(row.CurrentValue) ? "sp-diff-empty" : "")">
-                                @(string.IsNullOrEmpty(row.CurrentValue) ? "â€”" : row.CurrentValue)
+                                @(string.IsNullOrEmpty(row.CurrentValue) ? "-" : row.CurrentValue)
                             </span>
                             <span class="sp-diff-col-candidate sp-diff-value @(string.IsNullOrEmpty(row.CandidateValue) ? "sp-diff-empty" : "")">
-                                @(string.IsNullOrEmpty(row.CandidateValue) ? "â€”" : row.CandidateValue)
+                                @(string.IsNullOrEmpty(row.CandidateValue) ? "-" : row.CandidateValue)
                             </span>
                         </div>
                     }
@@ -128,8 +124,7 @@
             }
             else
             {
-                @* â”€â”€ Retail: Cover art selection â”€â”€ *@
-                var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEmpty(GetCandidateCoverUrl());
+var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEmpty(GetCandidateCoverUrl());
                 if (hasBothCovers)
                 {
                     <div class="sp-cover-chooser">
@@ -154,9 +149,7 @@
                 }
             }
         </div>
-
-        @* Sticky bottom action bar â€” context-sensitive *@
-        <div class="sp-sticky-bar">
+<div class="sp-sticky-bar">
             @if (_comparisonCandidate is UniverseCandidateDto)
             {
                 <MudButton Variant="Variant.Filled"
@@ -164,7 +157,7 @@
                            Disabled="@_applying"
                            Size="Size.Small"
                            Style="background: var(--tl-accent-primary); color: #000; font-weight: 700; min-width: 160px;">
-                    @(_applying ? "Linkingâ€¦" : "Link to Wikidata")
+                    @(_applying ? "Linking..." : "Link to Wikidata")
                 </MudButton>
             }
             else
@@ -174,25 +167,23 @@
                            Disabled="@_applying"
                            Size="Size.Small"
                            Style="background: var(--tl-accent-primary); color: #000; font-weight: 700; min-width: 140px;">
-                    @(_applying ? "Applyingâ€¦" : "Use This Cover")
+                    @(_applying ? "Applying..." : "Use This Cover")
                 </MudButton>
             }
             <MudButton Variant="Variant.Outlined"
                        OnClick="@(() => { ClearComparison(); _hasSearched = false; })"
                        Size="Size.Small"
-                       Style="border-color: rgba(239,83,80,0.4); color: #EF5350;">
+                       Style="border-color: rgba(239,83,80,0.4); color: var(--tl-status-danger);">
                 New Search
             </MudButton>
         </div>
     }
     else
     {
-        @* â”€â”€ Normal search flow (shown when not in comparison mode) â”€â”€ *@
-
-        @* Search Controls *@
+@* Search Controls *@
         <div class="search-panel-controls">
             <MudTextField @bind-Value="_query"
-                          Placeholder="Search title, author, ISBN, QIDâ€¦"
+                          Placeholder="Search title, author, ISBN, QID..."
                           Variant="Variant.Outlined"
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search"
@@ -241,21 +232,17 @@
         {
             <MudProgressLinear Indeterminate="true" Color="Color.Primary"
                                Class="mt-2 mb-2" Style="border-radius: 4px;" />
-            <p class="search-panel-hint">Searching Wikidataâ€¦</p>
+            <p class="search-panel-hint">Searching Wikidata...</p>
         }
 
         @if (!string.IsNullOrEmpty(_errorMessage))
         {
             <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</MudAlert>
         }
-
-        @* â”€â”€ Results: Data (Wikidata / Universe) â”€â”€ *@
-        @if (_universeCandidates.Count > 0)
+@if (_universeCandidates.Count > 0)
         {
             <div class="sp-results-section">
-
-                @* Best match â€” first candidate gets promoted treatment *@
-                @{
+@{
                     var best = _universeCandidates[0];
                     var bestConfColor = GetTrafficLightColor(best.Confidence);
                 }
@@ -378,9 +365,7 @@
             </div>
         }
     }
-
-    @* â”€â”€ Manual Entry Form â”€â”€ *@
-    @if (_showManualForm)
+@if (_showManualForm)
     {
         <ManualEntryForm EntityId="EntityId"
                          DefaultTitle="@InitialQuery"
@@ -394,8 +379,6 @@
     }
 
 </div>
-
-@* â”€â”€ Shared render fragments â”€â”€ *@
 @code {
     private RenderFragment RenderUniverseMeta(UniverseCandidateDto c) =>
         @<text>
@@ -403,8 +386,8 @@
             {
                 <div class="search-result-meta">
                     @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
-                    @if (!string.IsNullOrEmpty(c.Author)) { <text> Â· @c.Author</text> }
-                    @if (!string.IsNullOrEmpty(c.Director)) { <text> Â· dir. @c.Director</text> }
+                    @if (!string.IsNullOrEmpty(c.Author)) { <text>  -  @c.Author</text> }
+                    @if (!string.IsNullOrEmpty(c.Director)) { <text>  -  dir. @c.Director</text> }
                 </div>
             }
         </text>;
@@ -413,8 +396,8 @@
         @<text>
             <div class="search-result-meta">
                 @if (!string.IsNullOrEmpty(c.Year)) { @c.Year }
-                @if (!string.IsNullOrEmpty(c.Author)) { <text> Â· @c.Author</text> }
-                @if (!string.IsNullOrEmpty(c.Director)) { <text> Â· dir. @c.Director</text> }
+                @if (!string.IsNullOrEmpty(c.Author)) { <text>  -  @c.Author</text> }
+                @if (!string.IsNullOrEmpty(c.Director)) { <text>  -  dir. @c.Director</text> }
             </div>
         </text>;
 
@@ -441,7 +424,7 @@
             else
             {
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.15);">
+                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: var(--tl-border-strong);">
                     @c.Qid
                 </MudChip>
             }
@@ -452,7 +435,7 @@
             @if (!string.IsNullOrEmpty(c.InstanceOf))
             {
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: rgba(255,255,255,0.12);">
+                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: var(--tl-border-default);">
                     @TruncateText(c.InstanceOf, 30)
                 </MudChip>
             }
@@ -482,10 +465,8 @@
             }
         </text>;
 }
-
-@* â”€â”€ Styles â”€â”€ *@
 <style>
-    /* â”€â”€ Panel shell â”€â”€ */
+
     .search-panel {
         padding: 16px 16px 8px 16px;
         display: flex;
@@ -494,11 +475,11 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* â”€â”€ Tabs â”€â”€ */
+
     .search-panel-tabs {
         display: flex;
         gap: 4px;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
+        border-bottom: 1px solid var(--tl-border-subtle);
         padding-bottom: 0;
         margin-bottom: 0;
     }
@@ -506,7 +487,7 @@
     .search-tab {
         background: transparent;
         border: none;
-        color: rgba(255,255,255,0.5);
+        color: var(--tl-text-muted);
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.8rem;
         font-weight: 500;
@@ -525,7 +506,7 @@
         border-bottom-color: var(--tl-accent-primary);
     }
 
-    /* â”€â”€ Controls â”€â”€ */
+
     .search-panel-controls {
         display: flex;
         align-items: center;
@@ -550,7 +531,7 @@
         margin-top: -4px;
     }
 
-    /* â”€â”€ Section labels â”€â”€ */
+
     .sp-results-section {
         display: flex;
         flex-direction: column;
@@ -562,20 +543,20 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: rgba(255,255,255,0.35);
+        color: var(--tl-text-muted);
         display: flex;
         align-items: center;
         padding: 0 2px;
         margin-bottom: 2px;
     }
 
-    /* â”€â”€ Best match card â”€â”€ */
+
     .sp-best-match-card {
         display: flex;
         flex-direction: column;
-        background: rgba(255,255,255,0.06);
+        background: var(--tl-border-subtle);
         border: 1px solid rgba(255,255,255,0.1);
-        border-left: 2px solid #4CAF50; /* overridden inline */
+        border-left: 2px solid #4CAF50;
         border-radius: 8px;
         padding: 12px;
         cursor: pointer;
@@ -609,7 +590,7 @@
         align-items: flex-start;
     }
 
-    /* â”€â”€ Other-candidates toggle â”€â”€ */
+
     .sp-other-toggle {
         background: transparent;
         border: none;
@@ -625,7 +606,7 @@
 
     .sp-other-toggle:hover { color: rgba(255,255,255,0.7); }
 
-    /* â”€â”€ Standard result cards (other candidates) â”€â”€ */
+
     .search-results-grid {
         display: flex;
         flex-direction: column;
@@ -639,8 +620,8 @@
         display: flex;
         align-items: flex-start;
         gap: 14px;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
+        background: var(--tl-divider);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 8px;
         padding: 12px;
         cursor: pointer;
@@ -677,7 +658,7 @@
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    .search-result-meta       { font-size: 0.76rem; color: rgba(255,255,255,0.5); }
+    .search-result-meta       { font-size: 0.76rem; color: var(--tl-text-muted); }
     .search-result-description {
         font-size: 0.76rem; color: rgba(255,255,255,0.38); line-height: 1.4;
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -687,7 +668,7 @@
         display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 2px;
     }
 
-    /* â”€â”€ Match signals â”€â”€ */
+
     .sp-match-signals {
         display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
     }
@@ -697,11 +678,11 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    .sp-signal-good    { background: rgba(76,175,80,0.15);  color: #4CAF50; }
+    .sp-signal-good    { background: var(--tl-status-success-soft);  color: #4CAF50; }
     .sp-signal-warn    { background: var(--tl-status-warning-soft);  color: var(--tl-status-warning); }
-    .sp-signal-missing { background: rgba(239,83,80,0.12);  color: #EF5350; }
+    .sp-signal-missing { background: rgba(239,83,80,0.12);  color: var(--tl-status-danger); }
 
-    /* â”€â”€ No results â”€â”€ */
+
     .search-no-results {
         text-align: center; padding: 24px;
         color: rgba(255,255,255,0.4);
@@ -715,20 +696,20 @@
         text-decoration: underline; padding: 0;
     }
 
-    /* â”€â”€ Action row â”€â”€ */
+
     .search-panel-actions {
         display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     }
 
-    /* â”€â”€ Comparison view â”€â”€ */
+
     .sp-comparison-view {
         display: flex; flex-direction: column; gap: 14px;
-        padding-bottom: 80px; /* leave room for sticky bar */
+        padding-bottom: 80px;
     }
 
     .sp-back-link {
         background: none; border: none;
-        color: rgba(255,255,255,0.5); font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        color: var(--tl-text-muted); font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.8rem; cursor: pointer;
         display: flex; align-items: center;
         padding: 0; transition: color 0.15s;
@@ -737,7 +718,7 @@
     .sp-back-link:hover { color: var(--tl-accent-primary); }
 
     .sp-comparison-title {
-        font-size: 0.95rem; font-weight: 700; color: rgba(255,255,255,0.85);
+        font-size: 0.95rem; font-weight: 700; color: var(--tl-text-primary);
     }
 
     .sp-comparison-summary {
@@ -768,7 +749,7 @@
 
     .sp-comparison-cover-placeholder {
         width: 100%; height: 100%;
-        background: rgba(255,255,255,0.04);
+        background: var(--tl-divider);
         border-radius: 4px;
         display: flex; align-items: center; justify-content: center;
     }
@@ -779,17 +760,17 @@
     }
 
     .sp-comparison-side-meta {
-        font-size: 0.74rem; color: rgba(255,255,255,0.5); text-align: center;
+        font-size: 0.74rem; color: var(--tl-text-muted); text-align: center;
     }
 
     .sp-comparison-arrow {
         display: flex; align-items: center; padding-top: 60px; flex-shrink: 0;
     }
 
-    /* â”€â”€ Source attribution â”€â”€ */
+
     .sp-source-attribution {
         display: flex; align-items: center;
-        font-size: 0.78rem; color: rgba(255,255,255,0.5);
+        font-size: 0.78rem; color: var(--tl-text-muted);
         padding: 8px 12px;
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.07);
@@ -803,7 +784,7 @@
         padding: 1px 6px; border-radius: 3px; margin-left: 4px;
     }
 
-    /* â”€â”€ Wikidata all-or-nothing notice â”€â”€ */
+
     .sp-wikidata-notice {
         display: flex;
         align-items: center;
@@ -817,17 +798,17 @@
         color: rgba(255,255,255,0.7);
     }
 
-    /* â”€â”€ Diff table â”€â”€ */
+
     .sp-diff-table {
         display: flex; flex-direction: column; gap: 0;
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 8px; overflow: hidden;
     }
 
     .sp-diff-header {
         display: grid;
         grid-template-columns: 100px 1fr 1fr 40px;
-        background: rgba(255,255,255,0.06);
+        background: var(--tl-border-subtle);
         padding: 8px 12px;
         font-size: 0.68rem; font-weight: 700;
         text-transform: uppercase; letter-spacing: 0.06em;
@@ -859,18 +840,18 @@
     }
 
     .sp-diff-value { font-size: 0.78rem; color: rgba(255,255,255,0.8); line-height: 1.3; }
-    .sp-diff-empty { color: rgba(255,255,255,0.25); font-style: italic; }
+    .sp-diff-empty { color: var(--tl-text-faint); font-style: italic; }
 
     .sp-diff-checkbox {
         width: 16px; height: 16px; cursor: pointer;
         accent-color: var(--tl-accent-primary);
     }
 
-    /* â”€â”€ Cover chooser â”€â”€ */
+
     .sp-cover-chooser {
         padding: 12px;
         background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid var(--tl-border-subtle);
         border-radius: 8px;
     }
 
@@ -902,7 +883,7 @@
         width: 60px; height: 90px; object-fit: cover; border-radius: 4px;
     }
 
-    /* â”€â”€ Sticky action bar â”€â”€ */
+
     .sp-sticky-bar {
         position: sticky;
         bottom: 0;
@@ -916,39 +897,16 @@
 </style>
 
 @code {
-    // â”€â”€ Parameters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-    /// <summary>The libraryItem entity ID this panel is searching for.</summary>
     [Parameter] public Guid EntityId { get; set; }
-
-    /// <summary>Pre-filled search query (typically the item's title).</summary>
     [Parameter] public string? InitialQuery { get; set; }
-
-    /// <summary>Pre-selected media type (from the item's detected type).</summary>
     [Parameter] public string? InitialMediaType { get; set; }
-
-    /// <summary>Current file's title for comparison view.</summary>
     [Parameter] public string? CurrentTitle { get; set; }
-
-    /// <summary>Current file's author/creator for comparison view.</summary>
     [Parameter] public string? CurrentAuthor { get; set; }
-
-    /// <summary>Current file's year for comparison view.</summary>
     [Parameter] public string? CurrentYear { get; set; }
-
-    /// <summary>Current file's narrator (audiobooks) for comparison view.</summary>
     [Parameter] public string? CurrentNarrator { get; set; }
-
-    /// <summary>Current file's cover URL for comparison view.</summary>
     [Parameter] public string? CurrentCoverUrl { get; set; }
-
-    /// <summary>Current file's media type for comparison view.</summary>
     [Parameter] public string? CurrentMediaType { get; set; }
-
-    /// <summary>Fires when a match has been successfully applied.</summary>
     [Parameter] public EventCallback<ApplyMatchResponseDto> OnMatchApplied { get; set; }
-
-    // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private string _query     = "";
     private string _mediaType = "Epub";
@@ -958,8 +916,6 @@
     private bool _hasSearched;
     private bool _showManualForm;
     private bool _showOtherUniverseCandidates;
-
-    // Comparison mode: either UniverseCandidateDto or RetailCandidateDto
     private object? _comparisonCandidate;
     private bool    _useCandidateCover = true;
     private List<DiffRow> _diffRows = [];
@@ -969,11 +925,7 @@
     private string? _errorMessage;
     private string? _successMessage;
     private string? _detectedIdType;
-
-    // â”€â”€ Search cache (component lifetime) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     private readonly Dictionary<string, List<UniverseCandidateDto>> _universeCache = new();
-
-    // â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     protected override void OnParametersSet()
     {
@@ -984,14 +936,10 @@
             _mediaType = InitialMediaType;
     }
 
-    // â”€â”€ Smart search â€” keyboard Enter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     private async Task OnSearchKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") await RunSearch();
     }
-
-    // â”€â”€ ID type detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void DetectIdType()
     {
@@ -1007,8 +955,6 @@
         else
             _detectedIdType = null;
     }
-
-    // â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private async Task RunSearch()
     {
@@ -1051,13 +997,7 @@
             _searching = false;
         }
     }
-
-    // â”€â”€ Mode switch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-    // Mode switching is disabled â€” search always uses "data" (Wikidata) mode only.
     private void SwitchSearchMode(string mode) { }
-
-    // â”€â”€ Comparison view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void OpenComparison(object candidate)
     {
@@ -1071,8 +1011,6 @@
         _comparisonCandidate = null;
         _diffRows = [];
     }
-
-    // â”€â”€ Candidate accessors (works for both UniverseCandidateDto / RetailCandidateDto) â”€â”€
 
     private string GetCandidateTitle() => _comparisonCandidate switch
     {
@@ -1118,12 +1056,10 @@
 
     private string GetCandidateSourceLabel() => _comparisonCandidate switch
     {
-        UniverseCandidateDto uc => $"Wikidata Â· {uc.Qid}",
+        UniverseCandidateDto uc => $"Wikidata  -  {uc.Qid}",
         RetailCandidateDto   rc => rc.ProviderName,
         _                       => "Candidate"
     };
-
-    // â”€â”€ Diff row construction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private List<DiffRow> BuildDiffRows()
     {
@@ -1146,7 +1082,7 @@
         };
 
         if (isAudiobook)
-            rows.Add(MakeDiffRow("Narrator", CurrentNarrator, null /* candidates don't return narrator */));
+            rows.Add(MakeDiffRow("Narrator", CurrentNarrator, null ));
 
         rows.Add(MakeDiffRow("Description", null, GetCandidateDescription()));
 
@@ -1166,8 +1102,6 @@
             IsChecked      = !string.IsNullOrEmpty(can) && !string.Equals(cur, can, StringComparison.OrdinalIgnoreCase),
         };
     }
-
-    // â”€â”€ Apply (intent-based) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private async Task ApplyFromComparison(string intent)
     {
@@ -1242,19 +1176,14 @@
         });
     }
 
-    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     private bool HasNoResults() => _universeCandidates.Count == 0;
 
     private string GetCleanedQuery()
     {
         var q = _query.Trim();
-        // Remove leading numbers like "105 " (Goodreads-style)
         q = System.Text.RegularExpressions.Regex.Replace(q, @"^\d+\s+", "");
-        // Remove file extensions
         q = System.Text.RegularExpressions.Regex.Replace(q, @"\.(epub|mp3|m4b|mp4|mkv|cbz|cbr)$", "",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        // Remove common junk tokens
         q = System.Text.RegularExpressions.Regex.Replace(q, @"\[.*?\]|\(.*?\)", "").Trim();
         return q;
     }
@@ -1271,54 +1200,47 @@
         if (c.BridgeIds.TryGetValue("apple_books_id",out var ab))   return $"Apple: {ab}";
         return null;
     }
-
-    /// <summary>Returns the traffic-light hex color for the given confidence value.</summary>
     private static string GetTrafficLightColor(double conf) => conf switch
     {
         >= 0.85 => "#4CAF50",
         >= 0.60 => "var(--tl-status-warning)",
-        _       => "#EF5350",
+        _       => "var(--tl-status-danger)",
     };
 
     private static string GetConfidenceChipStyle(double conf) => conf switch
     {
         >= 0.85 => "background: rgba(76,175,80,0.2); color: #4CAF50; font-size: 0.65rem; height: 18px; padding: 0 6px;",
         >= 0.60 => "background: var(--tl-status-warning-soft); color: var(--tl-status-warning); font-size: 0.65rem; height: 18px; padding: 0 6px;",
-        _       => "background: rgba(239,83,80,0.2); color: #EF5350; font-size: 0.65rem; height: 18px; padding: 0 6px;",
+        _       => "background: rgba(239,83,80,0.2); color: var(--tl-status-danger); font-size: 0.65rem; height: 18px; padding: 0 6px;",
     };
 
     private static string TruncateText(string? text, int maxLength)
     {
         if (string.IsNullOrEmpty(text)) return "";
-        return text.Length <= maxLength ? text : text[..maxLength] + "â€¦";
+        return text.Length <= maxLength ? text : text[..maxLength] + "...";
     }
-
-    /// <summary>Builds "Why this match?" signal chips from FieldMatchScoresDto (or derives from field presence).</summary>
     private List<MatchSignal> BuildMatchSignals(FieldMatchScoresDto? scores, UniverseCandidateDto? uc)
     {
         var signals = new List<MatchSignal>();
 
         if (scores is not null)
         {
-            if (scores.TitleScore  >= 0.7)  signals.Add(new("âœ” Title match",  "good"));
-            if (scores.AuthorScore >= 0.7)  signals.Add(new("âœ” Author match", "good"));
-            if (scores.YearScore   >= 0.7)  signals.Add(new("âœ” Year match",   "good"));
-            if (scores.FormatScore is >= 0.4 and < 0.7) signals.Add(new("âš  Format: Medium", "warn"));
-            if (scores.AuthorScore < 0.3)   signals.Add(new("âœ— Author missing", "missing"));
+            if (scores.TitleScore  >= 0.7)  signals.Add(new("OK Title match",  "good"));
+            if (scores.AuthorScore >= 0.7)  signals.Add(new("OK Author match", "good"));
+            if (scores.YearScore   >= 0.7)  signals.Add(new("OK Year match",   "good"));
+            if (scores.FormatScore is >= 0.4 and < 0.7) signals.Add(new("Warning Format: Medium", "warn"));
+            if (scores.AuthorScore < 0.3)   signals.Add(new("X Author missing", "missing"));
         }
         else if (uc is not null)
         {
-            // Derive from field presence
-            if (!string.IsNullOrEmpty(uc.Author))   signals.Add(new("âœ” Has author",   "good"));
-            if (!string.IsNullOrEmpty(uc.Year))     signals.Add(new("âœ” Has year",     "good"));
-            if (!string.IsNullOrEmpty(uc.CoverUrl)) signals.Add(new("âœ” Has cover art","good"));
-            if (uc.BridgeIds.Count > 0)             signals.Add(new("âœ” Bridge ID",    "good"));
+            if (!string.IsNullOrEmpty(uc.Author))   signals.Add(new("OK Has author",   "good"));
+            if (!string.IsNullOrEmpty(uc.Year))     signals.Add(new("OK Has year",     "good"));
+            if (!string.IsNullOrEmpty(uc.CoverUrl)) signals.Add(new("OK Has cover art","good"));
+            if (uc.BridgeIds.Count > 0)             signals.Add(new("OK Bridge ID",    "good"));
         }
 
         return signals;
     }
-
-    // â”€â”€ Inner types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private sealed class DiffRow
     {

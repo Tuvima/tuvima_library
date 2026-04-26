@@ -8,7 +8,7 @@
     @if (_loading)
     {
         <div class="timeline-loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
             <span>Loading history...</span>
         </div>
     }
@@ -79,11 +79,6 @@
     }
 
     private sealed record TimelineEntry(string Headline, string? Body, string Time, string StageClass, string TintClass, List<string>? ExpandableFields = null);
-
-    /// <summary>
-    /// Merge raw engine events into a human-readable narrative.
-    /// Combines related events and drops noise.
-    /// </summary>
     private static List<TimelineEntry> MergeAndSimplify(List<LibraryItemHistoryDto> events)
     {
         var entries = new List<TimelineEntry>();
@@ -106,11 +101,6 @@
 
         return entries;
     }
-
-    /// <summary>
-    /// Converts PascalCase event types to snake_case for uniform matching.
-    /// "FileDetected" becomes "file_detected", already-snake_case passes through unchanged.
-    /// </summary>
     private static string NormalizeEventType(string eventType)
     {
         if (string.IsNullOrEmpty(eventType)) return eventType;
@@ -125,8 +115,6 @@
         }
         return sb.ToString();
     }
-
-    // Set of event types that are engine internals â€” hidden from the user timeline.
     private static readonly HashSet<string> HiddenEvents = new(StringComparer.OrdinalIgnoreCase)
     {
         "file_scored", "confidence_scored",
@@ -150,13 +138,11 @@
 
     private static (string? Headline, string? Body, string StageClass, string Tint, List<string>? ExpandableFields) MapEvent(string eventType, string? detail)
     {
-        // Hidden engine internals â€” skip entirely
         if (HiddenEvents.Contains(eventType))
             return (null, null, "", "", null);
 
         return eventType switch
         {
-            // â”€â”€ File stage (white dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "file_detected" or "file_scanned" =>
                 ("File discovered",
                  "We found a new file in your library folder.",
@@ -179,15 +165,13 @@
 
             "promoted" or "moved_to_library" =>
                 ("Added to your library",
-                 string.IsNullOrEmpty(detail) ? "Identification complete â€” the file has been organised into your library." : detail,
+                 string.IsNullOrEmpty(detail) ? "Identification complete - the file has been organised into your library." : detail,
                  "stage-file", "", null),
 
             "file_ingested" =>
                 ("Processing complete",
                  "The file has been fully processed and is part of your library.",
                  "stage-file", "", null),
-
-            // â”€â”€ Retail stage (amber dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "retail_matched" =>
                 ("Provider match found",
                  string.IsNullOrEmpty(detail) ? "A retail provider confirmed the identity of this item." : detail,
@@ -222,8 +206,6 @@
                 ("Provider data refreshed",
                  string.IsNullOrEmpty(detail) ? "The latest information was fetched from retail providers." : detail,
                  "stage-retail", "", null),
-
-            // â”€â”€ Wikidata stage (purple dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "wikidata_bridge_resolved" =>
                 ("Linked to Wikidata",
                  string.IsNullOrEmpty(detail) ? "Identity confirmed using a bridge ID from the retail provider." : detail,
@@ -273,8 +255,6 @@
                 ("Person data refreshed",
                  string.IsNullOrEmpty(detail) ? null : detail,
                  "stage-wikidata", "", null),
-
-            // â”€â”€ Universe stage (teal dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "universe_grouped" =>
                 ("Assigned to a universe",
                  string.IsNullOrEmpty(detail) ? null : detail,
@@ -289,8 +269,6 @@
                 ("Universe data refreshed",
                  string.IsNullOrEmpty(detail) ? null : detail,
                  "stage-universe", "", null),
-
-            // â”€â”€ User actions (blue dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "user_field_edit" or "metadata_manual_override" =>
                 ("Field edited by user",
                  string.IsNullOrEmpty(detail) ? null : detail,
@@ -310,23 +288,14 @@
                 ("File metadata reverted",
                  string.IsNullOrEmpty(detail) ? null : detail,
                  "stage-user", "event-warning", null),
-
-            // â”€â”€ Catch-all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _ => ("Activity recorded",
                   string.IsNullOrEmpty(detail) ? null : detail,
                   "stage-other", "", null),
         };
     }
-
-    /// <summary>
-    /// Parses a detail string containing field names into a formatted list.
-    /// Returns null if the detail is empty or doesn't look like a field list.
-    /// </summary>
     private static List<string>? ParseFields(string? detail)
     {
         if (string.IsNullOrWhiteSpace(detail)) return null;
-
-        // Split on commas, semicolons, or pipes â€” common separators in detail strings
         var raw = detail.Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (raw.Length < 2) return null; // Not a field list if fewer than 2 items
 
@@ -337,11 +306,6 @@
         }
         return fields.Count > 0 ? fields : null;
     }
-
-    /// <summary>
-    /// Converts a snake_case field name to a human-readable title.
-    /// Special cases: "isbn_13" â†’ "ISBN-13", "tmdb_id" â†’ "TMDB ID".
-    /// </summary>
     private static string FormatFieldName(string field)
     {
         var lower = field.Trim().ToLowerInvariant();
@@ -377,38 +341,38 @@
 <style>
     .vault-timeline { padding: 0 4px; }
     .vault-timeline-heading { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px; }
-    .timeline-loading { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 12px; color: rgba(255,255,255,0.35); }
-    .timeline-empty { font-size: 12px; color: rgba(255,255,255,0.3); font-style: italic; padding: 4px 0; }
+    .timeline-loading { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 12px; color: var(--tl-text-muted); }
+    .timeline-empty { font-size: 12px; color: var(--tl-text-muted); font-style: italic; padding: 4px 0; }
     .timeline-list { display: flex; flex-direction: column; gap: 0; }
     .timeline-event { display: grid; grid-template-columns: 20px 1fr; gap: 10px; }
     .event-track { display: flex; flex-direction: column; align-items: center; }
     .event-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-    .event-line { width: 2px; flex: 1; min-height: 12px; background: rgba(255,255,255,0.08); margin: 2px 0; }
+    .event-line { width: 2px; flex: 1; min-height: 12px; background: var(--tl-border-subtle); margin: 2px 0; }
     .timeline-event:last-child .event-line { display: none; }
     .event-content { padding-bottom: 14px; }
     .event-header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
     .event-type { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.75); }
-    .event-time { font-size: 10px; color: rgba(255,255,255,0.3); white-space: nowrap; flex-shrink: 0; }
+    .event-time { font-size: 10px; color: var(--tl-text-muted); white-space: nowrap; flex-shrink: 0; }
     .event-detail { font-size: 11px; color: rgba(255,255,255,0.45); margin: 3px 0 0 0; line-height: 1.4; }
 
-    /* Dot colours by stage */
+
     .event-dot.stage-file      { background: rgba(255,255,255,0.4); }
     .event-dot.stage-retail    { background: var(--tl-accent-primary); }
     .event-dot.stage-wikidata  { background: #A78BFA; }
     .event-dot.stage-universe  { background: var(--tl-status-success); }
     .event-dot.stage-user      { background: var(--tl-status-info); }
-    .event-dot.stage-other     { background: rgba(255,255,255,0.2); }
+    .event-dot.stage-other     { background: var(--tl-text-faint); }
 
-    /* Event row tints for warning states */
+
     .timeline-event.event-warning .event-dot   { background: var(--tl-status-warning); }
     .timeline-event.event-warning .event-type  { color: var(--tl-status-warning); }
 
-    /* Expandable extracted fields */
+
     .timeline-fields-details { margin-top: 4px; }
-    .timeline-fields-summary { font-size: 10px; color: rgba(255,255,255,0.35); cursor: pointer; }
-    .timeline-fields-summary:hover { color: rgba(255,255,255,0.5); }
+    .timeline-fields-summary { font-size: 10px; color: var(--tl-text-muted); cursor: pointer; }
+    .timeline-fields-summary:hover { color: var(--tl-text-muted); }
     .timeline-fields-list { list-style: none; padding: 0; margin: 4px 0 0 0; }
     .timeline-fields-list li { font-size: 10px; color: rgba(255,255,255,0.4); padding: 1px 0; }
-    .timeline-fields-list li::before { content: "\00B7"; margin-right: 6px; color: rgba(255,255,255,0.2); }
+    .timeline-fields-list li::before { content: "\00B7"; margin-right: 6px; color: var(--tl-text-faint); }
 </style>
 

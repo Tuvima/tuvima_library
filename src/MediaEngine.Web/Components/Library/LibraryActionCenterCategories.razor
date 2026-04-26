@@ -5,7 +5,7 @@
 {
     <div class="vacc-empty">
         <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No items require review.</p>
+        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">No items require review.</p>
     </div>
 }
 else
@@ -56,7 +56,7 @@ else
                             </div>
                             <div class="vacc-row-info">
                                 <span class="vacc-row-title">@item.Title</span>
-                                <span class="vacc-row-detail">@LibraryHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $" Ã‚Â· {item.Year}" : "")</span>
+                                <span class="vacc-row-detail">@LibraryHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"  -  {item.Year}" : "")</span>
                             </div>
                             <span class="vacc-row-trigger">@LibraryHelpers.GetReviewTriggerLabel(item.ReviewTrigger)</span>
                         </div>
@@ -126,8 +126,6 @@ else
         var waiting = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.WaitingForProvider).ToList();
         if (waiting.Count > 0)
             categories.Add(new("waiting", "Waiting for Provider", waiting, false));
-
-        // Items that don't fit any category
         var categorized = new HashSet<Guid>(categories.SelectMany(c => c.Items.Select(i => i.EntityId)));
         var uncategorized = Items.Where(i => !categorized.Contains(i.EntityId)).ToList();
         if (uncategorized.Count > 0)
@@ -180,7 +178,7 @@ else
         color: rgba(255,255,255,0.7); font-size: 0.85rem; font-weight: 600;
         text-transform: none; transition: background 0.15s;
     }
-    .vacc-section-header:hover { background: rgba(255,255,255,0.04); }
+    .vacc-section-header:hover { background: var(--tl-divider); }
     .vacc-section-label { flex: 1; text-align: left; }
     .vacc-section-count {
         font-size: 0.75rem; font-weight: 700; color: var(--tl-accent-primary);
@@ -209,7 +207,7 @@ else
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .vacc-row-detail {
-        font-size: 0.7rem; color: rgba(255,255,255,0.3);
+        font-size: 0.7rem; color: var(--tl-text-muted);
     }
     .vacc-row-trigger {
         font-size: 0.7rem; color: var(--tl-accent-primary); flex-shrink: 0;
@@ -217,7 +215,7 @@ else
     .vacc-bulk-bar {
         position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px;
         padding: 12px 16px; margin-top: 12px;
-        background: rgba(20,24,29,0.95); border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(20,24,29,0.95); border: 1px solid var(--tl-border-subtle);
         border-radius: 10px; backdrop-filter: blur(8px);
     }
     .vacc-bulk-count { font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.8); }

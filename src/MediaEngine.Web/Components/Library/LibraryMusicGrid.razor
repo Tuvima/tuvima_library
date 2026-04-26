@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @using Microsoft.Extensions.Localization
 @using MediaEngine.Web.Resources
@@ -8,7 +8,7 @@
 {
     <div class="vmug-loading">
         <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                             Style="color: rgba(255,255,255,0.15);" />
+                             Style="color: var(--tl-border-strong);" />
     </div>
 }
 else if (_albums.Count == 0)
@@ -16,7 +16,7 @@ else if (_albums.Count == 0)
     <div class="vmug-empty">
         <MudIcon Icon="@Icons.Material.Outlined.MusicNote"
                  Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No albums found.</p>
+        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">No albums found.</p>
     </div>
 }
 else
@@ -58,15 +58,12 @@ else
     [Parameter] public int CardSize { get; set; } = 180;
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnCardClicked { get; set; }
-
-    /// <summary>Fires when a tile is clicked, passing the album name for system-view drill-down.</summary>
     [Parameter] public EventCallback<string> OnAlbumNameClicked { get; set; }
 
     private Dictionary<string, List<LibraryItemViewModel>> _albums = new();
 
     protected override void OnParametersSet()
     {
-        // Group by Album (not Artist) so the grid actually shows album cards.
         _albums = Items
             .GroupBy(i => string.IsNullOrWhiteSpace(i.Album)
                 ? "Unknown Album"
@@ -78,7 +75,6 @@ else
 
     private async Task HandleClick(string albumName, Guid firstItemId)
     {
-        // Prefer drilling into the album as a container; fall back to opening the first track.
         if (OnAlbumNameClicked.HasDelegate && !string.IsNullOrWhiteSpace(albumName) && albumName != "Unknown Album")
             await OnAlbumNameClicked.InvokeAsync(albumName);
         else if (OnCardClicked.HasDelegate)
@@ -110,7 +106,7 @@ else
         border-radius: 12px;
         overflow: hidden;
         background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tl-border-subtle);
         margin-bottom: 10px;
     }
 
@@ -137,7 +133,7 @@ else
     .vmug-album-name {
         font-size: 13px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -149,7 +145,7 @@ else
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         margin: 0 0 2px 0;
         white-space: nowrap;
         overflow: hidden;
@@ -158,7 +154,7 @@ else
 
     .vmug-track-count {
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         margin: 0;
     }
 

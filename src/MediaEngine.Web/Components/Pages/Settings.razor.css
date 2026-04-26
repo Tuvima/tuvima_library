@@ -1,4 +1,4 @@
-::deep .settings-admin-shell {
+﻿::deep .settings-admin-shell {
     --settings-card: rgba(12, 14, 22, 0.78);
     --settings-border: rgba(255, 255, 255, 0.07);
 }
@@ -12,7 +12,7 @@
     overflow: hidden;
 }
 
-::deep .settings-admin-panel .st-page {
+::deep .settings-admin-panel .tl-page {
     padding: 1.25rem;
 }
 
@@ -23,7 +23,7 @@
 }
 
 ::deep .settings-admin-panel .mud-divider {
-    border-color: rgba(255, 255, 255, 0.10) !important;
+    border-color: var(--tl-border-default) !important;
 }
 
 ::deep .settings-admin-panel .mud-table {
@@ -44,11 +44,11 @@
 }
 
 ::deep .settings-admin-panel .mud-table-cell {
-    border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+    border-bottom-color: var(--tl-border-subtle) !important;
 }
 
 @media (max-width: 768px) {
-    ::deep .settings-admin-panel .st-page {
+    ::deep .settings-admin-panel .tl-page {
         padding: 1rem;
     }
 }

@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @* Reusable progress card for the Last Journey hero tile.
    Displays: icon, primary value, progress bar, label. *@
@@ -22,16 +22,9 @@
 </div>
 
 @code {
-    /// <summary>Material icon string (e.g. Icons.Material.Filled.PlayCircle).</summary>
     [Parameter] public string Icon { get; set; } = Icons.Material.Filled.HelpOutline;
-
-    /// <summary>Primary display value (e.g. "65%", "Page 212", "1h 12m remaining").</summary>
-    [Parameter] public string Value { get; set; } = "—";
-
-    /// <summary>Progress percentage 0–100 for the bar.</summary>
+    [Parameter] public string Value { get; set; } = "â€”";
     [Parameter] public double Percent { get; set; }
-
-    /// <summary>Label below the bar (e.g. "Watch: Fellowship", "Read: novel").</summary>
     [Parameter] public string Label { get; set; } = "";
 }
 

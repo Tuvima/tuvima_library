@@ -1,13 +1,8 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
-
-@* Security — connection security toggles, rate limit display, and API key management. *@
-
 <MudStack Spacing="4">
-
-    @* ── Header ──────────────────────────────────────────────────────────── *@
-    <div class="st-page">
+<div class="tl-page">
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
@@ -16,9 +11,7 @@
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
             @L["Security_SecurityDescription"]
         </MudText>
-
-        @* ── Security Settings ────────────────────────────────────────────── *@
-        <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-4">
+<MudPaper Elevation="0" Class="tl-card mb-4">
 
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
                 @L["Security_ConnectionSettings"]
@@ -59,9 +52,7 @@
             </MudStack>
 
         </MudPaper>
-
-        @* ── Rate Limits (read-only) ──────────────────────────────────────── *@
-        <MudPaper Elevation="0" Style="@InnerCardStyle">
+<MudPaper Elevation="0" Class="tl-card">
 
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
                 <MudIcon Icon="@Icons.Material.Outlined.Speed"
@@ -124,7 +115,7 @@
 
         </MudPaper>
 
-        <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mt-4">
+        <MudPaper Elevation="0" Class="tl-card mt-4">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
                 <MudIcon Icon="@Icons.Material.Outlined.Login"
                          Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
@@ -164,9 +155,7 @@
         </MudPaper>
 
     </div>
-
-    @* ── API Keys section — embed the existing component ─────────────────── *@
-    <ApiKeysTab />
+<ApiKeysTab />
 
 </MudStack>
 
@@ -177,8 +166,6 @@
         "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 8px; " +
         "padding: 24px;";
-
-    // ── Local toggle state ────────────────────────────────────────────────────
 
     private bool _localhostBypass    = true;
     private bool _requireHttpsRemote = false;

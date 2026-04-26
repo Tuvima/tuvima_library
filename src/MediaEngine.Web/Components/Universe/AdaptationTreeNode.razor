@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @* Recursive tree node for AdaptationTree *@
 
@@ -44,9 +44,7 @@
             </MudStack>
         </div>
     </div>
-
-    @* Children — recursively rendered *@
-    @if (Node.Children.Count > 0)
+@if (Node.Children.Count > 0)
     {
         <div class="adaptation-children">
             @foreach (var child in Node.Children)

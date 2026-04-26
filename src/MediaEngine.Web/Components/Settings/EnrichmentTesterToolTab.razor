@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using System.Net.Http.Json
 @using System.Text.Json
 @using System.Text.Json.Serialization
@@ -8,17 +8,15 @@
 <div class="settings-internal-tool" data-temporary-tool="enrichment-tester">
 
     <MudText Typo="Typo.h4" GutterBottom="true"
-             Style="color: #F8F8F8; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 700;">
+             Style="color: var(--tl-text-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 700;">
         Enrichment Tester
     </MudText>
     <MudText Typo="Typo.body2" Class="mb-6"
-             Style="color: rgba(248,248,248,0.55);">
+             Style="color: var(--tl-text-secondary);">
         Enter a title, ISBN, or identifier to search Wikidata. Select a result to see full enrichment data.
     </MudText>
-
-    @* ── Input section ── *@
-    <MudPaper Elevation="0" Class="pa-4 mb-6"
-              Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+<MudPaper Elevation="0" Class="pa-4 mb-6"
+              Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 12px;">
         <MudGrid>
             <MudItem xs="12" sm="5">
                 <MudTextField @bind-Value="_title"
@@ -57,35 +55,27 @@
             </MudItem>
         </MudGrid>
     </MudPaper>
-
-    @* ── Progress (searching) ── *@
-    @if (_loading)
+@if (_loading)
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
                            Style="border-radius: 4px;" />
-        <MudText Typo="Typo.body2" Class="mb-4" Style="color: rgba(248,248,248,0.55);">
+        <MudText Typo="Typo.body2" Class="mb-4" Style="color: var(--tl-text-secondary);">
             Searching Wikidata...
         </MudText>
     }
-
-    @* ── Progress (enriching) ── *@
-    @if (_enriching)
+@if (_enriching)
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="mb-4"
                            Style="border-radius: 4px;" />
-        <MudText Typo="Typo.body2" Class="mb-4" Style="color: rgba(248,248,248,0.55);">
+        <MudText Typo="Typo.body2" Class="mb-4" Style="color: var(--tl-text-secondary);">
             Running full enrichment...
         </MudText>
     }
-
-    @* ── Error ── *@
-    @if (_error is not null)
+@if (_error is not null)
     {
         <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_error</MudAlert>
     }
-
-    @* ── Enrich Universe success message ── *@
-    @if (_enrichUniverseMessage is not null)
+@if (_enrichUniverseMessage is not null)
     {
         <MudAlert Severity="Severity.Success" Class="mb-4" Dense="true"
                   Icon="@Icons.Material.Filled.Collections"
@@ -94,23 +84,21 @@
             @_enrichUniverseMessage
         </MudAlert>
     }
-
-    @* ── Step 1: Candidate list ── *@
-    @if (_candidates is not null && _selectedCandidate is null && !_loading)
+@if (_candidates is not null && _selectedCandidate is null && !_loading)
     {
         @if (_candidates.Count == 0)
         {
             <MudPaper Elevation="0" Class="pa-4 mb-4"
-                      Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
-                <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">
+                      Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+                <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">
                     No candidates found. Try a different title or media type.
                 </MudText>
             </MudPaper>
         }
         else
         {
-            <MudText Typo="Typo.body2" Class="mb-3" Style="color: rgba(248,248,248,0.55);">
-                @_candidates.Count candidate(s) found — click one to run full enrichment.
+            <MudText Typo="Typo.body2" Class="mb-3" Style="color: var(--tl-text-secondary);">
+                @_candidates.Count candidate(s) found - click one to run full enrichment.
             </MudText>
 
             <MudGrid Class="mb-4">
@@ -118,7 +106,7 @@
                 {
                     <MudItem xs="12" sm="6" md="4">
                         <MudPaper Elevation="0" Class="pa-3 cursor-pointer"
-                                  Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; transition: border-color 0.2s;"
+                                  Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px; transition: border-color 0.2s;"
                                   @onclick="() => SelectCandidate(candidate)">
                             <div class="d-flex align-center gap-2 mb-2">
                                 <MudChip T="string" Size="Size.Small" Color="Color.Primary"
@@ -133,12 +121,12 @@
                                     </MudChip>
                                 }
                             </div>
-                            <MudText Typo="Typo.body1" Style="color: #F8F8F8; font-weight: 600;">
+                            <MudText Typo="Typo.body1" Style="color: var(--tl-text-primary); font-weight: 600;">
                                 @candidate.Label
                             </MudText>
                             @if (!string.IsNullOrEmpty(candidate.Description))
                             {
-                                <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.55); font-size: 0.8rem;" Class="mt-1">
+                                <MudText Typo="Typo.body2" Style="color: var(--tl-text-secondary); font-size: 0.8rem;" Class="mt-1">
                                     @candidate.Description
                                 </MudText>
                             }
@@ -146,13 +134,13 @@
                             {
                                 <a href="@candidate.WikidataUrl" target="_blank"
                                    @onclick:stopPropagation="true"
-                                   style="color: #7CB9E8; font-size: 0.72rem; text-decoration: none; display: inline-block; margin-top: 4px;">
-                                    View on Wikidata ↗
+                                   style="color: var(--tl-status-info); font-size: 0.72rem; text-decoration: none; display: inline-block; margin-top: 4px;">
+                                    View on Wikidata ^
                                 </a>
                             }
                             <MudProgressLinear Value="@(candidate.Score * 100)" Color="Color.Primary"
                                                Class="mt-2" Style="border-radius: 4px; height: 4px;" />
-                            <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.4);" Class="mt-1">
+                            <MudText Typo="Typo.caption" Style="color: var(--tl-text-muted);" Class="mt-1">
                                 Score: @candidate.Score.ToString("P0")
                             </MudText>
                         </MudPaper>
@@ -161,9 +149,7 @@
             </MudGrid>
         }
     }
-
-    @* ── Step 2: Full enrichment results ── *@
-    @if (_selectedCandidate is not null && !_enriching)
+@if (_selectedCandidate is not null && !_enriching)
     {
         @* Back button + selected candidate header + Enrich Universe *@
         <div class="d-flex align-center gap-3 mb-4">
@@ -173,7 +159,7 @@
             <MudChip T="string" Color="Color.Primary" Size="Size.Small">
                 @_selectedCandidate.Qid
             </MudChip>
-            <MudText Typo="Typo.h6" Style="color: #F8F8F8; font-weight: 600;">
+            <MudText Typo="Typo.h6" Style="color: var(--tl-text-primary); font-weight: 600;">
                 @_selectedCandidate.Label
             </MudText>
             <MudSpacer />
@@ -186,7 +172,7 @@
                 @if (_enrichingUniverse)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    @:Enriching…
+                    @:Enriching...
                 }
                 else
                 {
@@ -194,17 +180,14 @@
                 }
             </MudButton>
         </div>
-
-        @* ── Results ── *@
-        @if (_result is not null)
+@if (_result is not null)
         {
-            @* ── 1. Identity Card ── *@
-            <MudText Typo="Typo.h6" Class="mb-2"
+<MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Identity
             </MudText>
             <MudPaper Elevation="0" Class="pa-4 mb-4"
-                      Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                      Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                 <div class="d-flex align-center gap-4 mb-3">
                     @* Cover art *@
                     @{
@@ -234,7 +217,7 @@
                                 No QID resolved
                             </MudChip>
                         }
-                        <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.55);">
+                        <MudText Typo="Typo.body2" Style="color: var(--tl-text-secondary);">
                             @_result.ClaimGroups.Count claim group(s) &bull;
                             @_result.Persons.Count person(s) &bull;
                             @_result.FictionalEntities.Count fictional entity(ies) &bull;
@@ -250,10 +233,10 @@
                                     Style="background: transparent; font-size: 0.8rem;">
                         <thead>
                             <tr>
-                                <th style="color: rgba(248,248,248,0.55); width: 180px;">Field</th>
-                                <th style="color: rgba(248,248,248,0.55);">Value</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 90px;">Confidence</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 300px;">Provider</th>
+                                <th style="color: var(--tl-text-secondary); width: 180px;">Field</th>
+                                <th style="color: var(--tl-text-secondary);">Value</th>
+                                <th style="color: var(--tl-text-secondary); width: 90px;">Confidence</th>
+                                <th style="color: var(--tl-text-secondary); width: 300px;">Provider</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -272,11 +255,11 @@
                                         {
                                             <td></td>
                                         }
-                                        <td style="color: #F8F8F8; word-break: break-all;">
+                                        <td style="color: var(--tl-text-primary); word-break: break-all;">
                                             @if (group.FieldKey == "cover" && IsUrl(claim.Value))
                                             {
                                                 <a href="@claim.Value" target="_blank"
-                                                   style="color: #7CB9E8; text-decoration: none; font-size: 0.75rem;">
+                                                   style="color: var(--tl-status-info); text-decoration: none; font-size: 0.75rem;">
                                                     @TruncateUrl(claim.Value, 60)
                                                 </a>
                                             }
@@ -288,7 +271,7 @@
                                         <td style="color: @ConfidenceColor(claim.Confidence);">
                                             @claim.Confidence.ToString("P0")
                                         </td>
-                                        <td style="color: rgba(248,248,248,0.45); font-size: 0.72rem; font-family: monospace;">
+                                        <td style="color: var(--tl-text-muted); font-size: 0.72rem; font-family: monospace;">
                                             @claim.ProviderId
                                         </td>
                                     </tr>
@@ -299,19 +282,17 @@
                 }
                 else
                 {
-                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">No claims returned.</MudText>
+                    <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No claims returned.</MudText>
                 }
             </MudPaper>
-
-            @* ── 1b. Bridge IDs ── *@
-            @if (GetBridgeClaims(_result).Count > 0)
+@if (GetBridgeClaims(_result).Count > 0)
             {
                 <MudText Typo="Typo.h6" Class="mb-2"
                          Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                     Bridge IDs (@GetBridgeClaims(_result).Count)
                 </MudText>
                 <MudPaper Elevation="0" Class="pa-4 mb-4"
-                          Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                          Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudGrid>
                         @foreach (var group in GetBridgeClaims(_result))
                         {
@@ -320,11 +301,11 @@
                                 <MudItem xs="12" sm="6" md="4">
                                     <div>
                                         <MudText Typo="Typo.caption"
-                                                 Style="color: rgba(248,248,248,0.45); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em;">
+                                                 Style="color: var(--tl-text-muted); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em;">
                                             @group.FieldKey
                                         </MudText>
                                         <MudText Typo="Typo.body2"
-                                                 Style="color: #F8F8F8; font-family: monospace; font-size: 0.85rem;">
+                                                 Style="color: var(--tl-text-primary); font-family: monospace; font-size: 0.85rem;">
                                             @claim.Value
                                         </MudText>
                                     </div>
@@ -334,29 +315,27 @@
                     </MudGrid>
                 </MudPaper>
             }
-
-            @* ── 1c. Bridge Hint Preview ── *@
-            <MudText Typo="Typo.h6" Class="mb-2"
+<MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Bridge Hint Preview (@(_result.BridgeHintPreview?.Count ?? 0))
             </MudText>
             @if (_result.BridgeHintPreview is { Count: > 0 })
             {
                 <MudPaper Elevation="0" Class="pa-4 mb-4"
-                          Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                          Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudText Typo="Typo.caption" Class="mb-3"
-                             Style="color: rgba(248,248,248,0.45); font-size: 0.7rem;">
+                             Style="color: var(--tl-text-muted); font-size: 0.7rem;">
                         These bridge IDs would flow to Stage 2 retail providers for precise lookups (cover art, ratings).
                     </MudText>
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
                                     Style="background: transparent; font-size: 0.8rem;">
                         <thead>
                             <tr>
-                                <th style="color: rgba(248,248,248,0.55); width: 130px;">Hint Key</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 160px;">Raw Value</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 160px;">Normalized</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 130px;">Source Claim</th>
-                                <th style="color: rgba(248,248,248,0.55);">Target Providers</th>
+                                <th style="color: var(--tl-text-secondary); width: 130px;">Hint Key</th>
+                                <th style="color: var(--tl-text-secondary); width: 160px;">Raw Value</th>
+                                <th style="color: var(--tl-text-secondary); width: 160px;">Normalized</th>
+                                <th style="color: var(--tl-text-secondary); width: 130px;">Source Claim</th>
+                                <th style="color: var(--tl-text-secondary);">Target Providers</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -364,13 +343,13 @@
                             {
                                 <tr>
                                     <td style="color: var(--tl-accent-primary); font-weight: 600;">@hint.Key</td>
-                                    <td style="color: rgba(248,248,248,0.45); font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+                                    <td style="color: var(--tl-text-muted); font-family: monospace; font-size: 0.75rem; word-break: break-all;">
                                         @hint.RawValue
                                     </td>
-                                    <td style="color: #F8F8F8; font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+                                    <td style="color: var(--tl-text-primary); font-family: monospace; font-size: 0.75rem; word-break: break-all;">
                                         @hint.NormalizedValue
                                     </td>
-                                    <td style="color: rgba(248,248,248,0.55); font-size: 0.75rem;">@hint.SourceClaimKey</td>
+                                    <td style="color: var(--tl-text-secondary); font-size: 0.75rem;">@hint.SourceClaimKey</td>
                                     <td>
                                         @foreach (var provider in hint.TargetProviders)
                                         {
@@ -394,14 +373,12 @@
                         <MudIcon Icon="@Icons.Material.Outlined.Warning" Size="Size.Small"
                                  Style="color: #F97316;" />
                         <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.65); font-size: 0.8rem;">
-                            No bridge hints would flow to Stage 2 — cover art would rely on text search (ArtworkUnconfirmed)
+                            No bridge hints would flow to Stage 2 - cover art would rely on text search (ArtworkUnconfirmed)
                         </MudText>
                     </div>
                 </MudPaper>
             }
-
-            @* ── 2. People ── *@
-            <MudText Typo="Typo.h6" Class="mb-2"
+<MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 People (@_result.Persons.Count)
             </MudText>
@@ -411,7 +388,7 @@
                 <MudExpansionPanels Class="mb-4" Elevation="0">
                     @foreach (var person in _result.Persons)
                     {
-                        <MudExpansionPanel Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 4px;">
+                        <MudExpansionPanel Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 8px; margin-bottom: 4px;">
                             <TitleContent>
                                 <div class="d-flex align-center gap-3">
                                     @if (!string.IsNullOrEmpty(person.HeadshotUrl))
@@ -428,7 +405,7 @@
                                         </MudAvatar>
                                     }
                                     <div>
-                                        <MudText Typo="Typo.body1" Style="color: #F8F8F8; font-weight: 600; line-height: 1.2;">
+                                        <MudText Typo="Typo.body1" Style="color: var(--tl-text-primary); font-weight: 600; line-height: 1.2;">
                                             @person.Name
                                         </MudText>
                                         <div class="d-flex gap-2">
@@ -446,7 +423,7 @@
                                             @if (!string.IsNullOrEmpty(person.Occupation))
                                             {
                                                 <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                                         Style="height: 18px; font-size: 0.65rem; color: rgba(248,248,248,0.55);">
+                                                         Style="height: 18px; font-size: 0.65rem; color: var(--tl-text-secondary);">
                                                     @person.Occupation
                                                 </MudChip>
                                             }
@@ -459,9 +436,9 @@
                                     @if (!string.IsNullOrEmpty(person.HeadshotUrl))
                                     {
                                         <div class="mb-3">
-                                            <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.4);">HEADSHOT URL</MudText>
+                                            <MudText Typo="Typo.caption" Style="color: var(--tl-text-muted);">HEADSHOT URL</MudText>
                                             <a href="@person.HeadshotUrl" target="_blank"
-                                               style="color: #7CB9E8; font-size: 0.75rem; word-break: break-all; text-decoration: none;">
+                                               style="color: var(--tl-status-info); font-size: 0.75rem; word-break: break-all; text-decoration: none;">
                                                 @person.HeadshotUrl
                                             </a>
                                         </div>
@@ -469,7 +446,7 @@
                                     @if (!string.IsNullOrEmpty(person.Biography))
                                     {
                                         <div class="mb-2">
-                                            <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.4);">BIOGRAPHY</MudText>
+                                            <MudText Typo="Typo.caption" Style="color: var(--tl-text-muted);">BIOGRAPHY</MudText>
                                             <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.80);">
                                                 @person.Biography
                                             </MudText>
@@ -477,7 +454,7 @@
                                     }
                                     @if (string.IsNullOrEmpty(person.Biography) && string.IsNullOrEmpty(person.HeadshotUrl))
                                     {
-                                        <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">
+                                        <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">
                                             No additional detail available.
                                         </MudText>
                                     }
@@ -490,13 +467,11 @@
             else
             {
                 <MudPaper Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
-                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">No people returned.</MudText>
+                          Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+                    <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No people returned.</MudText>
                 </MudPaper>
             }
-
-            @* ── 3. Fictional Entities ── *@
-            <MudText Typo="Typo.h6" Class="mb-2"
+<MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Fictional Entities (@_result.FictionalEntities.Count)
             </MudText>
@@ -504,24 +479,24 @@
             @if (_result.FictionalEntities.Count > 0)
             {
                 <MudPaper Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                          Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
                                     Style="background: transparent; font-size: 0.8rem;">
                         <thead>
                             <tr>
-                                <th style="color: rgba(248,248,248,0.55);">Label</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 110px;">QID</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 110px;">Type</th>
-                                <th style="color: rgba(248,248,248,0.55);">Description</th>
+                                <th style="color: var(--tl-text-secondary);">Label</th>
+                                <th style="color: var(--tl-text-secondary); width: 110px;">QID</th>
+                                <th style="color: var(--tl-text-secondary); width: 110px;">Type</th>
+                                <th style="color: var(--tl-text-secondary);">Description</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var entity in _result.FictionalEntities)
                             {
                                 <tr>
-                                    <td style="color: #F8F8F8; font-weight: 600;">@entity.Label</td>
-                                    <td style="color: rgba(248,248,248,0.55); font-family: monospace; font-size: 0.75rem;">
-                                        @(entity.Qid ?? "—")
+                                    <td style="color: var(--tl-text-primary); font-weight: 600;">@entity.Label</td>
+                                    <td style="color: var(--tl-text-secondary); font-family: monospace; font-size: 0.75rem;">
+                                        @(entity.Qid ?? "-")
                                     </td>
                                     <td>
                                         <MudChip T="string" Size="Size.Small" Color="Color.Secondary"
@@ -529,7 +504,7 @@
                                             @entity.EntityType
                                         </MudChip>
                                     </td>
-                                    <td style="color: rgba(248,248,248,0.70);">@(entity.Description ?? "—")</td>
+                                    <td style="color: rgba(248,248,248,0.70);">@(entity.Description ?? "-")</td>
                                 </tr>
                             }
                         </tbody>
@@ -539,13 +514,11 @@
             else
             {
                 <MudPaper Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
-                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">No fictional entities returned.</MudText>
+                          Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+                    <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No fictional entities returned.</MudText>
                 </MudPaper>
             }
-
-            @* ── 4. Relationships ── *@
-            <MudText Typo="Typo.h6" Class="mb-2"
+<MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Relationships (@_result.Relationships.Count)
             </MudText>
@@ -553,27 +526,27 @@
             @if (_result.Relationships.Count > 0)
             {
                 <MudPaper Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                          Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
                                     Style="background: transparent; font-size: 0.8rem;">
                         <thead>
                             <tr>
-                                <th style="color: rgba(248,248,248,0.55);">Subject</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 140px;">Relationship</th>
-                                <th style="color: rgba(248,248,248,0.55);">Object</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 100px;">Start</th>
-                                <th style="color: rgba(248,248,248,0.55); width: 100px;">End</th>
+                                <th style="color: var(--tl-text-secondary);">Subject</th>
+                                <th style="color: var(--tl-text-secondary); width: 140px;">Relationship</th>
+                                <th style="color: var(--tl-text-secondary);">Object</th>
+                                <th style="color: var(--tl-text-secondary); width: 100px;">Start</th>
+                                <th style="color: var(--tl-text-secondary); width: 100px;">End</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var rel in _result.Relationships)
                             {
                                 <tr>
-                                    <td style="color: #F8F8F8;">
+                                    <td style="color: var(--tl-text-primary);">
                                         @rel.SubjectLabel
                                         @if (!string.IsNullOrEmpty(rel.SubjectQid))
                                         {
-                                            <span style="color: rgba(248,248,248,0.4); font-size: 0.72rem; margin-left: 4px;">
+                                            <span style="color: var(--tl-text-muted); font-size: 0.72rem; margin-left: 4px;">
                                                 (@rel.SubjectQid)
                                             </span>
                                         }
@@ -584,20 +557,20 @@
                                             @rel.RelationshipType
                                         </MudChip>
                                     </td>
-                                    <td style="color: #F8F8F8;">
+                                    <td style="color: var(--tl-text-primary);">
                                         @rel.ObjectLabel
                                         @if (!string.IsNullOrEmpty(rel.ObjectQid))
                                         {
-                                            <span style="color: rgba(248,248,248,0.4); font-size: 0.72rem; margin-left: 4px;">
+                                            <span style="color: var(--tl-text-muted); font-size: 0.72rem; margin-left: 4px;">
                                                 (@rel.ObjectQid)
                                             </span>
                                         }
                                     </td>
-                                    <td style="color: rgba(248,248,248,0.55); font-size: 0.75rem;">
-                                        @(rel.StartTime ?? "—")
+                                    <td style="color: var(--tl-text-secondary); font-size: 0.75rem;">
+                                        @(rel.StartTime ?? "-")
                                     </td>
-                                    <td style="color: rgba(248,248,248,0.55); font-size: 0.75rem;">
-                                        @(rel.EndTime ?? "—")
+                                    <td style="color: var(--tl-text-secondary); font-size: 0.75rem;">
+                                        @(rel.EndTime ?? "-")
                                     </td>
                                 </tr>
                             }
@@ -608,18 +581,16 @@
             else
             {
                 <MudPaper Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
-                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">No relationships returned.</MudText>
+                          Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+                    <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No relationships returned.</MudText>
                 </MudPaper>
             }
-
-            @* ── 5. Raw Claims (all, collapsible) ── *@
-            <MudExpansionPanels Class="mb-6" Elevation="0">
-                <MudExpansionPanel Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+<MudExpansionPanels Class="mb-6" Elevation="0">
+                <MudExpansionPanel Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <TitleContent>
                         <MudText Typo="Typo.h6"
                                  Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
-                            Raw Claims —
+                            Raw Claims -
                             @(_result.ClaimGroups.Sum(g => g.Claims.Count)) total
                         </MudText>
                     </TitleContent>
@@ -628,10 +599,10 @@
                                         Style="background: transparent; font-size: 0.78rem;">
                             <thead>
                                 <tr>
-                                    <th style="color: rgba(248,248,248,0.55); width: 160px;">Field Key</th>
-                                    <th style="color: rgba(248,248,248,0.55);">Value</th>
-                                    <th style="color: rgba(248,248,248,0.55); width: 90px;">Confidence</th>
-                                    <th style="color: rgba(248,248,248,0.55); width: 300px;">Provider ID</th>
+                                    <th style="color: var(--tl-text-secondary); width: 160px;">Field Key</th>
+                                    <th style="color: var(--tl-text-secondary);">Value</th>
+                                    <th style="color: var(--tl-text-secondary); width: 90px;">Confidence</th>
+                                    <th style="color: var(--tl-text-secondary); width: 300px;">Provider ID</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -641,7 +612,7 @@
                                     {
                                         <tr>
                                             <td style="color: var(--tl-accent-primary); font-weight: 600;">@group.FieldKey</td>
-                                            <td style="color: #F8F8F8; word-break: break-all;">@claim.Value</td>
+                                            <td style="color: var(--tl-text-primary); word-break: break-all;">@claim.Value</td>
                                             <td style="color: @ConfidenceColor(claim.Confidence);">
                                                 @claim.Confidence.ToString("P0")
                                             </td>
@@ -663,8 +634,6 @@
 
 @code {
 
-    // ── State ────────────────────────────────────────────────────────────────────
-
     private string _title     = string.Empty;
     private string _author    = string.Empty;
     private string _mediaType = "Books";
@@ -681,8 +650,6 @@
     [
         "Books", "Audiobooks", "Movies", "TV", "Comics", "Music"
     ];
-
-    // ── Actions ──────────────────────────────────────────────────────────────────
 
     private async Task OnKeyUp(KeyboardEventArgs e)
     {
@@ -722,7 +689,7 @@
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync();
-                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "…" : body)}";
+                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "..." : body)}";
                 return;
             }
 
@@ -782,7 +749,7 @@
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync();
-                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "…" : body)}";
+                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "..." : body)}";
                 return;
             }
 
@@ -845,7 +812,7 @@
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync();
-                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "…" : body)}";
+                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "..." : body)}";
                 return;
             }
 
@@ -885,8 +852,6 @@
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────────
-
     private static string ConfidenceColor(double c) => c switch
     {
         >= 0.85 => "#4ADE80",   // green
@@ -899,7 +864,7 @@
         value.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
     private static string TruncateUrl(string url, int maxLen) =>
-        url.Length <= maxLen ? url : url[..maxLen] + "…";
+        url.Length <= maxLen ? url : url[..maxLen] + "...";
 
     private static readonly HashSet<string> BridgeFieldKeys = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -916,8 +881,6 @@
             .Where(g => BridgeFieldKeys.Contains(g.FieldKey))
             .OrderBy(g => g.FieldKey)
             .ToList();
-
-    // ── Private DTOs ─────────────────────────────────────────────────────────────
 
     private sealed record DebugSearchCandidate(
         [property: JsonPropertyName("qid")]          string  Qid,

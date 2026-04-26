@@ -1,4 +1,4 @@
-.listen-page {
+﻿.listen-page {
     display: grid;
     grid-template-columns: 284px minmax(0, 1fr);
     min-height: calc(100vh - 64px);
@@ -149,7 +149,7 @@
 
 .listen-rail__drag:hover,
 .listen-rail__add:hover {
-    background: rgba(255, 255, 255, 0.10);
+    background: var(--tl-border-default);
     color: rgba(255, 255, 255, 0.9);
 }
 
@@ -171,7 +171,7 @@
     right: 0;
     min-width: 180px;
     padding: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--tl-border-default);
     border-radius: 8px;
     background: #252525;
     box-shadow: 0 16px 32px rgba(0, 0, 0, 0.36);
@@ -192,7 +192,7 @@
 }
 
 .listen-rail__create-menu button:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--tl-border-subtle);
 }
 
 .listen-rail__thumb {
@@ -200,7 +200,7 @@
     height: 20px;
     border-radius: 5px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--tl-border-subtle);
 }
 
 .listen-rail__thumb img {
@@ -243,7 +243,7 @@
 .listen-home__hero {
     overflow: hidden;
     border-radius: var(--app-radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--tl-border-subtle);
 }
 
 .listen-home__content {
@@ -277,7 +277,7 @@
     gap: 6px;
     padding: 6px;
     border-radius: var(--app-radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--tl-border-subtle);
     background: rgba(255, 255, 255, 0.05);
     flex-shrink: 0;
 }
@@ -329,7 +329,7 @@
 .listen-button--secondary,
 .listen-icon-button {
     background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: var(--tl-border-subtle);
     color: rgba(255, 255, 255, 0.84);
 }
 
@@ -340,7 +340,7 @@
 .listen-table-shell,
 .listen-card {
     border-radius: var(--app-radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--tl-border-subtle);
     background: rgba(12, 14, 22, 0.78);
 }
 
@@ -375,8 +375,8 @@
     min-height: 42px;
     padding: 0 14px;
     border-radius: var(--app-radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--tl-border-subtle);
+    background: var(--tl-divider);
     color: rgba(255, 255, 255, 0.88);
 }
 
@@ -396,8 +396,8 @@
     gap: 8px;
     padding: 0 14px;
     border-radius: var(--app-radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--tl-border-subtle);
+    background: var(--tl-divider);
     color: rgba(255, 255, 255, 0.76);
     cursor: pointer;
 }
@@ -490,9 +490,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--tl-border-subtle);
     margin-bottom: 12px;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--tl-text-muted);
 }
 
 .listen-card__art--album {
@@ -582,7 +582,7 @@
     border-radius: var(--app-radius-md);
     overflow: hidden;
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--tl-border-subtle);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -613,7 +613,7 @@
 .listen-detail__collage-tile {
     border-radius: var(--app-radius-md);
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--tl-border-subtle);
 }
 
 .listen-detail__copy {
@@ -645,7 +645,7 @@
 .listen-playlist-editor {
     margin-bottom: 24px;
     padding: 20px 22px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--tl-border-subtle);
     border-radius: var(--app-radius-md);
     background: rgba(255, 255, 255, 0.045);
 }
@@ -661,7 +661,7 @@
     aspect-ratio: 1 / 1;
     border-radius: var(--app-radius-md);
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--tl-border-subtle);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -701,7 +701,7 @@
 .listen-upload-button span {
     width: max-content;
     padding: 10px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--tl-border-default);
     border-radius: var(--app-radius-md);
     color: rgba(255, 255, 255, 0.84);
     cursor: pointer;
@@ -738,7 +738,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--tl-border-subtle);
     color: rgba(255, 255, 255, 0.48);
 }
 
@@ -766,7 +766,7 @@
     margin: 10px 12px 0;
     padding: 14px;
     border-radius: var(--app-radius-md);
-    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border: 1px dashed var(--tl-border-default);
     background: rgba(255, 255, 255, 0.03);
     color: rgba(255, 255, 255, 0.68);
 }
@@ -839,7 +839,7 @@
 }
 
 .listen-context-menu__action:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--tl-border-subtle);
 }
 
 .listen-context-menu__dismiss {
@@ -927,7 +927,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--tl-border-subtle);
     color: rgba(255, 255, 255, 0.48);
     flex-shrink: 0;
 }
@@ -962,7 +962,7 @@
 
 .listen-row-menu[open] .listen-row-menu__summary,
 .listen-row-menu__summary:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--tl-border-subtle);
 }
 
 .listen-row-menu__panel {
@@ -976,7 +976,7 @@
     padding: 8px;
     border-radius: var(--app-radius-md);
     background: rgba(8, 11, 18, 0.98);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--tl-border-subtle);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
     z-index: 10;
 }
@@ -993,7 +993,7 @@
 }
 
 .listen-row-menu__action:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--tl-border-subtle);
 }
 
 @media (max-width: 860px) {
@@ -1086,7 +1086,7 @@
         position: static;
         height: auto;
         border-right: 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
     }
 
     .listen-card-grid,

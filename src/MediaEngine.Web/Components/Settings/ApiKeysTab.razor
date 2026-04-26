@@ -1,12 +1,9 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 @inject IStringLocalizer<SharedStrings> L
-
-@* Guest API Keys — generate, view, copy, reveal prefix, and revoke access keys. *@
-
-<div class="st-page">
+<div class="tl-page">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
@@ -63,7 +60,7 @@
                 </MudTd>
                 <MudTd>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @context.CreatedAt.LocalDateTime.ToString("MMM d, yyyy · HH:mm")
+                        @context.CreatedAt.LocalDateTime.ToString("MMM d, yyyy  -  HH:mm")
                     </MudText>
                 </MudTd>
                 <MudTd Style="text-align:right">
@@ -95,8 +92,6 @@
         </MudButton>
     }
 </div>
-
-@* ── Generate Key dialog ─────────────────────────────────────────────────── *@
 <MudDialog @bind-Visible="_generateOpen" Options="_dialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6">
@@ -158,8 +153,6 @@
         }
     </DialogActions>
 </MudDialog>
-
-@* ── Revoke All Confirmation dialog ──────────────────────────────────────── *@
 <MudDialog @bind-Visible="_revokeAllOpen" Options="_dialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6" Color="Color.Error">
@@ -188,8 +181,6 @@
 
 @code {
 
-    // ── State ────────────────────────────────────────────────────────────────────
-
     private bool                  _loading      = true;
     private List<ApiKeyViewModel> _keys         = [];
     private bool                  _generateOpen;
@@ -209,20 +200,15 @@
         CloseOnEscapeKey = true,
     };
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────────
-
     protected override async Task OnInitializedAsync()
     {
         await RefreshKeysAsync();
     }
 
-    // ── Key display helpers ──────────────────────────────────────────────────────
-
     private string GetKeyDisplay(Guid keyId)
     {
         if (_revealedKeys.Contains(keyId))
         {
-            // Show first 8 chars of the key ID as a hash prefix hint.
             return keyId.ToString("N")[..8] + "...";
         }
         return "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
@@ -233,8 +219,6 @@
         if (!_revealedKeys.Remove(keyId))
             _revealedKeys.Add(keyId);
     }
-
-    // ── Handlers ─────────────────────────────────────────────────────────────────
 
     private async Task RefreshKeysAsync()
     {
@@ -281,8 +265,6 @@
     {
         if (_newKey is null) return;
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newKey.Key);
-
-        // Animate icon: ContentCopy → Check (green) for 1.5 seconds.
         _copyAnimating = true;
         StateHasChanged();
 
@@ -316,8 +298,6 @@
             Snackbar.Add(L["ApiKeys_RevokeFailed"], Severity.Error);
         }
     }
-
-    // ── Revoke All ───────────────────────────────────────────────────────────────
 
     private void OpenRevokeAllDialog() => _revokeAllOpen = true;
 

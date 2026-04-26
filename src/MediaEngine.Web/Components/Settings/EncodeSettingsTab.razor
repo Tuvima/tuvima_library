@@ -1,11 +1,11 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Storage.Models
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
-<div class="st-page">
+<div class="tl-page">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.VideoSettings" Class="mr-2" />
         <MudText Typo="Typo.h6">Encode Settings</MudText>
@@ -16,7 +16,7 @@
 
     <MudGrid Spacing="4">
         <MudItem xs="12" lg="6">
-            <MudPaper Elevation="0" Class="pa-4">
+            <MudPaper Elevation="0" Class="tl-card">
                 <MudText Typo="Typo.overline" Color="Color.Secondary">Scheduling</MudText>
                 <MudSwitch T="bool" @bind-Value="_scheduledEncodesEnabled" Color="Color.Primary" Label="Enable scheduled encodes" Class="mt-2" />
                 <MudTextField @bind-Value="_maintenanceWindow" Label="Maintenance window" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
@@ -30,7 +30,7 @@
         </MudItem>
 
         <MudItem xs="12" lg="6">
-            <MudPaper Elevation="0" Class="pa-4">
+            <MudPaper Elevation="0" Class="tl-card">
                 <MudText Typo="Typo.overline" Color="Color.Secondary">Storage Policy</MudText>
                 <MudTextField @bind-Value="_variantRoot" Label="Variant cache location" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
                 <MudNumericField T="int" @bind-Value="_cacheSizeGb" Label="Cache size limit (GB)" Min="1" Max="5000" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
@@ -40,7 +40,7 @@
         </MudItem>
     </MudGrid>
 
-    <MudPaper Elevation="0" Class="pa-4 mt-4">
+    <MudPaper Elevation="0" Class="tl-card mt-4">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
             <MudText Typo="Typo.overline" Color="Color.Secondary">Profiles</MudText>
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="@AddProfile">Add profile</MudButton>
@@ -64,7 +64,7 @@
         </MudTable>
     </MudPaper>
 
-    <MudPaper Elevation="0" Class="pa-4 mt-4">
+    <MudPaper Elevation="0" Class="tl-card mt-4">
         <MudText Typo="Typo.overline" Color="Color.Secondary">Diagnostics</MudText>
         @if (_diagnostics is null)
         {

@@ -1,4 +1,4 @@
-/* ---------------------------------------------------------------------------
+﻿/* ---------------------------------------------------------------------------
    Tuvima Library design tokens
    Canonical source for app colors, spacing, radius, shadows, surfaces, and
    semantic status colors. Component styles should consume these variables
@@ -35,9 +35,11 @@
     --tl-text-primary: #F5F7FB;
     --tl-text-secondary: #B6C2D6;
     --tl-text-muted: #7F8DA5;
+    --tl-text-faint: rgba(127, 141, 165, 0.34);
     --tl-text-disabled: rgba(127, 141, 165, 0.58);
     --tl-text-on-accent: #FFFFFF;
     --tl-text-on-warning: #1F1303;
+    --tl-font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
 
     --tl-border-subtle: rgba(148, 163, 184, 0.10);
     --tl-border-default: rgba(148, 163, 184, 0.16);

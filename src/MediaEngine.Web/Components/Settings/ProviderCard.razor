@@ -1,12 +1,8 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-
-@* ProviderCard — card with accent bar, display name, health dot, and config flyout.
-   Used in the Metadata tab for drag-drop provider slot assignment. *@
-
 <div class="provider-card @(IsSlotted ? "provider-card-slotted" : "") @(IsUnavailable ? "provider-card-unavailable" : "")"
      style="--provider-accent: @_accent.Color;">
 
@@ -24,8 +20,7 @@
 
     @if (ShowConfig)
     {
-        @* API key badge — shows when a key is required *@
-        @if (Provider.RequiresApiKey)
+@if (Provider.RequiresApiKey)
         {
             <MudTooltip Text="@(Provider.HasApiKey ? "API key configured" : "API key required")"
                         Arrow="true" Placement="Placement.Top">
@@ -34,15 +29,11 @@
                          Style="@($"color: {(Provider.HasApiKey ? "#4CAF50" : "#FF9800")}; flex-shrink: 0;")" />
             </MudTooltip>
         }
-
-        @* Health dot — three-state indicator based on health monitor data *@
-        <MudTooltip Text="@GetHealthTooltip()"
+<MudTooltip Text="@GetHealthTooltip()"
                     Arrow="true" Placement="Placement.Top">
             <div class="provider-health-dot @GetHealthDotClass()"></div>
         </MudTooltip>
-
-        @* Config button (gear) — always interactive, even on unavailable providers *@
-        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+<MudIconButton Icon="@Icons.Material.Filled.Settings"
                        Size="Size.Small"
                        Color="Color.Default"
                        title="Configure provider"
@@ -62,8 +53,6 @@
                        Style="margin-left: 2px;" />
     }
 </div>
-
-@* Config flyout — rendered via MudPopover (portal) so it escapes the card's stacking context *@
 <MudPopover Open="@_flyoutOpen"
             AnchorOrigin="Origin.BottomRight"
             TransformOrigin="Origin.TopRight"
@@ -108,9 +97,7 @@
                          Min="0" Max="60000"
                          Adornment="Adornment.Start"
                          AdornmentIcon="@Icons.Material.Filled.Speed" />
-
-        @* API Key — only shown when provider requires one *@
-        @if (Provider.RequiresApiKey)
+@if (Provider.RequiresApiKey)
         {
             <MudTextField T="string"
                           @bind-Value="_editApiKey"
@@ -154,32 +141,17 @@
 </MudPopover>
 
 @code {
-    /// <summary>The provider status data to display.</summary>
     [Parameter, EditorRequired] public ProviderStatusDto Provider { get; set; } = default!;
-
-    /// <summary>Whether this card is currently placed in a slot.</summary>
     [Parameter] public bool IsSlotted { get; set; }
-
-    /// <summary>Whether to show config controls (gear, health dot, API key badge). Default true.
-    /// Set to false for slotted cards where config lives on the palette card.</summary>
     [Parameter] public bool ShowConfig { get; set; } = true;
-
-    /// <summary>Whether this provider is unavailable (disabled or unreachable).
-    /// Dims the card but keeps the config button interactive.</summary>
     [Parameter] public bool IsUnavailable { get; set; }
-
-    /// <summary>Fires when the user clicks the remove (X) button.</summary>
     [Parameter] public EventCallback OnRemove { get; set; }
-
-    /// <summary>Fires after a config save succeeds so the parent can refresh.</summary>
     [Parameter] public EventCallback OnConfigSaved { get; set; }
 
     private (string Color, string Icon) _accent;
     private bool _flyoutOpen;
     private bool _saving;
     private bool _showApiKey;
-
-    // Editable fields
     private string _editEndpoint = string.Empty;
     private int _editTimeout = 10;
     private int _editThrottle;
@@ -198,8 +170,6 @@
             CloseFlyout();
             return;
         }
-
-        // Populate fields from current provider state.
         _editEndpoint = Provider.Endpoints?.TryGetValue("api", out var url) == true
             ? url
             : Provider.Endpoints?.Values.FirstOrDefault() ?? string.Empty;
@@ -237,8 +207,6 @@
                     ? _editApiKey
                     : null,
             };
-
-            // Merge existing endpoints so we don't lose secondary keys (e.g. sparql).
             if (Provider.Endpoints is not null)
             {
                 foreach (var (k, v) in Provider.Endpoints)
@@ -281,19 +249,18 @@
         switch (Provider.HealthStatus)
         {
             case "Degraded":
-                return $"Intermittent issues — {Provider.ConsecutiveFailures} consecutive failures";
+                return $"Intermittent issues - {Provider.ConsecutiveFailures} consecutive failures";
             case "Down":
                 var downSinceText = FormatRelativeTime(Provider.DownSince);
                 var reason = string.IsNullOrWhiteSpace(Provider.LastFailureReason)
                     ? "unknown error"
                     : Provider.LastFailureReason;
                 return downSinceText is not null
-                    ? $"Down since {downSinceText} — {reason}"
-                    : $"Unreachable — {reason}";
+                    ? $"Down since {downSinceText} - {reason}"
+                    : $"Unreachable - {reason}";
             case "Healthy":
                 return "Online";
             default:
-                // Fallback when no health data exists yet.
                 return Provider.IsReachable ? "Online" : "Unreachable";
         }
     }
@@ -347,14 +314,14 @@
         cursor: grabbing;
     }
 
-    /* Compact form when placed inside a library slot */
+
     .provider-card-slotted {
         background: var(--app-active-overlay);
         padding: 5px 8px;
         gap: 7px;
     }
 
-    /* Unavailable provider — dimmed but config button stays interactive */
+
     .provider-card-unavailable {
         opacity: 0.65;
         cursor: default;
@@ -368,7 +335,7 @@
         opacity: 1;
     }
 
-    /* Left accent bar */
+
     .provider-card-accent {
         position: absolute;
         left: 0;
@@ -379,7 +346,7 @@
         border-radius: 6px 0 0 6px;
     }
 
-    /* Health indicator dot */
+
     .provider-health-dot {
         width: 10px;
         height: 10px;
@@ -402,7 +369,7 @@
         box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
     }
 
-    /* Config flyout — styled via MudPopover portal (z-index handled by MudBlazor) */
+
     .provider-flyout-popover {
         width: 360px;
         padding: 20px;

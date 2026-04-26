@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Watch
+﻿@namespace MediaEngine.Web.Components.Watch
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Web.Models.ViewDTOs
@@ -138,7 +138,7 @@
     @if (_loading)
     {
         <div class="tv-browse-page__state">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.3);" />
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: var(--tl-text-muted);" />
         </div>
     }
     else if (_visibleShows.Count == 0)
@@ -449,7 +449,7 @@
             show.WorkCount > 0 ? $"{show.WorkCount} episodes" : null,
         };
 
-        return string.Join(" · ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+        return string.Join("  -  ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
 
     private static string? BuildHeroSubtitle(CollectionGroupDetailViewModel? detail)
@@ -464,7 +464,7 @@
             detail.SeasonCount is > 0 ? $"{detail.SeasonCount.Value} seasons" : null,
         };
 
-        return string.Join(" · ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+        return string.Join("  -  ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
 
     private static string BuildJourneySubtitle(JourneyItemViewModel journey)
@@ -477,7 +477,7 @@
             : null;
         var episodeTitle = journey.Title;
 
-        return string.Join(" · ", new[] { season, episode, episodeTitle }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        return string.Join("  -  ", new[] { season, episode, episodeTitle }.Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
     private static int ParseYear(string? value)

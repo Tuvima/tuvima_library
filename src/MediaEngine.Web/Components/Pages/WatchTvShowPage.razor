@@ -532,7 +532,7 @@ else
             parts.Add($"Episode {episodeNumber}");
         parts.Add($"{Math.Clamp(journey.ProgressPct, 0, 100):F0}% complete");
 
-        return string.Join(" Â· ", parts);
+        return string.Join(" - ", parts);
     }
 }
 
@@ -565,7 +565,7 @@ else
         margin-bottom: 26px;
         border-radius: 30px;
         background: linear-gradient(140deg, rgba(9, 12, 18, 0.96), rgba(8, 10, 16, 0.96));
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         box-shadow: 0 28px 56px rgba(0, 0, 0, 0.28);
     }
 
@@ -698,7 +698,7 @@ else
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.36);
     }
 
@@ -717,7 +717,7 @@ else
         min-height: 44px;
         padding: 0 16px;
         border-radius: var(--app-radius-md);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid var(--tl-border-default);
         cursor: pointer;
         font-weight: 800;
     }
@@ -729,7 +729,7 @@ else
     }
 
     .watch-tv-button--secondary {
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.94);
     }
 
@@ -755,8 +755,8 @@ else
         min-height: 38px;
         padding: 0 14px;
         border-radius: var(--app-radius-sm);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-border-subtle);
+        background: var(--tl-divider);
         color: rgba(255, 255, 255, 0.7);
         cursor: pointer;
         font-weight: 700;
@@ -797,7 +797,7 @@ else
         overflow: hidden;
         border-radius: 20px;
         aspect-ratio: 16 / 9;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tl-border-subtle);
         background: rgba(255, 255, 255, 0.05);
     }
 
@@ -840,8 +840,8 @@ else
         overflow: hidden;
         aspect-ratio: 4 / 5;
         border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--tl-border-subtle);
+        background: var(--tl-divider);
     }
 
     .watch-tv-related-card__poster {

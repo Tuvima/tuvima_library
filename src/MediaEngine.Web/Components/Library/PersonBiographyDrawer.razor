@@ -23,9 +23,6 @@
 @* -- Social Links -- *@
 @{
     bool hasSocialLinks = !string.IsNullOrEmpty(Person.Biography); // fallback check via Occupation
-    // Compute social link presence from the PersonListItemDto fields
-    // PersonListItemDto doesn't have social fields  -  those live in PersonDetailViewModel
-    // So we just render nothing if Person doesn't have them (will be enhanced in future)
 }
 
 @* -- In Your Library -- *@
@@ -51,7 +48,7 @@
                                 }
                                 else
                                 {
-                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(credit.MediaType ?? "")" Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(credit.MediaType ?? "")" Style="font-size: 16px; color: var(--tl-text-faint);" />
                                 }
                             </div>
                             <div class="pbd-work-info">
@@ -67,7 +64,7 @@
                                     <span class="pbd-work-type">@BuildCreditSubtitle(credit)</span>
                                 }
                             </div>
-                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15); flex-shrink: 0;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
                         </button>
                     }
                     @if (!_showAllWorks && remaining > 0)
@@ -103,7 +100,7 @@
                             }
                             else
                             {
-                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.2);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: var(--tl-text-faint);" />
                             }
                         </div>
                         <div class="vdd-alias-info">
@@ -130,16 +127,16 @@
             {
                 <button class="pbd-work-row" @onclick="() => OnMemberClicked.InvokeAsync(member.Id)">
                     <div class="pbd-work-thumb" style="border-radius: 50%;">
-                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: var(--tl-text-faint);" />
                     </div>
                     <div class="pbd-work-info">
                         <span class="pbd-work-title">@member.Name</span>
                         @if (!string.IsNullOrEmpty(member.DateRange))
                         {
-                            <span class="pbd-work-type" style="color: rgba(255,255,255,0.35);">@member.DateRange</span>
+                            <span class="pbd-work-type" style="color: var(--tl-text-muted);">@member.DateRange</span>
                         }
                     </div>
-                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15); flex-shrink: 0;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
                 </button>
             }
         </div>
@@ -155,16 +152,16 @@
             {
                 <button class="pbd-work-row" @onclick="() => OnMemberClicked.InvokeAsync(group.Id)">
                     <div class="pbd-work-thumb" style="border-radius: 6px;">
-                        <MudIcon Icon="@Icons.Material.Outlined.Groups" Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Groups" Style="font-size: 16px; color: var(--tl-text-faint);" />
                     </div>
                     <div class="pbd-work-info">
                         <span class="pbd-work-title">@group.Name</span>
                         @if (!string.IsNullOrEmpty(group.DateRange))
                         {
-                            <span class="pbd-work-type" style="color: rgba(255,255,255,0.35);">@group.DateRange</span>
+                            <span class="pbd-work-type" style="color: var(--tl-text-muted);">@group.DateRange</span>
                         }
                     </div>
-                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15); flex-shrink: 0;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
                 </button>
             }
         </div>
@@ -196,7 +193,7 @@
                                 }
                                 else
                                 {
-                                    <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: var(--tl-border-strong);" />
                                 }
                             </div>
                             <span class="vdd-character-name" style="font-size: 11px;">@role.CharacterName</span>
@@ -228,7 +225,7 @@
                     </div>
                 }
                 <div class="vdd-asset-slot">
-                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
                     <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
                 </div>
             </div>
@@ -240,7 +237,7 @@
                 <span class="vdd-asset-label">@assetType</span>
                 <div class="vdd-asset-items">
                     <div class="vdd-asset-slot">
-                        <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
                         <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
                     </div>
                 </div>
@@ -277,7 +274,7 @@
             return [];
 
         return PersonCredits
-            .GroupBy(credit => $"{FormatRole(credit.Role)} Â· {FormatMediaType(credit.MediaType)}")
+            .GroupBy(credit => $"{FormatRole(credit.Role)}  -  {FormatMediaType(credit.MediaType)}")
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .Select(group => (group.Key, group.ToList()))
             .ToList();
@@ -315,7 +312,7 @@
             parts.Add(credit.Year!);
         if (!string.IsNullOrWhiteSpace(credit.MediaType))
             parts.Add(FormatMediaType(credit.MediaType));
-        return string.Join(" Â· ", parts);
+        return string.Join("  -  ", parts);
     }
 
     private static string? BuildCreditSubtitle(PersonLibraryCreditViewModel credit)
@@ -334,7 +331,7 @@
 }
 
 <style>
-    /* -- Biography text -- */
+
     .pbd-biography {
         font-size: 13px;
         line-height: 1.7;
@@ -342,7 +339,7 @@
         margin: 0;
     }
 
-    /* -- Occupation subtitle in header -- */
+
     .pbd-occupation {
         font-size: 11px;
         font-style: italic;
@@ -350,14 +347,14 @@
         margin-top: 2px;
     }
 
-    /* -- Last enriched tiny date -- */
+
     .pbd-last-enriched {
         font-size: 10px;
-        color: rgba(255, 255, 255, 0.2);
+        color: var(--tl-text-faint);
         margin-top: 4px;
     }
 
-    /* -- Social link buttons -- */
+
     .pbd-social-row {
         display: flex;
         flex-wrap: wrap;
@@ -369,23 +366,23 @@
         width: 32px;
         height: 32px;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--tl-border-subtle);
+        border: 1px solid var(--tl-border-subtle);
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         transition: background 0.15s;
         text-decoration: none;
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--tl-text-muted);
     }
 
     .pbd-social-btn:hover {
-        background: rgba(255, 255, 255, 0.12);
+        background: var(--tl-border-default);
         color: rgba(255, 255, 255, 0.9);
     }
 
-    /* -- Role groups -- */
+
     .pbd-role-group {
         display: flex;
         flex-direction: column;
@@ -402,7 +399,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
     }
 
     .pbd-works-list {
@@ -411,7 +408,7 @@
         gap: 2px;
     }
 
-    /* -- Work row -- */
+
     .pbd-work-row {
         display: flex;
         align-items: center;
@@ -428,15 +425,15 @@
     }
 
     .pbd-work-row:hover {
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--tl-divider);
     }
 
     .pbd-work-thumb {
         width: 36px;
         height: 36px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: var(--tl-divider);
+        border: 1px solid var(--tl-border-subtle);
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -474,7 +471,7 @@
         letter-spacing: 0.04em;
     }
 
-    /* -- Identity items -- */
+
     .pbd-identity-items {
         display: flex;
         flex-direction: column;
@@ -482,30 +479,30 @@
         margin-top: 6px;
     }
 
-    /* -- Identities container -- */
+
     .pbd-identities {
         display: flex;
         flex-direction: column;
         gap: 4px;
     }
 
-    /* -- Members list -- */
+
     .pbd-members-list {
         display: flex;
         flex-direction: column;
         gap: 2px;
     }
 
-    /* -- Empty hint -- */
+
     .pbd-empty-hint {
         font-size: 12px;
         font-style: italic;
-        color: rgba(255, 255, 255, 0.25);
+        color: var(--tl-text-faint);
         margin: 0;
         padding: 4px 0;
     }
 
-    /* -- Show more button -- */
+
     .pbd-show-more-btn {
         display: flex;
         align-items: center;

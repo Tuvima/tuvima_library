@@ -297,11 +297,7 @@
 
 @code {
     [Parameter] public Guid AssetId { get; set; }
-
-    /// <summary>Collection to return to when the reader is closed. Passed as ?returnCollectionId=… in the URL.</summary>
     [SupplyParameterFromQuery] public Guid? ReturnCollectionId { get; set; }
-
-    // ── State ──────────────────────────────────────────────────────────
 
     private bool _loading = true;
     private bool _progressAlreadySaved; // prevents double-save when ExitReader awaits then DisposeAsync fires
@@ -312,44 +308,26 @@
     private int _currentPageInChapter;
     private int _totalPagesInChapter = 1;
     private int _pendingPageRestore  = -1; // page-in-chapter to apply after first pagination
-
-    // Chrome
     private bool _chromeVisible = true;
-
-    // Drawers
     private bool _tocOpen;
     private bool _searchOpen;
     private bool _bookmarksOpen;
     private bool _settingsOpen;
-
-    // Search
     private string _searchQuery = string.Empty;
     private List<EpubSearchHitDto> _searchResults = [];
-
-    // Bookmarks & highlights
     private List<ReaderBookmarkDto> _bookmarks = [];
     private List<ReaderHighlightDto> _highlights = [];
-
-    // Stats
     private double _sessionWpm;
     private long _sessionSeconds;
     private long _totalReadingTimeSecs;
     private long _sessionWordsRead;
     private int _sessionsCount;
     private int _chaptersRead;
-
-    // Settings
     private ReaderSettingsDto _settings = new();
-
-    // Timer
     private System.Threading.Timer? _sessionTimer;
     private System.Threading.Timer? _autoSaveTimer;
-
-    // JS interop ref
     private DotNetObjectReference<EpubReader>? _dotNetRef;
     private ElementReference _contentRef;
-
-    // Font options
     private readonly Dictionary<string, string> _fontOptions = new()
     {
         ["Merriweather"] = "'Merriweather', Georgia, serif",
@@ -357,8 +335,6 @@
         ["Montserrat"] = "'Montserrat', sans-serif",
         ["JetBrains Mono"] = "'JetBrains Mono', monospace"
     };
-
-    // ── Lifecycle ──────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
@@ -392,8 +368,6 @@
         _toc = await Api.GetTableOfContentsAsync(AssetId);
         _bookmarks = await Api.GetBookmarksAsync(AssetId);
         _highlights = await Api.GetHighlightsAsync(AssetId);
-
-        // Load stats
         var stats = await Api.GetReadingStatisticsAsync(AssetId);
         if (stats is not null)
         {
@@ -402,27 +376,19 @@
             _chaptersRead = stats.ChaptersRead;
             _sessionWordsRead = stats.WordsRead;
         }
-
-        // Restore progress
         var progress = await Api.GetProgressAsync(AssetId);
         if (progress is not null)
         {
             if (progress.ExtendedProperties.TryGetValue("chapter_index", out var chIdx) &&
                 int.TryParse(chIdx, out var restoredChapter))
                 _currentChapterIndex = restoredChapter;
-
-            // Restore page within the chapter — applied after InitPagination runs
             if (progress.ExtendedProperties.TryGetValue("page_in_chapter", out var pgStr) &&
                 int.TryParse(pgStr, out var restoredPage) && restoredPage > 0)
                 _pendingPageRestore = restoredPage;
         }
 
         await LoadChapter(_currentChapterIndex);
-
-        // Start session timer (1 second interval)
         _sessionTimer = new System.Threading.Timer(OnSessionTick, null, 1000, 1000);
-
-        // Auto-save progress every 30 seconds
         _autoSaveTimer = new System.Threading.Timer(async _ => await AutoSaveProgress(), null, 30_000, 30_000);
 
         _sessionsCount++;
@@ -440,8 +406,6 @@
         _currentPageInChapter = 0;
         _currentChapter = await Api.GetChapterContentAsync(AssetId, index);
         StateHasChanged();
-
-        // Re-init pagination after render
         await Task.Delay(100); // Allow DOM to render
         await InitPagination();
     }
@@ -452,8 +416,6 @@
         {
             _totalPagesInChapter = await JS.InvokeAsync<int>("epubReader.initPagination", "reader-columns");
             if (_totalPagesInChapter < 1) _totalPagesInChapter = 1;
-
-            // Apply a pending page-restore from progress (only on first load of the chapter)
             if (_pendingPageRestore > 0)
             {
                 var safePage    = Math.Min(_pendingPageRestore, _totalPagesInChapter - 1);
@@ -472,11 +434,8 @@
         }
         catch
         {
-            // JS not ready yet — safe to ignore
         }
     }
-
-    // ── Navigation ─────────────────────────────────────────────────────
 
     private async Task NavigateToChapter(int index)
     {
@@ -566,8 +525,6 @@
         _ = ApplySettings();
     }
 
-    // ── Tap zone handler ───────────────────────────────────────────────
-
     private async Task HandleTapZone(string zone)
     {
         switch (zone)
@@ -586,8 +543,6 @@
         }
     }
 
-    // ── Slider ─────────────────────────────────────────────────────────
-
     private async Task OnSliderChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out var page))
@@ -597,8 +552,6 @@
         }
     }
 
-    // ── Drawer toggles ─────────────────────────────────────────────────
-
     private void ToggleToc() { _tocOpen = !_tocOpen; CloseSearch(); CloseBookmarks(); CloseSettings(); }
     private void CloseToc() { _tocOpen = false; }
     private void ToggleSearch() { _searchOpen = !_searchOpen; CloseToc(); CloseBookmarks(); CloseSettings(); }
@@ -607,8 +560,6 @@
     private void CloseBookmarks() { _bookmarksOpen = false; }
     private void ToggleSettings() { _settingsOpen = !_settingsOpen; CloseToc(); CloseSearch(); CloseBookmarks(); }
     private void CloseSettings() { _settingsOpen = false; }
-
-    // ── Search ─────────────────────────────────────────────────────────
 
     private async Task OnSearchKeyDown(KeyboardEventArgs e)
     {
@@ -634,8 +585,6 @@
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
-    // ── Bookmarks ──────────────────────────────────────────────────────
-
     private async Task AddBookmark()
     {
         var chapterTitle = _currentChapter?.Title ?? $"Chapter {_currentChapterIndex + 1}";
@@ -658,8 +607,6 @@
             StateHasChanged();
         }
     }
-
-    // ── Settings ───────────────────────────────────────────────────────
 
     private async Task SetTheme(string theme)
     {
@@ -709,8 +656,6 @@
             await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-font-size", $"{_settings.FontSize}px");
             await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-line-height", _settings.LineHeight.ToString("F1"));
             await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-margin-h", $"{_settings.Margins}px");
-
-            // Re-paginate after style change
             await Task.Delay(100);
             _totalPagesInChapter = await JS.InvokeAsync<int>("epubReader.getTotalPages");
             _currentPageInChapter = Math.Min(_currentPageInChapter, Math.Max(0, _totalPagesInChapter - 1));
@@ -746,14 +691,10 @@
         catch { }
     }
 
-    // ── Session timer ──────────────────────────────────────────────────
-
     private void OnSessionTick(object? state)
     {
         _sessionSeconds++;
         _totalReadingTimeSecs++;
-
-        // Estimate WPM from chapter word count and pages read
         if (_sessionSeconds > 0 && _sessionWordsRead > 0)
         {
             _sessionWpm = (_sessionWordsRead / (double)_sessionSeconds) * 60.0;
@@ -766,14 +707,7 @@
     {
         try
         {
-            // Save reading position
             var overallPercent = ComputeOverallPercentDouble();
-
-            // Don't record 0% — the journey query filters progress_pct > 0, so saving
-            // zero would mean the CollectionDetail never shows any progress indicator.
-            // This happens when the reader opens at chapter 0 / page 0 before any pages
-            // are turned.  A user who hasn't read anything yet shouldn't have a "In
-            // Progress" entry on the collection detail page.
             if (overallPercent <= 0) return;
 
             var extProps = new Dictionary<string, string>
@@ -786,8 +720,6 @@
             };
 
             await Api.SaveProgressAsync(AssetId, progressPct: overallPercent, extendedProperties: extProps);
-
-            // Save stats
             await Api.UpdateReadingStatisticsAsync(AssetId, new ReaderStatisticsUpdateDto(
                 ChaptersRead: _chaptersRead,
                 TotalReadingTimeSecs: _totalReadingTimeSecs,
@@ -797,8 +729,6 @@
         }
         catch { }
     }
-
-    // ── Progress calculation ───────────────────────────────────────────
 
     private int ComputeOverallPercent()
     {
@@ -816,8 +746,6 @@
         return ((_currentChapterIndex + chapterProgress) / _metadata.ChapterCount) * 100.0;
     }
 
-    // ── TOC flattening ─────────────────────────────────────────────────
-
     private record FlatTocEntry(string Title, int ChapterIndex, int Depth);
 
     private static List<FlatTocEntry> FlattenToc(List<EpubTocEntryDto> entries, int depth = 0)
@@ -832,13 +760,8 @@
         return result;
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────
-
     private async Task ExitReader()
     {
-        // Await the save so the DB write is complete before the Collection Detail page loads.
-        // Fire-and-forget would let the collection detail fetch stale 0% progress before the
-        // INSERT finishes.
         await AutoSaveProgress();
         _progressAlreadySaved = true;
 
@@ -857,8 +780,6 @@
         return $"{minutes}m";
     }
 
-    // ── Cleanup ────────────────────────────────────────────────────────
-
     public async ValueTask DisposeAsync()
     {
         _sessionTimer?.Dispose();
@@ -866,9 +787,6 @@
 
         try
         {
-            // Guard: ExitReader awaits the save before navigating, so DisposeAsync
-            // doesn't need to save again in the normal exit path.  We still save here
-            // as a safety net for browser-back-button or tab-close scenarios.
             if (!_progressAlreadySaved)
                 await AutoSaveProgress();
             await JS.InvokeVoidAsync("epubReader.dispose");

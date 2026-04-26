@@ -1,33 +1,17 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
 @inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
-
-@* Setup Wizard — Re-run the setup wizard or inspect the current server configuration.
-   All values are read-only summary fields; editing happens in the dedicated tabs.
-
-   TODO: First-Run Wizard (not yet built) — Step 3 should collect provider credentials.
-   Providers requiring authentication at first run:
-     - TMDB:         API key (bearer token) — https://www.themoviedb.org/settings/api
-
-     - Metron:        Username + Password    — https://metron.cloud (sign up for free account)
-   Providers that work without credentials:
-     - Apple API, Open Library, MusicBrainz, Wikidata *@
-
-<div class="st-page">
-
-    @* ── Section Header ──────────────────────────────────────────────────── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+<div class="tl-page">
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.RocketLaunch" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["Setup_PageTitle"]</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["Setup_PageDescription"]
     </MudText>
-
-    @* ── Re-run wizard card ──────────────────────────────────────────────── *@
-    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+<MudPaper Elevation="0" Class="tl-card mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
             <MudIcon Icon="@Icons.Material.Outlined.AutoFixHigh"
                      Color="Color.Primary" Style="font-size: 2rem;" />
@@ -47,9 +31,7 @@
     </MudPaper>
 
     <MudDivider Class="my-6" />
-
-    @* ── Current configuration ───────────────────────────────────────────── *@
-    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
+<MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
         @L["Setup_CurrentConfiguration"]
     </MudText>
 
@@ -177,19 +159,13 @@
 
 @code {
 
-    // ── Style constants ──────────────────────────────────────────────────────────
-
     private const string InnerCardStyle =
         "background: var(--app-glass-inner-bg); " +
         "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 8px; " +
         "padding: 24px;";
 
-    // ── AI model summary model ───────────────────────────────────────────────────
-
     private sealed record AiModelSummary(string Role, string Label, bool Downloaded);
-
-    // ── State (placeholder data) ─────────────────────────────────────────────────
 
     private string _serverName  = "Tuvima Library";
     private string _language    = "English";
@@ -226,8 +202,6 @@
                     _           => "Source",
                 }))
             .ToArray();
-
-        // Fall back to hardcoded list when Engine is unreachable
         if (_configuredProviders.Length == 0)
         {
             _configuredProviders =
@@ -245,8 +219,8 @@
 
     private readonly AiModelSummary[] _aiModels =
     [
-        new AiModelSummary("Fast (text)",    "Llama 3.2 1B Q4_K_M · ~750 MB",  Downloaded: true),
-        new AiModelSummary("Quality (text)", "Llama 3.2 3B Q4_K_M · ~2 GB",    Downloaded: true),
-        new AiModelSummary("Audio",          "Whisper Medium · ~1.5 GB",        Downloaded: false),
+        new AiModelSummary("Fast (text)",    "Llama 3.2 1B Q4_K_M  -  ~750 MB",  Downloaded: true),
+        new AiModelSummary("Quality (text)", "Llama 3.2 3B Q4_K_M  -  ~2 GB",    Downloaded: true),
+        new AiModelSummary("Audio",          "Whisper Medium  -  ~1.5 GB",        Downloaded: false),
     ];
 }

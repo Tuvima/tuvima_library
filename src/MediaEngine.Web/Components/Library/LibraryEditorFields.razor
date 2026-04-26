@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 
 @* -- Renders editable fields for one or more selected items -- *@
@@ -66,8 +66,6 @@
             var val = GetItemFieldValue(Items[0], key);
             return new(val, false);
         }
-
-        // Multi-item: check if all share the same value
         var values = Items.Select(i => GetItemFieldValue(i, key) ?? "").Distinct().ToList();
         if (values.Count == 1)
             return new(values[0], false);
@@ -132,14 +130,14 @@
         width: 90px;
         min-width: 90px;
         font-size: 0.75rem;
-        color: rgba(255, 255, 255, 0.35);
+        color: var(--tl-text-muted);
         text-transform: uppercase;
         letter-spacing: 0.03em;
     }
 
     .vef-value {
         font-size: 0.85rem;
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
     }
 
     .vef-value--readonly {
@@ -163,12 +161,12 @@
     }
 
     ::deep .vef-input .mud-input-outlined-border {
-        border-color: rgba(255, 255, 255, 0.08);
+        border-color: var(--tl-border-subtle);
     }
 
     ::deep .vef-input .mud-input-slot {
         font-size: 0.85rem;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--tl-text-primary);
     }
 
     ::deep .vef-input.mud-input-root-outlined:hover .mud-input-outlined-border,
@@ -177,19 +175,19 @@
     }
 
     ::deep .vef-input--multiple .mud-input-slot {
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         font-style: italic;
         cursor: pointer;
     }
 
     .vef-reset-btn {
-        color: rgba(255, 255, 255, 0.3);
+        color: var(--tl-text-muted);
         border-radius: 4px;
     }
 
     .vef-reset-btn:hover,
     .vef-reset-btn:focus-visible {
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--tl-text-secondary);
         background: rgba(255, 255, 255, 0.05);
     }
 </style>
