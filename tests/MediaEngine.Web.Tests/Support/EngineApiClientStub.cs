@@ -75,6 +75,27 @@ internal class EngineApiClientStub : DispatchProxy
         _handlers[nameof(IEngineApiClient.GetReviewCountAsync)] =
             _ => Task.FromResult(3);
 
+        _handlers[nameof(IEngineApiClient.GetPendingReviewsAsync)] =
+            _ => Task.FromResult(new List<ReviewItemViewModel>
+            {
+                new()
+                {
+                    Id = Guid.Parse("70000000-0000-0000-0000-000000000001"),
+                    EntityId = Guid.Parse("70000000-0000-0000-0000-000000000101"),
+                    EntityType = "Work",
+                    EntityTitle = "Unmatched Album",
+                    MediaType = "Music",
+                    Trigger = "LowConfidence",
+                    Status = "Pending",
+                    ConfidenceScore = 0.42,
+                    CreatedAt = DateTimeOffset.UtcNow.AddHours(-2),
+                    BridgeIdentifiers = new Dictionary<string, string>
+                    {
+                        ["isrc"] = "TEST123",
+                    },
+                },
+            });
+
         _handlers[nameof(IEngineApiClient.GetSystemStatusAsync)] =
             _ => Task.FromResult<SystemStatusViewModel?>(new SystemStatusViewModel
             {

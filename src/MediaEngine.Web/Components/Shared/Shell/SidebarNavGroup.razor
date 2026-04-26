@@ -1,0 +1,67 @@
+@namespace MediaEngine.Web.Components.Shared.Shell
+
+<section class="sidebar-nav-group">
+    @if (Expandable)
+    {
+        <button type="button"
+                class="sidebar-nav-group__toggle"
+                aria-expanded="@_expanded"
+                @onclick="Toggle">
+            @if (!string.IsNullOrWhiteSpace(Icon))
+            {
+                <MudIcon Icon="@Icon" Style="font-size: 18px;" />
+            }
+            <span>@Label</span>
+            @if (BadgeCount > 0)
+            {
+                <span class="sidebar-nav-group__badge">@BadgeCount</span>
+            }
+            <MudIcon Icon="@(_expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
+                     Style="font-size: 18px;" />
+        </button>
+    }
+    else
+    {
+        <div class="sidebar-nav-group__label">
+            @if (!string.IsNullOrWhiteSpace(Icon))
+            {
+                <MudIcon Icon="@Icon" Style="font-size: 18px;" />
+            }
+            <span>@Label</span>
+            @if (BadgeCount > 0)
+            {
+                <span class="sidebar-nav-group__badge">@BadgeCount</span>
+            }
+        </div>
+    }
+
+    @if (!Expandable || _expanded)
+    {
+        <div class="sidebar-nav-group__body">
+            @ChildContent
+        </div>
+    }
+</section>
+
+@code {
+    private bool _expanded;
+    private bool _initialized;
+
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public int BadgeCount { get; set; }
+    [Parameter] public bool Expandable { get; set; }
+    [Parameter] public bool Expanded { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!_initialized || Expanded)
+        {
+            _expanded = Expanded;
+            _initialized = true;
+        }
+    }
+
+    private void Toggle() => _expanded = !_expanded;
+}

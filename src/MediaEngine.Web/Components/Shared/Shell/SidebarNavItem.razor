@@ -1,0 +1,67 @@
+@namespace MediaEngine.Web.Components.Shared.Shell
+@inject NavigationManager Nav
+
+@if (OnClick.HasDelegate)
+{
+    <button type="button"
+            class="@CssClass"
+            aria-current="@(Active ? "page" : null)"
+            @onclick="OnClick">
+        <MudIcon Icon="@Icon" Style="font-size: 18px;" />
+        <span class="sidebar-nav-item__label">@Label</span>
+        @RenderMeta()
+    </button>
+}
+else
+{
+    <button type="button"
+            class="@CssClass"
+            aria-current="@(Active ? "page" : null)"
+            @onclick="Navigate">
+        <MudIcon Icon="@Icon" Style="font-size: 18px;" />
+        <span class="sidebar-nav-item__label">@Label</span>
+        @RenderMeta()
+    </button>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Icon { get; set; } = Icons.Material.Outlined.Circle;
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public bool Active { get; set; }
+    [Parameter] public bool Child { get; set; }
+    [Parameter] public string? Meta { get; set; }
+    [Parameter] public int BadgeCount { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    private string CssClass =>
+        $"sidebar-nav-item{(Active ? " is-active" : string.Empty)}{(Child ? " is-child" : string.Empty)}";
+
+    private void Navigate()
+    {
+        if (!string.IsNullOrWhiteSpace(Href))
+        {
+            Nav.NavigateTo(Href);
+        }
+    }
+
+    private RenderFragment RenderMeta() => builder =>
+    {
+        if (BadgeCount > 0)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "sidebar-nav-item__badge");
+            builder.AddContent(2, BadgeCount);
+            builder.CloseElement();
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Meta))
+        {
+            builder.OpenElement(3, "span");
+            builder.AddAttribute(4, "class", "sidebar-nav-item__meta");
+            builder.AddContent(5, Meta);
+            builder.CloseElement();
+        }
+    };
+}

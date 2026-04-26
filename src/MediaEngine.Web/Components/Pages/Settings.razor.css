@@ -1,189 +1,54 @@
-.settings-shell {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 0.25rem 0 2rem;
+::deep .settings-admin-shell {
+    --settings-card: rgba(12, 14, 22, 0.78);
+    --settings-border: rgba(255, 255, 255, 0.07);
+}
+
+.settings-admin-panel {
     min-width: 0;
-}
-
-.settings-shell-header {
-    padding: 1.5rem;
-    border: 1px solid var(--app-border-subtle, rgba(148, 163, 184, 0.18));
-    border-radius: 1.5rem;
-    background:
-        linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.82)),
-        radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%);
-    box-shadow: var(--app-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.24));
-}
-
-.settings-shell-hero {
-    gap: 1.5rem;
-}
-
-.settings-shell-copy {
-    min-width: 0;
-}
-
-.settings-shell-title-row {
-    flex-wrap: wrap;
-}
-
-.settings-shell-subtitle {
-    max-width: 48rem;
-    color: var(--app-text-soft, rgba(226, 232, 240, 0.78));
-}
-
-.settings-shell-role {
-    min-width: 9rem;
-    padding: 0.9rem 1rem;
-    border-radius: 1rem;
-    border: 1px solid var(--app-border-subtle, rgba(148, 163, 184, 0.18));
-    background: rgba(15, 23, 42, 0.42);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.settings-shell-role-label,
-.settings-shell-stat-label {
-    color: var(--app-text-muted, rgba(148, 163, 184, 0.78));
-}
-
-.settings-shell-role-value,
-.settings-shell-stat-value {
-    color: var(--app-text-primary, rgba(248, 250, 252, 0.98));
-}
-
-.settings-shell-stats {
-    margin: 0;
-}
-
-.settings-shell-stat-link {
-    display: block;
-}
-
-.settings-shell-stat {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    padding: 1rem 1.1rem;
-    border-radius: 1rem;
-    border: 1px solid var(--app-border-subtle, rgba(148, 163, 184, 0.18));
-    background: rgba(15, 23, 42, 0.38);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-
-.settings-shell-stat--interactive {
-    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-}
-
-.settings-shell-stat--interactive:hover {
-    transform: translateY(-1px);
-    border-color: rgba(59, 130, 246, 0.34);
-    background: rgba(30, 41, 59, 0.78);
-}
-
-.settings-shell-tabs {
-    border-radius: 1.2rem;
-    background: rgba(8, 15, 28, 0.45);
-}
-
-::deep .settings-shell-tabs .mud-tabs-toolbar {
-    padding: 0.55rem;
-}
-
-::deep .settings-shell-tabs .mud-tab {
-    border-radius: 0.95rem;
-    min-height: 3rem;
-}
-
-::deep .settings-shell-tabs .mud-tabs-panels {
-    display: none;
-}
-
-::deep .settings-shell-tabs--primary .mud-tab {
-    background: rgba(15, 23, 42, 0.36);
-    border: 1px solid transparent;
-}
-
-::deep .settings-shell-tabs--primary .mud-tab.mud-tab-active {
-    background: rgba(30, 64, 175, 0.22);
-    border-color: rgba(59, 130, 246, 0.38);
-    box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.14);
-}
-
-::deep .settings-shell-tabs--secondary .mud-tab {
-    min-height: 2.65rem;
-    background: rgba(15, 23, 42, 0.22);
-    border: 1px solid transparent;
-}
-
-::deep .settings-shell-tabs--secondary .mud-tab.mud-tab-active {
-    background: rgba(51, 65, 85, 0.78);
-    border-color: rgba(148, 163, 184, 0.22);
-}
-
-.settings-shell-panel {
-    min-width: 0;
-    border-radius: 1.5rem;
-    border: 1px solid var(--app-border-subtle, rgba(148, 163, 184, 0.18));
-    background: linear-gradient(180deg, rgba(8, 15, 28, 0.94), rgba(5, 11, 22, 0.98));
-    box-shadow: var(--app-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.24));
+    border-radius: var(--app-radius-md, 8px);
+    border: 1px solid var(--settings-border);
+    background: rgba(8, 11, 18, 0.74) !important;
+    box-shadow: 0 22px 48px rgba(0, 0, 0, 0.22);
     overflow: hidden;
 }
 
-::deep .settings-shell-panel .st-page {
-    padding: 1.5rem;
+::deep .settings-admin-panel .st-page {
+    padding: 1.25rem;
 }
 
-::deep .settings-shell-panel .vault-layout {
-    padding: 0;
-}
-
-::deep .settings-shell-panel .vault-header {
-    padding: 1.5rem 1.5rem 0;
-}
-
-::deep .settings-shell-panel .vault-body {
-    padding-top: 0;
-}
-
-::deep .settings-shell-panel .mud-paper {
+::deep .settings-admin-panel .mud-paper {
     background: rgba(15, 23, 42, 0.42) !important;
-    border-color: var(--app-border-subtle, rgba(148, 163, 184, 0.18)) !important;
-    border-radius: 1rem !important;
+    border-color: rgba(255, 255, 255, 0.07) !important;
+    border-radius: var(--app-radius-md, 8px) !important;
 }
 
-::deep .settings-shell-panel .mud-divider {
-    border-color: rgba(148, 163, 184, 0.12) !important;
+::deep .settings-admin-panel .mud-divider {
+    border-color: rgba(255, 255, 255, 0.10) !important;
 }
 
-@media (max-width: 900px) {
-    .settings-shell-hero {
-        flex-direction: column;
-    }
+::deep .settings-admin-panel .mud-table {
+    background: transparent !important;
+}
 
-    .settings-shell-role {
-        min-width: 0;
-        width: 100%;
-    }
+::deep .settings-admin-panel .mud-table-container,
+::deep .settings-admin-panel .mud-table-root {
+    background: transparent !important;
+}
+
+::deep .settings-admin-panel .mud-table-head .mud-table-cell {
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 0.75rem;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+::deep .settings-admin-panel .mud-table-cell {
+    border-bottom-color: rgba(255, 255, 255, 0.06) !important;
 }
 
 @media (max-width: 768px) {
-    .settings-shell {
-        gap: 1.1rem;
-    }
-
-    .settings-shell-header,
-    .settings-shell-panel {
-        border-radius: 1.2rem;
-    }
-
-    .settings-shell-header {
-        padding: 1.1rem;
-    }
-
-    ::deep .settings-shell-panel .st-page,
-    ::deep .settings-shell-panel .vault-header {
-        padding: 1.1rem;
+    ::deep .settings-admin-panel .st-page {
+        padding: 1rem;
     }
 }

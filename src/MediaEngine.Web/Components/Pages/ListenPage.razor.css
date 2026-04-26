@@ -37,14 +37,13 @@
 }
 
 .listen-rail {
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow: auto;
-    padding: 22px 14px 22px 18px;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(8, 10, 16, 0.88);
-    backdrop-filter: blur(20px);
+    position: static;
+    height: auto;
+    overflow: visible;
+    padding: 0;
+    border-right: 0;
+    background: transparent;
+    backdrop-filter: none;
 }
 
 .listen-rail__header,
@@ -232,7 +231,7 @@
 
 .listen-content {
     min-width: 0;
-    padding: 24px 28px 28px;
+    padding: 0;
 }
 
 .listen-home {

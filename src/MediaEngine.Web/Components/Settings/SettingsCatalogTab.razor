@@ -1,0 +1,41 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<div class="st-page settings-catalog-page">
+    <MudStack Spacing="3">
+        <MudText Typo="Typo.h6">Metadata Settings Catalog</MudText>
+        <MudText Typo="Typo.body2" Class="settings-muted">
+            Central map of configurable metadata behavior and where each source of truth lives.
+        </MudText>
+
+        <MudTable Items="@Rows" Dense="true" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Area</MudTh>
+                <MudTh>Source</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Route</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Area">@context.Area</MudTd>
+                <MudTd DataLabel="Source">@context.Source</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@context.Color" Variant="Variant.Outlined">@context.Status</MudChip>
+                </MudTd>
+                <MudTd DataLabel="Route">@context.Route</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudStack>
+</div>
+
+@code {
+    private static readonly CatalogRow[] Rows =
+    [
+        new("Media types", "config/media_types.json", "JSON owned", "/settings/metadata", Color.Success),
+        new("Field priorities", "config/field_priorities.json", "JSON owned", "/settings/metadata", Color.Success),
+        new("Scoring", "config/scoring.json", "JSON owned", "/settings/metadata", Color.Success),
+        new("Hydration", "config/hydration.json", "JSON owned", "/settings/metadata", Color.Success),
+        new("Pipelines", "config/pipelines.json", "JSON owned", "/settings/metadata", Color.Success),
+        new("UI palette/accent", "config/ui/*.json", "Internal only", "Hidden", Color.Warning),
+    ];
+
+    private sealed record CatalogRow(string Area, string Source, string Status, string Route, Color Color);
+}

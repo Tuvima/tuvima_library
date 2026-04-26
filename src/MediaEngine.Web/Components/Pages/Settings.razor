@@ -2,7 +2,6 @@
 @page "/settings/{Section}"
 @rendermode InteractiveServer
 @namespace MediaEngine.Web.Components.Pages
-@using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @inject NavigationManager Nav
@@ -12,151 +11,118 @@
 
 <PageTitle>@BrowserTitle</PageTitle>
 
-<div class="settings-shell">
-    <MudPaper Elevation="0" Class="settings-shell-header">
-        <MudStack Spacing="3">
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="settings-shell-hero">
-                <MudStack Spacing="1" Class="settings-shell-copy">
-                    <MudText Typo="Typo.overline">Settings</MudText>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="settings-shell-title-row">
-                        <MudText Typo="Typo.h3">@GetHeroTitle()</MudText>
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Variant="Variant.Outlined"
-                                 Color="@GetStatusColor()">
-                            @GetStatusLabel()
-                        </MudChip>
-                    </MudStack>
-                    <MudText Typo="Typo.body1" Class="settings-shell-subtitle">
-                        @GetSectionDescription(_activeSection)
-                    </MudText>
-                </MudStack>
-
-                <MudPaper Elevation="0" Class="settings-shell-role">
-                    <MudText Typo="Typo.overline" Class="settings-shell-role-label">Role</MudText>
-                    <MudText Typo="Typo.subtitle2" Class="settings-shell-role-value">@_currentRole</MudText>
-                </MudPaper>
-            </MudStack>
-
-            <MudGrid Class="settings-shell-stats">
-                <MudItem xs="12" md="4">
-                    <MudLink Href="/settings/review" Underline="Underline.None" Class="settings-shell-stat-link">
-                        <MudPaper Elevation="0" Class="settings-shell-stat settings-shell-stat--interactive">
-                            <MudText Typo="Typo.overline" Class="settings-shell-stat-label">Pending review</MudText>
-                            <MudText Typo="Typo.h6" Class="settings-shell-stat-value">@_reviewCount</MudText>
-                        </MudPaper>
-                    </MudLink>
-                </MudItem>
-                <MudItem xs="12" md="4">
-                    <MudPaper Elevation="0" Class="settings-shell-stat">
-                        <MudText Typo="Typo.overline" Class="settings-shell-stat-label">Current area</MudText>
-                        <MudText Typo="Typo.h6" Class="settings-shell-stat-value">@CurrentGroup.Label</MudText>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="12" md="4">
-                    <MudPaper Elevation="0" Class="settings-shell-stat">
-                        <MudText Typo="Typo.overline" Class="settings-shell-stat-label">Version</MudText>
-                        <MudText Typo="Typo.h6" Class="settings-shell-stat-value">@(_systemStatus?.Version ?? "Unavailable")</MudText>
-                    </MudPaper>
-                </MudItem>
-            </MudGrid>
-
-            <MudTabs ActivePanelIndex="@ActiveGroupIndex"
-                     ActivePanelIndexChanged="@OnPrimaryTabChanged"
-                     Rounded="false"
-                     Border="false"
-                     Elevation="0"
-                     Class="settings-shell-tabs settings-shell-tabs--primary">
-                @foreach (var group in VisibleGroups)
-                {
-                    <MudTabPanel Text="@FormatGroupLabel(group)" Icon="@group.Icon" />
-                }
-            </MudTabs>
-
-            @if (CurrentGroupItems.Count > 1)
-            {
-                <MudTabs ActivePanelIndex="@ActiveSectionIndex"
-                         ActivePanelIndexChanged="@OnSecondaryTabChanged"
-                         Rounded="false"
-                         Border="false"
-                         Elevation="0"
-                         SliderColor="Color.Secondary"
-                         Class="settings-shell-tabs settings-shell-tabs--secondary">
-                    @foreach (var item in CurrentGroupItems)
-                    {
-                        <MudTabPanel Text="@FormatItemLabel(item)" Icon="@item.Icon" />
-                    }
-                </MudTabs>
-            }
-        </MudStack>
-    </MudPaper>
-
-    <MudPaper Elevation="0" Class="settings-shell-panel">
-        @switch (_activeSection)
+<SidebarPageShell Class="settings-admin-shell">
+    <Rail>
+        @foreach (var group in VisibleTreeGroups)
         {
-            case SettingsSection.Overview:
-                <OverviewTab ReviewCount="_reviewCount" />
-                break;
-            case SettingsSection.Review:
-                <LibraryPage ReviewOnly="true"
-                             ShowReviewOverview="false"
-                             HideTitleRow="true"
-                             ReviewRoute="/settings/review" />
-                break;
-            case SettingsSection.Profile:
-                <ProfileTab />
-                break;
-            case SettingsSection.Playback:
-                <PlaybackTab />
-                break;
-            case SettingsSection.Folders:
-                <LibrariesTab />
-                break;
-            case SettingsSection.Providers:
-                <ProviderPriorityTab />
-                break;
-            case SettingsSection.Wikidata:
-                <WikidataConfigTab />
-                break;
-            case SettingsSection.Models:
-                <ModelsTab />
-                break;
-            case SettingsSection.Features:
-                <AiFeaturesTab />
-                break;
-            case SettingsSection.Vocabulary:
-                <VibeVocabularyTab />
-                break;
-            case SettingsSection.Schedule:
-                <AiScheduleTab />
-                break;
-            case SettingsSection.System:
-                <SystemTab />
-                break;
-            case SettingsSection.Security:
-                <SecurityTab />
-                break;
-            case SettingsSection.Users:
-                <UsersTab />
-                break;
-            case SettingsSection.Activity:
-                <ActivityTab />
-                break;
-            case SettingsSection.Encode:
-                <EncodeSettingsTab />
-                break;
-            case SettingsSection.OfflineDownloads:
-                <OfflineDownloadsTab />
-                break;
-            case SettingsSection.Maintenance:
-                <MaintenanceTab />
-                break;
-            case SettingsSection.Setup:
-                <SetupTab />
-                break;
+            <SidebarNavGroup Label="@group.Label"
+                             Icon="@group.Icon"
+                             Expandable="@group.Expandable"
+                             Expanded="@IsTreeGroupActive(group)"
+                             BadgeCount="@GetGroupBadgeCount(group)">
+                @foreach (var item in SettingsNav.FilteredTreeItems(group, _currentRole))
+                {
+                    <SidebarNavItem Label="@item.Label"
+                                    Icon="@item.Icon"
+                                    Href="@SettingsNav.RouteFor(item.Value)"
+                                    Active="@(item.Value == _activeSection)"
+                                    Child="@(group.Sections.Count > 1)"
+                                    BadgeCount="@GetBadgeCount(item)"
+                                    Meta="@GetItemMeta(item)" />
+                }
+            </SidebarNavGroup>
         }
-    </MudPaper>
-</div>
+    </Rail>
+
+    <Header>
+        <SidebarPageHeader Eyebrow="@CurrentGroup.Label"
+                           Title="@GetHeroTitle()"
+                           Subtitle="@GetSectionDescription(_activeSection)"
+                           Status="@GetStatusLabel()"
+                           Healthy="@(_systemStatus?.IsHealthy == true)">
+            <Actions>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.RateReview"
+                           Href="/settings/review">
+                    Review @_reviewCount
+                </MudButton>
+            </Actions>
+        </SidebarPageHeader>
+    </Header>
+
+    <ChildContent>
+        <MudPaper Elevation="0" Class="settings-admin-panel">
+            @switch (_activeSection)
+            {
+                case SettingsSection.Overview:
+                    <OverviewTab ReviewCount="_reviewCount" />
+                    break;
+                case SettingsSection.Review:
+                    <SettingsReviewQueueTab />
+                    break;
+                case SettingsSection.Profile:
+                    <ProfileTab />
+                    break;
+                case SettingsSection.Playback:
+                    <PlaybackTab />
+                    break;
+                case SettingsSection.Folders:
+                    <LibrariesTab />
+                    break;
+                case SettingsSection.Metadata:
+                    <SettingsCatalogTab />
+                    break;
+                case SettingsSection.Providers:
+                    <ProviderPriorityTab />
+                    break;
+                case SettingsSection.Wikidata:
+                    <WikidataConfigTab />
+                    break;
+                case SettingsSection.Models:
+                    <ModelsTab />
+                    break;
+                case SettingsSection.Features:
+                    <AiFeaturesTab />
+                    break;
+                case SettingsSection.Vocabulary:
+                    <VibeVocabularyTab />
+                    break;
+                case SettingsSection.Schedule:
+                    <AiScheduleTab />
+                    break;
+                case SettingsSection.System:
+                    <SystemTab />
+                    break;
+                case SettingsSection.Security:
+                    <SecurityTab />
+                    break;
+                case SettingsSection.Users:
+                    <UsersTab />
+                    break;
+                case SettingsSection.Activity:
+                    <ActivityTab />
+                    break;
+                case SettingsSection.Registry:
+                    <SettingsRegistryTab />
+                    break;
+                case SettingsSection.Encode:
+                    <EncodeSettingsTab />
+                    break;
+                case SettingsSection.OfflineDownloads:
+                    <OfflineDownloadsTab />
+                    break;
+                case SettingsSection.Maintenance:
+                    <MaintenanceTab />
+                    break;
+                case SettingsSection.Setup:
+                    <SetupTab />
+                    break;
+            }
+        </MudPaper>
+    </ChildContent>
+</SidebarPageShell>
 
 <CuratorsDrawer Open="@_drawerOpen"
                 OpenChanged="@OnDrawerOpenChanged"
@@ -178,12 +144,11 @@
     private Guid _drawerEntityId;
     private string _drawerTitle = string.Empty;
 
-    private IReadOnlyList<SettingsGroupDef> VisibleGroups => SettingsNav.FilteredGroups(_currentRole).ToList();
+    private IReadOnlyList<SettingsTreeGroupDef> VisibleTreeGroups =>
+        SettingsNav.FilteredTreeGroups(_currentRole).ToList();
+
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
-    private IReadOnlyList<SettingsItemDef> CurrentGroupItems => SettingsNav.FilteredItems(CurrentGroup, _currentRole);
     private string BrowserTitle => $"{GetHeroTitle()} - Tuvima Library";
-    private int ActiveGroupIndex => Math.Max(0, VisibleGroups.ToList().FindIndex(group => string.Equals(group.Key, CurrentGroup.Key, StringComparison.OrdinalIgnoreCase)));
-    private int ActiveSectionIndex => Math.Max(0, CurrentGroupItems.ToList().FindIndex(item => item.Value == _activeSection));
 
     protected override async Task OnInitializedAsync()
     {
@@ -275,29 +240,6 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private async Task OnPrimaryTabChanged(int index)
-    {
-        if (index < 0 || index >= VisibleGroups.Count)
-        {
-            return;
-        }
-
-        var targetGroup = VisibleGroups[index];
-        Nav.NavigateTo(SettingsNav.RouteFor(targetGroup.DefaultSection));
-        await Task.CompletedTask;
-    }
-
-    private async Task OnSecondaryTabChanged(int index)
-    {
-        if (index < 0 || index >= CurrentGroupItems.Count)
-        {
-            return;
-        }
-
-        Nav.NavigateTo(SettingsNav.RouteFor(CurrentGroupItems[index].Value));
-        await Task.CompletedTask;
-    }
-
     private async Task OnDrawerOpenChanged(bool open)
     {
         _drawerOpen = open;
@@ -310,27 +252,28 @@
         StateHasChanged();
     }
 
+    private bool IsTreeGroupActive(SettingsTreeGroupDef group) =>
+        group.Sections.Contains(_activeSection);
+
+    private int GetGroupBadgeCount(SettingsTreeGroupDef group) =>
+        group.Sections.Select(SettingsNav.GetItem).Sum(GetBadgeCount);
+
     private int GetBadgeCount(SettingsItemDef item) =>
         string.Equals(item.BadgeKey, "review", StringComparison.OrdinalIgnoreCase)
             ? _reviewCount
             : 0;
 
-    private string FormatGroupLabel(SettingsGroupDef group)
+    private static string? GetItemMeta(SettingsItemDef item)
     {
-        var badgeCount = GetBadgeCount(SettingsNav.GetItem(group.DefaultSection));
-        return badgeCount > 0 ? $"{group.Label} ({badgeCount})" : group.Label;
+        if (item.Deprecated)
+        {
+            return "Deprecated";
+        }
+
+        return item.Placeholder ? "Planned" : null;
     }
 
-    private string FormatItemLabel(SettingsItemDef item)
-    {
-        var badgeCount = GetBadgeCount(item);
-        return badgeCount > 0 ? $"{item.Label} ({badgeCount})" : item.Label;
-    }
-
-    private string GetHeroTitle() =>
-        _activeSection == SettingsSection.Overview
-            ? "Settings"
-            : SettingsNav.GetItem(_activeSection).Label;
+    private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
 
     private string GetStatusLabel()
     {
@@ -342,25 +285,16 @@
         return _systemStatus?.IsHealthy == true ? "Engine online" : "Engine unavailable";
     }
 
-    private Color GetStatusColor()
-    {
-        if (_shellStateLoading)
-        {
-            return Color.Default;
-        }
-
-        return _systemStatus?.IsHealthy == true ? Color.Success : Color.Warning;
-    }
-
     private static string GetSectionDescription(SettingsSection section) => section switch
     {
-        SettingsSection.Overview => "Operational overview for ingestion, review, and library readiness.",
+        SettingsSection.Overview => "Monitor system health, library status, provider coverage, and review work.",
         SettingsSection.Review => "Resolve uncertain matches and keep the ingestion queue moving.",
         SettingsSection.Profile => "Account identity, locale, and personal defaults.",
-        SettingsSection.Playback => "Default behavior for the built-in readers and players.",
-        SettingsSection.Folders => "Watch paths, library roots, and file organization settings.",
+        SettingsSection.Playback => "Default behavior for built-in readers and players where persistence exists.",
+        SettingsSection.Folders => "Watch paths, library roots, source libraries, and organization templates.",
+        SettingsSection.Metadata => "Configuration catalog for media types, scoring, hydration, field priorities, and pipelines.",
         SettingsSection.Providers => "Provider priority, credentials, and enrichment coverage.",
-        SettingsSection.Wikidata => "Identity resolution and Stage 3 universe enrichment controls.",
+        SettingsSection.Wikidata => "Wikidata provider and universe enrichment controls.",
         SettingsSection.Models => "Installed AI models and runtime choices.",
         SettingsSection.Features => "Feature flags and AI workflow controls.",
         SettingsSection.Vocabulary => "Vocabulary tuning for vibe and recommendation features.",
@@ -368,6 +302,7 @@
         SettingsSection.System => "Live server health and core runtime settings.",
         SettingsSection.Security => "Connection rules, API keys, and access controls.",
         SettingsSection.Users => "Profiles, roles, and user management.",
+        SettingsSection.Registry => "Operational records, audit state, and durable queues.",
         SettingsSection.Activity => "Recent operational history and retention.",
         SettingsSection.Encode => "Transcoding, scheduled encode, and generated variant controls.",
         SettingsSection.OfflineDownloads => "Prepared mobile downloads, queue status, and variant cleanup.",

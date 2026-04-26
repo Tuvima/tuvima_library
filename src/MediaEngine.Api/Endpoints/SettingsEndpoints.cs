@@ -1133,6 +1133,79 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
+        grp.MapGet("/catalog", () => Results.Ok(new[]
+        {
+            new
+            {
+                key = "core",
+                label = "Core runtime",
+                source = "config/core.json",
+                owner = "json",
+                editable = true,
+                role = "Administrator",
+                restart_required = false,
+                deprecated = false,
+            },
+            new
+            {
+                key = "libraries",
+                label = "Libraries",
+                source = "config/libraries.json",
+                owner = "json",
+                editable = true,
+                role = "Administrator",
+                restart_required = false,
+                deprecated = false,
+            },
+            new
+            {
+                key = "providers",
+                label = "Providers",
+                source = "config/providers/*.json + config/secrets/*.json",
+                owner = "json",
+                editable = true,
+                role = "Administrator",
+                restart_required = false,
+                deprecated = false,
+            },
+            new
+            {
+                key = "metadata",
+                label = "Metadata behavior",
+                source = "config/media_types.json, config/scoring.json, config/hydration.json, config/pipelines.json, config/field_priorities.json",
+                owner = "json",
+                editable = true,
+                role = "Administrator",
+                restart_required = false,
+                deprecated = false,
+            },
+            new
+            {
+                key = "operational-state",
+                label = "Operational state",
+                source = "SQLite: profiles, api_keys, provider_health, review_queue, system_activity, encode_jobs",
+                owner = "sqlite",
+                editable = false,
+                role = "Administrator",
+                restart_required = false,
+                deprecated = false,
+            },
+            new
+            {
+                key = "ui-palette",
+                label = "UI palette and accent customization",
+                source = "config/ui/palette.json and accent_color fields",
+                owner = "internal",
+                editable = false,
+                role = "None",
+                restart_required = false,
+                deprecated = true,
+            },
+        }))
+        .WithName("GetSettingsCatalog")
+        .WithSummary("Returns the canonical settings source-of-truth catalog.")
+        .RequireAdminOrCurator();
+
         return app;
     }
 

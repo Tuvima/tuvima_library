@@ -14,9 +14,7 @@
 
 @{
     var layout       = DeviceContext.Settings.Pages.Preferences.GeneralTabLayout;
-    var swatchCount  = DeviceContext.Settings.Pages.Preferences.ColorSwatchCount;
     var showProfile  = !DeviceContext.IsFeatureDisabled("profile_section") && layout != "theme-only";
-    var showColorPicker = !DeviceContext.IsFeatureDisabled("color_picker") && layout != "theme-only";
     var showLocale   = !DeviceContext.IsFeatureDisabled("locale_section") && layout != "theme-only";
 
     var initials = _displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?";
@@ -96,24 +94,6 @@
                 </div>
 
             </div>
-
-            @* Avatar colour swatches *@
-            @if (showColorPicker)
-            {
-                <MudText Typo="Typo.subtitle2" Class="mb-1">@L["Profile_AvatarColour"]</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-                    @L["Profile_AvatarColourHint"]
-                </MudText>
-
-                <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-6">
-                    @foreach (var hex in _avatarPresets.Take(swatchCount))
-                    {
-                        <MudAvatar Size="Size.Medium"
-                                   Style="@AvatarSwatchStyle(hex)"
-                                   @onclick="@(() => { _avatarColor = hex; })" />
-                    }
-                </MudStack>
-            }
 
             <MudDivider Class="my-6" />
         }
@@ -255,12 +235,6 @@
 
     // ── Avatar colour presets ────────────────────────────────────────────────────
 
-    private static readonly string[] _avatarPresets =
-    [
-        "#7C4DFF", "#00BFA5", "#FF8F00", "#E91E63",
-        "#2196F3", "#4CAF50", "#FF5722", "#9C27B0",
-    ];
-
     // ── State ────────────────────────────────────────────────────────────────────
 
     private bool   _loading     = true;
@@ -388,11 +362,4 @@
 
     // ── Swatch styles ────────────────────────────────────────────────────────────
 
-    private string AvatarSwatchStyle(string hex)
-    {
-        bool isActive = _avatarColor.Equals(hex, StringComparison.OrdinalIgnoreCase);
-        return $"background: {hex}; cursor: pointer; " +
-               $"border: 3px solid {(isActive ? "var(--app-swatch-active)" : "var(--app-swatch-border)")}; " +
-               "transition: border 0.2s ease;";
-    }
 }

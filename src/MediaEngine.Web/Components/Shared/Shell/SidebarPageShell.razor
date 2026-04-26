@@ -1,0 +1,23 @@
+@namespace MediaEngine.Web.Components.Shared.Shell
+
+<div class="sidebar-page @Class">
+    <aside class="sidebar-rail">
+        @Rail
+    </aside>
+
+    <main class="sidebar-content">
+        @if (Header is not null)
+        {
+            @Header
+        }
+
+        @ChildContent
+    </main>
+</div>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+    [Parameter, EditorRequired] public RenderFragment Rail { get; set; } = default!;
+    [Parameter] public RenderFragment? Header { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

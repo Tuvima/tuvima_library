@@ -71,7 +71,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void SettingsPage_RendersMudTabsAndSystemContent()
+    public void SettingsPage_RendersSharedSidebarAndSystemContent()
     {
         var cut = Render(builder =>
         {
@@ -88,9 +88,35 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(cut.FindAll(".mud-tabs"));
+            Assert.Single(cut.FindAll(".sidebar-page"));
+            Assert.Single(cut.FindAll(".sidebar-rail"));
+            Assert.Empty(cut.FindAll(".mud-tabs"));
             Assert.Contains("Runtime status", cut.Markup);
             Assert.Contains("Server identity and regional defaults", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void SettingsReviewPage_RendersDedicatedReviewList()
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2);
+            builder.CloseComponent();
+            builder.OpenComponent<Settings>(3);
+            builder.AddAttribute(4, nameof(Settings.Section), "review");
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Review Queue", cut.Markup);
+            Assert.Contains("Unmatched Album", cut.Markup);
+            Assert.Contains("Skip Universe", cut.Markup);
         });
     }
 
@@ -176,6 +202,7 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
+            Assert.Single(cut.FindAll(".sidebar-page"));
             Assert.Single(cut.FindAll(".listen-rail"));
             Assert.Empty(cut.FindAll(".listen-topbar__menu"));
             Assert.Empty(cut.FindAll(".listen-rail__close"));

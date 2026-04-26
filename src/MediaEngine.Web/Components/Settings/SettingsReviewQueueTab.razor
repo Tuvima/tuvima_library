@@ -1,0 +1,219 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+<div class="st-page settings-review-page">
+    <MudStack Spacing="3">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="settings-review-toolbar">
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.h6">Review Queue</MudText>
+                <MudText Typo="Typo.body2" Class="settings-muted">
+                    Pending items that need human confirmation before they move forward.
+                </MudText>
+            </MudStack>
+            <MudButton Variant="Variant.Outlined"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Outlined.Refresh"
+                       Disabled="@_loading"
+                       OnClick="LoadAsync">
+                Refresh
+            </MudButton>
+        </MudStack>
+
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Warning" />
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">@_error</MudAlert>
+        }
+
+        <MudTable Items="@_items"
+                  Dense="true"
+                  Hover="true"
+                  Elevation="0"
+                  Breakpoint="Breakpoint.Sm"
+                  Class="settings-review-table">
+            <HeaderContent>
+                <MudTh>Item</MudTh>
+                <MudTh>Reason</MudTh>
+                <MudTh>Evidence</MudTh>
+                <MudTh>Age</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Item">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <div class="settings-review-cover">
+                            @if (!string.IsNullOrWhiteSpace(context.CoverUrl))
+                            {
+                                <img src="@context.CoverUrl" alt="" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" Style="font-size: 20px;" />
+                            }
+                        </div>
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.subtitle2">@DisplayTitle(context)</MudText>
+                            <MudText Typo="Typo.caption" Class="settings-muted">@FirstNonBlank(context.MediaType, context.EntityType, "Unknown")</MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudTd>
+                <MudTd DataLabel="Reason">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">
+                        @FormatTrigger(context.Trigger)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Evidence">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body2">@ConfidenceLabel(context.ConfidenceScore)</MudText>
+                        <MudText Typo="Typo.caption" Class="settings-muted">@BridgeSummary(context)</MudText>
+                    </MudStack>
+                </MudTd>
+                <MudTd DataLabel="Age">
+                    <MudText Typo="Typo.body2">@RelativeAge(context.CreatedAt)</MudText>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudStack Row="true" Spacing="1">
+                        <MudButton Size="Size.Small"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   Href="@($"/registry/{context.EntityId}")">
+                            Open
+                        </MudButton>
+                        <MudButton Size="Size.Small"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Warning"
+                                   Disabled="@_busyIds.Contains(context.Id)"
+                                   OnClick="@(() => DismissAsync(context))">
+                            Dismiss
+                        </MudButton>
+                        <MudButton Size="Size.Small"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   Disabled="@_busyIds.Contains(context.Id)"
+                                   OnClick="@(() => SkipUniverseAsync(context))">
+                            Skip Universe
+                        </MudButton>
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="settings-review-empty">
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 42px; opacity: 0.44;" />
+                    <MudText Typo="Typo.subtitle2">No pending review items</MudText>
+                    <MudText Typo="Typo.body2" Class="settings-muted">The ingestion safety queue is clear.</MudText>
+                </MudStack>
+            </NoRecordsContent>
+        </MudTable>
+    </MudStack>
+</div>
+
+@code {
+    private List<ReviewItemViewModel> _items = [];
+    private readonly HashSet<Guid> _busyIds = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _items = await Orchestrator.GetPendingReviewsAsync(200);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Review queue could not load: {ex.Message}";
+            _items = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DismissAsync(ReviewItemViewModel item)
+    {
+        _busyIds.Add(item.Id);
+        try
+        {
+            if (await Orchestrator.DismissReviewAsync(item.Id))
+            {
+                _items.Remove(item);
+                Snackbar.Add("Review item dismissed.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Review item could not be dismissed.", Severity.Warning);
+            }
+        }
+        finally
+        {
+            _busyIds.Remove(item.Id);
+        }
+    }
+
+    private async Task SkipUniverseAsync(ReviewItemViewModel item)
+    {
+        _busyIds.Add(item.Id);
+        try
+        {
+            if (await Orchestrator.SkipUniverseAsync(item.Id))
+            {
+                _items.Remove(item);
+                Snackbar.Add("Universe matching skipped for this item.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Universe matching could not be skipped.", Severity.Warning);
+            }
+        }
+        finally
+        {
+            _busyIds.Remove(item.Id);
+        }
+    }
+
+    private static string DisplayTitle(ReviewItemViewModel item) =>
+        FirstNonBlank(item.EntityTitle, item.Detail, item.EntityId.ToString());
+
+    private static string FormatTrigger(string trigger) =>
+        string.IsNullOrWhiteSpace(trigger)
+            ? "Review"
+            : string.Concat(trigger.Select((c, i) => i > 0 && char.IsUpper(c) ? $" {c}" : c.ToString()));
+
+    private static string ConfidenceLabel(double? confidence) =>
+        confidence.HasValue ? $"{confidence.Value:P0} confidence" : "No confidence score";
+
+    private static string BridgeSummary(ReviewItemViewModel item)
+    {
+        if (item.BridgeIdentifiers.Count == 0)
+        {
+            return "No bridge IDs";
+        }
+
+        return string.Join(", ", item.BridgeIdentifiers.Take(3).Select(kv => $"{kv.Key}: {kv.Value}"));
+    }
+
+    private static string RelativeAge(DateTimeOffset createdAt)
+    {
+        var elapsed = DateTimeOffset.UtcNow - createdAt;
+        return elapsed.TotalMinutes switch
+        {
+            < 1 => "just now",
+            < 60 => $"{(int)elapsed.TotalMinutes}m",
+            < 1440 => $"{(int)elapsed.TotalHours}h",
+            _ => $"{(int)elapsed.TotalDays}d",
+        };
+    }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+}

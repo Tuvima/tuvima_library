@@ -38,8 +38,9 @@ else if (!string.IsNullOrWhiteSpace(_error))
 }
 else
 {
-    <div class="listen-page">
-        <aside class="listen-rail">
+    <SidebarPageShell Class="listen-page">
+        <Rail>
+        <div class="listen-rail">
             @if (IsMusicMode)
             {
                 <section class="listen-rail__section">
@@ -163,8 +164,10 @@ else
                     }
                 </section>
             }
-        </aside>
+        </div>
+        </Rail>
 
+        <ChildContent>
         <main class="listen-content">
             <header class="listen-topbar">
                 <div class="listen-topbar__identity">
@@ -1010,5 +1013,6 @@ else
             <button type="button" class="listen-context-menu__dismiss" @onclick="@(() => CloseTrackContextMenu())" aria-label="Close context menu"></button>
         }
 
-    </div>
+        </ChildContent>
+    </SidebarPageShell>
 }

@@ -146,17 +146,6 @@
             <MudSelectItem Value="@("Consumer")">@L["Users_RoleConsumer"]</MudSelectItem>
         </MudSelect>
 
-        @* Avatar colour *@
-        <MudText Typo="Typo.subtitle2" Class="mb-1">@L["Users_AvatarColour"]</MudText>
-        <MudStack Row="true" Spacing="2" Style="flex-wrap: wrap;" Class="mb-2">
-            @foreach (var hex in _avatarPresets)
-            {
-                <MudAvatar Size="Size.Medium"
-                           Style="@CreateSwatchStyle(hex)"
-                           @onclick="@(() => { _newAvatarColor = hex; })" />
-            }
-        </MudStack>
-
         @* Preview *@
         <MudStack AlignItems="AlignItems.Center" Class="mt-4">
             <MudAvatar Size="Size.Large"
@@ -278,12 +267,6 @@
         "border: 1px solid var(--app-glass-inner-border); " +
         "border-radius: 8px; " +
         "padding: 12px;";
-
-    private static readonly string[] _avatarPresets =
-    [
-        "#7C4DFF", "#00BFA5", "#FF8F00", "#E91E63",
-        "#2196F3", "#4CAF50", "#FF5722", "#9C27B0",
-    ];
 
     // ── View model used in the table ─────────────────────────────────────────────
 
@@ -539,11 +522,4 @@
         _newLoginDisplayName = null;
     }
 
-    private string CreateSwatchStyle(string hex)
-    {
-        bool isActive = _newAvatarColor.Equals(hex, StringComparison.OrdinalIgnoreCase);
-        return $"background: {hex}; cursor: pointer; " +
-               $"border: 3px solid {(isActive ? "var(--app-swatch-active)" : "var(--app-swatch-border)")}; " +
-               "transition: border 0.2s ease;";
-    }
 }

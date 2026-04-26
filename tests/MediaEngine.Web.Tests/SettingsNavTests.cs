@@ -15,6 +15,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Profile, "/settings/profile")]
     [InlineData(SettingsSection.Playback, "/settings/playback")]
     [InlineData(SettingsSection.Folders, "/settings/folders")]
+    [InlineData(SettingsSection.Metadata, "/settings/metadata")]
     [InlineData(SettingsSection.Providers, "/settings/providers")]
     [InlineData(SettingsSection.Wikidata, "/settings/wikidata")]
     [InlineData(SettingsSection.Models, "/settings/models")]
@@ -27,6 +28,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Activity, "/settings/activity")]
     [InlineData(SettingsSection.Maintenance, "/settings/maintenance")]
     [InlineData(SettingsSection.Setup, "/settings/setup")]
+    [InlineData(SettingsSection.Registry, "/settings/registry")]
     public void ResolveRoute_CanonicalSegments_AreStable(SettingsSection section, string expectedRoute)
     {
         var segment = expectedRoute.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
@@ -60,13 +62,14 @@ public sealed class SettingsNavTests
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/settings", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
-        Assert.False(resolution.IsKnownRoute);
+        Assert.True(resolution.IsKnownRoute);
         Assert.True(resolution.ShouldRedirect);
     }
 
     [Theory]
     [InlineData("general", SettingsSection.Profile, "/settings/profile")]
     [InlineData("library", SettingsSection.Folders, "/settings/folders")]
+    [InlineData("mediatypes", SettingsSection.Metadata, "/settings/metadata")]
     [InlineData("connections", SettingsSection.Providers, "/settings/providers")]
     [InlineData("provider-priority", SettingsSection.Providers, "/settings/providers")]
     [InlineData("universe", SettingsSection.Wikidata, "/settings/wikidata")]
@@ -91,8 +94,8 @@ public sealed class SettingsNavTests
     {
         var resolution = SettingsNav.ResolveRoute("providers", "Viewer");
 
-        Assert.Equal(SettingsSection.Overview, resolution.Section);
-        Assert.Equal("/settings", resolution.CanonicalRoute);
+        Assert.Equal(SettingsSection.Review, resolution.Section);
+        Assert.Equal("/settings/review", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
         Assert.True(resolution.IsKnownRoute);
         Assert.False(resolution.RequestedSectionAllowed);
@@ -104,17 +107,26 @@ public sealed class SettingsNavTests
     {
         var groups = SettingsNav.FilteredGroups("Viewer").Select(group => group.Key).ToArray();
 
-        Assert.Equal(["overview", "review", "personal"], groups);
+        Assert.Equal(["user"], groups);
+    }
+
+    [Fact]
+    public void FilteredTreeGroups_Admin_RendersCentralizedSettingsTree()
+    {
+        var groups = SettingsNav.FilteredTreeGroups("Administrator").Select(group => group.Key).ToArray();
+
+        Assert.Equal(["user", "admin", "library", "metadata", "providers", "ai", "server", "registry"], groups);
     }
 
     [Theory]
-    [InlineData("overview", SettingsSection.Overview, "/settings")]
-    [InlineData("review", SettingsSection.Review, "/settings/review")]
-    [InlineData("personal", SettingsSection.Profile, "/settings/profile")]
+    [InlineData("admin", SettingsSection.Overview, "/settings")]
+    [InlineData("user", SettingsSection.Profile, "/settings/profile")]
     [InlineData("library", SettingsSection.Folders, "/settings/folders")]
+    [InlineData("metadata", SettingsSection.Metadata, "/settings/metadata")]
     [InlineData("providers", SettingsSection.Providers, "/settings/providers")]
     [InlineData("ai", SettingsSection.Models, "/settings/models")]
     [InlineData("server", SettingsSection.System, "/settings/system")]
+    [InlineData("registry", SettingsSection.Registry, "/settings/registry")]
     public void GroupDefaults_ResolveToExpectedCanonicalRoutes(string groupKey, SettingsSection expectedSection, string expectedRoute)
     {
         var section = SettingsNav.GetDefaultSection(groupKey);
