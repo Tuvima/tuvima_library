@@ -953,6 +953,33 @@ public sealed class CollectionRepository : ICollectionRepository
             new { Id = itemId.ToString() });
     }
 
+    /// <inheritdoc/>
+    public async Task ReorderCollectionItemsAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        using var tx = conn.BeginTransaction();
+
+        for (var index = 0; index < itemIds.Count; index++)
+        {
+            await conn.ExecuteAsync(
+                """
+                UPDATE collection_items
+                SET sort_order = @SortOrder
+                WHERE id = @Id AND collection_id = @CollectionId
+                """,
+                new
+                {
+                    Id = itemIds[index].ToString(),
+                    CollectionId = collectionId.ToString(),
+                    SortOrder = index + 1,
+                },
+                tx);
+        }
+
+        tx.Commit();
+    }
+
     // -------------------------------------------------------------------------
     // Content Groups — Universe collections that contain works (albums, series, etc.)
     // -------------------------------------------------------------------------

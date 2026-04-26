@@ -19,7 +19,7 @@ public sealed class CollectionEditorLauncherService
         var isSmartPlaylist = string.Equals(request.Mode, "SmartPlaylist", StringComparison.OrdinalIgnoreCase);
 
         var dialog = await _dialogService.ShowAsync<CollectionEditorShell>(
-            request.EditingCollection is null ? DialogTitleFor(request) : "Edit Collection",
+            request.EditingCollection is null ? DialogTitleFor(request) : EditDialogTitleFor(request),
             new DialogParameters
             {
                 { nameof(CollectionEditorShell.Request), request },
@@ -47,5 +47,13 @@ public sealed class CollectionEditorLauncherService
             "Playlist" => "New Playlist",
             "SmartPlaylist" => "New Smart Playlist",
             _ => "New Collection",
+        };
+
+    private static string EditDialogTitleFor(CollectionEditorLaunchRequest request) =>
+        request.Mode switch
+        {
+            "Playlist" => "Edit Playlist",
+            "SmartPlaylist" => "Edit Smart Playlist",
+            _ => "Edit Collection",
         };
 }

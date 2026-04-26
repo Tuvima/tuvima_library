@@ -166,6 +166,9 @@ public interface ICollectionRepository
     /// <summary>Removes a curated item from a collection.</summary>
     Task RemoveCollectionItemAsync(Guid itemId, CancellationToken ct = default);
 
+    /// <summary>Persists the display order for curated collection items.</summary>
+    Task ReorderCollectionItemsAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken ct = default);
+
     /// <summary>
     /// Returns Universe-type collections that have at least one child Work assigned.
     /// These are Content Groups: albums, TV series, book series, movie series.

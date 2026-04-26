@@ -4417,6 +4417,22 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<bool> ReorderCollectionItemsAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, Guid? profileId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/items/reorder", profileId);
+            var resp = await _http.PutAsJsonAsync(url, new { item_ids = itemIds }, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /collections/{CollectionId}/items/reorder failed", collectionId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     public async Task<bool> UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default)
     {
         try

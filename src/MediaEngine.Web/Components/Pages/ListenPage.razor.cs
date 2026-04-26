@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
@@ -99,12 +98,6 @@ public partial class ListenPage
     private double _trackContextMenuX;
     private double _trackContextMenuY;
     private bool _playlistsExpanded = true;
-    private bool _playlistEditOpen;
-    private bool _playlistSaving;
-    private string _playlistEditName = string.Empty;
-    private string _playlistEditDescription = string.Empty;
-    private IBrowserFile? _playlistArtworkFile;
-    private string? _playlistArtworkPreviewUrl;
     private string? _playlistNavigationConfig;
     private List<Guid> _playlistOrder = [];
     private Guid? _draggingPlaylistId;
@@ -152,6 +145,7 @@ public partial class ListenPage
     private IReadOnlyList<CollectionGroupSeasonViewModel> ArtistAlbums => _artistDetail?.Seasons ?? [];
     private IReadOnlyList<WorkViewModel> ArtistTracks => ResolveArtistTracks();
     private IReadOnlyList<WorkViewModel> ActivePlaylistTracks => ResolveActivePlaylistTracks();
+    private IReadOnlyList<ListenPlaylistTrackRow> ActivePlaylistTrackRows => ResolveActivePlaylistTrackRows();
     private IReadOnlyList<ContentGroupViewModel> FilteredAlbumGroups => ApplyAlbumFilters();
     private IReadOnlyList<ContentGroupViewModel> FilteredArtistGroups => ApplyArtistFilters();
     private IReadOnlyList<string> PlaylistCoverUrls => ActivePlaylistTracks.Select(track => track.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Distinct().Cast<string>().Take(4).ToList();
@@ -625,114 +619,23 @@ public partial class ListenPage
         }
     }
 
-    private void OpenPlaylistEditor()
+    private async Task OpenPlaylistEditorDialog()
     {
         if (ActivePlaylistCollection is null)
             return;
 
-        _playlistEditName = ActivePlaylistCollection.Name;
-        _playlistEditDescription = ActivePlaylistCollection.Description ?? string.Empty;
-        _playlistArtworkFile = null;
-        _playlistArtworkPreviewUrl = null;
-        _playlistEditOpen = true;
-    }
-
-    private void ClosePlaylistEditor()
-    {
-        _playlistEditOpen = false;
-        _playlistArtworkFile = null;
-        _playlistArtworkPreviewUrl = null;
-    }
-
-    private async Task OnPlaylistArtworkSelected(InputFileChangeEventArgs args)
-    {
-        var file = args.File;
-        _playlistArtworkFile = file;
-        try
+        var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
         {
-            await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            _playlistArtworkPreviewUrl = $"data:{(file.ContentType ?? "image/jpeg")};base64,{Convert.ToBase64String(ms.ToArray())}";
-        }
-        catch
-        {
-            _playlistArtworkPreviewUrl = null;
-            Snackbar.Add("Artwork preview could not be loaded.", Severity.Warning);
-        }
-    }
+            ActiveProfileId = _activeProfileId,
+            CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
+            EditingCollection = ToCollectionEditorItem(ActivePlaylistCollection),
+            Mode = string.Equals(ActivePlaylistCollection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
+                ? "SmartPlaylist"
+                : "Playlist",
+        });
 
-    private async Task SavePlaylistEditorAsync()
-    {
-        if (ActivePlaylistCollection is null)
-            return;
-
-        _playlistSaving = true;
-        try
-        {
-            var updated = await ApiClient.UpdateCollectionAsync(
-                ActivePlaylistCollection.Id,
-                string.IsNullOrWhiteSpace(_playlistEditName) ? ActivePlaylistCollection.Name : _playlistEditName.Trim(),
-                _playlistEditDescription.Trim(),
-                ActivePlaylistCollection.IconName,
-                rules: null,
-                matchMode: null,
-                visibility: ActivePlaylistCollection.Visibility,
-                sortField: null,
-                sortDirection: null,
-                liveUpdating: null,
-                isEnabled: null,
-                isFeatured: null,
-                profileId: _activeProfileId);
-
-            if (!updated)
-            {
-                Snackbar.Add("Playlist details could not be saved.", Severity.Warning);
-                return;
-            }
-
-            if (_playlistArtworkFile is not null)
-            {
-                await using var stream = _playlistArtworkFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-                var uploaded = await ApiClient.UploadCollectionSquareArtworkAsync(
-                    ActivePlaylistCollection.Id,
-                    stream,
-                    _playlistArtworkFile.Name,
-                    _activeProfileId);
-
-                if (!uploaded)
-                {
-                    Snackbar.Add("Playlist artwork could not be uploaded.", Severity.Warning);
-                    return;
-                }
-            }
-
-            Snackbar.Add("Playlist updated.", Severity.Success);
-            ClosePlaylistEditor();
+        if (changed)
             await LoadAsync();
-        }
-        finally
-        {
-            _playlistSaving = false;
-        }
-    }
-
-    private async Task ClearPlaylistArtworkAsync()
-    {
-        if (ActivePlaylistCollection is null)
-            return;
-
-        var cleared = await ApiClient.DeleteCollectionSquareArtworkAsync(ActivePlaylistCollection.Id, _activeProfileId);
-        if (cleared)
-        {
-            Snackbar.Add("Playlist artwork cleared.", Severity.Success);
-            ClosePlaylistEditor();
-            await LoadAsync();
-        }
-        else
-        {
-            Snackbar.Add("Playlist artwork could not be cleared.", Severity.Warning);
-        }
     }
 
     private async Task ReloadAsync() => await LoadAsync();
@@ -996,6 +899,10 @@ public partial class ListenPage
         => (IsDefaultEntry && string.Equals(route, MusicHomeRoute, StringComparison.OrdinalIgnoreCase))
            || string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase)
            || CurrentPath.StartsWith(route + "/", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsRouteActiveExact(string route)
+        => (IsDefaultEntry && string.Equals(route, MusicHomeRoute, StringComparison.OrdinalIgnoreCase))
+           || string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase);
 
     private async Task PlaySingleWorkAsync(WorkViewModel work, string sourceLabel)
     {
@@ -1626,6 +1533,80 @@ public partial class ListenPage
             .ToList();
     }
 
+    private IReadOnlyList<ListenPlaylistTrackRow> ResolveActivePlaylistTrackRows()
+    {
+        if (!string.IsNullOrWhiteSpace(PlaylistKey))
+        {
+            return ActivePlaylistTracks
+                .Select((work, index) => new ListenPlaylistTrackRow(null, work, index))
+                .ToList();
+        }
+
+        return _playlistItems
+            .OrderBy(item => item.SortOrder)
+            .Select((item, index) =>
+            {
+                var work = _workLookup.GetValueOrDefault(item.WorkId);
+                return work is null ? null : new ListenPlaylistTrackRow(item, work, index);
+            })
+            .Where(row => row is not null)
+            .Cast<ListenPlaylistTrackRow>()
+            .ToList();
+    }
+
+    private async Task MovePlaylistTrackAsync(Guid itemId, int direction)
+    {
+        if (ActivePlaylistCollection is null)
+            return;
+
+        var orderedItems = _playlistItems.OrderBy(item => item.SortOrder).ToList();
+        var currentIndex = orderedItems.FindIndex(item => item.Id == itemId);
+        if (currentIndex < 0)
+            return;
+
+        var targetIndex = Math.Clamp(currentIndex + direction, 0, orderedItems.Count - 1);
+        if (targetIndex == currentIndex)
+            return;
+
+        var moved = orderedItems[currentIndex];
+        orderedItems.RemoveAt(currentIndex);
+        orderedItems.Insert(targetIndex, moved);
+
+        var saved = await ApiClient.ReorderCollectionItemsAsync(
+            ActivePlaylistCollection.Id,
+            orderedItems.Select(item => item.Id).ToList(),
+            _activeProfileId);
+
+        if (!saved)
+        {
+            Snackbar.Add("Playlist order could not be saved.", Severity.Warning);
+            return;
+        }
+
+        _playlistItems.Clear();
+        for (var index = 0; index < orderedItems.Count; index++)
+        {
+            orderedItems[index].SortOrder = index + 1;
+            _playlistItems.Add(orderedItems[index]);
+        }
+    }
+
+    private async Task RemovePlaylistTrackAsync(Guid itemId)
+    {
+        if (ActivePlaylistCollection is null)
+            return;
+
+        var removed = await ApiClient.RemoveCollectionItemAsync(ActivePlaylistCollection.Id, itemId, _activeProfileId);
+        if (!removed)
+        {
+            Snackbar.Add("Song could not be removed from the playlist.", Severity.Warning);
+            return;
+        }
+
+        _playlistItems.RemoveAll(item => item.Id == itemId);
+        Snackbar.Add("Song removed from playlist.", Severity.Success);
+    }
+
     private IReadOnlyList<WorkViewModel> SortSongs(IEnumerable<WorkViewModel> works)
     {
         var ordered = NormalizeSongSortColumn(_songSortColumn) switch
@@ -1780,6 +1761,31 @@ public partial class ListenPage
     private static bool CanAcceptPlaylistItems(ManagedCollectionViewModel collection)
         => string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
 
+    private static CollectionListItemViewModel ToCollectionEditorItem(ManagedCollectionViewModel collection)
+        => new()
+        {
+            Id = collection.Id,
+            Name = collection.Name,
+            Description = collection.Description,
+            IconName = collection.IconName,
+            CollectionType = collection.CollectionType,
+            Resolution = collection.Resolution,
+            Scope = collection.Scope,
+            ProfileId = collection.ProfileId,
+            Visibility = collection.Visibility,
+            IsEnabled = collection.IsEnabled,
+            IsFeatured = collection.IsFeatured,
+            ItemCount = collection.ItemCount,
+            RuleJson = collection.RuleJson,
+            MatchMode = collection.MatchMode,
+            SortField = collection.SortField,
+            SortDirection = collection.SortDirection,
+            LiveUpdating = collection.LiveUpdating,
+            CoverUrl = collection.SquareArtworkUrl,
+            CreatedAt = collection.CreatedAt,
+            CanEdit = collection.CanEdit,
+        };
+
     private static string Pluralize(int count, string singular)
         => count == 1 ? $"1 {singular}" : $"{count} {singular}s";
 
@@ -1794,4 +1800,5 @@ public partial class ListenPage
 
     private sealed record ListenNavItem(string Label, string Route, string Icon, string? Meta = null, bool IsChild = false);
     private sealed record ListenPlaylistCard(string Title, string Type, string Meta, string Route, string Description, string? SquareArtworkUrl);
+    private sealed record ListenPlaylistTrackRow(CollectionItemViewModel? Item, WorkViewModel Work, int Index);
 }

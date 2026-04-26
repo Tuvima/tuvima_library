@@ -826,6 +826,9 @@ public interface IEngineApiClient
     /// <summary>DELETE /collections/{id}/items/{itemId} — remove a work from a playlist.</summary>
     Task<bool> RemoveCollectionItemAsync(Guid collectionId, Guid itemId, Guid? profileId = null, CancellationToken ct = default);
 
+    /// <summary>PUT /collections/{id}/items/reorder - persist playlist item ordering.</summary>
+    Task<bool> ReorderCollectionItemsAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, Guid? profileId = null, CancellationToken ct = default);
+
     /// <summary>PUT /collections/{id}/enabled — toggle collection enabled state.</summary>
     Task<bool> UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default);
 

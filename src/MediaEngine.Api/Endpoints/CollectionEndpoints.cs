@@ -2087,6 +2087,40 @@ public static class CollectionEndpoints
         .WithSummary("Removes a work from a saved/manual collection.")
         .RequireAnyRole();
 
+        group.MapPut("/{id:guid}/items/reorder", async (
+            Guid id,
+            CollectionItemReorderRequest body,
+            ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
+            CancellationToken ct) =>
+        {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
+            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
+                || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest("Only saved/manual collections support direct item ordering.");
+            }
+
+            var requestedIds = body.ItemIds.Where(itemId => itemId != Guid.Empty).Distinct().ToList();
+            var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
+            var existingIds = existingItems.Select(item => item.Id).ToHashSet();
+            if (requestedIds.Count != existingItems.Count || requestedIds.Any(itemId => !existingIds.Contains(itemId)))
+            {
+                return Results.BadRequest("item_ids must include every item in this collection exactly once.");
+            }
+
+            await collectionRepo.ReorderCollectionItemsAsync(id, requestedIds, ct);
+            return Results.Ok();
+        })
+        .WithName("ReorderCollectionItems")
+        .WithSummary("Reorders saved/manual collection items.")
+        .RequireAnyRole();
+
         // GET /collections/{id}/square-artwork — serve collection-owned square artwork.
         group.MapGet("/{id:guid}/square-artwork", async (
             Guid id,
