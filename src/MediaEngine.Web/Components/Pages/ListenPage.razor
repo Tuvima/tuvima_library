@@ -410,9 +410,11 @@ else
                                      DefaultSortDescending="false"
                                      OnPlayRequested="PlayTracksAsync"
                                      OnFavoriteToggled="ToggleFavoriteAsync"
+                                     OnQueueRequested="QueueTrackAsync"
+                                     OnEditRequested="EditTrackAsync"
+                                     OnDeleteRequested="DeleteTrackAsync"
                                      OnDragStarted="OnTrackDragStarted"
-                                     OnDragEnded="OnTrackDragEnded"
-                                     OnMenuRequested="OpenTrackMenuAsync" />
+                                     OnDragEnded="OnTrackDragEnded" />
                 </section>
             }
             else if (IsArtistsSurface)
@@ -615,9 +617,11 @@ else
                                                      DefaultSortDescending="false"
                                                      OnPlayRequested="PlayTracksAsync"
                                                      OnFavoriteToggled="ToggleFavoriteAsync"
+                                                     OnQueueRequested="QueueTrackAsync"
+                                                     OnEditRequested="EditTrackAsync"
+                                                     OnDeleteRequested="DeleteTrackAsync"
                                                      OnDragStarted="OnTrackDragStarted"
-                                                     OnDragEnded="OnTrackDragEnded"
-                                                     OnMenuRequested="OpenTrackMenuAsync" />
+                                                     OnDragEnded="OnTrackDragEnded" />
                                 }
                             </section>
                         }
@@ -665,9 +669,11 @@ else
                                          AriaLabel="Songs"
                                          OnPlayRequested="PlayTracksAsync"
                                          OnFavoriteToggled="ToggleFavoriteAsync"
+                                         OnQueueRequested="QueueTrackAsync"
+                                         OnEditRequested="EditTrackAsync"
+                                         OnDeleteRequested="DeleteTrackAsync"
                                          OnDragStarted="OnTrackDragStarted"
-                                         OnDragEnded="OnTrackDragEnded"
-                                         OnMenuRequested="OpenTrackMenuAsync" />
+                                         OnDragEnded="OnTrackDragEnded" />
                     }
                 </section>
             }
@@ -837,7 +843,7 @@ else
                                         <span class="listen-column-resizer" @onmousedown:stopPropagation="true" @onmousedown="@((args) => BeginColumnResize("playlist", "time", args.ClientX))"></span>
                                     </span>
                                 }
-                                <span role="columnheader" class="listen-playlist-track-list__actions-label">Actions</span>
+                                <span role="columnheader" class="listen-playlist-track-list__actions-label">Queue / Edit / Remove</span>
                             </div>
                             @foreach (var row in ActivePlaylistTrackRows)
                             {
@@ -901,10 +907,27 @@ else
                                     }
                                     <div class="listen-playlist-track-row__actions" role="cell">
                                         <button type="button"
+                                                class="listen-icon-button"
+                                                title="Add to queue"
+                                                aria-label="@($"Add {track.Title} to queue")"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="@(() => QueueTrackAsync(track))">
+                                            <MudIcon Icon="@Icons.Material.Outlined.PlaylistAdd" Size="Size.Small" />
+                                        </button>
+                                        <button type="button"
+                                                class="listen-icon-button"
+                                                title="Edit song"
+                                                aria-label="@($"Edit {track.Title}")"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="@(() => EditTrackAsync(track))">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
+                                        </button>
+                                        <button type="button"
                                                 class="listen-icon-button listen-icon-button--danger"
                                                 title="Remove from playlist"
                                                 aria-label="@($"Remove {track.Title} from playlist")"
                                                 disabled="@(item is null)"
+                                                @onclick:stopPropagation="true"
                                                 @onclick="@(() => item is null ? Task.CompletedTask : RemovePlaylistTrackAsync(item.Id))">
                                             <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
                                         </button>
@@ -925,34 +948,6 @@ else
                                   Preset="@AudiobookBrowsePreset" />
             }
         </main>
-        @if (_trackContextMenuWorkId.HasValue && ContextMenuTrack is not null)
-        {
-            <div class="listen-context-menu" style="--track-menu-x:@($"{_trackContextMenuX}px"); --track-menu-y:@($"{_trackContextMenuY}px");" @onclick:stopPropagation="true">
-                <div class="listen-context-menu__title">@ContextMenuTrack.Title</div>
-                <button type="button" class="listen-context-menu__action" @onclick="@(() => PlayTracksAsync(CurrentTrackSurfaceTracks, ContextMenuTrack.Id, _trackContextMenuSourceLabel))">Play now</button>
-                <button type="button" class="listen-context-menu__action" @onclick="@(() => Playback.InsertNextAsync(ContextMenuTrack))">Play next</button>
-                <button type="button" class="listen-context-menu__action" @onclick="@(() => QueueTrackAsync(ContextMenuTrack))">Add to queue</button>
-                <button type="button" class="listen-context-menu__action" @onclick="@(() => ToggleFavoriteAsync(ContextMenuTrack))">@(_favoriteWorkIds.Contains(ContextMenuTrack.Id) ? "Remove favorite" : "Favorite")</button>
-                <button type="button" class="listen-context-menu__action" @onclick="@(() => ToggleDislikeAsync(ContextMenuTrack))">@(_dislikedWorkIds.Contains(ContextMenuTrack.Id) ? "Clear dislike" : "Dislike")</button>
-                <button type="button" class="listen-context-menu__action" @onclick="@(() => EditTrackAsync(ContextMenuTrack))">Edit track</button>
-                @if (!string.IsNullOrWhiteSpace(BuildAlbumRouteForTrack(ContextMenuTrack)))
-                {
-                    <button type="button" class="listen-context-menu__action" @onclick="@(() => NavigateTo(BuildAlbumRouteForTrack(ContextMenuTrack)!))">Open album</button>
-                }
-                <details class="listen-row-menu">
-                    <summary class="listen-row-menu__summary">Add to playlist</summary>
-                    <div class="listen-row-menu__panel">
-                        <button type="button" class="listen-row-menu__action" @onclick="@(() => AddContextMenuTrackToPlaylistAsync())">Create new playlist</button>
-                        @foreach (var playlist in ManualPlaylistCollections)
-                        {
-                            <button type="button" class="listen-row-menu__action" @onclick="@(() => AddContextMenuTrackToPlaylistAsync(playlist.Id))">Add to @playlist.Name</button>
-                        }
-                    </div>
-                </details>
-            </div>
-            <button type="button" class="listen-context-menu__dismiss" @onclick="@(() => CloseTrackContextMenu())" aria-label="Close context menu"></button>
-        }
-
         </ChildContent>
     </SidebarPageShell>
 }

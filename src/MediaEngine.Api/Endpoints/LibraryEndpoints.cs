@@ -3,8 +3,10 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
@@ -271,13 +273,18 @@ public static class LibraryEndpoints
         group.MapPost("/batch-edit/preview", async (
             LibraryBatchEditRequest request,
             ICanonicalValueRepository canonicalRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             if (request.EntityIds.Count == 0 || request.FieldChanges.Count == 0)
                 return Results.BadRequest("Must provide entity IDs and field changes.");
 
-            // Batch-fetch all canonical values for the requested entities in one query
-            var allCanonicals = await canonicalRepo.GetByEntitiesAsync(request.EntityIds, ct);
+            var targetMap = ResolveBatchEditTargets(db, request.EntityIds, request.FieldChanges);
+            var targetIds = targetMap.Values
+                .SelectMany(changeTargets => changeTargets.Values)
+                .Distinct()
+                .ToList();
+            var allCanonicals = await canonicalRepo.GetByEntitiesAsync(targetIds, ct);
 
             var changes = new List<LibraryFieldChangePreview>();
             foreach (var change in request.FieldChanges)
@@ -285,7 +292,11 @@ public static class LibraryEndpoints
                 var oldValueCounts = new Dictionary<string, int>();
                 foreach (var entityId in request.EntityIds)
                 {
-                    var entityCanonicals = allCanonicals.TryGetValue(entityId, out var vals)
+                    var targetId = targetMap.TryGetValue(entityId, out var targets)
+                        && targets.TryGetValue(change.Key, out var resolvedTargetId)
+                        ? resolvedTargetId
+                        : entityId;
+                    var entityCanonicals = allCanonicals.TryGetValue(targetId, out var vals)
                         ? vals
                         : [];
                     var current = entityCanonicals.FirstOrDefault(c => c.Key == change.Key);
@@ -316,6 +327,7 @@ public static class LibraryEndpoints
             LibraryBatchEditRequest request,
             ICanonicalValueRepository canonicalRepo,
             IMetadataClaimRepository claimRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             if (request.EntityIds.Count == 0 || request.FieldChanges.Count == 0)
@@ -324,44 +336,55 @@ public static class LibraryEndpoints
             var updatedCount = 0;
             var failedIds = new List<Guid>();
             var errors = new List<string>();
+            var targetMap = ResolveBatchEditTargets(db, request.EntityIds, request.FieldChanges);
+            var claimsByTargetAndKey = new Dictionary<(Guid TargetId, string Key), MetadataClaim>();
+            var canonicalsByTargetAndKey = new Dictionary<(Guid TargetId, string Key), CanonicalValue>();
+            var now = DateTimeOffset.UtcNow;
 
             foreach (var entityId in request.EntityIds)
             {
                 try
                 {
-                    var claims = new List<MetadataClaim>();
-                    var canonicals = new List<CanonicalValue>();
+                    if (!targetMap.TryGetValue(entityId, out var targets))
+                    {
+                        failedIds.Add(entityId);
+                        errors.Add($"{entityId}: no owned media asset was found for batch edit.");
+                        continue;
+                    }
 
                     foreach (var change in request.FieldChanges)
                     {
-                        // Create a user-locked claim that overrides all other sources
-                        claims.Add(new MetadataClaim
+                        if (!targets.TryGetValue(change.Key, out var targetId))
+                            targetId = entityId;
+
+                        var targetKey = (targetId, change.Key);
+
+                        // Create one user-locked claim per resolved target/key. If ten selected
+                        // tracks share the same album parent, album fields are written once.
+                        claimsByTargetAndKey[targetKey] = new MetadataClaim
                         {
                             Id = Guid.NewGuid(),
-                            EntityId = entityId,
+                            EntityId = targetId,
                             ClaimKey = change.Key,
                             ClaimValue = change.Value,
                             ProviderId = WellKnownProviders.UserManual,
                             Confidence = 1.0,
                             IsUserLocked = true,
-                            ClaimedAt = DateTimeOffset.UtcNow,
-                        });
+                            ClaimedAt = now,
+                        };
 
-                        // Update the canonical value directly
-                        canonicals.Add(new CanonicalValue
+                        canonicalsByTargetAndKey[targetKey] = new CanonicalValue
                         {
-                            EntityId = entityId,
+                            EntityId = targetId,
                             Key = change.Key,
                             Value = change.Value,
-                            LastScoredAt = DateTimeOffset.UtcNow,
+                            LastScoredAt = now,
                             IsConflicted = false,
                             WinningProviderId = WellKnownProviders.UserManual,
                             NeedsReview = false,
-                        });
+                        };
                     }
 
-                    await claimRepo.InsertBatchAsync(claims, ct);
-                    await canonicalRepo.UpsertBatchAsync(canonicals, ct);
                     updatedCount++;
                 }
                 catch (Exception ex)
@@ -370,6 +393,12 @@ public static class LibraryEndpoints
                     errors.Add($"{entityId}: {ex.Message}");
                 }
             }
+
+            if (claimsByTargetAndKey.Count > 0)
+                await claimRepo.InsertBatchAsync(claimsByTargetAndKey.Values.ToList(), ct);
+
+            if (canonicalsByTargetAndKey.Count > 0)
+                await canonicalRepo.UpsertBatchAsync(canonicalsByTargetAndKey.Values.ToList(), ct);
 
             return Results.Ok(new LibraryBatchEditResult
             {
@@ -748,6 +777,70 @@ public static class LibraryEndpoints
             ? value
             : null;
 
+    private static Dictionary<Guid, Dictionary<string, Guid>> ResolveBatchEditTargets(
+        IDatabaseConnection db,
+        IReadOnlyList<Guid> entityIds,
+        IReadOnlyList<LibraryFieldChange> fieldChanges)
+    {
+        var result = new Dictionary<Guid, Dictionary<string, Guid>>();
+        if (entityIds.Count == 0)
+            return result;
+
+        using var conn = db.CreateConnection();
+        const string sql = """
+            SELECT
+                w.id             AS WorkId,
+                COALESCE(ma.id, child_ma.id, grandchild_ma.id) AS AssetId,
+                w.media_type     AS MediaType,
+                w.work_kind      AS WorkKind,
+                w.parent_work_id AS ParentWorkId,
+                COALESCE(gp.id, p.id, w.id) AS RootParentWorkId
+            FROM works w
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            LEFT JOIN editions e ON e.work_id = w.id
+            LEFT JOIN media_assets ma ON ma.edition_id = e.id
+            LEFT JOIN works child ON child.parent_work_id = w.id
+            LEFT JOIN editions child_e ON child_e.work_id = child.id
+            LEFT JOIN media_assets child_ma ON child_ma.edition_id = child_e.id
+            LEFT JOIN works grandchild ON grandchild.parent_work_id = child.id
+            LEFT JOIN editions grandchild_e ON grandchild_e.work_id = grandchild.id
+            LEFT JOIN media_assets grandchild_ma ON grandchild_ma.edition_id = grandchild_e.id
+            WHERE w.id = @entityId
+               OR ma.id = @entityId
+            ORDER BY COALESCE(ma.id, child_ma.id, grandchild_ma.id) ASC
+            LIMIT 1;
+            """;
+
+        foreach (var entityId in entityIds.Distinct())
+        {
+            var row = conn.QueryFirstOrDefault<BatchEditLineageRow>(
+                sql,
+                new { entityId = entityId.ToString() });
+            if (row is null || row.AssetId == Guid.Empty)
+                continue;
+
+            var mediaType = Enum.TryParse<MediaType>(row.MediaType, ignoreCase: true, out var parsed)
+                ? parsed
+                : MediaType.Unknown;
+
+            var targets = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+            result[entityId] = targets;
+
+            foreach (var key in fieldChanges
+                         .Select(change => change.Key)
+                         .Where(key => !string.IsNullOrWhiteSpace(key))
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                targets[key] = ClaimScopeCatalog.IsParentScoped(key, mediaType)
+                    ? row.RootParentWorkId
+                    : row.AssetId;
+            }
+        }
+
+        return result;
+    }
+
     private sealed class LibraryWorkFeedRow
     {
         public Guid WorkId { get; init; }
@@ -772,6 +865,16 @@ public static class LibraryEndpoints
         public Guid EntityId { get; init; }
         public string Value { get; init; } = string.Empty;
         public int Ordinal { get; init; }
+    }
+
+    private sealed class BatchEditLineageRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid AssetId { get; init; }
+        public string MediaType { get; init; } = string.Empty;
+        public string WorkKind { get; init; } = string.Empty;
+        public Guid? ParentWorkId { get; init; }
+        public Guid RootParentWorkId { get; init; }
     }
 }
 

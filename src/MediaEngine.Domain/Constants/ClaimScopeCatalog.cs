@@ -74,6 +74,7 @@ public static class ClaimScopeCatalog
         {
             [MediaType.Music] = new(StringComparer.OrdinalIgnoreCase)
             {
+                [BridgeIdKeys.WikidataQid]         = ClaimScope.Parent,  // resolved QID is the album, not the track
                 [MetadataFieldConstants.Author]      = ClaimScope.Parent,  // album artist
                 [MetadataFieldConstants.Artist]      = ClaimScope.Parent,
                 [MetadataFieldConstants.Year]        = ClaimScope.Parent,  // album release year
@@ -157,7 +158,9 @@ public static class ClaimScopeCatalog
         if (string.IsNullOrEmpty(claimKey))
             return ClaimScope.Self;
 
-        var lookupKey = StripCompanionQidSuffix(claimKey);
+        var lookupKey = BridgeIdKeys.All.Contains(claimKey)
+            ? claimKey
+            : StripCompanionQidSuffix(claimKey);
 
         // Per-media-type overrides take precedence over the default map.
         if (Overrides.TryGetValue(mediaType, out var ovr)

@@ -47,6 +47,13 @@ public class ClaimScopeCatalogTests
     // ── Movies (no parent) ───────────────────────────────────────────────
 
     [Fact]
+    public void Music_WikidataQid_AlbumLevel_RoutesToParent()
+    {
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope(BridgeIdKeys.WikidataQid, MediaType.Music));
+    }
+
+    [Fact]
     public void Movies_Year_RoutesToParent()
     {
         // Year on a movie is stored at the Work level (Parent) for storage

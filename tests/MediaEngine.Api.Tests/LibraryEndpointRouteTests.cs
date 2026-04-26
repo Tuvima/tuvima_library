@@ -31,6 +31,17 @@ public sealed class LibraryEndpointRouteTests
         Assert.Contains("LogoUrl = logoUrl", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LibraryEndpoints_BatchEditRoutesFieldsByLineageScope()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryEndpoints.cs"));
+
+        Assert.Contains("ResolveBatchEditTargets(db, request.EntityIds, request.FieldChanges)", source, StringComparison.Ordinal);
+        Assert.Contains("ClaimScopeCatalog.IsParentScoped(key, mediaType)", source, StringComparison.Ordinal);
+        Assert.Contains("claimsByTargetAndKey", source, StringComparison.Ordinal);
+        Assert.Contains("album fields are written once", source, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

@@ -87,10 +87,6 @@ public partial class ListenPage
     private string? _lastPersistedArtistName;
     private HashSet<Guid> _selectedTrackIds = [];
     private HashSet<Guid> _draggingTrackIds = [];
-    private Guid? _trackContextMenuWorkId;
-    private string _trackContextMenuSourceLabel = "All Music";
-    private double _trackContextMenuX;
-    private double _trackContextMenuY;
     private bool _playlistsExpanded = true;
     private string? _playlistNavigationConfig;
     private List<Guid> _playlistOrder = [];
@@ -738,7 +734,7 @@ public partial class ListenPage
         if (IsPlaylistColumnVisible("time"))
             tracks.Add($"{_playlistColumnWidths["time"]}px");
 
-        tracks.Add("52px");
+        tracks.Add("118px");
         return string.Join(" ", tracks);
     }
 
@@ -1196,6 +1192,24 @@ public partial class ListenPage
         await OpenTrackEditorAsync(work, navigateBackToTrackContext: false);
     }
 
+    private async Task DeleteTrackAsync(WorkViewModel work)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete {work.Title} from the library?");
+        if (!confirmed)
+            return;
+
+        var response = await ApiClient.BatchDeleteLibraryCatalogItemsAsync([work.Id]);
+        if (response is null)
+        {
+            Snackbar.Add("Delete failed.", Severity.Error);
+            return;
+        }
+
+        CloseTrackContextMenu();
+        await LoadAsync();
+        Snackbar.Add($"{work.Title} deleted.", Severity.Success);
+    }
+
     private async Task OpenTrackEditorAsync(WorkViewModel work, bool navigateBackToTrackContext)
     {
         var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
@@ -1460,27 +1474,6 @@ public partial class ListenPage
         await PlayTracksAsync(CurrentTrackSurfaceTracks, target.Id, CurrentTrackSurfaceLabel);
     }
 
-    private Task OnTrackContextRequested(LibraryRowContextMenuRequest request)
-    {
-        _trackContextMenuWorkId = request.EntityId;
-        _trackContextMenuSourceLabel = CurrentTrackSurfaceLabel;
-        _trackContextMenuX = request.ClientX;
-        _trackContextMenuY = request.ClientY;
-
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    private Task OpenTrackMenuAsync(WorkViewModel track, MouseEventArgs args, string sourceLabel)
-    {
-        _trackContextMenuWorkId = track.Id;
-        _trackContextMenuSourceLabel = sourceLabel;
-        _trackContextMenuX = args.ClientX;
-        _trackContextMenuY = args.ClientY;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
     private void ToggleSongSort(string column)
     {
         column = NormalizeSongSortColumn(column);
@@ -1527,12 +1520,9 @@ public partial class ListenPage
         return Task.CompletedTask;
     }
 
-    private void CloseTrackContextMenu() => _trackContextMenuWorkId = null;
-
-    private WorkViewModel? ContextMenuTrack =>
-        _trackContextMenuWorkId.HasValue
-            ? CurrentTrackSurfaceTracks.FirstOrDefault(work => work.Id == _trackContextMenuWorkId.Value)
-            : null;
+    private static void CloseTrackContextMenu()
+    {
+    }
 
     private async Task PlaySelectedTracksAsync()
     {
@@ -1609,26 +1599,6 @@ public partial class ListenPage
         }
 
         await CreatePlaylistAndAddTracksAsync(SelectedTrackWorks);
-    }
-
-    private async Task AddContextMenuTrackToPlaylistAsync(Guid? collectionId = null)
-    {
-        if (ContextMenuTrack is null)
-            return;
-
-        if (collectionId.HasValue)
-        {
-            var collection = PlaylistCollections.FirstOrDefault(item => item.Id == collectionId.Value);
-            if (collection is null)
-                return;
-
-            await AddTracksToPlaylistAsync([ContextMenuTrack], collection);
-            CloseTrackContextMenu();
-            return;
-        }
-
-        await CreatePlaylistAndAddTracksAsync([ContextMenuTrack]);
-        CloseTrackContextMenu();
     }
 
     private async Task AddTracksToPlaylistAsync(IEnumerable<WorkViewModel> works, ManagedCollectionViewModel collection)

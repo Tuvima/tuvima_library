@@ -122,15 +122,35 @@
                     case "dateAdded":
                         <span class="listen-song-table__meta" role="cell">@FormatDateAdded(track.CreatedAt)</span>
                         break;
-                    case "actions":
-                        <div class="listen-song-table__actions" role="cell">
+                    case "queue":
+                        <div class="listen-song-table__queue" role="cell">
                             <button type="button"
                                     class="listen-song-table__icon-button"
-                                    title="Song options"
-                                    aria-label="@($"{track.Title} options")"
+                                    title="Add to queue"
+                                    aria-label="@($"Add {track.Title} to queue")"
                                     @onclick:stopPropagation="true"
-                                    @onclick="@(args => OpenMenuAsync(track, args))">
-                                <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
+                                    @onclick="@(() => QueueAsync(track))">
+                                <MudIcon Icon="@Icons.Material.Outlined.PlaylistAdd" Size="Size.Small" />
+                            </button>
+                        </div>
+                        break;
+                    case "editDelete":
+                        <div class="listen-song-table__edit-delete" role="cell">
+                            <button type="button"
+                                    class="listen-song-table__icon-button"
+                                    title="Edit song"
+                                    aria-label="@($"Edit {track.Title}")"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="@(() => EditAsync(track))">
+                                <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
+                            </button>
+                            <button type="button"
+                                    class="listen-song-table__icon-button listen-song-table__icon-button--danger"
+                                    title="Delete song"
+                                    aria-label="@($"Delete {track.Title}")"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="@(() => DeleteAsync(track))">
+                                <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
                             </button>
                         </div>
                         break;
@@ -157,9 +177,11 @@
     [Parameter] public bool DefaultSortDescending { get; set; } = true;
     [Parameter] public Func<IReadOnlyList<WorkViewModel>, Guid?, string?, bool, Task>? OnPlayRequested { get; set; }
     [Parameter] public Func<WorkViewModel, Task>? OnFavoriteToggled { get; set; }
+    [Parameter] public Func<WorkViewModel, Task>? OnQueueRequested { get; set; }
+    [Parameter] public Func<WorkViewModel, Task>? OnEditRequested { get; set; }
+    [Parameter] public Func<WorkViewModel, Task>? OnDeleteRequested { get; set; }
     [Parameter] public Func<Guid, Task>? OnDragStarted { get; set; }
     [Parameter] public Func<Task>? OnDragEnded { get; set; }
-    [Parameter] public Func<WorkViewModel, MouseEventArgs, string, Task>? OnMenuRequested { get; set; }
 
     private readonly List<ListenSongTableColumn> _columns =
     [
@@ -171,7 +193,8 @@
         new("genre", "Genre", 160, 100),
         new("plays", "Plays", 100, 72),
         new("dateAdded", "Date Added", 160, 110),
-        new("actions", "Actions", 52, 52),
+        new("queue", "Queue", 76, 64),
+        new("editDelete", "Edit / Delete", 104, 88),
     ];
 
     private string? _resizingColumnKey;
@@ -208,7 +231,7 @@
         _ => true,
     };
 
-    private static bool IsSortableColumn(string key) => key is not "actions";
+    private static bool IsSortableColumn(string key) => key is not "queue" and not "editDelete";
 
     private void BeginColumnResize(string key, double clientX)
     {
@@ -310,14 +333,20 @@
     private Task ToggleFavoriteAsync(WorkViewModel track)
         => OnFavoriteToggled?.Invoke(track) ?? Task.CompletedTask;
 
+    private Task QueueAsync(WorkViewModel track)
+        => OnQueueRequested?.Invoke(track) ?? Task.CompletedTask;
+
+    private Task EditAsync(WorkViewModel track)
+        => OnEditRequested?.Invoke(track) ?? Task.CompletedTask;
+
+    private Task DeleteAsync(WorkViewModel track)
+        => OnDeleteRequested?.Invoke(track) ?? Task.CompletedTask;
+
     private Task StartDragAsync(Guid trackId)
         => EnableDrag ? OnDragStarted?.Invoke(trackId) ?? Task.CompletedTask : Task.CompletedTask;
 
     private Task EndDragAsync()
         => EnableDrag ? OnDragEnded?.Invoke() ?? Task.CompletedTask : Task.CompletedTask;
-
-    private Task OpenMenuAsync(WorkViewModel track, MouseEventArgs args)
-        => OnMenuRequested?.Invoke(track, args, SourceLabel) ?? Task.CompletedTask;
 
     private static string GetTrackDuration(WorkViewModel work)
         => LibraryHelpers.FormatDuration(GetTrackDurationSeconds(work), fallback: "0:00");
