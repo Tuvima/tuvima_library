@@ -344,6 +344,7 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains(".tl-card--flush", css);
         Assert.Contains(".tl-empty-state", css);
         Assert.Contains(".search-result-row", css);
+        Assert.Contains("border-right: 1px solid var(--tl-divider)", css);
         Assert.DoesNotContain("Legacy settings shared UI components", css);
     }
 

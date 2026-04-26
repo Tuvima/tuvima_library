@@ -33,6 +33,23 @@
     vertical-align: middle;
 }
 
+.listen-track-grid ::deep thead th:not(:last-child),
+.listen-track-grid ::deep tbody td:not(:last-child),
+.listen-track-grid ::deep .mud-table-cell:not(:last-child),
+.listen-track-grid ::deep .column-header:not(:last-child) {
+    border-right: 1px solid var(--tl-divider) !important;
+}
+
+.listen-track-grid ::deep .mud-table-cell,
+.listen-track-grid ::deep .column-header {
+    box-shadow: inset -1px 0 0 var(--tl-divider);
+}
+
+.listen-track-grid ::deep .mud-table-cell:last-child,
+.listen-track-grid ::deep .column-header:last-child {
+    box-shadow: none;
+}
+
 .listen-track-grid ::deep .mud-table-cell,
 .listen-track-grid ::deep .column-header {
     padding: 10px 12px !important;

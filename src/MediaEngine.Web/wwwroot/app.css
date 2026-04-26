@@ -1674,6 +1674,25 @@ body,
     border-bottom-color: var(--tl-divider) !important;
 }
 
+.mud-data-grid .mud-table-cell:not(:last-child),
+.mud-data-grid thead th:not(:last-child),
+.mud-table thead th:not(:last-child),
+.mud-table tbody td:not(:last-child),
+.mud-simple-table thead th:not(:last-child),
+.mud-simple-table tbody td:not(:last-child) {
+    border-right: 1px solid var(--tl-divider) !important;
+}
+
+.mud-data-grid .column-header,
+.mud-data-grid .mud-table-cell {
+    box-shadow: inset -1px 0 0 var(--tl-divider);
+}
+
+.mud-data-grid .column-header:last-child,
+.mud-data-grid .mud-table-cell:last-child {
+    box-shadow: none;
+}
+
 .mud-table-hover .mud-table-row:hover,
 .mud-data-grid .mud-table-row:hover,
 .mud-table tbody tr:hover {
