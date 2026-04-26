@@ -198,9 +198,9 @@ internal sealed class TestAssetHasher : IAssetHasher
     }
 }
 
-// ── Processor Registry (configurable) ─────────────────────────────────────────
+// ── Processor LibraryItem (configurable) ─────────────────────────────────────────
 
-internal sealed class TestProcessorRegistry : IProcessorRegistry
+internal sealed class TestProcessorLibraryItem : IProcessorRouter
 {
     private ProcessorResult? _nextResult;
     private readonly Queue<ProcessorResult> _resultQueue = new();

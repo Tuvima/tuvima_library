@@ -24,7 +24,7 @@ PRAGMA temp_store  = MEMORY;    -- Keep temp tables in RAM
 -- 1. SYSTEM & PROVIDER MANAGEMENT
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS provider_registry (
+CREATE TABLE IF NOT EXISTS metadata_providers (
     id         TEXT    NOT NULL PRIMARY KEY,  -- UUID
     name       TEXT    NOT NULL UNIQUE,
     version    TEXT    NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS provider_registry (
 -- Key-value bag for per-provider configuration (api keys, base urls, etc.)
 -- Composite PK prevents duplicate keys for the same provider.
 CREATE TABLE IF NOT EXISTS provider_config (
-    provider_id TEXT    NOT NULL REFERENCES provider_registry(id) ON DELETE CASCADE,
+    provider_id TEXT    NOT NULL REFERENCES metadata_providers(id) ON DELETE CASCADE,
     key         TEXT    NOT NULL,
     value       TEXT    NOT NULL,
     is_secret   INTEGER NOT NULL DEFAULT 0,   -- BOOLEAN: marks credentials
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS media_assets (
 CREATE TABLE IF NOT EXISTS metadata_claims (
     id          TEXT NOT NULL PRIMARY KEY,  -- UUID
     entity_id   TEXT NOT NULL,              -- FK â†’ works.id | editions.id (polymorphic)
-    provider_id TEXT NOT NULL REFERENCES provider_registry(id),
+    provider_id TEXT NOT NULL REFERENCES metadata_providers(id),
     claim_key   TEXT NOT NULL,
     claim_value TEXT NOT NULL,
     confidence  REAL NOT NULL DEFAULT 1.0,

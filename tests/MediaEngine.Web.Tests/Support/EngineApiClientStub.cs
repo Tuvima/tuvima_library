@@ -72,6 +72,91 @@ internal class EngineApiClientStub : DispatchProxy
                 LastUpdatedAt = DateTimeOffset.UtcNow,
             });
 
+        _handlers[nameof(IEngineApiClient.GetProfileOverviewAsync)] =
+            _ => Task.FromResult<ProfileOverviewViewModel?>(new ProfileOverviewViewModel
+            {
+                Profile = new ProfileViewModel(
+                    Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                    "Test User",
+                    "#C9922E",
+                    "Administrator",
+                    DateTimeOffset.UtcNow.AddYears(-1)),
+                Stats = new ProfileOverviewStatsViewModel
+                {
+                    TotalItems = 3,
+                    InProgress = 1,
+                    Completed = 1,
+                    RecentActivity = 2,
+                    MediaTypeMix = new Dictionary<string, int>
+                    {
+                        ["Movies"] = 1,
+                        ["Books"] = 1,
+                        ["Music"] = 1,
+                    },
+                },
+                ContinueItems =
+                [
+                    new ProfileOverviewItemViewModel
+                    {
+                        AssetId = Guid.Parse("91000000-0000-0000-0000-000000000001"),
+                        WorkId = Guid.Parse("91000000-0000-0000-0000-000000000101"),
+                        Title = "Landman",
+                        Subtitle = "S2 - E10",
+                        MediaType = "TV",
+                        ProgressPct = 64,
+                        LastAccessed = DateTimeOffset.UtcNow.AddHours(-2),
+                    },
+                ],
+                RecentItems =
+                [
+                    new ProfileOverviewItemViewModel
+                    {
+                        AssetId = Guid.Parse("91000000-0000-0000-0000-000000000002"),
+                        WorkId = Guid.Parse("91000000-0000-0000-0000-000000000102"),
+                        Title = "The Substance",
+                        Subtitle = "Movie",
+                        MediaType = "Movies",
+                        ProgressPct = 100,
+                        LastAccessed = DateTimeOffset.UtcNow.AddDays(-1),
+                    },
+                ],
+                CompletedItems =
+                [
+                    new ProfileOverviewItemViewModel
+                    {
+                        AssetId = Guid.Parse("91000000-0000-0000-0000-000000000003"),
+                        WorkId = Guid.Parse("91000000-0000-0000-0000-000000000103"),
+                        Title = "Dexter: Resurrection",
+                        Subtitle = "S1 - E10",
+                        MediaType = "TV",
+                        ProgressPct = 100,
+                        LastAccessed = DateTimeOffset.UtcNow.AddDays(-4),
+                    },
+                ],
+                Activity =
+                [
+                    new ProfileOverviewActivityViewModel
+                    {
+                        Id = 1,
+                        ActionType = "PlaybackUpdated",
+                        Detail = "Continued Landman",
+                        OccurredAt = DateTimeOffset.UtcNow.AddHours(-2),
+                    },
+                ],
+                Taste = new TasteProfile
+                {
+                    UserId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                    Summary = "Test profile built from a mixed library.",
+                    MediaTypeMix = new Dictionary<string, double>
+                    {
+                        ["Books"] = 0.45,
+                        ["Movies"] = 0.25,
+                        ["Music"] = 0.30,
+                    },
+                    LastUpdatedAt = DateTimeOffset.UtcNow,
+                },
+            });
+
         _handlers[nameof(IEngineApiClient.GetReviewCountAsync)] =
             _ => Task.FromResult(3);
 

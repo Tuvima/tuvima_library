@@ -74,7 +74,7 @@ public sealed class DurablePipelineTests : IDisposable
     private readonly StubReconciliation _reconciliation = new();
     private readonly StubFileOrganizer _organizer = new();
     private readonly TestAssetHasher _hasher = new();
-    private readonly TestProcessorRegistry _processors = new();
+    private readonly TestProcessorLibraryItem _processors = new();
     private readonly InlineBackgroundWorker _bgWorker = new();
 
     public DurablePipelineTests()
@@ -1106,6 +1106,7 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<long> CountAsync(CancellationToken ct = default) => Task.FromResult(0L);
         public Task<IReadOnlyList<SystemActivityEntry>> GetByRunIdAsync(Guid runId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<SystemActivityEntry>>([]);
         public Task<IReadOnlyList<SystemActivityEntry>> GetRecentByTypesAsync(IReadOnlyList<string> actionTypes, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<SystemActivityEntry>>([]);
+        public Task<IReadOnlyList<SystemActivityEntry>> GetRecentByProfileAsync(Guid profileId, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<SystemActivityEntry>>([]);
     }
 
     private sealed class NoOpEventPublisher : IEventPublisher

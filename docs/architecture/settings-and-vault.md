@@ -75,7 +75,7 @@ It answers questions like:
 
 The Vault is not just "everything the Engine has ever seen." It is the operational view of a shared projection over:
 
-- registry data
+- library item data
 - identity job state
 - review queue state
 - canonical artwork flags

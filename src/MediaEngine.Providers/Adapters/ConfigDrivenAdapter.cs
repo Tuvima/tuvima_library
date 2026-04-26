@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -21,7 +21,7 @@ namespace MediaEngine.Providers.Adapters;
 /// <para>
 /// One instance is created per config file with <c>adapter_type: "config_driven"</c>.
 /// The adapter evaluates search strategies in priority order, extracts fields via
-/// JSON path expressions, and applies named transforms — all driven by data in the
+/// JSON path expressions, and applies named transforms � all driven by data in the
 /// config file. No subclass required.
 /// </para>
 ///
@@ -78,7 +78,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         _entityTypes = ParseEnumSet<EntityType>(config.CanHandle?.EntityTypes);
     }
 
-    // ── IExternalMetadataProvider ─────────────────────────────────────────────
+    // -- IExternalMetadataProvider ---------------------------------------------
 
     public string Name => _config.Name;
 
@@ -101,10 +101,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
             return [];
 
-        // Skip providers known to be down — items will be queued as "Waiting for Provider".
+        // Skip providers known to be down � items will be queued as "Waiting for Provider".
         if (_healthMonitor.IsDown(Name))
         {
-            _logger.LogDebug("{Provider} is known to be down — skipping", Name);
+            _logger.LogDebug("{Provider} is known to be down � skipping", Name);
             return [];
         }
 
@@ -115,7 +115,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 || string.IsNullOrWhiteSpace(_config.HttpClient?.Password)))
         {
             _logger.LogWarning(
-                "{Provider}: requires an API key but none is configured — skipping. "
+                "{Provider}: requires an API key but none is configured � skipping. "
                 + "Set 'api_key' in the provider's http_client config.",
                 Name);
             return [];
@@ -144,7 +144,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             if (!AllRequiredFieldsPresent(strategy, effectiveRequest))
             {
                 _logger.LogDebug(
-                    "{Provider}/{Strategy}: skipped — missing required fields",
+                    "{Provider}/{Strategy}: skipped � missing required fields",
                     Name, strategy.Name);
                 continue;
             }
@@ -166,7 +166,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 _logger.LogInformation(
                     "{Provider}/{Strategy}: zero results from API, trying next strategy",
                     Name, strategy.Name);
-                // Provider responded but had no match — still healthy.
+                // Provider responded but had no match � still healthy.
                 await _healthMonitor.ReportSuccessAsync(Name, ct);
             }
             catch (OperationCanceledException)
@@ -192,7 +192,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (_config.LanguageStrategy == LanguageStrategy.Both
             && !string.Equals(effectiveLang, "en", StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogDebug("{Provider}: 'both' strategy — retrying in English", Name);
+            _logger.LogDebug("{Provider}: 'both' strategy � retrying in English", Name);
             var englishRequest = CloneRequestWithLanguage(request, "en");
 
             foreach (var strategy in strategies)
@@ -212,7 +212,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                         return claims.Select(c => c with { SourceLanguage = "en" }).ToList();
                     }
 
-                    // Provider responded — still healthy even with no match.
+                    // Provider responded � still healthy even with no match.
                     await _healthMonitor.ReportSuccessAsync(Name, ct);
                 }
                 catch (OperationCanceledException) { throw; }
@@ -258,7 +258,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 || string.IsNullOrWhiteSpace(_config.HttpClient?.Password)))
         {
             _logger.LogWarning(
-                "{Provider}: requires an API key but none is configured — skipping search.",
+                "{Provider}: requires an API key but none is configured � skipping search.",
                 Name);
             return [];
         }
@@ -285,7 +285,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             if (!AllRequiredFieldsPresent(strategy, effectiveRequest))
                 continue;
 
-            // Strategies without a results_path return a single object — not useful
+            // Strategies without a results_path return a single object � not useful
             // for multi-result search. Skip to the next strategy.
             if (string.IsNullOrEmpty(strategy.ResultsPath))
                 continue;
@@ -318,7 +318,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (_config.LanguageStrategy == LanguageStrategy.Both
             && !string.Equals(effectiveLang, "en", StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogDebug("{Provider}: 'both' strategy — retrying search in English", Name);
+            _logger.LogDebug("{Provider}: 'both' strategy � retrying search in English", Name);
             var englishRequest = CloneRequestWithLanguage(request, "en");
 
             foreach (var strategy in strategies)
@@ -363,7 +363,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         int limit,
         CancellationToken ct)
     {
-        // Manual multi-result search — use the full requested limit.
+        // Manual multi-result search � use the full requested limit.
         var url = BuildUrl(strategy, request, limit);
         _logger.LogInformation("{Provider}/{Strategy}: SEARCH {Url}", Name, strategy.Name, url);
 
@@ -445,7 +445,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 "{Provider}/{Strategy}: search returned {Count} items",
                 Name, strategy.Name, items.Count);
 
-            // Return all items — the caller (SearchService or HydrationPipeline)
+            // Return all items � the caller (SearchService or HydrationPipeline)
             // handles ranking and selection. For the resolve tab, users need to
             // see multiple editions with different covers, narrators, and years.
             // For automated pipelines, the scoring service picks the best match.
@@ -503,7 +503,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             var node = JsonPathEvaluator.Evaluate(sourceNode, mapping.JsonPath);
             if (node is null)
             {
-                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — node not found",
+                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') � node not found",
                     Name, mapping.ClaimKey, mapping.JsonPath);
                 continue;
             }
@@ -511,7 +511,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             // Check condition if configured.
             if (mapping.Condition is not null && !PassesFilters(sourceNode, [mapping.Condition]))
             {
-                _logger.LogDebug("{Provider}: mapping '{Key}' — condition not met", Name, mapping.ClaimKey);
+                _logger.LogDebug("{Provider}: mapping '{Key}' � condition not met", Name, mapping.ClaimKey);
                 continue;
             }
 
@@ -530,13 +530,13 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             if (string.IsNullOrWhiteSpace(raw))
             {
-                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — value is null or empty",
+                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') � value is null or empty",
                     Name, mapping.ClaimKey, mapping.JsonPath);
                 continue;
             }
 
-            _logger.LogDebug("{Provider}: mapping '{Key}' → '{Value}'",
-                Name, mapping.ClaimKey, raw.Length > 80 ? raw[..80] + "…" : raw);
+            _logger.LogDebug("{Provider}: mapping '{Key}' ? '{Value}'",
+                Name, mapping.ClaimKey, raw.Length > 80 ? raw[..80] + "�" : raw);
 
             switch (mapping.ClaimKey.ToLowerInvariant())
             {
@@ -588,7 +588,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         _logger.LogInformation(
             "{Provider}: extracted result Title='{Title}' Author='{Author}' Year='{Year}' " +
             "HasDesc={HasDesc} HasCover={HasCover} ExtraFields={ExtraCount} Score={Score:P0}",
-            Name, title, author ?? "—", year ?? "—",
+            Name, title, author ?? "�", year ?? "�",
             description is not null, thumbnailUrl is not null, extraFields.Count, confidence);
 
         return new SearchResultItem(
@@ -604,17 +604,17 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Computes a per-result match score (0.0–1.0) by comparing the search
+    /// Computes a per-result match score (0.0�1.0) by comparing the search
     /// <paramref name="query"/> against the result's <paramref name="title"/>
     /// using word-level overlap similarity.
     ///
     /// <para>
     /// Algorithm:
     /// <list type="bullet">
-    ///   <item>Tokenise both query and title into lowercase words (≥2 chars).</item>
+    ///   <item>Tokenise both query and title into lowercase words (=2 chars).</item>
     ///   <item>Coverage = query words found in title / total query words.</item>
     ///   <item>Precision = title words found in query / total title words.</item>
-    ///   <item>Score = harmonic mean (F1) of coverage and precision × 0.85.</item>
+    ///   <item>Score = harmonic mean (F1) of coverage and precision � 0.85.</item>
     ///   <item>+0.12 bonus for exact (normalised) title match.</item>
     ///   <item>+0.05 bonus if any author token appears in the query.</item>
     ///   <item>Minimum 0.05 when the result has a title but no query is given.</item>
@@ -624,7 +624,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     private static double ComputeQueryMatchScore(string? query, string? title, string? author)
     {
         if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(title))
-            return 0.50; // No query context — neutral score.
+            return 0.50; // No query context � neutral score.
 
         var queryTokens = TokenizeText(query);
         var titleTokens = TokenizeText(title);
@@ -632,7 +632,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (queryTokens.Count == 0 || titleTokens.Count == 0)
             return 0.50;
 
-        // Exact normalised match → perfect score.
+        // Exact normalised match ? perfect score.
         if (string.Equals(
                 string.Join(' ', queryTokens.Order()),
                 string.Join(' ', titleTokens.Order()),
@@ -653,7 +653,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             : 0.0;
         double score = f1 * 0.85;
 
-        // Author tokens in query → small bonus.
+        // Author tokens in query ? small bonus.
         if (!string.IsNullOrWhiteSpace(author))
         {
             var authorTokens = TokenizeText(author);
@@ -675,19 +675,19 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                    StringSplitOptions.RemoveEmptyEntries)
             .Where(w => w.Length >= 2)];
 
-    // ── Strategy execution ──────────────────────────────────────────────────
+    // -- Strategy execution --------------------------------------------------
 
     private async Task<IReadOnlyList<ProviderClaim>> ExecuteStrategyAsync(
         SearchStrategyConfig strategy,
         ProviderLookupRequest request,
         CancellationToken ct)
     {
-        // Automatic single-result match — request only as many results as we need.
+        // Automatic single-result match � request only as many results as we need.
         var fetchLimit = strategy.FetchLimit > 0 ? strategy.FetchLimit : 5;
         var url = BuildUrl(strategy, request, fetchLimit);
         _logger.LogDebug("{Provider}/{Strategy}: FETCH {Url}", Name, strategy.Name, url);
 
-        // ── Response cache check ─────────────────────────────────────────────
+        // -- Response cache check ---------------------------------------------
         var cacheKey = BuildCacheKey(url);
         var cacheTtlHours = _config.CacheTtlHours ?? 168; // Default: 7 days
 
@@ -716,7 +716,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
         }
 
-        // ── HTTP call with throttle ──────────────────────────────────────────
+        // -- HTTP call with throttle ------------------------------------------
         await _throttle.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -769,12 +769,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             using var response = await client.SendAsync(httpRequest, ct).ConfigureAwait(false);
             _lastCallUtc = DateTime.UtcNow;
 
-            // ETag 304: cache is still valid — refresh expiry and use it.
+            // ETag 304: cache is still valid � refresh expiry and use it.
             if (response.StatusCode == System.Net.HttpStatusCode.NotModified
                 && _responseCache is not null)
             {
                 _logger.LogDebug(
-                    "{Provider}/{Strategy}: 304 Not Modified — refreshing cache",
+                    "{Provider}/{Strategy}: 304 Not Modified � refreshing cache",
                     Name, strategy.Name);
                 await _responseCache.RefreshExpiryAsync(cacheKey, cacheTtlHours, ct)
                     .ConfigureAwait(false);
@@ -868,7 +868,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
-    // ── URL building ────────────────────────────────────────────────────────
+    // -- URL building --------------------------------------------------------
 
     private string BuildUrl(SearchStrategyConfig strategy, ProviderLookupRequest request, int? limitOverride = null)
     {
@@ -902,8 +902,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             query = ReplacePlaceholder(query, "{director}", request.Director, encode: false);
             query = ReplacePlaceholder(query, "{composer}", request.Composer, encode: false);
             // Remove dangling Lucene operators when optional fields are empty.
-            // e.g. "{title} AND artist:{author}" → "Bohemian Rhapsody AND artist:" when author is null
-            // → becomes "Bohemian Rhapsody" after cleanup.
+            // e.g. "{title} AND artist:{author}" ? "Bohemian Rhapsody AND artist:" when author is null
+            // ? becomes "Bohemian Rhapsody" after cleanup.
             query = Regex.Replace(query, @"\s+AND\s+\w+:\s*$", string.Empty, RegexOptions.IgnoreCase);
             query = Regex.Replace(query, @"^\s*AND\s+\w+:\s*", string.Empty, RegexOptions.IgnoreCase);
             // Trim and collapse whitespace from unfilled placeholders.
@@ -946,7 +946,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             encode: true);
         url = ReplacePlaceholder(url, "{comic_vine_id}", ResolveRequestField(request, BridgeIdKeys.ComicVineId), encode: true);
 
-        // {limit} — replaced with the caller-supplied override (fetch path uses fetch_limit,
+        // {limit} � replaced with the caller-supplied override (fetch path uses fetch_limit,
         // search path uses the manual search limit). Falls back to max_results or 25.
         var resolvedLimit = limitOverride
             ?? (strategy.MaxResults > 0 ? strategy.MaxResults : 25);
@@ -962,7 +962,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
         }
 
-        // Generic hint-based placeholder resolution — any remaining {key} placeholders
+        // Generic hint-based placeholder resolution � any remaining {key} placeholders
         // are resolved from the Hints dictionary, enabling zero-code config additions.
         if (request.Hints is { Count: > 0 })
         {
@@ -1014,10 +1014,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (string.IsNullOrWhiteSpace(title))
             return title;
 
-        // Strip trailing (YYYY) — e.g. "Blade Runner 2049 (2017)" → "Blade Runner 2049"
+        // Strip trailing (YYYY) � e.g. "Blade Runner 2049 (2017)" ? "Blade Runner 2049"
         var cleaned = Regex.Replace(title, @"\s*\(\d{4}\)\s*$", string.Empty);
 
-        // Strip trailing SxxExx — e.g. "Breaking Bad S01E01" → "Breaking Bad"
+        // Strip trailing SxxExx � e.g. "Breaking Bad S01E01" ? "Breaking Bad"
         cleaned = Regex.Replace(cleaned, @"\s*S\d{1,2}E\d{1,2}\s*$", string.Empty, RegexOptions.IgnoreCase);
 
         return cleaned.Trim();
@@ -1036,7 +1036,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    // ── Result navigation ───────────────────────────────────────────────────
+    // -- Result navigation ---------------------------------------------------
 
     private static JsonNode? NavigateToResult(
         JsonNode json, SearchStrategyConfig strategy,
@@ -1051,7 +1051,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             return null;
 
         // Title + author validation: applies to ALL strategies (lookup and search).
-        // Prevents wrong books from being accepted — e.g. study guides by different
+        // Prevents wrong books from being accepted � e.g. study guides by different
         // authors, or an Apple ID lookup returning a completely different work.
         //
         // Strategy: prefer author-matched results. If no author match, fall back
@@ -1059,7 +1059,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         // the retailer differs from the embedded author).
         if (!string.IsNullOrWhiteSpace(queryTitle))
         {
-            // Clean the query title for matching — strip "(YYYY)" and "SxxExx" so
+            // Clean the query title for matching � strip "(YYYY)" and "SxxExx" so
             // word-overlap scoring isn't penalised by filename-derived suffixes.
             var cleanedQueryTitle = CleanTitleForSearch(queryTitle) ?? queryTitle;
 
@@ -1104,7 +1104,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             if (scored.Count == 0)
             {
-                // No results had a recognisable title field — skip validation
+                // No results had a recognisable title field � skip validation
                 // and fall through to result_index selection rather than
                 // rejecting all results from providers with non-standard schemas.
                 var fallbackIndex = Math.Clamp(strategy.ResultIndex, 0, arr.Count - 1);
@@ -1116,10 +1116,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             if (authorMatched.Count > 0)
                 return authorMatched.OrderByDescending(s => s.TitleScore).First().Node;
 
-            // Tier 2: no author match — fall back to title match (>= 0.40).
+            // Tier 2: no author match � fall back to title match (>= 0.40).
             // F1 >= 0.40 means at least moderate word overlap between query and candidate.
             // Short queries (e.g. "Batman") have low precision against longer candidate
-            // titles (e.g. "Absolute Batman (2024) #1") but full coverage — 0.40 allows
+            // titles (e.g. "Absolute Batman (2024) #1") but full coverage � 0.40 allows
             // these while still rejecting completely unrelated results.
             var bestByTitle = scored.OrderByDescending(s => s.TitleScore).First();
             return bestByTitle.TitleScore >= 0.40 ? bestByTitle.Node : null;
@@ -1147,7 +1147,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Word-overlap similarity (0.0–1.0). Compares normalized word sets,
+    /// Word-overlap similarity (0.0�1.0). Compares normalized word sets,
     /// returning harmonic mean of coverage and precision (F1 score).
     /// </summary>
     private static double ComputeWordOverlap(string query, string candidate)
@@ -1174,7 +1174,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Strips diacritical marks from text — e.g. "Shōgun" → "Shogun", "Für Elise" → "Fur Elise".
+    /// Strips diacritical marks from text � e.g. "Shogun" ? "Shogun", "F�r Elise" ? "Fur Elise".
     /// Uses Unicode decomposition to separate base characters from combining marks.
     /// </summary>
     private static string StripDiacritics(string text)
@@ -1189,7 +1189,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
-    // ── Nested release selection ────────────────────────────────────────────
+    // -- Nested release selection --------------------------------------------
 
     /// <summary>
     /// Selects the best sub-result from a nested array within the matched result node.
@@ -1201,7 +1201,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var nested = JsonPathEvaluator.Evaluate(parentNode, config.Path);
         if (nested is not JsonArray arr || arr.Count == 0)
         {
-            _logger.LogDebug("{Provider}: release selection — no nested array at '{Path}'", Name, config.Path);
+            _logger.LogDebug("{Provider}: release selection � no nested array at '{Path}'", Name, config.Path);
             return null;
         }
 
@@ -1211,7 +1211,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             .ToList();
 
         _logger.LogDebug(
-            "{Provider}: release selection — {Total} nested items, {Filtered} pass filters",
+            "{Provider}: release selection � {Total} nested items, {Filtered} pass filters",
             Name, arr.Count, candidates.Count);
 
         // Fallback: if no candidates match primary filters, try fallback types in order.
@@ -1228,7 +1228,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 if (candidates.Count > 0)
                 {
                     _logger.LogDebug(
-                        "{Provider}: release selection — using fallback type '{Type}' ({Count} candidates)",
+                        "{Provider}: release selection � using fallback type '{Type}' ({Count} candidates)",
                         Name, fallbackType, candidates.Count);
                     break;
                 }
@@ -1237,7 +1237,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         if (candidates.Count == 0)
         {
-            _logger.LogDebug("{Provider}: release selection — no candidates after filtering", Name);
+            _logger.LogDebug("{Provider}: release selection � no candidates after filtering", Name);
             return null;
         }
 
@@ -1268,7 +1268,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             if (preferred.Count > 0)
             {
                 _logger.LogDebug(
-                    "{Provider}: release selection — {Count} candidates match soft preferences",
+                    "{Provider}: release selection � {Count} candidates match soft preferences",
                     Name, preferred.Count);
                 return preferred[0];
             }
@@ -1330,7 +1330,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return string.Equals(str, expected, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ── Claim extraction ────────────────────────────────────────────────────
+    // -- Claim extraction ----------------------------------------------------
 
     /// <summary>
     /// Extracts claims using both the top-level result node (recording) and the selected
@@ -1427,8 +1427,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             return [];
 
         var transformed = !string.IsNullOrEmpty(args)
-            ? ValueTransformRegistry.Apply(transformName, raw, args)
-            : ValueTransformRegistry.Apply(transformName, raw);
+            ? ValueTransformCatalog.Apply(transformName, raw, args)
+            : ValueTransformCatalog.Apply(transformName, raw);
 
         return string.IsNullOrWhiteSpace(transformed) ? [] : [transformed];
     }
@@ -1510,7 +1510,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return extracted.Count > 0 ? [string.Join(", ", extracted)] : [];
     }
 
-    // ── Required field check ────────────────────────────────────────────────
+    // -- Required field check ------------------------------------------------
 
     private static readonly HashSet<string> GenericTerms = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -1574,7 +1574,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return null;
     }
 
-    // ── Media type filtering ────────────────────────────────────────────────
+    // -- Media type filtering ------------------------------------------------
 
     /// <summary>
     /// Filters search strategies by the request's media type.
@@ -1588,7 +1588,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (strategies is null or { Count: 0 })
             return strategies;
 
-        // Unknown = wildcard — return all strategies.
+        // Unknown = wildcard � return all strategies.
         if (mediaType == MediaType.Unknown)
             return strategies;
 
@@ -1611,7 +1611,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (mappings is null or { Count: 0 })
             return [];
 
-        // Unknown = wildcard — return all mappings.
+        // Unknown = wildcard � return all mappings.
         if (mediaType == MediaType.Unknown)
             return mappings;
 
@@ -1623,7 +1623,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             .ToList();
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // -- Helpers --------------------------------------------------------------
 
     private static HashSet<T> ParseEnumSet<T>(List<string>? values) where T : struct, Enum
     {
@@ -1640,7 +1640,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return set;
     }
 
-    // ── Language strategy ───────────────────────────────────────────────────
+    // -- Language strategy ---------------------------------------------------
 
     /// <summary>
     /// Resolves the effective language for API queries based on the provider's language strategy.

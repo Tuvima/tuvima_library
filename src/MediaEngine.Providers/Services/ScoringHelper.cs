@@ -217,7 +217,7 @@ public static class ScoringHelper
     /// Lineage-aware persist + score (Phase 4 target architecture).
     ///
     /// Splits the inbound provider claims into two disjoint buckets using
-    /// <see cref="ClaimScopeRegistry"/>:
+    /// <see cref="ClaimScopeCatalog"/>:
     ///   • Self-scope claims  → written to the asset's own entity id.
     ///   • Parent-scope claims → written to <c>lineage.TargetForParentScope</c>,
     ///     which is the topmost Work in the hierarchy (the SHOW for TV, the
@@ -266,7 +266,7 @@ public static class ScoringHelper
             if (string.IsNullOrWhiteSpace(c.Key))
                 continue;
 
-            if (ClaimScopeRegistry.GetScope(c.Key, lineage.MediaType) == ClaimScope.Parent)
+            if (ClaimScopeCatalog.GetScope(c.Key, lineage.MediaType) == ClaimScope.Parent)
                 parentClaims.Add(c);
             else
                 selfClaims.Add(c);
@@ -288,7 +288,7 @@ public static class ScoringHelper
         //    never include a top-level "title" because title is Self-scoped
         //    (a track's title, an episode's title — not the container's).
         //    Without intervention, the parent Work has rich canonicals for
-        //    album/show_name/series but no title, and the Registry surfaces
+        //    album/show_name/series but no title, and the LibraryItem surfaces
         //    it as "Untitled". Here we mint a synthetic title claim from the
         //    appropriate container field so every parent Work has a title.
         //
@@ -335,7 +335,7 @@ public static class ScoringHelper
     /// Why this exists: <c>title</c> is Self-scoped by default — a track's
     /// title belongs to the track, not the album. As a result, parent Works
     /// accumulate rich canonicals (album, artist, year, cover_url, genre,
-    /// apple IDs…) but no title, and the Registry surfaces them as
+    /// apple IDs…) but no title, and the LibraryItem surfaces them as
     /// "Untitled". Rather than teach every reader to fall back to the
     /// appropriate container field per media type, we write a canonical
     /// <c>title</c> on the parent Work at score-time, sourced from the

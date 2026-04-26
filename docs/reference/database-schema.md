@@ -335,7 +335,7 @@ Cached Wikidata display labels for QIDs, avoiding repeated API lookups.
 
 ## Providers
 
-### provider_registry
+### metadata_providers
 
 Registered providers and their runtime state.
 
@@ -355,7 +355,7 @@ Live provider configuration values (mirrors `config/providers/*.json` after load
 
 | Column | Type | Notes |
 |---|---|---|
-| `provider_id` | TEXT | FK â†’ `provider_registry.id` |
+| `provider_id` | TEXT | FK â†’ `metadata_providers.id` |
 | `config_key` | TEXT | Configuration field name |
 | `config_value` | TEXT | Configuration field value |
 

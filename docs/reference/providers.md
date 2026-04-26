@@ -116,7 +116,7 @@ Numbers represent confidence values assigned to extracted claims. `--` means the
 
 ### Value Transforms
 
-The `ValueTransformRegistry` applies transformations during extraction:
+The `ValueTransformCatalog` applies transformations during extraction:
 
 | Transform | Purpose | Used By |
 |---|---|---|

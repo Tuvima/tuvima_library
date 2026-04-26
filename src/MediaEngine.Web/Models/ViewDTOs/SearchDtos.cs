@@ -347,7 +347,7 @@ public sealed class SearchResolveResponseDto
 
 // ── Apply Match ───────────────────────────────────────────────────────────────
 
-/// <summary>Request sent to POST /registry/items/{entityId}/apply-match.</summary>
+/// <summary>Request sent to POST /library/items/{entityId}/apply-match.</summary>
 public sealed class ApplyMatchRequestDto
 {
     [JsonPropertyName("qid")]
@@ -388,7 +388,7 @@ public sealed class ApplyMatchRequestDto
     public string? RetailDescription { get; set; }
 }
 
-/// <summary>Response from POST /registry/items/{entityId}/apply-match.</summary>
+/// <summary>Response from POST /library/items/{entityId}/apply-match.</summary>
 public sealed class ApplyMatchResponseDto
 {
     [JsonPropertyName("entity_id")]
@@ -547,7 +547,7 @@ public sealed class ItemCanonicalApplyResponseDto
 
 // ── Create Manual Entry ───────────────────────────────────────────────────────
 
-/// <summary>Request sent to POST /registry/items/{entityId}/create-manual.</summary>
+/// <summary>Request sent to POST /library/items/{entityId}/create-manual.</summary>
 public sealed class CreateManualRequestDto
 {
     [JsonPropertyName("title")]
@@ -566,7 +566,7 @@ public sealed class CreateManualRequestDto
     public string? Description { get; set; }
 }
 
-/// <summary>Response from POST /registry/items/{entityId}/create-manual.</summary>
+/// <summary>Response from POST /library/items/{entityId}/create-manual.</summary>
 public sealed class CreateManualResponseDto
 {
     [JsonPropertyName("entity_id")]

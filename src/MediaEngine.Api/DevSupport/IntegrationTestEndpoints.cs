@@ -436,7 +436,7 @@ public static class IntegrationTestEndpoints
         IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
         IIdentityJobRepository identityJobRepo,
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         IReviewQueueRepository reviewRepo,
         IEnumerable<IExternalMetadataProvider> providers,
         ILoggerFactory loggerFactory,
@@ -543,17 +543,17 @@ public static class IntegrationTestEndpoints
 
         // ── Phase 4: Validate results per media type ──────────────────────
         logger.LogInformation("[Phase 4] Validating ingestion results...");
-        await ValidateResultsAsync(registryRepo, report, logger, ct);
+        await ValidateResultsAsync(libraryItemRepo, report, logger, ct);
 
         // ── Phase 4b: Vault Display Validation ──────────────────────────
         logger.LogInformation("[Phase 4b] Vault display validation...");
-            await ValidateVaultDisplayAsync(db, registryRepo, report, stages, logger, ct);
+            await ValidateVaultDisplayAsync(db, libraryItemRepo, report, stages, logger, ct);
 
         // ── Phase 4c: File system and artwork validation ───────────────────
         if (stages < 123)
         {
             logger.LogInformation("[Phase 4c] File system and artwork validation...");
-            await ValidateFileSystemAsync(db, options, configLoader, registryRepo, report, loggerFactory, logger, ct);
+            await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
         }
         else
         {
@@ -562,7 +562,7 @@ public static class IntegrationTestEndpoints
 
         // ── Phase 4d: Stage Gating Validation ───────────────────────────
         logger.LogInformation("[Phase 4d] Stage gating validation...");
-        await ValidateStageGatingAsync(registryRepo, report, stages, logger, ct);
+        await ValidateStageGatingAsync(libraryItemRepo, report, stages, logger, ct);
 
         // ── Phase 4e: Reconciliation — expected vs. actual outcomes ─────────
         logger.LogInformation("[Phase 4e] Running reconciliation pass...");
@@ -570,23 +570,23 @@ public static class IntegrationTestEndpoints
 
         // ── Phase 5: Test manual search for review items ──────────────────
         logger.LogInformation("[Phase 5] Testing manual search on review items...");
-        await TestManualSearchAsync(registryRepo, providers, report, logger, ct);
+        await TestManualSearchAsync(libraryItemRepo, providers, report, logger, ct);
 
         // ── Phase 6: Check universe enrichment ────────────────────────────
         logger.LogInformation("[Phase 6] Checking universe enrichment...");
-        await CheckUniversesAsync(registryRepo, report, logger, ct);
+        await CheckUniversesAsync(libraryItemRepo, report, logger, ct);
 
         // ── Phase 7: Stage 3 — Universe Enrichment (conditional) ────────
         if (stages >= 123)
         {
             logger.LogInformation("[Phase 7] Triggering Stage 3 Universe Enrichment...");
-            await RunStage3EnrichmentAsync(context, registryRepo, db, report, logger, ct);
+            await RunStage3EnrichmentAsync(context, libraryItemRepo, db, report, logger, ct);
             await Task.Delay(TimeSpan.FromSeconds(5), ct);
 
             logger.LogInformation("[Phase 7b] File system and Stage 3 artwork validation...");
             report.FileSystemChecks.Clear();
             report.WatchFolderChecks.Clear();
-            await ValidateFileSystemAsync(db, options, configLoader, registryRepo, report, loggerFactory, logger, ct);
+            await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
             ValidateStage3FanartAsync(report, logger);
         }
 
@@ -856,16 +856,16 @@ public static class IntegrationTestEndpoints
     // ── Validate results ──────────────────────────────────────────────────
 
     private static async Task ValidateResultsAsync(
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         TestReport report,
         ILogger logger,
         CancellationToken ct)
     {
         // Get all items
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
         report.TotalItems = allItems.TotalCount;
 
-        logger.LogInformation("  Total items in registry: {Count}", allItems.TotalCount);
+        logger.LogInformation("  Total items in libraryItem: {Count}", allItems.TotalCount);
 
         // Group by media type
         var grouped = allItems.Items.GroupBy(i => i.MediaType).OrderBy(g => g.Key);
@@ -930,7 +930,7 @@ public static class IntegrationTestEndpoints
     // ── Test manual search ────────────────────────────────────────────────
 
     private static async Task TestManualSearchAsync(
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         IEnumerable<IExternalMetadataProvider> providers,
         TestReport report,
         ILogger logger,
@@ -1016,13 +1016,13 @@ public static class IntegrationTestEndpoints
 
     private static async Task ValidateVaultDisplayAsync(
         IDatabaseConnection db,
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         TestReport report,
         int stages,
         ILogger logger,
         CancellationToken ct)
     {
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
         var expectations = DevSeedEndpoints.GetAllExpectations()
             .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -1031,7 +1031,7 @@ public static class IntegrationTestEndpoints
         foreach (var item in allItems.Items)
         {
             // Fetch detail to get creator fields (author/director/artist)
-            var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+            var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
             expectations.TryGetValue(NormalizeExpectationKey(item.Title, item.MediaType), out var expected);
 
             // Determine creator based on media type
@@ -1112,7 +1112,7 @@ public static class IntegrationTestEndpoints
         {
             if (string.IsNullOrWhiteSpace(item.WikidataQid)) continue;
 
-            var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+            var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
             if (detail is null) continue;
 
             var canonMap = detail.CanonicalValues.ToDictionary(cv => cv.Key, cv => cv.Value, StringComparer.OrdinalIgnoreCase);
@@ -1170,13 +1170,13 @@ public static class IntegrationTestEndpoints
         IDatabaseConnection db,
         IOptions<IngestionOptions> options,
         IConfigurationLoader configLoader,
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         TestReport report,
         ILoggerFactory loggerFactory,
         ILogger logger,
         CancellationToken ct)
     {
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
         var organizer = new FileOrganizer(loggerFactory.CreateLogger<FileOrganizer>());
         var assetPathService = new AssetPathService(options.Value.LibraryRoot);
         var assetIds = await LoadWorkAssetIdsAsync(db);
@@ -1193,7 +1193,7 @@ public static class IntegrationTestEndpoints
 
         foreach (var item in allItems.Items)
         {
-            var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+            var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
             expectations.TryGetValue(NormalizeExpectationKey(item.Title, item.MediaType), out var expected);
 
             bool expectLibraryPlacement = !IsReviewStatus(item.Status) && !IsFailureStatus(item.Status);
@@ -1317,13 +1317,13 @@ public static class IntegrationTestEndpoints
     }
 
     private static async Task ValidateStageGatingAsync(
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         TestReport report,
         int stages,
         ILogger logger,
         CancellationToken ct)
     {
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
 
         if (stages == 1)
         {
@@ -1398,7 +1398,7 @@ public static class IntegrationTestEndpoints
 
     private static async Task RunStage3EnrichmentAsync(
         HttpContext context,
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         IDatabaseConnection db,
         TestReport report,
         ILogger logger,
@@ -1518,13 +1518,13 @@ public static class IntegrationTestEndpoints
     // ── Check universes ───────────────────────────────────────────────────
 
     private static async Task CheckUniversesAsync(
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         TestReport report,
         ILogger logger,
         CancellationToken ct)
     {
         // Check if items that should form universes got QIDs (prerequisite for universe formation)
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
 
         // Look for Tolkien universe items (The Hobbit + Fellowship of the Ring)
         var tolkienItems = allItems.Items.Where(i =>
@@ -2671,7 +2671,7 @@ public static class IntegrationTestEndpoints
     {
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<ProviderNameRow>(
-            "SELECT id AS Id, name AS Name FROM provider_registry");
+            "SELECT id AS Id, name AS Name FROM metadata_providers");
 
         var providerNames = new Dictionary<Guid, string>();
         foreach (var row in rows)
@@ -2705,7 +2705,7 @@ public static class IntegrationTestEndpoints
         };
 
     private static string? ResolveRetailProvider(
-        RegistryItemDetail detail,
+        LibraryItemDetail detail,
         IReadOnlyDictionary<Guid, string> providerNamesById)
     {
         var provider = detail.ClaimHistory
@@ -2829,7 +2829,7 @@ public static class IntegrationTestEndpoints
     }
 
     private static string? BuildExpectedLibraryPath(
-        RegistryItem item,
+        LibraryCatalogItem item,
         string? filePath,
         IReadOnlyDictionary<string, string> metadata,
         IngestionOptions options,

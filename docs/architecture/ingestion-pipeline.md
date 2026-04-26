@@ -142,7 +142,7 @@ Files are routed to one of four subcategories based on their overall confidence 
 
 **Staging lifecycle logging:** The Engine logs staging progress at `Information` level at four points: (1) when an asset is moved into staging, (2) when a review queue item is created, (3) when a gap is detected in expected review creation (e.g. a confidence score that should have triggered a review but did not), and (4) when an asset is promoted out of staging into the organised library. These log entries allow the staging pipeline to be audited from the activity log.
 
-**Vault quality gate:** Main Vault visibility is no longer a simple "in staging or not" decision. The shared registry projection computes `vault_visibility`, `pipeline_step`, `artwork_state`, and `is_ready_for_vault` from identity jobs, review state, and canonical artwork flags. An item is visible in the main Vault only after it has a non-placeholder title, a resolved media type, and settled artwork (`present`, or `missing` after explicit settlement). Review-only or still-hidden items remain available in Activity, Review, and the Action Center.
+**Vault quality gate:** Main Vault visibility is no longer a simple "in staging or not" decision. The shared library item projection computes `vault_visibility`, `pipeline_step`, `artwork_state`, and `is_ready_for_vault` from identity jobs, review state, and canonical artwork flags. An item is visible in the main Vault only after it has a non-placeholder title, a resolved media type, and settled artwork (`present`, or `missing` after explicit settlement). Review-only or still-hidden items remain available in Activity, Review, and the Action Center.
 
 ### AutoOrganize Gate
 

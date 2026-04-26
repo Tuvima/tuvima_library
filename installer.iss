@@ -55,23 +55,14 @@ Name: "{group}\Open Tuvima Library";      Filename: "{app}\open-tuvima.bat"
 Name: "{group}\Uninstall Tuvima Library"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Tuvima Library";     Filename: "{app}\open-tuvima.bat"; Tasks: desktopicon
 
-[Registry]
-; Engine service environment variables (REG_MULTI_SZ — one KEY=VALUE per line)
-Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Services\{#EngineSvc}"; \
-  ValueType: multisz; ValueName: "Environment"; Flags: uninsdeletevalue; \
-  ValueData: "TUVIMA_CONFIG_DIR={commonappdata}\Tuvima\config{break}TUVIMA_DB_PATH={commonappdata}\Tuvima\db\library.db{break}TUVIMA_WATCH_FOLDER={commonappdata}\Tuvima\watch{break}TUVIMA_LIBRARY_ROOT={commonappdata}\Tuvima\library{break}TUVIMA_CORS_ORIGINS=http://localhost:{#DashboardPort}{break}ASPNETCORE_URLS=http://+:{#EnginePort}{break}ASPNETCORE_ENVIRONMENT=Production"
-
-; Dashboard service environment variables
-Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Services\{#DashboardSvc}"; \
-  ValueType: multisz; ValueName: "Environment"; Flags: uninsdeletevalue; \
-  ValueData: "Engine__BaseUrl=http://localhost:{#EnginePort}{break}ASPNETCORE_URLS=http://+:{#DashboardPort}{break}ASPNETCORE_ENVIRONMENT=Production"
-
 [Run]
 ; Install services
 Filename: "{sys}\sc.exe"; Parameters: "create {#EngineSvc} binpath= ""{app}\engine\MediaEngine.Api.exe"" start= auto DisplayName= ""Tuvima Library Engine"""; Flags: runhidden; StatusMsg: "Installing Engine service..."
 Filename: "{sys}\sc.exe"; Parameters: "description {#EngineSvc} ""Tuvima Library intelligence engine"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "create {#DashboardSvc} binpath= ""{app}\dashboard\MediaEngine.Web.exe"" start= auto DisplayName= ""Tuvima Library Dashboard"""; Flags: runhidden; StatusMsg: "Installing Dashboard service..."
 Filename: "{sys}\sc.exe"; Parameters: "description {#DashboardSvc} ""Tuvima Library browser dashboard"""; Flags: runhidden
+Filename: "{sys}\reg.exe"; Parameters: "add ""HKLM\SYSTEM\CurrentControlSet\Services\{#EngineSvc}"" /v Environment /t REG_MULTI_SZ /d ""TUVIMA_CONFIG_DIR={commonappdata}\Tuvima\config\0TUVIMA_DB_PATH={commonappdata}\Tuvima\db\library.db\0TUVIMA_WATCH_FOLDER={commonappdata}\Tuvima\watch\0TUVIMA_LIBRARY_ROOT={commonappdata}\Tuvima\library\0TUVIMA_CORS_ORIGINS=http://localhost:{#DashboardPort}\0ASPNETCORE_URLS=http://+:{#EnginePort}\0ASPNETCORE_ENVIRONMENT=Production"" /f"; Flags: runhidden; StatusMsg: "Configuring Engine service..."
+Filename: "{sys}\reg.exe"; Parameters: "add ""HKLM\SYSTEM\CurrentControlSet\Services\{#DashboardSvc}"" /v Environment /t REG_MULTI_SZ /d ""Engine__BaseUrl=http://localhost:{#EnginePort}\0ASPNETCORE_URLS=http://+:{#DashboardPort}\0ASPNETCORE_ENVIRONMENT=Production"" /f"; Flags: runhidden; StatusMsg: "Configuring Dashboard service..."
 Filename: "{sys}\sc.exe"; Parameters: "start {#EngineSvc}";    Flags: runhidden; StatusMsg: "Starting Engine..."
 Filename: "{sys}\sc.exe"; Parameters: "start {#DashboardSvc}"; Flags: runhidden; StatusMsg: "Starting Dashboard..."
 ; Open browser after install

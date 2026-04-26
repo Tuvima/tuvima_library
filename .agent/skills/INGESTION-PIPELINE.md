@@ -41,7 +41,7 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 4. Skip if IsFailed or file is deleted
 5. AssetHasher computes SHA-256 fingerprint
 6. MediaAssetRepository.FindByHashAsync → duplicate check
-7. ProcessorRegistry.ProcessAsync → extract metadata claims + cover art
+7. ProcessorRouter.ProcessAsync → extract metadata claims + cover art
 8. Skip if ProcessorResult.IsCorrupt
 9. Convert ExtractedClaims to MetadataClaims → persist
 10. ScoringEngine.ScoreEntityAsync → persist CanonicalValues
@@ -63,7 +63,7 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 4. Implement `CanProcess(byte[])` — inspect magic bytes to identify the format.
 5. Implement `ProcessAsync()` — return `ProcessorResult` with `ExtractedClaim[]` and optional cover image.
 6. Register in `Program.cs` DI container.
-7. The `MediaProcessorRegistry` will automatically include it in the dispatch chain.
+7. The `MediaProcessorRouter` will automatically include it in the dispatch chain.
 
 ---
 

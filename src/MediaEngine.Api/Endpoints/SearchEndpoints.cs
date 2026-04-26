@@ -6,7 +6,7 @@ namespace MediaEngine.Api.Endpoints;
 
 /// <summary>
 /// Search endpoints for Universe (Wikidata) and Retail provider searches.
-/// Used by the Registry's MediaSearchPanel to find matches for items.
+/// Used by the LibraryItem's MediaSearchPanel to find matches for items.
 /// </summary>
 public static class SearchEndpoints
 {

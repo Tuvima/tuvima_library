@@ -195,7 +195,7 @@ else
     [SupplyParameterFromQuery(Name = "collectionId")] public Guid? CollectionId { get; set; }
     [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
-    private RegistryItemDetailViewModel? _movie;
+    private LibraryItemDetailViewModel? _movie;
     private RelatedCollectionsViewModel? _related;
     private Guid? _assetId;
     private ProgressStateDto? _progress;
@@ -253,7 +253,7 @@ else
         _loading = true;
         StateHasChanged();
 
-        var movieTask = ApiClient.GetRegistryItemDetailAsync(WorkId);
+        var movieTask = ApiClient.GetLibraryItemDetailAsync(WorkId);
         var worksTask = Orchestrator.GetLibraryWorksAsync();
         var profileTask = Orchestrator.GetActiveProfileAsync();
         var castTask = Orchestrator.GetWorkCastAsync(WorkId);

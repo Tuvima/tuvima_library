@@ -27,8 +27,8 @@ ingestion pipeline by implementing `IMediaProcessor`.
 
 ## Overview of the processor system
 
-When the ingestion engine encounters a file, it calls `MediaProcessorRegistry.ProcessAsync`.
-The registry iterates all registered processors in descending `Priority` order and asks
+When the ingestion engine encounters a file, it calls `MediaProcessorRouter.ProcessAsync`.
+The router iterates all registered processors in descending `Priority` order and asks
 each one `CanProcess(filePath)`. The first processor to return `true` wins. If none match,
 the `GenericFileProcessor` (priority `int.MinValue`) handles the file as a fallback.
 
@@ -346,20 +346,20 @@ Add a `<remarks>` comment explaining the priority relative to adjacent processor
 
 ### 5. Register the processor in DI
 
-Open `src/MediaEngine.Api/Program.cs` and find the `IProcessorRegistry` registration block:
+Open `src/MediaEngine.Api/Program.cs` and find the `IProcessorRouter` registration block:
 
 ```csharp
-builder.Services.AddSingleton<IProcessorRegistry>(sp =>
+builder.Services.AddSingleton<IProcessorRouter>(sp =>
 {
-    var registry = new MediaProcessorRegistry();
-    registry.Register(new EpubProcessor());
-    registry.Register(new AudioProcessor());
-    registry.Register(new VideoProcessor(sp.GetRequiredService<IVideoMetadataExtractor>()));
-    registry.Register(new ComicProcessor());
+    var router = new MediaProcessorRouter();
+    router.Register(new EpubProcessor());
+    router.Register(new AudioProcessor());
+    router.Register(new VideoProcessor(sp.GetRequiredService<IVideoMetadataExtractor>()));
+    router.Register(new ComicProcessor());
     // Add your processor here:
-    registry.Register(new MyFormatProcessor());
-    registry.Register(new GenericFileProcessor());
-    return registry;
+    router.Register(new MyFormatProcessor());
+    router.Register(new GenericFileProcessor());
+    return router;
 });
 ```
 

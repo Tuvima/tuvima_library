@@ -74,40 +74,40 @@ public class GenericFileProcessorTests
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  MediaProcessorRegistry
+//  MediaProcessorRouter
 // ════════════════════════════════════════════════════════════════════════
 
-public class MediaProcessorRegistryTests : IDisposable
+public class MediaProcessorRouterTests : IDisposable
 {
-    private readonly MediaProcessorRegistry _registry = new(maxDegreeOfParallelism: 2);
+    private readonly MediaProcessorRouter _libraryItem = new(maxDegreeOfParallelism: 2);
 
-    public void Dispose() => _registry.Dispose();
+    public void Dispose() => _libraryItem.Dispose();
 
     [Fact]
     public void Register_NullProcessor_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => _registry.Register(null!));
+        Assert.Throws<ArgumentNullException>(() => _libraryItem.Register(null!));
     }
 
     [Fact]
     public void Resolve_NullPath_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => _registry.Resolve(null!));
+        Assert.Throws<ArgumentNullException>(() => _libraryItem.Resolve(null!));
     }
 
     [Fact]
     public void Resolve_EmptyPath_Throws()
     {
-        Assert.Throws<ArgumentException>(() => _registry.Resolve("  "));
+        Assert.Throws<ArgumentException>(() => _libraryItem.Resolve("  "));
     }
 
     [Fact]
     public void Resolve_FallbackProcessor_ReturnedWhenNoSpecificMatch()
     {
         var fallback = new GenericFileProcessor();
-        _registry.Register(fallback);
+        _libraryItem.Register(fallback);
 
-        var result = _registry.Resolve("/some/unknown/file.xyz");
+        var result = _libraryItem.Resolve("/some/unknown/file.xyz");
 
         Assert.Same(fallback, result);
     }
@@ -118,10 +118,10 @@ public class MediaProcessorRegistryTests : IDisposable
         var lowPriority = new FakeProcessor("low", 10, canProcess: true);
         var highPriority = new FakeProcessor("high", 100, canProcess: true);
 
-        _registry.Register(lowPriority);
-        _registry.Register(highPriority);
+        _libraryItem.Register(lowPriority);
+        _libraryItem.Register(highPriority);
 
-        var result = _registry.Resolve("/test/file.txt");
+        var result = _libraryItem.Resolve("/test/file.txt");
 
         Assert.Same(highPriority, result);
     }
@@ -132,10 +132,10 @@ public class MediaProcessorRegistryTests : IDisposable
         var cannotProcess = new FakeProcessor("no", 100, canProcess: false);
         var canProcess = new FakeProcessor("yes", 50, canProcess: true);
 
-        _registry.Register(cannotProcess);
-        _registry.Register(canProcess);
+        _libraryItem.Register(cannotProcess);
+        _libraryItem.Register(canProcess);
 
-        var result = _registry.Resolve("/test/file.txt");
+        var result = _libraryItem.Resolve("/test/file.txt");
 
         Assert.Same(canProcess, result);
     }
@@ -144,7 +144,7 @@ public class MediaProcessorRegistryTests : IDisposable
     public async Task ProcessAsync_NoProcessors_ThrowsInvalidOperation()
     {
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _registry.ProcessAsync("/some/file.txt"));
+            () => _libraryItem.ProcessAsync("/some/file.txt"));
     }
 
     [Fact]
@@ -156,9 +156,9 @@ public class MediaProcessorRegistryTests : IDisposable
             DetectedType = MediaType.Books,
         };
         var processor = new FakeProcessor("test", 100, canProcess: true, result: expectedResult);
-        _registry.Register(processor);
+        _libraryItem.Register(processor);
 
-        var result = await _registry.ProcessAsync("/test.txt");
+        var result = await _libraryItem.ProcessAsync("/test.txt");
 
         Assert.Same(expectedResult, result);
     }
@@ -170,11 +170,11 @@ public class MediaProcessorRegistryTests : IDisposable
         var tcs = new TaskCompletionSource<ProcessorResult>();
         var slowResult = new ProcessorResult { FilePath = "/slow.txt", DetectedType = MediaType.Unknown };
         var slowProcessor = new SlowProcessor(tcs.Task);
-        _registry.Register(slowProcessor);
+        _libraryItem.Register(slowProcessor);
 
         // Start two tasks (fill the semaphore limit of 2)
-        var task1 = _registry.ProcessAsync("/slow.txt");
-        var task2 = _registry.ProcessAsync("/slow.txt");
+        var task1 = _libraryItem.ProcessAsync("/slow.txt");
+        var task2 = _libraryItem.ProcessAsync("/slow.txt");
 
         // Both should be in progress
         Assert.False(task1.IsCompleted);

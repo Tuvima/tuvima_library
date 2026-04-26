@@ -504,7 +504,7 @@ public sealed class RepositoryTests : IDisposable
     }
 
     /// <summary>
-    /// Inserts a test provider into provider_registry and returns its ID.
+    /// Inserts a test provider into metadata_providers and returns its ID.
     /// Required to satisfy the FK constraint on metadata_claims.provider_id.
     /// </summary>
     private async Task<Guid> CreateTestProviderAsync()
@@ -512,7 +512,7 @@ public sealed class RepositoryTests : IDisposable
         using var conn = _db.CreateConnection();
         var providerId = Guid.NewGuid();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"INSERT INTO provider_registry (id, name, version) VALUES ('{providerId}', 'test-provider-{providerId:N}', '1.0')";
+        cmd.CommandText = $"INSERT INTO metadata_providers (id, name, version) VALUES ('{providerId}', 'test-provider-{providerId:N}', '1.0')";
         await cmd.ExecuteNonQueryAsync();
         return providerId;
     }

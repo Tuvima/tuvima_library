@@ -43,7 +43,7 @@ public interface IExternalMetadataProvider
     IReadOnlyList<string> CapabilityTags { get; }
 
     /// <summary>
-    /// Stable GUID that identifies this provider in the <c>provider_registry</c>
+    /// Stable GUID that identifies this provider in the <c>metadata_providers</c>
     /// and on every <c>metadata_claims</c> row this adapter produces.
     /// Must not change between versions.
     /// </summary>

@@ -1,9 +1,9 @@
-﻿namespace MediaEngine.Domain.Enums;
+namespace MediaEngine.Domain.Enums;
 
 /// <summary>
 /// String constants for the <c>action_type</c> column in <c>system_activity</c>.
 ///
-/// Stored as TEXT in SQLite for readability and extensibility — future phases
+/// Stored as TEXT in SQLite for readability and extensibility � future phases
 /// can introduce new action types without a schema migration.
 /// </summary>
 public static class SystemActionType
@@ -50,18 +50,18 @@ public static class SystemActionType
     /// <summary>An affiliate link was generated from a bridge identifier.</summary>
     public const string AffiliateGenerated = "AffiliateGenerated";
 
-    // ── Hydration Pipeline (Three-Stage) ─────────────────────────────────────
+    // -- Hydration Pipeline (Three-Stage) -------------------------------------
 
     /// <summary>A Universe QID was recovered for an item previously matched only via retail providers.</summary>
     public const string UniverseMatchRecovered = "UniverseMatchRecovered";
 
-    /// <summary>Hydration Stage 1 (Authority Match — Wikidata) completed for an entity.</summary>
+    /// <summary>Hydration Stage 1 (Authority Match � Wikidata) completed for an entity.</summary>
     public const string HydrationStage1Completed = "HydrationStage1Completed";
 
-    /// <summary>Hydration Stage 2 (Context Match — Wikipedia) completed for an entity.</summary>
+    /// <summary>Hydration Stage 2 (Context Match � Wikipedia) completed for an entity.</summary>
     public const string HydrationStage2Completed = "HydrationStage2Completed";
 
-    /// <summary>Hydration Stage 3 (Retail Match — waterfall) completed for an entity.</summary>
+    /// <summary>Hydration Stage 3 (Retail Match � waterfall) completed for an entity.</summary>
     public const string HydrationStage3Completed = "HydrationStage3Completed";
 
     /// <summary>A review queue item was created (disambiguation, low confidence, etc.).</summary>
@@ -76,7 +76,7 @@ public static class SystemActionType
     /// <summary>Resolved metadata was written back into the physical media file's embedded tags.</summary>
     public const string MetadataWrittenToFile = "MetadataWrittenToFile";
 
-    // ── Ingestion Pipeline Lifecycle ─────────────────────────────────────
+    // -- Ingestion Pipeline Lifecycle -------------------------------------
 
     /// <summary>The ingestion engine started and began watching a directory.</summary>
     public const string ServerStarted = "ServerStarted";
@@ -93,13 +93,13 @@ public static class SystemActionType
     /// <summary>A file was skipped because it is a duplicate of an existing asset.</summary>
     public const string DuplicateSkipped = "DuplicateSkipped";
 
-    /// <summary>A file was processed by the processor registry (metadata extracted).</summary>
+    /// <summary>A file was processed by the processor libraryItem (metadata extracted).</summary>
     public const string FileProcessed = "FileProcessed";
 
     /// <summary>The scoring engine assigned a confidence score to a file's metadata.</summary>
     public const string FileScored = "FileScored";
 
-    /// <summary>A Collection → Work → Edition entity chain was created or linked for a file.</summary>
+    /// <summary>A Collection ? Work ? Edition entity chain was created or linked for a file.</summary>
     public const string EntityChainCreated = "EntityChainCreated";
 
     /// <summary>Cover art was saved to disk alongside the organized file.</summary>
@@ -124,7 +124,7 @@ public static class SystemActionType
     [Obsolete("Use MovedToStaging instead.")]
     public const string MovedToOrphanage = "MovedToOrphanage";
 
-    // ── Staging & Reconciliation ───────────────────────────────────────────
+    // -- Staging & Reconciliation -------------------------------------------
 
     /// <summary>A staged asset was cleaned up (file missing, DB record deleted).</summary>
     public const string StagedFileCleaned = "StagedFileCleaned";
@@ -139,7 +139,7 @@ public static class SystemActionType
     /// <summary>A library reconciliation scan completed.</summary>
     public const string ReconciliationCompleted = "ReconciliationCompleted";
 
-    // ── Collection Intelligence ───────────────────────────────────────────────
+    // -- Collection Intelligence -----------------------------------------------
 
     /// <summary>A new Collection was created from Wikidata relationship data.</summary>
     public const string CollectionCreated = "CollectionCreated";
@@ -150,7 +150,7 @@ public static class SystemActionType
     /// <summary>Two Collections were merged when a shared relationship was discovered.</summary>
     public const string CollectionMerged = "CollectionMerged";
 
-    // ── Consolidated Pipeline Events ──────────────────────────────────
+    // -- Consolidated Pipeline Events ----------------------------------
 
     /// <summary>A media file was successfully ingested and enriched (end-to-end summary).</summary>
     public const string MediaAdded = "MediaAdded";
@@ -164,7 +164,7 @@ public static class SystemActionType
     /// <summary>A media file was removed from the library by user action.</summary>
     public const string MediaRemoved = "MediaRemoved";
 
-    // ── Folder Maintenance ────────────────────────────────────────────
+    // -- Folder Maintenance --------------------------------------------
 
     /// <summary>An empty folder was cleaned up during reconciliation.</summary>
     public const string FolderCleaned = "FolderCleaned";
@@ -175,7 +175,7 @@ public static class SystemActionType
     /// <summary>Two person records were merged after QID deduplication.</summary>
     public const string PersonMerged = "PersonMerged";
 
-    // ── Universe Graph ──────────────────────────────────────────────────
+    // -- Universe Graph --------------------------------------------------
 
     /// <summary>A fictional character was enriched from Wikidata SPARQL.</summary>
     public const string CharacterEnriched = "CharacterEnriched";
@@ -195,7 +195,7 @@ public static class SystemActionType
     /// <summary>A narrative root was resolved for a work.</summary>
     public const string NarrativeRootResolved = "NarrativeRootResolved";
 
-    // ── Chronicle Engine ─────────────────────────────────────────────────
+    // -- Chronicle Engine -------------------------------------------------
 
     /// <summary>A Lore Delta check was performed against Wikidata revision IDs.</summary>
     public const string LoreDeltaChecked = "LoreDeltaChecked";
@@ -203,7 +203,7 @@ public static class SystemActionType
     /// <summary>A canon discrepancy was detected between edition and master work.</summary>
     public const string CanonDiscrepancyDetected = "CanonDiscrepancyDetected";
 
-    // ── Reject Workflow ──────────────────────────────────────────────────────
+    // -- Reject Workflow ------------------------------------------------------
 
     /// <summary>
     /// A file was explicitly rejected by the user and moved to
@@ -237,18 +237,18 @@ public static class SystemActionType
     /// </summary>
     public const string ItemUnrejected = "ItemUnrejected";
 
-    // ── Ingestion Batches ──────────────────────────────────────────────────
+    // -- Ingestion Batches --------------------------------------------------
 
     /// <summary>An ingestion batch was created when the engine began processing a queue of files.</summary>
     public const string BatchCreated = "BatchCreated";
 
-    /// <summary>An ingestion batch completed — all queued files reached a terminal state.</summary>
+    /// <summary>An ingestion batch completed � all queued files reached a terminal state.</summary>
     public const string BatchCompleted = "BatchCompleted";
 
-    /// <summary>An ingestion batch failed — processing was interrupted or could not complete.</summary>
+    /// <summary>An ingestion batch failed � processing was interrupted or could not complete.</summary>
     public const string BatchFailed = "BatchFailed";
 
-    // ── User Problem Reports ───────────────────────────────────────────────
+    // -- User Problem Reports -----------------------------------------------
 
     /// <summary>A user submitted a problem report on a Library item.</summary>
     public const string UserReportSubmitted = "UserReportSubmitted";

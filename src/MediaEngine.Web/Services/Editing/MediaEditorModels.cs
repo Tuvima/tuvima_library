@@ -165,7 +165,7 @@ public static class MediaEditorSchemaCatalog
     }
 
     public static IReadOnlyDictionary<string, string> BuildValueMap(
-        RegistryItemDetailViewModel? detail,
+        LibraryItemDetailViewModel? detail,
         IEnumerable<CanonicalFieldViewModel> canonicals)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

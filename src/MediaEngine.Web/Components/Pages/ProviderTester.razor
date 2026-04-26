@@ -648,7 +648,7 @@
     private void RefreshSearchableFields()
     {
         var mediaType = ParseMediaType(_selectedMediaType);
-        _searchableFields = MediaTypeFieldRegistry.GetSearchableFields(mediaType);
+        _searchableFields = MediaTypeFieldCatalog.GetSearchableFields(mediaType);
 
         // Reset active fields to defaults
         _activeFields.Clear();
@@ -792,19 +792,19 @@
 
     private string? GetSubline(RetailCandidateDto result)
     {
-        var display = MediaTypeFieldRegistry.GetSearchDisplay(ParseMediaType(_selectedMediaType));
+        var display = MediaTypeFieldCatalog.GetSearchDisplay(ParseMediaType(_selectedMediaType));
         return GetFieldValue(result, display.Subline);
     }
 
     private string? GetTertiary(RetailCandidateDto result)
     {
-        var display = MediaTypeFieldRegistry.GetSearchDisplay(ParseMediaType(_selectedMediaType));
+        var display = MediaTypeFieldCatalog.GetSearchDisplay(ParseMediaType(_selectedMediaType));
         return GetFieldValue(result, display.Tertiary);
     }
 
     private List<(string Label, string Value)> GetDetailFields(RetailCandidateDto result)
     {
-        var display = MediaTypeFieldRegistry.GetSearchDisplay(ParseMediaType(_selectedMediaType));
+        var display = MediaTypeFieldCatalog.GetSearchDisplay(ParseMediaType(_selectedMediaType));
         var allFields = BuildFieldLookup(result);
         var details = new List<(string, string)>();
 
@@ -819,7 +819,7 @@
 
     private List<(string Label, string Value)> GetBridgeFields(RetailCandidateDto result)
     {
-        var display = MediaTypeFieldRegistry.GetSearchDisplay(ParseMediaType(_selectedMediaType));
+        var display = MediaTypeFieldCatalog.GetSearchDisplay(ParseMediaType(_selectedMediaType));
         var allFields = BuildFieldLookup(result);
         var bridges = new List<(string, string)>();
 

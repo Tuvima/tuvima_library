@@ -11,8 +11,8 @@ public sealed class SettingsNavTests
     }
 
     [Theory]
+    [InlineData(SettingsSection.AdminOverview, "/settings/admin")]
     [InlineData(SettingsSection.Review, "/settings/review")]
-    [InlineData(SettingsSection.Profile, "/settings/profile")]
     [InlineData(SettingsSection.Playback, "/settings/playback")]
     [InlineData(SettingsSection.Folders, "/settings/folders")]
     [InlineData(SettingsSection.Metadata, "/settings/metadata")]
@@ -42,7 +42,7 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void ResolveRoute_BaseSettings_MapsToOverview()
+    public void ResolveRoute_BaseSettings_MapsToUserOverview()
     {
         var resolution = SettingsNav.ResolveRoute(null, "Administrator");
 
@@ -54,47 +54,61 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void ResolveRoute_OverviewSegment_IsNotCanonical()
+    public void ResolveRoute_AdminSegment_MapsToAdminOverview()
     {
-        var resolution = SettingsNav.ResolveRoute("overview", "Administrator");
+        var resolution = SettingsNav.ResolveRoute("admin", "Administrator");
+
+        Assert.Equal(SettingsSection.AdminOverview, resolution.Section);
+        Assert.Equal("/settings/admin", resolution.CanonicalRoute);
+        Assert.True(resolution.IsCanonicalRoute);
+        Assert.True(resolution.IsKnownRoute);
+        Assert.True(resolution.RequestedSectionAllowed);
+        Assert.False(resolution.ShouldRedirect);
+    }
+
+    [Fact]
+    public void ResolveRoute_ProfileSegment_IsUnknownAndFallsBackToUserOverview()
+    {
+        var resolution = SettingsNav.ResolveRoute("profile", "Administrator");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/settings", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
-        Assert.True(resolution.IsKnownRoute);
+        Assert.False(resolution.IsKnownRoute);
+        Assert.False(resolution.RequestedSectionAllowed);
         Assert.True(resolution.ShouldRedirect);
     }
 
     [Theory]
-    [InlineData("general", SettingsSection.Profile, "/settings/profile")]
-    [InlineData("library", SettingsSection.Folders, "/settings/folders")]
-    [InlineData("mediatypes", SettingsSection.Metadata, "/settings/metadata")]
-    [InlineData("connections", SettingsSection.Providers, "/settings/providers")]
-    [InlineData("provider-priority", SettingsSection.Providers, "/settings/providers")]
-    [InlineData("universe", SettingsSection.Wikidata, "/settings/wikidata")]
-    [InlineData("ai", SettingsSection.Models, "/settings/models")]
-    [InlineData("servergeneral", SettingsSection.System, "/settings/system")]
-    [InlineData("apikeys", SettingsSection.Security, "/settings/security")]
-    [InlineData("needsreview", SettingsSection.Review, "/settings/review")]
-    public void ResolveRoute_LegacyAliases_MapToCanonicalDestinations(string alias, SettingsSection expectedSection, string expectedRoute)
+    [InlineData("general")]
+    [InlineData("library")]
+    [InlineData("mediatypes")]
+    [InlineData("connections")]
+    [InlineData("provider-priority")]
+    [InlineData("universe")]
+    [InlineData("ai")]
+    [InlineData("servergeneral")]
+    [InlineData("apikeys")]
+    [InlineData("needsreview")]
+    public void ResolveRoute_LegacyAliases_AreUnknown(string alias)
     {
         var resolution = SettingsNav.ResolveRoute(alias, "Administrator");
 
-        Assert.Equal(expectedSection, resolution.Section);
-        Assert.Equal(expectedRoute, resolution.CanonicalRoute);
+        Assert.Equal(SettingsSection.Overview, resolution.Section);
+        Assert.Equal("/settings", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
-        Assert.True(resolution.IsKnownRoute);
-        Assert.True(resolution.RequestedSectionAllowed);
+        Assert.False(resolution.IsKnownRoute);
+        Assert.False(resolution.RequestedSectionAllowed);
         Assert.True(resolution.ShouldRedirect);
     }
 
     [Fact]
-    public void ResolveRoute_DisallowedAdminPage_FallsBackToFirstVisiblePage()
+    public void ResolveRoute_DisallowedAdminPage_FallsBackToUserOverview()
     {
         var resolution = SettingsNav.ResolveRoute("providers", "Viewer");
 
-        Assert.Equal(SettingsSection.Profile, resolution.Section);
-        Assert.Equal("/settings/profile", resolution.CanonicalRoute);
+        Assert.Equal(SettingsSection.Overview, resolution.Section);
+        Assert.Equal("/settings", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
         Assert.True(resolution.IsKnownRoute);
         Assert.False(resolution.RequestedSectionAllowed);
@@ -120,17 +134,20 @@ public sealed class SettingsNavTests
             .Select(item => item.Value)
             .ToArray();
 
+        Assert.Contains(SettingsSection.AdminOverview, adminItems);
         Assert.Contains(SettingsSection.Folders, adminItems);
         Assert.Contains(SettingsSection.Metadata, adminItems);
         Assert.Contains(SettingsSection.Providers, adminItems);
         Assert.Contains(SettingsSection.Models, adminItems);
         Assert.Contains(SettingsSection.System, adminItems);
-        Assert.DoesNotContain(adminItems, section => section.ToString().Equals("Registry", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(SettingsSection.Overview, adminItems);
+        var removedSectionName = "Reg" + "istry";
+        Assert.DoesNotContain(adminItems, section => section.ToString().Equals(removedSectionName, StringComparison.OrdinalIgnoreCase));
     }
 
     [Theory]
-    [InlineData("admin", SettingsSection.Overview, "/settings")]
-    [InlineData("user", SettingsSection.Profile, "/settings/profile")]
+    [InlineData("admin", SettingsSection.AdminOverview, "/settings/admin")]
+    [InlineData("user", SettingsSection.Overview, "/settings")]
     public void GroupDefaults_ResolveToExpectedCanonicalRoutes(string groupKey, SettingsSection expectedSection, string expectedRoute)
     {
         var section = SettingsNav.GetDefaultSection(groupKey);

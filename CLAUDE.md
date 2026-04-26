@@ -554,9 +554,9 @@ Reusable visual components, organised by feature slice.
 | `Navigation/` | `TopBar`, `AppLogo`, `AppTabs`, `AppSelectorNav`, `CommandPalette` (Ctrl+K), `ProfileDropdown`, `MobileFilterBar` |
 | `Pages/` | All routed pages — see 6.4 |
 | `Playback/` | Reader controls: `ReaderTopBar`, `ReaderBottomBar`, `ReaderTocDrawer`, `ReaderBookmarksPanel`, `ReaderHighlightsPanel`, `ReaderSettingsPanel`, `ReaderStatsOverlay`, `ReaderSearchPanel`, `ReaderContextMenu` |
-| `Registry/` | Internal building blocks used by Library + Universe: `RegistryInspector`, `RegistryCard`, `RegistryGrid`, `Inspector*Section` panels, `RegistryActionsBar`, `RegistryBulkBar`, `RegistryBatchList`, `RegistryFilterBar`, `RegistryHelpers`, `ProvisionalFormPanel`, `ActivityItemCard`, `ReportProblemDialog` |
+| `LibraryItems/` | Internal building blocks used by Library + Universe: `LibraryItemInspector`, `LibraryItemCard`, `LibraryItemGrid`, `Inspector*Section` panels, `LibraryItemActionsBar`, `LibraryItemBulkBar`, `LibraryItemBatchList`, `LibraryItemFilterBar`, `LibraryItemHelpers`, `ProvisionalFormPanel`, `ActivityItemCard`, `ReportProblemDialog` |
 | `Settings/` | Settings shell tabs — see §3.11 for the section list. Includes `OverviewTab`, `ProfileTab`, `PlaybackTab`, `LibrariesTab`, `ProviderPriorityTab`, `WikidataConfigTab`, `ModelsTab`, `AiFeaturesTab`, `VibeVocabularyTab`, `AiScheduleTab`, `SystemTab`, `SecurityTab`, `ApiKeysTab`, `UsersTab`, `ActivityTab`, `MaintenanceTab`, `SetupTab`, `GeneralTab`, `ServerGeneralTab`, `StatusDashboardTab`, `ConnectivityTab`, `UniverseSettingsTab`, `ProviderCard`, `WikidataConnectionPanel`, `CuratorsDrawer`, `MetadataEditDialog`, `MediaItemEditor`, `CollectionEditCoverCompare`, `FolderBrowserDialog`, `SettingsPlaceholder` |
-| `Shared/` | `AppIcon`, `AppIconRegistry`, `AppPageHeader`, `AppSurfaceCard`, `FuzzySearchField` — cross-cutting primitives |
+| `Shared/` | `AppIcon`, `AppIconCatalog`, `AppPageHeader`, `AppSurfaceCard`, `FuzzySearchField` — cross-cutting primitives |
 | `Universe/` | Hero, swimlane, and card components: `CollectionHero`, `CompactHero`, `HeroCarousel`, `PosterSwimlane`, `SwimlaneSection`, `LandscapeCard`, `SquareCard`, `WideCard`, `WorkCard`, `LibraryCard`, `PersonCard`, `PersonSwimlaneHeader`, `TrackRow`, `MetadataChips`, `ProgressIndicator`, `AmbientBackground`, `GlobalBackground`, `GreetingBar`, `AdaptationTree` + node, `FamilyTreeView`, `AlphabeticalGrid`, `CastComparison`, `BookDetailContent`, `CollectionShell`, `CollectionToolbar`, `LaneFilterBar`, `ManualEntryForm`, `MediaSearchPanel`, `MissingUniverseChip`, `PathFinderPanel`, `PendingFilesAlert`, `UniverseGuide` |
 | `Watch/` | `TvBrowsePage`, `WatchPlaybackSpecs`, `WatchTvStyles` |
 
@@ -593,7 +593,7 @@ Reusable visual components, organised by feature slice.
 | `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`) |
 | `/preferences` | `Preferences.razor` | User preferences shortcut |
 | `/server-settings` | `ServerSettings.razor` | Server controls shortcut |
-| `/review` | `Registry.razor` | 301 redirect → `/settings/review` |
+| `/review` | `ReviewRedirect.razor` | 301 redirect → `/settings/review` |
 | `/provider-tester`, `/tester` | `ProviderTester.razor`, `EnrichmentTester.razor` | Dev-only testers |
 | `/not-found`, `/Error` | `NotFound.razor`, `Error.razor` | Error pages |
 
@@ -607,7 +607,7 @@ Reusable visual components, organised by feature slice.
 | Full routable page | `Components/Pages/` |
 | Settings section | `Components/Settings/<Name>Tab.razor` + register in `SettingsNav` |
 | Review-queue surface component | `Components/Library/` |
-| Inspector / cards reused by Library or Universe | `Components/Registry/` |
+| Inspector / cards reused by Library or Universe | `Components/LibraryItems/` |
 | Media-player component | `Components/Playback/` |
 | Media-playback session service | `Services/Playback/` |
 | Route-building helper | `Services/Navigation/` |

@@ -74,10 +74,10 @@ public partial class SharedMediaEditorShell
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
     [Parameter] public MediaEditorLaunchRequest Request { get; set; } = new();
 
-    private RegistryItemDetailViewModel? _detail;
+    private LibraryItemDetailViewModel? _detail;
     private List<CanonicalFieldViewModel> _canonicalValues = [];
     private List<ClaimHistoryDto> _claims = [];
-    private List<RegistryItemHistoryDto> _history = [];
+    private List<LibraryItemHistoryDto> _history = [];
     private ArtworkEditorDto? _artwork;
     private MediaEditorContextDto? _editorContext;
     private MediaEditorNavigatorDto? _navigator;
@@ -211,10 +211,10 @@ public partial class SharedMediaEditorShell
 
     private sealed class ScopeEditorState
     {
-        public RegistryItemDetailViewModel? Detail { get; init; }
+        public LibraryItemDetailViewModel? Detail { get; init; }
         public List<CanonicalFieldViewModel> CanonicalValues { get; init; } = [];
         public List<ClaimHistoryDto> Claims { get; init; } = [];
-        public List<RegistryItemHistoryDto> History { get; init; } = [];
+        public List<LibraryItemHistoryDto> History { get; init; } = [];
         public ArtworkEditorDto Artwork { get; init; } = new();
     }
 
@@ -256,7 +256,7 @@ public partial class SharedMediaEditorShell
 
             if (_editorContext is null)
             {
-                var detailTask = ApiClient.GetRegistryItemDetailAsync(entityId);
+                var detailTask = ApiClient.GetLibraryItemDetailAsync(entityId);
                 var canonicalTask = Orchestrator.GetCanonicalValuesAsync(entityId);
                 var claimsTask = Orchestrator.GetClaimHistoryAsync(entityId);
                 var historyTask = ApiClient.GetItemHistoryAsync(entityId);
@@ -332,7 +332,7 @@ public partial class SharedMediaEditorShell
             return;
         }
 
-        var detailTask = ApiClient.GetRegistryItemDetailAsync(ActiveScope.FieldEntityId);
+        var detailTask = ApiClient.GetLibraryItemDetailAsync(ActiveScope.FieldEntityId);
         var canonicalTask = Orchestrator.GetCanonicalValuesAsync(ActiveScope.FieldEntityId);
         var claimsTask = Orchestrator.GetClaimHistoryAsync(ActiveScope.FieldEntityId);
         var historyTask = ApiClient.GetItemHistoryAsync(ActiveScope.FieldEntityId);
@@ -2135,8 +2135,8 @@ public partial class SharedMediaEditorShell
         try
         {
             var response = entityIds.Count == 1
-                ? await ApiClient.RejectRegistryItemAsync(entityIds[0])
-                : await ApiClient.BatchRejectRegistryItemsAsync(entityIds.ToArray());
+                ? await ApiClient.RejectLibraryCatalogItemAsync(entityIds[0])
+                : await ApiClient.BatchRejectLibraryCatalogItemsAsync(entityIds.ToArray());
 
             if (response is null)
             {

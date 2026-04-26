@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using MediaEngine.Domain;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Storage.Contracts;
@@ -73,6 +73,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
     public void InitializeSchema()
     {
         var conn = Open();
+        MigrateMetadataProvidersTable(conn);
+
         var ddl = LoadEmbeddedSchema();
 
         using var cmd = conn.CreateCommand();
@@ -204,7 +206,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     ON profile_external_logins(profile_id);
                 """);
 
-        // Migration M-006: Phase A Security — add role column to api_keys.
+        // Migration M-006: Phase A Security � add role column to api_keys.
         // Databases created before Phase A will not have this column; the ALTER
         // TABLE adds it with DEFAULT 'Administrator' so all existing keys retain
         // full access.  New keys can be assigned Curator or Consumer roles.
@@ -215,7 +217,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ddl:    "ALTER TABLE api_keys ADD COLUMN role TEXT NOT NULL DEFAULT 'Administrator' " +
                     "CHECK (role IN ('Administrator', 'Curator', 'Consumer'));");
 
-        // Migration M-007: Phase B — add is_conflicted column to canonical_values.
+        // Migration M-007: Phase B � add is_conflicted column to canonical_values.
         // Tracks whether the scoring engine could not pick a clear winner for
         // a given metadata field.  Existing rows default to 0 (not conflicted);
         // only re-scored entities will have accurate conflict flags.
@@ -226,7 +228,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ddl:    "ALTER TABLE canonical_values ADD COLUMN is_conflicted INTEGER NOT NULL DEFAULT 0 " +
                     "CHECK (is_conflicted IN (0, 1));");
 
-        // Migration M-008: Activity Ledger — create system_activity table.
+        // Migration M-008: Activity Ledger � create system_activity table.
         // Rich activity log with JSON change details, user attribution, and
         // collection context.  Replaces the limited transaction_log for detailed audit.
         MigrateCreateTableIfMissing(
@@ -317,7 +319,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "navigation_config",
             ddl:    "ALTER TABLE profiles ADD COLUMN navigation_config TEXT;");
 
-        // Migration M-013: Hydration Pipeline — create review_queue + image_cache tables.
+        // Migration M-013: Hydration Pipeline � create review_queue + image_cache tables.
         // review_queue stores metadata items requiring user intervention (disambiguation,
         // low confidence, manual fix).  image_cache tracks downloaded image content hashes
         // to prevent redundant re-downloads across entities.
@@ -387,12 +389,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "universe_mismatch_at",
             ddl:    "ALTER TABLE works ADD COLUMN universe_mismatch_at TEXT;");
 
-        // Migration M-016: Fix Wikidata provider GUID — invalid hex character 'w'.
+        // Migration M-016: Fix Wikidata provider GUID � invalid hex character 'w'.
         // The original GUID b3000003-w000-... caused a static constructor crash.
         using (var fix = conn.CreateCommand())
         {
             fix.CommandText = $"""
-                UPDATE provider_registry
+                UPDATE metadata_providers
                 SET id = '{WellKnownProviders.Wikidata}'
                 WHERE id = 'b3000003-w000-4000-8000-000000000004';
 
@@ -403,7 +405,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             fix.ExecuteNonQuery();
         }
 
-        // Migration M-017: Hub virtualization — hub_relationships, collections,
+        // Migration M-017: Hub virtualization � hub_relationships, collections,
         // works table recreation (nullable hub_id + wikidata_status + wikidata_checked_at).
         MigrateHubVirtualization(conn);
 
@@ -431,7 +433,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "ingestion_run_id",
             ddl:    "ALTER TABLE system_activity ADD COLUMN ingestion_run_id TEXT;");
 
-        // Migration M-021: Provider response cache — stores raw JSON responses
+        // Migration M-021: Provider response cache � stores raw JSON responses
         // from metadata provider API calls to avoid redundant HTTP requests.
         // Entries have a per-provider TTL and support ETag conditional revalidation.
         MigrateCreateTableIfMissing(
@@ -456,10 +458,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // These indices were missing from the initial schema definition and are
         // created here as a safe, idempotent migration (CREATE INDEX IF NOT EXISTS).
         //
-        // • metadata_claims(provider_id)   — scoring engine filters claims by provider
-        // • metadata_claims(claimed_at)    — stale-claim decay filters by timestamp
-        // • media_assets(edition_id)       — FK lookup joining editions → assets
-        // • works(media_type)              — lane-page and swimlane queries filter by type
+        // � metadata_claims(provider_id)   � scoring engine filters claims by provider
+        // � metadata_claims(claimed_at)    � stale-claim decay filters by timestamp
+        // � media_assets(edition_id)       � FK lookup joining editions ? assets
+        // � works(media_type)              � lane-page and swimlane queries filter by type
         using (var idxCmd = conn.CreateCommand())
         {
             idxCmd.CommandText = """
@@ -475,7 +477,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             idxCmd.ExecuteNonQuery();
         }
 
-        // Migration M-023: EPUB reader tables â€” bookmarks, highlights, statistics,
+        // Migration M-023: EPUB reader tables — bookmarks, highlights, statistics,
         // and WhisperSync alignment jobs.
         MigrateCreateTableIfMissing(
             conn,
@@ -553,7 +555,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
-        // Migration M-024: Universe Graph — fictional_entities table.
+        // Migration M-024: Universe Graph � fictional_entities table.
         MigrateCreateTableIfMissing(
             conn,
             probeTable:  "fictional_entities",
@@ -579,7 +581,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     ON fictional_entities (fictional_universe_qid);
                 """);
 
-        // Migration M-025: Universe Graph — fictional_entity_work_links junction table.
+        // Migration M-025: Universe Graph � fictional_entity_work_links junction table.
         MigrateCreateTableIfMissing(
             conn,
             probeTable:  "fictional_entity_work_links",
@@ -596,7 +598,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     ON fictional_entity_work_links (work_qid);
                 """);
 
-        // Migration M-026: Universe Graph — entity_relationships graph edge table.
+        // Migration M-026: Universe Graph � entity_relationships graph edge table.
         MigrateCreateTableIfMissing(
             conn,
             probeTable:  "entity_relationships",
@@ -618,7 +620,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     ON entity_relationships (object_qid);
                 """);
 
-        // Migration M-027: Universe Graph — narrative_roots table.
+        // Migration M-027: Universe Graph � narrative_roots table.
         MigrateCreateTableIfMissing(
             conn,
             probeTable:  "narrative_roots",
@@ -634,7 +636,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
-        // Migration M-028: Person Infrastructure — add biographical columns to persons.
+        // Migration M-028: Person Infrastructure � add biographical columns to persons.
         MigrateAddColumnIfMissing(conn, "persons", "date_of_birth", "ALTER TABLE persons ADD COLUMN date_of_birth TEXT;");
         MigrateAddColumnIfMissing(conn, "persons", "date_of_death", "ALTER TABLE persons ADD COLUMN date_of_death TEXT;");
         MigrateAddColumnIfMissing(conn, "persons", "place_of_birth", "ALTER TABLE persons ADD COLUMN place_of_birth TEXT;");
@@ -691,7 +693,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 """);
 
         // Migration M-032: Multi-valued canonical field storage.
-        // Replaces |||‑separated strings for fields like genre, characters,
+        // Replaces |||-separated strings for fields like genre, characters,
         // actor (cast_member) with individual rows carrying ordinals and optional QIDs.
         MigrateCreateTableIfMissing(
             conn,
@@ -709,7 +711,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 CREATE INDEX IF NOT EXISTS idx_cva_key_qid ON canonical_value_arrays(key, value_qid);
                 """);
 
-        // Migration M-033: Unit 4 — Source Attribution.
+        // Migration M-033: Unit 4 � Source Attribution.
         // Adds winning_provider_id to canonical_values so every scored field
         // records which provider supplied the winning claim.  Existing rows
         // default to NULL (no attribution available for pre-migration data).
@@ -719,7 +721,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "winning_provider_id",
             ddl:    "ALTER TABLE canonical_values ADD COLUMN winning_provider_id TEXT;");
 
-        // Migration M-034: Unit 5 — Per-Field NeedsReview.
+        // Migration M-034: Unit 5 � Per-Field NeedsReview.
         // Adds needs_review to canonical_values so conflicted fields, missing
         // expected fields, and local-only low-confidence fields are flagged for
         // human review.  Existing rows default to 0 (no review needed).
@@ -729,7 +731,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "needs_review",
             ddl:    "ALTER TABLE canonical_values ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0;");
 
-        // ── M-035: Parent Collection hierarchy ─────────────────────────────────────
+        // -- M-035: Parent Collection hierarchy -------------------------------------
         // Adds parent_hub_id to collections so a Collection can be nested under a Parent Collection
         // (franchise or creative universe container).  NULL = top-level collection.
         MigrateAddColumnIfMissing(
@@ -738,7 +740,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "parent_hub_id",
             ddl:    "ALTER TABLE hubs ADD COLUMN parent_hub_id TEXT;");
 
-        // ── M-036: Deferred enrichment queue for Two-Pass architecture ────
+        // -- M-036: Deferred enrichment queue for Two-Pass architecture ----
         // Pass 1 (Quick Match) enqueues a Pass 2 (Universe Lookup) request
         // here.  The DeferredEnrichmentService processes the queue when the
         // ingestion pipeline is idle, on a nightly schedule, or on demand.
@@ -759,7 +761,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 ON deferred_enrichment_queue(created_at);
             """);
 
-        // Migration M-037: Chronicle Engine — temporal qualifiers on relationships + revision tracking.
+        // Migration M-037: Chronicle Engine � temporal qualifiers on relationships + revision tracking.
         MigrateAddColumnIfMissing(
             conn,
             table:  "entity_relationships",
@@ -776,7 +778,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "wikidata_revision_id",
             ddl:    "ALTER TABLE fictional_entities ADD COLUMN wikidata_revision_id INTEGER;");
 
-        // ── M-038: Ingestion lifecycle log ──────────────────────────────────
+        // -- M-038: Ingestion lifecycle log ----------------------------------
         // Per-file tracking from detection through completion.
         // Provides "what happened to my file?" in a single table.
         using var m038 = conn.CreateCommand();
@@ -803,8 +805,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
             """;
         m038.ExecuteNonQuery();
 
-        // ── M-039: Identity resolution cache ─────────────────────────────────
-        // Caches normalized_title + media_type → QID + confidence decisions.
+        // -- M-039: Identity resolution cache ---------------------------------
+        // Caches normalized_title + media_type ? QID + confidence decisions.
         // Eliminates redundant 4-tier resolution for same logical entity.
         using var m039 = conn.CreateCommand();
         m039.CommandText = """
@@ -823,7 +825,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             """;
         m039.ExecuteNonQuery();
 
-        // ── M-040: Hub Wikidata QID ──────────────────────────────────────
+        // -- M-040: Hub Wikidata QID --------------------------------------
         // Guard: skip if hubs table has been renamed to collections by M-081
         MigrateAddColumnIfMissing(conn, "hubs", "wikidata_qid",
             "ALTER TABLE hubs ADD COLUMN wikidata_qid TEXT;");
@@ -861,7 +863,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
-        // ── M-041: Work Wikidata QID ─────────────────────────────────────
+        // -- M-041: Work Wikidata QID -------------------------------------
         MigrateAddColumnIfMissing(conn, "works", "wikidata_qid",
             "ALTER TABLE works ADD COLUMN wikidata_qid TEXT;");
 
@@ -887,24 +889,24 @@ public sealed class DatabaseConnection : IDatabaseConnection
             cmd041Fill.ExecuteNonQuery();
         }
 
-        // ── M-042: Image cache user override flag ────────────────────────
+        // -- M-042: Image cache user override flag ------------------------
         MigrateAddColumnIfMissing(conn, "image_cache", "is_user_override",
             "ALTER TABLE image_cache ADD COLUMN is_user_override INTEGER NOT NULL DEFAULT 0;");
 
-        // ── M-043: Character image path ──────────────────────────────────
+        // -- M-043: Character image path ----------------------------------
         MigrateAddColumnIfMissing(conn, "character_performer_links", "character_image_path",
             "ALTER TABLE character_performer_links ADD COLUMN character_image_path TEXT;");
 
-        // ── M-044: Add Event entity sub-type ─────────────────────────────
+        // -- M-044: Add Event entity sub-type -----------------------------
         // SQLite does not support ALTER TABLE to modify CHECK constraints,
         // so we recreate fictional_entities with 'Event' added to the constraint.
         MigrateExpandFictionalEntitySubTypes(conn);
 
-        // ── M-045: Hub type for typed containers ─────────────────────────
+        // -- M-045: Hub type for typed containers -------------------------
         MigrateAddColumnIfMissing(conn, "hubs", "hub_type",
             "ALTER TABLE hubs ADD COLUMN hub_type TEXT NOT NULL DEFAULT 'Universe';");
 
-        // ── M-046: Hub-Work junction table (many-to-many) ───────────────
+        // -- M-046: Hub-Work junction table (many-to-many) ---------------
         {
             using var m046 = conn.CreateCommand();
             m046.CommandText = """
@@ -919,7 +921,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m046.ExecuteNonQuery();
         }
 
-        // ── M-047: Clean up orphan collections (no works assigned) ─────────────
+        // -- M-047: Clean up orphan collections (no works assigned) -------------
         // Guard: skip if hubs table has been renamed to collections by M-081
         {
             bool m047HubsExists;
@@ -944,7 +946,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
-        // ── M-048: Search results cache (fan-out search results per entity) ──
+        // -- M-048: Search results cache (fan-out search results per entity) --
         {
             using var m048 = conn.CreateCommand();
             m048.CommandText = """
@@ -957,7 +959,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m048.ExecuteNonQuery();
         }
 
-        // ── M-049: Item History — per-entity event timeline ──────────────
+        // -- M-049: Item History � per-entity event timeline --------------
         {
             using var m049 = conn.CreateCommand();
             m049.CommandText = """
@@ -975,7 +977,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m049.ExecuteNonQuery();
         }
 
-        // ── M-050: Consolidate item_history into system_activity ─────────
+        // -- M-050: Consolidate item_history into system_activity ---------
         {
             using var m050Check = conn.CreateCommand();
             m050Check.CommandText =
@@ -991,7 +993,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                         occurred_at,
                         event_type,
                         entity_id,
-                        label || CASE WHEN detail IS NOT NULL THEN ' — ' || detail ELSE '' END
+                        label || CASE WHEN detail IS NOT NULL THEN ' � ' || detail ELSE '' END
                     FROM item_history;
 
                     DROP TABLE item_history;
@@ -1000,7 +1002,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
-        // ── M-051: Ingestion batches — groups files into processing runs ────
+        // -- M-051: Ingestion batches � groups files into processing runs ----
         {
             using var m051 = conn.CreateCommand();
             m051.CommandText = """
@@ -1026,10 +1028,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m051.ExecuteNonQuery();
         }
 
-        // ── M-052  Registry lifecycle columns ─────────────────────────────
+        // -- M-052  LibraryItem lifecycle columns -----------------------------
         // Add curator_state (provisional/rejected), rejected_at (purge countdown),
         // and provisional_metadata_json (curator-entered fields) to the works table.
-        // These columns power the new 4-state Registry model:
+        // These columns power the new 4-state LibraryItem model:
         //   Registered (default) / InReview (review_queue) / Provisional / Rejected
         MigrateAddColumnIfMissing(conn, "works", "curator_state",
             "ALTER TABLE works ADD COLUMN curator_state TEXT");
@@ -1038,7 +1040,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         MigrateAddColumnIfMissing(conn, "works", "provisional_metadata_json",
             "ALTER TABLE works ADD COLUMN provisional_metadata_json TEXT");
 
-        // ── M-053: FTS5 search index for works ────────────────────────────
+        // -- M-053: FTS5 search index for works ----------------------------
         // Replaces in-memory FuzzySharp re-ranking with native SQLite full-text
         // search. Indexes title and author for prefix matching and BM25 ranking.
         {
@@ -1074,7 +1076,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
-        // ── M-054: Bridge IDs table ───────────────────────────────────────
+        // -- M-054: Bridge IDs table ---------------------------------------
         // Dedicated table for cross-platform identifiers (ISBN, ASIN, TMDB ID, etc.)
         // that link library entities to external catalogues and Wikidata.
         // Stored separately from canonical_values for clean querying and
@@ -1125,14 +1127,14 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m054Fill.ExecuteNonQuery();
         }
 
-        // ── M-055: Add match_level column to works table ──────────────────
+        // -- M-055: Add match_level column to works table ------------------
         // Records whether a work was matched at the work level (default),
         // edition level, or collection level during the hydration pipeline.
-        // Used by the Registry to surface match granularity to the curator.
+        // Used by the LibraryItem to surface match granularity to the curator.
         MigrateAddColumnIfMissing(conn, "works", "match_level",
             "ALTER TABLE works ADD COLUMN match_level TEXT DEFAULT 'work';");
 
-        // ── M-056: Add wikidata_qid column to editions table ──────────────
+        // -- M-056: Add wikidata_qid column to editions table --------------
         // Stores the Wikidata QID for a specific edition entity (e.g. Q113799157
         // for "Blade Runner: The Final Cut").  Populated during Stage 2 (Wikidata
         // Bridge Resolution) when a bridge ID resolves to an edition-level entity
@@ -1140,7 +1142,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         MigrateAddColumnIfMissing(conn, "editions", "wikidata_qid",
             "ALTER TABLE editions ADD COLUMN wikidata_qid TEXT;");
 
-        // ── M-057: Pending person signals + expanded person roles ──────────
+        // -- M-057: Pending person signals + expanded person roles ----------
         // pending_person_signals stores unverified person names extracted during
         // ingestion, between inline extraction and deferred batch Wikidata
         // verification.  The expanded person role CHECK adds: Translator, Editor,
@@ -1165,7 +1167,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m057.ExecuteNonQuery();
         }
 
-        // ── M-058: User taste profiles for AI personalization ──────────────
+        // -- M-058: User taste profiles for AI personalization --------------
         MigrateCreateTableIfMissing(
             conn,
             probeTable:  "user_taste_profiles",
@@ -1179,7 +1181,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
-        // ── M-059: Audio fingerprints for Chromaprint music similarity ─────
+        // -- M-059: Audio fingerprints for Chromaprint music similarity -----
         MigrateCreateTableIfMissing(
             conn,
             probeTable:  "audio_fingerprints",
@@ -1194,7 +1196,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
-        // ── M-060: Perceptual hash column on image_cache ──────────────────
+        // -- M-060: Perceptual hash column on image_cache ------------------
         // Stores a 64-bit average hash (pHash) of each cached image so the
         // Stage 1 matching pipeline can compare embedded cover art against
         // provider thumbnails without re-downloading images.
@@ -1212,13 +1214,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m060Idx.ExecuteNonQuery();
         }
 
-        // ── M-061: Expand FTS5 search_index to full multi-language schema ────
+        // -- M-061: Expand FTS5 search_index to full multi-language schema ----
         // Phase 2C localization: extends the 3-column search_index (work_id, title,
         // author) created by M-053 to a 6-column schema (entity_id, title,
         // original_title, alternate_titles, author, description).
-        // FTS5 virtual tables do not support ALTER TABLE — the table is dropped and
+        // FTS5 virtual tables do not support ALTER TABLE � the table is dropped and
         // recreated. Data is repopulated from canonical_values. The column rename
-        // from work_id → entity_id is intentional: the FTS index stores work GUIDs
+        // from work_id ? entity_id is intentional: the FTS index stores work GUIDs
         // resolved from media_asset entity IDs (the join is in UpsertByEntityIdAsync).
         {
             using var m061Check = conn.CreateCommand();
@@ -1278,11 +1280,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
         }
 
-        // ── M-062: Switch FTS5 search_index tokenizer from unicode61 to trigram ──
+        // -- M-062: Switch FTS5 search_index tokenizer from unicode61 to trigram --
         // Phase 5 CJK support: the trigram tokenizer indexes every 3-character window
         // of text, enabling substring matching for CJK scripts (Chinese, Japanese,
-        // Korean) where words have no space boundaries. It also handles Western text —
-        // any substring of 3+ characters matches, so "ame" finds "Amélie".
+        // Korean) where words have no space boundaries. It also handles Western text �
+        // any substring of 3+ characters matches, so "ame" finds "Am�lie".
         //
         // Trade-off: trigram indexes are larger than unicode61 and do not support
         // ranked BM25 ordering (ORDER BY rank is unsupported). Searches fall back to
@@ -1304,7 +1306,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             }
             catch
             {
-                // shadow table missing or search_index doesn't exist yet — proceed with rebuild
+                // shadow table missing or search_index doesn't exist yet � proceed with rebuild
             }
 
             if (!trigramAlready)
@@ -1404,18 +1406,18 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // entity_field_changes (one row per field that changed, FK to entity_events).
         MigrateEntityTimeline(conn);
 
-        // Migration M-069: Music provider support — is_group column on persons,
+        // Migration M-069: Music provider support � is_group column on persons,
         // person_group_members junction table, Performer/Artist roles.
         MigrateMusicGroupSupport(conn);
 
-        // Migration M-070: Universal Collection System — new columns on collections, hub_placements table.
+        // Migration M-070: Universal Collection System � new columns on collections, hub_placements table.
         MigrateUniversalHubSystem(conn);
 
-        // Migration M-080: Durable Identity Pipeline — identity_jobs, retail_match_candidates,
+        // Migration M-080: Durable Identity Pipeline � identity_jobs, retail_match_candidates,
         // wikidata_bridge_candidates tables for the retail-first identity pipeline.
         MigrateIdentityPipeline(conn);
 
-        // Migration M-081: Work hierarchy — adds work_kind, parent_work_id, ordinal,
+        // Migration M-081: Work hierarchy � adds work_kind, parent_work_id, ordinal,
         // is_catalog_only, external_identifiers to the works table and renames the
         // legacy sequence_index column to ordinal. Enables albums/seasons/series to
         // be expressed as parent/child Work rows instead of fake ContentGroup collections.
@@ -1453,7 +1455,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // .claude/plans/wise-rolling-beacon.md Slice 1.
         MigrateLibraryIdAndHashCache(conn);
 
-        // Migration M-081: Collection Rename — renames hub-era table/column/index
+        // Migration M-081: Collection Rename � renames hub-era table/column/index
         // names to the collections vocabulary. Idempotent: skips if the rename
         // has already been applied (probes for the `collections` table).
         MigrateCollectionRename(conn);
@@ -1468,11 +1470,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
         MigrateEntityAssetStorageColumns(conn);
         MigrateEntityAssetArtworkMetadataColumns(conn);
 
-        // Seed S-001: provider_registry entries for all known providers.
-        // metadata_claims.provider_id has a FK to provider_registry(id), so these
+        // Seed S-001: metadata_providers entries for all known providers.
+        // metadata_claims.provider_id has a FK to metadata_providers(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
-        // idempotent — safe to run on every startup.
-        SeedProviderRegistry(conn);
+        // idempotent � safe to run on every startup.
+        SeedMetadataProviders(conn);
 
         // Seed S-002: default "Owner" Administrator profile.
         // First-run experience: single user with full access.
@@ -1480,10 +1482,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
     }
 
     /// <summary>
-    /// Seeds the <c>provider_registry</c> table with all known provider GUIDs.
+    /// Seeds the <c>metadata_providers</c> table with all known provider GUIDs.
     /// Uses <c>INSERT OR IGNORE</c> so duplicate rows are silently skipped.
     /// </summary>
-    private static void SeedProviderRegistry(SqliteConnection conn)
+    private static void SeedMetadataProviders(SqliteConnection conn)
     {
         ReadOnlySpan<(string Id, string Name, string Version)> providers =
         [
@@ -1506,7 +1508,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT OR IGNORE INTO provider_registry (id, name, version, is_enabled)
+            INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
             VALUES (@id, @name, @version, 1);
             """;
 
@@ -1546,6 +1548,48 @@ public sealed class DatabaseConnection : IDatabaseConnection
     // Migration helpers
     // -------------------------------------------------------------------------
 
+    private static void MigrateMetadataProvidersTable(SqliteConnection conn)
+    {
+        const string currentTable = "metadata_providers";
+        var priorTable = "provider_" + "reg" + "istry";
+
+        if (!TableExists(conn, priorTable))
+            return;
+
+        using var fkOff = conn.CreateCommand();
+        fkOff.CommandText = "PRAGMA foreign_keys = OFF;";
+        fkOff.ExecuteNonQuery();
+
+        if (!TableExists(conn, currentTable))
+        {
+            using var rename = conn.CreateCommand();
+            rename.CommandText = $"ALTER TABLE {priorTable} RENAME TO {currentTable};";
+            rename.ExecuteNonQuery();
+        }
+        else
+        {
+            using var copy = conn.CreateCommand();
+            copy.CommandText = $"""
+                INSERT OR IGNORE INTO {currentTable} (id, name, version, is_enabled)
+                SELECT id, name, version, is_enabled
+                FROM {priorTable};
+                DROP TABLE {priorTable};
+                """;
+            copy.ExecuteNonQuery();
+        }
+
+        using var fkOn = conn.CreateCommand();
+        fkOn.CommandText = "PRAGMA foreign_keys = ON;";
+        fkOn.ExecuteNonQuery();
+    }
+
+    private static bool TableExists(SqliteConnection conn, string tableName)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@name;";
+        cmd.Parameters.AddWithValue("@name", tableName);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
     /// <summary>
     /// Adds a column to <paramref name="table"/> if it does not yet exist.
     /// Uses <c>PRAGMA table_info</c> for the check - SQLite does not support
@@ -1709,8 +1753,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
     /// additional roles: Translator, Editor, Host, Producer.
     ///
     /// Idempotent: checks for 'Translator' in the current CHECK constraint before running.
-    /// Uses the same SQLite table-recreation pattern as M-009: disable foreign keys →
-    /// create new table → copy rows → drop old → rename → recreate indices → re-enable FKs.
+    /// Uses the same SQLite table-recreation pattern as M-009: disable foreign keys ?
+    /// create new table ? copy rows ? drop old ? rename ? recreate indices ? re-enable FKs.
     /// All columns that exist by the time this migration runs are preserved.
     /// </summary>
     private static void MigrateExpandPersonRolesV2(SqliteConnection conn)
@@ -1930,9 +1974,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
     /// Creates three tables for the formalized asset type system, character portraits,
     /// and series completeness tracking.
     /// <list type="bullet">
-    ///   <item><c>entity_assets</c> — typed image storage for any entity (Work, Person, Universe, FictionalEntity).</item>
-    ///   <item><c>character_portraits</c> — actor-in-costume or animated character images per performer-character pair.</item>
-    ///   <item><c>series_members</c> — tracks all works in a series for completeness scoring.</item>
+    ///   <item><c>entity_assets</c> � typed image storage for any entity (Work, Person, Universe, FictionalEntity).</item>
+    ///   <item><c>character_portraits</c> � actor-in-costume or animated character images per performer-character pair.</item>
+    ///   <item><c>series_members</c> � tracks all works in a series for completeness scoring.</item>
     /// </list>
     /// Idempotent: uses CREATE TABLE IF NOT EXISTS.
     /// </summary>
@@ -1940,7 +1984,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            -- ── entity_assets ───────────────────────────────────────────────
+            -- -- entity_assets -----------------------------------------------
             CREATE TABLE IF NOT EXISTS entity_assets (
                 id               TEXT PRIMARY KEY,
                 entity_id        TEXT NOT NULL,
@@ -1974,7 +2018,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             CREATE INDEX IF NOT EXISTS idx_entity_assets_type
                 ON entity_assets(entity_id, asset_type);
 
-            -- ── character_portraits ─────────────────────────────────────────
+            -- -- character_portraits -----------------------------------------
             CREATE TABLE IF NOT EXISTS character_portraits (
                 id                  TEXT PRIMARY KEY,
                 person_id           TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
@@ -1994,7 +2038,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             CREATE UNIQUE INDEX IF NOT EXISTS idx_character_portraits_pair
                 ON character_portraits(person_id, fictional_entity_id);
 
-            -- ── series_members ──────────────────────────────────────────────
+            -- -- series_members ----------------------------------------------
             CREATE TABLE IF NOT EXISTS series_members (
                 series_qid TEXT NOT NULL,
                 work_qid   TEXT NOT NULL,
@@ -2030,7 +2074,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         cmd.ExecuteNonQuery();
 
         // Add failure classification columns to the deferred enrichment queue.
-        // These are nullable — legacy rows and normal Pass 2 entries have NULL.
+        // These are nullable � legacy rows and normal Pass 2 entries have NULL.
         // ALTER TABLE does not support IF NOT EXISTS, so catch duplicates.
         try
         {
@@ -2038,7 +2082,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             alt1.CommandText = "ALTER TABLE deferred_enrichment_queue ADD COLUMN failure_type TEXT;";
             alt1.ExecuteNonQuery();
         }
-        catch { /* Column already exists — safe to ignore. */ }
+        catch { /* Column already exists � safe to ignore. */ }
 
         try
         {
@@ -2046,9 +2090,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
             alt2.CommandText = "ALTER TABLE deferred_enrichment_queue ADD COLUMN failed_provider_name TEXT;";
             alt2.ExecuteNonQuery();
         }
-        catch { /* Column already exists — safe to ignore. */ }
+        catch { /* Column already exists � safe to ignore. */ }
 
-        // Index on failure_type — created AFTER the ALTER TABLEs that add the column.
+        // Index on failure_type � created AFTER the ALTER TABLEs that add the column.
         using var idx = conn.CreateCommand();
         idx.CommandText = """
             CREATE INDEX IF NOT EXISTS idx_deferred_queue_failure_type
@@ -2171,7 +2215,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
     ///
     /// Note: collection_id is already effectively nullable in SQLite (ON DELETE SET NULL
     /// in the FK constraint). The domain model change to Guid? requires no schema
-    /// recreation — SQLite does not enforce non-null on FK columns unless explicitly
+    /// recreation � SQLite does not enforce non-null on FK columns unless explicitly
     /// constrained. We add the new columns via ALTER TABLE for safety.
     /// </summary>
     private static void MigrateHubVirtualization(SqliteConnection conn)
@@ -2205,7 +2249,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 CREATE INDEX IF NOT EXISTS idx_hub_rel_type_qid ON hub_relationships (rel_type, rel_qid);
                 CREATE INDEX IF NOT EXISTS idx_hub_rel_hub_id ON hub_relationships (hub_id);
                 """);
-        } // end if (hubsExist) — hub_relationships only
+        } // end if (hubsExist) � hub_relationships only
 
         // Add wikidata_status to works (default 'pending')
         MigrateAddColumnIfMissing(
@@ -2221,7 +2265,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "wikidata_checked_at",
             ddl:    "ALTER TABLE works ADD COLUMN wikidata_checked_at TEXT;");
 
-        // Collections schema stub — only needed for old databases
+        // Collections schema stub � only needed for old databases
         if (hubsExist)
         {
             MigrateCreateTableIfMissing(
@@ -2418,11 +2462,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
             cmd.ExecuteNonQuery();
         }
 
-        System.Diagnostics.Debug.WriteLine("M-069: Music group support — is_group, person_group_members, expanded roles");
+        System.Diagnostics.Debug.WriteLine("M-069: Music group support � is_group, person_group_members, expanded roles");
     }
 
     /// <summary>
-    /// Migration M-070: Universal Collection System — new columns on collections, collection_placements table.
+    /// Migration M-070: Universal Collection System � new columns on collections, collection_placements table.
     /// <list type="bullet">
     ///   <item>Adds resolution, rule_hash, group_by_field, match_mode, sort_field, sort_direction, live_updating to collections.</item>
     ///   <item>Creates collection_placements table for mapping collections to UI locations.</item>
@@ -2509,7 +2553,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             cmd.ExecuteNonQuery();
         }
 
-        System.Diagnostics.Debug.WriteLine("M-070: Universal Collection System — collection columns, hub_placements, backfill");
+        System.Diagnostics.Debug.WriteLine("M-070: Universal Collection System � collection columns, hub_placements, backfill");
     }
 
     /// <summary>
@@ -2609,13 +2653,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
             """;
         cmd.ExecuteNonQuery();
 
-        System.Diagnostics.Debug.WriteLine("M-080: Durable Identity Pipeline — identity_jobs, retail_match_candidates, wikidata_bridge_candidates");
+        System.Diagnostics.Debug.WriteLine("M-080: Durable Identity Pipeline � identity_jobs, retail_match_candidates, wikidata_bridge_candidates");
     }
 
     /// <summary>
     /// Migration M-081: Work hierarchy.
     /// <list type="bullet">
-    ///   <item>Renames <c>works.sequence_index</c> → <c>works.ordinal</c>.</item>
+    ///   <item>Renames <c>works.sequence_index</c> ? <c>works.ordinal</c>.</item>
     ///   <item>Adds <c>work_kind</c> TEXT NOT NULL DEFAULT 'standalone' with a
     ///     CHECK constraint enforcing standalone/parent/child/catalog.</item>
     ///   <item>Adds <c>parent_work_id</c> TEXT FK to <c>works(id)</c> ON DELETE SET NULL.</item>
@@ -2631,9 +2675,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
     /// </summary>
     private static void MigrateWorkHierarchy(SqliteConnection conn)
     {
-        // ── Step 1: rename sequence_index → ordinal ──────────────────────────
+        // -- Step 1: rename sequence_index ? ordinal --------------------------
         // SQLite 3.25+ supports ALTER TABLE RENAME COLUMN. The bundled SQLite
-        // is well past that version, so the rename is a single statement —
+        // is well past that version, so the rename is a single statement �
         // no table-rebuild dance required.
         bool hasOrdinal = false;
         bool hasSequenceIndex = false;
@@ -2659,13 +2703,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
         }
         else if (!hasOrdinal && !hasSequenceIndex)
         {
-            // Fresh DB or weird state — just add the column directly.
+            // Fresh DB or weird state � just add the column directly.
             using var addCmd = conn.CreateCommand();
             addCmd.CommandText = "ALTER TABLE works ADD COLUMN ordinal INTEGER;";
             addCmd.ExecuteNonQuery();
         }
 
-        // ── Step 2: work_kind with CHECK constraint ───────────────────────────
+        // -- Step 2: work_kind with CHECK constraint ---------------------------
         MigrateAddColumnIfMissing(
             conn,
             table:  "works",
@@ -2673,10 +2717,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ddl:    "ALTER TABLE works ADD COLUMN work_kind TEXT NOT NULL DEFAULT 'standalone' " +
                     "CHECK (work_kind IN ('standalone','parent','child','catalog'));");
 
-        // ── Step 3: parent_work_id (self-referencing FK) ──────────────────────
+        // -- Step 3: parent_work_id (self-referencing FK) ----------------------
         // Note: SQLite enforces ON DELETE SET NULL only when the FK is added at
         // CREATE TABLE time. ALTER TABLE ADD COLUMN with REFERENCES does not
-        // enforce the action — but the column itself is created, and the
+        // enforce the action � but the column itself is created, and the
         // application layer handles cleanup. The CREATE TABLE statement in
         // schema.sql carries the enforced FK for fresh databases.
         MigrateAddColumnIfMissing(
@@ -2685,7 +2729,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "parent_work_id",
             ddl:    "ALTER TABLE works ADD COLUMN parent_work_id TEXT REFERENCES works(id) ON DELETE SET NULL;");
 
-        // ── Step 4: is_catalog_only ───────────────────────────────────────────
+        // -- Step 4: is_catalog_only -------------------------------------------
         MigrateAddColumnIfMissing(
             conn,
             table:  "works",
@@ -2693,7 +2737,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ddl:    "ALTER TABLE works ADD COLUMN is_catalog_only INTEGER NOT NULL DEFAULT 0 " +
                     "CHECK (is_catalog_only IN (0, 1));");
 
-        // ── Step 5: external_identifiers (JSON blob) ──────────────────────────
+        // -- Step 5: external_identifiers (JSON blob) --------------------------
         MigrateAddColumnIfMissing(
             conn,
             table:  "works",
@@ -2706,7 +2750,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "display_overrides_json",
             ddl:    "ALTER TABLE works ADD COLUMN display_overrides_json TEXT;");
 
-        // ── Step 6: indexes ───────────────────────────────────────────────────
+        // -- Step 6: indexes ---------------------------------------------------
         using (var idxCmd = conn.CreateCommand())
         {
             idxCmd.CommandText = """
@@ -2719,7 +2763,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             idxCmd.ExecuteNonQuery();
         }
 
-        System.Diagnostics.Debug.WriteLine("M-081: Work hierarchy — work_kind, parent_work_id, ordinal, is_catalog_only, external_identifiers");
+        System.Diagnostics.Debug.WriteLine("M-081: Work hierarchy � work_kind, parent_work_id, ordinal, is_catalog_only, external_identifiers");
     }
 
     /// <summary>
@@ -2732,7 +2776,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
     /// </list>
     /// Idempotent: <see cref="MigrateAddColumnIfMissing"/> probes
     /// <c>PRAGMA table_info</c>; the index uses <c>CREATE INDEX IF NOT EXISTS</c>.
-    /// No backfill — parent_key is populated by the HierarchyResolver as files
+    /// No backfill � parent_key is populated by the HierarchyResolver as files
     /// are ingested. Existing standalone rows stay NULL.
     /// </summary>
     private static void MigrateParentKey(SqliteConnection conn)
@@ -2809,7 +2853,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
     /// <list type="bullet">
     ///   <item>Adds <c>library_id TEXT</c> (nullable) to <c>media_assets</c>
     ///     so assets can be attributed to the logical library that owns
-    ///     their source path. NULL for pre-migration rows — backfilled
+    ///     their source path. NULL for pre-migration rows � backfilled
     ///     lazily by the ingestion pipeline once
     ///     <see cref="ILibraryFolderResolver"/> is wired in.</item>
     ///   <item>Adds <c>is_orphaned INTEGER NOT NULL DEFAULT 0</c> and
@@ -2817,7 +2861,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
     ///     disappear from disk (NAS unmount, user reorganised in Plex).
     ///     The asset row survives so user progress + metadata are preserved.</item>
     ///   <item>Creates the <c>file_hash_cache</c> table keyed on
-    ///     <c>(absolute_path, size_bytes, mtime_utc) → sha256</c>, used by
+    ///     <c>(absolute_path, size_bytes, mtime_utc) ? sha256</c>, used by
     ///     the initial sweep to avoid re-hashing files that haven't changed.</item>
     ///   <item>Creates two indexes:
     ///     <c>idx_media_assets_library_id</c> for per-library queries and a
@@ -2863,7 +2907,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             idxCmd.ExecuteNonQuery();
         }
 
-        // Step 3: file_hash_cache table. Not FK-linked to anything —
+        // Step 3: file_hash_cache table. Not FK-linked to anything �
         // entries may outlive the assets they describe (e.g. during
         // re-sweep after a delete-and-restore cycle).
         MigrateCreateTableIfMissing(
@@ -2939,10 +2983,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
             cmd.ExecuteNonQuery();
 
             System.Diagnostics.Debug.WriteLine(
-                "M-081: Collection Rename — tables, columns, indices renamed");
+                "M-081: Collection Rename � tables, columns, indices renamed");
         }
 
-        // Rename review_queue.proposed_hub_id → proposed_collection_id (runs on both old and fresh DBs)
+        // Rename review_queue.proposed_hub_id ? proposed_collection_id (runs on both old and fresh DBs)
         MigrateAddColumnIfMissing(conn, "review_queue", "proposed_collection_id",
             "ALTER TABLE review_queue RENAME COLUMN proposed_hub_id TO proposed_collection_id;");
     }

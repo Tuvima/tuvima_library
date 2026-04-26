@@ -1550,7 +1550,7 @@ public partial class ListenPage
         if (!confirmed)
             return;
 
-        var response = await ApiClient.BatchDeleteRegistryItemsAsync(SelectedTrackWorks.Select(track => track.Id).ToArray());
+        var response = await ApiClient.BatchDeleteLibraryCatalogItemsAsync(SelectedTrackWorks.Select(track => track.Id).ToArray());
         if (response is null)
         {
             Snackbar.Add("Delete failed.", Severity.Error);

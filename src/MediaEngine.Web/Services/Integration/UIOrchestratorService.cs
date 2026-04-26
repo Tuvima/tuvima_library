@@ -1,4 +1,4 @@
-﻿using MediaEngine.Domain;
+using MediaEngine.Domain;
 using MediaEngine.Storage.Models;
 using Microsoft.AspNetCore.SignalR.Client;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -18,8 +18,8 @@ namespace MediaEngine.Web.Services.Integration;
 /// <para>
 /// <b>SignalR events handled:</b>
 /// <list type="bullet">
-///   <item><c>"MediaAdded"</c> — invalidates the collection cache; next navigation triggers a fresh load.</item>
-///   <item><c>"IngestionProgress"</c> — updates progress state in the container for live UI feedback.</item>
+///   <item><c>"MediaAdded"</c> � invalidates the collection cache; next navigation triggers a fresh load.</item>
+///   <item><c>"IngestionProgress"</c> � updates progress state in the container for live UI feedback.</item>
 /// </list>
 /// </para>
 ///
@@ -50,7 +50,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         _logger = logger;
     }
 
-    // ── Collections ──────────────────────────────────────────────────────────────────
+    // -- Collections ------------------------------------------------------------------
 
     /// <summary>
     /// Returns the collection list, using the state container cache when available.
@@ -81,12 +81,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return _state.Universe ?? UniverseMapper.MapFromCollections([]);
     }
 
-    // ── Library works ────────────────────────────────────────────────────────
+    // -- Library works --------------------------------------------------------
 
     public Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default)
         => _api.GetLibraryWorksAsync(ct);
 
-    // ── System status ─────────────────────────────────────────────────────────
+    // -- System status ---------------------------------------------------------
 
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
     {
@@ -99,7 +99,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default)
         => _api.GetAuthSettingsAsync(ct);
 
-    // ── Ingestion ─────────────────────────────────────────────────────────────
+    // -- Ingestion -------------------------------------------------------------
 
     /// <summary>Triggers a dry-run scan and invalidates the collection cache on success.</summary>
     public async Task<ScanResultViewModel?> ScanAndRefreshAsync(
@@ -112,7 +112,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result;
     }
 
-    // ── Metadata ──────────────────────────────────────────────────────────────
+    // -- Metadata --------------------------------------------------------------
 
     /// <summary>Resolves a metadata conflict and invalidates the collection cache so the UI reflects it.</summary>
     public async Task<bool> ResolveMetadataAsync(
@@ -125,7 +125,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return ok;
     }
 
-    // ── Search ────────────────────────────────────────────────────────────────
+    // -- Search ----------------------------------------------------------------
 
     /// <summary>
     /// Searches works across all collections.  Returns an empty list on failure or when
@@ -136,7 +136,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         CancellationToken ct = default)
         => _api.SearchWorksAsync(query, ct);
 
-    // ── API Key Management ────────────────────────────────────────────────────
+    // -- API Key Management ----------------------------------------------------
 
     /// <summary>Lists all issued Guest API Keys (id, label, created_at only).</summary>
     public Task<List<ApiKeyViewModel>> GetApiKeysAsync(CancellationToken ct = default)
@@ -154,14 +154,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<int> RevokeAllApiKeysAsync(CancellationToken ct = default)
         => _api.RevokeAllApiKeysAsync(ct);
 
-    // ── Profile Management ──────────────────────────────────────────────────────
+    // -- Profile Management ------------------------------------------------------
 
     /// <summary>Lists all user profiles.</summary>
     public Task<List<ProfileViewModel>> GetProfilesAsync(CancellationToken ct = default)
         => _api.GetProfilesAsync(ct);
 
     /// <summary>
-    /// Returns the currently active profile (first profile — the seed Owner by default).
+    /// Returns the currently active profile (first profile � the seed Owner by default).
     /// Ready for future session-based profile selection.
     /// </summary>
     public async Task<ProfileViewModel?> GetActiveProfileAsync(CancellationToken ct = default)
@@ -216,7 +216,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default)
         => _api.UnlinkProfileExternalLoginAsync(loginId, ct);
 
-    // ── Metadata Claims ─────────────────────────────────────────────────────────
+    // -- Metadata Claims ---------------------------------------------------------
 
     /// <summary>Returns claim history for a given entity (Work or Edition).</summary>
     public Task<List<ClaimHistoryDto>> GetClaimHistoryAsync(
@@ -234,7 +234,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return ok;
     }
 
-    // ── Settings ──────────────────────────────────────────────────────────────
+    // -- Settings --------------------------------------------------------------
 
     /// <summary>Returns the server name and regional settings.</summary>
     public Task<ServerGeneralSettingsDto?> GetServerGeneralAsync(CancellationToken ct = default)
@@ -298,12 +298,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Most recent error detail from the last failed API call.</summary>
     public string? LastApiError => _api.LastError;
 
-    // ── Activity Log (local in-memory) ──────────────────────────────────────
+    // -- Activity Log (local in-memory) --------------------------------------
 
     /// <summary>Returns the current activity log (most recent first).</summary>
     public IReadOnlyList<ActivityEntry> GetActivityLog() => _state.ActivityLog;
 
-    // ── System Activity (persistent Engine ledger) ───────────────────────────
+    // -- System Activity (persistent Engine ledger) ---------------------------
 
     /// <summary>Returns the most recent system activity entries from the Engine's ledger.</summary>
     public Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(
@@ -322,7 +322,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default)
         => _api.UpdateRetentionAsync(days, ct);
 
-    /// <summary>Returns activity entries filtered by action types — used by Timeline view.</summary>
+    /// <summary>Returns activity entries filtered by action types � used by Timeline view.</summary>
     public Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
         string[] actionTypes, int limit = 50, CancellationToken ct = default)
         => _api.GetActivityByTypesAsync(actionTypes, limit, ct);
@@ -353,7 +353,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// </summary>
     public event Action<string, int>? OnLoreDeltaDiscovered;
 
-    // ── Watch Folder ─────────────────────────────────────────────────────────
+    // -- Watch Folder ---------------------------------------------------------
 
     /// <summary>Returns files currently sitting in the Watch Folder.</summary>
     public Task<List<WatchFolderFileViewModel>> GetWatchFolderAsync(CancellationToken ct = default)
@@ -363,7 +363,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> TriggerRescanAsync(CancellationToken ct = default)
         => _api.TriggerRescanAsync(ct);
 
-    // ── Hydration ──────────────────────────────────────────────────────────
+    // -- Hydration ----------------------------------------------------------
 
     /// <summary>
     /// Triggers Wikidata SPARQL deep hydration for a given entity.
@@ -378,7 +378,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result;
     }
 
-    // ── Review Queue ─────────────────────────────────────────────────────────
+    // -- Review Queue ---------------------------------------------------------
 
     private int _reviewCount;
 
@@ -416,9 +416,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     }
 
     /// <summary>Permanently removes a work and all its files from the library.</summary>
-    public async Task<bool> DeleteRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<bool> DeleteLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default)
     {
-        return await _api.DeleteRegistryItemAsync(entityId, ct);
+        return await _api.DeleteLibraryCatalogItemAsync(entityId, ct);
     }
 
     /// <summary>Dismisses a review item.</summary>
@@ -481,13 +481,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Fires once per sweep pass after the final progress event.</summary>
     public event Action<RetagSweepProgressDto>? OnRetagSweepCompleted;
 
-    /// <summary>Fires on initial sweep progress ticks (plan §M).</summary>
+    /// <summary>Fires on initial sweep progress ticks (plan �M).</summary>
     public event Action<InitialSweepProgressDto>? OnInitialSweepProgress;
 
     /// <summary>Fires when the initial sweep finishes.</summary>
     public event Action<InitialSweepProgressDto>? OnInitialSweepCompleted;
 
-    // ── Metadata Override ────────────────────────────────────────────────
+    // -- Metadata Override ------------------------------------------------
 
     /// <summary>Overrides metadata fields for an entity and invalidates the collection cache.</summary>
     public async Task<bool> SaveItemPreferencesAsync(
@@ -499,7 +499,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return ok;
     }
 
-    // ── Hydration Settings ────────────────────────────────────────────────
+    // -- Hydration Settings ------------------------------------------------
 
     /// <summary>Returns hydration pipeline settings.</summary>
     public Task<HydrationSettingsDto?> GetHydrationSettingsAsync(CancellationToken ct = default)
@@ -510,7 +510,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         HydrationSettingsDto settings, CancellationToken ct = default)
         => _api.UpdateHydrationSettingsAsync(settings, ct);
 
-    // ── Pass 2 (Universe Lookup) ──────────────────────────────────────────
+    // -- Pass 2 (Universe Lookup) ------------------------------------------
 
     /// <summary>Returns the pending count and enabled state for the Pass 2 deferred enrichment queue.</summary>
     public Task<Pass2StatusDto?> GetPass2StatusAsync(CancellationToken ct = default)
@@ -520,7 +520,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<Pass2TriggerResultDto?> TriggerPass2NowAsync(CancellationToken ct = default)
         => _api.TriggerPass2NowAsync(ct);
 
-    // ── Retag Sweep (auto re-tag) ───────────────────────────────────────────
+    // -- Retag Sweep (auto re-tag) -------------------------------------------
 
     /// <summary>Returns the current re-tag sweep state (pending diff + hashes).</summary>
     public Task<RetagSweepStateDto?> GetRetagSweepStateAsync(CancellationToken ct = default)
@@ -538,15 +538,15 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> RetryRetagForAssetAsync(Guid assetId, CancellationToken ct = default)
         => _api.RetryRetagForAssetAsync(assetId, ct);
 
-    // ── Initial Sweep (side-by-side-with-Plex plan §M) ────────────────────
+    // -- Initial Sweep (side-by-side-with-Plex plan �M) --------------------
 
     /// <summary>Triggers the fire-and-forget initial hash sweep.</summary>
     public Task<bool> RunInitialSweepAsync(CancellationToken ct = default)
         => _api.RunInitialSweepAsync(ct);
 
-    // ── Provider slots ──────────────────────────────────────────────────────
+    // -- Provider slots ------------------------------------------------------
 
-    // ── Pipelines ───────────────────────────────────────────────────────────
+    // -- Pipelines -----------------------------------------------------------
 
     public Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default)
         => _api.GetPipelinesAsync(ct);
@@ -554,7 +554,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> SavePipelinesAsync(PipelineConfiguration pipelines, CancellationToken ct = default)
         => _api.SavePipelinesAsync(pipelines, ct);
 
-    // ── Media types ─────────────────────────────────────────────────────────
+    // -- Media types ---------------------------------------------------------
 
     /// <summary>Returns media type definitions from the Engine.</summary>
     public Task<MediaTypeConfigurationDto?> GetMediaTypesAsync(CancellationToken ct = default)
@@ -574,13 +574,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> DeleteMediaTypeAsync(string key, CancellationToken ct = default)
         => _api.DeleteMediaTypeAsync(key, ct);
 
-    // ── Cover Art Upload ─────────────────────────────────────────────────
+    // -- Cover Art Upload -------------------------------------------------
 
     /// <summary>Uploads cover art for a media asset.</summary>
     public Task<bool> UploadCoverAsync(Guid entityId, Stream fileStream, string fileName, CancellationToken ct = default)
         => _api.UploadCoverAsync(entityId, fileStream, fileName, ct);
 
-    // ── Provider Icons ─────────────────────────────────────────────────────
+    // -- Provider Icons -----------------------------------------------------
 
     /// <summary>Uploads a custom icon for a provider.</summary>
     public Task<bool> UploadProviderIconAsync(string name, Stream fileStream, string fileName, CancellationToken ct = default)
@@ -589,7 +589,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Returns the Engine URL path for a provider's icon.</summary>
     public string GetProviderIconUrl(string name) => _api.GetProviderIconUrl(name);
 
-    // ── Metadata search ─────────────────────────────────────────────────────
+    // -- Metadata search -----------------------------------------------------
 
     /// <summary>Searches a specific provider for metadata results.</summary>
     public Task<List<MetadataSearchResultDto>> SearchMetadataAsync(
@@ -597,13 +597,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         int limit = 25, CancellationToken ct = default)
         => _api.SearchMetadataAsync(providerName, query, mediaType, limit, ct);
 
-    // ── Development Seed ────────────────────────────────────────────────
+    // -- Development Seed ------------------------------------------------
 
     /// <summary>Seeds the library with test EPUBs (dev only).</summary>
     public Task<bool> SeedLibraryAsync(CancellationToken ct = default)
         => _api.SeedLibraryAsync(ct);
 
-    // ── Progress & Journey ────────────────────────────────────────────────
+    // -- Progress & Journey ------------------------------------------------
 
     /// <summary>Returns incomplete journey items for the "Continue your Journey" hero.
     /// Pass collectionId to get server-filtered results for a specific collection (no client-side matching needed).</summary>
@@ -628,9 +628,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid workId, CancellationToken ct = default)
         => _api.ResolveWorkToAssetAsync(workId, ct);
 
-    // ── Persons ──────────────────────────────────────────────────────────
+    // -- Persons ----------------------------------------------------------
 
-    /// <summary>Returns persons as registry list items (for People filter in Registry Library view).</summary>
+    /// <summary>Returns persons as libraryItem list items (for People filter in LibraryItem Library view).</summary>
     public Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
         string? role = null, int limit = 200, CancellationToken ct = default)
         => _api.GetPersonsAsync(role, limit, ct);
@@ -689,7 +689,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid workId, CancellationToken ct = default)
         => _api.GetWorkCastAsync(workId, ct);
 
-    // ── Parent Collection hierarchy ──────────────────────────────────────────────────
+    // -- Parent Collection hierarchy --------------------------------------------------
 
     /// <summary>Returns all Parent Collections (franchise-level groupings).</summary>
     public Task<List<CollectionViewModel>> GetParentCollectionsAsync(CancellationToken ct = default)
@@ -705,16 +705,16 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid collectionId, CancellationToken ct = default)
         => _api.GetParentCollectionAsync(collectionId, ct);
 
-    // ── Conflicts ────────────────────────────────────────────────────────────
+    // -- Conflicts ------------------------------------------------------------
 
     /// <summary>
     /// Returns all canonical values that have unresolved metadata conflicts.
-    /// Spec: Phase B – Conflict Surfacing (B-05).
+    /// Spec: Phase B � Conflict Surfacing (B-05).
     /// </summary>
     public Task<List<ConflictViewModel>> GetConflictsAsync(CancellationToken ct = default)
         => _api.GetConflictsAsync(ct);
 
-    // ── Organization Template ─────────────────────────────────────────────────
+    // -- Organization Template -------------------------------------------------
 
     /// <summary>Gets the current file organization template and sample preview.</summary>
     public Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(CancellationToken ct = default)
@@ -724,46 +724,46 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(string template, CancellationToken ct = default)
         => _api.UpdateOrganizationTemplateAsync(template, ct);
 
-    // ── Registry ────────────────────────────────────────────────────────────
+    // -- LibraryItem ------------------------------------------------------------
 
-    /// <summary>Returns paginated registry items.</summary>
-    public Task<RegistryPageResponse?> GetRegistryItemsAsync(
+    /// <summary>Returns paginated libraryItem items.</summary>
+    public Task<LibraryCatalogPageResponse?> GetLibraryCatalogItemsAsync(
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
         bool? duplicatesOnly = null, bool? missingUniverseOnly = null,
         string? sort = null, int? maxDays = null,
         CancellationToken ct = default)
-        => _api.GetRegistryItemsAsync(offset, limit, search, type, status, minConfidence, matchSource, duplicatesOnly, missingUniverseOnly, sort, maxDays, ct);
+        => _api.GetLibraryCatalogItemsAsync(offset, limit, search, type, status, minConfidence, matchSource, duplicatesOnly, missingUniverseOnly, sort, maxDays, ct);
 
-    /// <summary>Bulk-approves registry items by entity ID.</summary>
-    public Task<BatchRegistryResponse?> BatchApproveRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
-        => _api.BatchApproveRegistryItemsAsync(entityIds, ct);
+    /// <summary>Bulk-approves libraryItem items by entity ID.</summary>
+    public Task<BatchLibraryItemResponse?> BatchApproveLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+        => _api.BatchApproveLibraryCatalogItemsAsync(entityIds, ct);
 
-    /// <summary>Bulk-deletes registry items by entity ID.</summary>
-    public Task<BatchRegistryResponse?> BatchDeleteRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
-        => _api.BatchDeleteRegistryItemsAsync(entityIds, ct);
+    /// <summary>Bulk-deletes libraryItem items by entity ID.</summary>
+    public Task<BatchLibraryItemResponse?> BatchDeleteLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+        => _api.BatchDeleteLibraryCatalogItemsAsync(entityIds, ct);
 
-    /// <summary>Rejects a single registry item.</summary>
-    public Task<BatchRegistryResponse?> RejectRegistryItemAsync(Guid entityId, CancellationToken ct = default)
-        => _api.RejectRegistryItemAsync(entityId, ct);
+    /// <summary>Rejects a single libraryItem item.</summary>
+    public Task<BatchLibraryItemResponse?> RejectLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default)
+        => _api.RejectLibraryCatalogItemAsync(entityId, ct);
 
-    /// <summary>Bulk-rejects registry items by entity ID.</summary>
-    public Task<BatchRegistryResponse?> BatchRejectRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
-        => _api.BatchRejectRegistryItemsAsync(entityIds, ct);
+    /// <summary>Bulk-rejects libraryItem items by entity ID.</summary>
+    public Task<BatchLibraryItemResponse?> BatchRejectLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+        => _api.BatchRejectLibraryCatalogItemsAsync(entityIds, ct);
 
-    /// <summary>Returns full detail for a single registry item.</summary>
-    public Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default)
-        => _api.GetRegistryItemDetailAsync(entityId, ct);
+    /// <summary>Returns full detail for a single libraryItem item.</summary>
+    public Task<LibraryItemDetailViewModel?> GetLibraryItemDetailAsync(Guid entityId, CancellationToken ct = default)
+        => _api.GetLibraryItemDetailAsync(entityId, ct);
 
-    /// <summary>Returns status counts for registry tab badges.</summary>
-    public Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default)
-        => _api.GetRegistryStatusCountsAsync(ct);
+    /// <summary>Returns status counts for libraryItem tab badges.</summary>
+    public Task<LibraryItemStatusCountsDto?> GetLibraryItemStatusCountsAsync(CancellationToken ct = default)
+        => _api.GetLibraryItemStatusCountsAsync(ct);
 
     /// <summary>Returns four-state counts (Registered, NeedsReview, NoMatch, Failed) with trigger breakdown.</summary>
-    public Task<RegistryFourStateCountsDto?> GetRegistryFourStateCountsAsync(
+    public Task<LibraryItemLifecycleCountsDto?> GetLibraryItemLifecycleCountsAsync(
         Guid? batchId = null, CancellationToken ct = default)
-        => _api.GetRegistryFourStateCountsAsync(batchId, ct);
+        => _api.GetLibraryItemLifecycleCountsAsync(batchId, ct);
 
     /// <summary>Fetches recent ingestion batches from the Engine.</summary>
     public async Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(int limit = 20)
@@ -777,9 +777,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public async Task<int> GetBatchAttentionCountAsync()
         => await _api.GetBatchAttentionCountAsync();
 
-    // ── Search ────────────────────────────────────────────────────────────────
+    // -- Search ----------------------------------------------------------------
 
-    /// <summary>POST /search/universe — Wikidata candidate search enriched with retail cover art.</summary>
+    /// <summary>POST /search/universe � Wikidata candidate search enriched with retail cover art.</summary>
     public async Task<List<UniverseCandidateDto>> SearchUniverseAsync(
         string query, string mediaType, int maxCandidates = 5,
         string? localAuthor = null, CancellationToken ct = default)
@@ -788,7 +788,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result?.Candidates ?? [];
     }
 
-    /// <summary>POST /search/retail — retail provider candidate search with optional file hints for description scoring.</summary>
+    /// <summary>POST /search/retail � retail provider candidate search with optional file hints for description scoring.</summary>
     public async Task<List<RetailCandidateDto>> SearchRetailAsync(
         string query, string mediaType, int maxCandidates = 5,
         string? localTitle = null, string? localAuthor = null, string? localYear = null,
@@ -803,7 +803,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result?.Candidates ?? [];
     }
 
-    /// <summary>POST /search/resolve — unified resolve search with retail identification and description-based scoring.</summary>
+    /// <summary>POST /search/resolve � unified resolve search with retail identification and description-based scoring.</summary>
     public async Task<List<ResolveCandidateDto>> SearchResolveAsync(
         string query, string mediaType, int maxCandidates = 5,
         Dictionary<string, string>? fileHints = null,
@@ -814,7 +814,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     }
 
     /// <summary>
-    /// GET /metadata/{qid}/aliases — fetches Wikidata aliases (alternative titles) for the given QID.
+    /// GET /metadata/{qid}/aliases � fetches Wikidata aliases (alternative titles) for the given QID.
     /// If <paramref name="canonicalTitle"/> is provided and is not already in the aliases list,
     /// it is prepended so the canonical title is always the first/default choice.
     /// Returns an empty list when the Engine returns no data or an error occurs.
@@ -837,12 +837,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return aliases;
     }
 
-    /// <summary>POST /registry/items/{entityId}/apply-match — apply a selected match.</summary>
-    public async Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
+    /// <summary>POST /library/items/{entityId}/apply-match � apply a selected match.</summary>
+    public async Task<ApplyMatchResponseDto?> ApplyLibraryItemMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
         CancellationToken ct = default)
     {
-        var result = await _api.ApplyRegistryMatchAsync(entityId, request, ct);
+        var result = await _api.ApplyLibraryItemMatchAsync(entityId, request, ct);
         if (result is not null)
             _state.Invalidate(); // refresh collection list since metadata changed
         return result;
@@ -861,23 +861,23 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result;
     }
 
-    /// <summary>POST /registry/items/{entityId}/create-manual — create manual metadata entry.</summary>
+    /// <summary>POST /library/items/{entityId}/create-manual � create manual metadata entry.</summary>
     public Task<CreateManualResponseDto?> CreateManualEntryAsync(
         Guid entityId, CreateManualRequestDto request,
         CancellationToken ct = default)
         => _api.CreateManualEntryAsync(entityId, request, ct);
 
-    /// <summary>Mark a registry item as provisional with curator-entered metadata.</summary>
+    /// <summary>Mark a libraryItem item as provisional with curator-entered metadata.</summary>
     public Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default)
         => _api.MarkProvisionalAsync(entityId, metadata, ct);
 
-    // ── SignalR Intercom ───────────────────────────────────────────────────────
+    // -- SignalR Intercom -------------------------------------------------------
 
     /// <summary>
     /// Starts the SignalR connection to the Engine API Intercom collection at
     /// <c>{Engine:BaseUrl}/intercom</c>.
     ///
-    /// <para>Idempotent — calling this multiple times is safe; the connection
+    /// <para>Idempotent � calling this multiple times is safe; the connection
     /// is only created and started once per circuit lifetime.</para>
     ///
     /// <para>Connection failure is non-fatal: the warning is logged and the
@@ -909,175 +909,175 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             })
             .Build();
 
-        // ── "MediaAdded" ──────────────────────────────────────────────────────
+        // -- "MediaAdded" ------------------------------------------------------
         // A new Work has been committed to the library.
         // Invalidate the cache so the grid refreshes on next render.
         _hubConnection.On<MediaAddedEvent>(SignalREvents.MediaAdded, ev =>
         {
             _logger.LogInformation(
-                "Intercom ← MediaAdded: WorkId={WorkId} Title=\"{Title}\" Type={MediaType}",
+                "Intercom ? MediaAdded: WorkId={WorkId} Title=\"{Title}\" Type={MediaType}",
                 ev.WorkId, ev.Title, ev.MediaType);
             _state.PushMediaAdded(ev);
         });
 
-        // ── "IngestionCompleted" ────────────────────────────────────────────────
+        // -- "IngestionCompleted" ------------------------------------------------
         // A file has been fully ingested (hashed, scored, and optionally moved).
         // The Engine publishes this event; invalidate the cache so the grid refreshes.
         _hubConnection.On<IngestionCompletedClientEvent>(SignalREvents.IngestionCompleted, ev =>
         {
             _logger.LogInformation(
-                "Intercom ← IngestionCompleted: File=\"{File}\" Type={MediaType}",
+                "Intercom ? IngestionCompleted: File=\"{File}\" Type={MediaType}",
                 ev.FilePath, ev.MediaType);
             _state.PushIngestionCompleted(ev);
         });
 
-        // ── "IngestionProgress" ───────────────────────────────────────────────
-        // Active ingestion tick — update the progress indicator.
+        // -- "IngestionProgress" -----------------------------------------------
+        // Active ingestion tick � update the progress indicator.
         _hubConnection.On<IngestionProgressEvent>(SignalREvents.IngestionProgress, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← IngestionProgress: [{Stage}] {Done}/{Total} — {File}",
+                "Intercom ? IngestionProgress: [{Stage}] {Done}/{Total} � {File}",
                 ev.Stage, ev.ProcessedCount, ev.TotalCount, ev.CurrentFile);
             _state.PushIngestionProgress(ev);
         });
 
-        // ── "BatchProgress" ─────────────────────────────────────────────────
-        // Per-file progress tick during an ingestion batch — carries running
+        // -- "BatchProgress" -------------------------------------------------
+        // Per-file progress tick during an ingestion batch � carries running
         // counters and estimated time remaining for the active batch card.
         _hubConnection.On<BatchProgressEvent>(SignalREvents.BatchProgress, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← BatchProgress: {Done}/{Total} ({Pct}%) ~{Eta}s remaining",
+                "Intercom ? BatchProgress: {Done}/{Total} ({Pct}%) ~{Eta}s remaining",
                 ev.FilesProcessed, ev.FilesTotal, ev.ProgressPercent, ev.EstimatedSecondsRemaining);
             _state.PushBatchProgress(ev);
         });
 
-        // ── "UniverseEnrichmentProgress" ────────────────────────────────────
+        // -- "UniverseEnrichmentProgress" ------------------------------------
         // Live Stage 3 progress for inline or maintenance universe enrichment.
         _hubConnection.On<UniverseEnrichmentProgressEvent>(SignalREvents.UniverseEnrichmentProgress, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← UniverseEnrichmentProgress: {Step} {Done}/{Total} — {Title} ({Qid})",
+                "Intercom ? UniverseEnrichmentProgress: {Step} {Done}/{Total} � {Title} ({Qid})",
                 ev.CurrentStep, ev.ProcessedCount, ev.TotalCount, ev.WorkTitle, ev.WorkQid);
             _state.PushUniverseEnrichmentProgress(ev);
         });
 
-        // ── "RetagSweepProgress" ─────────────────────────────────────────────
+        // -- "RetagSweepProgress" ---------------------------------------------
         // Periodic progress tick while the auto re-tag sweep is running.
         _hubConnection.On<RetagSweepProgressDto>(SignalREvents.RetagSweepProgress, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← RetagSweepProgress: {Processed} processed ({Ok} ok, {Retry} retry, {Fail} failed){Final}",
+                "Intercom ? RetagSweepProgress: {Processed} processed ({Ok} ok, {Retry} retry, {Fail} failed){Final}",
                 ev.Processed, ev.Succeeded, ev.Transient, ev.Terminal, ev.IsFinal ? " [final]" : string.Empty);
             OnRetagSweepProgress?.Invoke(ev);
         });
 
-        // ── "RetagSweepCompleted" ────────────────────────────────────────────
+        // -- "RetagSweepCompleted" --------------------------------------------
         _hubConnection.On<RetagSweepProgressDto>(SignalREvents.RetagSweepCompleted, ev =>
         {
             _logger.LogInformation(
-                "Intercom ← RetagSweepCompleted: {Processed} processed, {Ok} ok, {Retry} retry, {Fail} failed",
+                "Intercom ? RetagSweepCompleted: {Processed} processed, {Ok} ok, {Retry} retry, {Fail} failed",
                 ev.Processed, ev.Succeeded, ev.Transient, ev.Terminal);
             OnRetagSweepCompleted?.Invoke(ev);
         });
 
-        // ── "InitialSweepProgress" ────────────────────────────────────────────
+        // -- "InitialSweepProgress" --------------------------------------------
         _hubConnection.On<InitialSweepProgressDto>(SignalREvents.InitialSweepProgress, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← InitialSweepProgress: {Processed}/{Discovered} ({Hashed} hashed, {Cached} cached)",
+                "Intercom ? InitialSweepProgress: {Processed}/{Discovered} ({Hashed} hashed, {Cached} cached)",
                 ev.Processed, ev.Discovered, ev.Hashed, ev.Cached);
             OnInitialSweepProgress?.Invoke(ev);
         });
 
-        // ── "InitialSweepCompleted" ───────────────────────────────────────────
+        // -- "InitialSweepCompleted" -------------------------------------------
         _hubConnection.On<InitialSweepProgressDto>(SignalREvents.InitialSweepCompleted, ev =>
         {
             _logger.LogInformation(
-                "Intercom ← InitialSweepCompleted: {Discovered} discovered, {Hashed} hashed, {Cached} cached, {Failed} failed",
+                "Intercom ? InitialSweepCompleted: {Discovered} discovered, {Hashed} hashed, {Cached} cached, {Failed} failed",
                 ev.Discovered, ev.Hashed, ev.Cached, ev.Failed);
             OnInitialSweepCompleted?.Invoke(ev);
         });
 
-        // ── "MetadataHarvested" ───────────────────────────────────────────────
+        // -- "MetadataHarvested" -----------------------------------------------
         // An external provider updated cover art / description / narrator etc.
         // Invalidate the state cache so cards re-render with the new data.
         _hubConnection.On<MetadataHarvestedEvent>(SignalREvents.MetadataHarvested, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← MetadataHarvested: EntityId={Id} Provider={Provider} Fields=[{Fields}]",
+                "Intercom ? MetadataHarvested: EntityId={Id} Provider={Provider} Fields=[{Fields}]",
                 ev.EntityId, ev.ProviderName, string.Join(",", ev.UpdatedFields));
             _state.PushMetadataHarvested(ev);
         });
 
-        // ── "PersonEnriched" ──────────────────────────────────────────────────
+        // -- "PersonEnriched" --------------------------------------------------
         // Wikidata has enriched an author/narrator with a headshot + biography.
         _hubConnection.On<PersonEnrichedEvent>(SignalREvents.PersonEnriched, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← PersonEnriched: PersonId={Id} Name={Name}",
+                "Intercom ? PersonEnriched: PersonId={Id} Name={Name}",
                 ev.PersonId, ev.Name);
             _state.PushPersonEnriched(ev);
         });
 
-        // ── "MediaRemoved" ────────────────────────────────────────────────────
+        // -- "MediaRemoved" ----------------------------------------------------
         // A file was removed (orphaned during ingestion scan or reconciliation).
         // Invalidate the collection cache so the home page refreshes on next render.
         _hubConnection.On(SignalREvents.MediaRemoved, () =>
         {
-            _logger.LogInformation("Intercom ← MediaRemoved: invalidating collection cache");
+            _logger.LogInformation("Intercom ? MediaRemoved: invalidating collection cache");
             _state.Invalidate();
         });
 
-        // ── "WatchFolderActive" ───────────────────────────────────────────────
+        // -- "WatchFolderActive" -----------------------------------------------
         // The Watch Folder has been updated; notify state container so interested
         // components (e.g. Settings page connection indicator) can react.
         _hubConnection.On<WatchFolderActiveEvent>(SignalREvents.WatchFolderActive, ev =>
         {
             _logger.LogInformation(
-                "Intercom ← WatchFolderActive: Dir={Dir} At={At}",
+                "Intercom ? WatchFolderActive: Dir={Dir} At={At}",
                 ev.WatchDirectory, ev.ActivatedAt);
             _state.PushWatchFolderActive(ev);
         });
 
-        // ── "ReviewItemCreated" ──────────────────────────────────────────────
+        // -- "ReviewItemCreated" ----------------------------------------------
         // A new review item was created by the hydration pipeline.
         _hubConnection.On<ReviewItemCreatedEvent>(SignalREvents.ReviewItemCreated, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← ReviewItemCreated: ReviewId={Id} EntityId={EntityId} Trigger={Trigger}",
+                "Intercom ? ReviewItemCreated: ReviewId={Id} EntityId={EntityId} Trigger={Trigger}",
                 ev.ReviewItemId, ev.EntityId, ev.Trigger);
             _ = RefreshReviewCountSnapshotAsync();
         });
 
-        // ── "ReviewItemResolved" ─────────────────────────────────────────────
+        // -- "ReviewItemResolved" ---------------------------------------------
         // A review item was resolved or dismissed.
         _hubConnection.On<ReviewItemResolvedEvent>(SignalREvents.ReviewItemResolved, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← ReviewItemResolved: ReviewId={Id} Status={Status}",
+                "Intercom ? ReviewItemResolved: ReviewId={Id} Status={Status}",
                 ev.ReviewItemId, ev.Status);
             _ = RefreshReviewCountSnapshotAsync();
             _state.Invalidate();
         });
 
-        // ── "HydrationStageCompleted" ────────────────────────────────────────
-        // A pipeline stage completed — metadata may have changed.
+        // -- "HydrationStageCompleted" ----------------------------------------
+        // A pipeline stage completed � metadata may have changed.
         _hubConnection.On<HydrationStageCompletedEvent>(SignalREvents.HydrationStageCompleted, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← HydrationStageCompleted: EntityId={Id} Stage={Stage} Claims={Claims}",
+                "Intercom ? HydrationStageCompleted: EntityId={Id} Stage={Stage} Claims={Claims}",
                 ev.EntityId, ev.Stage, ev.ClaimsAdded);
             _state.Invalidate();
         });
 
-        // ── "FolderHealthChanged" ───────────────────────────────────────────
+        // -- "FolderHealthChanged" -------------------------------------------
         // Periodic health check reports whether Watch/Library folders are accessible.
         // LibrariesTab subscribes to OnFolderHealthChanged to update status dots.
         _hubConnection.On<FolderHealthChangedEvent>(SignalREvents.FolderHealthChanged, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← FolderHealthChanged: Path={Path} Accessible={Ok}",
+                "Intercom ? FolderHealthChanged: Path={Path} Accessible={Ok}",
                 ev.Path, ev.IsAccessible);
 
             // Determine folder type by comparing with current known paths.
@@ -1085,19 +1085,19 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             OnFolderHealthChanged?.Invoke(ev.Path, healthy);
         });
 
-        // ── "LoreDeltaDiscovered" ─────────────────────────────────────────────
+        // -- "LoreDeltaDiscovered" ---------------------------------------------
         // Stage 3 Lore Delta sweep found entities with updated Wikidata revisions.
         // Vault page subscribes to OnLoreDeltaDiscovered to show an amber banner.
         _hubConnection.On<LoreDeltaDiscoveredEvent>(SignalREvents.LoreDeltaDiscovered, ev =>
         {
             _logger.LogDebug(
-                "Intercom ← LoreDeltaDiscovered: Universe={Qid} Changed={Count}",
+                "Intercom ? LoreDeltaDiscovered: Universe={Qid} Changed={Count}",
                 ev.UniverseQid, ev.ChangedCount);
 
             OnLoreDeltaDiscovered?.Invoke(ev.UniverseQid, ev.ChangedCount);
         });
 
-        // ── Connection lifecycle logging ──────────────────────────────────────
+        // -- Connection lifecycle logging --------------------------------------
         _hubConnection.Reconnecting += ex =>
         {
             _logger.LogWarning("Intercom reconnecting: {Message}", ex?.Message);
@@ -1117,14 +1117,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         try
         {
             await _hubConnection.StartAsync(ct);
-            _logger.LogInformation("Intercom connected → {Url}", collectionUrl);
+            _logger.LogInformation("Intercom connected ? {Url}", collectionUrl);
             _state.PushServerStarted();
         }
         catch (Exception ex)
         {
             // Non-fatal: degrade gracefully to HTTP-only mode.
             _logger.LogWarning(ex,
-                "Could not connect to Intercom collection at {Url} — real-time updates disabled.", collectionUrl);
+                "Could not connect to Intercom collection at {Url} � real-time updates disabled.", collectionUrl);
         }
     }
 
@@ -1135,7 +1135,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public bool IsIntercomConnected =>
         _hubConnection?.State == HubConnectionState.Connected;
 
-    // ── IAsyncDisposable ──────────────────────────────────────────────────────
+    // -- IAsyncDisposable ------------------------------------------------------
 
     public async ValueTask DisposeAsync()
     {
@@ -1146,14 +1146,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         }
     }
 
-    // â”€â”€ Fan-out search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Fan-out search ──────────────────────────────────────────────────
 
     public Task<FanOutSearchResponseViewModel?> SearchMetadataFanOutAsync(
         string query, string? mediaType = null, string? providerId = null,
         int maxResultsPerProvider = 5, CancellationToken ct = default)
         => _api.SearchMetadataFanOutAsync(query, mediaType, providerId, maxResultsPerProvider, ct);
 
-    // ── Search results cache ────────────────────────────────────────────
+    // -- Search results cache --------------------------------------------
 
     public Task<string?> GetSearchResultsCacheAsync(Guid entityId, CancellationToken ct = default)
         => _api.GetSearchResultsCacheAsync(entityId, ct);
@@ -1162,13 +1162,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         => _api.SaveSearchResultsCacheAsync(entityId, resultsJson, ct);
 
 
-    // â”€â”€ Canonical values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Canonical values ────────────────────────────────────────────────
 
     public Task<List<CanonicalFieldViewModel>> GetCanonicalValuesAsync(
         Guid entityId, CancellationToken ct = default)
         => _api.GetCanonicalValuesAsync(entityId, ct);
 
-    // â”€â”€ Cover from URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Cover from URL ──────────────────────────────────────────────────
 
     public Task<bool> ApplyCoverFromUrlAsync(
         Guid entityId, string imageUrl, CancellationToken ct = default)
@@ -1186,7 +1186,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> DismissReportAsync(long activityId, CancellationToken ct = default)
         => _api.DismissReportAsync(activityId, ct);
 
-    // ── AI Hardware Profile ───────────────────────────────────────────────────
+    // -- AI Hardware Profile ---------------------------------------------------
 
     public Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default)
         => _api.GetAiProfileAsync(ct);

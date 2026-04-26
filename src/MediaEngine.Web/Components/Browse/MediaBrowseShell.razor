@@ -433,12 +433,12 @@
     private async Task LoadItemsAsync(bool append)
     {
         var requestedOffset = append ? _items.Count : 0;
-        var response = await ApiClient.GetRegistryItemsAsync(
+        var response = await ApiClient.GetLibraryCatalogItemsAsync(
             offset: requestedOffset,
             limit: PageSize,
             search: string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
             type: CurrentTab.MediaType,
-            sort: ResolveRegistrySort());
+            sort: ResolveLibraryItemSort());
 
         var incoming = response?.Items?.Select(LibraryItemViewModel.From).ToList() ?? [];
         incoming = SortItems(incoming);
@@ -485,7 +485,7 @@
         _hasMore = false;
     }
 
-    private string? ResolveRegistrySort() => _sortBy switch
+    private string? ResolveLibraryItemSort() => _sortBy switch
     {
         "title" => "title",
         "oldest" => "oldest",

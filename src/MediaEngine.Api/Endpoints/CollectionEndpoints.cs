@@ -2301,7 +2301,7 @@ public static class CollectionEndpoints
 
         // GET /collections/resolve/by-name?name=All%20Songs&limit=200
         // Resolves a System collection by display name and returns matching items.
-        // Unlike /registry/items, this path bypasses the registry visibility filter so
+        // Unlike /library/items, this path bypasses the libraryItem visibility filter so
         // items that are still in the pipeline (no QID, no review) are included.
         // Used by the Vault flat views (All Songs) to show music even before the
         // retail/Wikidata pipeline completes.  Fields are read from both the asset-level
@@ -2334,7 +2334,7 @@ public static class CollectionEndpoints
             return Results.Ok(resolved);
         })
         .WithName("ResolveCollectionByName")
-        .WithSummary("Resolves a System collection by display name and returns items, reading both asset-level and parent-Work-level canonical values. Bypasses the registry visibility filter so in-flight items are included.")
+        .WithSummary("Resolves a System collection by display name and returns items, reading both asset-level and parent-Work-level canonical values. Bypasses the libraryItem visibility filter so in-flight items are included.")
         .Produces<List<CollectionResolvedItemDto>>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -3390,7 +3390,7 @@ public static class CollectionEndpoints
     /// from both the asset row (Self-scoped fields: title, track_number) and from
     /// the topmost parent Work row (Parent-scoped fields: artist, album, genre,
     /// year).  Cover art is resolved via <c>/stream/{assetId}/cover</c> from the
-    /// asset ID rather than canonical_values.  This mirrors the RegistryRepository
+    /// asset ID rather than canonical_values.  This mirrors the LibraryItemRepository
     /// pattern so that music items have correct artist/album/cover values even
     /// after the lineage-aware write splits them onto the album Work's entity_id.
     /// </summary>

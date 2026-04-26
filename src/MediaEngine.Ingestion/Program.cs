@@ -129,19 +129,19 @@ var host = Host.CreateDefaultBuilder(args)
         // ── Media processors ───────────────────────────────────
         services.AddSingleton<IVideoMetadataExtractor, StubVideoMetadataExtractor>();
 
-        services.AddSingleton<IProcessorRegistry>(sp =>
+        services.AddSingleton<IProcessorRouter>(sp =>
         {
-            var registry = new MediaProcessorRegistry();
+            var libraryItem = new MediaProcessorRouter();
 
-            // Processors ordered by priority (registry sorts internally).
-            registry.Register(new EpubProcessor());
-            registry.Register(new AudioProcessor());
-            registry.Register(new VideoProcessor(
+            // Processors ordered by priority (libraryItem sorts internally).
+            libraryItem.Register(new EpubProcessor());
+            libraryItem.Register(new AudioProcessor());
+            libraryItem.Register(new VideoProcessor(
                 sp.GetRequiredService<IVideoMetadataExtractor>()));
-            registry.Register(new ComicProcessor());
-            registry.Register(new GenericFileProcessor());
+            libraryItem.Register(new ComicProcessor());
+            libraryItem.Register(new GenericFileProcessor());
 
-            return registry;
+            return libraryItem;
         });
 
         // ── Intelligence / Scoring ─────────────────────────────

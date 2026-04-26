@@ -75,7 +75,7 @@ else
     [SupplyParameterFromQuery(Name = "collectionId")] public Guid? CollectionId { get; set; }
     [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
-    private RegistryItemDetailViewModel? _detail;
+    private LibraryItemDetailViewModel? _detail;
     private PlaybackManifestDto? _manifest;
     private string? _streamUrl;
     private ProgressStateDto? _progress;
@@ -96,8 +96,8 @@ else
         StateHasChanged();
 
         var detailTask = WorkId.HasValue
-            ? ApiClient.GetRegistryItemDetailAsync(WorkId.Value)
-            : Task.FromResult<RegistryItemDetailViewModel?>(null);
+            ? ApiClient.GetLibraryItemDetailAsync(WorkId.Value)
+            : Task.FromResult<LibraryItemDetailViewModel?>(null);
         var progressTask = Orchestrator.GetProgressAsync(AssetId);
         var profileTask = Orchestrator.GetActiveProfileAsync();
         var manifestTask = ApiClient.GetPlaybackManifestAsync(AssetId, "web");

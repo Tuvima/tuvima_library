@@ -1,5 +1,5 @@
 @using MediaEngine.Web.Components.Settings
-@using MediaEngine.Web.Components.Registry
+@using MediaEngine.Web.Components.LibraryItems
 @using MediaEngine.Web.Services.Playback
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
@@ -605,7 +605,7 @@ else
     /// <summary>When true, the edit panel opens automatically on load.</summary>
     [Parameter] public bool AutoOpenEdit { get; set; }
 
-    /// <summary>Notifies the parent (e.g. Registry) when a match is applied or metadata changes.</summary>
+    /// <summary>Notifies the parent (e.g. LibraryItem) when a match is applied or metadata changes.</summary>
     [Parameter] public EventCallback OnItemChanged { get; set; }
 
     /// <summary>When true, the component is embedded inside a container (e.g. CollectionShell).
@@ -649,10 +649,10 @@ else
         var allWorks = await Orchestrator.GetLibraryWorksAsync();
         _work = allWorks.FirstOrDefault(w => w.Id == WorkId);
 
-        // If not in library works, check staging/registry via detail endpoint
+        // If not in library works, check staging/library/items via detail endpoint
         if (_work is null)
         {
-            var detail = await Orchestrator.GetRegistryItemDetailAsync(WorkId);
+            var detail = await Orchestrator.GetLibraryItemDetailAsync(WorkId);
             if (detail is not null)
             {
                 var cvList = new List<CanonicalValueViewModel>();

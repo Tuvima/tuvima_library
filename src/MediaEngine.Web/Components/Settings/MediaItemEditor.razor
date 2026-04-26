@@ -309,7 +309,7 @@
     [Parameter] public string? PreloadedCandidates { get; set; }
     [Parameter] public string? InitialSearchQuery { get; set; }
     [Parameter] public List<CanonicalValueViewModel>? WorkCanonicalValues { get; set; }
-    [Parameter] public RegistryItemViewModel? RegistryItem { get; set; }
+    [Parameter] public LibraryCatalogItemViewModel? LibraryCatalogItem { get; set; }
     [Parameter] public int InitialTab { get; set; }
 
     // ── State ──────────────────────────────────────────────────────────
@@ -337,7 +337,7 @@
 
     // History
     private bool _loadingHistory;
-    private List<RegistryItemHistoryDto> _history = [];
+    private List<LibraryItemHistoryDto> _history = [];
 
     private static readonly string WikidataProviderId = "b3000003-d000-4000-8000-000000000004";
     private static readonly Guid LocalFilesystemProviderId = Guid.Parse("a0000000-0000-4000-8000-000000000000");

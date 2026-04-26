@@ -1,0 +1,661 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.LibraryItems
+@using MudBlazor
+
+<div class="ids-panel">
+    @if (Loading)
+    {
+        <div class="ids-loading">
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Default" />
+        </div>
+    }
+    else if (IsPerson)
+    {
+        @* ── Person view ── *@
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+        {
+            <div class="ids-cover-row">
+                <div class="ids-hover-wrap">
+                    <img src="@Item.CoverUrl" alt="@Item.Title" class="ids-headshot" loading="lazy" />
+                    <div class="ids-hover-popup">
+                        <img src="@Item.CoverUrl" class="ids-hover-img" alt="" />
+                    </div>
+                </div>
+            </div>
+        }
+        <div class="ids-row">
+            <span class="ids-key">Name</span>
+            <span class="ids-value">@Item.Title</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Item.WikidataQid) && !Item.WikidataQid.StartsWith("NF"))
+        {
+            <div class="ids-row">
+                <span class="ids-key">QID</span>
+                <a class="ids-qid-badge"
+                   href="https://en.wikipedia.org/wiki/Special:GoWikidata/@Item.WikidataQid"
+                   target="_blank"
+                   rel="noopener noreferrer">@Item.WikidataQid</a>
+            </div>
+        }
+        <div class="ids-row">
+            <span class="ids-key">Status</span>
+            <span class="ids-status-chip"
+                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+        </div>
+        <div class="ids-row">
+            <span class="ids-key">Occupation</span>
+            <span class="ids-value">@(string.IsNullOrWhiteSpace(Detail?.Description) ? "—" : Detail.Description)</span>
+        </div>
+        <div class="ids-row ids-row--last">
+            <span class="ids-key">Added</span>
+            <span class="ids-value">@Item.CreatedAt.ToLocalTime().ToString("MMMM d, yyyy")</span>
+        </div>
+    }
+    else if (IsUniverse)
+    {
+        var summary = Detail?.UniverseSummary;
+        <div class="ids-row">
+            <span class="ids-key">Name</span>
+            <span class="ids-value">@Item.Title</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Item.WikidataQid) && !Item.WikidataQid.StartsWith("NF"))
+        {
+            <div class="ids-row">
+                <span class="ids-key">QID</span>
+                <a class="ids-qid-badge"
+                   href="https://en.wikipedia.org/wiki/Special:GoWikidata/@Item.WikidataQid"
+                   target="_blank"
+                   rel="noopener noreferrer">@Item.WikidataQid</a>
+            </div>
+        }
+        <div class="ids-row">
+            <span class="ids-key">Status</span>
+            <span class="ids-status-chip"
+                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+        </div>
+        @if (summary is null)
+        {
+            <div class="ids-row ids-row--last">
+                <span class="ids-placeholder">Universe details are still loading.</span>
+            </div>
+        }
+        else
+        {
+            <div class="ids-universe-summary">
+                <div class="ids-universe-summary-title">Universe</div>
+                <div class="ids-universe-grid">
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Stage 3</span>
+                        <strong>@FormatUniverseStatus(summary.Stage3Status)</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Root</span>
+                        <strong>@(summary.NarrativeRootQid ?? "—")</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Entities</span>
+                        <strong>@summary.EntityCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Relationships</span>
+                        <strong>@summary.RelationshipCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Portraits</span>
+                        <strong>@summary.PortraitCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Last enriched</span>
+                        <strong>@FormatUniverseDate(summary.Stage3EnrichedAt)</strong>
+                    </div>
+                </div>
+                <div class="ids-universe-links">
+                    @if (!string.IsNullOrWhiteSpace(summary.UniverseQid))
+                    {
+                        <a class="ids-link-pill"
+                           href="/universe/@summary.UniverseQid/explore">
+                            Open graph
+                        </a>
+                    }
+                    @if (IsValidQid(summary.UniverseQid))
+                    {
+                        <a class="ids-link-pill"
+                           href="https://www.wikidata.org/wiki/@summary.UniverseQid"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            Wikidata
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        @* ── Media file view ── *@
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+        {
+            <div class="ids-cover-row">
+                <div class="ids-hover-wrap">
+                    <img src="@Item.CoverUrl" alt="@Item.Title" class="ids-cover" loading="lazy" />
+                    <div class="ids-hover-popup">
+                        <img src="@Item.CoverUrl" class="ids-hover-img" alt="" />
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* ── Match Status chip ── *@
+        <div class="ids-match-status">
+            <MudTooltip Text="@GetMatchStatusDisplay().Tooltip" Arrow="true" Placement="Placement.Top">
+                <span class="ids-match-chip" style="background: @HexToRgba(GetMatchStatusDisplay().Color, 0.15); color: @GetMatchStatusDisplay().Color;">@GetMatchStatusDisplay().Label</span>
+            </MudTooltip>
+        </div>
+
+        <div class="ids-row">
+            <span class="ids-key">Title</span>
+            <span class="ids-value">@Item.Title</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Item.Author))
+        {
+            <div class="ids-row">
+                <span class="ids-key">Author</span>
+                <span class="ids-value">@Item.Author</span>
+            </div>
+        }
+        @if (string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(GetCanonicalValue("narrator")))
+        {
+            <div class="ids-row">
+                <span class="ids-key">Narrator</span>
+                <span class="ids-value">@GetCanonicalValue("narrator")</span>
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Item.Year))
+        {
+            <div class="ids-row">
+                <span class="ids-key">Year</span>
+                <span class="ids-value">@Item.Year</span>
+            </div>
+        }
+        <div class="ids-row">
+            <span class="ids-key">Type</span>
+            <span class="ids-value">@LibraryItemHelpers.FormatMediaType(Item.MediaType)</span>
+        </div>
+        <div class="ids-row">
+            <span class="ids-key">Status</span>
+            <span class="ids-status-chip"
+                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Item.FileName))
+        {
+            <div class="ids-row">
+                <span class="ids-key">File</span>
+                <span class="ids-value ids-value--file">@Item.FileName</span>
+            </div>
+        }
+        @if (Item.FileSizeBytes is > 0)
+        {
+            <div class="ids-row">
+                <span class="ids-key">Size</span>
+                <span class="ids-value">@FormatFileSize(Item.FileSizeBytes)</span>
+            </div>
+        }
+        <div class="ids-row ids-row--last">
+            <span class="ids-key">Added</span>
+            <span class="ids-value">@Item.CreatedAt.ToLocalTime().ToString("MMMM d, yyyy")</span>
+        </div>
+
+        @if (Detail?.UniverseSummary is { } summary)
+        {
+            <div class="ids-universe-summary">
+                <div class="ids-universe-summary-title">Universe</div>
+                <div class="ids-universe-grid">
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Status</span>
+                        <strong>@FormatUniverseStatus(summary.UniverseStatus)</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Stage 3</span>
+                        <strong>@FormatUniverseStatus(summary.Stage3Status)</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Universe</span>
+                        <strong>@(summary.UniverseName ?? "Not linked")</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Root</span>
+                        <strong>@(summary.NarrativeRootQid ?? "—")</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Entities</span>
+                        <strong>@summary.EntityCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Relationships</span>
+                        <strong>@summary.RelationshipCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Portraits</span>
+                        <strong>@summary.PortraitCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Last enriched</span>
+                        <strong>@FormatUniverseDate(summary.Stage3EnrichedAt)</strong>
+                    </div>
+                </div>
+                <div class="ids-universe-links">
+                    @if (!string.IsNullOrWhiteSpace(summary.UniverseQid))
+                    {
+                        <a class="ids-link-pill"
+                           href="/universe/@summary.UniverseQid/explore">
+                            Open graph
+                        </a>
+                    }
+                    @if (IsValidQid(summary.UniverseQid))
+                    {
+                        <a class="ids-link-pill"
+                           href="https://www.wikidata.org/wiki/@summary.UniverseQid"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            Wikidata
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ── Linked Data section ── *@
+        @if (HasLinkedData())
+        {
+            <div class="ids-linked-data">
+                <span class="ids-linked-data-label">Linked Data</span>
+                <div class="ids-linked-data-items">
+                    @if (IsValidQid(GetCanonicalValue("edition_qid")))
+                    {
+                        <a href="https://www.wikidata.org/wiki/@GetCanonicalValue("edition_qid")" target="_blank" rel="noopener noreferrer"
+                           class="ids-link-pill" title="Edition on Wikidata">
+                            <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.25278V19.2528M12 6.25278C10.8321 5.47686 9.24649 5 7.5 5C5.75351 5 4.16789 5.47686 3 6.25278V19.2528C4.16789 18.4769 5.75351 18 7.5 18C9.24649 18 10.8321 18.4769 12 19.2528M12 6.25278C13.1679 5.47686 14.7535 5 16.5 5C18.2465 5 19.8321 5.47686 21 6.25278V19.2528C19.8321 18.4769 18.2465 18 16.5 18C14.7535 18 13.1679 18.4769 12 19.2528"/></svg>
+                            <span class="ids-link-type">Edition</span> @GetCanonicalValue("edition_qid")
+                        </a>
+                    }
+                    @if (IsValidQid(GetCanonicalValue("audiobook_edition_qid")))
+                    {
+                        <a href="https://www.wikidata.org/wiki/@GetCanonicalValue("audiobook_edition_qid")" target="_blank" rel="noopener noreferrer"
+                           class="ids-link-pill" title="Audiobook edition on Wikidata">
+                            <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+                            <span class="ids-link-type">Audio Edition</span> @GetCanonicalValue("audiobook_edition_qid")
+                        </a>
+                    }
+                    @if (IsValidQid(GetWorkQid()))
+                    {
+                        <a href="https://www.wikidata.org/wiki/@GetWorkQid()" target="_blank" rel="noopener noreferrer"
+                           class="ids-link-pill" title="Work on Wikidata">
+                            <svg class="ids-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            <span class="ids-link-type">Work</span> @GetWorkQid()
+                        </a>
+                    }
+                    @{ var wikiUrl = GetCanonicalValue("wikipedia_url"); }
+                    @if (!string.IsNullOrEmpty(wikiUrl) && Uri.IsWellFormedUriString(wikiUrl, UriKind.Absolute))
+                    {
+                        <a href="@wikiUrl" target="_blank" rel="noopener noreferrer"
+                           class="ids-link-pill ids-link-pill--wiki" title="Wikipedia article">
+                            <svg class="ids-link-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                            Wikipedia
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public LibraryCatalogItemViewModel Item { get; set; } = null!;
+    [Parameter] public LibraryItemDetailViewModel? Detail { get; set; }
+    [Parameter] public bool Loading { get; set; }
+
+    private bool IsPerson  => string.Equals(Item.MediaType, "Person",   StringComparison.OrdinalIgnoreCase);
+    private bool IsUniverse => string.Equals(Item.MediaType, "Universe", StringComparison.OrdinalIgnoreCase);
+
+    private string StatusColor   => LibraryItemHelpers.GetStatusColor(Item.Status);
+    private string StatusLabel   => LibraryItemHelpers.GetStatusLabel(Item.Status);
+    private string StatusBgColor => HexToRgba(StatusColor, 0.15);
+
+    private static string HexToRgba(string hex, double alpha)
+    {
+        hex = hex.TrimStart('#');
+        if (hex.Length < 6) return $"rgba(255,255,255,{alpha})";
+        var r = Convert.ToInt32(hex[..2], 16);
+        var g = Convert.ToInt32(hex[2..4], 16);
+        var b = Convert.ToInt32(hex[4..6], 16);
+        return $"rgba({r},{g},{b},{alpha})";
+    }
+
+    private static string FormatFileSize(long? bytes)
+    {
+        if (bytes is null or 0) return "—";
+        return bytes switch
+        {
+            < 1024 => $"{bytes} B",
+            < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+            < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+            _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB",
+        };
+    }
+
+    private (string Label, string Color, string Tooltip) GetMatchStatusDisplay()
+    {
+        var matchLevel = Detail?.MatchLevel ?? "work";
+        return matchLevel switch
+        {
+            "edition"     => ("Fully Linked", "#5DCAA5", "Matched to a specific edition and linked to the wider catalogue"),
+            "retail_only" => ("Identified",   "#C9922E", "Cover and metadata confirmed but not yet linked to the wider catalogue"),
+            "unlinked"    => ("Unlinked",     "#6B6B8A", "No external match found — metadata from file only"),
+            _             => ("Linked",       "#5C7A99", "Matched to the catalogue but edition-specific data is unavailable"),
+        };
+    }
+
+    private string? GetCanonicalValue(string key)
+        => Detail?.CanonicalValues.FirstOrDefault(v => string.Equals(v.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static bool IsValidQid(string? qid)
+        => !string.IsNullOrEmpty(qid) && System.Text.RegularExpressions.Regex.IsMatch(qid, @"^Q\d+$");
+
+    private string? GetWorkQid()
+        => Detail is not null ? GetCanonicalValue("wikidata_qid") : Item.WikidataQid;
+
+    private static string FormatUniverseStatus(string? status)
+        => string.IsNullOrWhiteSpace(status) ? "Pending" : status.Replace("_", " ");
+
+    private static string FormatUniverseDate(DateTimeOffset? value)
+        => value?.ToLocalTime().ToString("MMM d, yyyy h:mm tt") ?? "Pending";
+
+    private bool HasLinkedData()
+    {
+        var workQid = GetWorkQid();
+        var editionQid = GetCanonicalValue("edition_qid");
+        var audioEditionQid = GetCanonicalValue("audiobook_edition_qid");
+        var wikiUrl = GetCanonicalValue("wikipedia_url");
+        return IsValidQid(workQid) || IsValidQid(editionQid) || IsValidQid(audioEditionQid)
+            || (!string.IsNullOrEmpty(wikiUrl) && Uri.IsWellFormedUriString(wikiUrl, UriKind.Absolute));
+    }
+}
+
+<style>
+    .ids-panel {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        padding: 18px 20px;
+    }
+
+    .ids-loading {
+        display: flex;
+        justify-content: center;
+        padding: 24px 0;
+    }
+
+    .ids-row {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        margin-bottom: 14px;
+    }
+
+    .ids-row--last {
+        margin-bottom: 0;
+    }
+
+    .ids-key {
+        flex-shrink: 0;
+        width: 100px;
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        line-height: 1.4;
+    }
+
+    .ids-value {
+        font-size: 13px;
+        color: #e0dce8;
+        font-weight: 400;
+        line-height: 1.4;
+        word-break: break-word;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .ids-value--file {
+        font-size: 11px;
+        color: rgba(224, 220, 232, 0.70);
+        word-break: break-all;
+    }
+
+    .ids-qid-badge {
+        display: inline-block;
+        background: rgba(140, 120, 180, 0.12);
+        color: #c0b8e0;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s ease;
+    }
+
+    .ids-qid-badge:hover {
+        background: rgba(140, 120, 180, 0.22);
+        color: #d4cef0;
+        text-decoration: none;
+    }
+
+    .ids-status-chip {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+
+    .ids-placeholder {
+        font-size: 11px;
+        font-weight: 400;
+        font-style: italic;
+        color: rgba(200, 190, 220, 0.30);
+        line-height: 1.5;
+    }
+
+    /* ── Cover art / headshot in details ── */
+    .ids-cover-row {
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 16px;
+    }
+
+    .ids-cover {
+        max-width: 120px;
+        max-height: 180px;
+        height: auto;
+        border-radius: 6px;
+        border: 1px solid rgba(140, 120, 180, 0.12);
+        object-fit: contain;
+    }
+
+    .ids-headshot {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        border: 2px solid rgba(140, 120, 180, 0.15);
+        object-fit: cover;
+    }
+
+    /* ── Hover popup for images ── */
+    .ids-hover-wrap {
+        position: relative;
+        display: inline-block;
+    }
+
+    .ids-hover-popup {
+        display: none;
+        position: absolute;
+        z-index: 200;
+        left: calc(100% + 12px);
+        top: 0;
+        padding: 4px;
+        background: rgba(10, 8, 20, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+    }
+
+    .ids-hover-wrap:hover .ids-hover-popup {
+        display: block;
+    }
+
+    .ids-hover-img {
+        width: 240px;
+        height: auto;
+        border-radius: 4px;
+        display: block;
+    }
+
+    /* ── Match status chip ── */
+    .ids-match-status {
+        margin-bottom: 14px;
+    }
+
+    .ids-match-chip {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.7;
+        letter-spacing: 0.02em;
+        cursor: default;
+    }
+
+    /* ── Linked Data section ── */
+    .ids-linked-data {
+        margin-top: 16px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 6px;
+    }
+
+    .ids-linked-data-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(200, 190, 220, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .ids-linked-data-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .ids-link-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        color: rgba(192, 184, 224, 0.65);
+        text-decoration: none;
+        padding: 3px 9px;
+        background: rgba(140, 120, 180, 0.08);
+        border: 1px solid rgba(140, 120, 180, 0.12);
+        border-radius: 4px;
+        transition: background 0.15s ease, color 0.15s ease;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    }
+
+    .ids-link-pill:hover {
+        background: rgba(140, 120, 180, 0.18);
+        color: rgba(212, 206, 240, 0.95);
+        text-decoration: none;
+    }
+
+    .ids-link-pill--wiki {
+        color: rgba(180, 200, 224, 0.65);
+        background: rgba(80, 120, 180, 0.08);
+        border-color: rgba(80, 120, 180, 0.12);
+    }
+
+    .ids-link-pill--wiki:hover {
+        background: rgba(80, 120, 180, 0.18);
+        color: rgba(180, 210, 240, 0.95);
+    }
+
+    .ids-link-type {
+        font-weight: 600;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: rgba(201, 146, 46, 0.70);
+    }
+
+    .ids-link-icon {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+        opacity: 0.7;
+    }
+
+    .ids-universe-summary {
+        margin-top: 16px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+    }
+
+    .ids-universe-summary-title {
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(200, 190, 220, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+    }
+
+    .ids-universe-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 12px;
+    }
+
+    .ids-universe-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .ids-universe-label {
+        font-size: 10px;
+        color: rgba(200, 190, 220, 0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .ids-universe-cell strong {
+        font-size: 12px;
+        color: #e8e2f2;
+        word-break: break-word;
+    }
+
+    .ids-universe-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 12px;
+    }
+</style>

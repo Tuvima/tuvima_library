@@ -72,7 +72,7 @@ This runs all test projects under `tests/`. Each project maps to one source proj
 | `MediaEngine.Domain.Tests` | Domain entities, enums, business rules |
 | `MediaEngine.Storage.Tests` | Repository queries, migration correctness |
 | `MediaEngine.Intelligence.Tests` | Priority Cascade scoring logic |
-| `MediaEngine.Processors.Tests` | `IMediaProcessor` implementations, `MediaProcessorRegistry` |
+| `MediaEngine.Processors.Tests` | `IMediaProcessor` implementations, `MediaProcessorRouter` |
 | `MediaEngine.Providers.Tests` | Provider config parsing, field mapping logic |
 | `MediaEngine.Ingestion.Tests` | Ingestion pipeline steps |
 | `MediaEngine.AI.Tests` | AI feature contracts, hardware tier policy |

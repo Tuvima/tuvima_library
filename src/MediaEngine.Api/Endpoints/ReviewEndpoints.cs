@@ -28,10 +28,10 @@ public static class ReviewEndpoints
         group.MapGet("/pending", async (
             int? limit,
             IReviewQueueRepository reviewRepo,
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             CancellationToken ct) =>
         {
-            var visibleReviewItems = await registryRepo.GetPageAsync(new RegistryQuery(
+            var visibleReviewItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(
                 Offset: 0,
                 Limit: limit ?? 50,
                 Status: "InReview"), ct);
@@ -46,7 +46,7 @@ public static class ReviewEndpoints
                 if (reviewEntry is null || !string.Equals(reviewEntry.Status, ReviewStatus.Pending, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+                var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
                 var bridgeIds = detail?.BridgeIds is { Count: > 0 }
                     ? detail.BridgeIds.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
                     : null;
@@ -63,10 +63,10 @@ public static class ReviewEndpoints
 
         // ── GET /review/count ────────────────────────────────────────────────
         group.MapGet("/count", async (
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             CancellationToken ct) =>
         {
-            var counts = await registryRepo.GetFourStateCountsAsync(ct: ct);
+            var counts = await libraryItemRepo.GetFourStateCountsAsync(ct: ct);
             return Results.Ok(new ReviewCountResponse { PendingCount = counts.InReview });
         })
         .WithName("GetReviewCount")
@@ -78,14 +78,14 @@ public static class ReviewEndpoints
         group.MapGet("/{id:guid}", async (
             Guid id,
             IReviewQueueRepository reviewRepo,
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             CancellationToken ct) =>
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
                 return Results.NotFound();
 
-            var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+            var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
             if (detail is null
                 || !string.Equals(detail.Status, "InReview", StringComparison.OrdinalIgnoreCase)
                 || detail.ReviewItemId != item.Id)

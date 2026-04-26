@@ -36,7 +36,7 @@
 
     protected override void OnParametersSet()
     {
-        _descriptor = AppIconRegistry.TryResolve(Name, out var descriptor)
+        _descriptor = AppIconCatalog.TryResolve(Name, out var descriptor)
             ? descriptor
             : null;
     }

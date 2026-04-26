@@ -1,0 +1,37 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (Items.Count == 0)
+{
+    <MudText Typo="Typo.body2" Class="user-overview-muted">@EmptyText</MudText>
+}
+else
+{
+    <div class="user-overview-rail">
+        @foreach (var item in Items)
+        {
+            <article class="user-overview-media-card">
+                <div class="user-overview-media-art">
+                    @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                    {
+                        <img src="@item.CoverUrl" alt="" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.Movie" />
+                    }
+                    <span>@Math.Round(item.ProgressPct)%</span>
+                </div>
+                <div class="user-overview-media-meta">
+                    <strong title="@item.Title">@item.Title</strong>
+                    <small>@(item.Subtitle ?? item.MediaType)</small>
+                </div>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<ProfileOverviewItemViewModel> Items { get; set; } = [];
+    [Parameter] public string EmptyText { get; set; } = string.Empty;
+}

@@ -149,7 +149,7 @@ else
     [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
     private CollectionGroupDetailViewModel? _show;
-    private RegistryItemDetailViewModel? _episode;
+    private LibraryItemDetailViewModel? _episode;
     private Guid? _assetId;
     private ProgressStateDto? _progress;
     private Guid? _activeProfileId;
@@ -199,7 +199,7 @@ else
         StateHasChanged();
 
         var showTask = ApiClient.GetCollectionGroupDetailAsync(CollectionId);
-        var episodeTask = ApiClient.GetRegistryItemDetailAsync(WorkId);
+        var episodeTask = ApiClient.GetLibraryItemDetailAsync(WorkId);
         var profileTask = Orchestrator.GetActiveProfileAsync();
 
         await Task.WhenAll(showTask, episodeTask, profileTask);

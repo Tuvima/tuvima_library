@@ -1,6 +1,6 @@
 using System.Globalization;
 using MediaEngine.Domain;
-using MediaEngine.Web.Components.Registry;
+using MediaEngine.Web.Components.LibraryItems;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Theming;
 using MudBlazor;
@@ -87,13 +87,13 @@ public static class LibraryHelpers
         };
     }
 
-    /// <summary>Delegates to RegistryHelpers for media type icon.</summary>
+    /// <summary>Delegates to LibraryItemHelpers for media type icon.</summary>
     public static string GetMediaTypeIcon(string? mediaType) =>
-        RegistryHelpers.GetMediaTypeIcon(mediaType);
+        LibraryItemHelpers.GetMediaTypeIcon(mediaType);
 
-    /// <summary>Delegates to RegistryHelpers for media type label.</summary>
+    /// <summary>Delegates to LibraryItemHelpers for media type label.</summary>
     public static string FormatMediaType(string? mediaType) =>
-        RegistryHelpers.FormatMediaType(mediaType);
+        LibraryItemHelpers.FormatMediaType(mediaType);
 
     /// <summary>Converts hex color to rgba string. Returns fallback for non-hex input.</summary>
     public static string HexToRgba(string hex, double alpha)

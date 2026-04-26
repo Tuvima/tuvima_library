@@ -11,7 +11,7 @@ namespace MediaEngine.Domain.Entities;
 /// </summary>
 public sealed class ProviderConfiguration
 {
-    /// <summary>FK to <c>provider_registry.id</c>.</summary>
+    /// <summary>FK to <c>metadata_providers.id</c>.</summary>
     public string ProviderId { get; set; } = string.Empty;
 
     /// <summary>Configuration key, e.g. "ApiKey", "BaseUrl", "UserAgent".</summary>

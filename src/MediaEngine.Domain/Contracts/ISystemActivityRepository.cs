@@ -52,4 +52,13 @@ public interface ISystemActivityRepository
         IReadOnlyList<string> actionTypes,
         int limit = 50,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns recent activity entries for one profile, ordered newest-first.
+    /// Used by user-facing account surfaces so operational/admin activity is not mixed in.
+    /// </summary>
+    Task<IReadOnlyList<SystemActivityEntry>> GetRecentByProfileAsync(
+        Guid profileId,
+        int limit = 50,
+        CancellationToken ct = default);
 }

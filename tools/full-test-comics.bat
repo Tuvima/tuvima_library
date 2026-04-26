@@ -52,7 +52,7 @@ echo.
 echo ─────────────────────────────────────────────────────────────────────────────
 echo  Monitor progress:
 echo    Batches   : GET %ENGINE_URL%/ingestion/batches
-echo    Registry  : GET %ENGINE_URL%/registry/items?page=1^&pageSize=50
+echo    LibraryItem  : GET %ENGINE_URL%/library/items?page=1^&pageSize=50
 echo    Review    : GET %ENGINE_URL%/review/pending
 echo    Activity  : GET %ENGINE_URL%/activity/recent
 echo ─────────────────────────────────────────────────────────────────────────────

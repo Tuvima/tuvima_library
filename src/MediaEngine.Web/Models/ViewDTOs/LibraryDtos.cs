@@ -13,7 +13,7 @@ public sealed class LibraryPipelineStage
     public string Label { get; init; } = "";
 }
 
-/// <summary>Wraps RegistryItemViewModel with library-specific computed properties.</summary>
+/// <summary>Wraps LibraryCatalogItemViewModel with library-specific computed properties.</summary>
 public sealed class LibraryItemViewModel
 {
     public Guid EntityId { get; init; }
@@ -136,8 +136,8 @@ public sealed class LibraryItemViewModel
         !string.IsNullOrWhiteSpace(Series) ? Series :
         null;
 
-    /// <summary>Factory: convert a RegistryItemViewModel to LibraryItemViewModel.</summary>
-    public static LibraryItemViewModel From(RegistryItemViewModel r) => new()
+    /// <summary>Factory: convert a LibraryCatalogItemViewModel to LibraryItemViewModel.</summary>
+    public static LibraryItemViewModel From(LibraryCatalogItemViewModel r) => new()
     {
         EntityId = r.EntityId,
         Title = r.Title,

@@ -1,0 +1,327 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.LibraryItems
+
+<div class="rc-wrap @(IsFocused ? "rc-wrap--focused" : "") @(IsSelected ? "rc-wrap--selected" : "") @(NeedsReview ? "rc-wrap--review" : "")"
+     @onclick="HandleClick"
+     @onclick:stopPropagation="true"
+     style="@CardStateStyle">
+
+    @* ── Thumbnail ── *@
+    @{
+        var isAudiobookThumb = string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
+    }
+    <div class="rc-thumb @(isAudiobookThumb ? "rc-thumb--square" : "")">
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+        {
+            <img src="@Item.CoverUrl" alt="@Item.Title" class="rc-thumb-img" loading="lazy" />
+        }
+        else
+        {
+            <div class="rc-thumb-fallback">
+                <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
+                         Style="font-size: 1.4rem; opacity: 0.25;" />
+            </div>
+        }
+
+        @* ── Review corner badge (top-left diagonal ribbon) ── *@
+        @if (NeedsReview)
+        {
+            var (_, trigColor, trigIcon) = LibraryItemHelpers.FormatReviewTrigger(Item.ReviewTrigger);
+            <span class="rc-corner-badge" style="--badge-color: @trigColor;">
+                <MudIcon Icon="@trigIcon" Style="font-size: 0.55rem; color: #fff;" />
+            </span>
+        }
+
+        @* ── Selected indicator (top-right, only in selection mode) ── *@
+        @if (SelectionModeActive)
+        {
+            <span class="rc-sel-mark @(IsSelected ? "rc-sel-mark--on" : "")"></span>
+        }
+
+        @* ── Media type badge (bottom-right) ── *@
+        <span class="rc-type-badge">
+            <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
+                     Style="font-size: 0.7rem; color: rgba(255,255,255,0.85);" />
+        </span>
+
+        @* ── Quick-action hover buttons (bottom-left) ── *@
+        @if (!SelectionModeActive && NeedsReview)
+        {
+            <div class="rc-quick-actions">
+                <button class="rc-quick-btn rc-quick-btn--approve"
+                        @onclick="HandleApprove" @onclick:stopPropagation="true"
+                        title="Approve">
+                    <MudIcon Icon="@Icons.Material.Outlined.Check" Style="font-size: 0.65rem;" />
+                </button>
+                <button class="rc-quick-btn rc-quick-btn--reject"
+                        @onclick="HandleReject" @onclick:stopPropagation="true"
+                        title="Reject">
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 0.65rem;" />
+                </button>
+            </div>
+        }
+    </div>
+
+    @* ── Title (below thumbnail, always visible) ── *@
+    <div class="rc-title">
+        <span class="rc-type-icon" title="@Item.MediaType">
+            <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
+                     Style="font-size: 0.65rem; opacity: 0.4;" />
+        </span>@Item.Title</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public LibraryCatalogItemViewModel Item { get; set; } = default!;
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public bool IsFocused { get; set; }
+    [Parameter] public bool SelectionModeActive { get; set; }
+    [Parameter] public EventCallback<Guid> OnSelectionToggled { get; set; }
+    [Parameter] public EventCallback<Guid> OnCardClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnApproveClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnRejectClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnNavigate { get; set; }
+
+    private bool NeedsReview =>
+        !string.IsNullOrEmpty(Item.ReviewTrigger) ||
+        (Item.Confidence > 0 && Item.Confidence < 0.85 && !Item.HasUserLocks);
+
+    /// <summary>Four-state left border + identified dimming per LibraryItem spec.</summary>
+    private string CardStateStyle
+    {
+        get
+        {
+            // Determine the four-state classification
+            var isIdentified = !string.IsNullOrEmpty(Item.WikidataQid)
+                && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrEmpty(Item.ReviewTrigger);
+
+            if (Item.ReviewTrigger == "Rejected")
+                return "border-left: 3px solid #EF5350; border-radius: 0; opacity: 0.55;";
+
+            if (NeedsReview)
+                return "border-left: 3px solid #EF9F27; border-radius: 0;";
+
+            if (Item.MissingUniverse && string.IsNullOrEmpty(Item.ReviewTrigger))
+                return "border-left: 3px solid #B4B2A9; border-radius: 0;";
+
+            if (isIdentified)
+                return "border-left: 3px solid #5DCAA5; border-radius: 0; opacity: 0.55;";
+
+            return "";
+        }
+    }
+
+    private async Task HandleClick()
+    {
+        if (SelectionModeActive)
+            await OnSelectionToggled.InvokeAsync(Item.EntityId);
+        else
+            await OnCardClicked.InvokeAsync(Item.EntityId);
+    }
+
+    private async Task HandleApprove() => await OnApproveClicked.InvokeAsync(Item.EntityId);
+    private async Task HandleReject() => await OnRejectClicked.InvokeAsync(Item.EntityId);
+}
+
+<style>
+    .rc-wrap {
+        position: relative;
+        width: var(--rc-card-width, 80px);
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        z-index: 1;
+        border-radius: 4px; /* overridden to 0 by inline state style when left-border is active */
+    }
+    .rc-wrap:hover {
+        transform: translateY(-2px);
+        z-index: 2;
+    }
+    .rc-wrap--focused {
+        z-index: 10;
+    }
+    .rc-wrap--focused .rc-thumb {
+        border-color: rgba(74,144,217,0.7);
+        box-shadow: 0 0 0 1.5px rgba(74,144,217,0.5);
+    }
+    .rc-wrap--selected .rc-thumb {
+        border-color: #C9922E;
+    }
+
+    /* ── Thumbnail ── */
+    .rc-thumb {
+        position: relative;
+        width: var(--rc-card-width, 80px);
+        height: calc(var(--rc-card-width, 80px) * 1.5);
+        border-radius: 4px;
+        overflow: hidden;
+        background: #0D1230;
+        border: 2px solid rgba(255,255,255,0.06);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    /* Square variant for audiobooks — 1:1 instead of 2:3 */
+    .rc-thumb--square {
+        height: var(--rc-card-width, 80px);
+    }
+    .rc-wrap:hover .rc-thumb {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        border-color: rgba(255,255,255,0.15);
+    }
+    .rc-wrap--review .rc-thumb {
+        border-color: rgba(176,137,64,0.35);
+    }
+    .rc-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: #0D1230;
+    }
+    .rc-thumb-fallback {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #0D1230 0%, #1a1a3e 100%);
+    }
+
+    /* ── Title ── */
+    .rc-type-icon {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+    .rc-title {
+        font-size: 0.65rem;
+        color: rgba(255,255,255,0.6);
+        margin-top: 4px;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-align: center;
+        max-width: var(--rc-card-width, 80px);
+    }
+
+    /* ── Corner badge (diagonal ribbon, top-left) ── */
+    .rc-corner-badge {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 22px;
+        height: 22px;
+        overflow: hidden;
+        z-index: 3;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        pointer-events: none;
+    }
+    .rc-corner-badge::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        border-style: solid;
+        border-width: 22px 22px 0 0;
+        border-color: var(--badge-color, #B08940) transparent transparent transparent;
+        opacity: 0.85;
+    }
+    .rc-corner-badge :deep(.mud-icon-root) {
+        position: relative;
+        z-index: 1;
+        margin: 2px 0 0 2px;
+    }
+
+    /* ── Selection mark ── */
+    .rc-sel-mark {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 3px;
+        border: 1.5px solid rgba(255,255,255,0.6);
+        background: rgba(0,0,0,0.6);
+        transition: all 0.15s ease;
+    }
+    .rc-sel-mark--on {
+        background: #C9922E;
+        border-color: #C9922E;
+    }
+    .rc-sel-mark--on::after {
+        content: '';
+        display: block;
+        width: 5px;
+        height: 9px;
+        border: solid #000;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+        margin: 1px 0 0 5px;
+    }
+
+    /* ── Media type badge ── */
+    .rc-type-badge {
+        position: absolute;
+        bottom: 3px;
+        right: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    /* ── Quick-action hover buttons ── */
+    .rc-quick-actions {
+        position: absolute;
+        bottom: 3px;
+        left: 3px;
+        display: flex;
+        gap: 3px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+        z-index: 4;
+    }
+
+    .rc-wrap:hover .rc-quick-actions {
+        opacity: 1;
+    }
+
+    .rc-quick-btn {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border: 1px solid rgba(255,255,255,0.15);
+        transition: background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .rc-quick-btn--approve {
+        background: rgba(93, 202, 165, 0.65);
+        color: #fff;
+    }
+
+    .rc-quick-btn--approve:hover {
+        background: rgba(93, 202, 165, 0.90);
+        border-color: rgba(93, 202, 165, 0.60);
+    }
+
+    .rc-quick-btn--reject {
+        background: rgba(239, 83, 80, 0.55);
+        color: #fff;
+    }
+
+    .rc-quick-btn--reject:hover {
+        background: rgba(239, 83, 80, 0.85);
+        border-color: rgba(239, 83, 80, 0.60);
+    }
+</style>

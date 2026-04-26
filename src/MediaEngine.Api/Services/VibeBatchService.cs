@@ -66,14 +66,14 @@ public sealed class VibeBatchService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var tagger        = scope.ServiceProvider.GetRequiredService<IVibeTagger>();
         var canonicalRepo = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
-        var registryRepo  = scope.ServiceProvider.GetRequiredService<IRegistryRepository>();
+        var libraryItemRepo  = scope.ServiceProvider.GetRequiredService<ILibraryItemRepository>();
 
         _logger.LogInformation("VibeBatchService: scanning for entities needing vibe tags");
 
-        // Page through the registry to find entities (up to 200 candidates per batch).
+        // Page through the libraryItem to find entities (up to 200 candidates per batch).
         // We load a larger set then filter in-memory for those missing vibe tags.
-        var page = await registryRepo.GetPageAsync(
-            new RegistryQuery(Offset: 0, Limit: 200, Sort: "newest"), ct);
+        var page = await libraryItemRepo.GetPageAsync(
+            new LibraryItemQuery(Offset: 0, Limit: 200, Sort: "newest"), ct);
 
         int tagged = 0;
 

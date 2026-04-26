@@ -683,6 +683,20 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── /metadata/claims + lock-claim ───────────────────────────────────────────
 
+    public async Task<ProfileOverviewViewModel?> GetProfileOverviewAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<ProfileOverviewViewModel>($"/profiles/{id}/overview", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /profiles/{Id}/overview failed", id);
+            return null;
+        }
+    }
+
     public async Task<List<ClaimHistoryDto>> GetClaimHistoryAsync(
         Guid entityId, CancellationToken ct = default)
     {
@@ -2115,7 +2129,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /persons (registry list) ────────────────────────────────────
+    // ── GET /persons (libraryItem list) ────────────────────────────────────
 
     public async Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
         string? role = null, int limit = 200, CancellationToken ct = default)
@@ -2879,7 +2893,7 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── Vault items (/vault/items) ───────────────────────────────────────────
 
-    public async Task<RegistryPageResponse?> GetRegistryItemsAsync(
+    public async Task<LibraryCatalogPageResponse?> GetLibraryCatalogItemsAsync(
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
@@ -2909,7 +2923,7 @@ public sealed class EngineApiClient : IEngineApiClient
             if (maxDays.HasValue)
                 url += $"&maxDays={maxDays.Value}";
 
-            var response = await _http.GetFromJsonAsync<RegistryPageResponse>(url, ct);
+            var response = await _http.GetFromJsonAsync<LibraryCatalogPageResponse>(url, ct);
             if (response?.Items is not null)
             {
                 foreach (var item in response.Items)
@@ -2935,14 +2949,14 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<BatchRegistryResponse?> BatchApproveRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+    public async Task<BatchLibraryItemResponse?> BatchApproveLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default)
     {
         try
         {
             var request = new { entity_ids = entityIds };
             var response = await _http.PostAsJsonAsync("/library/items/batch/approve", request, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+            return await response.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
         }
         catch (Exception ex)
         {
@@ -2951,14 +2965,14 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<BatchRegistryResponse?> BatchDeleteRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+    public async Task<BatchLibraryItemResponse?> BatchDeleteLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default)
     {
         try
         {
             var request = new { entity_ids = entityIds };
             var response = await _http.PostAsJsonAsync("/library/items/batch/delete", request, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+            return await response.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
         }
         catch (Exception ex)
         {
@@ -2967,29 +2981,29 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<BatchRegistryResponse?> RejectRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<BatchLibraryItemResponse?> RejectLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default)
     {
         try
         {
             var response = await _http.PostAsJsonAsync($"/library/items/{entityId}/reject", new { }, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+            return await response.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Reject registry item {EntityId} failed", entityId);
+            _logger.LogWarning(ex, "Reject libraryItem item {EntityId} failed", entityId);
             return null;
         }
     }
 
-    public async Task<BatchRegistryResponse?> BatchRejectRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default)
+    public async Task<BatchLibraryItemResponse?> BatchRejectLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default)
     {
         try
         {
             var request = new { entity_ids = entityIds };
             var response = await _http.PostAsJsonAsync("/library/items/batch/reject", request, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+            return await response.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
         }
         catch (Exception ex)
         {
@@ -2998,12 +3012,12 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(
+    public async Task<LibraryItemDetailViewModel?> GetLibraryItemDetailAsync(
         Guid entityId, CancellationToken ct = default)
     {
         try
         {
-            var detail = await _http.GetFromJsonAsync<RegistryItemDetailViewModel>(
+            var detail = await _http.GetFromJsonAsync<LibraryItemDetailViewModel>(
                 $"/library/items/{entityId}/detail", ct);
             if (detail?.CoverUrl is not null)
                 detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
@@ -3024,11 +3038,11 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default)
+    public async Task<LibraryItemStatusCountsDto?> GetLibraryItemStatusCountsAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<RegistryStatusCountsDto>("/library/items/counts", ct);
+            return await _http.GetFromJsonAsync<LibraryItemStatusCountsDto>("/library/items/counts", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -3040,7 +3054,7 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<RegistryFourStateCountsDto?> GetRegistryFourStateCountsAsync(
+    public async Task<LibraryItemLifecycleCountsDto?> GetLibraryItemLifecycleCountsAsync(
         Guid? batchId = null, CancellationToken ct = default)
     {
         try
@@ -3048,7 +3062,7 @@ public sealed class EngineApiClient : IEngineApiClient
             var url = batchId.HasValue
                 ? $"/library/items/state-counts?batchId={batchId.Value}"
                 : "/library/items/state-counts";
-            return await _http.GetFromJsonAsync<RegistryFourStateCountsDto>(url, ct);
+            return await _http.GetFromJsonAsync<LibraryItemLifecycleCountsDto>(url, ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -3060,7 +3074,7 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<Dictionary<string, int>> GetRegistryTypeCountsAsync(CancellationToken ct = default)
+    public async Task<Dictionary<string, int>> GetLibraryItemTypeCountsAsync(CancellationToken ct = default)
     {
         try
         {
@@ -3245,7 +3259,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
+    public async Task<ApplyMatchResponseDto?> ApplyLibraryItemMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
         CancellationToken ct = default)
     {
@@ -3339,7 +3353,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<bool> DeleteRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<bool> DeleteLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default)
     {
         try
         {
@@ -3355,12 +3369,12 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<List<RegistryItemHistoryDto>> GetItemHistoryAsync(
+    public async Task<List<LibraryItemHistoryDto>> GetItemHistoryAsync(
         Guid entityId, CancellationToken ct = default)
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<List<RegistryItemHistoryDto>>(
+            var result = await _http.GetFromJsonAsync<List<LibraryItemHistoryDto>>(
                 $"/library/items/{entityId}/history", ct);
             return result ?? [];
         }
@@ -3372,7 +3386,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<bool> RecoverRegistryItemAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<bool> RecoverLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default)
     {
         try
         {
@@ -3403,13 +3417,13 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<BatchRegistryResponse?> AutoRegisterItemAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<BatchLibraryItemResponse?> AutoMatchLibraryItemAsync(Guid entityId, CancellationToken ct = default)
     {
         try
         {
             var resp = await _http.PostAsync($"/library/items/{entityId}/auto-register", null, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
+            return await resp.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)

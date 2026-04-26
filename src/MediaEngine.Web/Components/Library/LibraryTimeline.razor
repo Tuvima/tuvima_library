@@ -57,7 +57,7 @@
 @code {
     [Parameter] public Guid EntityId { get; set; }
 
-    private List<RegistryItemHistoryDto>? _events;
+    private List<LibraryItemHistoryDto>? _events;
     private bool _loading = true;
 
     protected override async Task OnParametersSetAsync()
@@ -84,7 +84,7 @@
     /// Merge raw engine events into a human-readable narrative.
     /// Combines related events and drops noise.
     /// </summary>
-    private static List<TimelineEntry> MergeAndSimplify(List<RegistryItemHistoryDto> events)
+    private static List<TimelineEntry> MergeAndSimplify(List<LibraryItemHistoryDto> events)
     {
         var entries = new List<TimelineEntry>();
 

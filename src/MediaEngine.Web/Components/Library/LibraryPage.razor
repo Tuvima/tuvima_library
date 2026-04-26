@@ -438,7 +438,7 @@
     private List<CollectionViewModel> _universes = [];
     private List<ManagedCollectionViewModel> _managedCollections = [];
     private List<ContentGroupViewModel> _contentGroups = [];
-    private RegistryFourStateCountsDto _counts = new();
+    private LibraryItemLifecycleCountsDto _counts = new();
     private bool _countsLoaded;
     private Dictionary<string, int> _mediaTypeCounts = new();
     private bool _hasMore;
@@ -868,7 +868,7 @@
         }
 
         await LoadCounts();
-        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        _mediaTypeCounts = await ApiClient.GetLibraryItemTypeCountsAsync();
         await LoadConflictItems();
 
         if (ReviewOnly)
@@ -924,7 +924,7 @@
         await InvokeAsync(async () =>
         {
             await LoadCounts();
-            _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+            _mediaTypeCounts = await ApiClient.GetLibraryItemTypeCountsAsync();
             await LoadConflictItems();
             if (IsMediaTab(_activeTab))
             {
@@ -939,7 +939,7 @@
 
     private async Task LoadCounts()
     {
-        var counts = await ApiClient.GetRegistryFourStateCountsAsync();
+        var counts = await ApiClient.GetLibraryItemLifecycleCountsAsync();
         if (counts is not null)
             _counts = counts;
 
@@ -960,10 +960,10 @@
         var offset = append ? _loadedCount : 0;
         var isNewTab = _activeTab == "new";
 
-        // For flat collection views (e.g. "All Songs"), bypass the registry visibility filter
+        // For flat collection views (e.g. "All Songs"), bypass the libraryItem visibility filter
         // so items that are still in the pipeline (no QID, no review) are included.
         // Only used on the first page load (append=false) â€” pagination falls back to
-        // the registry path to avoid duplicates.
+        // the libraryItem path to avoid duplicates.
         var flatCollectionName = GetSystemViewFlatCollectionName();
         if (flatCollectionName is not null && !append && statusFilter is null && string.IsNullOrWhiteSpace(_searchText))
         {
@@ -987,7 +987,7 @@
             return;
         }
 
-        var response = await ApiClient.GetRegistryItemsAsync(
+        var response = await ApiClient.GetLibraryCatalogItemsAsync(
             offset: offset, limit: 50,
             search: string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
             type: GetMediaTypeForTab(_activeTab),
@@ -1039,8 +1039,8 @@
     /// <summary>
     /// Maps tab + view mode to the name of a System flat collection (no grouping field).
     /// When this returns a non-null name, <see cref="LoadMediaItems"/> resolves the
-    /// named collection via <c>GET /collections/resolve/by-name</c> instead of the registry
-    /// endpoint.  This bypasses the registry visibility filter so music items that
+    /// named collection via <c>GET /collections/resolve/by-name</c> instead of the libraryItem
+    /// endpoint.  This bypasses the libraryItem visibility filter so music items that
     /// are still in the pipeline (no QID, no review, no provisional state) are
     /// included in the "All Songs" view rather than being silently hidden.
     /// </summary>
@@ -1176,11 +1176,11 @@
 
     private async Task LoadConflictItems()
     {
-        var response = await ApiClient.GetRegistryItemsAsync(
+        var response = await ApiClient.GetLibraryCatalogItemsAsync(
             offset: 0, limit: 20, status: "InReview");
         var reviewItems = response?.Items?.Select(LibraryItemViewModel.From).ToList() ?? [];
 
-        var rejectedResponse = await ApiClient.GetRegistryItemsAsync(
+        var rejectedResponse = await ApiClient.GetLibraryCatalogItemsAsync(
             offset: 0, limit: 20, status: "Rejected");
         var rejectedItems = rejectedResponse?.Items?.Select(LibraryItemViewModel.From).ToList() ?? [];
 
@@ -1224,11 +1224,11 @@
     private async Task OnActionCenterBulkDelete(HashSet<Guid> entityIds)
     {
         if (entityIds.Count == 0) return;
-        await ApiClient.BatchDeleteRegistryItemsAsync(entityIds.ToArray());
+        await ApiClient.BatchDeleteLibraryCatalogItemsAsync(entityIds.ToArray());
         Snackbar.Add($"{entityIds.Count} items deleted", Severity.Info);
         await LoadCounts();
         await LoadConflictItems();
-        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        _mediaTypeCounts = await ApiClient.GetLibraryItemTypeCountsAsync();
         if (IsMediaTab(_activeTab))
         {
             if (IsContainerView) await LoadContainerItems();
@@ -1238,11 +1238,11 @@
 
     private async Task OnActionCenterDelete(Guid entityId)
     {
-        await ApiClient.BatchDeleteRegistryItemsAsync([entityId]);
+        await ApiClient.BatchDeleteLibraryCatalogItemsAsync([entityId]);
         Snackbar.Add("Item deleted", Severity.Info);
         await LoadCounts();
         await LoadConflictItems();
-        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        _mediaTypeCounts = await ApiClient.GetLibraryItemTypeCountsAsync();
         if (IsMediaTab(_activeTab))
         {
             if (IsContainerView) await LoadContainerItems();
@@ -1594,7 +1594,7 @@
 
     private async Task OnPurgeItem(Guid entityId)
     {
-        await ApiClient.BatchDeleteRegistryItemsAsync([entityId]);
+        await ApiClient.BatchDeleteLibraryCatalogItemsAsync([entityId]);
         Snackbar.Add(L["Vault_ItemPurged"], Severity.Info);
         CloseDetailDrawer();
         await LoadCounts();
@@ -1609,7 +1609,7 @@
             _filterWaitingForProvider = false;
 
         await LoadMediaItems();
-        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        _mediaTypeCounts = await ApiClient.GetLibraryItemTypeCountsAsync();
         UpdateUrl();
     }
 
@@ -1630,7 +1630,7 @@
             _filterWaitingForProvider = false;
 
         await LoadMediaItems();
-        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        _mediaTypeCounts = await ApiClient.GetLibraryItemTypeCountsAsync();
 
         // Refresh the detail drawer with updated data so Wikidata info appears
         // immediately after confirming a match â€” without this, the drawer shows stale data.
@@ -1809,7 +1809,7 @@
         if (_showBatchDeleteConfirm)
         {
             var count = _selectedItems.Count;
-            await ApiClient.BatchDeleteRegistryItemsAsync(_selectedItems.ToArray());
+            await ApiClient.BatchDeleteLibraryCatalogItemsAsync(_selectedItems.ToArray());
             Snackbar.Add($"{count} items deleted", Severity.Info);
             _selectedItems.Clear();
             _showBatchDeleteConfirm = false;
@@ -1818,7 +1818,7 @@
         }
         else if (_deleteItemId.HasValue)
         {
-            await ApiClient.BatchDeleteRegistryItemsAsync([_deleteItemId.Value]);
+            await ApiClient.BatchDeleteLibraryCatalogItemsAsync([_deleteItemId.Value]);
             Snackbar.Add(L["Vault_ItemDeleted"], Severity.Info);
             _deleteItemId = null;
             await LoadMediaItems();
@@ -1924,7 +1924,7 @@
         var effectiveItem = item;
         if (effectiveItem is null)
         {
-            var detail = await ApiClient.GetRegistryItemDetailAsync(entityId);
+            var detail = await ApiClient.GetLibraryItemDetailAsync(entityId);
             if (detail is null)
                 return false;
 
@@ -1976,7 +1976,7 @@
     {
         await LoadCounts();
         await LoadConflictItems();
-        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        _mediaTypeCounts = await ApiClient.GetLibraryItemTypeCountsAsync();
 
         if (IsMediaTab(_activeTab))
         {
@@ -2024,7 +2024,7 @@
 
     private async Task OnEditorPurge(List<Guid> ids)
     {
-        await ApiClient.BatchDeleteRegistryItemsAsync(ids.ToArray());
+        await ApiClient.BatchDeleteLibraryCatalogItemsAsync(ids.ToArray());
         Snackbar.Add($"{ids.Count} item(s) purged.", Severity.Warning);
         _editorPanelItems = [];
         _selectedItems.Clear();

@@ -56,7 +56,7 @@ public sealed class ScoringContext
     /// Existing callers that do not supply field weights continue to work unchanged.
     ///
     /// Populated from provider config files at scoring time, keyed by the resolved
-    /// provider GUID from <c>provider_registry</c>.
+    /// provider GUID from <c>metadata_providers</c>.
     /// Spec: Phase 8 – Field-Level Weight Matrix.
     /// </summary>
     public IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, double>>?

@@ -6,7 +6,7 @@ namespace MediaEngine.Storage.Tests;
 /// Phase 4 — integration tests for lineage-aware readers. Builds a real
 /// SQLite hierarchy (show → season → episode → edition → asset) and verifies
 /// that:
-///   • RegistryRepository.GetPageAsync reads self-scope fields from the asset
+///   • LibraryItemRepository.GetPageAsync reads self-scope fields from the asset
 ///     row and parent-scope fields from the topmost Work row.
 ///   • SearchIndexRepository.UpsertByEntityIdAsync self-fetches title from
 ///     the asset row and author/description from the topmost Work row.
@@ -33,10 +33,10 @@ public sealed class LineageReaderTests : IDisposable
         try { File.Delete(_dbPath); } catch { }
     }
 
-    // ── RegistryRepository.GetPageAsync ────────────────────────────────────
+    // ── LibraryItemRepository.GetPageAsync ────────────────────────────────────
 
     [Fact]
-    public async Task RegistryGetPage_ReadsTitleFromAsset_AndAuthorFromRootParent()
+    public async Task LibraryItemGetPage_ReadsTitleFromAsset_AndAuthorFromRootParent()
     {
         // Build a TV hierarchy: show → season → episode → edition → asset
         var (showId, _, episodeId, assetId) = await BuildTvHierarchyAsync();
@@ -47,8 +47,8 @@ public sealed class LineageReaderTests : IDisposable
         await InsertCanonicalAsync(showId, "author", "Dan Erickson");
         await InsertCanonicalAsync(showId, "genre",  "Sci-Fi");
 
-        var repo = new RegistryRepository(_db);
-        var page = await repo.GetPageAsync(new RegistryQuery(IncludeAll: true));
+        var repo = new LibraryItemRepository(_db);
+        var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
 
         // The page returns one row per Work in the chain (show + season + episode).
         // The episode is the leaf — it has the asset-row title and inherits the
@@ -60,7 +60,7 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     [Fact]
-    public async Task RegistryGetPage_ParentScopeAuthor_NotReadFromAssetRow()
+    public async Task LibraryItemGetPage_ParentScopeAuthor_NotReadFromAssetRow()
     {
         // Verify that parent-scope fields are NOT silently picked up from the
         // asset row (no fallback). If author is on the asset, it must NOT be
@@ -72,8 +72,8 @@ public sealed class LineageReaderTests : IDisposable
         await InsertCanonicalAsync(assetId, "author", "Wrong Place");
         // Leave the show row empty for author.
 
-        var repo = new RegistryRepository(_db);
-        var page = await repo.GetPageAsync(new RegistryQuery(IncludeAll: true));
+        var repo = new LibraryItemRepository(_db);
+        var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
 
         var episode = page.Items.Single(i => i.EntityId == episodeId);
         Assert.Equal("Pilot", episode.Title);
@@ -81,7 +81,7 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     [Fact]
-    public async Task RegistryGetPage_StandaloneMovie_ReadsParentFieldsFromOwnWork()
+    public async Task LibraryItemGetPage_StandaloneMovie_ReadsParentFieldsFromOwnWork()
     {
         // Standalone movie: parent collapses to self, but parent-scope fields
         // still live on the Work row, NOT the asset row.
@@ -91,8 +91,8 @@ public sealed class LineageReaderTests : IDisposable
         await InsertCanonicalAsync(workId,  "year",     "2021");
         await InsertCanonicalAsync(workId,  "director", "Denis Villeneuve");
 
-        var repo = new RegistryRepository(_db);
-        var page = await repo.GetPageAsync(new RegistryQuery(IncludeAll: true));
+        var repo = new LibraryItemRepository(_db);
+        var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
 
         var item = page.Items.Single(i => i.EntityId == workId);
         Assert.Equal("Dune", item.Title);

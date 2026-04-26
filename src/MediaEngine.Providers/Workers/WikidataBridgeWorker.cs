@@ -603,7 +603,7 @@ public sealed class WikidataBridgeWorker
                     if (albumClaims.Count > 0)
                     {
                         var parentScopedAlbumClaims = albumClaims
-                            .Where(c => ClaimScopeRegistry.IsParentScoped(c.Key, MediaType.Music)
+                            .Where(c => ClaimScopeCatalog.IsParentScoped(c.Key, MediaType.Music)
                                 || BridgeIdKeys.All.Contains(c.Key))
                             .ToList();
 

@@ -22,20 +22,20 @@ public static class LibraryEndpoints
 
         // â”€â”€ GET /library/overview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         group.MapGet("/overview", async (
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
             // 1. Four-state counts (Identified, InReview, Provisional, Rejected) + trigger breakdown
-            var fourState = await registryRepo.GetFourStateCountsAsync(ct: ct);
+            var fourState = await libraryItemRepo.GetFourStateCountsAsync(ct: ct);
 
             // 2. Shared projection summary
-            var projection = await registryRepo.GetProjectionSummaryAsync(ct);
+            var projection = await libraryItemRepo.GetProjectionSummaryAsync(ct);
 
             // 3. Media type counts
-            var mediaTypeCounts = await registryRepo.GetMediaTypeCountsAsync(ct);
+            var mediaTypeCounts = await libraryItemRepo.GetMediaTypeCountsAsync(ct);
 
-            // 4. Review-ready count from the shared registry projection
+            // 4. Review-ready count from the shared libraryItem projection
             var reviewTotal = fourState.InReview;
 
             // 5. Remaining aggregates via direct SQL for fields not exposed

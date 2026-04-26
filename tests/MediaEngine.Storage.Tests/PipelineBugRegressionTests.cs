@@ -287,14 +287,14 @@ public sealed class PipelineBugRegressionTests
     [Fact]
     public void VisibilityFilter_ReviewItemsDoNotRequireNonStagingAsset()
     {
-        // This is a structural test that reads the RegistryRepository source
+        // This is a structural test that reads the LibraryItemRepository source
         // to verify the visibility filter doesn't re-introduce the staging
         // asset requirement for review items. The old bug required
         // `rd.review_id IS NOT NULL AND ad.asset_id IS NOT NULL` which
         // excluded items whose only files were still in .data/staging/.
         var root = FindRepoRoot();
         var repoSource = File.ReadAllText(
-            Path.Combine(root, "src", "MediaEngine.Storage", "RegistryRepository.cs"));
+            Path.Combine(root, "src", "MediaEngine.Storage", "LibraryItemRepository.cs"));
 
         // The projection must classify pending review items directly as review_only
         // without requiring any non-staging asset alias in the filter.

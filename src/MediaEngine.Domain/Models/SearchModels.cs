@@ -150,7 +150,7 @@ public sealed record SearchRetailResult(
 
 // ── Apply Match ───────────────────────────────────────────────────────────────
 
-/// <summary>Request to apply a manually selected match to a registry item.</summary>
+/// <summary>Request to apply a manually selected match to a libraryItem item.</summary>
 public sealed class ApplyMatchRequest
 {
     /// <summary>Wikidata QID for the media item. When provided, the item is registered with this identity.</summary>
@@ -336,7 +336,7 @@ public sealed class FieldMatchDetail
 
 // ── Create Manual Entry ───────────────────────────────────────────────────────
 
-/// <summary>Request to manually create metadata for a registry item with no provider match.</summary>
+/// <summary>Request to manually create metadata for a libraryItem item with no provider match.</summary>
 public sealed class CreateManualRequest
 {
     [JsonPropertyName("title")]

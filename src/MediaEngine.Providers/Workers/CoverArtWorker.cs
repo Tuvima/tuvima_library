@@ -65,7 +65,7 @@ public sealed class CoverArtWorker
         var coverUrl = FindCoverUrl(canonicals);
 
         // Parent-scope fallback. For TV / Movies / Music / Comics,
-        // ClaimScopeRegistry routes `cover` and `cover_url` to ClaimScope.Parent,
+        // ClaimScopeCatalog routes `cover` and `cover_url` to ClaimScope.Parent,
         // so the retail provider's cover URL lands on the parent Work id
         // (album / show / movie Work) — not the media asset id. Without this
         // fallback, every one of those media types silently returns "No cover

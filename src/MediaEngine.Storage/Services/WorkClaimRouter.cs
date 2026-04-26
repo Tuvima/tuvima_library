@@ -26,14 +26,14 @@ public sealed class WorkClaimRouter
 {
     /// <summary>
     /// Returns the target Work id for the given claim key under the
-    /// given lineage. Looks up the scope from <see cref="ClaimScopeRegistry"/>
+    /// given lineage. Looks up the scope from <see cref="ClaimScopeCatalog"/>
     /// and routes to the appropriate Work id.
     /// </summary>
     public Guid Route(WorkLineage lineage, string claimKey)
     {
         ArgumentNullException.ThrowIfNull(lineage);
 
-        var scope = ClaimScopeRegistry.GetScope(claimKey, lineage.MediaType);
+        var scope = ClaimScopeCatalog.GetScope(claimKey, lineage.MediaType);
         return scope switch
         {
             ClaimScope.Parent => lineage.TargetForParentScope,
@@ -60,7 +60,7 @@ public sealed class WorkClaimRouter
             if (string.IsNullOrWhiteSpace(value))
                 continue;
 
-            var scope = ClaimScopeRegistry.GetScope(key, lineage.MediaType);
+            var scope = ClaimScopeCatalog.GetScope(key, lineage.MediaType);
             if (scope == ClaimScope.Parent)
                 forParent[key] = value;
             else
@@ -95,7 +95,7 @@ public sealed class WorkClaimRouter
 
         foreach (var claim in claims)
         {
-            var scope = ClaimScopeRegistry.GetScope(claim.ClaimKey, lineage.MediaType);
+            var scope = ClaimScopeCatalog.GetScope(claim.ClaimKey, lineage.MediaType);
             var rerouted = new MetadataClaim
             {
                 Id           = claim.Id,

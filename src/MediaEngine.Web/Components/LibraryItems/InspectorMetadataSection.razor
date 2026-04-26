@@ -1,0 +1,284 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.LibraryItems
+@using MudBlazor
+
+<div class="ims-panel">
+    @if (Loading)
+    {
+        <div class="ims-loading">
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Default" />
+        </div>
+    }
+    else if (Fields == null || !Fields.Any(f => !string.IsNullOrEmpty(f.Value)))
+    {
+        <div class="ims-empty">No metadata available</div>
+    }
+    else
+    {
+        @* ── Sub-tab toggle: Matched / File ── *@
+        <div class="ims-subtabs">
+            <button class="ims-subtab @(_subtab == "matched" ? "ims-subtab--active" : "")"
+                    @onclick='() => _subtab = "matched"'>
+                Matched
+                @if (MatchedFields.Count > 0)
+                {
+                    <span class="ims-subtab-count">@MatchedFields.Count</span>
+                }
+            </button>
+            <button class="ims-subtab @(_subtab == "file" ? "ims-subtab--active" : "")"
+                    @onclick='() => _subtab = "file"'>
+                File
+                @if (FileFields.Count > 0)
+                {
+                    <span class="ims-subtab-count">@FileFields.Count</span>
+                }
+            </button>
+        </div>
+
+        @* ── Field list ── *@
+        @if (VisibleFields.Count == 0)
+        {
+            <div class="ims-empty">No @(_subtab == "file" ? "file" : "matched") metadata</div>
+        }
+        else
+        {
+            @foreach (var field in VisibleFields)
+            {
+                <div class="ims-field">
+                    <div class="ims-field-header">
+                        <span class="ims-field-key">@FormatFieldKey(field.Key)</span>
+                        @if (field.IsUserLocked)
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.Lock"
+                                     Style="font-size: 0.7rem; color: #C9922E;" />
+                        }
+                        @if (field.IsConflicted)
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.Warning"
+                                     Style="font-size: 0.7rem; color: #EF9F27;" />
+                        }
+                    </div>
+                    @if (field.Key == "wikidata_qid" && !string.IsNullOrEmpty(field.Value))
+                    {
+                        <a class="ims-qid-chip" href="https://www.wikidata.org/wiki/@field.Value"
+                           target="_blank" rel="noopener noreferrer">@field.Value</a>
+                    }
+                    else
+                    {
+                        <div class="ims-field-value">@field.Value</div>
+                    }
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public List<CanonicalFieldViewModel> Fields { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+
+    private string _subtab = "matched";
+
+    /// <summary>Fields that are suppressed from the metadata view.</summary>
+    private static readonly HashSet<string> SuppressedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cover", "cover_url", "headshot_url", "hero", "hero_url",
+    };
+
+    private static bool IsSuppressedField(string key) =>
+        SuppressedKeys.Contains(key) ||
+        (key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase) &&
+         !string.Equals(key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+
+    private static readonly HashSet<string> FileProviderNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Local Filesystem", "local_filesystem", "Embedded Metadata",
+        "embedded_metadata",
+        "epub_processor",
+        "audio_processor",
+        "video_processor",
+        "comic_processor",
+        "generic_processor",
+    };
+
+    private static readonly System.Text.RegularExpressions.Regex GuidPattern =
+        new(@"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static bool IsFileProvider(string? providerName) =>
+        !string.IsNullOrEmpty(providerName) &&
+        (FileProviderNames.Contains(providerName) || GuidPattern.IsMatch(providerName));
+
+    private List<CanonicalFieldViewModel> VisibleFields =>
+        _subtab == "file" ? FileFields : MatchedFields;
+
+    private List<CanonicalFieldViewModel> MatchedFields => Fields
+        .Where(f => !string.IsNullOrEmpty(f.Value))
+        .Where(f => !IsSuppressedField(f.Key))
+        .Where(f => !IsFileProvider(f.ProviderName))
+        .ToList();
+
+    private List<CanonicalFieldViewModel> FileFields => Fields
+        .Where(f => !string.IsNullOrEmpty(f.Value))
+        .Where(f => !IsSuppressedField(f.Key))
+        .Where(f => IsFileProvider(f.ProviderName))
+        .ToList();
+
+    private static string FormatFieldKey(string key) => key switch
+    {
+        "title"           => "Title",
+        "author"          => "Author",
+        "year"            => "Year",
+        "genre"           => "Genre",
+        "series"          => "Series",
+        "series_position" => "Series #",
+        "description"     => "Description",
+        "narrator"        => "Narrator",
+        "director"        => "Director",
+        "cast"            => "Cast",
+        "language"        => "Language",
+        "rating"          => "Rating",
+        "page_count"      => "Pages",
+        "publisher"       => "Publisher",
+        "cover"           => "Cover Art",
+        "cover_url"       => "Cover Art",
+        "wikidata_qid"    => "Wikidata QID",
+        "release_year"    => "Year",
+        "media_type"      => "Media Type",
+        _                 => LibraryItemHelpers.FormatBridgeKey(key),
+    };
+}
+
+<style>
+    .ims-panel {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        padding: 14px;
+    }
+
+    .ims-loading {
+        display: flex;
+        justify-content: center;
+        padding: 24px 0;
+    }
+
+    .ims-empty {
+        font-size: 11px;
+        font-weight: 400;
+        font-style: italic;
+        color: rgba(200, 190, 220, 0.35);
+        text-align: center;
+        padding: 24px 0;
+    }
+
+    /* ── Sub-tabs ── */
+    .ims-subtabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 12px;
+        border-bottom: 1px solid rgba(140, 120, 180, 0.10);
+    }
+
+    .ims-subtab {
+        position: relative;
+        background: none;
+        border: none;
+        padding: 8px 16px;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.40);
+        cursor: pointer;
+        transition: color 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .ims-subtab:hover {
+        color: rgba(200, 190, 220, 0.60);
+    }
+
+    .ims-subtab--active {
+        color: #C9922E;
+    }
+
+    .ims-subtab--active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 12px;
+        right: 12px;
+        height: 2px;
+        background: #C9922E;
+        border-radius: 1px;
+    }
+
+    .ims-subtab-count {
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(200, 190, 220, 0.30);
+        background: rgba(200, 190, 220, 0.06);
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ims-subtab--active .ims-subtab-count {
+        color: rgba(201, 146, 46, 0.60);
+        background: rgba(201, 146, 46, 0.10);
+    }
+
+    /* ── Fields ── */
+    .ims-field {
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(140, 120, 180, 0.08);
+    }
+
+    .ims-field:last-child {
+        border-bottom: none;
+    }
+
+    .ims-field-header {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 3px;
+    }
+
+    .ims-field-key {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: rgba(200, 190, 220, 0.40);
+        flex: 1;
+    }
+
+    .ims-field-value {
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.85);
+        line-height: 1.4;
+        word-break: break-word;
+    }
+
+    .ims-qid-chip {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+        color: #5DCAA5;
+        background: rgba(93, 202, 165, 0.10);
+        border: 1px solid rgba(93, 202, 165, 0.20);
+        padding: 2px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.02em;
+        text-decoration: none;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .ims-qid-chip:hover {
+        background: rgba(93, 202, 165, 0.18);
+        border-color: rgba(93, 202, 165, 0.35);
+    }
+</style>

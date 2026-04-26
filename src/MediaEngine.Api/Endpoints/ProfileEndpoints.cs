@@ -75,6 +75,107 @@ public static class ProfileEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
+        group.MapGet("/{id:guid}/overview", async (
+            Guid id,
+            IProfileService svc,
+            IUserStateStore userStates,
+            IMediaAssetRepository mediaAssets,
+            IWorkRepository works,
+            ICanonicalValueRepository canonicalValues,
+            ISystemActivityRepository activity,
+            ITasteProfiler tasteProfiler,
+            CancellationToken ct) =>
+        {
+            var profile = await svc.GetProfileAsync(id, ct);
+            if (profile is null)
+                return Results.NotFound($"Profile '{id}' not found.");
+
+            var states = await userStates.GetRecentAsync(id, 50, ct);
+            var items = new List<ProfileOverviewItemDto>();
+            foreach (var state in states)
+            {
+                var asset = await mediaAssets.FindByIdAsync(state.AssetId, ct);
+                var lineage = await works.GetLineageByAssetAsync(state.AssetId, ct);
+
+                var canonicalIds = new List<Guid> { state.AssetId };
+                if (lineage is not null)
+                {
+                    canonicalIds.Add(lineage.WorkId);
+                    canonicalIds.Add(lineage.RootParentWorkId);
+                }
+
+                var canonical = await canonicalValues.GetByEntitiesAsync(canonicalIds.Distinct().ToList(), ct);
+                var ownValues = canonical.TryGetValue(state.AssetId, out var assetValues) ? assetValues : [];
+                var workValues = lineage is not null && canonical.TryGetValue(lineage.WorkId, out var directWorkValues) ? directWorkValues : [];
+                var rootValues = lineage is not null && canonical.TryGetValue(lineage.RootParentWorkId, out var rootWorkValues) ? rootWorkValues : [];
+
+                var title = FirstCanonical("title", ownValues, workValues, rootValues)
+                    ?? Path.GetFileNameWithoutExtension(asset?.FilePathRoot)
+                    ?? "Untitled";
+                var subtitle = FirstCanonical("author", ownValues, workValues, rootValues)
+                    ?? FirstCanonical("artist", ownValues, workValues, rootValues)
+                    ?? FirstCanonical("show_name", rootValues, workValues, ownValues)
+                    ?? FirstCanonical("collection", rootValues, workValues, ownValues);
+                var mediaType = FirstCanonical("media_type", ownValues, workValues, rootValues)
+                    ?? lineage?.MediaType.ToString()
+                    ?? "Media";
+                var cover = FirstCanonical("cover_url", ownValues, workValues, rootValues)
+                    ?? FirstCanonical("cover", ownValues, workValues, rootValues)
+                    ?? FirstCanonical("image_url", ownValues, workValues, rootValues);
+
+                items.Add(new ProfileOverviewItemDto
+                {
+                    AssetId = state.AssetId,
+                    WorkId = lineage?.WorkId,
+                    Title = title,
+                    Subtitle = subtitle,
+                    MediaType = mediaType,
+                    CoverUrl = cover,
+                    ProgressPct = Math.Clamp(state.ProgressPct, 0, 100),
+                    LastAccessed = state.LastAccessed,
+                });
+            }
+
+            var profileActivity = await activity.GetRecentByProfileAsync(id, 20, ct);
+            var taste = await tasteProfiler.GetProfileAsync(id, ct);
+
+            var stats = new ProfileOverviewStatsDto
+            {
+                TotalItems = items.Count,
+                InProgress = items.Count(item => item.ProgressPct > 0 && item.ProgressPct < 95),
+                Completed = items.Count(item => item.ProgressPct >= 95),
+                RecentActivity = profileActivity.Count,
+                MediaTypeMix = items
+                    .GroupBy(item => item.MediaType, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase),
+            };
+
+            var response = new ProfileOverviewResponseDto
+            {
+                Profile = ProfileResponseDto.FromDomain(profile),
+                Stats = stats,
+                RecentItems = items.Take(12).ToList(),
+                ContinueItems = items.Where(item => item.ProgressPct > 0 && item.ProgressPct < 95).Take(12).ToList(),
+                CompletedItems = items.Where(item => item.ProgressPct >= 95).Take(12).ToList(),
+                Activity = profileActivity.Select(entry => new ProfileOverviewActivityDto
+                {
+                    Id = entry.Id,
+                    OccurredAt = entry.OccurredAt,
+                    ActionType = entry.ActionType,
+                    Detail = entry.Detail,
+                    EntityId = entry.EntityId,
+                }).ToList(),
+                Taste = taste,
+            };
+
+            return Results.Ok(response);
+        })
+        .WithName("GetProfileOverview")
+        .WithSummary("Get user-facing profile details, history, statistics, and taste signals.")
+        .Produces<ProfileOverviewResponseDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
         group.MapGet("/{id:guid}/external-logins", async (
             Guid id,
             IProfileService profileService,
@@ -224,5 +325,20 @@ public static class ProfileEndpoints
         .RequireAdmin();
 
         return app;
+    }
+
+    private static string? FirstCanonical(
+        string key,
+        params IReadOnlyList<Domain.Entities.CanonicalValue>[] groups)
+    {
+        foreach (var group in groups)
+        {
+            var value = group.FirstOrDefault(item =>
+                string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+            if (!string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+
+        return null;
     }
 }

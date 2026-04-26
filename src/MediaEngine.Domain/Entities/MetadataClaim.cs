@@ -26,7 +26,7 @@ public sealed class MetadataClaim
 
     /// <summary>
     /// The provider that asserted this claim.
-    /// FK → <c>provider_registry.id</c>.
+    /// FK → <c>metadata_providers.id</c>.
     /// </summary>
     public Guid ProviderId { get; set; }
 

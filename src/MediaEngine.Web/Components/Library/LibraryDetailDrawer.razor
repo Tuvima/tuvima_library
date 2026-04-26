@@ -1268,11 +1268,11 @@
     private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Background"];
     private bool _searching;
     private bool _hasSearched;
-    private List<RegistryItemViewModel> _searchResults = [];
+    private List<LibraryCatalogItemViewModel> _searchResults = [];
     private PersonAliasesResponseDto? _aliases;
     private PersonDetailViewModel? _personDetail;
     private List<PersonLibraryCreditViewModel>? _personCredits;
-    private RegistryItemViewModel? _pendingMatch;
+    private LibraryCatalogItemViewModel? _pendingMatch;
     private string _selectedMediaType = "";
     private string _searchMediaType = "";
     private string _canonicalTargetGroup = "";
@@ -1708,7 +1708,7 @@
         return $"Matched to {qid} on Wikidata. Canonical data (title, author, year, genre) is sourced from Wikidata.";
     }
 
-    /// <summary>Result display data extracted from a retail candidate using the media type registry.</summary>
+    /// <summary>Result display data extracted from a retail candidate using the media type libraryItem.</summary>
     private sealed record RetailResultDisplay(
         string? Subline,
         string? Tertiary,
@@ -1717,7 +1717,7 @@
 
     /// <summary>
     /// Builds media-type-aware display data for a retail search result.
-    /// Uses MediaTypeFieldRegistry to determine which fields to show per media type.
+    /// Uses MediaTypeFieldCatalog to determine which fields to show per media type.
     /// </summary>
     private RetailResultDisplay GetRetailResultFields(RetailCandidateDto result)
     {
@@ -1725,7 +1725,7 @@
         if (!Enum.TryParse<MediaType>(_searchMediaType, true, out var mediaType))
             mediaType = MediaType.Books;
 
-        var config = MediaTypeFieldRegistry.GetSearchDisplay(mediaType);
+        var config = MediaTypeFieldCatalog.GetSearchDisplay(mediaType);
 
         // Build a lookup from all available fields on the result
         var allFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1775,8 +1775,8 @@
     private IReadOnlyList<SearchableField> GetSearchableFieldsForCurrentType()
     {
         if (Enum.TryParse<MediaEngine.Domain.Enums.MediaType>(_searchMediaType, true, out var mt))
-            return MediaTypeFieldRegistry.GetSearchableFields(mt);
-        return MediaTypeFieldRegistry.GetSearchableFields(MediaEngine.Domain.Enums.MediaType.Books);
+            return MediaTypeFieldCatalog.GetSearchableFields(mt);
+        return MediaTypeFieldCatalog.GetSearchableFields(MediaEngine.Domain.Enums.MediaType.Books);
     }
 
     private void AddSearchFilter(string fieldKey)
@@ -1886,7 +1886,7 @@
             RetailProviderItemId = candidate.ProviderItemId,
         };
 
-        await ApiClient.ApplyRegistryMatchAsync(MediaItem.EntityId, request);
+        await ApiClient.ApplyLibraryItemMatchAsync(MediaItem.EntityId, request);
 
         _pendingRetailMatch = null;
         _retailSearchResults = [];
@@ -1956,7 +1956,7 @@
         }
     }
 
-    private void SelectSearchResult(RegistryItemViewModel result)
+    private void SelectSearchResult(LibraryCatalogItemViewModel result)
     {
         // Toggle: clicking same item deselects, clicking different item selects
         _pendingMatch = _pendingMatch?.EntityId == result.EntityId ? null : result;

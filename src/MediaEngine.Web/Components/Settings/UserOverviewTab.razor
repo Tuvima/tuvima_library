@@ -1,0 +1,230 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+@inject UIOrchestratorService Orchestrator
+@inject IEngineApiClient ApiClient
+
+<div class="st-page user-overview-page">
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+    else if (_overview is null)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+            Your overview is not available yet. Profile details will appear here when the Engine is online.
+        </MudAlert>
+    }
+    else
+    {
+        var profile = _overview.Profile;
+        var initials = GetInitials(profile.DisplayName);
+
+        <section class="user-overview-hero">
+            <div class="user-overview-avatar" style="@($"--avatar-color: {profile.AvatarColor}")">
+                <span>@initials</span>
+            </div>
+
+            <div class="user-overview-identity">
+                <MudText Typo="Typo.h4" Class="user-overview-title">@profile.DisplayName</MudText>
+                <MudText Typo="Typo.body1" Class="user-overview-subtitle">Personal overview</MudText>
+
+                <div class="user-overview-badges">
+                    <span>@profile.Role</span>
+                    <span>Joined @profile.CreatedAt.ToLocalTime().ToString("MMM yyyy")</span>
+                    <span>@_overview.Stats.TotalItems watched, read, or played</span>
+                </div>
+
+                <div class="user-overview-actions">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.Edit"
+                               OnClick="@ToggleProfileEditor">
+                        Edit profile
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Inherit"
+                               StartIcon="@Icons.Material.Outlined.PlayArrow"
+                               Href="/settings/playback">
+                        Playback
+                    </MudButton>
+                </div>
+            </div>
+
+            <div class="user-overview-stat-card user-overview-stat-card--featured">
+                <MudText Typo="Typo.overline">Your Activity</MudText>
+                <div class="user-overview-stat-grid">
+                    <div>
+                        <strong>@_overview.Stats.TotalItems</strong>
+                        <span>Total</span>
+                    </div>
+                    <div>
+                        <strong>@_overview.Stats.InProgress</strong>
+                        <span>In progress</span>
+                    </div>
+                    <div>
+                        <strong>@_overview.Stats.Completed</strong>
+                        <span>Completed</span>
+                    </div>
+                </div>
+                <div class="user-overview-stat-footer">
+                    <span>@_overview.Stats.RecentActivity recent actions</span>
+                </div>
+            </div>
+        </section>
+
+        @if (_editingProfile)
+        {
+            <MudPaper Elevation="0" Class="user-overview-editor">
+                <ProfileTab />
+            </MudPaper>
+        }
+
+        <section class="user-overview-dashboard">
+            <MudPaper Elevation="0" Class="user-overview-panel user-overview-panel--wide">
+                <div class="user-overview-panel-header">
+                    <div>
+                        <MudText Typo="Typo.overline">Continue</MudText>
+                        <MudText Typo="Typo.h6">Pick up where you left off</MudText>
+                    </div>
+                </div>
+                <MediaRail Items="@_overview.ContinueItems" EmptyText="Nothing is currently in progress." />
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="user-overview-panel">
+                <div class="user-overview-panel-header">
+                    <div>
+                        <MudText Typo="Typo.overline">Taste</MudText>
+                        <MudText Typo="Typo.h6">Library habits</MudText>
+                    </div>
+                </div>
+                <MudText Typo="Typo.body2" Class="user-overview-muted">
+                    @(_overview.Taste?.Summary ?? "Taste signals will appear after the library has enough activity.")
+                </MudText>
+                <div class="user-overview-chip-list">
+                    @foreach (var item in TopTasteItems())
+                    {
+                        <span>@item</span>
+                    }
+                </div>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="user-overview-panel user-overview-panel--wide">
+                <div class="user-overview-panel-header">
+                    <div>
+                        <MudText Typo="Typo.overline">History</MudText>
+                        <MudText Typo="Typo.h6">Recent details</MudText>
+                    </div>
+                </div>
+                <MediaRail Items="@_overview.RecentItems" EmptyText="Your recent history is empty." />
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="user-overview-panel">
+                <div class="user-overview-panel-header">
+                    <div>
+                        <MudText Typo="Typo.overline">Media Mix</MudText>
+                        <MudText Typo="Typo.h6">What you use most</MudText>
+                    </div>
+                </div>
+                <div class="user-overview-mix">
+                    @if (_overview.Stats.MediaTypeMix.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="user-overview-muted">No media mix yet.</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var item in _overview.Stats.MediaTypeMix.OrderByDescending(item => item.Value))
+                        {
+                            <div class="user-overview-mix-row">
+                                <span>@item.Key</span>
+                                <strong>@item.Value</strong>
+                            </div>
+                        }
+                    }
+                </div>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="user-overview-panel user-overview-panel--wide">
+                <div class="user-overview-panel-header">
+                    <div>
+                        <MudText Typo="Typo.overline">Completed</MudText>
+                        <MudText Typo="Typo.h6">Finished recently</MudText>
+                    </div>
+                </div>
+                <MediaRail Items="@_overview.CompletedItems" EmptyText="Completed items will appear here." />
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="user-overview-panel">
+                <div class="user-overview-panel-header">
+                    <div>
+                        <MudText Typo="Typo.overline">Activity</MudText>
+                        <MudText Typo="Typo.h6">Personal timeline</MudText>
+                    </div>
+                </div>
+                <div class="user-overview-activity">
+                    @if (_overview.Activity.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="user-overview-muted">No personal activity has been recorded.</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var entry in _overview.Activity.Take(6))
+                        {
+                            <div class="user-overview-activity-row">
+                                <span>@entry.ActionType</span>
+                                <small>@(entry.Detail ?? entry.OccurredAt.ToLocalTime().ToString("MMM d, yyyy"))</small>
+                            </div>
+                        }
+                    }
+                </div>
+            </MudPaper>
+        </section>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _editingProfile;
+    private ProfileOverviewViewModel? _overview;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        if (profile is not null)
+        {
+            _overview = await ApiClient.GetProfileOverviewAsync(profile.Id);
+            if (_overview is null)
+            {
+                _overview = new ProfileOverviewViewModel { Profile = profile };
+            }
+        }
+
+        _loading = false;
+    }
+
+    private void ToggleProfileEditor() => _editingProfile = !_editingProfile;
+
+    private IEnumerable<string> TopTasteItems()
+    {
+        if (_overview?.Taste is null)
+            return [];
+
+        return _overview.Taste.MediaTypeMix
+            .Concat(_overview.Taste.GenreDistribution)
+            .OrderByDescending(item => item.Value)
+            .Take(5)
+            .Select(item => item.Key);
+    }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][0].ToString().ToUpperInvariant(),
+            _ => string.Concat(parts.Take(2).Select(part => char.ToUpperInvariant(part[0]))),
+        };
+    }
+
+}

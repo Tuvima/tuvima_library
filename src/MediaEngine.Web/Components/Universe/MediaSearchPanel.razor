@@ -918,7 +918,7 @@
 @code {
     // ── Parameters ─────────────────────────────────────────────────────────
 
-    /// <summary>The registry entity ID this panel is searching for.</summary>
+    /// <summary>The libraryItem entity ID this panel is searching for.</summary>
     [Parameter] public Guid EntityId { get; set; }
 
     /// <summary>Pre-filled search query (typically the item's title).</summary>
@@ -1207,7 +1207,7 @@
             }
             else return;
 
-            var result = await Orchestrator.ApplyRegistryMatchAsync(EntityId, request);
+            var result = await Orchestrator.ApplyLibraryItemMatchAsync(EntityId, request);
             if (result is not null)
             {
                 _successMessage = result.Message ?? "Match applied successfully.";

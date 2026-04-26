@@ -1,7 +1,7 @@
-@using MediaEngine.Web.Components.Registry
+@using MediaEngine.Web.Components.LibraryItems
 
 @* CollectionToolbar — reusable media type toggles + configurable filter content.
-   Used by Registry now, reusable by /books, Home, etc. later. *@
+   Used by LibraryItem now, reusable by /books, Home, etc. later. *@
 
 <div class="collection-toolbar-toggles">
     <button class="collection-toolbar-tt @(AllActive ? "collection-toolbar-tt--on" : "")"
@@ -16,7 +16,7 @@
         var isOn = ActiveMediaTypes.Contains(mt.Value);
         <button class="collection-toolbar-tt @(isOn ? "collection-toolbar-tt--on" : "")"
                 @onclick="@(() => Toggle(mt.Value))">
-            <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(mt.Value)" Size="Size.Small"
+            <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(mt.Value)" Size="Size.Small"
                      Style="font-size: 1.35rem;" />
             <span>@mt.Label</span>
         </button>

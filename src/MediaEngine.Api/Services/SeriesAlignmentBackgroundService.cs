@@ -65,13 +65,13 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var aligner       = scope.ServiceProvider.GetRequiredService<ISeriesAligner>();
         var canonicalRepo = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
-        var registryRepo  = scope.ServiceProvider.GetRequiredService<IRegistryRepository>();
+        var libraryItemRepo  = scope.ServiceProvider.GetRequiredService<ILibraryItemRepository>();
 
         _logger.LogInformation("SeriesAlignmentService: scanning for unpositioned series works");
 
-        // Page through the registry to find candidates (up to 200 per batch).
-        var page = await registryRepo.GetPageAsync(
-            new RegistryQuery(Offset: 0, Limit: 200, Sort: "newest"), ct);
+        // Page through the libraryItem to find candidates (up to 200 per batch).
+        var page = await libraryItemRepo.GetPageAsync(
+            new LibraryItemQuery(Offset: 0, Limit: 200, Sort: "newest"), ct);
 
         // First pass: collect entities that have 'series' but not 'series_position'.
         var candidates = new List<(Guid EntityId, string SeriesName, string Title)>();

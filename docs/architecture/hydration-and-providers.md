@@ -76,7 +76,7 @@ field_mappings        JSON path extraction rules with named transforms, confiden
 
 **ReconciliationAdapter** uses the `Tuvima.Wikidata` NuGet package. Its configuration lives in `config/providers/wikidata_reconciliation.json` (all Wikidata settings: provider scoring config, property map, bridge lookup order, value transforms, instance_of class mappings, edition pivot rules, scope exclusions).
 
-**ValueTransformRegistry** provides named transform functions applied to raw API values: `to_string`, `strip_html`, `url_template`, `regex_replace`, `prefer_isbn13`, `array_join`, `array_nested_join`, `first_n_chars`, `fallback_key`, `title_case`. Transform assignment lives in config; transform implementations live in code.
+**ValueTransformCatalog** provides named transform functions applied to raw API values: `to_string`, `strip_html`, `url_template`, `regex_replace`, `prefer_isbn13`, `array_join`, `array_nested_join`, `first_n_chars`, `fallback_key`, `title_case`. Transform assignment lives in config; transform implementations live in code.
 
 **Required-field short-circuits:** Each search strategy declares `required_fields`. If a required field is missing from the request, the strategy is skipped with no HTTP call made.
 
@@ -523,7 +523,7 @@ In Sequential mode, `PriorProviderBridgeIds` on `ProviderLookupRequest` carries 
 
 - `src/MediaEngine.Domain/Enums/ProviderStrategy.cs` — Waterfall, Cascade, Sequential enum
 - `src/MediaEngine.Storage/Models/PipelineConfiguration.cs` — Pipeline config model + legacy converter
-- `src/MediaEngine.Domain/Constants/MediaTypeFieldRegistry.cs` — Fields, search display, searchable fields per media type
+- `src/MediaEngine.Domain/Constants/MediaTypeFieldCatalog.cs` — Fields, search display, searchable fields per media type
 - `src/MediaEngine.Providers/Services/HydrationPipelineService.cs` — Strategy execution loop
 - `src/MediaEngine.Intelligence/PriorityCascadeEngine.cs` — Tier B reads per-media-type field priorities
 - `config/pipelines.json` — Pipeline configuration

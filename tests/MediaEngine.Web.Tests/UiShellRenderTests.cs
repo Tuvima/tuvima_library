@@ -100,6 +100,34 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
+    public void SettingsPage_RendersUserOverviewWithoutAdminOverviewContent()
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2);
+            builder.CloseComponent();
+            builder.OpenComponent<Settings>(3);
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Personal overview", cut.Markup);
+            Assert.Contains("Your Activity", cut.Markup);
+            Assert.Contains("Pick up where you left off", cut.Markup);
+            Assert.Contains("Library habits", cut.Markup);
+            Assert.Contains("Personal timeline", cut.Markup);
+            Assert.DoesNotContain("Runtime status", cut.Markup);
+            Assert.DoesNotContain("Heartbeat", cut.Markup);
+            Assert.DoesNotContain("Stage 3 coverage", cut.Markup);
+        });
+    }
+
+    [Fact]
     public void SettingsReviewPage_RendersDedicatedReviewList()
     {
         var cut = Render(builder =>

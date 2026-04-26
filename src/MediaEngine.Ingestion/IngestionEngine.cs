@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -27,24 +27,24 @@ namespace MediaEngine.Ingestion;
 /// the host can call <see cref="DryRunAsync"/> from test / maintenance code
 /// without starting the live watcher.
 ///
-/// ──────────────────────────────────────────────────────────────────
-/// Pipeline (per accepted file — spec: Phase 7 – Lifecycle Automation)
-/// ──────────────────────────────────────────────────────────────────
+/// ------------------------------------------------------------------
+/// Pipeline (per accepted file � spec: Phase 7 � Lifecycle Automation)
+/// ------------------------------------------------------------------
 ///
 ///  1. Dequeue <see cref="IngestionCandidate"/> from <see cref="DebounceQueue"/>.
 ///  2. Skip failed candidates (log the failure).
 ///  3. Handle Deleted events: mark asset orphaned in the repository.
 ///  4. Hash the file via <see cref="IAssetHasher"/>.
 ///  5. Duplicate check via <see cref="IMediaAssetRepository.FindByHashAsync"/>.
-///  6. Run <see cref="IProcessorRegistry.ProcessAsync"/> → <see cref="Processors.Models.ProcessorResult"/>.
+///  6. Run <see cref="IProcessorRouter.ProcessAsync"/> ? <see cref="Processors.Models.ProcessorResult"/>.
 ///  7. Quarantine corrupt files (log; no further processing).
-///  8. Convert <see cref="Processors.Models.ExtractedClaim"/>s → <see cref="MetadataClaim"/> rows.
-///  9. Score via <see cref="IScoringEngine"/> → populate <c>candidate.Metadata</c>.
+///  8. Convert <see cref="Processors.Models.ExtractedClaim"/>s ? <see cref="MetadataClaim"/> rows.
+///  9. Score via <see cref="IScoringEngine"/> ? populate <c>candidate.Metadata</c>.
 /// 10. Insert <see cref="MediaAsset"/> into repository (INSERT OR IGNORE).
 /// 11. If <c>AutoOrganize</c>: calculate destination and execute move.
 /// 12. If <c>WriteBack</c>: write resolved metadata (and cover art) back into the file.
 ///
-/// Spec: Phase 7 – Interfaces § IIngestionEngine.
+/// Spec: Phase 7 � Interfaces � IIngestionEngine.
 /// </summary>
 public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 {
@@ -67,7 +67,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly IFileWatcher          _watcher;
     private readonly DebounceQueue         _debounce;
     private readonly IAssetHasher          _hasher;
-    private readonly IProcessorRegistry    _processors;
+    private readonly IProcessorRouter    _processors;
     private readonly IScoringEngine        _scorer;
     private readonly IFileOrganizer        _organizer;
     private readonly IEnumerable<IMetadataTagger> _taggers;
@@ -82,19 +82,19 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly ICanonicalValueRepository   _canonicalRepo;
     private readonly IRecursiveIdentityService   _identity;
 
-    // Collection → Work → Edition scaffold creation.
+    // Collection ? Work ? Edition scaffold creation.
     private readonly IMediaEntityChainFactory _chainFactory;
 
-    // Review queue — created when confidence is too low or category is "Other".
+    // Review queue � created when confidence is too low or category is "Other".
     private readonly IReviewQueueRepository _reviewRepo;
 
-    // Activity ledger — records every significant ingestion event.
+    // Activity ledger � records every significant ingestion event.
     private readonly ISystemActivityRepository _activityRepo;
 
-    // Reconciliation — cleans orphaned DB records before the initial scan.
+    // Reconciliation � cleans orphaned DB records before the initial scan.
     private readonly IReconciliationService _reconciliation;
 
-    // Centralized organization gate — single source of truth for promotion eligibility.
+    // Centralized organization gate � single source of truth for promotion eligibility.
     private readonly IOrganizationGate _gate;
 
     // Managed artwork lives in the central asset store under {libraryRoot}/.data/assets/.
@@ -103,29 +103,29 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly IWorkRepository? _workRepo;
     private readonly IAssetExportService? _assetExportService;
 
-    // Per-file ingestion lifecycle log — tracks each file from detection to completion.
+    // Per-file ingestion lifecycle log � tracks each file from detection to completion.
     private readonly IIngestionLogRepository _ingestionLog;
 
     // AI-powered filename cleaning and media type classification (Sprint 2).
     private readonly ISmartLabeler _smartLabeler;
     private readonly IMediaTypeAdvisor _typeAdvisor;
 
-    // Pipeline provenance — records lifecycle events for timeline.
+    // Pipeline provenance � records lifecycle events for timeline.
     private readonly IEntityTimelineRepository _timelineRepo;
 
-    // Config-driven thresholds — replaces hardcoded 0.85 literals.
+    // Config-driven thresholds � replaces hardcoded 0.85 literals.
     private readonly ScoringConfiguration _scoringConfig;
 
-    // Ingestion batch tracking — creates batch records and emits BatchProgress events.
+    // Ingestion batch tracking � creates batch records and emits BatchProgress events.
     private readonly IIngestionBatchRepository _batchRepo;
 
-    // Durable identity pipeline — creates identity_jobs rows for the three-stage
-    // retail-first identity pipeline (RetailMatchWorker → WikidataBridgeWorker → QuickHydrationWorker).
+    // Durable identity pipeline � creates identity_jobs rows for the three-stage
+    // retail-first identity pipeline (RetailMatchWorker ? WikidataBridgeWorker ? QuickHydrationWorker).
     private readonly IIdentityJobRepository _identityJobRepo;
 
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
-    // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
+    // Lock order: folder ? hash (see ConcurrencyGuard doc for full hierarchy).
     private readonly ConcurrencyGuard _concurrencyGuard = new();
 
     // Collect-then-process: accumulate FSW/poll events, create batch after quiet period.
@@ -142,7 +142,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IFileWatcher              watcher,
         DebounceQueue             debounce,
         IAssetHasher              hasher,
-        IProcessorRegistry        processors,
+        IProcessorRouter        processors,
         IScoringEngine            scorer,
         IFileOrganizer            organizer,
         IEnumerable<IMetadataTagger> taggers,
@@ -217,7 +217,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             BufferFswEvent(evt);
         };
 
-        // ── Step 1: Log server start (no paths — just the fact) ──────────
+        // -- Step 1: Log server start (no paths � just the fact) ----------
         _logger.LogInformation("IngestionEngine started");
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
@@ -226,7 +226,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             Detail     = "Server started",
         }, stoppingToken).ConfigureAwait(false);
 
-        // ── Step 2: Reconcile BEFORE scanning ────────────────────────────
+        // -- Step 2: Reconcile BEFORE scanning ----------------------------
         // Clean orphaned DB records so the initial scan sees files as fresh
         // rather than producing false "duplicate skipped" entries.
         try
@@ -239,10 +239,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Startup reconciliation failed — continuing with scan");
+            _logger.LogWarning(ex, "Startup reconciliation failed � continuing with scan");
         }
 
-        // ── Step 3: Start watching + initial scan ────────────────────────
+        // -- Step 3: Start watching + initial scan ------------------------
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory))
         {
             try
@@ -267,15 +267,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Mark the watcher as "running" so that a later UpdateDirectory() call
         // (from PUT /settings/folders) immediately activates the new watcher.
-        // Safe to call with zero directories — Start() is a no-op on an empty list.
+        // Safe to call with zero directories � Start() is a no-op on an empty list.
         _watcher.Start();
 
-        // Initial scan: FileSystemWatcher only detects NEW filesystem events — files
+        // Initial scan: FileSystemWatcher only detects NEW filesystem events � files
         // that are already present in the Watch Folder at startup are invisible to it.
         // Synthesise "Created" events for every existing file so the pipeline processes
-        // them through the normal debounce → hash → duplicate-check → process flow.
+        // them through the normal debounce ? hash ? duplicate-check ? process flow.
         // After reconciliation, orphaned records are cleaned, so files in the
-        // watch folder are treated as genuinely new — no false duplicate skips.
+        // watch folder are treated as genuinely new � no false duplicate skips.
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
             && Directory.Exists(_options.WatchDirectory))
         {
@@ -283,14 +283,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         // Start the polling fallback in the background.
-        // FileSystemWatcher can miss events on certain configurations — the poller
+        // FileSystemWatcher can miss events on certain configurations � the poller
         // periodically sweeps the Watch Folder and synthesises Created events for
         // files that the debounce queue hasn't seen yet.
         if (_options.PollIntervalSeconds > 0)
             _ = PollWatchDirectoryAsync(stoppingToken);
 
         // Consume candidates until the service is stopped.
-        // If no watcher is active yet, this loop simply waits — new events will
+        // If no watcher is active yet, this loop simply waits � new events will
         // flow once the user sets a Watch Folder via the Settings page.
         await foreach (var candidate in _debounce.Reader.ReadAllAsync(stoppingToken)
                            .ConfigureAwait(false))
@@ -321,7 +321,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     }
 
     // =========================================================================
-    // IIngestionEngine — explicit interface (Start/StopAsync are the public API)
+    // IIngestionEngine � explicit interface (Start/StopAsync are the public API)
     // =========================================================================
 
     /// <inheritdoc/>
@@ -383,7 +383,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _pollFingerprints.Clear();
         }
 
-        // Restart the FSW — new OS events will flow into BufferFswEvent again.
+        // Restart the FSW � new OS events will flow into BufferFswEvent again.
         _watcher.Start();
 
         _logger.LogInformation("IngestionEngine: FSW resumed (watcher restarted, dedup state cleared).");
@@ -451,7 +451,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (candidate.IsFailed)
         {
             _logger.LogWarning(
-                "Quarantined: \"{FileName}\" — lock probe failed: {Reason}",
+                "Quarantined: \"{FileName}\" � lock probe failed: {Reason}",
                 Path.GetFileName(candidate.Path), candidate.FailureReason);
             await SafePublishAsync(SignalREvents.IngestionFailed, new IngestionFailedEvent(
                 candidate.Path,
@@ -474,11 +474,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         if (!File.Exists(candidate.Path))
         {
-            _logger.LogWarning("Ingestion skipped — file missing: \"{FileName}\"", Path.GetFileName(candidate.Path));
+            _logger.LogWarning("Ingestion skipped � file missing: \"{FileName}\"", Path.GetFileName(candidate.Path));
             return;
         }
 
-        _logger.LogInformation("Detected: \"{FileName}\" — queued for ingestion", Path.GetFileName(candidate.Path));
+        _logger.LogInformation("Detected: \"{FileName}\" � queued for ingestion", Path.GetFileName(candidate.Path));
 
         await SafePublishAsync(SignalREvents.IngestionStarted, new IngestionStartedEvent(
             candidate.Path, DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
@@ -495,7 +495,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
         }
-        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log insert failed — continuing"); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log insert failed � continuing"); }
 
         var pipelineStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
@@ -503,7 +503,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var hash = await _hasher.ComputeAsync(candidate.Path, ct).ConfigureAwait(false);
 
         _logger.LogInformation(
-            "Fingerprinted \"{FileName}\" — sha256={HashPrefix}… ({SizeKB:F1} KB)",
+            "Fingerprinted \"{FileName}\" � sha256={HashPrefix}� ({SizeKB:F1} KB)",
             Path.GetFileName(candidate.Path), hash.Hex[..8], hash.FileSize / 1024.0);
 
         await SafePublishAsync(SignalREvents.IngestionHashed, new IngestionHashedEvent(
@@ -513,7 +513,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             ActionType     = Domain.Enums.SystemActionType.FileHashed,
             EntityType     = "MediaAsset",
-            Detail         = $"Fingerprinted: {hash.Hex[..12]}… ({hash.FileSize / 1024.0:F1} KB)",
+            Detail         = $"Fingerprinted: {hash.Hex[..12]}� ({hash.FileSize / 1024.0:F1} KB)",
             ChangesJson    = JsonSerializer.Serialize(new
             {
                 hash_prefix  = hash.Hex[..12],
@@ -527,14 +527,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Lifecycle log: hashing complete.
         try { await _ingestionLog.UpdateStatusAsync(logEntryId, "hashing", contentHash: hash.Hex, ct: ct).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed � continuing"); }
 
         // Step 5: duplicate check.
         // If the file is already ingested but still sitting in the Watch Folder
         // (e.g. it scored below the confidence gate on first pass, or LibraryRoot
-        // was not configured at that time), attempt to organize it now — metadata
+        // was not configured at that time), attempt to organize it now � metadata
         // may have been enriched by external providers since the initial scan.
-        // Hash lock scope: covers duplicate check → DB insert → organization.
+        // Hash lock scope: covers duplicate check ? DB insert ? organization.
         // Prevents race conditions when identical files arrive simultaneously.
         // Defense-in-depth: DB uses INSERT OR IGNORE on content_hash UNIQUE constraint.
         var hashLock = _concurrencyGuard.GetHashLock(hash.Hex);
@@ -550,13 +550,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             if (!File.Exists(existing.FilePathRoot))
             {
                 await CleanStagedAssetAsync(existing, ct).ConfigureAwait(false);
-                // Fall through — process as new asset below.
+                // Fall through � process as new asset below.
             }
             else
             {
                 // Same-path re-detection (polling fallback or FSW echo): the file
                 // is already tracked and still at its original location.  Attempt
-                // re-organization silently — only log DuplicateSkipped when the
+                // re-organization silently � only log DuplicateSkipped when the
                 // candidate is a genuinely different file at a new path.
                 bool isSamePath = string.Equals(
                     Path.GetFullPath(candidate.Path),
@@ -567,9 +567,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 {
                     // True duplicate: a different source file has the same content hash
                     // and the original is still on disk. Log it, delete the duplicate
-                    // from the watch folder, and return — do NOT move it into the library.
+                    // from the watch folder, and return � do NOT move it into the library.
                     _logger.LogInformation(
-                        "True duplicate detected: {CandidatePath} has same hash as existing {ExistingPath} — deleting duplicate from watch folder",
+                        "True duplicate detected: {CandidatePath} has same hash as existing {ExistingPath} � deleting duplicate from watch folder",
                         candidate.Path, existing.FilePathRoot);
 
                     await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
@@ -607,7 +607,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var result = await _processors.ProcessAsync(candidate.Path, ct).ConfigureAwait(false);
 
         // Step 6a: organisation-hint prescan.
-        // Side-by-side-with-Plex plan §G. Pulls Plex / Jellyfin bridge ID
+        // Side-by-side-with-Plex plan �G. Pulls Plex / Jellyfin bridge ID
         // brackets (`{imdb-tt...}`, `[tvdbid-...]`, etc.) and the Tuvima
         // legacy `(Q12345)` marker straight out of the path and injects
         // them as high-confidence claims. When the library is curated,
@@ -620,7 +620,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             foreach (var (key, value) in pathHints.BridgeIds)
             {
                 // Don't overwrite a bridge ID the processor already extracted
-                // from embedded tags — embedded data is at least as reliable.
+                // from embedded tags � embedded data is at least as reliable.
                 if (hintedClaims.Any(c => c.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
                     continue;
 
@@ -645,7 +645,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             };
 
             _logger.LogInformation(
-                "OrganizationHintParser: seeded {Count} bridge ID claim(s) from path for {File} — {Keys}",
+                "OrganizationHintParser: seeded {Count} bridge ID claim(s) from path for {File} � {Keys}",
                 pathHints.BridgeIds.Count, Path.GetFileName(candidate.Path),
                 string.Join(", ", pathHints.BridgeIds.Keys));
         }
@@ -654,7 +654,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             var extractedTitle = result.Claims
                 .FirstOrDefault(c => c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value;
             _logger.LogInformation(
-                "Processed \"{FileName}\" via {ProcessorType} — {ClaimCount} claims extracted (title='{Title}')",
+                "Processed \"{FileName}\" via {ProcessorType} � {ClaimCount} claims extracted (title='{Title}')",
                 Path.GetFileName(candidate.Path),
                 result.DetectedType,
                 result.Claims.Count,
@@ -665,7 +665,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             ActionType     = Domain.Enums.SystemActionType.FileProcessed,
             EntityType     = "MediaAsset",
-            Detail         = $"Scanned: {result.DetectedType} — {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
+            Detail         = $"Scanned: {result.DetectedType} � {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
             ChangesJson    = JsonSerializer.Serialize(new
             {
                 detected_type  = result.DetectedType.ToString(),
@@ -679,7 +679,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
-        // Step 6b: AI Smart Labeling — enhance title claim using LLM.
+        // Step 6b: AI Smart Labeling � enhance title claim using LLM.
         // The SmartLabeler understands context that regex cannot:
         // "2001 A Space Odyssey" keeps the year, "Frank Herbert - Dune" extracts the author.
         {
@@ -769,14 +769,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         };
 
                         _logger.LogInformation(
-                            "SmartLabeler enhanced title: \"{OldTitle}\" → \"{NewTitle}\" (confidence: {Conf:F2})",
+                            "SmartLabeler enhanced title: \"{OldTitle}\" ? \"{NewTitle}\" (confidence: {Conf:F2})",
                             rawTitle.Value, cleaned.Title, cleaned.Confidence);
                     }
                 }
                 catch (Exception ex)
                 {
-                    // SmartLabeler failure is non-fatal — processor claims stand.
-                    _logger.LogWarning(ex, "SmartLabeler failed for {Path} — using processor title", candidate.Path);
+                    // SmartLabeler failure is non-fatal � processor claims stand.
+                    _logger.LogWarning(ex, "SmartLabeler failed for {Path} � using processor title", candidate.Path);
                 }
             }
         }
@@ -784,7 +784,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Step 7: quarantine corrupt files.
         if (result.IsCorrupt)
         {
-            _logger.LogWarning("Corrupt file quarantined: {Path} — {Reason}",
+            _logger.LogWarning("Corrupt file quarantined: {Path} � {Reason}",
                 candidate.Path, result.CorruptReason);
 
             // Activity: media failed (replaces granular FileQuarantined).
@@ -799,7 +799,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 ActionType     = Domain.Enums.SystemActionType.MediaFailed,
                 EntityType     = "MediaAsset",
                 ChangesJson    = failedJson,
-                Detail         = $"Failed — {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
+                Detail         = $"Failed � {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
@@ -833,11 +833,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             ActionType = "MetadataExtracted",
             EntityId = assetId,
-            Detail = $"Metadata extracted — {result.Claims.Count} fields found",
+            Detail = $"Metadata extracted � {result.Claims.Count} fields found",
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
-        // ── Timeline: Stage 0 file_scanned event ────────────────────────────
+        // -- Timeline: Stage 0 file_scanned event ----------------------------
         try
         {
             await _timelineRepo.InsertEventAsync(new EntityEvent
@@ -851,7 +851,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 ProviderName   = "local_processor",
                 Confidence     = result.Claims.Count > 0 ? 1.0 : 0.0,
                 IngestionRunId = ingestionRunId,
-                Detail         = $"File scanned: {Path.GetFileName(candidate.Path)} — {result.Claims.Count} fields extracted ({result.DetectedType})",
+                Detail         = $"File scanned: {Path.GetFileName(candidate.Path)} � {result.Claims.Count} fields extracted ({result.DetectedType})",
             }, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -883,7 +883,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             ActionType = "ConfidenceScored",
             EntityId = assetId,
-            Detail = $"Confidence: {scored.OverallConfidence:P0} — Score: {scored.OverallConfidence:F2}",
+            Detail = $"Confidence: {scored.OverallConfidence:P0} � Score: {scored.OverallConfidence:F2}",
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
@@ -916,7 +916,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             confidenceScore: scored.OverallConfidence,
             detectedTitle: detectedTitle,
             ct: ct).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed � continuing"); }
 
         // Phase 9: persist canonical values (current winning metadata for this asset).
         // Phase B: also persist the IsConflicted flag from the scoring engine so
@@ -960,7 +960,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                 if (matchingCandidate is not null)
                 {
-                    // The processor agrees with the folder's configured type(s) — boost confidence.
+                    // The processor agrees with the folder's configured type(s) � boost confidence.
                     // Must exceed the top candidate's confidence to win the sort, and be at least 0.98
                     // (library folder config is authoritative when a matching type exists).
                     var topConfidence = candidateList.Max(c => c.Confidence);
@@ -984,7 +984,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 else if (folderTypes.Count == 1)
                 {
                     // Processor did not produce a candidate matching the folder's single type.
-                    // Override to the folder's type at high confidence — the folder config is authoritative.
+                    // Override to the folder's type at high confidence � the folder config is authoritative.
                     candidateList.Insert(0, new Domain.Models.MediaTypeCandidate
                     {
                         Type       = folderTypes[0],
@@ -1022,7 +1022,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     // Processor top candidate is not in the folder's multi-type list.
                     // Keep processor result but log the mismatch for diagnostics.
                     _logger.LogInformation(
-                        "Library folder prior: processor top {ProcessorTop} not in folder types [{Types}] for {Path} — no override applied",
+                        "Library folder prior: processor top {ProcessorTop} not in folder types [{Types}] for {Path} � no override applied",
                         candidateList[0].Type, string.Join(", ", folderTypes), candidate.Path);
                 }
             }
@@ -1032,7 +1032,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // typed subfolder), ambiguous extensions cannot be reliably classified.
         // Cap all candidate confidences at 0.40 so the file is always sent to review,
         // giving the user the chance to confirm the media type.
-        // Unambiguous extensions (.epub, .cbz, .cbr, .m4b, .pdf) are excluded — they
+        // Unambiguous extensions (.epub, .cbz, .cbr, .m4b, .pdf) are excluded � they
         // can only ever be one media type and do not need the cap.
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory))
         {
@@ -1061,7 +1061,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                             {
                                 Type       = candidateList[i].Type,
                                 Confidence = RootWatchFolderMaxConfidence,
-                                Reason     = $"Confidence capped at {RootWatchFolderMaxConfidence} — root watch folder drop (ambiguous extension {ext})",
+                                Reason     = $"Confidence capped at {RootWatchFolderMaxConfidence} � root watch folder drop (ambiguous extension {ext})",
                             };
                         }
                     }
@@ -1071,7 +1071,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     candidate.CategoryConfidencePrior = 0.0;
 
                     _logger.LogInformation(
-                        "Root watch folder drop detected for {Path} (ext: {Ext}) — confidence capped at {Cap:P0}, routed to review",
+                        "Root watch folder drop detected for {Path} (ext: {Ext}) � confidence capped at {Cap:P0}, routed to review",
                         candidate.Path, ext, RootWatchFolderMaxConfidence);
                 }
             }
@@ -1080,9 +1080,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Step 6a-AI: Call the AI MediaTypeAdvisor when the processor could not determine
         // the media type. This covers two cases:
         //   1. Processor returned Unknown + empty candidates (ambiguous format like MP3, MP4,
-        //      M4A, MKV, AVI — the processor no longer runs heuristics for these).
+        //      M4A, MKV, AVI � the processor no longer runs heuristics for these).
         //   2. Processor returned candidates but top confidence is below the auto-assign
-        //      threshold (legacy path — shouldn't occur after heuristic removal, kept for safety).
+        //      threshold (legacy path � shouldn't occur after heuristic removal, kept for safety).
         bool advisorNeeded = result.DetectedType == MediaType.Unknown && candidateList.Count == 0;
         bool advisorLowConfidence = candidateList.Count > 0 && candidateList[0].Confidence < _options.MediaTypeAutoAssignThreshold;
 
@@ -1116,7 +1116,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 {
                     if (advisorNeeded)
                     {
-                        // No processor candidates at all — AI result is the only classification.
+                        // No processor candidates at all � AI result is the only classification.
                         candidateList.Insert(0, aiCandidate);
                         _logger.LogInformation(
                             "MediaTypeAdvisor classified {Path} as {Type} ({Conf:F2}) (processor returned Unknown)",
@@ -1124,7 +1124,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     }
                     else if (aiCandidate.Confidence > candidateList[0].Confidence)
                     {
-                        // AI is more confident than the processor's top candidate — promote it.
+                        // AI is more confident than the processor's top candidate � promote it.
                         candidateList.Insert(0, aiCandidate);
                         _logger.LogInformation(
                             "MediaTypeAdvisor classified {Path} as {Type} ({Conf:F2}), overriding processor top {OldType} ({OldConf:F2})",
@@ -1135,8 +1135,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
             catch (Exception ex)
             {
-                // AI classification failure is non-fatal — processor candidates stand (or remain empty).
-                _logger.LogWarning(ex, "MediaTypeAdvisor failed for {Path} — using processor classification", candidate.Path);
+                // AI classification failure is non-fatal � processor candidates stand (or remain empty).
+                _logger.LogWarning(ex, "MediaTypeAdvisor failed for {Path} � using processor classification", candidate.Path);
             }
         }
 
@@ -1146,7 +1146,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             if (topCandidate.Confidence >= _options.MediaTypeAutoAssignThreshold)
             {
-                // High confidence — accept automatically.
+                // High confidence � accept automatically.
                 resolvedMediaType = topCandidate.Type;
                 _logger.LogInformation(
                     "Media type auto-assigned: {Type} ({Confidence:P0}) for {Path}",
@@ -1154,22 +1154,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
             else if (topCandidate.Confidence >= _options.MediaTypeReviewThreshold)
             {
-                // Medium confidence — accept provisionally, flag for review.
+                // Medium confidence � accept provisionally, flag for review.
                 resolvedMediaType     = topCandidate.Type;
                 mediaTypeIsConflicted = true;
                 mediaTypeNeedsReview  = true;
                 _logger.LogInformation(
-                    "Media type provisional: {Type} ({Confidence:P0}) for {Path} — flagged for review",
+                    "Media type provisional: {Type} ({Confidence:P0}) for {Path} � flagged for review",
                     topCandidate.Type, topCandidate.Confidence, candidate.Path);
             }
             else
             {
-                // Low confidence — assign Unknown, flag for review.
+                // Low confidence � assign Unknown, flag for review.
                 resolvedMediaType     = MediaType.Unknown;
                 mediaTypeIsConflicted = true;
                 mediaTypeNeedsReview  = true;
                 _logger.LogWarning(
-                    "Media type ambiguous ({Confidence:P0}) for {Path} — assigned Unknown, flagged for review",
+                    "Media type ambiguous ({Confidence:P0}) for {Path} � assigned Unknown, flagged for review",
                     topCandidate.Confidence, candidate.Path);
             }
         }
@@ -1219,7 +1219,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
         // Create MetadataConflict review item when any canonical value has IsConflicted=true.
-        // Conflicts don't block organization — the file proceeds with the best-guess value.
+        // Conflicts don't block organization � the file proceeds with the best-guess value.
         var conflictedFields = canonicals
             .Where(c => c.IsConflicted && c.Key != MetadataFieldConstants.MediaTypeField) // media_type handled separately
             .Select(c => c.Key)
@@ -1276,7 +1276,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     assetId,
                     ReviewTrigger.RootWatchFolder,
                     candidateList.Count > 0 ? candidateList[0].Confidence : 0.0,
-                    $"File dropped into root watch folder — please confirm the media type (extension: {ext})",
+                    $"File dropped into root watch folder � please confirm the media type (extension: {ext})",
                     ct, ingestionRunId).ConfigureAwait(false);
             }
         }
@@ -1285,7 +1285,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         candidate.Metadata          = BuildMetadataDict(scored);
         candidate.DetectedMediaType = resolvedMediaType;
 
-        // Step 9b: create Collection → Work → Edition chain so the FK on media_assets
+        // Step 9b: create Collection ? Work ? Edition chain so the FK on media_assets
         // can be satisfied.  The factory reuses an existing Collection when a matching
         // display name is found; otherwise it creates a fresh chain.
         var editionId = await _chainFactory.EnsureEntityChainAsync(
@@ -1352,10 +1352,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             entity_id   = assetId.ToString(),
         });
 
-        // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
+        // Demoted from activity ledger to debug log (Phase 5 � activity consolidation).
         // The consolidated MediaAdded event is created at the end of the hydration pipeline.
         _logger.LogDebug(
-            "FileDetected — \"{Title}\"{Author} ({Confidence:P0})",
+            "FileDetected � \"{Title}\"{Author} ({Confidence:P0})",
             resolvedTitle, authorPart, scored.OverallConfidence);
 
         await SafePublishAsync(SignalREvents.IngestionCompleted, new IngestionCompletedEvent(
@@ -1378,11 +1378,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "IngestionProgress publish failed — pipeline continues");
+                _logger.LogDebug(ex, "IngestionProgress publish failed � pipeline continues");
             }
         }
 
-        // Foreign-language metadata check removed — handled by LanguageMismatch trigger
+        // Foreign-language metadata check removed � handled by LanguageMismatch trigger
         // in HydrationPipelineService (runs after Stage 1 with more context).
 
         // Step 11: gate evaluation and identity job creation.
@@ -1406,7 +1406,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             mediaTypeNeedsReview,
             gateRelativePath);
 
-        // Side-by-side-with-Plex plan §C — skip the staging move when the file
+        // Side-by-side-with-Plex plan �C � skip the staging move when the file
         // is already at the path Tuvima would have organised it to. This is how
         // files arriving from an existing Plex / Jellyfin / ABS tree flow through
         // the pipeline without being disturbed: they pass through hydration in
@@ -1428,7 +1428,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 ct, ingestionRunId).ConfigureAwait(false);
 
             _logger.LogInformation(
-                "Review: asset {AssetId} queued for review — trigger={Trigger}",
+                "Review: asset {AssetId} queued for review � trigger={Trigger}",
                 assetId, gateResult.ReviewTrigger);
 
             // History: review created.
@@ -1444,10 +1444,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             try { await _ingestionLog.UpdateStatusAsync(logEntryId, "needs_review",
                 mediaType: resolvedMediaType.ToString(),
                 ct: ct).ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed � continuing"); }
         }
 
-        // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
+        // Phase 9?Pipeline: enqueue non-blocking three-stage hydration pipeline.
         // IMPORTANT: placed AFTER the organization gate so that any LowConfidence review
         // item created above already exists in the database before the hydration pipeline's
         // TryAutoResolveAndOrganizeAsync runs. This prevents a race condition where the
@@ -1463,7 +1463,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }, ct).ConfigureAwait(false);
 
         _logger.LogInformation(
-            "Identity job created for [{MediaType}] '{Title}'{AuthorPart} — queued for retail match ({AssetId12})",
+            "Identity job created for [{MediaType}] '{Title}'{AuthorPart} � queued for retail match ({AssetId12})",
             resolvedMediaType,
             resolvedTitle,
             string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}",
@@ -1639,7 +1639,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     IngestionRunId = ingestionRunId,
                 }, ct).ConfigureAwait(false);
 
-                // ── Timeline: sync writeback event ───────────────────────────
+                // -- Timeline: sync writeback event ---------------------------
                 try
                 {
                     var writebackEvent = new EntityEvent
@@ -1676,7 +1676,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
         }
 
-        // ── Phase 2 activity: FileIngested — fires after the full pipeline ──
+        // -- Phase 2 activity: FileIngested � fires after the full pipeline --
         // Summarises the outcome: organized, staged, or awaiting enrichment.
         // Rebuild richJson to include organization destination (PathUpdated is folded in).
         string? organizedTo = fileIsInLibrary ? currentPath
@@ -1738,8 +1738,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _                   => "matched from filename",
         };
         string outcome = fileIsInLibrary
-            ? $"Ingested — \"{resolvedTitle}\" ({matchLabel}, {scored.OverallConfidence:P0}) → Library"
-            : $"Ingested — \"{resolvedTitle}\" ({matchLabel}, {scored.OverallConfidence:P0}) — awaiting enrichment";
+            ? $"Ingested � \"{resolvedTitle}\" ({matchLabel}, {scored.OverallConfidence:P0}) ? Library"
+            : $"Ingested � \"{resolvedTitle}\" ({matchLabel}, {scored.OverallConfidence:P0}) � awaiting enrichment";
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
@@ -1752,7 +1752,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
-        // ── Performance log ──────────────────────────────────────────────────
+        // -- Performance log --------------------------------------------------
         pipelineStopwatch.Stop();
         _logger.LogInformation(
             "[PERF] {FileName}: Total={TotalMs}ms Hash={HashMs}ms (type={MediaType}, confidence={Confidence:P0})",
@@ -1784,7 +1784,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (asset is null)
         {
             _logger.LogDebug(
-                "No asset record found for deleted path {Path} — nothing to orphan.",
+                "No asset record found for deleted path {Path} � nothing to orphan.",
                 candidate.Path);
             return;
         }
@@ -1813,7 +1813,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     {
         var ops = new List<PendingOperation>();
 
-        // Hash (read-only — no side effects).
+        // Hash (read-only � no side effects).
         var hash = await _hasher.ComputeAsync(filePath, ct).ConfigureAwait(false);
 
         // Duplicate check.
@@ -1934,7 +1934,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Files whose path is already tracked are skipped without being
         // enqueued, preventing a spurious batch from being created on restart
         // for files that were processed in a previous session.
-        // Note: files that moved after processing (e.g. watch folder → staging)
+        // Note: files that moved after processing (e.g. watch folder ? staging)
         // will not be caught by this path check, but the hash-based duplicate
         // check inside ProcessCandidateAsync (step 5) serves as the safety net.
         // Normalize all stored paths to full, canonical forms so the comparison
@@ -1947,12 +1947,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             foreach (var p in rawPaths)
             {
                 try { knownPaths.Add(Path.GetFullPath(p)); }
-                catch { /* malformed path — ignore */ }
+                catch { /* malformed path � ignore */ }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not load known file paths from database — skipping pre-filter");
+            _logger.LogWarning(ex, "Could not load known file paths from database � skipping pre-filter");
             knownPaths = [];
         }
 
@@ -1965,7 +1965,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             foreach (var filePath in Directory.EnumerateFiles(directory, "*.*", searchOption))
             {
-                // Skip files inside the .data directory — staging, images, and database
+                // Skip files inside the .data directory � staging, images, and database
                 // live here and must not be re-ingested automatically.
                 if (filePath.Contains(Path.DirectorySeparatorChar + ".data" + Path.DirectorySeparatorChar,
                         StringComparison.OrdinalIgnoreCase)
@@ -2034,14 +2034,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Batch record creation failed for scan batchId {BatchId} — pipeline continues", batchId);
+                _logger.LogDebug(ex, "Batch record creation failed for scan batchId {BatchId} � pipeline continues", batchId);
             }
         }
 
     }
 
     // =========================================================================
-    // Polling fallback — safety net when FSW misses events
+    // Polling fallback � safety net when FSW misses events
     // =========================================================================
 
     /// <summary>
@@ -2205,7 +2205,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             return;
         }
 
-        // Load existing canonical values — these contain the resolved metadata
+        // Load existing canonical values � these contain the resolved metadata
         // (possibly enriched by external providers since the initial scan).
         var canonicals = await _canonicalRepo.GetByEntityAsync(existing.Id, ct)
                                              .ConfigureAwait(false);
@@ -2288,7 +2288,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (relative.StartsWith("Other", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogWarning(
-                "Re-organization blocked for {Hash} — resolved category is 'Other'. " +
+                "Re-organization blocked for {Hash} � resolved category is 'Other'. " +
                 "Moving to staging and creating review item.",
                 existing.ContentHash[..12]);
 
@@ -2328,7 +2328,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                             .ConfigureAwait(false);
 
             _logger.LogInformation(
-                "Staged existing asset {Hash} → {Dest} ({Subcategory})",
+                "Staged existing asset {Hash} ? {Dest} ({Subcategory})",
                 existing.ContentHash[..12], staged, subcategory);
 
             // Re-enqueue hydration so AutoOrganizeService can promote after enrichment.
@@ -2359,7 +2359,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// processing and are moved directly to the library by AutoOrganizeService after
     /// Stage 1 retail match produces a resolved title.
     /// This method is retained as a no-op so existing call sites in the re-organize
-    /// path compile without change — all callers already handle the null return.
+    /// path compile without change � all callers already handle the null return.
     /// </summary>
     private static Task<string?> MoveToStagingAsync(
         string currentPath, string subcategory, CancellationToken ct,
@@ -2381,7 +2381,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         MediaAsset staged, CancellationToken ct)
     {
         _logger.LogInformation(
-            "Cleaning staged asset {Id} — file missing at {Path}",
+            "Cleaning staged asset {Id} � file missing at {Path}",
             staged.Id, staged.FilePathRoot);
 
         // 1. Clean filesystem artifacts from the edition folder.
@@ -2392,7 +2392,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             TryDeleteEmptyDirectory(editionFolder);
         }
 
-        // 2. Delete DB records: claims → canonical values → asset.
+        // 2. Delete DB records: claims ? canonical values ? asset.
         await _claimRepo.DeleteByEntityAsync(staged.Id, ct).ConfigureAwait(false);
         await _canonicalRepo.DeleteByEntityAsync(staged.Id, ct).ConfigureAwait(false);
         await _assetRepo.DeleteAsync(staged.Id, ct).ConfigureAwait(false);
@@ -2454,12 +2454,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             {
                 var dirNorm = dir.FullName.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-                // Stop when we reach the watch root — never delete it.
+                // Stop when we reach the watch root � never delete it.
                 if (string.Equals(dirNorm, stopNorm, StringComparison.OrdinalIgnoreCase))
                     break;
 
                 if (dir.EnumerateFileSystemInfos().Any())
-                    break; // Not empty — stop climbing.
+                    break; // Not empty � stop climbing.
 
                 var parent = dir.Parent;
                 dir.Delete();
@@ -2468,7 +2468,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch
         {
-            // Best-effort cleanup — if the directory is locked or inaccessible, skip.
+            // Best-effort cleanup � if the directory is locked or inaccessible, skip.
         }
     }
 
@@ -2553,7 +2553,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                                   && r.Trigger == trigger))
             {
                 _logger.LogDebug(
-                    "Review item '{Trigger}' already exists for entity {Id} — skipping duplicate.",
+                    "Review item '{Trigger}' already exists for entity {Id} � skipping duplicate.",
                     trigger, entityId);
                 return;
             }
@@ -2577,7 +2577,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 ActionType = Domain.Enums.SystemActionType.ReviewItemCreated,
                 EntityId   = entityId,
                 EntityType = "MediaAsset",
-                Detail     = $"Sent to review: {trigger} — {detail}",
+                Detail     = $"Sent to review: {trigger} � {detail}",
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
@@ -2590,7 +2590,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }, ct).ConfigureAwait(false);
 
             _logger.LogInformation(
-                "Review item created for entity {Id}: {Trigger} — {Detail}",
+                "Review item created for entity {Id}: {Trigger} � {Detail}",
                 entityId, trigger, detail);
         }
         catch (Exception ex)
@@ -2622,7 +2622,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                                   && r.Trigger == ReviewTrigger.AmbiguousMediaType))
             {
                 _logger.LogDebug(
-                    "AmbiguousMediaType review item already exists for entity {Id} — skipping.",
+                    "AmbiguousMediaType review item already exists for entity {Id} � skipping.",
                     entityId);
                 return;
             }
@@ -2672,7 +2672,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// <summary>
     /// Creates a <see cref="ReviewTrigger.MetadataConflict"/> review queue entry
     /// when the scoring engine detects conflicting canonical values. The file still
-    /// organises with the best guess — conflicts don't block the confidence gate.
+    /// organises with the best guess � conflicts don't block the confidence gate.
     /// </summary>
     private async Task CreateMetadataConflictReviewItemAsync(
         Guid entityId,
@@ -2690,7 +2690,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                                   && r.Trigger == ReviewTrigger.MetadataConflict))
             {
                 _logger.LogDebug(
-                    "MetadataConflict review item already exists for entity {Id} — skipping.",
+                    "MetadataConflict review item already exists for entity {Id} � skipping.",
                     entityId);
                 return;
             }
@@ -2751,7 +2751,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Event publish failed for '{Event}' — pipeline continues", eventName);
+            _logger.LogDebug(ex, "Event publish failed for '{Event}' � pipeline continues", eventName);
         }
     }
 
@@ -2763,12 +2763,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// </summary>
     private bool BufferFswEvent(FileEvent evt)
     {
-        // Skip non-media files (images, subtitles, metadata sidecars) — same
+        // Skip non-media files (images, subtitles, metadata sidecars) � same
         // filter applied by ScanExistingFiles and PollWatchDirectoryAsync.
         if (NonMediaExtensions.Contains(Path.GetExtension(evt.Path)))
             return false;
 
-        // Events from ScanExistingFiles already have a batch — pass through.
+        // Events from ScanExistingFiles already have a batch � pass through.
         if (evt.BatchId is not null)
         {
             _debounce.Enqueue(evt);
@@ -2857,7 +2857,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Batch record creation failed for FSW flush batchId {BatchId} — pipeline continues", batchId);
+            _logger.LogDebug(ex, "Batch record creation failed for FSW flush batchId {BatchId} � pipeline continues", batchId);
         }
 
         // Stamp and enqueue all events.
@@ -2882,14 +2882,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Activity log write failed for action '{Action}' — pipeline continues",
+            _logger.LogDebug(ex, "Activity log write failed for action '{Action}' � pipeline continues",
                 entry.ActionType);
         }
     }
 
     /// <summary>
     /// Atomically increments one counter column on the given batch record.
-    /// Best-effort — never throws; a counter miss must not abort the pipeline.
+    /// Best-effort � never throws; a counter miss must not abort the pipeline.
     /// </summary>
     private async Task SafeIncrementBatchCounterAsync(
         Guid batchId,
@@ -2902,7 +2902,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Batch counter increment failed for batch {BatchId} column {Column} — pipeline continues",
+            _logger.LogDebug(ex, "Batch counter increment failed for batch {BatchId} column {Column} � pipeline continues",
                 batchId, column);
         }
     }

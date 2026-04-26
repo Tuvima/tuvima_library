@@ -1401,7 +1401,7 @@ public static class DevSeedEndpoints
             next_steps = new[]
             {
                 "Watch ingestion progress: GET /ingestion/batches",
-                    "Check library items: GET /library/items?page=1&pageSize=50",
+                    "Check libraryItems: GET /library/items?page=1&pageSize=50",
                 "Check review queue: GET /review/pending",
                 "Check activity: GET /activity/recent",
                 "Monitor SignalR events: MediaAdded, MetadataHarvested, ReviewItemCreated"

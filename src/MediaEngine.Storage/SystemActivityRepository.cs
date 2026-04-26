@@ -168,4 +168,33 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
 
         return Task.FromResult<IReadOnlyList<SystemActivityEntry>>(results);
     }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<SystemActivityEntry>> GetRecentByProfileAsync(
+        Guid profileId,
+        int limit = 50,
+        CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        var results = conn.Query<SystemActivityEntry>("""
+            SELECT id             AS Id,
+                   occurred_at    AS OccurredAt,
+                   action_type    AS ActionType,
+                   collection_name       AS CollectionName,
+                   entity_id      AS EntityId,
+                   entity_type    AS EntityType,
+                   profile_id     AS ProfileId,
+                   changes_json   AS ChangesJson,
+                   detail         AS Detail,
+                   ingestion_run_id AS IngestionRunId
+            FROM   system_activity
+            WHERE  profile_id = @profileId
+            ORDER BY id DESC
+            LIMIT  @limit;
+            """,
+            new { profileId = profileId.ToString(), limit })
+            .AsList();
+
+        return Task.FromResult<IReadOnlyList<SystemActivityEntry>>(results);
+    }
 }

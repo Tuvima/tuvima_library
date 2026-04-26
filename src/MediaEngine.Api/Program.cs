@@ -1,4 +1,4 @@
-﻿using System.Threading.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Realtime;
@@ -42,7 +42,7 @@ using Tuvima.Wikidata.AspNetCore;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 ConfigurationManager config  = builder.Configuration;
 
-// ── Serilog ──────────────────────────────────────────────────────────────────
+// -- Serilog ------------------------------------------------------------------
 // Structured logging with rolling file output for headless Engine operation.
 // Console output preserved for Docker / development.  Rolling files auto-delete
 // after the configured retention period (default: 14 days).
@@ -59,12 +59,12 @@ builder.Host.UseSerilog((context, services, loggerConfig) => loggerConfig
         rollOnFileSizeLimit: true,
         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}{NewLine}  {Message:lj}{NewLine}{Exception}"));
 
-// ── Windows Service hosting ────────────────────────────────────────────────────
+// -- Windows Service hosting ----------------------------------------------------
 // Integrates with the Windows Service Control Manager when the Engine is installed
 // as a Windows service via the .exe installer.  Completely ignored on Linux / Docker.
 builder.Host.UseWindowsService(options => options.ServiceName = "Tuvima Library");
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
+// -- CORS ----------------------------------------------------------------------
 string[] allowedOrigins = config
     .GetSection("MediaEngine:Cors:AllowedOrigins")
     .Get<string[]>() ?? [];
@@ -88,7 +88,7 @@ builder.Services.AddCors(options =>
               .AllowCredentials()); // Required for SignalR WebSocket/SSE transports
 });
 
-// ── SignalR ───────────────────────────────────────────────────────────────────
+// -- SignalR -------------------------------------------------------------------
 builder.Services.AddSignalR(options =>
 {
     options.AddFilter<IntercomAuthFilter>();
@@ -97,23 +97,23 @@ builder.Services.AddSingleton<IEventPublisher, SignalREventPublisher>();
 
 // Rate limiting is registered below, after the config loader is available.
 
-// ── Data Protection / Secret Store ────────────────────────────────────────────
+// -- Data Protection / Secret Store --------------------------------------------
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<ISecretStore, DataProtectionSecretStore>();
 
-// ── OpenAPI / Swagger ─────────────────────────────────────────────────────────
+// -- OpenAPI / Swagger ---------------------------------------------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "Tuvima Library API", Version = "v1" });
 });
 
-// ── Storage / Database ────────────────────────────────────────────────────────
-// Register Dapper type handlers for Guid ↔ string and DateTimeOffset ↔ ISO-8601
+// -- Storage / Database --------------------------------------------------------
+// Register Dapper type handlers for Guid ? string and DateTimeOffset ? ISO-8601
 // conversions.  Must run before any Dapper queries execute.
 DapperConfiguration.Configure();
 
-// TUVIMA_DB_PATH overrides the config value — used by Docker and the installer
+// TUVIMA_DB_PATH overrides the config value � used by Docker and the installer
 // to pin the database to a persistent volume outside the container image.
 // When a library_root is configured, the default resolves to {LibraryRoot}/.data/database/library.db.
 string dbPath;
@@ -140,7 +140,7 @@ string dbPath;
                 if (doc.RootElement.TryGetProperty("library_root", out var lr))
                     earlyLibraryRoot = lr.GetString();
             }
-            catch { /* non-fatal — fall back to default */ }
+            catch { /* non-fatal � fall back to default */ }
         }
         // Also check environment variable override.
         var envLibRoot = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
@@ -166,11 +166,11 @@ builder.Services.AddSingleton<IDatabaseConnection>(sp =>
     return db;
 });
 
-// ── Configuration Directory Loader ────────────────────────────────────────────
+// -- Configuration Directory Loader --------------------------------------------
 // Reads individual config files from config/ directory. Auto-migrates from
 // legacy manifest on first run. Registered as both IStorageManifest
 // (backward compat) and IConfigurationLoader (granular access).
-// TUVIMA_CONFIG_DIR overrides the config directory — used by Docker to point
+// TUVIMA_CONFIG_DIR overrides the config directory � used by Docker to point
 // to a mounted volume so configuration survives container image updates.
 string configDir     = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
                     ?? config["MediaEngine:ConfigDirectory"]
@@ -180,7 +180,7 @@ var    configLoader  = new ConfigurationDirectoryLoader(configDir, manifestPath)
 builder.Services.AddSingleton<IStorageManifest>(configLoader);
 builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 
-// ── Rate Limiting ─────────────────────────────────────────────────────────────
+// -- Rate Limiting -------------------------------------------------------------
 // Policy parameters are loaded from config/core.json (rate_limiting section)
 // so they can be tuned without recompiling.  Defaults match the previously
 // hardcoded values: key_generation=5/min, streaming=100/min, general=60/min.
@@ -190,7 +190,7 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-        // Policy: key_generation — strict per-IP limit for API key creation.
+        // Policy: key_generation � strict per-IP limit for API key creation.
         options.AddPolicy("key_generation", context =>
             RateLimitPartition.GetFixedWindowLimiter(
                 partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -200,7 +200,7 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
                     Window      = TimeSpan.FromMinutes(rateLimits.KeyGeneration.WindowMinutes),
                 }));
 
-        // Policy: streaming — higher per-IP limit for file streaming/media playback.
+        // Policy: streaming � higher per-IP limit for file streaming/media playback.
         options.AddPolicy("streaming", context =>
             RateLimitPartition.GetFixedWindowLimiter(
                 partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -210,7 +210,7 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
                     Window      = TimeSpan.FromMinutes(rateLimits.Streaming.WindowMinutes),
                 }));
 
-        // Policy: general — default per-IP limit for all other endpoints.
+        // Policy: general � default per-IP limit for all other endpoints.
         options.AddPolicy("general", context =>
             RateLimitPartition.GetFixedWindowLimiter(
                 partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -226,20 +226,20 @@ builder.Services.AddSingleton<ITransactionJournal, TransactionJournal>();
 builder.Services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
 builder.Services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>();
 // Global Tuvima data folder (people / universes / characters / fictional / hash cache).
-// Resolution order: TUVIMA_DATA_DIR env var → platform default. The core.json
+// Resolution order: TUVIMA_DATA_DIR env var ? platform default. The core.json
 // data_directory override is wired in a later slice of the side-by-side-with-Plex plan.
 builder.Services.AddSingleton<MediaEngine.Domain.Services.TuvimaDataPaths>(
     _ => new MediaEngine.Domain.Services.TuvimaDataPaths(configuredPath: null));
-// Multi-path library resolver — longest-prefix match across all configured
+// Multi-path library resolver � longest-prefix match across all configured
 // SourcePaths so a file arriving from any drive in a multi-path library
-// is attributed to the same logical library. Plan §F.
+// is attributed to the same logical library. Plan �F.
 builder.Services.AddSingleton<
     MediaEngine.Ingestion.Contracts.ILibraryFolderResolver,
     MediaEngine.Ingestion.Services.LibraryFolderResolver>();
 
-// InitialSweepService — hashes every media file under every configured source
+// InitialSweepService � hashes every media file under every configured source
 // path and persists the result in file_hash_cache. On-demand (not started at
-// boot) so the user can trigger it from the Libraries settings tab. Plan §M.
+// boot) so the user can trigger it from the Libraries settings tab. Plan �M.
 builder.Services.AddSingleton<
     MediaEngine.Ingestion.Services.IInitialSweepService,
     MediaEngine.Ingestion.Services.InitialSweepService>();
@@ -254,26 +254,26 @@ builder.Services.AddSingleton<IProfileService, ProfileService>();
 builder.Services.AddSingleton<IProfileExternalLoginRepository, ProfileExternalLoginRepository>();
 builder.Services.AddSingleton<IProfileExternalLoginService, ProfileExternalLoginService>();
 
-// ── FFmpeg Service ────────────────────────────────────────────────────────────
-// Auto-detects ffmpeg/ffprobe from tools/ffmpeg/ → PATH → config override.
-// Logs a warning (not error) when binaries are absent — transcoding is optional.
+// -- FFmpeg Service ------------------------------------------------------------
+// Auto-detects ffmpeg/ffprobe from tools/ffmpeg/ ? PATH ? config override.
+// Logs a warning (not error) when binaries are absent � transcoding is optional.
 builder.Services.AddSingleton<IFFmpegService, FFmpegService>();
 builder.Services.AddSingleton<PlaybackStateRepository>();
 builder.Services.AddSingleton<PlaybackCapabilitiesService>();
 builder.Services.AddHostedService<EncodeQueueService>();
 
-// ── Processors ────────────────────────────────────────────────────────────────
+// -- Processors ----------------------------------------------------------------
 builder.Services.AddSingleton<IVideoMetadataExtractor, FFmpegVideoMetadataExtractor>();
 
-builder.Services.AddSingleton<IProcessorRegistry>(sp =>
+builder.Services.AddSingleton<IProcessorRouter>(sp =>
 {
-    var registry = new MediaProcessorRegistry();
-    registry.Register(new EpubProcessor());
-    registry.Register(new AudioProcessor());
-    registry.Register(new VideoProcessor(sp.GetRequiredService<IVideoMetadataExtractor>()));
-    registry.Register(new ComicProcessor());
-    registry.Register(new GenericFileProcessor());
-    return registry;
+    var libraryItem = new MediaProcessorRouter();
+    libraryItem.Register(new EpubProcessor());
+    libraryItem.Register(new AudioProcessor());
+    libraryItem.Register(new VideoProcessor(sp.GetRequiredService<IVideoMetadataExtractor>()));
+    libraryItem.Register(new ComicProcessor());
+    libraryItem.Register(new GenericFileProcessor());
+    return libraryItem;
 });
 
 builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
@@ -285,7 +285,7 @@ builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayCardBuilder>(
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayShelfBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayComposerService>();
 
-// ── Intelligence ──────────────────────────────────────────────────────────────
+// -- Intelligence --------------------------------------------------------------
 builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
 builder.Services.AddSingleton<ExactMatchStrategy>();
 builder.Services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
@@ -314,7 +314,7 @@ builder.Services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 builder.Services.AddSingleton<IRetailMatchScoringService, RetailMatchScoringService>();
 builder.Services.AddSingleton<ILocalMatchService, LocalMatchService>();
 
-// Media-type identity strategies — one per supported type.
+// Media-type identity strategies � one per supported type.
 // IdentityDecisionService uses all six to route accept/review/retry verdicts
 // without any threshold logic leaking into the pipeline workers.
 builder.Services.AddSingleton<IMediaTypeIdentityStrategy, BookIdentityStrategy>();
@@ -338,21 +338,21 @@ builder.Services.AddSingleton<IParentCollectionResolver>(sp =>
         sp.GetRequiredService<ICollectionRepository>(),
         sp.GetRequiredService<ILogger<ParentCollectionResolver>>()));
 
-// ── Ingestion (for POST /ingestion/scan) ─────────────────────────────────────
+// -- Ingestion (for POST /ingestion/scan) -------------------------------------
 builder.Services.Configure<IngestionOptions>(config.GetSection(IngestionOptions.SectionName));
 
 // PostConfigure reads saved folder paths from the core configuration and
 // overrides the IngestionOptions values bound from appsettings.json.  This means
 // a path saved via PUT /settings/folders survives an Engine restart without
-// touching appsettings.json — the config directory is the persistent source of truth.
+// touching appsettings.json � the config directory is the persistent source of truth.
 builder.Services.PostConfigure<IngestionOptions>(opts =>
 {
-    // ── Environment variable overrides (highest priority) ─────────────────────
+    // -- Environment variable overrides (highest priority) ---------------------
     // These allow Docker / Unraid users to set paths via container environment
     // variables without ever editing a config file.
-    //   TUVIMA_WATCH_FOLDER   → where to pick up new files
-    //   TUVIMA_LIBRARY_ROOT   → where organised files are stored
-    //   Note: staging area is always {LibraryRoot}/.data/staging/ — not independently configurable
+    //   TUVIMA_WATCH_FOLDER   ? where to pick up new files
+    //   TUVIMA_LIBRARY_ROOT   ? where organised files are stored
+    //   Note: staging area is always {LibraryRoot}/.data/staging/ � not independently configurable
     {
         string? envWatch   = Environment.GetEnvironmentVariable("TUVIMA_WATCH_FOLDER");
         string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
@@ -372,7 +372,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     }
     catch (Exception ex)
     {
-        Console.Error.WriteLine($"[WARN] Failed to load core configuration for ingestion options — using defaults: {ex.Message}");
+        Console.Error.WriteLine($"[WARN] Failed to load core configuration for ingestion options � using defaults: {ex.Message}");
     }
 
     // Overlay disambiguation thresholds from config/disambiguation.json.
@@ -384,12 +384,12 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     }
     catch
     {
-        // First run — defaults from IngestionOptions stand.
+        // First run � defaults from IngestionOptions stand.
     }
 
     // Load library folder priors from config/libraries.json.
     // These give the ingestion engine a strong media type prior when a file arrives
-    // from a folder whose content category is already known (e.g. Books folder → Audiobook).
+    // from a folder whose content category is already known (e.g. Books folder ? Audiobook).
     try
     {
         var libraries = configLoader.LoadLibraries();
@@ -398,7 +398,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
             {
                 // Build effective source path list: prefer the new `source_paths`
                 // array; fall back to legacy `source_path` for backward compat.
-                // Side-by-side-with-Plex plan §F — multi-path libraries.
+                // Side-by-side-with-Plex plan �F � multi-path libraries.
                 var paths = (l.SourcePaths is { Count: > 0 } ? l.SourcePaths : new List<string>())
                     .Concat(string.IsNullOrWhiteSpace(l.SourcePath) ? Array.Empty<string>() : new[] { l.SourcePath })
                     .Where(p => !string.IsNullOrWhiteSpace(p))
@@ -420,8 +420,8 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
             .Where(e => e.EffectiveSourcePaths.Count > 0 && e.MediaTypes.Count > 0)
             .ToList();
 
-        // Reject overlapping source paths between distinct libraries — loud at
-        // startup is better than silent at first file. Plan §F.
+        // Reject overlapping source paths between distinct libraries � loud at
+        // startup is better than silent at first file. Plan �F.
         try
         {
             MediaEngine.Ingestion.Services.LibraryFolderResolver.ValidateNoOverlap(opts.LibraryFolders);
@@ -434,7 +434,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     }
     catch
     {
-        // No libraries.json or parse failure — library folder priors will not be applied.
+        // No libraries.json or parse failure � library folder priors will not be applied.
     }
 });
 
@@ -466,7 +466,7 @@ try
 }
 catch
 {
-    // No libraries.json or directory creation failed — non-fatal; directories will be created on demand.
+    // No libraries.json or directory creation failed � non-fatal; directories will be created on demand.
 }
 
 // Auto-create the .data/ subdirectories under LibraryRoot at startup.
@@ -488,10 +488,10 @@ try
 }
 catch
 {
-    // LibraryRoot not yet configured or directory creation failed — non-fatal.
+    // LibraryRoot not yet configured or directory creation failed � non-fatal.
 }
 
-// ── Asset Path Service ────────────────────────────────────────────────────────
+// -- Asset Path Service --------------------------------------------------------
 // Policy-driven storage authority for managed assets. The default Hybrid policy
 // keeps manager-owned artwork under {libraryRoot}/.data/assets and leaves
 // playback-facing sidecars local only when explicitly exported.
@@ -505,7 +505,7 @@ builder.Services.AddSingleton(sp =>
     return new MediaEngine.Domain.Services.AssetPathService(libraryRoot, core.StoragePolicy);
 });
 
-// ── Image Path Service ───────────────────────────────────────────────────────
+// -- Image Path Service -------------------------------------------------------
 // Still used for co-located sidecar/export path helpers and non-work imagery.
 builder.Services.AddSingleton(sp =>
 {
@@ -513,7 +513,7 @@ builder.Services.AddSingleton(sp =>
     var libraryRoot = core.LibraryRoot;
     if (string.IsNullOrWhiteSpace(libraryRoot))
     {
-        // LibraryRoot not yet configured (first run) — use a temp sentinel path.
+        // LibraryRoot not yet configured (first run) � use a temp sentinel path.
         // Services that write images guard against this with their own checks.
         libraryRoot = Path.Combine(Path.GetTempPath(), "tuvima_images_unset");
     }
@@ -543,15 +543,15 @@ builder.Services.AddSingleton<IngestionEngine>();
 builder.Services.AddSingleton<IIngestionEngine>(sp => sp.GetRequiredService<IngestionEngine>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<IngestionEngine>());
 
-// ── Folder Health Monitor (Phase 10 — Settings & Management) ─────────────────
+// -- Folder Health Monitor (Phase 10 � Settings & Management) -----------------
 // Periodic background check on Watch Folder + Library Root accessibility.
 // Broadcasts FolderHealthChanged via SignalR when status changes.
 builder.Services.AddHostedService<FolderHealthService>();
 
-// ── External Metadata Providers (Phase 9 — Zero-Key) ─────────────────────────
+// -- External Metadata Providers (Phase 9 � Zero-Key) -------------------------
 // Named HttpClients: lifecycle managed by IHttpClientFactory.
 // Short-lived probe client used by GET /settings/providers to test reachability.
-// 3-second timeout is intentionally tight — the settings page should respond quickly.
+// 3-second timeout is intentionally tight � the settings page should respond quickly.
 builder.Services.AddHttpClient("settings_probe", c =>
 {
     c.Timeout = TimeSpan.FromSeconds(5); // outer cap; each probe uses a 3-second CTS
@@ -588,7 +588,7 @@ builder.Services.AddHttpClient("headshot_download", c =>
 
 // Config-driven providers: scan config/providers/ and register each one.
 // Named HttpClients + ConfigDrivenAdapter instances are created from config.
-// All providers are registered regardless of Enabled state — the pipeline services
+// All providers are registered regardless of Enabled state � the pipeline services
 // check Enabled before using them, but the Settings UI needs adapter access for
 // testing and configuring disabled providers.
 foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders())
@@ -619,7 +619,7 @@ foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders()
             sp.GetRequiredService<IProviderResponseCacheRepository>()));
 }
 
-// Storage repositories (Phase 9 — claim + canonical + person persistence).
+// Storage repositories (Phase 9 � claim + canonical + person persistence).
 builder.Services.AddSingleton<IMetadataClaimRepository,  MetadataClaimRepository>();
 builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();
 builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
@@ -634,10 +634,10 @@ builder.Services.AddSingleton<IQidLabelRepository,            QidLabelRepository
 builder.Services.AddSingleton<IQidLabelResolver,              QidLabelResolver>();
 builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArrayRepository>();
 
-// ── WikidataReconciler — unified Wikidata/Wikipedia API client ────────────────
+// -- WikidataReconciler � unified Wikidata/Wikipedia API client ----------------
 // Provides reconciliation, entity fetching, property extraction, Wikipedia summaries,
-// and image URLs — all with built-in maxlag, retry, and concurrency control.
-// MIT license — Tuvima.Wikidata NuGet package.
+// and image URLs � all with built-in maxlag, retry, and concurrency control.
+// MIT license � Tuvima.Wikidata NuGet package.
 {
     var coreConfig = configLoader.LoadCore();
     var reconcilerOptions = new Tuvima.Wikidata.WikidataReconcilerOptions
@@ -646,7 +646,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         Language  = coreConfig.Language.Metadata,
         // MaxLag: Wikidata's query-service lag frequently exceeds 5s, causing all
         // action=query&list=search calls (including haswbstatement bridge resolution)
-        // to fail silently. Setting to 0 disables the maxlag check — acceptable for
+        // to fail silently. Setting to 0 disables the maxlag check � acceptable for
         // a single-user personal tool making infrequent requests.
         MaxLag    = 0,
         // P279 subclass walking: depth 3 matches our former custom walk. The library's
@@ -656,7 +656,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         // like "Frankenstein" score higher than the formal label.
         IncludeSitelinkLabels = true,
         // Add ISBN properties to the unique ID set so reconciliation scores 100 on exact
-        // ISBN match — replaces our manual +100 ISBN scoring in FilterByMediaTypeAsync.
+        // ISBN match � replaces our manual +100 ISBN scoring in FilterByMediaTypeAsync.
         UniqueIdProperties = new HashSet<string>
         {
             "P213",  // ISNI
@@ -696,7 +696,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         return new Tuvima.Wikidata.WikidataReconciler(httpClient, reconcilerOptions);
     });
 
-    // Sub-service registrations — Tuvima.Wikidata v2.5.0 exposes nine focused
+    // Sub-service registrations � Tuvima.Wikidata v2.5.0 exposes nine focused
     // sub-services on the facade. Registering each as a singleton allows the
     // adapter slimdown phases to inject narrow slices (Stage2Service,
     // PersonsService, AuthorsService, ChildrenService, LabelsService) instead
@@ -717,7 +717,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Stage2);
 }
 
-// ReconciliationAdapter — Wikidata Reconciliation API + Data Extension API.
+// ReconciliationAdapter � Wikidata Reconciliation API + Data Extension API.
 // Registered as both its concrete type and IExternalMetadataProvider so the
 // hydration pipeline can inject the concrete type for direct method calls.
 {
@@ -740,7 +740,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     else
     {
         Console.Error.WriteLine(
-            "[WARN] config/providers/wikidata_reconciliation.json not found — " +
+            "[WARN] config/providers/wikidata_reconciliation.json not found � " +
             "ReconciliationAdapter will not be registered.");
     }
 }
@@ -750,7 +750,7 @@ builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityServi
 builder.Services.AddSingleton<IPersonReconciliationService, PersonReconciliationService>();
 builder.Services.AddSingleton<ICanonDiscrepancyService,   CanonDiscrepancyService>();
 
-// ── Universe graph (fictional entities, relationships, narrative roots) ──────
+// -- Universe graph (fictional entities, relationships, narrative roots) ------
 builder.Services.AddSingleton<IFictionalEntityRepository,      FictionalEntityRepository>();
 builder.Services.AddSingleton<IEntityRelationshipRepository,    EntityRelationshipRepository>();
 builder.Services.AddSingleton<INarrativeRootRepository,         NarrativeRootRepository>();
@@ -764,7 +764,7 @@ builder.Services.AddSingleton<ILoreDeltaService,                LoreDeltaService
 builder.Services.AddSingleton<IEraActorResolverService,         EraActorResolverService>();
 builder.Services.AddSingleton<IImageEnrichmentService,           MediaEngine.Providers.Services.ImageEnrichmentService>();
 
-// ── Hydration pipeline (three-stage orchestrator) + review queue ─────────────
+// -- Hydration pipeline (three-stage orchestrator) + review queue -------------
 builder.Services.AddSingleton<IOrganizationGate,             OrganizationGate>();
 builder.Services.AddSingleton<IAutoOrganizeService,          AutoOrganizeService>();
 builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentRepository>();
@@ -775,7 +775,7 @@ builder.Services.AddSingleton<IEntityTimelineRepository,     EntityTimelineRepos
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
 builder.Services.AddSingleton<IIngestionBatchRepository,     IngestionBatchRepository>();
 builder.Services.AddSingleton<IPendingPersonSignalRepository, PendingPersonSignalRepository>();
-builder.Services.AddSingleton<IRegistryRepository,           RegistryRepository>();
+builder.Services.AddSingleton<ILibraryItemRepository,           LibraryItemRepository>();
 builder.Services.AddSingleton<ISearchIndexRepository,        SearchIndexRepository>();
 builder.Services.AddSingleton<ISearchService,                SearchService>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
@@ -783,7 +783,7 @@ builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderRespons
 builder.Services.AddSingleton<ISearchResultsCacheRepository,     SearchResultsCacheRepository>();
 builder.Services.AddSingleton<IProviderHealthRepository,         ProviderHealthRepository>();
 
-// ── Identity Pipeline (v2 — durable job model) ─────────────────────────
+// -- Identity Pipeline (v2 � durable job model) -------------------------
 builder.Services.AddSingleton<IIdentityJobRepository, IdentityJobRepository>();
 builder.Services.AddSingleton<IRetailCandidateRepository, RetailCandidateRepository>();
 builder.Services.AddSingleton<IWikidataCandidateRepository, WikidataCandidateRepository>();
@@ -812,12 +812,12 @@ builder.Services.AddSingleton<WikidataBridgeWorker>();
 builder.Services.AddSingleton<QuickHydrationWorker>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.PostPipelineService>();
 
-// ── Provider Health Monitor: active probes, recovery flush, SignalR events ────
+// -- Provider Health Monitor: active probes, recovery flush, SignalR events ----
 builder.Services.AddSingleton<ProviderHealthMonitorService>();
 builder.Services.AddSingleton<IProviderHealthMonitor>(sp => sp.GetRequiredService<ProviderHealthMonitorService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderHealthMonitorService>());
 
-// ── Great Inhale scanner ──────────────────────────────────────────────────────
+// -- Great Inhale scanner ------------------------------------------------------
 builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 
 // -- EPUB reader content service (chapter serving, TOC, search) ---------------
@@ -831,7 +831,7 @@ builder.Services.AddSingleton<IAlignmentJobRepository, AlignmentJobRepository>()
 builder.Services.AddSingleton<IWhisperSyncService, WhisperSyncService>();
 builder.Services.AddHostedService<WhisperSyncBackgroundService>();
 
-// ── Phase 1 (Activity Log): System activity ledger + daily pruning ───────────
+// -- Phase 1 (Activity Log): System activity ledger + daily pruning -----------
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>();
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
@@ -842,21 +842,21 @@ builder.Services.AddHostedService<MissingUniverseSweepService>();
 builder.Services.AddHostedService<HydrationStartupSweepService>();
 builder.Services.AddHostedService<EditionRecheckService>();
 
-// ── Library Reconciliation: periodic scan for missing files ──────────────────
+// -- Library Reconciliation: periodic scan for missing files ------------------
 builder.Services.AddSingleton<LibraryReconciliationService>();
 builder.Services.AddSingleton<IReconciliationService>(sp =>
     sp.GetRequiredService<LibraryReconciliationService>());
 builder.Services.AddHostedService<LibraryReconciliationService>(sp =>
     sp.GetRequiredService<LibraryReconciliationService>());
 
-// ── User State: progress tracking for media playback ─────────────────────────
+// -- User State: progress tracking for media playback -------------------------
 builder.Services.AddSingleton<IUserStateStore, UserStateRepository>();
 
-// ── UI Settings (three-tier cascade: Global → Device → Profile) ──────────────
+// -- UI Settings (three-tier cascade: Global ? Device ? Profile) --------------
 builder.Services.AddSingleton<UISettingsCascadeResolver>();
 builder.Services.AddSingleton<UISettingsCacheRepository>();
 
-// ── AI Services ──────────────────────────────────────────────────────────────
+// -- AI Services --------------------------------------------------------------
 // Load AI settings from config/ai.json (uses the generic loader to avoid circular refs).
 var aiSettings = configLoader.LoadAi<MediaEngine.AI.Configuration.AiSettings>()
     ?? new MediaEngine.AI.Configuration.AiSettings();
@@ -921,29 +921,29 @@ builder.Services.AddSingleton<IUrlMetadataExtractor, MediaEngine.AI.Features.Url
 // Sprint 9: Description Intelligence.
 builder.Services.AddSingleton<IDescriptionIntelligenceService, MediaEngine.AI.Features.DescriptionIntelligenceService>();
 
-// Sprint 3: GPU backend detection (Vulkan → CUDA → CPU probe chain).
+// Sprint 3: GPU backend detection (Vulkan ? CUDA ? CPU probe chain).
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.GpuBackendDetector>();
 
-// Resource monitor — checks RAM, CPU pressure, and transcoding activity before loading models.
+// Resource monitor � checks RAM, CPU pressure, and transcoding activity before loading models.
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.ResourceMonitorService>();
 
 // Sprint 2: Hardware auto-profiling.
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.HardwareBenchmarkService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.HardwareBenchmarkBackgroundService>();
 
-// ── Health Checks ────────────────────────────────────────────────────────────
+// -- Health Checks ------------------------------------------------------------
 // Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.
 builder.Services.AddHealthChecks()
     .AddCheck<SqliteHealthCheck>("sqlite", tags: ["db"])
     .AddCheck<LibraryRootHealthCheck>("library_root", tags: ["storage"])
     .AddCheck<WatchFolderHealthCheck>("watch_folder", tags: ["storage"]);
 
-// ── Build ─────────────────────────────────────────────────────────────────────
+// -- Build ---------------------------------------------------------------------
 WebApplication app = builder.Build();
 
-// ── UI Settings cache warm-up ─────────────────────────────────────────────────
+// -- UI Settings cache warm-up -------------------------------------------------
 // Populate the SQLite cache from config/ui/ files so API reads are fast from
-// the first request onward.  Errors are non-fatal — the resolver can still
+// the first request onward.  Errors are non-fatal � the resolver can still
 // read directly from files.
 try
 {
@@ -955,7 +955,7 @@ catch (Exception ex)
     app.Logger.LogWarning(ex, "UI settings cache warm-up failed; resolver will fall back to files.");
 }
 
-// ── Purge orphaned review queue entries ──────────────────────────────────────
+// -- Purge orphaned review queue entries --------------------------------------
 // Review queue rows referencing deleted media assets can accumulate and inflate
 // the badge count. Purge them once at startup before the Engine accepts requests.
 try
@@ -970,7 +970,7 @@ catch (Exception ex)
     app.Logger.LogWarning(ex, "Orphaned review queue purge failed; counts may be inflated until next restart.");
 }
 
-// ── Middleware pipeline ───────────────────────────────────────────────────────
+// -- Middleware pipeline -------------------------------------------------------
 app.UseCors("BlazorWasm");
 app.UseMiddleware<ApiKeyMiddleware>();
 app.UseRateLimiter();
@@ -983,7 +983,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tuvima Library API v1"));
 }
 
-// ── Endpoint registration ─────────────────────────────────────────────────────
+// -- Endpoint registration -----------------------------------------------------
 app.MapHub<Intercom>(SignalREvents.IntercomPath);
 app.MapSystemEndpoints();
 app.MapMaintenanceEndpoints();
@@ -1010,7 +1010,7 @@ app.MapUniverseGraphEndpoints();
 app.MapCharacterEndpoints();
 app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
-app.MapRegistryEndpoints();
+app.MapLibraryItemEndpoints();
 app.MapItemCanonicalEndpoints();
 app.MapTimelineEndpoints();
 app.MapSearchEndpoints();
@@ -1019,7 +1019,7 @@ app.MapDebugEndpoints();
 app.MapAiEndpoints();
 app.MapAiEnrichmentEndpoints();
 
-// ── Development-only seed endpoints ──────────────────────────────────────────
+// -- Development-only seed endpoints ------------------------------------------
 if (app.Environment.IsDevelopment())
 {
     app.MapDevSeedEndpoints();
@@ -1035,7 +1035,7 @@ if (app.Environment.IsDevelopment())
 
 app.Run();
 
-// ── Local helpers ────────────────────────────────────────────────────────────
+// -- Local helpers ------------------------------------------------------------
 
 /// <summary>
 /// Maps config/libraries.json media type strings to the <see cref="MediaType"/> enum.

@@ -2116,6 +2116,9 @@ public sealed class WorkerPipelineTests
 
         public Task<IReadOnlyList<SystemActivityEntry>> GetRecentByTypesAsync(IReadOnlyList<string> actionTypes, int limit = 50, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<SystemActivityEntry>>([]);
+
+        public Task<IReadOnlyList<SystemActivityEntry>> GetRecentByProfileAsync(Guid profileId, int limit = 50, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<SystemActivityEntry>>([]);
     }
 
     // ── StubEventPublisher ──────────────────────────────────────────────

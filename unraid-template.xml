@@ -9,7 +9,6 @@
 <Container version="2">
   <Name>tuvima-library</Name>
   <Repository>ghcr.io/tuvima/tuvima_library:latest</Repository>
-  <Registry>https://github.com/Tuvima/tuvima_library/pkgs/container/tuvima_library</Registry>
   <Network>bridge</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>

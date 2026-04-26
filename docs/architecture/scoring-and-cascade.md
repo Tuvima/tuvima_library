@@ -255,7 +255,7 @@ Phase 3 introduces a small routing layer that decides which Work in the hierarch
 |---|---|---|
 | `WorkLineage` (record) | Domain.Contracts | Walked chain `asset → edition → work → parent → root parent` returned by `IWorkRepository.GetLineageByAssetAsync`. `TargetForParentScope = RootParentWorkId` (TV episodes resolve up to the SHOW, not the season); `TargetForSelfScope = WorkId`. |
 | `ClaimScope` (enum) | Domain.Constants | `Self` or `Parent`. New claim keys default to `Self`. |
-| `ClaimScopeRegistry` | Domain.Constants | Single source of truth mapping `(claim_key, media_type)` → `ClaimScope`. Container fields (`album`, `show_name`, `series`, `franchise`) and container bridge IDs (`apple_music_collection_id`, `tvdb_id`, etc.) declare `Parent`; per-media-type overrides handle context-sensitive cases (e.g. `year` is `Parent` for music but `Self` for movies; `director` is `Self` for TV episodes but `Self` for movies). |
+| `ClaimScopeCatalog` | Domain.Constants | Single source of truth mapping `(claim_key, media_type)` → `ClaimScope`. Container fields (`album`, `show_name`, `series`, `franchise`) and container bridge IDs (`apple_music_collection_id`, `tvdb_id`, etc.) declare `Parent`; per-media-type overrides handle context-sensitive cases (e.g. `year` is `Parent` for music but `Self` for movies; `director` is `Self` for TV episodes but `Self` for movies). |
 | `WorkClaimRouter` | Storage.Services | Stateless splitter for bridge ID dictionaries and `MetadataClaim` lists. Used by Phase 3a/3b for `works.external_identifiers` writes. |
 | `ScoringHelper.PersistAndScoreWithLineageAsync` | Providers.Services | Phase 3c entry point. Runs the existing per-asset persist+score path unchanged, then mirrors `Parent`-scoped claims into the parent Work's `metadata_claims` and `canonical_values` as a second pass. |
 
@@ -269,7 +269,7 @@ Phase 3 introduces a small routing layer that decides which Work in the hierarch
 
 ### Dual write during transition
 
-Phase 3c is intentionally **dual-write**: the asset's `metadata_claims` and `canonical_values` rows still receive the full picture (so existing Vault registry CTEs and Action Center queries don't regress), and the parent Work additionally receives an authoritative copy of the `Parent`-scoped fields. Phase 4 will teach readers (registry CTEs, collection rule evaluator, detail drawer queries) to consult the parent Work directly. Phase 5 will retire the asset-side mirror once readers are ported. Phase 6 will run a one-shot backfill that walks every existing asset, computes its lineage, and re-routes historical claims to the right Work rows.
+Phase 3c is intentionally **dual-write**: the asset's `metadata_claims` and `canonical_values` rows still receive the full picture (so existing Vault library item CTEs and Action Center queries don't regress), and the parent Work additionally receives an authoritative copy of the `Parent`-scoped fields. Phase 4 will teach readers (library item CTEs, collection rule evaluator, detail drawer queries) to consult the parent Work directly. Phase 5 will retire the asset-side mirror once readers are ported. Phase 6 will run a one-shot backfill that walks every existing asset, computes its lineage, and re-routes historical claims to the right Work rows.
 
 The parent-side mirror is best-effort: failures are logged at warning level and never break the asset-side write. Movies and single-volume books (where `TargetForParentScope == TargetForSelfScope`) skip the parent pass entirely — the dual write collapses to a single write.
 
@@ -278,9 +278,9 @@ The parent-side mirror is best-effort: failures are logged at warning level and 
 When a provider starts emitting a new claim key, decide its scope:
 
 1. **Self** (the default): no action needed. The key will be written against the asset.
-2. **Parent**: add an entry to `ClaimScopeRegistry.DefaultMap` if the scope is the same across all media types, or to `ClaimScopeRegistry.Overrides[mediaType]` if it depends on context.
+2. **Parent**: add an entry to `ClaimScopeCatalog.DefaultMap` if the scope is the same across all media types, or to `ClaimScopeCatalog.Overrides[mediaType]` if it depends on context.
 
-The companion `_qid` suffix is handled automatically — `genre_qid` inherits the scope of `genre`. Tests live in `tests/MediaEngine.Domain.Tests/ClaimScopeRegistryTests.cs` and `tests/MediaEngine.Providers.Tests/ScoringHelperLineageTests.cs`.
+The companion `_qid` suffix is handled automatically — `genre_qid` inherits the scope of `genre`. Tests live in `tests/MediaEngine.Domain.Tests/ClaimScopeCatalogTests.cs` and `tests/MediaEngine.Providers.Tests/ScoringHelperLineageTests.cs`.
 
 ## Related
 

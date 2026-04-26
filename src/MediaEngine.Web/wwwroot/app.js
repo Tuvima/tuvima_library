@@ -1,4 +1,4 @@
-﻿// app.js — Global JavaScript helpers for the Dashboard
+// app.js � Global JavaScript helpers for the Dashboard
 
 /**
  * Ensures the dark theme class is applied to <body>.
@@ -29,14 +29,14 @@ window.registerCtrlK = function (dotNetRef) {
     });
 };
 
-// ── Device Context ─────────────────────────────────────────────────────────
+// -- Device Context ---------------------------------------------------------
 
 /**
  * Detects the active device class for this browser session.
  * Priority:
  *   1. URL query parameter ?device=  (explicit override, highest priority)
  *   2. localStorage persisted device class
- *   3. Auto-detect: viewport ≤768px + touch → "mobile", else "web"
+ *   3. Auto-detect: viewport =768px + touch ? "mobile", else "web"
  *
  * Television and automotive must be explicitly selected (URL param or UI toggle).
  *
@@ -407,9 +407,9 @@ window.scrollToLetter = function (elementId) {
     }
 };
 
-// -- Registry Card helpers ---------------------------------------------------
+// -- LibraryItem Card helpers ---------------------------------------------------
 
-window.registryCardHelpers = {
+window.libraryItemCardHelpers = {
     isNearBottomEdge: function (element, threshold) {
         if (!element) return false;
         var rect = element.getBoundingClientRect();
@@ -417,14 +417,14 @@ window.registryCardHelpers = {
     }
 };
 
-// -- Registry Settings (localStorage) ----------------------------------------
+// -- LibraryItem Settings (localStorage) ----------------------------------------
 
-window.registrySettings = {
+window.libraryItemSettings = {
     getCardSize: function () {
-        return parseInt(localStorage.getItem('registry-card-size') || '80', 10);
+        return parseInt(localStorage.getItem('library-item-card-size') || '80', 10);
     },
     setCardSize: function (size) {
-        localStorage.setItem('registry-card-size', size.toString());
+        localStorage.setItem('library-item-card-size', size.toString());
     }
 };
 

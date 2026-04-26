@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using System.Text.Json;
 using System.Globalization;
 using System.Text.Json.Serialization;
@@ -40,14 +40,14 @@ public static partial class MetadataEndpoints
         var group = app.MapGroup("/metadata")
                        .WithTags("Metadata");
 
-        // ── GET /metadata/claims/{entityId} ──────────────────────────────────
+        // -- GET /metadata/claims/{entityId} ----------------------------------
         group.MapGet("/claims/{entityId:guid}", async (
             Guid entityId,
             IMetadataClaimRepository claimRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            // First try direct lookup — covers assets/editions queried by their own ID.
+            // First try direct lookup � covers assets/editions queried by their own ID.
             var claims = await claimRepo.GetByEntityAsync(entityId, ct);
 
             // If no claims found, entityId might be a Work ID. Look up all asset IDs
@@ -72,7 +72,7 @@ public static partial class MetadataEndpoints
                             allClaims.AddRange(assetClaims);
                         }
                     }
-                    // Deduplicate by (entity_id, claim_key, claim_value) — keep one per unique combination
+                    // Deduplicate by (entity_id, claim_key, claim_value) � keep one per unique combination
                     claims = allClaims
                         .GroupBy(c => (c.ClaimKey, c.ClaimValue, c.ProviderId))
                         .Select(g => g.OrderByDescending(c => c.Confidence).First())
@@ -89,7 +89,7 @@ public static partial class MetadataEndpoints
         .Produces<List<ClaimDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // ── GET /metadata/conflicts ─────────────────────────────────────────
+        // -- GET /metadata/conflicts -----------------------------------------
         group.MapGet("/conflicts", async (
             ICanonicalValueRepository canonicalRepo,
             CancellationToken ct) =>
@@ -103,7 +103,7 @@ public static partial class MetadataEndpoints
         .Produces<List<ConflictDto>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // ── PATCH /metadata/lock-claim ───────────────────────────────────────
+        // -- PATCH /metadata/lock-claim ---------------------------------------
         group.MapMethods("/lock-claim", ["PATCH"], async (
             LockClaimRequest request,
             IMetadataClaimRepository claimRepo,
@@ -182,7 +182,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
-        // ── PATCH /metadata/resolve (legacy) ─────────────────────────────────
+        // -- PATCH /metadata/resolve (legacy) ---------------------------------
         group.MapMethods("/resolve", ["PATCH"], (
             ResolveRequest request,
             IDatabaseConnection db,
@@ -234,7 +234,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
-        // ── POST /metadata/hydrate/{entityId} ─────────────────────────────
+        // -- POST /metadata/hydrate/{entityId} -----------------------------
         group.MapPost("/hydrate/{entityId:guid}", async (
             Guid entityId,
             ICanonicalValueRepository canonicalRepo,
@@ -284,7 +284,7 @@ public static partial class MetadataEndpoints
                 Success      = true,
                 Message      = $"Hydrated {result.TotalClaimsAdded} claims across 2 stages"
                              + (result.WikidataQid is not null ? $" (QID: {result.WikidataQid})" : "")
-                             + (result.NeedsReview ? " — needs review." : "."),
+                             + (result.NeedsReview ? " � needs review." : "."),
             });
         })
         .WithName("HydrateEntity")
@@ -292,7 +292,7 @@ public static partial class MetadataEndpoints
         .Produces<HydrateResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // ── POST /metadata/search ─────────────────────────────────────────
+        // -- POST /metadata/search -----------------------------------------
         group.MapPost("/search", async (
             MetadataSearchRequest request,
             IEnumerable<IExternalMetadataProvider> providers,
@@ -370,7 +370,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // ── PUT /metadata/{entityId}/override ────────────────────────────
+        // -- PUT /metadata/{entityId}/override ----------------------------
         group.MapPut("/{entityId:guid}/override", async (
             Guid entityId,
             MetadataOverrideRequest request,
@@ -443,7 +443,7 @@ public static partial class MetadataEndpoints
             {
                 ActionType = SystemActionType.MetadataManualOverride,
                 EntityId   = entityId,
-                Detail     = $"Manual override: {updatedKeys.Count} field(s) — {string.Join(", ", updatedKeys)}.",
+                Detail     = $"Manual override: {updatedKeys.Count} field(s) � {string.Join(", ", updatedKeys)}.",
             }, ct);
 
             // 4. Broadcast so the Dashboard refreshes.
@@ -461,7 +461,7 @@ public static partial class MetadataEndpoints
             }
             catch
             {
-                // Non-fatal — write-back failure should not prevent override success.
+                // Non-fatal � write-back failure should not prevent override success.
             }
 
             return Results.Ok(new MetadataOverrideResponse
@@ -477,7 +477,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
-        // ── POST /metadata/{entityId}/reclassify ──────────────────────────────
+        // -- POST /metadata/{entityId}/reclassify ------------------------------
         group.MapPost("/{entityId:guid}/reclassify", async (
             Guid entityId,
             ReclassifyRequest request,
@@ -587,15 +587,15 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
-        // ── GET /metadata/{entityId}/editor-context ─────────────────────────
+        // -- GET /metadata/{entityId}/editor-context -------------------------
         group.MapGet("/{entityId:guid}/editor-context", async (
             Guid entityId,
             ICanonicalValueRepository canonicalRepo,
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, registryRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -639,17 +639,17 @@ public static partial class MetadataEndpoints
 
         MapMediaEditorNavigatorEndpoints(group);
 
-        // ── GET /metadata/{entityId}/artwork/{scopeId} ─────────────────────
+        // -- GET /metadata/{entityId}/artwork/{scopeId} ---------------------
         group.MapGet("/{entityId:guid}/artwork/{scopeId}", async (
             Guid entityId,
             string scopeId,
             ICanonicalValueRepository canonicalRepo,
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             IEntityAssetRepository entityAssetRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, registryRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -658,7 +658,7 @@ public static partial class MetadataEndpoints
             if (scope is null)
                 return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
 
-            var artwork = await BuildScopedArtworkEnvelopeAsync(scope, entityAssetRepo, canonicalRepo, registryRepo, ct);
+            var artwork = await BuildScopedArtworkEnvelopeAsync(scope, entityAssetRepo, canonicalRepo, libraryItemRepo, ct);
             return Results.Ok(artwork);
         })
         .WithName("GetScopedArtworkEditor")
@@ -667,20 +667,20 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
-        // ── GET /metadata/{entityId}/artwork ────────────────────────────────
+        // -- GET /metadata/{entityId}/artwork --------------------------------
         group.MapGet("/{entityId:guid}/artwork", async (
             Guid entityId,
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
             IEntityAssetRepository entityAssetRepo,
             ICanonicalValueRepository canonicalRepo,
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
             var context = await ResolveArtworkContextAsync(entityId, db, ct);
             var detail = context.WorkId is Guid workId
-                ? await registryRepo.GetDetailAsync(workId, ct)
+                ? await libraryItemRepo.GetDetailAsync(workId, ct)
                 : null;
 
             var assets = new List<EntityAsset>();
@@ -751,7 +751,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // ── POST /metadata/{entityId}/cover ─────────────────────────────────
+        // -- POST /metadata/{entityId}/cover ---------------------------------
         group.MapPost("/{entityId:guid}/cover", async (
             Guid entityId,
             ICanonicalValueRepository canonicalRepo,
@@ -823,7 +823,7 @@ public static partial class MetadataEndpoints
             await SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
             await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
-            coverLogger.LogInformation("Cover uploaded for {EntityId} → {Path}", entityId, localPath);
+            coverLogger.LogInformation("Cover uploaded for {EntityId} ? {Path}", entityId, localPath);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -849,7 +849,7 @@ public static partial class MetadataEndpoints
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
-        // ── POST /metadata/{entityId}/artwork/{scopeId}/{assetType} ────────
+        // -- POST /metadata/{entityId}/artwork/{scopeId}/{assetType} --------
         group.MapPost("/{entityId:guid}/artwork/{scopeId}/{assetType}", async (
             Guid entityId,
             string scopeId,
@@ -857,7 +857,7 @@ public static partial class MetadataEndpoints
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             IDatabaseConnection db,
             AssetPathService assetPathService,
             HttpRequest httpRequest,
@@ -870,7 +870,7 @@ public static partial class MetadataEndpoints
             if (!httpRequest.HasFormContentType)
                 return Results.BadRequest("Expected multipart form data.");
 
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, registryRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -950,7 +950,7 @@ public static partial class MetadataEndpoints
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
-        // ── POST /metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url ─
+        // -- POST /metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url -
         group.MapPost("/{entityId:guid}/artwork/{scopeId}/{assetType}/from-url", async (
             Guid entityId,
             string scopeId,
@@ -959,7 +959,7 @@ public static partial class MetadataEndpoints
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
-            IRegistryRepository registryRepo,
+            ILibraryItemRepository libraryItemRepo,
             IDatabaseConnection db,
             AssetPathService assetPathService,
             IHttpClientFactory httpFactory,
@@ -972,7 +972,7 @@ public static partial class MetadataEndpoints
             if (string.IsNullOrWhiteSpace(request.ImageUrl))
                 return Results.BadRequest("image_url is required.");
 
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, registryRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -1052,7 +1052,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // ── POST /metadata/{entityId}/artwork/{assetType} ───────────────────
+        // -- POST /metadata/{entityId}/artwork/{assetType} -------------------
         group.MapPost("/{entityId:guid}/artwork/{assetType}", async (
             Guid entityId,
             string assetType,
@@ -1142,7 +1142,7 @@ public static partial class MetadataEndpoints
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
-        // ── PUT /metadata/artwork/{variantId}/preferred ─────────────────────
+        // -- PUT /metadata/artwork/{variantId}/preferred ---------------------
         group.MapPut("/artwork/{variantId:guid}/preferred", async (
             Guid variantId,
             IEntityAssetRepository entityAssetRepo,
@@ -1181,7 +1181,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // ── DELETE /metadata/artwork/{variantId} ────────────────────────────
+        // -- DELETE /metadata/artwork/{variantId} ----------------------------
         group.MapDelete("/artwork/{variantId:guid}", async (
             Guid variantId,
             IEntityAssetRepository entityAssetRepo,
@@ -1251,15 +1251,15 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // ── GET /metadata/wikidata-test ────────────────────────────────────────
+        // -- GET /metadata/wikidata-test ----------------------------------------
         //
         // Diagnostic endpoint for validating Wikidata search.  Directly calls the
         // MediaWiki wbsearchentities API and/or SPARQL bridge lookup so the user
         // can confirm Wikidata connectivity and search accuracy.
         //
         // Query params (at least one required):
-        //   ?title=Abaddon's Gate   — title search via wbsearchentities
-        //   ?isbn=9780316129077     — ISBN bridge lookup via SPARQL (P212)
+        //   ?title=Abaddon's Gate   � title search via wbsearchentities
+        //   ?isbn=9780316129077     � ISBN bridge lookup via SPARQL (P212)
 
         group.MapGet("/wikidata-test", async (
             string? title,
@@ -1338,7 +1338,7 @@ public static partial class MetadataEndpoints
         .RequireAdmin();
 
 
-        // â"€â"€ POST /metadata/search-all â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // �"��"� POST /metadata/search-all �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
         //
         // Fan-out search: queries ALL eligible providers concurrently and returns
         // merged results grouped by provider. Powers the shared media editor search flow.
@@ -1458,7 +1458,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
-        // ── GET /metadata/{entityId}/search-cache ─────────────────────────
+        // -- GET /metadata/{entityId}/search-cache -------------------------
         group.MapGet("/{entityId:guid}/search-cache", async (
             Guid entityId,
             ISearchResultsCacheRepository cache) =>
@@ -1473,7 +1473,7 @@ public static partial class MetadataEndpoints
         .Produces<object>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
-        // ── PUT /metadata/{entityId}/search-cache ─────────────────────────
+        // -- PUT /metadata/{entityId}/search-cache -------------------------
         group.MapPut("/{entityId:guid}/search-cache", async (
             Guid entityId,
             SearchCacheUpsertRequest body,
@@ -1489,7 +1489,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status400BadRequest);
 
-        // â"€â"€ GET /metadata/canonical/{entityId} â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // �"��"� GET /metadata/canonical/{entityId} �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
         //
         // Returns all current canonical values for an entity with confidence,
         // provider attribution, and user-lock status.
@@ -1502,13 +1502,13 @@ public static partial class MetadataEndpoints
             IEnumerable<IExternalMetadataProvider> providers,
             CancellationToken ct) =>
         {
-            // entityId may be a work ID (from the registry) — resolve to the
+            // entityId may be a work ID (from the libraryItem) � resolve to the
             // underlying media asset ID where canonical values are stored.
             var resolvedId = entityId;
             var canonicals = await canonicalRepo.GetByEntityAsync(resolvedId, ct);
             if (canonicals.Count == 0)
             {
-                // Try resolving as a work ID → find the first media asset.
+                // Try resolving as a work ID ? find the first media asset.
                 var asset = await assetRepo.FindFirstByWorkIdAsync(resolvedId, ct);
                 if (asset is not null)
                 {
@@ -1573,7 +1573,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // â"€â"€ POST /metadata/{entityId}/cover-from-url â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // �"��"� POST /metadata/{entityId}/cover-from-url �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
         //
         // Downloads a cover image from a provider URL, saves the managed artwork,
         // generates renditions + palette metadata, and updates canonical values.
@@ -1624,7 +1624,7 @@ public static partial class MetadataEndpoints
                 await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
 
                 logger.LogInformation(
-                    "Cover downloaded from URL for entity {Id}: {Size} bytes â†’ {Path}",
+                    "Cover downloaded from URL for entity {Id}: {Size} bytes → {Path}",
                     entityId, imageBytes.Length, coverPath);
 
                 var storedAsset = new EntityAsset
@@ -1675,7 +1675,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // ── POST /metadata/labels/resolve ─────────────────────────────────
+        // -- POST /metadata/labels/resolve ---------------------------------
         group.MapPost("/labels/resolve", async (
             LabelResolveRequest request,
             IQidLabelRepository qidLabelRepo,
@@ -1700,7 +1700,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Batch-resolve Wikidata QIDs to display labels from the local cache.")
         .Produces<Dictionary<string, LabelResolveEntry>>(StatusCodes.Status200OK);
 
-        // ── GET /metadata/{qid}/aliases ───────────────────────────────────────
+        // -- GET /metadata/{qid}/aliases ---------------------------------------
         //
         // Returns the Wikidata label and all aliases for a given QID.
         // Useful for search disambiguation, alternate title lookup, and
@@ -1738,7 +1738,7 @@ public static partial class MetadataEndpoints
                     && qidProps.TryGetValue("P629", out var p629Values)
                     && p629Values.Count > 0)
                 {
-                    // P629 value is an entity reference — extract the parent work QID.
+                    // P629 value is an entity reference � extract the parent work QID.
                     var p629Val = p629Values[0].Value;
                     var workQid = p629Val?.EntityId ?? p629Val?.RawValue;
                     if (workQid is not null)
@@ -1784,7 +1784,7 @@ public static partial class MetadataEndpoints
     private static async Task<EditorScopeContext?> ResolveEditorScopeContextAsync(
         Guid entityId,
         ICanonicalValueRepository canonicalRepo,
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         IDatabaseConnection db,
         CancellationToken ct)
     {
@@ -1792,7 +1792,7 @@ public static partial class MetadataEndpoints
         if (launch is null)
             return null;
 
-        var launchDetail = await registryRepo.GetDetailAsync(launch.WorkId, ct);
+        var launchDetail = await libraryItemRepo.GetDetailAsync(launch.WorkId, ct);
         var launchCanonicals = await canonicalRepo.GetByEntityAsync(launch.WorkId, ct);
         var canonicalMap = launchCanonicals
             .Where(field => !string.IsNullOrWhiteSpace(field.Key))
@@ -1803,7 +1803,7 @@ public static partial class MetadataEndpoints
                 StringComparer.OrdinalIgnoreCase);
 
         var rootDetail = launch.RootWorkId != Guid.Empty && launch.RootWorkId != launch.WorkId
-            ? await registryRepo.GetDetailAsync(launch.RootWorkId, ct)
+            ? await libraryItemRepo.GetDetailAsync(launch.RootWorkId, ct)
             : launchDetail;
 
         var rootCanonicals = launch.RootWorkId != Guid.Empty && launch.RootWorkId != launch.WorkId
@@ -1972,7 +1972,7 @@ public static partial class MetadataEndpoints
             scope.DisplayTitle,
             scope.DisplaySubtitle);
 
-    private static MediaEditorIdentitySummaryEnvelope BuildIdentitySummary(RegistryItemDetail? detail) =>
+    private static MediaEditorIdentitySummaryEnvelope BuildIdentitySummary(LibraryItemDetail? detail) =>
         new(
             detail?.MatchSource,
             GetProviderBridgeId(detail),
@@ -1985,7 +1985,7 @@ public static partial class MetadataEndpoints
             detail?.UniverseSummary?.UniverseQid,
             detail?.UniverseSummary?.Stage3Status);
 
-    private static string? GetProviderBridgeId(RegistryItemDetail? detail)
+    private static string? GetProviderBridgeId(LibraryItemDetail? detail)
     {
         if (detail?.BridgeIds is null || detail.BridgeIds.Count == 0)
             return null;
@@ -2115,9 +2115,9 @@ public static partial class MetadataEndpoints
 
     private static List<EditorScopeResolution> BuildEditorScopes(
         EditorLaunchContext launch,
-        RegistryItemDetail? detail,
+        LibraryItemDetail? detail,
         IReadOnlyDictionary<string, string> canonicalMap,
-        RegistryItemDetail? rootDetail,
+        LibraryItemDetail? rootDetail,
         IReadOnlyDictionary<string, string> rootCanonicalMap,
         Guid? artistOwnerId)
     {
@@ -2381,7 +2381,7 @@ public static partial class MetadataEndpoints
         EditorScopeResolution scope,
         IEntityAssetRepository entityAssetRepo,
         ICanonicalValueRepository canonicalRepo,
-        IRegistryRepository registryRepo,
+        ILibraryItemRepository libraryItemRepo,
         CancellationToken ct)
     {
         var slotTypes = GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
@@ -2391,7 +2391,7 @@ public static partial class MetadataEndpoints
         var assets = await entityAssetRepo.GetByEntityAsync(scope.ArtworkOwnerEntityId.Value.ToString(), null, ct);
         var canonicals = await canonicalRepo.GetByEntityAsync(scope.ArtworkOwnerEntityId.Value, ct);
         var detail = string.Equals(scope.ArtworkOwnerEntityKind, "Work", StringComparison.OrdinalIgnoreCase)
-            ? await registryRepo.GetDetailAsync(scope.ArtworkOwnerEntityId.Value, ct)
+            ? await libraryItemRepo.GetDetailAsync(scope.ArtworkOwnerEntityId.Value, ct)
             : null;
 
         var payload = slotTypes.Select(assetType =>
@@ -2752,7 +2752,7 @@ public static partial class MetadataEndpoints
         sources.Add(sourceId.Value);
     }
 
-    private static string? GetArtworkDetailUrl(RegistryItemDetail? detail, string assetType) =>
+    private static string? GetArtworkDetailUrl(LibraryItemDetail? detail, string assetType) =>
         assetType switch
         {
             "CoverArt" => detail?.CoverUrl,

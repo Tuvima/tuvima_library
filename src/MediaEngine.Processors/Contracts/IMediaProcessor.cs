@@ -28,7 +28,7 @@ public interface IMediaProcessor
     MediaType SupportedType { get; }
 
     /// <summary>
-    /// Relative priority used by <see cref="IProcessorRegistry"/> when multiple
+    /// Relative priority used by <see cref="IProcessorRouter"/> when multiple
     /// processors claim the same file.  Higher value wins.
     /// Spec-assigned values: high-fidelity processors ≥ 100;
     /// generic fallback = <see cref="int.MinValue"/>.

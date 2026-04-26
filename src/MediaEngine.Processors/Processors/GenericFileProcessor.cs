@@ -14,7 +14,7 @@ namespace MediaEngine.Processors.Processors;
 ///  • <see cref="Priority"/> = <see cref="int.MinValue"/> — always loses to any
 ///    format-specific processor.
 ///  • <see cref="CanProcess"/> always returns <see langword="true"/>; it is never
-///    called in practice because <see cref="MediaProcessorRegistry"/> bypasses the
+///    called in practice because <see cref="MediaProcessorRouter"/> bypasses the
 ///    <c>CanProcess</c> check for processors registered at <c>int.MinValue</c>.
 ///
 /// ──────────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ public sealed class GenericFileProcessor : IMediaProcessor
     public int Priority => int.MinValue;
 
     /// <inheritdoc/>
-    /// <remarks>Always returns <see langword="true"/>; the registry bypasses this
+    /// <remarks>Always returns <see langword="true"/>; the libraryItem bypasses this
     /// check for the fallback processor anyway.</remarks>
     public bool CanProcess(string filePath) => true;
 

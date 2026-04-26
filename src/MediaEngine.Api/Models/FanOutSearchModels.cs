@@ -147,15 +147,15 @@ public sealed class CoverFromUrlRequest
     public string ImageUrl { get; init; } = string.Empty;
 }
 
-/// <summary>Request for batch registry operations.</summary>
-public sealed class BatchRegistryRequest
+/// <summary>Request for batch libraryItem operations.</summary>
+public sealed class BatchLibraryItemRequest
 {
     [JsonPropertyName("entity_ids")]
     public Guid[] EntityIds { get; init; } = [];
 }
 
-/// <summary>Response from batch registry operations.</summary>
-public sealed class BatchRegistryResponse
+/// <summary>Response from batch libraryItem operations.</summary>
+public sealed class BatchLibraryItemResponse
 {
     [JsonPropertyName("processed_count")]
     public int ProcessedCount { get; init; }

@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
@@ -6,7 +6,7 @@ using MediaEngine.Ingestion.Contracts;
 
 namespace MediaEngine.Api.Models;
 
-// ── GET /system/status ─────────────────────────────────────────────────────────
+// -- GET /system/status ---------------------------------------------------------
 
 public sealed class SystemStatusResponse
 {
@@ -20,7 +20,7 @@ public sealed class SystemStatusResponse
     public string Language { get; init; } = "en";
 }
 
-// ── /admin/api-keys ────────────────────────────────────────────────────────────
+// -- /admin/api-keys ------------------------------------------------------------
 
 public sealed class ApiKeyDto
 {
@@ -70,7 +70,7 @@ public sealed class CreateApiKeyResponse
     public string Role { get; init; } = AppRoles.Administrator;
 
     /// <summary>
-    /// The API key plaintext. Shown exactly once — store it now; it cannot be retrieved again.
+    /// The API key plaintext. Shown exactly once � store it now; it cannot be retrieved again.
     /// </summary>
     [JsonPropertyName("key")]
     public string Key { get; init; } = string.Empty;
@@ -79,7 +79,7 @@ public sealed class CreateApiKeyResponse
     public DateTimeOffset CreatedAt { get; init; }
 }
 
-// ── /admin/provider-configs ────────────────────────────────────────────────────
+// -- /admin/provider-configs ----------------------------------------------------
 
 public sealed class ProviderConfigDto
 {
@@ -114,7 +114,7 @@ public sealed class UpsertProviderConfigRequest
     public bool IsSecret { get; init; }
 }
 
-// ── GET /collections/search ───────────────────────────────────────────────────────────
+// -- GET /collections/search -----------------------------------------------------------
 
 /// <summary>
 /// A single work result from the collection search endpoint.
@@ -164,7 +164,7 @@ public sealed class RelatedCollectionsResponse
     [JsonPropertyName("collections")]
     public List<CollectionDto> Collections { get; init; } = [];
 }
-// \u2500\u2500 GET /collections \u2500\u2500────────────────────────────────────────────────────────────────
+// \u2500\u2500 GET /collections \u2500\u2500----------------------------------------------------------------
 
 public sealed class CollectionDto
 {
@@ -202,7 +202,7 @@ public sealed class CollectionDto
 }
 
 /// <summary>
-/// DTO for the GET /collections/parents endpoint — franchise-level parent collections (Universes).
+/// DTO for the GET /collections/parents endpoint � franchise-level parent collections (Universes).
 /// Uses snake_case JSON names compatible with the Dashboard's CollectionRaw deserialiser.
 /// </summary>
 public sealed class ParentCollectionDto
@@ -240,7 +240,7 @@ public sealed class ParentCollectionDto
     [JsonPropertyName("total_works")]
     public int TotalWorks { get; init; }
 
-    /// <summary>Empty works list — parent collections aggregate through children, not direct works.</summary>
+    /// <summary>Empty works list � parent collections aggregate through children, not direct works.</summary>
     [JsonPropertyName("works")]
     public List<WorkDto> Works { get; init; } = [];
 }
@@ -299,7 +299,7 @@ public sealed class CanonicalValueDto
     };
 }
 
-// ── POST /ingestion/scan ───────────────────────────────────────────────────────
+// -- POST /ingestion/scan -------------------------------------------------------
 
 public sealed class ScanRequest
 {
@@ -343,7 +343,7 @@ public sealed class PendingOperationDto
     };
 }
 
-// ── POST /ingestion/library-scan ───────────────────────────────────────────────
+// -- POST /ingestion/library-scan -----------------------------------------------
 
 public sealed class LibraryScanResponse
 {
@@ -380,7 +380,7 @@ public sealed class LibraryScanResponse
     public long ElapsedMs { get; init; }
 }
 
-// ── PATCH /metadata/resolve ────────────────────────────────────────────────────
+// -- PATCH /metadata/resolve ----------------------------------------------------
 
 public sealed class ResolveRequest
 {
@@ -412,7 +412,7 @@ public sealed class ResolveResponse
     public DateTimeOffset ResolvedAt { get; init; }
 }
 
-// ── GET /settings/folders ──────────────────────────────────────────────────────
+// -- GET /settings/folders ------------------------------------------------------
 
 public sealed class FolderSettingsResponse
 {
@@ -433,7 +433,7 @@ public sealed class UpdateFoldersRequest
     public string? LibraryRoot { get; init; }
 }
 
-// ── GET /settings/server-general ──────────────────────────────────────────────
+// -- GET /settings/server-general ----------------------------------------------
 
 public sealed class ServerGeneralResponse
 {
@@ -495,7 +495,7 @@ public sealed class ServerGeneralRequest
     public string TimeFormat { get; init; } = "system";
 }
 
-// ── POST /settings/test-path ───────────────────────────────────────────────────
+// -- POST /settings/test-path ---------------------------------------------------
 
 public sealed class TestPathRequest
 {
@@ -518,7 +518,7 @@ public sealed class TestPathResponse
     public bool HasWrite { get; init; }
 }
 
-// ── POST /settings/browse-directory ────────────────────────────────────────────
+// -- POST /settings/browse-directory --------------------------------------------
 
 public sealed class BrowseDirectoryRequest
 {
@@ -538,7 +538,7 @@ public sealed class BrowseDirectoryResponse
     public List<string> Directories { get; init; } = [];
 }
 
-// ── PUT /settings/providers/{name} ─────────────────────────────────────────────
+// -- PUT /settings/providers/{name} ---------------------------------------------
 
 public sealed class UpdateProviderRequest
 {
@@ -546,7 +546,7 @@ public sealed class UpdateProviderRequest
     public bool Enabled { get; init; }
 }
 
-// ── GET /settings/providers ────────────────────────────────────────────────────
+// -- GET /settings/providers ----------------------------------------------------
 
 public sealed class ProviderStatusResponse
 {
@@ -661,7 +661,7 @@ public sealed class FieldMappingResponse
     public string? Transform { get; init; }
 }
 
-// ── POST /settings/providers/{name}/test ──────────────────────────────────────
+// -- POST /settings/providers/{name}/test --------------------------------------
 
 public sealed class ProviderTestResponse
 {
@@ -678,7 +678,7 @@ public sealed class ProviderTestResponse
     public string Message { get; init; } = string.Empty;
 }
 
-// ── POST /settings/providers/{name}/sample ───────────────────────────────────
+// -- POST /settings/providers/{name}/sample -----------------------------------
 
 public sealed class ProviderSampleRequest
 {
@@ -719,7 +719,7 @@ public sealed class ProviderSampleClaim
     public double Confidence { get; init; }
 }
 
-// ── PUT /settings/providers/{name}/config ────────────────────────────────────
+// -- PUT /settings/providers/{name}/config ------------------------------------
 
 public sealed class ProviderConfigUpdateRequest
 {
@@ -782,7 +782,7 @@ public sealed class FieldMappingUpdateDto
     public string? TransformArgs { get; init; }
 }
 
-// ── PUT /settings/providers/priority ─────────────────────────────────────────
+// -- PUT /settings/providers/priority -----------------------------------------
 
 public sealed class ProviderPriorityRequest
 {
@@ -790,7 +790,7 @@ public sealed class ProviderPriorityRequest
     public List<string> Order { get; init; } = [];
 }
 
-// ── /profiles ────────────────────────────────────────────────────────────────
+// -- /profiles ----------------------------------------------------------------
 
 public sealed class ProfileResponseDto
 {
@@ -821,6 +821,93 @@ public sealed class ProfileResponseDto
         CreatedAt        = p.CreatedAt,
         NavigationConfig = p.NavigationConfig,
     };
+}
+
+public sealed class ProfileOverviewResponseDto
+{
+    [JsonPropertyName("profile")]
+    public ProfileResponseDto Profile { get; init; } = new();
+
+    [JsonPropertyName("stats")]
+    public ProfileOverviewStatsDto Stats { get; init; } = new();
+
+    [JsonPropertyName("recent_items")]
+    public List<ProfileOverviewItemDto> RecentItems { get; init; } = [];
+
+    [JsonPropertyName("continue_items")]
+    public List<ProfileOverviewItemDto> ContinueItems { get; init; } = [];
+
+    [JsonPropertyName("completed_items")]
+    public List<ProfileOverviewItemDto> CompletedItems { get; init; } = [];
+
+    [JsonPropertyName("activity")]
+    public List<ProfileOverviewActivityDto> Activity { get; init; } = [];
+
+    [JsonPropertyName("taste")]
+    public Domain.Models.TasteProfile? Taste { get; init; }
+}
+
+public sealed class ProfileOverviewStatsDto
+{
+    [JsonPropertyName("total_items")]
+    public int TotalItems { get; init; }
+
+    [JsonPropertyName("in_progress")]
+    public int InProgress { get; init; }
+
+    [JsonPropertyName("completed")]
+    public int Completed { get; init; }
+
+    [JsonPropertyName("recent_activity")]
+    public int RecentActivity { get; init; }
+
+    [JsonPropertyName("media_type_mix")]
+    public Dictionary<string, int> MediaTypeMix { get; init; } = [];
+}
+
+public sealed class ProfileOverviewItemDto
+{
+    [JsonPropertyName("asset_id")]
+    public Guid AssetId { get; init; }
+
+    [JsonPropertyName("work_id")]
+    public Guid? WorkId { get; init; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; init; } = string.Empty;
+
+    [JsonPropertyName("subtitle")]
+    public string? Subtitle { get; init; }
+
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; init; } = "Media";
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; init; }
+
+    [JsonPropertyName("progress_pct")]
+    public double ProgressPct { get; init; }
+
+    [JsonPropertyName("last_accessed")]
+    public DateTimeOffset LastAccessed { get; init; }
+}
+
+public sealed class ProfileOverviewActivityDto
+{
+    [JsonPropertyName("id")]
+    public long Id { get; init; }
+
+    [JsonPropertyName("occurred_at")]
+    public DateTimeOffset OccurredAt { get; init; }
+
+    [JsonPropertyName("action_type")]
+    public string ActionType { get; init; } = string.Empty;
+
+    [JsonPropertyName("detail")]
+    public string? Detail { get; init; }
+
+    [JsonPropertyName("entity_id")]
+    public Guid? EntityId { get; init; }
 }
 
 public sealed class CreateProfileRequest
@@ -934,7 +1021,7 @@ public sealed class AuthSettingsDto
     public List<string> OidcScopes { get; init; } = [];
 }
 
-// ── GET /metadata/claims/{entityId} ──────────────────────────────────────────
+// -- GET /metadata/claims/{entityId} ------------------------------------------
 
 public sealed class ClaimDto
 {
@@ -971,7 +1058,7 @@ public sealed class ClaimDto
     };
 }
 
-// ── PATCH /metadata/lock-claim ───────────────────────────────────────────────
+// -- PATCH /metadata/lock-claim -----------------------------------------------
 
 public sealed class LockClaimRequest
 {
@@ -1000,7 +1087,7 @@ public sealed class LockClaimResponse
     public DateTimeOffset LockedAt { get; init; }
 }
 
-// ── DELETE /admin/api-keys (revoke all) ──────────────────────────────────────
+// -- DELETE /admin/api-keys (revoke all) --------------------------------------
 
 public sealed class RevokeAllKeysResponse
 {
@@ -1008,7 +1095,7 @@ public sealed class RevokeAllKeysResponse
     public int RevokedCount { get; init; }
 }
 
-// ── GET/PUT /settings/organization-template ──────────────────────────────────
+// -- GET/PUT /settings/organization-template ----------------------------------
 
 public sealed class OrganizationTemplateResponse
 {
@@ -1034,7 +1121,7 @@ public sealed class UpdateOrganizationTemplateRequest
     public Dictionary<string, string>? Templates { get; init; }
 }
 
-// ── GET /metadata/conflicts ─────────────────────────────────────────────────
+// -- GET /metadata/conflicts -------------------------------------------------
 
 public sealed class ConflictDto
 {
@@ -1059,7 +1146,7 @@ public sealed class ConflictDto
     };
 }
 
-// ── POST /metadata/hydrate/{entityId} ────────────────────────────────────────
+// -- POST /metadata/hydrate/{entityId} ----------------------------------------
 
 public sealed class HydrateResponse
 {
@@ -1088,7 +1175,7 @@ public sealed class HydrateResponse
     public string Message { get; init; } = string.Empty;
 }
 
-// ── PUT /metadata/{entityId}/override ──────────────────────────────────────
+// -- PUT /metadata/{entityId}/override --------------------------------------
 
 public sealed class MetadataOverrideRequest
 {
@@ -1109,7 +1196,7 @@ public sealed class MetadataOverrideResponse
     public DateTimeOffset OverriddenAt { get; init; }
 }
 
-// ── Review Queue DTOs ────────────────────────────────────────────────────────
+// -- Review Queue DTOs --------------------------------------------------------
 
 public sealed class ReviewItemDto
 {
@@ -1243,7 +1330,7 @@ public sealed class ReviewCountResponse
     public int PendingCount { get; init; }
 }
 
-// ── /ingestion/watch-folder ──────────────────────────────────────────────────
+// -- /ingestion/watch-folder --------------------------------------------------
 
 public sealed class WatchFolderResponse
 {
@@ -1269,7 +1356,7 @@ public sealed class WatchFolderFileDto
     public DateTimeOffset LastModified { get; init; }
 }
 
-// ── POST /metadata/{entityId}/reclassify ──────────────────────────────────────
+// -- POST /metadata/{entityId}/reclassify --------------------------------------
 
 public sealed class ReclassifyRequest
 {
@@ -1293,7 +1380,7 @@ public sealed class ReclassifyResponse
     public bool ReviewResolved { get; init; }
 }
 
-// ── POST /metadata/labels/resolve ─────────────────────────────────────────────
+// -- POST /metadata/labels/resolve ---------------------------------------------
 
 public sealed class LabelResolveRequest
 {
@@ -1313,10 +1400,10 @@ public sealed class LabelResolveEntry
     public string? EntityType { get; init; }
 }
 
-// ── POST /registry/items/{entityId}/provisional ────────────────────────────────
+// -- POST /library/items/{entityId}/provisional --------------------------------
 
 /// <summary>
-/// Request body for marking a registry item as provisional with curator-entered metadata.
+/// Request body for marking a libraryItem item as provisional with curator-entered metadata.
 /// </summary>
 public sealed class ProvisionalMetadataRequest
 {

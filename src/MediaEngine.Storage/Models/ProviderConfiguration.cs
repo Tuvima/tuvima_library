@@ -13,7 +13,7 @@ namespace MediaEngine.Storage.Models;
 /// </summary>
 public sealed class ProviderConfiguration
 {
-    /// <summary>Must match the provider's registered name in the provider registry.</summary>
+    /// <summary>Must match the provider's registered name in the provider libraryItem.</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
@@ -429,7 +429,7 @@ public sealed class FieldMappingConfig
 
     /// <summary>
     /// Optional named transform to apply to the extracted value.
-    /// See <c>ValueTransformRegistry</c> for available transforms.
+    /// See <c>ValueTransformCatalog</c> for available transforms.
     /// </summary>
     [JsonPropertyName("transform")]
     public string? Transform { get; set; }

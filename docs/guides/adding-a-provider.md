@@ -132,8 +132,8 @@ Every provider needs a stable UUID. It is a foreign key in the `metadata_claims`
 ```
 
 Generate a UUID with `[System.Guid]::NewGuid()` (PowerShell) or any UUID v4 generator.
-The `DatabaseConnection` seeds a row into `provider_registry` on startup using this ID.
-If you ever change the UUID, update `provider_registry` directly or the FK will break.
+The `DatabaseConnection` seeds a row into `metadata_providers` on startup using this ID.
+If you ever change the UUID, update `metadata_providers` directly or the FK will break.
 
 ### Media type scope
 
@@ -464,7 +464,7 @@ At startup, `ConfigDrivenAdapter` scans `config/providers/` for JSON files where
 
 1. Deserialises `ProviderConfiguration` from the JSON.
 2. Registers an HTTP client named after `provider_id`.
-3. Seeds a row in `provider_registry(id, name, version, is_enabled)` via `DatabaseConnection`
+3. Seeds a row in `metadata_providers(id, name, version, is_enabled)` via `DatabaseConnection`
    â€” the `INSERT OR IGNORE` means existing rows are never overwritten.
 4. Makes the adapter available as `IExternalMetadataProvider` through DI.
 
@@ -499,7 +499,7 @@ confidence value, and which search strategy fired. If no claims appear, check:
 - Check `engine.log` (Serilog rolling log) for HTTP-level errors from the adapter.
 
 You can also browse all registered providers via the Settings â†’ Providers screen in
-the Dashboard, or inspect the `provider_registry` table directly:
+the Dashboard, or inspect the `metadata_providers` table directly:
 
 ```http
 GET http://localhost:61495/swagger  â†’ Providers section â†’ GET /settings/providers

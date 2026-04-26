@@ -66,7 +66,7 @@ public sealed record WikidataProperty
     /// <c>null</c> means no transform — pass the raw value through.
     /// Valid names: <c>"year_from_iso"</c>, <c>"numeric_portion"</c>,
     /// <c>"strip_entity_uri"</c>, <c>"commons_url"</c>.
-    /// Transform functions live in <see cref="ValueTransformRegistry"/>;
+    /// Transform functions live in <see cref="ValueTransformCatalog"/>;
     /// which property uses which transform is data, not code.
     /// </summary>
     public string? ValueTransform { get; init; }

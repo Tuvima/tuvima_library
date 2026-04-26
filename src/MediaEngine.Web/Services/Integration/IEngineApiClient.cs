@@ -146,6 +146,9 @@ public interface IEngineApiClient
     /// <summary>GET /profiles/{id}/taste — read the computed taste profile for a user.</summary>
     Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>GET /profiles/{id}/overview - read user-facing profile details, history, and stats.</summary>
+    Task<ProfileOverviewViewModel?> GetProfileOverviewAsync(Guid id, CancellationToken ct = default);
+
     // ── Metadata claims (/metadata) ─────────────────────────────────────────────
 
     /// <summary>GET /metadata/claims/{entityId} — claim history for a work/edition.</summary>
@@ -451,7 +454,7 @@ public interface IEngineApiClient
 
     // ── Persons by Collection (/persons/by-collection) ────────────────────────────────
 
-    /// <summary>GET /persons?role={role}&amp;limit={limit} — list persons as PersonListItemDto (for registry view).</summary>
+    /// <summary>GET /persons?role={role}&amp;limit={limit} — list persons as PersonListItemDto (for libraryItem view).</summary>
     Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(string? role = null, int limit = 200, CancellationToken ct = default);
 
     /// <summary>GET /persons?role={role}&amp;limit={limit} â€” list persons filtered by role.</summary>
@@ -662,7 +665,7 @@ public interface IEngineApiClient
     // ── Vault items (/vault/items) ─────────────────────────────────────────
 
     /// <summary>GET /vault/items — paginated list of all ingested items.</summary>
-    Task<RegistryPageResponse?> GetRegistryItemsAsync(
+    Task<LibraryCatalogPageResponse?> GetLibraryCatalogItemsAsync(
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
         double? minConfidence = null, string? matchSource = null,
@@ -671,41 +674,41 @@ public interface IEngineApiClient
         CancellationToken ct = default);
 
     /// <summary>POST /vault/items/batch/approve — bulk-approve Vault items.</summary>
-    Task<BatchRegistryResponse?> BatchApproveRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default);
+    Task<BatchLibraryItemResponse?> BatchApproveLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default);
 
     /// <summary>POST /vault/items/batch/delete — bulk-delete Vault items.</summary>
-    Task<BatchRegistryResponse?> BatchDeleteRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default);
+    Task<BatchLibraryItemResponse?> BatchDeleteLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default);
 
     /// <summary>POST /vault/items/{entityId}/reject — reject a single Vault item.</summary>
-    Task<BatchRegistryResponse?> RejectRegistryItemAsync(Guid entityId, CancellationToken ct = default);
+    Task<BatchLibraryItemResponse?> RejectLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>POST /vault/items/batch/reject — bulk-reject Vault items.</summary>
-    Task<BatchRegistryResponse?> BatchRejectRegistryItemsAsync(Guid[] entityIds, CancellationToken ct = default);
+    Task<BatchLibraryItemResponse?> BatchRejectLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default);
 
     /// <summary>GET /vault/items/{entityId}/detail — full detail for expanded row.</summary>
-    Task<RegistryItemDetailViewModel?> GetRegistryItemDetailAsync(Guid entityId, CancellationToken ct = default);
+    Task<LibraryItemDetailViewModel?> GetLibraryItemDetailAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>GET /vault/items/{entityId}/history — processing history timeline.</summary>
-    Task<List<RegistryItemHistoryDto>> GetItemHistoryAsync(Guid entityId, CancellationToken ct = default);
+    Task<List<LibraryItemHistoryDto>> GetItemHistoryAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>POST /vault/items/{entityId}/recover — recover a previously rejected item.</summary>
-    Task<bool> RecoverRegistryItemAsync(Guid entityId, CancellationToken ct = default);
+    Task<bool> RecoverLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>POST /vault/items/{entityId}/auto-register — auto-register an item using its top candidate.</summary>
-    Task<BatchRegistryResponse?> AutoRegisterItemAsync(Guid entityId, CancellationToken ct = default);
+    Task<BatchLibraryItemResponse?> AutoMatchLibraryItemAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>POST /vault/items/{entityId}/provisional — mark an item as provisional with curator metadata.</summary>
     Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default);
 
     /// <summary>GET /vault/items/counts — status counts for tab badges.</summary>
-    Task<RegistryStatusCountsDto?> GetRegistryStatusCountsAsync(CancellationToken ct = default);
+    Task<LibraryItemStatusCountsDto?> GetLibraryItemStatusCountsAsync(CancellationToken ct = default);
 
     /// <summary>GET /vault/items/state-counts — four-state counts with trigger breakdown.</summary>
-    Task<RegistryFourStateCountsDto?> GetRegistryFourStateCountsAsync(
+    Task<LibraryItemLifecycleCountsDto?> GetLibraryItemLifecycleCountsAsync(
         Guid? batchId = null, CancellationToken ct = default);
 
     /// <summary>GET /vault/items/type-counts — per-media-type item counts.</summary>
-    Task<Dictionary<string, int>> GetRegistryTypeCountsAsync(CancellationToken ct = default);
+    Task<Dictionary<string, int>> GetLibraryItemTypeCountsAsync(CancellationToken ct = default);
 
     /// <summary>GET /ingestion/batches — recent ingestion batches.</summary>
     Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
@@ -742,7 +745,7 @@ public interface IEngineApiClient
         Dictionary<string, string>? fileHints, CancellationToken ct = default);
 
     /// <summary>POST /vault/items/{entityId}/apply-match — apply a match to a Vault item.</summary>
-    Task<ApplyMatchResponseDto?> ApplyRegistryMatchAsync(
+    Task<ApplyMatchResponseDto?> ApplyLibraryItemMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
         CancellationToken ct = default);
 
@@ -760,7 +763,7 @@ public interface IEngineApiClient
         CancellationToken ct = default);
 
     /// <summary>DELETE /vault/items/{entityId} — permanently remove a work and all its files.</summary>
-    Task<bool> DeleteRegistryItemAsync(Guid entityId, CancellationToken ct = default);
+    Task<bool> DeleteLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>Submit a problem report on a media item.</summary>
     Task<SubmitReportResponseDto?> SubmitReportAsync(SubmitReportRequestDto request, CancellationToken ct = default);
@@ -854,7 +857,7 @@ public interface IEngineApiClient
 
     /// <summary>
     /// GET /collections/resolve/by-name?name=...&amp;limit=... — resolves a System collection by display name.
-    /// Bypasses the registry visibility filter so in-flight items are included.
+    /// Bypasses the libraryItem visibility filter so in-flight items are included.
     /// Reads both asset-level and root-parent-Work-level canonical values (lineage-aware).
     /// </summary>
     Task<List<CollectionResolvedItemViewModel>> ResolveCollectionByNameAsync(string name, int? limit = null, CancellationToken ct = default);

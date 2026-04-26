@@ -105,7 +105,7 @@ The voice is **warm, literary, and a little reverent** — it treats a media col
 
 ## Iconography
 
-The codebase uses **FontAwesome Solid** SVGs served statically from `/icons/fontawesome/solid/{name}.svg`. An `AppIconRegistry` (in `src/MediaEngine.Web/Components/Shared/AppIconRegistry.cs`) aliases semantic keys (`search`, `home`, `read`, `watch`, `listen`, `collections`, `settings`, `intelligence`, `server`, etc.) to specific solid icons (`magnifying-glass`, `house`, `book-open-reader`, `film`, `headphones`, `boxes-stacked`, `gear`, `wand-magic-sparkles`, `server`…). MudBlazor Material Icons are used only for provider-accent icons (TMDB, Wikidata, MusicBrainz) and MudBlazor's own internal widgets — the design system itself is FontAwesome-first.
+The codebase uses **FontAwesome Solid** SVGs served statically from `/icons/fontawesome/solid/{name}.svg`. An `AppIconCatalog` (in `src/MediaEngine.Web/Components/Shared/AppIconCatalog.cs`) aliases semantic keys (`search`, `home`, `read`, `watch`, `listen`, `collections`, `settings`, `intelligence`, `server`, etc.) to specific solid icons (`magnifying-glass`, `house`, `book-open-reader`, `film`, `headphones`, `boxes-stacked`, `gear`, `wand-magic-sparkles`, `server`…). MudBlazor Material Icons are used only for provider-accent icons (TMDB, Wikidata, MusicBrainz) and MudBlazor's own internal widgets — the design system itself is FontAwesome-first.
 
 **Rules**
 - No emoji anywhere in the UI.
