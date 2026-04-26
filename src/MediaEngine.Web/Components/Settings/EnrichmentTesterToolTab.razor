@@ -1,0 +1,995 @@
+@namespace MediaEngine.Web.Components.Settings
+@using System.Net.Http.Json
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using MudBlazor
+@inject IHttpClientFactory HttpFactory
+
+<div class="settings-internal-tool" data-temporary-tool="enrichment-tester">
+
+    <MudText Typo="Typo.h4" GutterBottom="true"
+             Style="color: #F8F8F8; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 700;">
+        Enrichment Tester
+    </MudText>
+    <MudText Typo="Typo.body2" Class="mb-6"
+             Style="color: rgba(248,248,248,0.55);">
+        Enter a title, ISBN, or identifier to search Wikidata. Select a result to see full enrichment data.
+    </MudText>
+
+    @* ── Input section ── *@
+    <MudPaper Elevation="0" Class="pa-4 mb-6"
+              Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+        <MudGrid>
+            <MudItem xs="12" sm="5">
+                <MudTextField @bind-Value="_title"
+                              Label="Title"
+                              Placeholder="e.g. Dune"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                              OnKeyUp="@OnKeyUp" />
+            </MudItem>
+            <MudItem xs="12" sm="3">
+                <MudTextField @bind-Value="_author"
+                              Label="Author (optional)"
+                              Placeholder="e.g. Frank Herbert"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="2">
+                <MudSelect @bind-Value="_mediaType"
+                           Label="Media Type"
+                           Variant="Variant.Outlined">
+                    @foreach (var mt in _mediaTypes)
+                    {
+                        <MudSelectItem Value="@mt">@mt</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="2" Class="d-flex align-center">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           OnClick="@Search"
+                           Disabled="@(_loading || string.IsNullOrWhiteSpace(_title))"
+                           StartIcon="@Icons.Material.Outlined.Bolt">
+                    Search
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* ── Progress (searching) ── *@
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                           Style="border-radius: 4px;" />
+        <MudText Typo="Typo.body2" Class="mb-4" Style="color: rgba(248,248,248,0.55);">
+            Searching Wikidata...
+        </MudText>
+    }
+
+    @* ── Progress (enriching) ── *@
+    @if (_enriching)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="mb-4"
+                           Style="border-radius: 4px;" />
+        <MudText Typo="Typo.body2" Class="mb-4" Style="color: rgba(248,248,248,0.55);">
+            Running full enrichment...
+        </MudText>
+    }
+
+    @* ── Error ── *@
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_error</MudAlert>
+    }
+
+    @* ── Enrich Universe success message ── *@
+    @if (_enrichUniverseMessage is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-4" Dense="true"
+                  Icon="@Icons.Material.Filled.Collections"
+                  ShowCloseIcon="true"
+                  CloseIconClicked="@(() => _enrichUniverseMessage = null)">
+            @_enrichUniverseMessage
+        </MudAlert>
+    }
+
+    @* ── Step 1: Candidate list ── *@
+    @if (_candidates is not null && _selectedCandidate is null && !_loading)
+    {
+        @if (_candidates.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="pa-4 mb-4"
+                      Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">
+                    No candidates found. Try a different title or media type.
+                </MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mb-3" Style="color: rgba(248,248,248,0.55);">
+                @_candidates.Count candidate(s) found — click one to run full enrichment.
+            </MudText>
+
+            <MudGrid Class="mb-4">
+                @foreach (var candidate in _candidates)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudPaper Elevation="0" Class="pa-3 cursor-pointer"
+                                  Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; transition: border-color 0.2s;"
+                                  @onclick="() => SelectCandidate(candidate)">
+                            <div class="d-flex align-center gap-2 mb-2">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                         Style="height: 20px; font-size: 0.7rem;">
+                                    @candidate.Qid
+                                </MudChip>
+                                @if (candidate.Match)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success"
+                                             Style="height: 20px; font-size: 0.65rem;">
+                                        Auto-match
+                                    </MudChip>
+                                }
+                            </div>
+                            <MudText Typo="Typo.body1" Style="color: #F8F8F8; font-weight: 600;">
+                                @candidate.Label
+                            </MudText>
+                            @if (!string.IsNullOrEmpty(candidate.Description))
+                            {
+                                <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.55); font-size: 0.8rem;" Class="mt-1">
+                                    @candidate.Description
+                                </MudText>
+                            }
+                            @if (!string.IsNullOrEmpty(candidate.WikidataUrl))
+                            {
+                                <a href="@candidate.WikidataUrl" target="_blank"
+                                   @onclick:stopPropagation="true"
+                                   style="color: #7CB9E8; font-size: 0.72rem; text-decoration: none; display: inline-block; margin-top: 4px;">
+                                    View on Wikidata ↗
+                                </a>
+                            }
+                            <MudProgressLinear Value="@(candidate.Score * 100)" Color="Color.Primary"
+                                               Class="mt-2" Style="border-radius: 4px; height: 4px;" />
+                            <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.4);" Class="mt-1">
+                                Score: @candidate.Score.ToString("P0")
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    }
+
+    @* ── Step 2: Full enrichment results ── *@
+    @if (_selectedCandidate is not null && !_enriching)
+    {
+        @* Back button + selected candidate header + Enrich Universe *@
+        <div class="d-flex align-center gap-3 mb-4">
+            <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
+                           Color="Color.Default"
+                           OnClick="@BackToSearch" />
+            <MudChip T="string" Color="Color.Primary" Size="Size.Small">
+                @_selectedCandidate.Qid
+            </MudChip>
+            <MudText Typo="Typo.h6" Style="color: #F8F8F8; font-weight: 600;">
+                @_selectedCandidate.Label
+            </MudText>
+            <MudSpacer />
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       OnClick="@EnrichUniverse"
+                       Disabled="@_enrichingUniverse"
+                       StartIcon="@Icons.Material.Outlined.Collections"
+                       Size="Size.Small">
+                @if (_enrichingUniverse)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    @:Enriching…
+                }
+                else
+                {
+                    @:Enrich Universe
+                }
+            </MudButton>
+        </div>
+
+        @* ── Results ── *@
+        @if (_result is not null)
+        {
+            @* ── 1. Identity Card ── *@
+            <MudText Typo="Typo.h6" Class="mb-2"
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                Identity
+            </MudText>
+            <MudPaper Elevation="0" Class="pa-4 mb-4"
+                      Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                <div class="d-flex align-center gap-4 mb-3">
+                    @* Cover art *@
+                    @{
+                        var coverUrl = _result.ClaimGroups
+                            .FirstOrDefault(g => g.FieldKey == "cover")?.Claims
+                            .FirstOrDefault()?.Value;
+                    }
+                    @if (!string.IsNullOrEmpty(coverUrl))
+                    {
+                        <MudImage Src="@coverUrl" Alt="Cover" Width="80" Height="120"
+                                  ObjectFit="ObjectFit.Cover"
+                                  Style="border-radius: 6px; flex-shrink: 0;" />
+                    }
+
+                    <div>
+                        @if (_result.ResolvedQid is not null)
+                        {
+                            <MudChip T="string" Icon="@Icons.Material.Outlined.Link"
+                                     Color="Color.Primary" Size="Size.Small" Class="mb-1">
+                                QID: @_result.ResolvedQid
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Icon="@Icons.Material.Outlined.HelpOutline"
+                                     Color="Color.Warning" Size="Size.Small" Class="mb-1">
+                                No QID resolved
+                            </MudChip>
+                        }
+                        <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.55);">
+                            @_result.ClaimGroups.Count claim group(s) &bull;
+                            @_result.Persons.Count person(s) &bull;
+                            @_result.FictionalEntities.Count fictional entity(ies) &bull;
+                            @_result.Relationships.Count relationship(s)
+                        </MudText>
+                    </div>
+                </div>
+
+                @* Claims grouped by field key *@
+                @if (_result.ClaimGroups.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Striped="true" Hover="true"
+                                    Style="background: transparent; font-size: 0.8rem;">
+                        <thead>
+                            <tr>
+                                <th style="color: rgba(248,248,248,0.55); width: 180px;">Field</th>
+                                <th style="color: rgba(248,248,248,0.55);">Value</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 90px;">Confidence</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 300px;">Provider</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var group in _result.ClaimGroups.OrderBy(g => g.FieldKey))
+                            {
+                                @foreach (var (claim, idx) in group.Claims.Select((c, i) => (c, i)))
+                                {
+                                    <tr>
+                                        @if (idx == 0)
+                                        {
+                                            <td style="color: #C9922E; vertical-align: top; font-weight: 600;">
+                                                @group.FieldKey
+                                            </td>
+                                        }
+                                        else
+                                        {
+                                            <td></td>
+                                        }
+                                        <td style="color: #F8F8F8; word-break: break-all;">
+                                            @if (group.FieldKey == "cover" && IsUrl(claim.Value))
+                                            {
+                                                <a href="@claim.Value" target="_blank"
+                                                   style="color: #7CB9E8; text-decoration: none; font-size: 0.75rem;">
+                                                    @TruncateUrl(claim.Value, 60)
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                @claim.Value
+                                            }
+                                        </td>
+                                        <td style="color: @ConfidenceColor(claim.Confidence);">
+                                            @claim.Confidence.ToString("P0")
+                                        </td>
+                                        <td style="color: rgba(248,248,248,0.45); font-size: 0.72rem; font-family: monospace;">
+                                            @claim.ProviderId
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">No claims returned.</MudText>
+                }
+            </MudPaper>
+
+            @* ── 1b. Bridge IDs ── *@
+            @if (GetBridgeClaims(_result).Count > 0)
+            {
+                <MudText Typo="Typo.h6" Class="mb-2"
+                         Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                    Bridge IDs (@GetBridgeClaims(_result).Count)
+                </MudText>
+                <MudPaper Elevation="0" Class="pa-4 mb-4"
+                          Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                    <MudGrid>
+                        @foreach (var group in GetBridgeClaims(_result))
+                        {
+                            @foreach (var claim in group.Claims)
+                            {
+                                <MudItem xs="12" sm="6" md="4">
+                                    <div>
+                                        <MudText Typo="Typo.caption"
+                                                 Style="color: rgba(248,248,248,0.45); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em;">
+                                            @group.FieldKey
+                                        </MudText>
+                                        <MudText Typo="Typo.body2"
+                                                 Style="color: #F8F8F8; font-family: monospace; font-size: 0.85rem;">
+                                            @claim.Value
+                                        </MudText>
+                                    </div>
+                                </MudItem>
+                            }
+                        }
+                    </MudGrid>
+                </MudPaper>
+            }
+
+            @* ── 1c. Bridge Hint Preview ── *@
+            <MudText Typo="Typo.h6" Class="mb-2"
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                Bridge Hint Preview (@(_result.BridgeHintPreview?.Count ?? 0))
+            </MudText>
+            @if (_result.BridgeHintPreview is { Count: > 0 })
+            {
+                <MudPaper Elevation="0" Class="pa-4 mb-4"
+                          Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                    <MudText Typo="Typo.caption" Class="mb-3"
+                             Style="color: rgba(248,248,248,0.45); font-size: 0.7rem;">
+                        These bridge IDs would flow to Stage 2 retail providers for precise lookups (cover art, ratings).
+                    </MudText>
+                    <MudSimpleTable Dense="true" Striped="true" Hover="true"
+                                    Style="background: transparent; font-size: 0.8rem;">
+                        <thead>
+                            <tr>
+                                <th style="color: rgba(248,248,248,0.55); width: 130px;">Hint Key</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 160px;">Raw Value</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 160px;">Normalized</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 130px;">Source Claim</th>
+                                <th style="color: rgba(248,248,248,0.55);">Target Providers</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var hint in _result.BridgeHintPreview)
+                            {
+                                <tr>
+                                    <td style="color: #C9922E; font-weight: 600;">@hint.Key</td>
+                                    <td style="color: rgba(248,248,248,0.45); font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+                                        @hint.RawValue
+                                    </td>
+                                    <td style="color: #F8F8F8; font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+                                        @hint.NormalizedValue
+                                    </td>
+                                    <td style="color: rgba(248,248,248,0.55); font-size: 0.75rem;">@hint.SourceClaimKey</td>
+                                    <td>
+                                        @foreach (var provider in hint.TargetProviders)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                                     Style="height: 18px; font-size: 0.6rem; margin: 1px;">
+                                                @provider
+                                            </MudChip>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                          Style="background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.25); border-radius: 10px;">
+                    <div class="d-flex align-center gap-2">
+                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Size="Size.Small"
+                                 Style="color: #F97316;" />
+                        <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.65); font-size: 0.8rem;">
+                            No bridge hints would flow to Stage 2 — cover art would rely on text search (ArtworkUnconfirmed)
+                        </MudText>
+                    </div>
+                </MudPaper>
+            }
+
+            @* ── 2. People ── *@
+            <MudText Typo="Typo.h6" Class="mb-2"
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                People (@_result.Persons.Count)
+            </MudText>
+
+            @if (_result.Persons.Count > 0)
+            {
+                <MudExpansionPanels Class="mb-4" Elevation="0">
+                    @foreach (var person in _result.Persons)
+                    {
+                        <MudExpansionPanel Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 4px;">
+                            <TitleContent>
+                                <div class="d-flex align-center gap-3">
+                                    @if (!string.IsNullOrEmpty(person.HeadshotUrl))
+                                    {
+                                        <MudAvatar Style="width: 36px; height: 36px; flex-shrink: 0;">
+                                            <MudImage Src="@person.HeadshotUrl" Alt="@person.Name"
+                                                      ObjectFit="ObjectFit.Cover" />
+                                        </MudAvatar>
+                                    }
+                                    else
+                                    {
+                                        <MudAvatar Color="Color.Dark" Style="width: 36px; height: 36px; flex-shrink: 0;">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Small" />
+                                        </MudAvatar>
+                                    }
+                                    <div>
+                                        <MudText Typo="Typo.body1" Style="color: #F8F8F8; font-weight: 600; line-height: 1.2;">
+                                            @person.Name
+                                        </MudText>
+                                        <div class="d-flex gap-2">
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                                     Style="height: 18px; font-size: 0.65rem;">
+                                                @person.Role
+                                            </MudChip>
+                                            @if (person.Qid is not null)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                                         Style="height: 18px; font-size: 0.65rem;">
+                                                    @person.Qid
+                                                </MudChip>
+                                            }
+                                            @if (!string.IsNullOrEmpty(person.Occupation))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                                         Style="height: 18px; font-size: 0.65rem; color: rgba(248,248,248,0.55);">
+                                                    @person.Occupation
+                                                </MudChip>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                <div class="pa-2">
+                                    @if (!string.IsNullOrEmpty(person.HeadshotUrl))
+                                    {
+                                        <div class="mb-3">
+                                            <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.4);">HEADSHOT URL</MudText>
+                                            <a href="@person.HeadshotUrl" target="_blank"
+                                               style="color: #7CB9E8; font-size: 0.75rem; word-break: break-all; text-decoration: none;">
+                                                @person.HeadshotUrl
+                                            </a>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(person.Biography))
+                                    {
+                                        <div class="mb-2">
+                                            <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.4);">BIOGRAPHY</MudText>
+                                            <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.80);">
+                                                @person.Biography
+                                            </MudText>
+                                        </div>
+                                    }
+                                    @if (string.IsNullOrEmpty(person.Biography) && string.IsNullOrEmpty(person.HeadshotUrl))
+                                    {
+                                        <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">
+                                            No additional detail available.
+                                        </MudText>
+                                    }
+                                </div>
+                            </ChildContent>
+                        </MudExpansionPanel>
+                    }
+                </MudExpansionPanels>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                          Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">No people returned.</MudText>
+                </MudPaper>
+            }
+
+            @* ── 3. Fictional Entities ── *@
+            <MudText Typo="Typo.h6" Class="mb-2"
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                Fictional Entities (@_result.FictionalEntities.Count)
+            </MudText>
+
+            @if (_result.FictionalEntities.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                          Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                    <MudSimpleTable Dense="true" Striped="true" Hover="true"
+                                    Style="background: transparent; font-size: 0.8rem;">
+                        <thead>
+                            <tr>
+                                <th style="color: rgba(248,248,248,0.55);">Label</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 110px;">QID</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 110px;">Type</th>
+                                <th style="color: rgba(248,248,248,0.55);">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entity in _result.FictionalEntities)
+                            {
+                                <tr>
+                                    <td style="color: #F8F8F8; font-weight: 600;">@entity.Label</td>
+                                    <td style="color: rgba(248,248,248,0.55); font-family: monospace; font-size: 0.75rem;">
+                                        @(entity.Qid ?? "—")
+                                    </td>
+                                    <td>
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Secondary"
+                                                 Style="height: 18px; font-size: 0.65rem;">
+                                            @entity.EntityType
+                                        </MudChip>
+                                    </td>
+                                    <td style="color: rgba(248,248,248,0.70);">@(entity.Description ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                          Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">No fictional entities returned.</MudText>
+                </MudPaper>
+            }
+
+            @* ── 4. Relationships ── *@
+            <MudText Typo="Typo.h6" Class="mb-2"
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                Relationships (@_result.Relationships.Count)
+            </MudText>
+
+            @if (_result.Relationships.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                          Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                    <MudSimpleTable Dense="true" Striped="true" Hover="true"
+                                    Style="background: transparent; font-size: 0.8rem;">
+                        <thead>
+                            <tr>
+                                <th style="color: rgba(248,248,248,0.55);">Subject</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 140px;">Relationship</th>
+                                <th style="color: rgba(248,248,248,0.55);">Object</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 100px;">Start</th>
+                                <th style="color: rgba(248,248,248,0.55); width: 100px;">End</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var rel in _result.Relationships)
+                            {
+                                <tr>
+                                    <td style="color: #F8F8F8;">
+                                        @rel.SubjectLabel
+                                        @if (!string.IsNullOrEmpty(rel.SubjectQid))
+                                        {
+                                            <span style="color: rgba(248,248,248,0.4); font-size: 0.72rem; margin-left: 4px;">
+                                                (@rel.SubjectQid)
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Info"
+                                                 Style="height: 18px; font-size: 0.65rem;">
+                                            @rel.RelationshipType
+                                        </MudChip>
+                                    </td>
+                                    <td style="color: #F8F8F8;">
+                                        @rel.ObjectLabel
+                                        @if (!string.IsNullOrEmpty(rel.ObjectQid))
+                                        {
+                                            <span style="color: rgba(248,248,248,0.4); font-size: 0.72rem; margin-left: 4px;">
+                                                (@rel.ObjectQid)
+                                            </span>
+                                        }
+                                    </td>
+                                    <td style="color: rgba(248,248,248,0.55); font-size: 0.75rem;">
+                                        @(rel.StartTime ?? "—")
+                                    </td>
+                                    <td style="color: rgba(248,248,248,0.55); font-size: 0.75rem;">
+                                        @(rel.EndTime ?? "—")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                          Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.4);">No relationships returned.</MudText>
+                </MudPaper>
+            }
+
+            @* ── 5. Raw Claims (all, collapsible) ── *@
+            <MudExpansionPanels Class="mb-6" Elevation="0">
+                <MudExpansionPanel Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                    <TitleContent>
+                        <MudText Typo="Typo.h6"
+                                 Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                            Raw Claims —
+                            @(_result.ClaimGroups.Sum(g => g.Claims.Count)) total
+                        </MudText>
+                    </TitleContent>
+                    <ChildContent>
+                        <MudSimpleTable Dense="true" Striped="true" Hover="true"
+                                        Style="background: transparent; font-size: 0.78rem;">
+                            <thead>
+                                <tr>
+                                    <th style="color: rgba(248,248,248,0.55); width: 160px;">Field Key</th>
+                                    <th style="color: rgba(248,248,248,0.55);">Value</th>
+                                    <th style="color: rgba(248,248,248,0.55); width: 90px;">Confidence</th>
+                                    <th style="color: rgba(248,248,248,0.55); width: 300px;">Provider ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var group in _result.ClaimGroups.OrderBy(g => g.FieldKey))
+                                {
+                                    @foreach (var claim in group.Claims)
+                                    {
+                                        <tr>
+                                            <td style="color: #C9922E; font-weight: 600;">@group.FieldKey</td>
+                                            <td style="color: #F8F8F8; word-break: break-all;">@claim.Value</td>
+                                            <td style="color: @ConfidenceColor(claim.Confidence);">
+                                                @claim.Confidence.ToString("P0")
+                                            </td>
+                                            <td style="color: rgba(248,248,248,0.40); font-family: monospace; font-size: 0.70rem;">
+                                                @claim.ProviderId
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </ChildContent>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+    }
+
+</div>
+
+@code {
+
+    // ── State ────────────────────────────────────────────────────────────────────
+
+    private string _title     = string.Empty;
+    private string _author    = string.Empty;
+    private string _mediaType = "Books";
+    private bool   _loading;
+    private bool   _enriching;
+    private bool   _enrichingUniverse;
+    private string? _error;
+    private string? _enrichUniverseMessage;
+    private DebugLookupResponse? _result;
+    private List<DebugSearchCandidate>? _candidates;
+    private DebugSearchCandidate? _selectedCandidate;
+
+    private static readonly string[] _mediaTypes =
+    [
+        "Books", "Audiobooks", "Movies", "TV", "Comics", "Music"
+    ];
+
+    // ── Actions ──────────────────────────────────────────────────────────────────
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await Search();
+    }
+
+    private async Task Search()
+    {
+        if (string.IsNullOrWhiteSpace(_title)) return;
+
+        _loading          = true;
+        _error            = null;
+        _candidates       = null;
+        _selectedCandidate = null;
+        _result           = null;
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpFactory.CreateClient("EngineApi");
+
+            var request = new
+            {
+                title     = _title.Trim(),
+                mediaType = _mediaType,
+                author    = string.IsNullOrWhiteSpace(_author) ? (string?)null : _author.Trim(),
+            };
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+            };
+
+            using var response = await client.PostAsJsonAsync("/debug/search", request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "…" : body)}";
+                return;
+            }
+
+            var searchResponse = await response.Content.ReadFromJsonAsync<DebugSearchResponse>(options);
+
+            if (searchResponse is null)
+            {
+                _error = "Engine returned an empty response.";
+                return;
+            }
+
+            _candidates = searchResponse.Candidates;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Could not reach the Engine: {ex.Message}";
+        }
+        catch (JsonException ex)
+        {
+            _error = $"Failed to parse Engine response: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Unexpected error: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SelectCandidate(DebugSearchCandidate candidate)
+    {
+        _selectedCandidate = candidate;
+        _enriching         = true;
+        _error             = null;
+        _result            = null;
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpFactory.CreateClient("EngineApi");
+
+            var request = new DebugEnrichRequest(
+                Qid:       candidate.Qid,
+                MediaType: _mediaType,
+                Author:    string.IsNullOrWhiteSpace(_author) ? null : _author.Trim()
+            );
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+            };
+
+            using var response = await client.PostAsJsonAsync("/debug/enrich", request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "…" : body)}";
+                return;
+            }
+
+            _result = await response.Content.ReadFromJsonAsync<DebugLookupResponse>(options);
+
+            if (_result is null)
+                _error = "Engine returned an empty response.";
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Could not reach the Engine: {ex.Message}";
+        }
+        catch (JsonException ex)
+        {
+            _error = $"Failed to parse Engine response: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Unexpected error: {ex.Message}";
+        }
+        finally
+        {
+            _enriching = false;
+        }
+    }
+
+    private void BackToSearch()
+    {
+        _selectedCandidate = null;
+        _result            = null;
+        _error             = null;
+    }
+
+    private async Task EnrichUniverse()
+    {
+        if (_selectedCandidate is null) return;
+
+        _enrichingUniverse    = true;
+        _error                = null;
+        _enrichUniverseMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpFactory.CreateClient("EngineApi");
+
+            var request = new DebugEnrichRequest(
+                Qid:       _selectedCandidate.Qid,
+                MediaType: _mediaType,
+                Author:    string.IsNullOrWhiteSpace(_author) ? null : _author.Trim()
+            );
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+            };
+
+            using var response = await client.PostAsJsonAsync("/debug/enrich-universe", request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _error = $"Engine returned {(int)response.StatusCode} {response.ReasonPhrase}. {(body.Length > 200 ? body[..200] + "…" : body)}";
+                return;
+            }
+
+            var prevPersonCount = _result?.Persons.Count ?? 0;
+            var prevEntityCount = _result?.FictionalEntities.Count ?? 0;
+
+            _result = await response.Content.ReadFromJsonAsync<DebugLookupResponse>(options);
+
+            if (_result is null)
+            {
+                _error = "Engine returned an empty response.";
+            }
+            else
+            {
+                var newPersons  = _result.Persons.Count - prevPersonCount;
+                var newEntities = _result.FictionalEntities.Count - prevEntityCount;
+                _enrichUniverseMessage =
+                    $"Created {newPersons} person record(s) and {newEntities} entity record(s). " +
+                    $"Wikidata enrichment enqueued for headshots and biographies.";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Could not reach the Engine: {ex.Message}";
+        }
+        catch (JsonException ex)
+        {
+            _error = $"Failed to parse Engine response: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Unexpected error: {ex.Message}";
+        }
+        finally
+        {
+            _enrichingUniverse = false;
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+
+    private static string ConfidenceColor(double c) => c switch
+    {
+        >= 0.85 => "#4ADE80",   // green
+        >= 0.60 => "#FACC15",   // amber
+        _       => "#F87171",   // red
+    };
+
+    private static bool IsUrl(string value) =>
+        value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+        value.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
+    private static string TruncateUrl(string url, int maxLen) =>
+        url.Length <= maxLen ? url : url[..maxLen] + "…";
+
+    private static readonly HashSet<string> BridgeFieldKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "isbn_13", "isbn_10", "asin", "tmdb_movie_id", "tmdb_tv_id", "imdb_id",
+        "apple_books_id", "comic_vine_id", "musicbrainz_artist_id",
+        "musicbrainz_release_id", "goodreads_id",
+        "openlibrary_id", "wikidata_qid",
+        "justwatch_id", "letterboxd_id", "tvdb_id", "tvcom_id",
+        "audible_id", "spotify_id", "discogs_id", "musicbrainz_release_group_id",
+    };
+
+    private static List<DebugClaimGroup> GetBridgeClaims(DebugLookupResponse result) =>
+        result.ClaimGroups
+            .Where(g => BridgeFieldKeys.Contains(g.FieldKey))
+            .OrderBy(g => g.FieldKey)
+            .ToList();
+
+    // ── Private DTOs ─────────────────────────────────────────────────────────────
+
+    private sealed record DebugSearchCandidate(
+        [property: JsonPropertyName("qid")]          string  Qid,
+        [property: JsonPropertyName("label")]         string  Label,
+        [property: JsonPropertyName("description")]   string? Description,
+        [property: JsonPropertyName("score")]         double  Score,
+        [property: JsonPropertyName("match")]         bool    Match,
+        [property: JsonPropertyName("wikidataUrl")]   string? WikidataUrl
+    );
+
+    private sealed record DebugSearchResponse(
+        [property: JsonPropertyName("candidates")] List<DebugSearchCandidate> Candidates
+    );
+
+    private sealed record DebugEnrichRequest(
+        [property: JsonPropertyName("qid")]       string  Qid,
+        [property: JsonPropertyName("mediaType")] string  MediaType,
+        [property: JsonPropertyName("author")]    string? Author
+    );
+
+    private sealed record DebugLookupResponse(
+        [property: JsonPropertyName("resolvedQid")]        string?                       ResolvedQid,
+        [property: JsonPropertyName("claimGroups")]        List<DebugClaimGroup>         ClaimGroups,
+        [property: JsonPropertyName("persons")]            List<DebugPersonResult>       Persons,
+        [property: JsonPropertyName("fictionalEntities")]  List<DebugEntityResult>       FictionalEntities,
+        [property: JsonPropertyName("relationships")]      List<DebugRelationshipResult> Relationships,
+        [property: JsonPropertyName("bridgeHintPreview")]  List<DebugBridgeHint>?        BridgeHintPreview
+    );
+
+    private sealed record DebugClaimGroup(
+        [property: JsonPropertyName("fieldKey")] string             FieldKey,
+        [property: JsonPropertyName("claims")]   List<DebugClaimEntry> Claims
+    );
+
+    private sealed record DebugClaimEntry(
+        [property: JsonPropertyName("value")]      string Value,
+        [property: JsonPropertyName("confidence")] double Confidence,
+        [property: JsonPropertyName("providerId")] string ProviderId
+    );
+
+    private sealed record DebugPersonResult(
+        [property: JsonPropertyName("name")]        string  Name,
+        [property: JsonPropertyName("role")]        string  Role,
+        [property: JsonPropertyName("qid")]         string? Qid,
+        [property: JsonPropertyName("headshotUrl")] string? HeadshotUrl,
+        [property: JsonPropertyName("biography")]   string? Biography,
+        [property: JsonPropertyName("occupation")]  string? Occupation
+    );
+
+    private sealed record DebugEntityResult(
+        [property: JsonPropertyName("label")]        string  Label,
+        [property: JsonPropertyName("qid")]          string? Qid,
+        [property: JsonPropertyName("entityType")]   string  EntityType,
+        [property: JsonPropertyName("description")]  string? Description,
+        [property: JsonPropertyName("imageUrl")]     string? ImageUrl
+    );
+
+    private sealed record DebugRelationshipResult(
+        [property: JsonPropertyName("subjectQid")]        string  SubjectQid,
+        [property: JsonPropertyName("subjectLabel")]      string  SubjectLabel,
+        [property: JsonPropertyName("relationshipType")]  string  RelationshipType,
+        [property: JsonPropertyName("objectQid")]         string  ObjectQid,
+        [property: JsonPropertyName("objectLabel")]       string  ObjectLabel,
+        [property: JsonPropertyName("startTime")]         string? StartTime,
+        [property: JsonPropertyName("endTime")]           string? EndTime
+    );
+
+    private sealed record DebugBridgeHint(
+        [property: JsonPropertyName("key")]             string       Key,
+        [property: JsonPropertyName("rawValue")]        string       RawValue,
+        [property: JsonPropertyName("normalizedValue")] string       NormalizedValue,
+        [property: JsonPropertyName("sourceClaimKey")]  string       SourceClaimKey,
+        [property: JsonPropertyName("targetProviders")] List<string> TargetProviders
+    );
+}

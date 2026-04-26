@@ -262,9 +262,53 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Add playlist", markup);
             Assert.Contains("Drag to reorder Summer Movies", markup);
             Assert.DoesNotContain("Edit playlist", markup);
+            Assert.DoesNotContain("New Playlist Folder", markup);
+            Assert.DoesNotContain("listen-create-modal", markup);
             Assert.DoesNotContain("All Songs", markup);
         });
     }
+
+    [Fact]
+    public void CollectionEditor_PlaylistMode_UsesSharedDialogArtworkPickerAndCompactFields()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
+
+        Assert.Contains("<AppDialogShell", source);
+        Assert.Contains("IsPlaylistLaunch", source);
+        Assert.Contains("app-artwork-picker", source);
+        Assert.Contains("app-artwork-picker__edit", source);
+        Assert.Contains("app-dialog-field", source);
+        Assert.DoesNotContain("Choose file", source);
+        Assert.DoesNotContain("listen-create-modal", source);
+    }
+
+    [Fact]
+    public void CollectionEditor_SmartPlaylistMode_RendersIconPickerAndRuleAddControls()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
+
+        Assert.Contains("SmartPlaylist", source);
+        Assert.Contains("Smart Playlist", source);
+        Assert.Contains("app-icon-picker__item", source);
+        Assert.Contains("Add rule", source);
+        Assert.Contains("collection-editor-rule-row", source);
+        Assert.Contains("app-dialog-select", source);
+    }
+
+    [Fact]
+    public void SharedDialogCss_DefinesCompactFieldsDarkSelectsAndHiddenArtworkInput()
+    {
+        var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "app.css"));
+
+        Assert.Contains(".app-dialog-field", css);
+        Assert.Contains("min-height: 40px", css);
+        Assert.Contains(".mud-popover .mud-paper", css);
+        Assert.Contains(".app-artwork-picker__input", css);
+        Assert.Contains("opacity: 0", css);
+    }
+
+    private static string GetRepoFile(params string[] segments) =>
+        Path.GetFullPath(Path.Combine(new[] { AppContext.BaseDirectory, "..", "..", "..", "..", ".." }.Concat(segments).ToArray()));
 
     [Fact]
     public void SearchPage_RendersMudSearchResultsWithoutRawCards()

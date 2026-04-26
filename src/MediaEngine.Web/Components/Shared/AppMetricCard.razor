@@ -1,0 +1,33 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Class="app-metric-card__icon" />
+    }
+    <div class="app-metric-card__copy">
+        <div class="app-metric-card__label">@Label</div>
+        <div class="app-metric-card__value">@Value</div>
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <div class="app-metric-card__description">@Description</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public AppStatusTone Tone { get; set; } = AppStatusTone.Neutral;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-metric-card",
+            $"app-metric-card--{Tone.ToString().ToLowerInvariant()}",
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

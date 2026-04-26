@@ -1,0 +1,106 @@
+.app-dialog-shell {
+    display: flex;
+    flex-direction: column;
+    width: min(100vw - 32px, 980px);
+    max-height: min(86vh, 900px);
+    overflow: hidden;
+    border-radius: var(--app-radius-md, 8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, rgba(24, 26, 32, 0.98), rgba(15, 17, 22, 0.98));
+    color: var(--app-text-primary, rgba(255, 255, 255, 0.92));
+}
+
+.app-dialog-shell--small {
+    width: min(100vw - 32px, 420px);
+}
+
+.app-dialog-shell--medium {
+    width: min(100vw - 32px, 680px);
+}
+
+.app-dialog-shell--fullscreen-editor {
+    width: min(100vw - 32px, 1180px);
+    max-height: min(92vh, 980px);
+}
+
+.app-dialog-shell__header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 22px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.app-dialog-shell__icon,
+.app-dialog-shell__art {
+    flex: 0 0 auto;
+}
+
+.app-dialog-shell__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--app-radius-md, 8px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--app-accent, #f0b90b);
+    background: rgba(240, 185, 11, 0.12);
+    border: 1px solid rgba(240, 185, 11, 0.18);
+}
+
+.app-dialog-shell__copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.app-dialog-shell__eyebrow {
+    margin-bottom: 4px;
+    color: rgba(255, 255, 255, 0.54);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.app-dialog-shell__title {
+    margin: 0;
+    font-size: 1.2rem;
+    line-height: 1.2;
+    font-weight: 850;
+    letter-spacing: 0;
+}
+
+.app-dialog-shell__subtitle {
+    margin-top: 5px;
+    max-width: 700px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.app-dialog-shell__close {
+    flex: 0 0 auto;
+}
+
+.app-dialog-shell__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.app-dialog-shell__footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(0, 0, 0, 0.14);
+}
+
+@media (max-width: 640px) {
+    .app-dialog-shell {
+        width: 100vw;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .app-dialog-shell__header {
+        padding: 16px;
+    }
+}

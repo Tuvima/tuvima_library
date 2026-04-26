@@ -101,6 +101,14 @@
     padding: 18px 24px 20px;
 }
 
+.collection-editor-artwork-picker {
+    margin-bottom: 16px;
+}
+
+.collection-editor-icon-picker {
+    max-width: 620px;
+}
+
 .collection-editor-pane {
     max-width: 1100px;
 }
@@ -165,6 +173,10 @@
 
 .collection-editor-rule-input {
     min-width: 0;
+}
+
+.collection-editor-add-rule {
+    margin-top: 10px;
 }
 
 .collection-editor-inline {

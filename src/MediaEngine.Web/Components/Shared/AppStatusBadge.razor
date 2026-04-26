@@ -1,0 +1,25 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<span class="@RootClass" title="@Title">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Size="Size.Small" />
+    }
+    <span>@Text</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+    [Parameter] public AppStatusTone Tone { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-status-badge",
+            $"app-status-badge--{Tone.ToString().ToLowerInvariant()}",
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

@@ -1,23 +1,12 @@
-<div class="confidence-bar">
-    <div class="confidence-segments">
-        @for (int i = 0; i < 5; i++)
-        {
-            var filled = i < _filledCount;
-            <div class="confidence-segment @(filled ? "confidence-segment--filled" : "")"
-                 style="@(filled ? $"background: {_fillColor};" : "")"></div>
-        }
-    </div>
-    @if (ShowLabel)
-    {
-        <span class="confidence-label">@Confidence.ToString("F2")</span>
-    }
-</div>
+<AppProgressBar Value="@(Confidence * 100)"
+                AccentColor="@_fillColor"
+                ShowValue="@ShowLabel"
+                Title="@Confidence.ToString("F2")"
+                Class="confidence-bar" />
 
 @code {
     [Parameter] public double Confidence { get; set; }
     [Parameter] public bool ShowLabel { get; set; } = true;
-
-    private int _filledCount => (int)Math.Round(Math.Clamp(Confidence, 0, 1) * 5);
 
     private string _fillColor => Confidence switch
     {
@@ -27,33 +16,3 @@
     };
 }
 
-<style>
-    .confidence-bar {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .confidence-segments {
-        display: flex;
-        gap: 2px;
-    }
-
-    .confidence-segment {
-        height: 4px;
-        width: 8px;
-        border-radius: 2px;
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .confidence-segment--filled {
-        /* color set via inline style */
-    }
-
-    .confidence-label {
-        font-size: 10px;
-        font-weight: 700;
-        color: rgba(255, 255, 255, 0.35);
-        font-variant-numeric: tabular-nums;
-    }
-</style>

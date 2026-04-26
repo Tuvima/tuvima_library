@@ -1,0 +1,69 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="app-dialog-shell app-dialog-shell--@SizeClass">
+    <header class="app-dialog-shell__header">
+        @if (HeaderArt is not null)
+        {
+            <div class="app-dialog-shell__art">@HeaderArt</div>
+        }
+        else if (!string.IsNullOrWhiteSpace(Icon))
+        {
+            <div class="app-dialog-shell__icon">
+                <MudIcon Icon="@Icon" Style="font-size: 22px;" />
+            </div>
+        }
+
+        <div class="app-dialog-shell__copy">
+            @if (!string.IsNullOrWhiteSpace(Eyebrow))
+            {
+                <div class="app-dialog-shell__eyebrow">@Eyebrow</div>
+            }
+            <h2 class="app-dialog-shell__title">@Title</h2>
+            @if (!string.IsNullOrWhiteSpace(Subtitle))
+            {
+                <div class="app-dialog-shell__subtitle">@Subtitle</div>
+            }
+        </div>
+
+        @if (OnClose.HasDelegate)
+        {
+            <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                           Size="MudBlazor.Size.Small"
+                           Color="Color.Inherit"
+                           Class="app-dialog-shell__close"
+                           OnClick="OnClose" />
+        }
+    </header>
+
+    <div class="app-dialog-shell__body">
+        @ChildContent
+    </div>
+
+    @if (FooterContent is not null)
+    {
+        <footer class="app-dialog-shell__footer">
+            @FooterContent
+        </footer>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Size { get; set; } = "Large";
+    [Parameter] public RenderFragment? HeaderArt { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string SizeClass => Size.Trim().ToLowerInvariant() switch
+    {
+        "small" => "small",
+        "medium" => "medium",
+        "fullscreeneditor" => "fullscreen-editor",
+        "fullscreen-editor" => "fullscreen-editor",
+        _ => "large",
+    };
+}

@@ -27,6 +27,8 @@ public enum SettingsSection
     Encode,
     OfflineDownloads,
     Metadata,
+    ProviderTester,
+    EnrichmentTester,
 }
 
 /// <summary>A primary settings destination group.</summary>
@@ -106,6 +108,8 @@ public static class SettingsNav
         new(SettingsSection.Security, "admin", "security", Icons.Material.Outlined.VpnKey, "Security", true, null, []),
         new(SettingsSection.Users, "admin", "users", Icons.Material.Outlined.Group, "Users", true, null, []),
         new(SettingsSection.Activity, "admin", "activity", Icons.Material.Outlined.Timeline, "Activity", true, null, []),
+        new(SettingsSection.ProviderTester, "admin", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal", Deprecated: true),
+        new(SettingsSection.EnrichmentTester, "admin", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal", Deprecated: true),
         new(SettingsSection.Maintenance, "admin", "maintenance", Icons.Material.Outlined.Build, "Maintenance", true, null, []),
         new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, [], Placeholder: true),
     ];
@@ -132,6 +136,8 @@ public static class SettingsNav
                 SettingsSection.Security,
                 SettingsSection.Users,
                 SettingsSection.Activity,
+                SettingsSection.ProviderTester,
+                SettingsSection.EnrichmentTester,
                 SettingsSection.Maintenance,
                 SettingsSection.Setup,
             ]),

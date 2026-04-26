@@ -1,0 +1,38 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass" title="@Title">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <div class="app-progress-bar__label">@Label</div>
+    }
+    <div class="app-progress-bar__track">
+        <div class="app-progress-bar__fill" style="@FillStyle"></div>
+    </div>
+    @if (ShowValue)
+    {
+        <div class="app-progress-bar__value">@ClampedValue.ToString("F0")%</div>
+    }
+</div>
+
+@code {
+    [Parameter] public double? Value { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? AccentColor { get; set; }
+    [Parameter] public bool ShowValue { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private double ClampedValue => Math.Clamp(Value ?? 0, 0, 100);
+
+    private string FillStyle =>
+        string.IsNullOrWhiteSpace(AccentColor)
+            ? $"width: {ClampedValue:F0}%;"
+            : $"width: {ClampedValue:F0}%; --app-progress-accent: {AccentColor};";
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-progress-bar",
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

@@ -2,10 +2,10 @@
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="vault-status-pill">
-    <div class="vault-status-badge" style="color: @_color; background: @_bgColor; border-color: @_borderColor; @(Status == LibraryStatus.Unowned ? "opacity: 0.5;" : "")">
-        <MudIcon Icon="@_icon" Size="Size.Small" Style="font-size: 0.7rem;" />
-        <span>@_label</span>
-    </div>
+    <AppStatusBadge Text="@_label"
+                    Icon="@_icon"
+                    Tone="@_tone"
+                    Class="@(Status == LibraryStatus.Unowned ? "vault-status-badge--muted" : null)" />
     @if (Status == LibraryStatus.Quarantined && QuarantineDays.HasValue)
     {
         <span class="vault-quarantine-timer">@L["StatusPill_DeletesIn", QuarantineDays]</span>
@@ -16,40 +16,15 @@
     [Parameter, EditorRequired] public LibraryStatus Status { get; set; }
     [Parameter] public int? QuarantineDays { get; set; }
 
-    private string _color => Status switch
+    private AppStatusTone _tone => Status switch
     {
-        LibraryStatus.Verified => "#5DCAA5",
-        LibraryStatus.Provisional => "#3B82F6",
-        LibraryStatus.NeedsReview => "#EF9F27",
-        LibraryStatus.Quarantined => "rgba(255,255,255,0.5)",
-        LibraryStatus.WaitingForProvider => "#38BDF8",
-        LibraryStatus.RetailMatched => "#818CF8",
-        LibraryStatus.Unowned => "rgba(255,255,255,0.3)",
-        _ => "rgba(255,255,255,0.3)",
-    };
-
-    private string _bgColor => Status switch
-    {
-        LibraryStatus.Verified => "rgba(93,202,165,0.05)",
-        LibraryStatus.Provisional => "rgba(59,130,246,0.05)",
-        LibraryStatus.NeedsReview => "rgba(239,159,39,0.05)",
-        LibraryStatus.Quarantined => "rgba(255,255,255,0.03)",
-        LibraryStatus.WaitingForProvider => "rgba(56,189,248,0.05)",
-        LibraryStatus.RetailMatched => "rgba(129,140,248,0.05)",
-        LibraryStatus.Unowned => "rgba(255,255,255,0.02)",
-        _ => "rgba(255,255,255,0.02)",
-    };
-
-    private string _borderColor => Status switch
-    {
-        LibraryStatus.Verified => "rgba(93,202,165,0.2)",
-        LibraryStatus.Provisional => "rgba(59,130,246,0.2)",
-        LibraryStatus.NeedsReview => "rgba(239,159,39,0.2)",
-        LibraryStatus.Quarantined => "rgba(255,255,255,0.1)",
-        LibraryStatus.WaitingForProvider => "rgba(56,189,248,0.2)",
-        LibraryStatus.RetailMatched => "rgba(129,140,248,0.2)",
-        LibraryStatus.Unowned => "rgba(255,255,255,0.06)",
-        _ => "rgba(255,255,255,0.05)",
+        LibraryStatus.Verified => AppStatusTone.Success,
+        LibraryStatus.Provisional => AppStatusTone.Primary,
+        LibraryStatus.NeedsReview => AppStatusTone.Warning,
+        LibraryStatus.Quarantined => AppStatusTone.Error,
+        LibraryStatus.WaitingForProvider => AppStatusTone.Info,
+        LibraryStatus.RetailMatched => AppStatusTone.Primary,
+        _ => AppStatusTone.Neutral,
     };
 
     private string _icon => Status switch
@@ -85,18 +60,8 @@
         gap: 4px;
     }
 
-    .vault-status-badge {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 0.32rem 0.55rem;
-        border-radius: var(--app-radius-sm);
-        border: 1px solid;
-        white-space: nowrap;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+    .vault-status-badge--muted {
+        opacity: 0.5;
     }
 
     .vault-quarantine-timer {

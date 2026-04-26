@@ -20,7 +20,7 @@
                              Expandable="@group.Expandable"
                              Expanded="@IsTreeGroupActive(group)"
                              BadgeCount="@GetGroupBadgeCount(group)">
-                @foreach (var item in SettingsNav.FilteredTreeItems(group, _currentRole))
+                @foreach (var item in GetVisibleTreeItems(group))
                 {
                     <SidebarNavItem Label="@item.Label"
                                     Icon="@item.Icon"
@@ -103,6 +103,12 @@
                     break;
                 case SettingsSection.Activity:
                     <ActivityTab />
+                    break;
+                case SettingsSection.ProviderTester:
+                    <ProviderTesterToolTab />
+                    break;
+                case SettingsSection.EnrichmentTester:
+                    <EnrichmentTesterToolTab />
                     break;
                 case SettingsSection.Encode:
                     <EncodeSettingsTab />
@@ -253,7 +259,25 @@
         group.Sections.Contains(_activeSection);
 
     private int GetGroupBadgeCount(SettingsTreeGroupDef group) =>
-        group.Sections.Select(SettingsNav.GetItem).Sum(GetBadgeCount);
+        GetVisibleTreeItems(group).Sum(GetBadgeCount);
+
+    private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
+        SettingsNav.FilteredTreeItems(group, _currentRole)
+            .Where(IsItemEnabledByUiSettings)
+            .ToList();
+
+    private bool IsItemEnabledByUiSettings(SettingsItemDef item) => item.Value switch
+    {
+        SettingsSection.ProviderTester => DeviceContext.Settings.Features.InternalTools
+            && DeviceContext.Settings.Features.ProviderTester
+            && !DeviceContext.IsFeatureDisabled("internal_tools")
+            && !DeviceContext.IsFeatureDisabled("provider_tester"),
+        SettingsSection.EnrichmentTester => DeviceContext.Settings.Features.InternalTools
+            && DeviceContext.Settings.Features.EnrichmentTester
+            && !DeviceContext.IsFeatureDisabled("internal_tools")
+            && !DeviceContext.IsFeatureDisabled("enrichment_tester"),
+        _ => true,
+    };
 
     private int GetBadgeCount(SettingsItemDef item) =>
         string.Equals(item.BadgeKey, "review", StringComparison.OrdinalIgnoreCase)
@@ -300,6 +324,8 @@
         SettingsSection.Security => "Connection rules, API keys, and access controls.",
         SettingsSection.Users => "Profiles, roles, and user management.",
         SettingsSection.Activity => "Recent operational history and retention.",
+        SettingsSection.ProviderTester => "Temporary internal tool for testing retail providers and Wikidata searches.",
+        SettingsSection.EnrichmentTester => "Temporary internal tool for testing debug enrichment data before this workflow is removed.",
         SettingsSection.Encode => "Transcoding, scheduled encode, and generated variant controls.",
         SettingsSection.OfflineDownloads => "Prepared mobile downloads, queue status, and variant cleanup.",
         SettingsSection.Maintenance => "Repair, cleanup, and recovery tools.",

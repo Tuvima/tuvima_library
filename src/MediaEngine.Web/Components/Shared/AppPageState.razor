@@ -1,0 +1,41 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Class="app-page-state__icon" />
+    }
+    @if (!string.IsNullOrWhiteSpace(Title))
+    {
+        <h2 class="app-page-state__title">@Title</h2>
+    }
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <p class="app-page-state__message">@Message</p>
+    }
+    @if (Kind == AppPageStateKind.Loading)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+    }
+    @if (Actions is not null)
+    {
+        <div class="app-page-state__actions">@Actions</div>
+    }
+</div>
+
+@code {
+    [Parameter] public AppPageStateKind Kind { get; set; } = AppPageStateKind.Empty;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-page-state",
+            $"app-page-state--{Kind.ToString().ToLowerInvariant()}",
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

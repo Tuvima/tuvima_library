@@ -1,0 +1,27 @@
+@namespace MediaEngine.Web.Components.Shared
+@inject DeviceContextService DeviceContext
+
+<div class="@RootClass" data-device="@DeviceContext.DeviceClass">
+    @if (Header is not null)
+    {
+        <div class="app-page-shell__header">@Header</div>
+    }
+    <div class="app-page-shell__body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? Header { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public AppSurfaceDensity Density { get; set; } = AppSurfaceDensity.Normal;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-page-shell",
+            $"app-page-shell--{Density.ToString().ToLowerInvariant()}",
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

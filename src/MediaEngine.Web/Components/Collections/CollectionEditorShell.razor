@@ -9,38 +9,29 @@
 
 <MudDialog Class="collection-editor-dialog">
     <DialogContent>
-        <div class="collection-editor-shell">
-            <div class="collection-editor-header">
-                <div class="collection-editor-icon">
-                    <MudIcon Icon="@CollectionTypeIcon" Style="font-size: 26px;" />
-                </div>
-
-                <div class="collection-editor-header-copy">
-                    <div class="collection-editor-kicker">Collection editor</div>
-                    <h2 class="collection-editor-title">@(EditingCollection is null ? "New Collection" : "Edit Collection")</h2>
-                    <div class="collection-editor-subtitle">@HeaderSubtitle</div>
-                </div>
-
-                <MudIconButton Icon="@Icons.Material.Outlined.Close"
-                               Size="Size.Small"
-                               Color="Color.Inherit"
-                               Class="collection-editor-close"
-                               OnClick="Cancel" />
-            </div>
-
-            <MudTabs ActivePanelIndex="@ActiveTabIndex"
-                     ActivePanelIndexChanged="OnTabChanged"
-                     Rounded="false"
-                     Border="false"
-                     Elevation="0"
-                     Class="collection-editor-tabs">
-                @foreach (var tab in Tabs)
+        <AppDialogShell Eyebrow="@DialogEyebrow"
+                        Title="@DialogTitle"
+                        Subtitle="@HeaderSubtitle"
+                        Icon="@CollectionTypeIcon"
+                        Size="@DialogSize"
+                        OnClose="Cancel">
+            <ChildContent>
+                @if (VisibleTabs.Length > 1)
                 {
-                    <MudTabPanel Text="@tab.Label" />
+                    <MudTabs ActivePanelIndex="@ActiveTabIndex"
+                             ActivePanelIndexChanged="OnTabChanged"
+                             Rounded="false"
+                             Border="false"
+                             Elevation="0"
+                             Class="collection-editor-tabs">
+                        @foreach (var tab in VisibleTabs)
+                        {
+                            <MudTabPanel Text="@tab.Label" />
+                        }
+                    </MudTabs>
                 }
-            </MudTabs>
 
-            <div class="collection-editor-body">
+                <div class="collection-editor-body">
                 @switch (_activeTab)
                 {
                     case "details":
@@ -56,9 +47,10 @@
                         @RenderOptionsTab()
                         break;
                 }
-            </div>
-
-            <div class="collection-editor-footer">
+                </div>
+            </ChildContent>
+            <FooterContent>
+                <div class="collection-editor-footer">
                 <div class="collection-editor-footer-copy">@FooterSummary</div>
 
                 <div class="collection-editor-footer-actions">
@@ -78,11 +70,12 @@
                         {
                             <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                         }
-                        @(EditingCollection is null ? "Create Collection" : "Save")
+                        @SaveButtonText
                     </MudButton>
                 </div>
-            </div>
-        </div>
+                </div>
+            </FooterContent>
+        </AppDialogShell>
     </DialogContent>
 </MudDialog>
 
@@ -91,13 +84,32 @@
     [Parameter] public CollectionEditorLaunchRequest Request { get; set; } = new();
 
     private static readonly (string Id, string Label)[] Tabs = [("details", "Details"), ("rules", "Rules"), ("items", "Items"), ("options", "Options")];
+    private static readonly (string Id, string Label)[] PlaylistTabs = [("details", "Details")];
+    private static readonly (string Id, string Label)[] SmartPlaylistTabs = [("details", "Details"), ("rules", "Rules"), ("options", "Options")];
+    private static readonly (string Label, string Icon)[] IconChoices =
+    [
+        ("Playlist", Icons.Material.Outlined.QueueMusic),
+        ("Smart", Icons.Material.Outlined.AutoAwesomeMotion),
+        ("Favorites", Icons.Material.Outlined.FavoriteBorder),
+        ("Recent", Icons.Material.Outlined.Schedule),
+        ("Albums", Icons.Material.Outlined.Album),
+        ("Artist", Icons.Material.Outlined.Person),
+        ("Mood", Icons.Material.Outlined.GraphicEq),
+        ("Folder", Icons.Material.Outlined.Folder)
+    ];
 
     private CollectionListItemViewModel? EditingCollection => Request.EditingCollection;
+    private bool IsPlaylistLaunch => string.Equals(Request.Mode, "Playlist", StringComparison.OrdinalIgnoreCase);
+    private bool IsSmartPlaylistLaunch => string.Equals(Request.Mode, "SmartPlaylist", StringComparison.OrdinalIgnoreCase);
+    private bool IsPlaylistDialog => IsPlaylistLaunch || IsSmartPlaylistLaunch;
+    private (string Id, string Label)[] VisibleTabs => IsPlaylistLaunch ? PlaylistTabs : IsSmartPlaylistLaunch ? SmartPlaylistTabs : Tabs;
 
     private string _activeTab = "details";
     private string _name = string.Empty;
     private string? _description;
     private string? _iconName;
+    private IBrowserFile? _artworkFile;
+    private string? _artworkPreviewUrl;
     private string _collectionType = "Custom";
     private string _visibility = "private";
     private bool _rulesEnabled = true;
@@ -117,22 +129,54 @@
     private List<ManualCollectionItem> _manualItems = [];
 
     private bool IsPlaylist => string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
+    private bool IsSmartPlaylist => string.Equals(_collectionType, "Smart", StringComparison.OrdinalIgnoreCase);
     private bool SupportsManualItems => IsPlaylist || !_rulesEnabled;
-    private string CollectionTypeIcon => IsPlaylist ? Icons.Material.Outlined.QueueMusic : Icons.Material.Outlined.Collections;
+    private string CollectionTypeIcon => !string.IsNullOrWhiteSpace(_iconName)
+        ? _iconName
+        : _collectionType switch
+        {
+            "Smart" => Icons.Material.Outlined.AutoAwesomeMotion,
+            "Playlist" => Icons.Material.Outlined.QueueMusic,
+            _ => Icons.Material.Outlined.Collections,
+        };
+    private string DialogEyebrow => IsPlaylistDialog ? "Playlist editor" : "Collection editor";
+    private string DialogTitle => EditingCollection is not null
+        ? "Edit Collection"
+        : IsSmartPlaylistLaunch
+            ? "Smart Playlist"
+            : IsPlaylistLaunch
+                ? "New Playlist"
+                : "New Collection";
+    private string DialogSize => IsPlaylistLaunch ? "Medium" : "Large";
 
     private string HeaderSubtitle =>
-        EditingCollection is null
-            ? "Create a saved collection using either live rules or manual membership."
-            : "Update the collection settings, rules, and saved items without leaving the collections page.";
+        IsSmartPlaylistLaunch
+            ? "Build a live playlist from rules, then choose an icon for how it appears in Listen."
+            : IsPlaylistLaunch
+                ? "Create a saved playlist with optional artwork and profile visibility."
+                : EditingCollection is null
+                    ? "Create a saved collection using either live rules or manual membership."
+                    : "Update the collection settings, rules, and saved items without leaving the collections page.";
 
-    private int ActiveTabIndex => GetSelectedIndex(Tabs.Select(tab => tab.Id), _activeTab);
+    private int ActiveTabIndex => GetSelectedIndex(VisibleTabs.Select(tab => tab.Id), _activeTab);
 
     private string FooterSummary =>
-        SupportsManualItems
+        IsPlaylistLaunch
+            ? "Manual playlist. Add tracks from Listen after it is created."
+            : IsSmartPlaylistLaunch
+                ? "Smart playlist. Add one or more rules to keep it updated automatically."
+                : SupportsManualItems
             ? $"{_manualItems.Count} item(s) staged for this collection."
             : _previewResult is null
                 ? "Rule-based collection. Add at least one rule value to preview matching items."
                 : $"{_previewResult.Count} item(s) currently match these rules.";
+    private string SaveButtonText => EditingCollection is not null
+        ? "Save"
+        : IsSmartPlaylistLaunch
+            ? "Create Smart Playlist"
+            : IsPlaylistLaunch
+                ? "Create Playlist"
+                : "Create Collection";
 
     private List<WorkViewModel> FilteredLibraryItems =>
         _libraryItems
@@ -145,6 +189,16 @@
 
     protected override void OnInitialized()
     {
+        if (EditingCollection is null)
+        {
+            _name = Request.InitialTitle ?? string.Empty;
+            _collectionType = Request.InitialCollectionType ?? "Custom";
+            _rulesEnabled = Request.InitialRulesEnabled ?? !IsPlaylist;
+            _iconName = DefaultIconForCollectionType(_collectionType);
+            _liveUpdating = _rulesEnabled;
+            return;
+        }
+
         if (EditingCollection is null)
             return;
 
@@ -184,18 +238,18 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (SupportsManualItems)
+        if (SupportsManualItems && !IsPlaylistDialog)
             await EnsureManualCollectionContextAsync();
     }
 
     private Task OnTabChanged(int index)
     {
-        if (index < 0 || index >= Tabs.Length)
+        if (index < 0 || index >= VisibleTabs.Length)
         {
             return Task.CompletedTask;
         }
 
-        _activeTab = Tabs[index].Id;
+        _activeTab = VisibleTabs[index].Id;
         return Task.CompletedTask;
     }
 
@@ -302,6 +356,26 @@
         }
 
         StateHasChanged();
+    }
+
+    private async Task OnArtworkSelected(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        _artworkFile = file;
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            _artworkPreviewUrl = $"data:{(file.ContentType ?? "image/jpeg")};base64,{Convert.ToBase64String(ms.ToArray())}";
+        }
+        catch
+        {
+            _artworkFile = null;
+            _artworkPreviewUrl = null;
+            Snackbar.Add("Artwork preview could not be loaded.", Severity.Warning);
+        }
     }
 
     private async Task OnCollectionTypeChanged(string value)
@@ -449,8 +523,12 @@
                 : [];
 
             var normalizedSortField = string.IsNullOrWhiteSpace(_sortField) ? null : _sortField;
-            var ok = EditingCollection is not null
-                ? await ApiClient.UpdateCollectionAsync(
+            Guid? savedCollectionId = EditingCollection?.Id;
+            var ok = false;
+
+            if (EditingCollection is not null)
+            {
+                ok = await ApiClient.UpdateCollectionAsync(
                     EditingCollection.Id,
                     _name,
                     _description,
@@ -463,8 +541,11 @@
                     _rulesEnabled && _liveUpdating,
                     _isEnabled,
                     _isFeatured,
-                    Request.ActiveProfileId)
-                : await ApiClient.CreateCollectionAsync(
+                    Request.ActiveProfileId);
+            }
+            else
+            {
+                savedCollectionId = await ApiClient.CreateCollectionAndReturnIdAsync(
                     _name,
                     _description,
                     _iconName,
@@ -476,11 +557,21 @@
                     _rulesEnabled && _liveUpdating,
                     _visibility,
                     Request.ActiveProfileId);
+                ok = savedCollectionId.HasValue;
+            }
 
             if (!ok)
             {
                 Snackbar.Add("Failed to save collection.", Severity.Error);
                 return;
+            }
+
+            if (savedCollectionId.HasValue && _artworkFile is not null)
+            {
+                await using var stream = _artworkFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                var uploaded = await ApiClient.UploadCollectionSquareArtworkAsync(savedCollectionId.Value, stream, _artworkFile.Name, Request.ActiveProfileId);
+                if (!uploaded)
+                    Snackbar.Add("Collection saved, but artwork could not be uploaded.", Severity.Warning);
             }
 
             if (EditingCollection is null && SupportsManualItems && _manualItems.Count > 0)
@@ -607,9 +698,42 @@
         return 0;
     }
 
+    private static string DefaultIconForCollectionType(string collectionType) => collectionType switch
+    {
+        "Smart" => Icons.Material.Outlined.AutoAwesomeMotion,
+        "Playlist" => Icons.Material.Outlined.QueueMusic,
+        "Mix" => Icons.Material.Outlined.GraphicEq,
+        "System" => Icons.Material.Outlined.SettingsSuggest,
+        _ => Icons.Material.Outlined.Collections,
+    };
+
     private RenderFragment RenderDetailsTab() => @<div class="collection-editor-pane">
         <section class="collection-editor-section">
             <div class="collection-editor-section-title">Details</div>
+
+            @if (IsPlaylistLaunch)
+            {
+                <label class="app-artwork-picker collection-editor-artwork-picker">
+                    @if (!string.IsNullOrWhiteSpace(_artworkPreviewUrl))
+                    {
+                        <img src="@_artworkPreviewUrl" alt="Selected playlist artwork" />
+                    }
+                    else if (!string.IsNullOrWhiteSpace(EditingCollection?.CoverUrl))
+                    {
+                        <img src="@EditingCollection.CoverUrl" alt="Current playlist artwork" />
+                    }
+                    else
+                    {
+                        <span class="app-artwork-picker__placeholder">
+                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 28px;" />
+                        </span>
+                    }
+                    <span class="app-artwork-picker__edit" title="Edit artwork">
+                        <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Style="font-size: 18px;" />
+                    </span>
+                    <InputFile class="app-artwork-picker__input" OnChange="OnArtworkSelected" accept=".jpg,.jpeg,.png" />
+                </label>
+            }
 
             <MudTextField T="string"
                           @bind-Value="_name"
@@ -617,7 +741,7 @@
                           Placeholder="Collection name"
                           Variant="Variant.Outlined"
                           Immediate="true"
-                          Class="collection-editor-field" />
+                          Class="collection-editor-field app-dialog-field" />
 
             <MudTextField T="string"
                           @bind-Value="_description"
@@ -626,16 +750,36 @@
                           Variant="Variant.Outlined"
                           Lines="3"
                           Immediate="true"
-                          Class="collection-editor-field" />
+                          Class="collection-editor-field app-dialog-field app-dialog-textarea" />
 
-            <div class="collection-editor-grid">
+            @if (IsSmartPlaylistLaunch)
+            {
+                <div class="app-icon-picker collection-editor-icon-picker" role="group" aria-label="Smart playlist icon">
+                    @foreach (var choice in IconChoices)
+                    {
+                        var selected = string.Equals(_iconName, choice.Icon, StringComparison.Ordinal);
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Inherit"
+                                   Class="@($"app-icon-picker__item {(selected ? "is-selected" : string.Empty)}")"
+                                   title="@choice.Label"
+                                   OnClick="@(() => _iconName = choice.Icon)">
+                            <MudIcon Icon="@choice.Icon" Style="font-size: 18px;" />
+                            <span>@choice.Label</span>
+                        </MudButton>
+                    }
+                </div>
+            }
+
+            @if (!IsPlaylistDialog)
+            {
+                <div class="collection-editor-grid">
                 <MudSelect T="string"
                            Value="_collectionType"
                            ValueChanged="OnCollectionTypeChanged"
                            Label="Collection type"
                            Variant="Variant.Outlined"
                            Disabled="@(EditingCollection is not null)"
-                           Class="collection-editor-field">
+                           Class="collection-editor-field app-dialog-field app-dialog-select">
                     <MudSelectItem T="string" Value="@("Custom")">Collection</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Playlist")">Playlist</MudSelectItem>
                 </MudSelect>
@@ -646,8 +790,9 @@
                               Placeholder="Optional MudBlazor icon"
                               Variant="Variant.Outlined"
                               Immediate="true"
-                              Class="collection-editor-field" />
-            </div>
+                              Class="collection-editor-field app-dialog-field" />
+                </div>
+            }
 
             <div class="collection-editor-note">
                 @if (IsPlaylist)
@@ -729,6 +874,7 @@
                                        Value="rule.Field"
                                        Variant="Variant.Outlined"
                                        Dense="true"
+                                       Class="app-dialog-field app-dialog-select"
                                        ValueChanged="@(value => OnRuleFieldChanged(rule, value))">
                                 <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
                                 <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
@@ -748,7 +894,7 @@
                                 <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
                             </MudSelect>
 
-                            <MudSelect T="string" @bind-Value="rule.Op" Variant="Variant.Outlined" Dense="true">
+                            <MudSelect T="string" @bind-Value="rule.Op" Variant="Variant.Outlined" Dense="true" Class="app-dialog-field app-dialog-select">
                                 @foreach (var op in GetOperatorsForField(rule.Field))
                                 {
                                     <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
@@ -763,13 +909,22 @@
                                           Placeholder="Value..."
                                           Immediate="true"
                                           DebounceInterval="350"
-                                          Class="collection-editor-rule-input" />
+                                          Class="collection-editor-rule-input app-dialog-field" />
 
                             <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="@(() => AddRule(idx))" aria-label="Add rule" />
                             <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small" Disabled="@(_rules.Count == 1)" OnClick="@(() => RemoveRule(idx))" aria-label="Remove rule" />
                         </div>
                     }
                 </div>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.Add"
+                           Class="collection-editor-add-rule"
+                           OnClick="@(() => AddRule(_rules.Count - 1))">
+                    Add rule
+                </MudButton>
 
                 <div class="collection-editor-inline">
                     <span class="collection-editor-inline-label">Match mode</span>

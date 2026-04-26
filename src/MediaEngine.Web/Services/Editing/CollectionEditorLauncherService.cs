@@ -17,7 +17,7 @@ public sealed class CollectionEditorLauncherService
         ArgumentNullException.ThrowIfNull(request);
 
         var dialog = await _dialogService.ShowAsync<CollectionEditorShell>(
-            request.EditingCollection is null ? "New Collection" : "Edit Collection",
+            request.EditingCollection is null ? DialogTitleFor(request) : "Edit Collection",
             new DialogParameters
             {
                 { nameof(CollectionEditorShell.Request), request },
@@ -37,4 +37,12 @@ public sealed class CollectionEditorLauncherService
         var result = await dialog.Result;
         return result is not null && !result.Canceled;
     }
+
+    private static string DialogTitleFor(CollectionEditorLaunchRequest request) =>
+        request.Mode switch
+        {
+            "Playlist" => "New Playlist",
+            "SmartPlaylist" => "New Smart Playlist",
+            _ => "New Collection",
+        };
 }

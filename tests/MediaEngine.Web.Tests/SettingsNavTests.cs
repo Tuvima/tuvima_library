@@ -26,6 +26,8 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Security, "/settings/security")]
     [InlineData(SettingsSection.Users, "/settings/users")]
     [InlineData(SettingsSection.Activity, "/settings/activity")]
+    [InlineData(SettingsSection.ProviderTester, "/settings/provider-tester")]
+    [InlineData(SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
     [InlineData(SettingsSection.Maintenance, "/settings/maintenance")]
     [InlineData(SettingsSection.Setup, "/settings/setup")]
     public void ResolveRoute_CanonicalSegments_AreStable(SettingsSection section, string expectedRoute)
@@ -140,6 +142,8 @@ public sealed class SettingsNavTests
         Assert.Contains(SettingsSection.Providers, adminItems);
         Assert.Contains(SettingsSection.Models, adminItems);
         Assert.Contains(SettingsSection.System, adminItems);
+        Assert.Contains(SettingsSection.ProviderTester, adminItems);
+        Assert.Contains(SettingsSection.EnrichmentTester, adminItems);
         Assert.DoesNotContain(SettingsSection.Overview, adminItems);
         var removedSectionName = "Reg" + "istry";
         Assert.DoesNotContain(adminItems, section => section.ToString().Equals(removedSectionName, StringComparison.OrdinalIgnoreCase));
