@@ -123,8 +123,9 @@
 }
 
 .listen-rail__playlist-row {
+    position: relative;
     display: grid;
-    grid-template-columns: 22px minmax(0, 1fr);
+    grid-template-columns: 22px minmax(0, 1fr) 28px;
     align-items: center;
     gap: 4px;
 }
@@ -134,6 +135,7 @@
 }
 
 .listen-rail__drag,
+.listen-rail__more,
 .listen-rail__add {
     width: 22px;
     height: 22px;
@@ -148,6 +150,7 @@
 }
 
 .listen-rail__drag:hover,
+.listen-rail__more:hover,
 .listen-rail__add:hover {
     background: var(--tl-border-default);
     color: rgba(255, 255, 255, 0.9);
@@ -155,6 +158,15 @@
 
 .listen-rail__drag {
     cursor: grab;
+}
+
+.listen-rail__more {
+    opacity: 0;
+}
+
+.listen-rail__playlist-row:hover .listen-rail__more,
+.listen-rail__playlist-row:focus-within .listen-rail__more {
+    opacity: 1;
 }
 
 .listen-rail__section-heading {
@@ -193,6 +205,56 @@
 
 .listen-rail__create-menu button:hover {
     background: var(--tl-border-subtle);
+}
+
+.listen-actions-menu {
+    min-width: 188px;
+    padding: 6px;
+    border: 1px solid var(--tl-border-default);
+    border-radius: var(--tl-radius-md);
+    background: var(--tl-bg-surface-elevated);
+    box-shadow: var(--tl-shadow-lg);
+    z-index: var(--app-z-dropdown);
+}
+
+.listen-actions-menu--rail {
+    position: absolute;
+    top: 30px;
+    right: 0;
+}
+
+.listen-actions-menu--detail {
+    position: absolute;
+    top: 54px;
+    right: 16px;
+}
+
+.listen-actions-menu button,
+.listen-actions-menu__details summary,
+.listen-actions-menu__details label {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-radius: var(--tl-radius-sm);
+    padding: 9px 10px;
+    background: transparent;
+    color: var(--tl-text-secondary);
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.listen-actions-menu button:hover,
+.listen-actions-menu__details summary:hover,
+.listen-actions-menu__details label:hover {
+    background: var(--tl-bg-surface-hover);
+    color: var(--tl-text-primary);
+}
+
+.listen-actions-menu__details summary::-webkit-details-marker {
+    display: none;
 }
 
 .listen-rail__thumb {
@@ -375,6 +437,10 @@
 
 .listen-filter-bar--compact {
     margin-bottom: 14px;
+}
+
+.listen-filter-bar--quick {
+    max-width: 520px;
 }
 
 .listen-filter-input,
@@ -779,7 +845,6 @@
 .listen-playlist-track-list__head,
 .listen-playlist-track-row {
     display: grid;
-    grid-template-columns: minmax(320px, 2.1fr) minmax(160px, 1fr) minmax(180px, 1.1fr) 88px 52px;
     align-items: center;
     column-gap: 18px;
     min-width: 760px;
@@ -791,6 +856,48 @@
     font-size: 0.72rem;
     font-weight: 800;
     border-bottom: 1px solid var(--tl-divider);
+}
+
+.listen-playlist-track-list__head > span {
+    min-width: 0;
+    overflow: hidden;
+    border-right: 1px solid var(--tl-divider);
+}
+
+.listen-sort-header {
+    min-width: 0;
+    overflow: hidden;
+    border: 0;
+    border-right: 1px solid var(--tl-divider);
+    padding: 0;
+    background: transparent;
+    color: var(--tl-text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    font: inherit;
+    text-align: left;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.listen-sort-header:hover {
+    color: var(--tl-text-primary);
+}
+
+.listen-sort-header__indicator {
+    color: var(--tl-accent-primary);
+    font-size: 0.66rem;
+    min-width: 22px;
+}
+
+.listen-playlist-track-list__song-head {
+    padding-left: 94px;
+}
+
+.listen-playlist-track-list__favorite-head {
+    text-align: center;
 }
 
 .listen-playlist-track-list__actions-label {
@@ -808,20 +915,42 @@
     background: var(--tl-bg-surface-hover);
 }
 
+.listen-playlist-track-row.is-dragging {
+    opacity: 0.55;
+}
+
 .listen-playlist-track-row__song {
-    display: flex;
+    display: grid;
+    grid-template-columns: 30px 36px minmax(0, 1fr);
     align-items: center;
     gap: 12px;
     min-width: 0;
 }
 
-.listen-playlist-track-row__move {
+.listen-playlist-track-row__song--no-handle {
+    grid-template-columns: 36px minmax(0, 1fr);
+}
+
+.listen-playlist-track-row__handle {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: var(--tl-radius-sm);
+    background: transparent;
+    color: var(--tl-text-muted);
+    cursor: grab;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    justify-content: center;
+}
+
+.listen-playlist-track-row__handle:hover:not(:disabled) {
+    background: var(--tl-bg-surface-raised);
+    color: var(--tl-text-primary);
 }
 
 .listen-playlist-track-row__art {
+    position: relative;
     width: 36px;
     height: 36px;
     border-radius: var(--tl-radius-sm);
@@ -841,6 +970,24 @@
     object-fit: cover;
 }
 
+.listen-playlist-track-row__art-play {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(7, 10, 18, 0.58);
+    color: var(--tl-text-primary);
+    opacity: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.listen-playlist-track-row__art:hover .listen-playlist-track-row__art-play,
+.listen-playlist-track-row__art:focus-within .listen-playlist-track-row__art-play {
+    opacity: 1;
+}
+
 .listen-playlist-track-row__title,
 .listen-playlist-track-row__meta,
 .listen-playlist-track-row__time {
@@ -857,6 +1004,33 @@
 .listen-playlist-track-row__time,
 .listen-playlist-track-row__actions {
     justify-self: end;
+}
+
+.listen-playlist-track-row__favorite {
+    justify-self: center;
+}
+
+.listen-track-grid__favorite {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--tl-radius-sm);
+    background: transparent;
+    color: var(--tl-text-muted);
+    cursor: pointer;
+}
+
+.listen-track-grid__favorite:hover {
+    color: var(--tl-text-primary);
+    background: var(--tl-bg-surface-raised);
+}
+
+.listen-track-grid__favorite.is-active {
+    color: var(--tl-status-warning);
 }
 
 .listen-playlist-track-row .listen-icon-button {

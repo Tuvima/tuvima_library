@@ -72,11 +72,6 @@ public partial class ListenPage
     private string _songSortColumn = "dateAdded";
     private bool _songSortDescending = true;
     private string _songSearch = string.Empty;
-    private string _songGenreFilter = "all";
-    private string _songFavoriteFilter = "all";
-    private string _songArtistFilter = "all";
-    private string _songAlbumFilter = "all";
-    private string _songDateAddedFilter = "all";
     private string _albumSearch = string.Empty;
     private string _albumSort = "recent";
     private string _albumArtistFilter = "all";
@@ -101,7 +96,11 @@ public partial class ListenPage
     private string? _playlistNavigationConfig;
     private List<Guid> _playlistOrder = [];
     private Guid? _draggingPlaylistId;
+    private Guid? _draggingPlaylistTrackItemId;
     private bool _playlistCreateMenuOpen;
+    private bool _playlistActionsMenuOpen;
+    private Guid? _playlistActionsCollectionId;
+    private readonly HashSet<string> _playlistHiddenColumns = new(StringComparer.OrdinalIgnoreCase);
 
     private string CurrentPath => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
     private string NormalizedSection => string.IsNullOrWhiteSpace(Section) ? string.Empty : Section.Trim().ToLowerInvariant();
@@ -146,6 +145,9 @@ public partial class ListenPage
     private IReadOnlyList<WorkViewModel> ArtistTracks => ResolveArtistTracks();
     private IReadOnlyList<WorkViewModel> ActivePlaylistTracks => ResolveActivePlaylistTracks();
     private IReadOnlyList<ListenPlaylistTrackRow> ActivePlaylistTrackRows => ResolveActivePlaylistTrackRows();
+    private IReadOnlyList<PlaylistColumnDefinition> PlaylistColumns => BuildPlaylistColumns();
+    private string PlaylistGridTemplate => BuildPlaylistGridTemplate();
+    private string SongsGridTemplate => "minmax(320px, 2.1fr) 96px 88px minmax(160px, 1fr) minmax(180px, 1.1fr) minmax(140px, 0.8fr) 92px 150px 52px";
     private IReadOnlyList<ContentGroupViewModel> FilteredAlbumGroups => ApplyAlbumFilters();
     private IReadOnlyList<ContentGroupViewModel> FilteredArtistGroups => ApplyArtistFilters();
     private IReadOnlyList<string> PlaylistCoverUrls => ActivePlaylistTracks.Select(track => track.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Distinct().Cast<string>().Take(4).ToList();
@@ -638,6 +640,118 @@ public partial class ListenPage
             await LoadAsync();
     }
 
+    private void TogglePlaylistActionsMenu(Guid? collectionId = null)
+    {
+        if (_playlistActionsMenuOpen && _playlistActionsCollectionId == collectionId)
+        {
+            _playlistActionsMenuOpen = false;
+            _playlistActionsCollectionId = null;
+            return;
+        }
+
+        _playlistActionsMenuOpen = true;
+        _playlistActionsCollectionId = collectionId;
+    }
+
+    private async Task OpenPlaylistEditorFromMenuAsync(ManagedCollectionViewModel? collection = null)
+    {
+        _playlistActionsMenuOpen = false;
+        _playlistActionsCollectionId = null;
+
+        if (collection is not null)
+        {
+            var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
+            {
+                ActiveProfileId = _activeProfileId,
+                CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
+                EditingCollection = ToCollectionEditorItem(collection),
+                Mode = string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
+                    ? "SmartPlaylist"
+                    : "Playlist",
+            });
+
+            if (changed)
+                await LoadAsync();
+
+            return;
+        }
+
+        await OpenPlaylistEditorDialog();
+    }
+
+    private void TogglePlaylistColumn(string key)
+    {
+        if (!_playlistHiddenColumns.Add(key))
+        {
+            _playlistHiddenColumns.Remove(key);
+        }
+    }
+
+    private bool IsPlaylistColumnVisible(string key) => !_playlistHiddenColumns.Contains(key);
+
+    private IReadOnlyList<PlaylistColumnDefinition> BuildPlaylistColumns()
+    {
+        var columns = new List<PlaylistColumnDefinition>
+        {
+            new("favorite", "Favorite"),
+            new("artist", "Artist"),
+            new("album", "Album"),
+            new("time", "Time"),
+        };
+
+        return columns;
+    }
+
+    private string BuildPlaylistGridTemplate()
+    {
+        var tracks = new List<string> { "minmax(320px, 2.1fr)" };
+        if (IsPlaylistColumnVisible("favorite"))
+            tracks.Add("96px");
+        if (IsPlaylistColumnVisible("artist"))
+            tracks.Add("minmax(160px, 1fr)");
+        if (IsPlaylistColumnVisible("album"))
+            tracks.Add("minmax(180px, 1.1fr)");
+        if (IsPlaylistColumnVisible("time"))
+            tracks.Add("88px");
+
+        tracks.Add("52px");
+        return string.Join(" ", tracks);
+    }
+
+    private void BeginPlaylistTrackReorder(Guid itemId)
+    {
+        _draggingPlaylistTrackItemId = itemId;
+    }
+
+    private Task BeginPlaylistTrackReorderAsync(Guid itemId)
+    {
+        BeginPlaylistTrackReorder(itemId);
+        return Task.CompletedTask;
+    }
+
+    private void EndPlaylistTrackReorder()
+    {
+        _draggingPlaylistTrackItemId = null;
+    }
+
+    private async Task DropPlaylistTrackReorderAsync(Guid targetItemId)
+    {
+        if (!_draggingPlaylistTrackItemId.HasValue || _draggingPlaylistTrackItemId.Value == targetItemId)
+            return;
+
+        var orderedItems = _playlistItems.OrderBy(item => item.SortOrder).ToList();
+        var sourceIndex = orderedItems.FindIndex(item => item.Id == _draggingPlaylistTrackItemId.Value);
+        var targetIndex = orderedItems.FindIndex(item => item.Id == targetItemId);
+        if (sourceIndex < 0 || targetIndex < 0)
+            return;
+
+        var moved = orderedItems[sourceIndex];
+        orderedItems.RemoveAt(sourceIndex);
+        orderedItems.Insert(targetIndex, moved);
+        await SavePlaylistTrackOrderAsync(orderedItems);
+        _draggingPlaylistTrackItemId = null;
+    }
+
     private async Task ReloadAsync() => await LoadAsync();
 
     private async Task EnsureArtistSelectionAsync()
@@ -796,6 +910,8 @@ public partial class ListenPage
 
     private void NavigateTo(string route)
     {
+        _playlistActionsMenuOpen = false;
+        _playlistActionsCollectionId = null;
         CloseTrackContextMenu();
         Nav.NavigateTo(route);
     }
@@ -1034,38 +1150,6 @@ public partial class ListenPage
                 || (work.Album?.Contains(_songSearch, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
-        if (!string.Equals(_songGenreFilter, "all", StringComparison.OrdinalIgnoreCase))
-        {
-            filtered = filtered.Where(work => work.Genres.Any(genre => string.Equals(genre, _songGenreFilter, StringComparison.OrdinalIgnoreCase)));
-        }
-
-        if (!string.Equals(_songArtistFilter, "all", StringComparison.OrdinalIgnoreCase))
-        {
-            filtered = filtered.Where(work => string.Equals(FirstNonBlank(work.Artist, work.Author, null), _songArtistFilter, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (!string.Equals(_songAlbumFilter, "all", StringComparison.OrdinalIgnoreCase))
-        {
-            filtered = filtered.Where(work => string.Equals(work.Album, _songAlbumFilter, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (string.Equals(_songFavoriteFilter, "favorites", StringComparison.OrdinalIgnoreCase))
-        {
-            filtered = filtered.Where(work => _favoriteWorkIds.Contains(work.Id));
-        }
-        else if (string.Equals(_songFavoriteFilter, "nonfavorites", StringComparison.OrdinalIgnoreCase))
-        {
-            filtered = filtered.Where(work => !_favoriteWorkIds.Contains(work.Id));
-        }
-
-        filtered = _songDateAddedFilter switch
-        {
-            "7" => filtered.Where(work => work.CreatedAt >= DateTimeOffset.UtcNow.AddDays(-7)),
-            "30" => filtered.Where(work => work.CreatedAt >= DateTimeOffset.UtcNow.AddDays(-30)),
-            "90" => filtered.Where(work => work.CreatedAt >= DateTimeOffset.UtcNow.AddDays(-90)),
-            _ => filtered,
-        };
-
         return filtered.ToList();
     }
 
@@ -1256,6 +1340,38 @@ public partial class ListenPage
 
         StateHasChanged();
         return Task.CompletedTask;
+    }
+
+    private Task OpenTrackMenuAsync(WorkViewModel track, MouseEventArgs args, string sourceLabel)
+    {
+        _trackContextMenuWorkId = track.Id;
+        _trackContextMenuSourceLabel = sourceLabel;
+        _trackContextMenuX = args.ClientX;
+        _trackContextMenuY = args.ClientY;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void ToggleSongSort(string column)
+    {
+        column = NormalizeSongSortColumn(column);
+        if (string.Equals(NormalizeSongSortColumn(_songSortColumn), column, StringComparison.OrdinalIgnoreCase))
+        {
+            _songSortDescending = !_songSortDescending;
+            return;
+        }
+
+        _songSortColumn = column;
+        _songSortDescending = column is "dateAdded" or "plays" or "time" or "favorite";
+    }
+
+    private string SongSortIndicator(string column)
+    {
+        column = NormalizeSongSortColumn(column);
+        if (!string.Equals(NormalizeSongSortColumn(_songSortColumn), column, StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+
+        return _songSortDescending ? "desc" : "asc";
     }
 
     private async Task OnTrackFavoriteToggled(Guid entityId)
@@ -1572,6 +1688,14 @@ public partial class ListenPage
         orderedItems.RemoveAt(currentIndex);
         orderedItems.Insert(targetIndex, moved);
 
+        await SavePlaylistTrackOrderAsync(orderedItems);
+    }
+
+    private async Task SavePlaylistTrackOrderAsync(List<CollectionItemViewModel> orderedItems)
+    {
+        if (ActivePlaylistCollection is null)
+            return;
+
         var saved = await ApiClient.ReorderCollectionItemsAsync(
             ActivePlaylistCollection.Id,
             orderedItems.Select(item => item.Id).ToList(),
@@ -1801,4 +1925,5 @@ public partial class ListenPage
     private sealed record ListenNavItem(string Label, string Route, string Icon, string? Meta = null, bool IsChild = false);
     private sealed record ListenPlaylistCard(string Title, string Type, string Meta, string Route, string Description, string? SquareArtworkUrl);
     private sealed record ListenPlaylistTrackRow(CollectionItemViewModel? Item, WorkViewModel Work, int Index);
+    private sealed record PlaylistColumnDefinition(string Key, string Label);
 }

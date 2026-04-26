@@ -70,6 +70,24 @@
                          draggable="true"
                          @ondragstart="@(() => HandleDragStartAsync(cell.Item.EntityId))"
                          @ondragend="HandleDragEndAsync">
+                        <div class="listen-track-grid__art">
+                            @if (!string.IsNullOrWhiteSpace(cell.Item.CoverThumbUrl ?? cell.Item.CoverUrl))
+                            {
+                                <img src="@(cell.Item.CoverThumbUrl ?? cell.Item.CoverUrl)" alt="" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 16px;" />
+                            }
+                            <button type="button"
+                                    class="listen-track-grid__art-play"
+                                    title="Play song"
+                                    aria-label="@($"Play {cell.Item.Title}")"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="@(() => ActivateRowAsync(cell.Item.EntityId))">
+                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 16px;" />
+                            </button>
+                        </div>
                         <div class="listen-track-grid__title-text">@cell.Item.Title</div>
                     </div>
                 </CellTemplate>
