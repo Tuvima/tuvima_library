@@ -67,6 +67,9 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Body content", cut.Markup);
             Assert.DoesNotContain("Home", cut.Markup);
             Assert.Contains("Search your library", cut.Markup);
+            Assert.Single(cut.FindAll(".layout-shell__search-shell"));
+            Assert.Single(cut.FindAll(".layout-shell__profile-trigger"));
+            Assert.Empty(cut.FindAll(".layout-shell__avatar-trigger"));
         });
     }
 

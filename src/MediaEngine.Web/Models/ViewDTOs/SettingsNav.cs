@@ -27,7 +27,6 @@ public enum SettingsSection
     Encode,
     OfflineDownloads,
     Metadata,
-    Registry,
 }
 
 /// <summary>A primary settings destination group.</summary>
@@ -76,66 +75,66 @@ public sealed record SettingsRouteResolution(
 }
 
 /// <summary>
-/// Explicit route registry for the Settings shell.
+/// Explicit route map for the Settings shell.
 /// Keeps canonical slugs, aliases, grouping, and role visibility in one place.
 /// </summary>
 public static class SettingsNav
 {
     public static readonly SettingsGroupDef[] AllGroups =
     [
-        new("admin",    "Admin",    Icons.Material.Outlined.AdminPanelSettings, true,  SettingsSection.Overview),
-        new("user",     "User",     Icons.Material.Outlined.Person, false, SettingsSection.Profile),
-        new("library",  "Library",  Icons.Material.Outlined.FolderOpen, true, SettingsSection.Folders),
-        new("metadata", "Metadata", Icons.Material.Outlined.Schema, true, SettingsSection.Metadata),
-        new("providers","Providers",Icons.Material.Outlined.Collections, true, SettingsSection.Providers),
-        new("ai",       "AI",       Icons.Material.Outlined.Memory, true, SettingsSection.Models),
-        new("server",   "Server",   Icons.Material.Outlined.Dns, true, SettingsSection.System),
-        new("registry", "Registry", Icons.Material.Outlined.TableChart, true, SettingsSection.Registry),
+        new("user", "User Settings", Icons.Material.Outlined.Person, false, SettingsSection.Profile),
+        new("admin", "Admin Settings", Icons.Material.Outlined.AdminPanelSettings, true, SettingsSection.Overview),
     ];
 
     public static readonly SettingsItemDef[] AllItems =
     [
         new(SettingsSection.Overview, "admin", null, Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, ["overview", "admin", "adminoverview"], "json+sqlite"),
-        new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", false, "review", ["needsreview", "conflicts"]),
+        new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "conflicts"]),
         new(SettingsSection.Profile, "user", "profile", Icons.Material.Outlined.Person, "Profile", false, null, ["general", "navigation"]),
         new(SettingsSection.Playback, "user", "playback", Icons.Material.Outlined.PlayArrow, "Playback", false, null, [], "sqlite", Placeholder: true),
-        new(SettingsSection.Folders, "library", "folders", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["library", "libraries"]),
-        new(SettingsSection.Metadata, "metadata", "metadata", Icons.Material.Outlined.Schema, "Metadata", true, null, ["mediatypes", "fieldpriorities", "scoring", "hydration", "pipelines"], "json"),
-        new(SettingsSection.Providers, "providers", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, ["providerpriority", "providerconnections", "providerprioritytab", "connections", "connectionvault", "matchingpipeline", "propertymapper"]),
-        new(SettingsSection.Wikidata, "providers", "wikidata", Icons.Material.Outlined.Public, "Wikidata", true, null, ["wikidataconfig", "universe", "universesettings", "universeconfig"]),
-        new(SettingsSection.Models, "ai", "models", Icons.Material.Outlined.Memory, "Models", true, null, ["ai", "aimodels"]),
-        new(SettingsSection.Features, "ai", "features", Icons.Material.Outlined.ToggleOn, "Features", true, null, ["aifeatures"]),
-        new(SettingsSection.Vocabulary, "ai", "vocabulary", Icons.Material.Outlined.Style, "Vocabulary", true, null, ["vibevocabulary", "vocab"]),
-        new(SettingsSection.Schedule, "ai", "schedule", Icons.Material.Outlined.Schedule, "Schedule", true, null, ["aischedule"]),
-        new(SettingsSection.System, "server", "system", Icons.Material.Outlined.Dns, "System", true, null, ["server", "statusdashboard", "dashboard", "servergeneral", "connectivity"]),
-        new(SettingsSection.Encode, "server", "encode", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["transcoding", "transcode", "offlinevariants"]),
-        new(SettingsSection.OfflineDownloads, "server", "offline-downloads", Icons.Material.Outlined.DownloadForOffline, "Offline Variants", true, null, ["downloads", "mobiledownloads", "preparedmedia"]),
-        new(SettingsSection.Security, "server", "security", Icons.Material.Outlined.VpnKey, "Security", true, null, ["apikeys"]),
-        new(SettingsSection.Users, "server", "users", Icons.Material.Outlined.Group, "Users", true, null, []),
-        new(SettingsSection.Registry, "registry", "registry", Icons.Material.Outlined.TableChart, "Registry", true, null, ["activitylog", "logs", "history"], "sqlite"),
-        new(SettingsSection.Activity, "registry", "activity", Icons.Material.Outlined.Timeline, "Activity", true, null, []),
-        new(SettingsSection.Maintenance, "registry", "maintenance", Icons.Material.Outlined.Build, "Maintenance", true, null, []),
-        new(SettingsSection.Setup, "registry", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, [], Placeholder: true),
+        new(SettingsSection.Folders, "admin", "folders", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["library", "libraries"]),
+        new(SettingsSection.Metadata, "admin", "metadata", Icons.Material.Outlined.Schema, "Metadata", true, null, ["mediatypes", "fieldpriorities", "scoring", "hydration", "pipelines"], "json"),
+        new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, ["providerpriority", "providerconnections", "providerprioritytab", "connections", "connectionvault", "matchingpipeline", "propertymapper"]),
+        new(SettingsSection.Wikidata, "admin", "wikidata", Icons.Material.Outlined.Public, "Wikidata", true, null, ["wikidataconfig", "universe", "universesettings", "universeconfig"]),
+        new(SettingsSection.Models, "admin", "models", Icons.Material.Outlined.Memory, "AI Models", true, null, ["ai", "aimodels"]),
+        new(SettingsSection.Features, "admin", "features", Icons.Material.Outlined.ToggleOn, "AI Features", true, null, ["aifeatures"]),
+        new(SettingsSection.Vocabulary, "admin", "vocabulary", Icons.Material.Outlined.Style, "AI Vocabulary", true, null, ["vibevocabulary", "vocab"]),
+        new(SettingsSection.Schedule, "admin", "schedule", Icons.Material.Outlined.Schedule, "AI Schedule", true, null, ["aischedule"]),
+        new(SettingsSection.System, "admin", "system", Icons.Material.Outlined.Dns, "Server", true, null, ["server", "statusdashboard", "dashboard", "servergeneral", "connectivity"]),
+        new(SettingsSection.Encode, "admin", "encode", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["transcoding", "transcode", "offlinevariants"]),
+        new(SettingsSection.OfflineDownloads, "admin", "offline-downloads", Icons.Material.Outlined.DownloadForOffline, "Offline Variants", true, null, ["downloads", "mobiledownloads", "preparedmedia"]),
+        new(SettingsSection.Security, "admin", "security", Icons.Material.Outlined.VpnKey, "Security", true, null, ["apikeys"]),
+        new(SettingsSection.Users, "admin", "users", Icons.Material.Outlined.Group, "Users", true, null, []),
+        new(SettingsSection.Activity, "admin", "activity", Icons.Material.Outlined.Timeline, "Activity", true, null, ["activitylog", "logs", "history"]),
+        new(SettingsSection.Maintenance, "admin", "maintenance", Icons.Material.Outlined.Build, "Maintenance", true, null, []),
+        new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, [], Placeholder: true),
     ];
 
     public static readonly SettingsTreeGroupDef[] TreeGroups =
     [
-        new("user", "User", Icons.Material.Outlined.Person, false, true, SettingsSection.Profile,
+        new("user", "User Settings", Icons.Material.Outlined.Person, false, true, SettingsSection.Profile,
             [SettingsSection.Profile, SettingsSection.Playback]),
-        new("admin", "Admin", Icons.Material.Outlined.AdminPanelSettings, true, true, SettingsSection.Overview,
-            [SettingsSection.Overview, SettingsSection.Review]),
-        new("library", "Library", Icons.Material.Outlined.FolderOpen, true, true, SettingsSection.Folders,
-            [SettingsSection.Folders]),
-        new("metadata", "Metadata", Icons.Material.Outlined.Schema, true, true, SettingsSection.Metadata,
-            [SettingsSection.Metadata]),
-        new("providers", "Providers", Icons.Material.Outlined.Collections, true, true, SettingsSection.Providers,
-            [SettingsSection.Providers, SettingsSection.Wikidata]),
-        new("ai", "AI", Icons.Material.Outlined.Memory, true, true, SettingsSection.Models,
-            [SettingsSection.Models, SettingsSection.Features, SettingsSection.Vocabulary, SettingsSection.Schedule]),
-        new("server", "Server", Icons.Material.Outlined.Dns, true, true, SettingsSection.System,
-            [SettingsSection.System, SettingsSection.Encode, SettingsSection.OfflineDownloads, SettingsSection.Security, SettingsSection.Users]),
-        new("registry", "Registry", Icons.Material.Outlined.TableChart, true, true, SettingsSection.Registry,
-            [SettingsSection.Registry, SettingsSection.Activity, SettingsSection.Maintenance, SettingsSection.Setup]),
+        new("admin", "Admin Settings", Icons.Material.Outlined.AdminPanelSettings, true, true, SettingsSection.Overview,
+            [
+                SettingsSection.Overview,
+                SettingsSection.Review,
+                SettingsSection.Folders,
+                SettingsSection.Metadata,
+                SettingsSection.Providers,
+                SettingsSection.Wikidata,
+                SettingsSection.Models,
+                SettingsSection.Features,
+                SettingsSection.Vocabulary,
+                SettingsSection.Schedule,
+                SettingsSection.System,
+                SettingsSection.Encode,
+                SettingsSection.OfflineDownloads,
+                SettingsSection.Security,
+                SettingsSection.Users,
+                SettingsSection.Activity,
+                SettingsSection.Maintenance,
+                SettingsSection.Setup,
+            ]),
     ];
 
     private static readonly Dictionary<SettingsSection, SettingsItemDef> _itemsBySection =

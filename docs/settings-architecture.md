@@ -21,7 +21,7 @@ Use SQLite for records created or changed by product workflows:
 - profiles, profile external logins, and API keys.
 - provider health and recent failures.
 - review queue entries and resolution history.
-- system activity, registry history, encode jobs, and playback/reading progress.
+- system activity, encode jobs, and playback/reading progress.
 
 ## Deprecated Public Settings
 

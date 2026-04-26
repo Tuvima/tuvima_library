@@ -66,7 +66,7 @@
             @if (_reviewCount > 0)
             {
                 <MudBadge Overlap="true"
-                          Dot="true"
+                          Content="@_reviewCount"
                           Color="Color.Warning"
                           Class="layout-shell__review-badge">
                     <MudIconButton Icon="@Icons.Material.Outlined.NotificationsNone"
@@ -88,32 +88,38 @@
             <MudMenu AnchorOrigin="Origin.BottomRight"
                      TransformOrigin="Origin.TopRight"
                      Class="layout-shell__profile-menu">
-            <ActivatorContent>
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Inherit"
-                           Class="layout-shell__avatar-trigger"
-                           aria-label="@_displayName">
-                    <MudAvatar Size="Size.Medium"
-                               Style="@GetAvatarStyle()"
-                               Class="layout-shell__avatar">
-                        @_avatarInitial
-                    </MudAvatar>
-                </MudButton>
-            </ActivatorContent>
+                <ActivatorContent>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Inherit"
+                               Class="layout-shell__profile-trigger"
+                               aria-label="@_displayName">
+                        <MudAvatar Size="Size.Medium"
+                                   Style="@GetAvatarStyle()"
+                                   Class="layout-shell__avatar">
+                            @_avatarInitial
+                        </MudAvatar>
+                        <span class="layout-shell__profile-copy">
+                            <span class="layout-shell__profile-name">@_displayName</span>
+                            <span class="layout-shell__profile-role">@_profileRole</span>
+                        </span>
+                        <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown"
+                                 Class="layout-shell__profile-chevron" />
+                    </MudButton>
+                </ActivatorContent>
 
-            <ChildContent>
-                <MudText Typo="Typo.overline" Class="px-4 pt-3">@L["TopBar_SignedInAs"]</MudText>
-                <MudText Typo="Typo.subtitle2" Class="px-4 pb-3">@_displayName</MudText>
-                <MudDivider />
-                <MudMenuItem Href="/settings/review" Icon="@Icons.Material.Outlined.RateReview">
-                    @(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])
-                </MudMenuItem>
-                <MudMenuItem Href="/settings" Icon="@Icons.Material.Outlined.Settings">
-                    @L["Nav_Settings"]
-                </MudMenuItem>
-                <MudDivider />
-                <MudText Typo="Typo.caption" Class="px-4 py-3 layout-shell__menu-status">@_engineStatusSummary</MudText>
-            </ChildContent>
+                <ChildContent>
+                    <MudText Typo="Typo.overline" Class="px-4 pt-3">@L["TopBar_SignedInAs"]</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="px-4 pb-3">@_displayName</MudText>
+                    <MudDivider />
+                    <MudMenuItem Href="/settings/review" Icon="@Icons.Material.Outlined.RateReview">
+                        @(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])
+                    </MudMenuItem>
+                    <MudMenuItem Href="/settings" Icon="@Icons.Material.Outlined.Settings">
+                        @L["Nav_Settings"]
+                    </MudMenuItem>
+                    <MudDivider />
+                    <MudText Typo="Typo.caption" Class="px-4 py-3 layout-shell__menu-status">@_engineStatusSummary</MudText>
+                </ChildContent>
             </MudMenu>
         </MudStack>
     </MudAppBar>
@@ -136,6 +142,7 @@
     private string _currentPath = "/";
     private string _displayName = "User";
     private string _engineStatusSummary = string.Empty;
+    private string _profileRole = "Profile";
     private string _searchTerm = string.Empty;
     private int _reviewCount;
     private const string NavLabelStyle = "font-family:'Montserrat',sans-serif;font-weight:400;font-size:1.02rem;letter-spacing:0.16em;line-height:1;text-transform:uppercase;";
@@ -284,6 +291,9 @@
             _displayName = string.IsNullOrWhiteSpace(profile.DisplayName)
                 ? "User"
                 : profile.DisplayName.Trim();
+            _profileRole = string.IsNullOrWhiteSpace(profile.Role)
+                ? "Profile"
+                : profile.Role.Trim();
             _avatarInitial = GetAvatarInitial(_displayName);
         }
         catch

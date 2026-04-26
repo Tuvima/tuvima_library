@@ -28,7 +28,6 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Activity, "/settings/activity")]
     [InlineData(SettingsSection.Maintenance, "/settings/maintenance")]
     [InlineData(SettingsSection.Setup, "/settings/setup")]
-    [InlineData(SettingsSection.Registry, "/settings/registry")]
     public void ResolveRoute_CanonicalSegments_AreStable(SettingsSection section, string expectedRoute)
     {
         var segment = expectedRoute.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
@@ -94,8 +93,8 @@ public sealed class SettingsNavTests
     {
         var resolution = SettingsNav.ResolveRoute("providers", "Viewer");
 
-        Assert.Equal(SettingsSection.Review, resolution.Section);
-        Assert.Equal("/settings/review", resolution.CanonicalRoute);
+        Assert.Equal(SettingsSection.Profile, resolution.Section);
+        Assert.Equal("/settings/profile", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
         Assert.True(resolution.IsKnownRoute);
         Assert.False(resolution.RequestedSectionAllowed);
@@ -111,22 +110,27 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void FilteredTreeGroups_Admin_RendersCentralizedSettingsTree()
+    public void FilteredTreeGroups_Admin_RendersUserAndAdminSettingsTree()
     {
         var groups = SettingsNav.FilteredTreeGroups("Administrator").Select(group => group.Key).ToArray();
 
-        Assert.Equal(["user", "admin", "library", "metadata", "providers", "ai", "server", "registry"], groups);
+        Assert.Equal(["user", "admin"], groups);
+
+        var adminItems = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "admin"), "Administrator")
+            .Select(item => item.Value)
+            .ToArray();
+
+        Assert.Contains(SettingsSection.Folders, adminItems);
+        Assert.Contains(SettingsSection.Metadata, adminItems);
+        Assert.Contains(SettingsSection.Providers, adminItems);
+        Assert.Contains(SettingsSection.Models, adminItems);
+        Assert.Contains(SettingsSection.System, adminItems);
+        Assert.DoesNotContain(adminItems, section => section.ToString().Equals("Registry", StringComparison.OrdinalIgnoreCase));
     }
 
     [Theory]
     [InlineData("admin", SettingsSection.Overview, "/settings")]
     [InlineData("user", SettingsSection.Profile, "/settings/profile")]
-    [InlineData("library", SettingsSection.Folders, "/settings/folders")]
-    [InlineData("metadata", SettingsSection.Metadata, "/settings/metadata")]
-    [InlineData("providers", SettingsSection.Providers, "/settings/providers")]
-    [InlineData("ai", SettingsSection.Models, "/settings/models")]
-    [InlineData("server", SettingsSection.System, "/settings/system")]
-    [InlineData("registry", SettingsSection.Registry, "/settings/registry")]
     public void GroupDefaults_ResolveToExpectedCanonicalRoutes(string groupKey, SettingsSection expectedSection, string expectedRoute)
     {
         var section = SettingsNav.GetDefaultSection(groupKey);

@@ -8,17 +8,25 @@
 }
 
 .layout-shell__appbar {
-    display: grid !important;
-    grid-template-columns: minmax(25rem, 1fr) minmax(20rem, 32rem) minmax(7rem, 1fr);
-    align-items: center;
-    column-gap: 1.25rem;
     min-height: var(--app-topbar-height, 65px);
     height: var(--app-topbar-height, 65px);
-    padding: 0 1.25rem;
+    padding: 0 !important;
     color: var(--app-text-primary, #aab8c5);
     background: var(--app-surface, #1e1f27) !important;
     border-bottom: 1px solid var(--app-border, #293036);
     box-shadow: var(--app-shadow, 0 1px 4px rgba(130, 143, 163, 0.15));
+    overflow: visible;
+}
+
+::deep .layout-shell__appbar .mud-toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(24rem, 1fr) minmax(18rem, 30rem) minmax(18rem, 1fr);
+    align-items: center;
+    column-gap: 1.25rem;
+    width: 100%;
+    min-height: var(--app-topbar-height, 65px);
+    height: var(--app-topbar-height, 65px);
+    padding: 0 1.25rem;
     overflow: visible;
 }
 
@@ -120,12 +128,14 @@
     justify-content: center;
     align-items: center;
     min-width: 0;
+    max-width: 100%;
     padding-inline: 0;
+    overflow: hidden;
 }
 
 ::deep .layout-shell__search {
-    width: min(100%, 30rem);
-    max-width: 30rem;
+    width: 100%;
+    max-width: 26rem;
     margin: 0;
 }
 
@@ -148,10 +158,10 @@
     min-width: 0;
     justify-content: flex-end;
     overflow: visible;
+    gap: 0.35rem !important;
 }
 
-.layout-shell__review-button,
-.layout-shell__avatar-trigger {
+.layout-shell__review-button {
     width: 2.4rem !important;
     height: 2.4rem !important;
     min-width: 2.4rem !important;
@@ -161,32 +171,86 @@
     color: var(--app-text-muted, #8391a2) !important;
 }
 
-.layout-shell__review-button,
-.layout-shell__avatar-trigger {
+.layout-shell__review-button {
     border: 1px solid var(--app-border, #293036) !important;
     background: var(--app-surface-2, #272832) !important;
 }
 
-.layout-shell__review-button:hover,
-.layout-shell__avatar-trigger:hover {
+.layout-shell__review-button:hover {
     color: var(--app-text-primary, #aab8c5) !important;
     background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035)) !important;
 }
 
+.layout-shell__profile-trigger {
+    min-width: 10.75rem !important;
+    max-width: 13.5rem !important;
+    height: 2.75rem !important;
+    padding: 0 0.55rem !important;
+    border-radius: var(--app-radius-sm, 5px) !important;
+    border-left: 1px solid var(--app-border, #293036) !important;
+    color: var(--app-text-primary, #aab8c5) !important;
+    background: transparent !important;
+    text-transform: none !important;
+}
+
+.layout-shell__profile-trigger:hover {
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035)) !important;
+}
+
+::deep .layout-shell__profile-trigger .mud-button-label {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+}
+
 .layout-shell__avatar {
-    width: 1.85rem !important;
-    height: 1.85rem !important;
+    width: 2rem !important;
+    height: 2rem !important;
     font-family: var(--app-font-sans, "Nunito", sans-serif);
     font-size: 0.78rem;
     font-weight: 700;
+    flex: 0 0 auto;
 }
 
-.layout-shell__avatar-trigger {
-    padding: 0 !important;
+.layout-shell__profile-copy {
     display: inline-flex;
-    align-items: center;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: flex-start;
     justify-content: center;
-    text-transform: none;
+    margin-inline: 0.6rem 0.35rem;
+    line-height: 1.05;
+}
+
+.layout-shell__profile-name,
+.layout-shell__profile-role {
+    display: block;
+    max-width: 8.2rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.layout-shell__profile-name {
+    color: var(--app-text-primary, #e5edf5);
+    font-size: 0.83rem;
+    font-weight: 700;
+}
+
+.layout-shell__profile-role {
+    margin-top: 0.18rem;
+    color: var(--app-text-muted, #8391a2);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.layout-shell__profile-chevron {
+    width: 1rem !important;
+    height: 1rem !important;
+    color: var(--app-text-muted, #8391a2);
+    flex: 0 0 auto;
 }
 
 .layout-shell__menu-status {
@@ -195,20 +259,29 @@
 }
 
 @media (max-width: 1100px) {
-    .layout-shell__appbar {
-        grid-template-columns: minmax(22rem, 1fr) minmax(16rem, 24rem) auto;
+    ::deep .layout-shell__appbar .mud-toolbar {
+        grid-template-columns: minmax(20rem, 1fr) minmax(14rem, 22rem) minmax(13rem, auto);
         column-gap: 0.9rem;
     }
 
     ::deep .layout-shell__search {
-        width: min(100%, 22rem);
         max-width: 22rem;
+    }
+
+    .layout-shell__profile-trigger {
+        min-width: 9.25rem !important;
+        max-width: 11rem !important;
+    }
+
+    .layout-shell__profile-name,
+    .layout-shell__profile-role {
+        max-width: 6rem;
     }
 }
 
 @media (max-width: 860px) {
-    .layout-shell__appbar {
-        grid-template-columns: minmax(19rem, 1fr) minmax(12rem, 18rem) auto;
+    ::deep .layout-shell__appbar .mud-toolbar {
+        grid-template-columns: minmax(17rem, 1fr) minmax(10rem, 16rem) auto;
     }
 
     .layout-shell__brand-lockup-shell {
@@ -219,13 +292,24 @@
     }
 
     ::deep .layout-shell__search {
-        width: min(100%, 16rem);
         max-width: 16rem;
+    }
+
+    .layout-shell__profile-copy,
+    .layout-shell__profile-chevron {
+        display: none;
+    }
+
+    .layout-shell__profile-trigger {
+        min-width: 2.75rem !important;
+        max-width: 2.75rem !important;
+        justify-content: center;
+        padding: 0 !important;
     }
 }
 
 @media (max-width: 640px) {
-    .layout-shell__appbar {
+    ::deep .layout-shell__appbar .mud-toolbar {
         grid-template-columns: auto minmax(0, 1fr) auto;
         padding: 0 0.7rem;
         column-gap: 0.5rem;

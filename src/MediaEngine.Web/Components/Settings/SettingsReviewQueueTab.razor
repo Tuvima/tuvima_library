@@ -79,12 +79,6 @@
                     <MudStack Row="true" Spacing="1">
                         <MudButton Size="Size.Small"
                                    Variant="Variant.Outlined"
-                                   Color="Color.Default"
-                                   Href="@($"/registry/{context.EntityId}")">
-                            Open
-                        </MudButton>
-                        <MudButton Size="Size.Small"
-                                   Variant="Variant.Outlined"
                                    Color="Color.Warning"
                                    Disabled="@_busyIds.Contains(context.Id)"
                                    OnClick="@(() => DismissAsync(context))">
