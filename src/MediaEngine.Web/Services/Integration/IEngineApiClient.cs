@@ -17,6 +17,12 @@ public interface IEngineApiClient
 
     Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", CancellationToken ct = default);
 
+    Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
+
+    Task RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default);
+
+    Task<string?> GetLyricsAsync(Guid assetId, CancellationToken ct = default);
+
     Task<List<EncodeJobDto>> GetEncodeJobsAsync(CancellationToken ct = default);
 
     Task<EncodeJobDto?> QueueEncodeAsync(Guid assetId, QueueEncodeRequestDto request, CancellationToken ct = default);
@@ -264,6 +270,7 @@ public interface IEngineApiClient
 
     /// <summary>GET /settings/organization-template — current file organization template + preview.</summary>
     Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(CancellationToken ct = default);
+    Task<OrganizationTemplateDto?> PreviewOrganizationTemplateAsync(string template, CancellationToken ct = default);
 
     /// <summary>PUT /settings/organization-template — save a new file organization template.</summary>
     Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(string template, CancellationToken ct = default);

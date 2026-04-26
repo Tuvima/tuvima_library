@@ -1,5 +1,6 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
+@inject IEngineApiClient ApiClient
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -623,6 +624,16 @@ else
         var success = await Orchestrator.UpdateFolderSettingsAsync(dto);
         if (success && !string.IsNullOrWhiteSpace(_organizationTemplate))
         {
+            var previewResult = await ApiClient.PreviewOrganizationTemplateAsync(_organizationTemplate);
+            if (previewResult is null)
+            {
+                Snackbar.Add(
+                    ApiClient.LastError ?? L["Libraries_InvalidTemplate"],
+                    Severity.Warning);
+                _savingFolders = false;
+                return;
+            }
+
             var tmplResult = await Orchestrator.UpdateOrganizationTemplateAsync(_organizationTemplate);
             if (tmplResult is null)
             {

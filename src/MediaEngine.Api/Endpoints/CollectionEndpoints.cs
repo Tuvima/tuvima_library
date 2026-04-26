@@ -82,7 +82,6 @@ public static class CollectionEndpoints
 
         group.MapGet("/search", async (
             string? q,
-            ICollectionRepository collectionRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -90,76 +89,105 @@ public static class CollectionEndpoints
                 return Results.Ok(Array.Empty<SearchResultDto>());
 
             var query = q.Trim();
-            var collections  = await collectionRepo.GetAllAsync(ct);
+            var like = $"%{query}%";
+            var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
+            var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
 
-            // Collect work IDs that have at least one non-staging media asset
-            var libraryWorkIds = new HashSet<Guid>();
-            using (var conn = db.CreateConnection())
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = """
-                    SELECT DISTINCT e.work_id
-                    FROM editions e
+            using var conn = db.CreateConnection();
+            var rows = (await conn.QueryAsync<CollectionSearchRow>(new CommandDefinition($"""
+                WITH matched AS (
+                    SELECT
+                        w.id AS WorkId,
+                        w.collection_id AS CollectionId,
+                        w.media_type AS MediaType,
+                        COALESCE(
+                            title_asset.value,
+                            episode_title.value,
+                            title_work.value,
+                            original_title.value,
+                            'Work ' || substr(w.id, 1, 8)
+                        ) AS Title,
+                        COALESCE(
+                            author_asset.value,
+                            artist_asset.value,
+                            director_asset.value,
+                            author_work.value,
+                            artist_work.value,
+                            director_work.value
+                        ) AS Author,
+                        COALESCE(
+                            c.display_name,
+                            collection_title.value,
+                            substr(COALESCE(w.collection_id, w.id), 1, 8)
+                        ) AS CollectionDisplayName,
+                        COALESCE(
+                            cover_asset.value,
+                            cover_url_asset.value,
+                            cover_work.value,
+                            cover_url_work.value
+                        ) AS CoverUrl,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY w.id
+                            ORDER BY
+                                CASE WHEN title_asset.value IS NULL AND title_work.value IS NULL THEN 1 ELSE 0 END,
+                                ma.id
+                        ) AS RowNumber
+                    FROM works w
+                    INNER JOIN editions e ON e.work_id = w.id
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
-                      AND ma.file_path_root NOT LIKE '%\.data\staging\%'
-                      AND ma.file_path_root NOT LIKE '%/.data\staging/%'
-                    """;
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
-                {
-                    if (Guid.TryParse(reader.GetString(0), out var wid))
-                        libraryWorkIds.Add(wid);
-                }
-            }
-
-            // Build DTOs for library-only works, keeping a cover URL map from domain objects.
-            var filtered = new List<CollectionDto>();
-            var coverMap = new Dictionary<Guid, string>();
-            foreach (var collection in collections)
-            {
-                var libraryWorks = collection.Works.Where(w => libraryWorkIds.Contains(w.Id)).ToList();
-                if (libraryWorks.Count == 0) continue;
-
-                var filteredCollection = new Collection
-                {
-                    Id             = collection.Id,
-                    UniverseId     = collection.UniverseId,
-                    DisplayName    = collection.DisplayName,
-                    CreatedAt      = collection.CreatedAt,
-                    UniverseStatus = collection.UniverseStatus,
-                    ParentCollectionId    = collection.ParentCollectionId,
-                    WikidataQid    = collection.WikidataQid,
-                };
-                foreach (var w in libraryWorks)
-                {
-                    filteredCollection.Works.Add(w);
-                    var url = BuildCoverStreamUrl(w);
-                    if (url is not null) coverMap[w.Id] = url;
-                }
-                foreach (var r in collection.Relationships)    filteredCollection.Relationships.Add(r);
-
-                filtered.Add(CollectionDto.FromDomain(filteredCollection));
-            }
-
-            var dtos = filtered;
-
-            var results = dtos
-                .SelectMany(collection => collection.Works
-                    .Where(w => WorkMatchesQuery(w, query))
-                    .Select(w => new SearchResultDto
-                    {
-                        WorkId          = w.Id,
-                        CollectionId           = collection.Id,
-                        Title           = GetCanonical(w, "title")   ?? $"Work {w.Id}",
-                        Author          = GetCanonical(w, "author"),
-                        MediaType       = w.MediaType,
-                        CollectionDisplayName  = GetCanonical(collection.Works.FirstOrDefault()!, "title")
-                                          ?? collection.Id.ToString("N")[..8],
-                        CoverUrl        = coverMap.GetValueOrDefault(w.Id),
-                    }))
-                .Take(20)
+                    LEFT JOIN collections c ON c.id = w.collection_id
+                    LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ma.id AND title_asset.key = 'title'
+                    LEFT JOIN canonical_values episode_title ON episode_title.entity_id = ma.id AND episode_title.key = 'episode_title'
+                    LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
+                    LEFT JOIN canonical_values original_title ON original_title.entity_id = w.id AND original_title.key = 'original_title'
+                    LEFT JOIN canonical_values author_asset ON author_asset.entity_id = ma.id AND author_asset.key = 'author'
+                    LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ma.id AND artist_asset.key = 'artist'
+                    LEFT JOIN canonical_values director_asset ON director_asset.entity_id = ma.id AND director_asset.key = 'director'
+                    LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
+                    LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key = 'artist'
+                    LEFT JOIN canonical_values director_work ON director_work.entity_id = w.id AND director_work.key = 'director'
+                    LEFT JOIN canonical_values collection_title ON collection_title.entity_id = w.collection_id AND collection_title.key = 'title'
+                    LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ma.id AND cover_asset.key = 'cover'
+                    LEFT JOIN canonical_values cover_url_asset ON cover_url_asset.entity_id = ma.id AND cover_url_asset.key = 'cover_url'
+                    LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key = 'cover'
+                    LEFT JOIN canonical_values cover_url_work ON cover_url_work.entity_id = w.id AND cover_url_work.key = 'cover_url'
+                    WHERE w.work_kind != 'parent'
+                      AND {visibleWorkPredicate}
+                      AND {visibleAssetPredicate}
+                      AND (
+                          c.display_name LIKE @like COLLATE NOCASE
+                          OR EXISTS (
+                              SELECT 1
+                              FROM canonical_values cv
+                              WHERE cv.entity_id IN (ma.id, w.id, w.collection_id)
+                                AND cv.value LIKE @like COLLATE NOCASE
+                          )
+                      )
+                )
+                SELECT WorkId,
+                       CollectionId,
+                       MediaType,
+                       Title,
+                       Author,
+                       CollectionDisplayName,
+                       CoverUrl
+                FROM matched
+                WHERE RowNumber = 1
+                ORDER BY Title COLLATE NOCASE
+                LIMIT 20;
+                """, new { like }, cancellationToken: ct)))
                 .ToList();
+
+            var results = rows.Select(row => new SearchResultDto
+            {
+                WorkId = row.WorkId,
+                CollectionId = row.CollectionId,
+                Title = row.Title,
+                Author = row.Author,
+                MediaType = row.MediaType,
+                CollectionDisplayName = row.CollectionDisplayName,
+                CoverUrl = row.CoverUrl,
+            }).ToList();
 
             return Results.Ok(results);
         })
@@ -2856,6 +2884,17 @@ public static class CollectionEndpoints
     private static bool WorkMatchesQuery(WorkDto w, string query) =>
         w.CanonicalValues.Any(cv =>
             cv.Value.Contains(query, StringComparison.OrdinalIgnoreCase));
+
+    private sealed class CollectionSearchRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid? CollectionId { get; init; }
+        public string MediaType { get; init; } = string.Empty;
+        public string Title { get; init; } = string.Empty;
+        public string? Author { get; init; }
+        public string CollectionDisplayName { get; init; } = string.Empty;
+        public string? CoverUrl { get; init; }
+    }
 
     private static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
 

@@ -1470,6 +1470,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
         MigrateEntityAssetStorageColumns(conn);
         MigrateEntityAssetArtworkMetadataColumns(conn);
 
+        // Migration M-089: timed lyrics and subtitle track records.
+        MigrateTextTracks(conn);
+
         // Seed S-001: metadata_providers entries for all known providers.
         // metadata_claims.provider_id has a FK to metadata_providers(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1500,6 +1503,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
             (WellKnownProviders.Tmdb.ToString(),            "tmdb",                 "1.0"),
             (WellKnownProviders.Metron.ToString(),          "metron",               "1.0"),
             (WellKnownProviders.ComicVine.ToString(),       "comicvine",            "1.0"),
+            (WellKnownProviders.Lrclib.ToString(),          "lrclib",               "1.0"),
+            (WellKnownProviders.OpenSubtitles.ToString(),   "opensubtitles",        "1.0"),
 
             (WellKnownProviders.UserManual.ToString(),      "user_manual",          "1.0"),
             (WellKnownProviders.FanartTv.ToString(),        "fanart_tv",            "1.0"),
@@ -3342,6 +3347,39 @@ public sealed class DatabaseConnection : IDatabaseConnection
         backfill.ExecuteNonQuery();
     }
 
+    private static void MigrateTextTracks(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS text_tracks (
+                id                  TEXT PRIMARY KEY,
+                asset_id            TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                kind                TEXT NOT NULL CHECK(kind IN ('Lyrics','Subtitles')),
+                language            TEXT NOT NULL DEFAULT 'und',
+                provider            TEXT NOT NULL,
+                confidence          REAL NOT NULL DEFAULT 0,
+                source_id           TEXT,
+                source_url          TEXT,
+                source_format       TEXT NOT NULL,
+                normalized_format   TEXT NOT NULL,
+                local_path          TEXT NOT NULL,
+                sidecar_path        TEXT,
+                timing_mode         TEXT NOT NULL DEFAULT 'Line',
+                duration_match_score REAL,
+                is_hearing_impaired INTEGER NOT NULL DEFAULT 0,
+                is_preferred        INTEGER NOT NULL DEFAULT 0,
+                is_user_owned       INTEGER NOT NULL DEFAULT 0,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at          TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_text_tracks_asset_kind
+                ON text_tracks(asset_id, kind);
+            CREATE INDEX IF NOT EXISTS idx_text_tracks_preferred
+                ON text_tracks(asset_id, kind, language, is_preferred);
+            """;
+        cmd.ExecuteNonQuery();
+    }
     /// <summary>
     /// Executes a VACUUM to reclaim unused pages.
     /// Spec: "SHOULD perform a VACUUM during low-activity maintenance windows."

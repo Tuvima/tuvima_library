@@ -1,0 +1,53 @@
+{
+  "name": "opensubtitles",
+  "version": "1.0",
+  "enabled": false,
+  "weight": 0.75,
+  "domain": "Video",
+  "capability_tags": ["subtitles", "webvtt", "srt"],
+  "available_fields": ["subtitles"],
+  "field_weights": {
+    "subtitles": 0.85
+  },
+  "endpoints": {
+    "api": "https://api.opensubtitles.com/api/v1"
+  },
+  "throttle_ms": 1000,
+  "max_concurrency": 1,
+  "hydration_stages": [],
+  "cache_ttl_hours": 168,
+  "adapter_type": "text_track",
+  "provider_id": "be00000e-0000-4000-8000-000000000016",
+  "display_name": "OpenSubtitles",
+  "requires_api_key": true,
+  "language_strategy": "localized",
+  "http_client": {
+    "timeout_seconds": 20,
+    "user_agent": "Tuvima Library/1.0 (https://github.com/shyfaruqi/tuvima-library)",
+    "api_key_delivery": "header",
+    "api_key_param_name": "Api-Key"
+  },
+  "can_handle": {
+    "media_types": ["Movies", "TV"],
+    "entity_types": ["MediaAsset"]
+  },
+  "preferred_bridge_ids": {
+    "Movies": ["imdb_id", "tmdb_id"],
+    "TV": ["imdb_id", "tmdb_id"]
+  },
+  "ui_metadata": {
+    "accent_color": "#0F8BFD",
+    "material_icon": "Subtitles",
+    "category": "Enrichment",
+    "requires_key": true,
+    "auth_type": "api_key",
+    "search_chips": {
+      "Movies": ["IMDb/TMDB", "Language"],
+      "TV": ["IMDb/TMDB", "Season", "Episode", "Language"]
+    },
+    "ranking_chips": {
+      "Movies": ["Download count", "Exact ID"],
+      "TV": ["Episode match", "Language"]
+    }
+  }
+}

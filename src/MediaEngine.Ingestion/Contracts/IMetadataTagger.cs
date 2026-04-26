@@ -24,6 +24,9 @@ public interface IMetadataTagger
     /// <summary>
     /// Writes key-value metadata tags into the file.
     /// Implementations MUST create a temp backup before modifying and restore on failure.
+    /// TagLibSharp-backed implementations currently perform their file writes
+    /// synchronously under this async contract because the underlying library exposes
+    /// synchronous save APIs only.
     /// </summary>
     Task WriteTagsAsync(
         string filePath,
@@ -33,6 +36,9 @@ public interface IMetadataTagger
     /// <summary>
     /// Embeds <paramref name="imageData"/> as cover art / thumbnail in the file.
     /// Implementations MUST create a temp backup before modifying and restore on failure.
+    /// TagLibSharp-backed implementations currently perform their file writes
+    /// synchronously under this async contract because the underlying library exposes
+    /// synchronous save APIs only.
     /// </summary>
     Task WriteCoverArtAsync(
         string filePath,

@@ -44,6 +44,59 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try
+        {
+            var tracks = await _http.GetFromJsonAsync<List<TextTrackViewModel>>($"/stream/{assetId}/text-tracks", ct);
+            if (tracks is null)
+                return [];
+
+            foreach (var track in tracks)
+                track.Url = AbsoluteUrl(track.Url);
+            return tracks;
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GET /stream/{AssetId}/text-tracks failed", assetId);
+            return [];
+        }
+    }
+
+    public async Task RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default)
+    {
+        try
+        {
+            var encodedKind = Uri.EscapeDataString(string.IsNullOrWhiteSpace(kind) ? "lyrics" : kind);
+            using var response = await _http.PostAsync($"/stream/{assetId}/text-tracks/refresh?kind={encodedKind}", null, ct);
+            response.EnsureSuccessStatusCode();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /stream/{AssetId}/text-tracks/refresh failed", assetId);
+        }
+    }
+
+    public async Task<string?> GetLyricsAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"/stream/{assetId}/lyrics", ct);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            return await response.Content.ReadAsStringAsync(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GET /stream/{AssetId}/lyrics failed", assetId);
+            return null;
+        }
+    }
+
     public async Task<List<EncodeJobDto>> GetEncodeJobsAsync(CancellationToken ct = default)
     {
         try
@@ -1263,6 +1316,34 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /settings/organization-template failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<OrganizationTemplateDto?> PreviewOrganizationTemplateAsync(
+        string template, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { template };
+            var resp = await _http.PostAsJsonAsync("/settings/organization-template/preview", body, ct);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning(
+                    "POST /settings/organization-template/preview returned {Status}: {Detail}",
+                    (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+                return null;
+            }
+
+            return await resp.Content.ReadFromJsonAsync<OrganizationTemplateDto>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /settings/organization-template/preview failed");
             LastError = ex.Message;
             return null;
         }

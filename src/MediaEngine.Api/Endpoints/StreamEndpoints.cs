@@ -1,6 +1,7 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Processors.Contracts;
 
@@ -169,6 +170,105 @@ public static class StreamEndpoints
         // NOTE: No rate limit — cover art is small, cacheable, and loaded in bulk on
         // Home/category pages (dozens per reload). The streaming policy (100/min) is
         // sized for true media streams, not static thumbnails.
+
+        group.MapGet("/{assetId:guid}/text-tracks", async (
+            Guid assetId,
+            IMediaAssetRepository assetRepo,
+            ITextTrackRepository textTrackRepo,
+            CancellationToken ct) =>
+        {
+            var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var tracks = await textTrackRepo.GetByAssetAsync(assetId, null, ct);
+            return Results.Ok(tracks.Select(t => new TextTrackDto(
+                t.Id,
+                t.Kind.ToString(),
+                t.Language,
+                t.Provider,
+                t.Confidence,
+                t.SourceFormat,
+                t.NormalizedFormat,
+                t.TimingMode,
+                t.IsHearingImpaired,
+                t.IsPreferred,
+                t.IsUserOwned,
+                t.SidecarPath is not null,
+                t.Kind == TextTrackKind.Lyrics
+                    ? $"/stream/{assetId}/lyrics"
+                    : $"/stream/{assetId}/subtitles?language={Uri.EscapeDataString(t.Language)}")));
+        })
+        .WithName("GetAssetTextTracks")
+        .WithSummary("List lyrics and subtitle tracks available for a media asset.")
+        .Produces<IReadOnlyList<TextTrackDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{assetId:guid}/lyrics", async (
+            Guid assetId,
+            ITextTrackRepository textTrackRepo,
+            CancellationToken ct) =>
+        {
+            var track = await textTrackRepo.GetPreferredAsync(assetId, TextTrackKind.Lyrics, null, ct);
+            if (track is null || string.IsNullOrWhiteSpace(track.LocalPath) || !File.Exists(track.LocalPath))
+                return Results.NotFound("No synced lyrics found for this asset.");
+
+            var bytes = await File.ReadAllBytesAsync(track.LocalPath, ct);
+            return Results.File(bytes, "text/plain; charset=utf-8", Path.GetFileName(track.LocalPath));
+        })
+        .WithName("GetAssetLyrics")
+        .WithSummary("Serve the preferred synchronized lyrics for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{assetId:guid}/subtitles", async (
+            Guid assetId,
+            string? language,
+            ITextTrackRepository textTrackRepo,
+            CancellationToken ct) =>
+        {
+            var track = await textTrackRepo.GetPreferredAsync(assetId, TextTrackKind.Subtitles, language, ct);
+            if (track is null || string.IsNullOrWhiteSpace(track.LocalPath) || !File.Exists(track.LocalPath))
+                return Results.NotFound("No subtitles found for this asset.");
+
+            var bytes = await File.ReadAllBytesAsync(track.LocalPath, ct);
+            return Results.File(bytes, "text/vtt; charset=utf-8", Path.GetFileName(track.LocalPath));
+        })
+        .WithName("GetAssetSubtitles")
+        .WithSummary("Serve the preferred normalized WebVTT subtitles for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapPost("/{assetId:guid}/text-tracks/refresh", async (
+            Guid assetId,
+            string? kind,
+            IMediaAssetRepository assetRepo,
+            IEnrichmentService enrichmentService,
+            CancellationToken ct) =>
+        {
+            var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var type = string.Equals(kind, "subtitles", StringComparison.OrdinalIgnoreCase)
+                ? EnrichmentType.Subtitles
+                : EnrichmentType.TimedLyrics;
+            await enrichmentService.RunSingleEnrichmentAsync(assetId, string.Empty, type, ct);
+            return Results.Ok(new
+            {
+                asset_id = assetId,
+                enrichment_type = type.ToString(),
+                refreshed = true,
+            });
+        })
+        .WithName("RefreshAssetTextTracks")
+        .WithSummary("Manually refresh timed lyrics or subtitles for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/cover-thumb", async (
             Guid assetId,
@@ -340,6 +440,21 @@ public static class StreamEndpoints
         string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)
             ? "image/png"
             : "image/jpeg";
+
+    private sealed record TextTrackDto(
+        Guid Id,
+        string Kind,
+        string Language,
+        string Provider,
+        double Confidence,
+        string SourceFormat,
+        string NormalizedFormat,
+        string TimingMode,
+        bool IsHearingImpaired,
+        bool IsPreferred,
+        bool IsUserOwned,
+        bool IsLocallyExported,
+        string Url);
 
     /// <summary>
     /// Parses the RFC 7233 Range header value "bytes=start-end".

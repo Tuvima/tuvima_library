@@ -57,7 +57,7 @@ public sealed class VideoMetadataTagger : IMetadataTagger
     }
 
     /// <inheritdoc/>
-    public async Task WriteTagsAsync(
+    public Task WriteTagsAsync(
         string filePath,
         IReadOnlyDictionary<string, string> tags,
         CancellationToken ct = default)
@@ -67,7 +67,7 @@ public sealed class VideoMetadataTagger : IMetadataTagger
         if (!File.Exists(filePath))
         {
             _logger.LogWarning("VideoTagger: file not found — {Path}", filePath);
-            return;
+            return Task.CompletedTask;
         }
 
         var backupPath = filePath + ".tuvima.bak";
@@ -129,7 +129,7 @@ public sealed class VideoMetadataTagger : IMetadataTagger
             catch (ArgumentException argEx) when (argEx.Message.Contains("Not-a-Number"))
             {
                 _logger.LogWarning("VideoTagger: skipping save for {Path} — file contains NaN duration metadata", filePath);
-                return;
+                return Task.CompletedTask;
             }
 
             if (shouldBackup && File.Exists(backupPath))
@@ -145,11 +145,11 @@ public sealed class VideoMetadataTagger : IMetadataTagger
             throw;
         }
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public async Task WriteCoverArtAsync(
+    public Task WriteCoverArtAsync(
         string filePath,
         byte[] imageData,
         CancellationToken ct = default)
@@ -157,7 +157,7 @@ public sealed class VideoMetadataTagger : IMetadataTagger
         ct.ThrowIfCancellationRequested();
 
         if (!File.Exists(filePath) || imageData.Length == 0)
-            return;
+            return Task.CompletedTask;
 
         try
         {
@@ -181,7 +181,7 @@ public sealed class VideoMetadataTagger : IMetadataTagger
             _logger.LogError(ex, "VideoTagger: failed to write cover art to {Path}", filePath);
         }
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     private void RestoreBackup(string filePath, string backupPath)

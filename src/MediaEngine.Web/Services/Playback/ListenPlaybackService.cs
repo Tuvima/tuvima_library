@@ -283,9 +283,12 @@ public sealed class ListenPlaybackService
 
     public void SetActiveTab(string tab)
     {
-        ActiveTab = string.Equals(tab, ListenPlaybackTabs.History, StringComparison.OrdinalIgnoreCase)
-            ? ListenPlaybackTabs.History
-            : ListenPlaybackTabs.Queue;
+        ActiveTab = tab.ToLowerInvariant() switch
+        {
+            ListenPlaybackTabs.History => ListenPlaybackTabs.History,
+            ListenPlaybackTabs.Lyrics => ListenPlaybackTabs.Lyrics,
+            _ => ListenPlaybackTabs.Queue,
+        };
         NotifyChanged();
     }
 
@@ -402,9 +405,12 @@ public sealed class ListenPlaybackService
             : Math.Clamp(snapshot.CurrentIndex, 0, _queue.Count - 1);
         SourceLabel = snapshot.SourceLabel;
         IsPanelOpen = snapshot.IsPanelOpen;
-        ActiveTab = string.Equals(snapshot.ActiveTab, ListenPlaybackTabs.History, StringComparison.OrdinalIgnoreCase)
-            ? ListenPlaybackTabs.History
-            : ListenPlaybackTabs.Queue;
+        ActiveTab = snapshot.ActiveTab?.ToLowerInvariant() switch
+        {
+            ListenPlaybackTabs.History => ListenPlaybackTabs.History,
+            ListenPlaybackTabs.Lyrics => ListenPlaybackTabs.Lyrics,
+            _ => ListenPlaybackTabs.Queue,
+        };
         IsDismissed = snapshot.IsDismissed || _queue.Count == 0;
         CurrentTimeSeconds = Math.Max(0, snapshot.CurrentTimeSeconds);
         DurationSeconds = Math.Max(0, snapshot.DurationSeconds);
@@ -521,6 +527,7 @@ public static class ListenPlaybackTabs
 {
     public const string Queue = "queue";
     public const string History = "history";
+    public const string Lyrics = "lyrics";
 }
 
 public sealed record ListenQueueItem

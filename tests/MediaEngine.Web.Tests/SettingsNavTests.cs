@@ -5,6 +5,25 @@ namespace MediaEngine.Web.Tests;
 public sealed class SettingsNavTests
 {
     [Fact]
+    public void SettingsComponents_DoNotContainLegacyFoldersTab()
+    {
+        var root = GetRepoFilePath("");
+        var legacyPath = Path.Combine(
+            root,
+            "src",
+            "MediaEngine.Web",
+            "Components",
+            "Settings",
+            "FoldersTab.razor");
+
+        Assert.False(File.Exists(legacyPath));
+
+        var settingsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
+        Assert.Contains("<LibrariesTab />", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("FoldersTab", settingsSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RouteFor_Overview_UsesBaseSettingsUrl()
     {
         Assert.Equal("/settings", SettingsNav.RouteFor(SettingsSection.Overview));
@@ -159,4 +178,7 @@ public sealed class SettingsNavTests
         Assert.Equal(expectedSection, section);
         Assert.Equal(expectedRoute, SettingsNav.RouteFor(section));
     }
+
+    private static string GetRepoFilePath(string relativePath) =>
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

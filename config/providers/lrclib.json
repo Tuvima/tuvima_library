@@ -1,0 +1,45 @@
+{
+  "name": "lrclib",
+  "version": "1.0",
+  "enabled": true,
+  "weight": 0.7,
+  "domain": "Music",
+  "capability_tags": ["synced_lyrics", "lrc"],
+  "available_fields": ["synced_lyrics"],
+  "field_weights": {
+    "synced_lyrics": 0.8
+  },
+  "endpoints": {
+    "api": "https://lrclib.net"
+  },
+  "throttle_ms": 1000,
+  "max_concurrency": 1,
+  "hydration_stages": [],
+  "cache_ttl_hours": 168,
+  "adapter_type": "text_track",
+  "provider_id": "bd00000d-0000-4000-8000-000000000015",
+  "display_name": "LRCLIB",
+  "requires_api_key": false,
+  "language_strategy": "source",
+  "http_client": {
+    "timeout_seconds": 10,
+    "user_agent": "Tuvima Library/1.0 (https://github.com/shyfaruqi/tuvima-library)"
+  },
+  "can_handle": {
+    "media_types": ["Music"],
+    "entity_types": ["MediaAsset"]
+  },
+  "ui_metadata": {
+    "accent_color": "#3BA55D",
+    "material_icon": "Lyrics",
+    "category": "Enrichment",
+    "requires_key": false,
+    "auth_type": "none",
+    "search_chips": {
+      "Music": ["Synced lyrics", "LRC"]
+    },
+    "ranking_chips": {
+      "Music": ["Duration match", "Artist/title"]
+    }
+  }
+}

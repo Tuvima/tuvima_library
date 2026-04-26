@@ -1,6 +1,8 @@
 ﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
+@using MediaEngine.Web.Services.Integration
 @using MudBlazor
+@inject IEngineApiClient ApiClient
 
 <div class="ids-panel">
     @if (Loading)
@@ -196,6 +198,49 @@
                 <span class="ids-value">@FormatFileSize(Item.FileSizeBytes)</span>
             </div>
         }
+        <div class="ids-text-tracks">
+            <span class="ids-linked-data-label">Text Tracks</span>
+            <div class="ids-track-actions">
+                <MudIconButton Icon="@Icons.Material.Outlined.Refresh"
+                               Size="Size.Small"
+                               Disabled="_textTracksLoading"
+                               OnClick='@(() => RefreshTextTracksAsync("lyrics"))'
+                               title="Refresh lyrics" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Subtitles"
+                               Size="Size.Small"
+                               Disabled="_textTracksLoading"
+                               OnClick='@(() => RefreshTextTracksAsync("subtitles"))'
+                               title="Refresh subtitles" />
+            </div>
+            @if (_textTracksLoading)
+            {
+                <span class="ids-placeholder">Checking tracks...</span>
+            }
+            else if (_textTracks.Count == 0)
+            {
+                <span class="ids-placeholder">No lyrics or subtitles available.</span>
+            }
+            else
+            {
+                <div class="ids-linked-data-items">
+                    @foreach (var track in _textTracks)
+                    {
+                        <span class="ids-link-pill">
+                            @track.Kind @track.Language
+                            <span class="ids-link-type">@track.Provider</span>
+                            @if (track.IsPreferred)
+                            {
+                                <span class="ids-link-type">Preferred</span>
+                            }
+                            @if (track.IsLocallyExported)
+                            {
+                                <span class="ids-link-type">Exported</span>
+                            }
+                        </span>
+                    }
+                </div>
+            }
+        </div>
         <div class="ids-row ids-row--last">
             <span class="ids-key">Added</span>
             <span class="ids-value">@Item.CreatedAt.ToLocalTime().ToString("MMMM d, yyyy")</span>
@@ -308,12 +353,52 @@
     [Parameter] public LibraryItemDetailViewModel? Detail { get; set; }
     [Parameter] public bool Loading { get; set; }
 
+    private bool _textTracksLoading;
+    private Guid? _textTracksEntityId;
+    private IReadOnlyList<TextTrackViewModel> _textTracks = [];
+
     private bool IsPerson  => string.Equals(Item.MediaType, "Person",   StringComparison.OrdinalIgnoreCase);
     private bool IsUniverse => string.Equals(Item.MediaType, "Universe", StringComparison.OrdinalIgnoreCase);
 
     private string StatusColor   => LibraryItemHelpers.GetStatusColor(Item.Status);
     private string StatusLabel   => LibraryItemHelpers.GetStatusLabel(Item.Status);
     private string StatusBgColor => HexToRgba(StatusColor, 0.15);
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Loading || IsPerson || IsUniverse || _textTracksEntityId == Item.EntityId)
+            return;
+
+        _textTracksEntityId = Item.EntityId;
+        _textTracksLoading = true;
+        _textTracks = [];
+        try
+        {
+            _textTracks = await ApiClient.GetTextTracksAsync(Item.EntityId);
+        }
+        finally
+        {
+            _textTracksLoading = false;
+        }
+    }
+
+    private async Task RefreshTextTracksAsync(string kind)
+    {
+        if (IsPerson || IsUniverse)
+            return;
+
+        _textTracksLoading = true;
+        try
+        {
+            await ApiClient.RefreshTextTracksAsync(Item.EntityId, kind);
+            _textTracks = await ApiClient.GetTextTracksAsync(Item.EntityId);
+        }
+        finally
+        {
+            _textTracksLoading = false;
+        }
+    }
 
     private static string HexToRgba(string hex, double alpha)
     {
@@ -538,6 +623,20 @@
         background: rgba(255, 255, 255, 0.025);
         border: 1px solid var(--tl-border-subtle);
         border-radius: 6px;
+    }
+
+    .ids-text-tracks {
+        margin-top: 16px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid var(--tl-border-subtle);
+        border-radius: 6px;
+    }
+
+    .ids-track-actions {
+        display: flex;
+        gap: 4px;
+        margin: -4px 0 8px;
     }
 
     .ids-linked-data-label {

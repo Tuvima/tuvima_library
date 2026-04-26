@@ -22,6 +22,32 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void Program_MapsIntegrationTestEndpointsOnlyInDevelopment()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Program.cs"));
+        var developmentGuard = "if (app.Environment.IsDevelopment())";
+        var guardIndex = source.IndexOf(developmentGuard, StringComparison.Ordinal);
+        var mapIndex = source.IndexOf("app.MapIntegrationTestEndpoints();", StringComparison.Ordinal);
+
+        Assert.True(guardIndex >= 0);
+        Assert.True(mapIndex > guardIndex);
+        Assert.DoesNotContain(
+            "app.MapIntegrationTestEndpoints();",
+            source[..guardIndex],
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IntegrationTestEndpoints_RegisterOnlyUnderDevRouteGroup()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("app.MapGroup(\"/dev\")", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/integration-test\", RunIntegrationTestAsync)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("app.MapPost(\"/integration-test\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HasCentralPreferredArtwork_AcceptsCentralAssetStorePaths()
     {
         var ownerEntityId = Guid.NewGuid();
@@ -178,4 +204,7 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Assert.NotNull(property);
         property!.SetValue(instance, value);
     }
+
+    private static string GetRepoFilePath(string relativePath) =>
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

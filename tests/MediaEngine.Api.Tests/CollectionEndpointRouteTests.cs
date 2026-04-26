@@ -35,6 +35,23 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("PlaylistFolder", accessPolicySource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CollectionSearch_UsesSqlBackedQueryInsteadOfLoadingAllCollections()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var searchStart = source.IndexOf("group.MapGet(\"/search\"", StringComparison.Ordinal);
+        var nextRoute = source.IndexOf("group.MapGet(\"/parents\"", StringComparison.Ordinal);
+
+        Assert.True(searchStart >= 0);
+        Assert.True(nextRoute > searchStart);
+
+        var searchSource = source[searchStart..nextRoute];
+        Assert.Contains("QueryAsync<CollectionSearchRow>", searchSource, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", searchSource, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", searchSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("collectionRepo.GetAllAsync", searchSource, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

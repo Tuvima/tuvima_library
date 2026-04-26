@@ -75,7 +75,7 @@ public sealed class AudioMetadataTagger : IMetadataTagger
     }
 
     /// <inheritdoc/>
-    public async Task WriteTagsAsync(
+    public Task WriteTagsAsync(
         string filePath,
         IReadOnlyDictionary<string, string> tags,
         CancellationToken ct = default)
@@ -85,7 +85,7 @@ public sealed class AudioMetadataTagger : IMetadataTagger
         if (!File.Exists(filePath))
         {
             _logger.LogWarning("AudioTagger: file not found — {Path}", filePath);
-            return;
+            return Task.CompletedTask;
         }
 
         var backupPath = filePath + ".tuvima.bak";
@@ -173,11 +173,11 @@ public sealed class AudioMetadataTagger : IMetadataTagger
             throw;
         }
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public async Task WriteCoverArtAsync(
+    public Task WriteCoverArtAsync(
         string filePath,
         byte[] imageData,
         CancellationToken ct = default)
@@ -185,7 +185,7 @@ public sealed class AudioMetadataTagger : IMetadataTagger
         ct.ThrowIfCancellationRequested();
 
         if (!File.Exists(filePath) || imageData.Length == 0)
-            return;
+            return Task.CompletedTask;
 
         var backupPath = filePath + ".tuvima.bak";
         try
@@ -217,7 +217,7 @@ public sealed class AudioMetadataTagger : IMetadataTagger
             throw;
         }
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     private void RestoreBackup(string filePath, string backupPath)

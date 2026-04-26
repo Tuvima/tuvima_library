@@ -476,6 +476,43 @@ public static class SettingsEndpoints
 
         // ── PUT /settings/organization-template ───────────────────────────────────
 
+        grp.MapPost("/organization-template/preview", (
+            UpdateOrganizationTemplateRequest request,
+            IFileOrganizer                    organizer) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Template))
+                return Results.BadRequest(new { error = "Template cannot be empty." });
+
+            string? preview = organizer.ValidateTemplate(request.Template, out var error);
+            if (preview is null)
+                return Results.BadRequest(new { error = error ?? "Invalid template." });
+
+            if (request.Templates is not null)
+            {
+                foreach (var (key, tmpl) in request.Templates)
+                {
+                    if (string.IsNullOrWhiteSpace(tmpl)) continue;
+                    string? typePreview = organizer.ValidateTemplate(tmpl, out var typeError);
+                    if (typePreview is null)
+                        return Results.BadRequest(new { error = $"Invalid template for '{key}': {typeError}" });
+                }
+            }
+
+            return Results.Ok(new OrganizationTemplateResponse
+            {
+                Template  = request.Template,
+                Preview   = preview,
+                Templates = request.Templates is null
+                    ? new Dictionary<string, string>()
+                    : new Dictionary<string, string>(request.Templates, StringComparer.OrdinalIgnoreCase),
+            });
+        })
+        .WithName("PreviewOrganizationTemplate")
+        .WithSummary("Validates file organization templates and returns a sample preview without saving.")
+        .Produces<OrganizationTemplateResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
         grp.MapPut("/organization-template", (
             UpdateOrganizationTemplateRequest request,
             IConfigurationLoader              configLoader,

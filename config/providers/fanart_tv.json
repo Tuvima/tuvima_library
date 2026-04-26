@@ -51,37 +51,6 @@
     }
   ],
 
-  "image_type_reference": {
-    "_note": "Reference only — consumed by ImageEnrichmentService (hardcoded), not ConfigDrivenAdapter.",
-    "Movies": {
-      "movieposter": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": false },
-      "moviebackground": { "claim_key": "background", "asset_type": "Background", "take_first": true },
-      "hdmovielogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
-      "moviebanner": { "claim_key": "banner", "asset_type": "Banner", "take_first": true },
-      "hdmovieclearart": { "claim_key": "clearart", "asset_type": "ClearArt", "take_first": true },
-      "movieclearart": { "claim_key": "clearart", "asset_type": "ClearArt", "take_first": true },
-      "moviedisc": { "claim_key": "disc", "asset_type": "DiscArt", "take_first": true }
-    },
-    "TV": {
-      "tvposter": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": false },
-      "showbackground": { "claim_key": "background", "asset_type": "Background", "take_first": true },
-      "hdtvlogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
-      "clearlogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
-      "tvbanner": { "claim_key": "banner", "asset_type": "Banner", "take_first": true },
-      "hdclearart": { "claim_key": "clearart", "asset_type": "ClearArt", "take_first": true },
-      "clearart": { "claim_key": "clearart", "asset_type": "ClearArt", "take_first": true },
-      "seasonposter": { "claim_key": "season_poster", "asset_type": "SeasonPoster", "take_first": true },
-      "seasonthumb": { "claim_key": "season_thumb", "asset_type": "SeasonThumb", "take_first": true },
-      "tvthumb": { "claim_key": "episode_still", "asset_type": "EpisodeStill", "take_first": true }
-    },
-    "Music": {
-      "albumcover": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
-      "artistbackground": { "claim_key": "background", "asset_type": "Background", "take_first": true },
-      "musiclogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
-      "cdart": { "claim_key": "disc", "asset_type": "DiscArt", "take_first": true }
-    }
-  },
-
   "character_art_fields": {
     "Movies": "characterart",
     "TV": "characterart"

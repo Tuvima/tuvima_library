@@ -37,6 +37,8 @@ public sealed class AssetPathService
 
     public string SubtitleCacheRoot => Path.Combine(AssetsRoot, "subtitle-cache");
 
+    public string TextTracksRoot => Path.Combine(AssetsRoot, "text-tracks");
+
     public string PeopleRoot => Path.Combine(AssetsRoot, "people");
 
     public string LegacyImagesRoot => Path.Combine(DataRoot, "images");
@@ -135,8 +137,28 @@ public sealed class AssetPathService
         return assetType switch
         {
             "Subtitle" => BuildSubtitleSidecarPath(mediaFilePath, extension),
+            "Lyrics" => BuildLyricsSidecarPath(mediaFilePath, extension),
             _ => BuildArtworkExportPath(mediaFilePath, assetType, extension),
         };
+    }
+
+    public string GetCentralTextTrackPath(Guid assetId, string kind, string provider, string language, string extension)
+    {
+        if (assetId == Guid.Empty)
+            throw new ArgumentException("Asset id is required.", nameof(assetId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(kind);
+        ArgumentException.ThrowIfNullOrWhiteSpace(provider);
+        ArgumentException.ThrowIfNullOrWhiteSpace(language);
+
+        var root = kind.Equals("Lyrics", StringComparison.OrdinalIgnoreCase)
+            ? "lyrics"
+            : "subtitles";
+
+        return Path.Combine(
+            TextTracksRoot,
+            root,
+            assetId.ToString("D"),
+            $"{NormalizeSegment(provider)}-{NormalizeSegment(language)}{NormalizeExtension(extension)}");
     }
 
     public string GetExportedSidecarPath(string ownerPath, string assetType, string extension, Guid? variantId = null)
@@ -199,6 +221,24 @@ public sealed class AssetPathService
     }
 
     private static string BuildSubtitleSidecarPath(string mediaFilePath, string extension)
+    {
+        var normalizedExtension = NormalizeExtension(extension);
+        var directory = Path.GetDirectoryName(mediaFilePath) ?? ".";
+        var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
+        return Path.Combine(directory, $"{basename}{normalizedExtension}");
+    }
+
+    public static string BuildSubtitleSidecarPath(string mediaFilePath, string language, string extension)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(mediaFilePath);
+        var normalizedExtension = NormalizeExtension(extension);
+        var directory = Path.GetDirectoryName(mediaFilePath) ?? ".";
+        var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
+        var suffix = string.IsNullOrWhiteSpace(language) ? "und" : NormalizeSegment(language);
+        return Path.Combine(directory, $"{basename}.{suffix}{normalizedExtension}");
+    }
+
+    private static string BuildLyricsSidecarPath(string mediaFilePath, string extension)
     {
         var normalizedExtension = NormalizeExtension(extension);
         var directory = Path.GetDirectoryName(mediaFilePath) ?? ".";

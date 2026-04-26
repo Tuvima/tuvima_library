@@ -55,8 +55,9 @@ desktop.ini
 *.sqlite3
 
 # Provider secrets — API keys, passwords, tokens (never commit these)
-config/secrets/
+config/secrets/*
 !config/secrets/.gitkeep
+!config/secrets/*.sample.json
 
 # Build-output config copies (projects that copy config/ to output directory)
 src/*/config/

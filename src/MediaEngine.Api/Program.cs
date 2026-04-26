@@ -29,6 +29,7 @@ using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Providers.Providers;
 using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Identity;
@@ -482,6 +483,7 @@ try
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "metadata"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "transcripts"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "subtitle-cache"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "text-tracks"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "people"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "database"));
     }
@@ -619,6 +621,46 @@ foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders()
             sp.GetRequiredService<IProviderResponseCacheRepository>()));
 }
 
+
+foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders())
+{
+    if (!string.Equals(providerConfig.AdapterType, "text_track", StringComparison.OrdinalIgnoreCase))
+    { continue; }
+
+    string name = providerConfig.Name;
+    int timeout = providerConfig.HttpClient?.TimeoutSeconds ?? 15;
+    string? userAgent = providerConfig.HttpClient?.UserAgent;
+
+    builder.Services.AddHttpClient(name, c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(timeout);
+        if (!string.IsNullOrEmpty(userAgent))
+        { c.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent); }
+    })
+    .AddStandardResilienceHandler();
+
+    ProviderConfiguration cfg = providerConfig;
+    if (string.Equals(cfg.Name, "lrclib", StringComparison.OrdinalIgnoreCase))
+    {
+        builder.Services.AddSingleton<ITextTrackProvider>(sp =>
+            new LrclibTextTrackProvider(
+                cfg,
+                sp.GetRequiredService<IHttpClientFactory>(),
+                sp.GetRequiredService<IProviderResponseCacheRepository>(),
+                sp.GetRequiredService<IProviderHealthMonitor>(),
+                sp.GetRequiredService<ILogger<LrclibTextTrackProvider>>()));
+    }
+    else if (string.Equals(cfg.Name, "opensubtitles", StringComparison.OrdinalIgnoreCase))
+    {
+        builder.Services.AddSingleton<ITextTrackProvider>(sp =>
+            new OpenSubtitlesTextTrackProvider(
+                cfg,
+                sp.GetRequiredService<IHttpClientFactory>(),
+                sp.GetRequiredService<IProviderResponseCacheRepository>(),
+                sp.GetRequiredService<IProviderHealthMonitor>(),
+                sp.GetRequiredService<ILogger<OpenSubtitlesTextTrackProvider>>()));
+    }
+}
 // Storage repositories (Phase 9 — claim + canonical + person persistence).
 builder.Services.AddSingleton<IMetadataClaimRepository,  MetadataClaimRepository>();
 builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();
@@ -760,6 +802,7 @@ builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopu
 builder.Services.AddSingleton<IUniverseGraphQueryService,       UniverseGraphQueryService>();
 builder.Services.AddSingleton<ICharacterPortraitRepository,      CharacterPortraitRepository>();
 builder.Services.AddSingleton<IEntityAssetRepository,            EntityAssetRepository>();
+builder.Services.AddSingleton<ITextTrackRepository,              TextTrackRepository>();
 builder.Services.AddSingleton<ILoreDeltaService,                LoreDeltaService>();
 builder.Services.AddSingleton<IEraActorResolverService,         EraActorResolverService>();
 builder.Services.AddSingleton<IImageEnrichmentService,           MediaEngine.Providers.Services.ImageEnrichmentService>();
@@ -800,6 +843,7 @@ builder.Services.AddSingleton<PersonEnrichmentWorker>();
 builder.Services.AddSingleton<ChildEntityWorker>();
 builder.Services.AddSingleton<FictionalEntityWorker>();
 builder.Services.AddSingleton<DescriptionEnrichmentWorker>();
+builder.Services.AddSingleton<TextTrackEnrichmentWorker>();
 
 // Enrichment orchestrator
 builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();

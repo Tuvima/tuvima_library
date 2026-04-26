@@ -30,4 +30,10 @@ public enum EnrichmentType
 
     /// <summary>Write resolved metadata back to file tags.</summary>
     WriteBack = 6,
+
+    /// <summary>Timestamped lyrics for music playback.</summary>
+    TimedLyrics = 7,
+
+    /// <summary>Subtitle track discovery, normalization, and export.</summary>
+    Subtitles = 8,
 }

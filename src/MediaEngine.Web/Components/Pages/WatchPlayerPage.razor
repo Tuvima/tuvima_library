@@ -55,6 +55,14 @@ else
                        playsinline
                        poster="@PosterUrl"
                        src="@_streamUrl">
+                    @foreach (var track in _subtitleTracks)
+                    {
+                        <track kind="subtitles"
+                               src="@track.Url"
+                               srclang="@track.Language"
+                               label="@SubtitleLabel(track)"
+                               default="@track.IsPreferred" />
+                    }
                 </video>
             </div>
         }
@@ -77,6 +85,7 @@ else
 
     private LibraryItemDetailViewModel? _detail;
     private PlaybackManifestDto? _manifest;
+    private IReadOnlyList<TextTrackViewModel> _subtitleTracks = [];
     private string? _streamUrl;
     private ProgressStateDto? _progress;
     private Guid? _activeProfileId;
@@ -101,13 +110,17 @@ else
         var progressTask = Orchestrator.GetProgressAsync(AssetId);
         var profileTask = Orchestrator.GetActiveProfileAsync();
         var manifestTask = ApiClient.GetPlaybackManifestAsync(AssetId, "web");
+        var tracksTask = ApiClient.GetTextTracksAsync(AssetId);
 
-        await Task.WhenAll(detailTask, progressTask, profileTask, manifestTask);
+        await Task.WhenAll(detailTask, progressTask, profileTask, manifestTask, tracksTask);
 
         _detail = detailTask.Result;
         _progress = progressTask.Result;
         _activeProfileId = profileTask.Result?.Id;
         _manifest = manifestTask.Result;
+        _subtitleTracks = tracksTask.Result
+            .Where(t => string.Equals(t.Kind, "Subtitles", StringComparison.OrdinalIgnoreCase))
+            .ToList();
         _streamUrl = ApiClient.ToAbsoluteEngineUrl(_manifest?.DirectStreamUrl ?? $"/stream/{AssetId}");
         _loading = false;
     }
@@ -173,6 +186,12 @@ else
         }
 
         Nav.NavigateTo("/watch/tv");
+    }
+
+    private static string SubtitleLabel(TextTrackViewModel track)
+    {
+        var language = string.IsNullOrWhiteSpace(track.Language) ? "Subtitles" : track.Language.ToUpperInvariant();
+        return track.IsHearingImpaired ? $"{language} SDH" : language;
     }
 
     public async ValueTask DisposeAsync()

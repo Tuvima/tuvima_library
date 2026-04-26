@@ -18,6 +18,7 @@ public sealed class EnrichmentService : IEnrichmentService
     private readonly ChildEntityWorker _children;
     private readonly FictionalEntityWorker _fictional;
     private readonly DescriptionEnrichmentWorker _descriptions;
+    private readonly TextTrackEnrichmentWorker _textTracks;
     private readonly IImageEnrichmentService _images;
     private readonly IWriteBackService _writeBack;
     private readonly ICollectionRepository _collectionRepo;
@@ -30,6 +31,7 @@ public sealed class EnrichmentService : IEnrichmentService
         ChildEntityWorker children,
         FictionalEntityWorker fictional,
         DescriptionEnrichmentWorker descriptions,
+        TextTrackEnrichmentWorker textTracks,
         IImageEnrichmentService images,
         IWriteBackService writeBack,
         ICollectionRepository collectionRepo,
@@ -41,6 +43,7 @@ public sealed class EnrichmentService : IEnrichmentService
         _children = children;
         _fictional = fictional;
         _descriptions = descriptions;
+        _textTracks = textTracks;
         _images = images;
         _writeBack = writeBack;
         _collectionRepo = collectionRepo;
@@ -105,6 +108,12 @@ public sealed class EnrichmentService : IEnrichmentService
                 break;
             case EnrichmentType.WriteBack:
                 await _writeBack.WriteMetadataAsync(entityId, "manual_enrichment", ct);
+                break;
+            case EnrichmentType.TimedLyrics:
+                await _textTracks.EnrichAsync(entityId, TextTrackKind.Lyrics, ct);
+                break;
+            case EnrichmentType.Subtitles:
+                await _textTracks.EnrichAsync(entityId, TextTrackKind.Subtitles, ct);
                 break;
         }
     }

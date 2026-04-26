@@ -52,6 +52,12 @@ public static class WellKnownProviders
     /// <summary>Comic Vine — comic book metadata and cover art.</summary>
     public static readonly Guid ComicVine = Guid.Parse("b9000009-0000-4000-8000-000000000014");
 
+    /// <summary>LRCLIB — synchronized lyrics.</summary>
+    public static readonly Guid Lrclib = Guid.Parse("bd00000d-0000-4000-8000-000000000015");
+
+    /// <summary>OpenSubtitles — downloaded subtitle tracks.</summary>
+    public static readonly Guid OpenSubtitles = Guid.Parse("be00000e-0000-4000-8000-000000000016");
+
     /// <summary>Returns true if the provider is a file/local source (LocalProcessor or LibraryScanner).</summary>
     public static bool IsFileSource(Guid providerId) =>
         providerId == LocalProcessor || providerId == LibraryScanner;

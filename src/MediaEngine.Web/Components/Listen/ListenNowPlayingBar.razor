@@ -1,9 +1,12 @@
 ﻿@namespace MediaEngine.Web.Components.Listen
 @using System.Globalization
 @using System.Text.Json
+@using System.Text.RegularExpressions
 @using Microsoft.JSInterop
 @using MediaEngine.Web.Services.Playback
+@using MediaEngine.Web.Services.Integration
 @inject ListenPlaybackService Playback
+@inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -48,6 +51,11 @@
                             class="listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.History ? "is-active" : null)"
                             @onclick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.History))">
                         History
+                    </button>
+                    <button type="button"
+                            class="listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.Lyrics ? "is-active" : null)"
+                            @onclick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Lyrics))">
+                        Lyrics
                     </button>
                 </div>
 
@@ -99,7 +107,7 @@
                         </div>
                     }
                 }
-                else
+                else if (Playback.ActiveTab == ListenPlaybackTabs.History)
                 {
                     <div class="listen-player-panel__subheader">
                         <span>History</span>
@@ -131,6 +139,32 @@
                                     </div>
                                     <div class="listen-player-panel__item-duration">@item.Duration</div>
                                 </button>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="listen-player-panel__subheader">
+                        <span>Lyrics</span>
+                    </div>
+
+                    @if (_lyricsLoading)
+                    {
+                        <div class="listen-player-panel__empty">Loading lyrics...</div>
+                    }
+                    else if (_lyricsLines.Count == 0)
+                    {
+                        <div class="listen-player-panel__empty">No synced lyrics available for this track.</div>
+                    }
+                    else
+                    {
+                        <div class="listen-player-panel__lyrics">
+                            @foreach (var line in _lyricsLines)
+                            {
+                                <div class="listen-player-panel__lyric-line @(line == ActiveLyricLine ? "is-active" : null)">
+                                    @line.Text
+                                </div>
                             }
                         </div>
                     }
@@ -237,8 +271,13 @@
     private bool? _lastAppliedPlayingState;
     private double? _lastAppliedVolume;
     private bool? _lastAppliedMuteState;
+    private Guid? _lyricsAssetId;
+    private bool _lyricsLoading;
+    private List<LrcDisplayLine> _lyricsLines = [];
 
     private double ProgressMax => Playback.DurationSeconds > 0 ? Playback.DurationSeconds : 1;
+
+    private LrcDisplayLine? ActiveLyricLine => _lyricsLines.LastOrDefault(line => line.StartSeconds <= Playback.CurrentTimeSeconds + 0.25);
 
     protected override void OnInitialized()
     {
@@ -300,7 +339,25 @@
             }
 
             StateHasChanged();
+            _ = EnsureLyricsLoadedAsync();
         });
+    }
+
+    private async Task EnsureLyricsLoadedAsync()
+    {
+        var assetId = Playback.CurrentItem?.AssetId;
+        if (!assetId.HasValue || _lyricsAssetId == assetId)
+            return;
+
+        _lyricsAssetId = assetId;
+        _lyricsLines = [];
+        _lyricsLoading = true;
+        await InvokeAsync(StateHasChanged);
+
+        var lyrics = await ApiClient.GetLyricsAsync(assetId.Value);
+        _lyricsLines = ParseLyrics(lyrics).ToList();
+        _lyricsLoading = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task SyncAudioAsync()
@@ -559,6 +616,40 @@
     private static string FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
 
+    private static IEnumerable<LrcDisplayLine> ParseLyrics(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            yield break;
+
+        var pattern = new Regex(@"\[(?<min>\d{1,3}):(?<sec>\d{2})(?:[.:](?<frac>\d{1,3}))?\]");
+        foreach (var rawLine in content.Replace("\r\n", "\n").Split('\n'))
+        {
+            var matches = pattern.Matches(rawLine);
+            if (matches.Count == 0)
+                continue;
+
+            var text = pattern.Replace(rawLine, string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            foreach (Match match in matches)
+            {
+                if (!int.TryParse(match.Groups["min"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var min)
+                    || !int.TryParse(match.Groups["sec"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sec))
+                    continue;
+
+                var frac = match.Groups["frac"].Success ? match.Groups["frac"].Value : "0";
+                var fracSeconds = frac.Length switch
+                {
+                    1 => int.Parse(frac, CultureInfo.InvariantCulture) / 10d,
+                    2 => int.Parse(frac, CultureInfo.InvariantCulture) / 100d,
+                    _ => int.Parse(frac.PadRight(3, '0')[..3], CultureInfo.InvariantCulture) / 1000d,
+                };
+                yield return new LrcDisplayLine(min * 60d + sec + fracSeconds, text);
+            }
+        }
+    }
+
     public void Dispose()
     {
         Playback.OnChanged -= HandlePlaybackChanged;
@@ -582,6 +673,8 @@
         public string? Tab { get; set; }
         public ListenQueueItem? Item { get; set; }
     }
+
+    private sealed record LrcDisplayLine(double StartSeconds, string Text);
 }
 
 <style>
@@ -677,6 +770,27 @@
     .listen-player-panel__item-duration {
         color: var(--app-text-muted, #8391a2);
         font-size: 0.82rem;
+    }
+
+    .listen-player-panel__lyrics {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 8px 2px 24px;
+        overflow-y: auto;
+    }
+
+    .listen-player-panel__lyric-line {
+        color: var(--app-text-muted, #8391a2);
+        font-size: 0.96rem;
+        line-height: 1.45;
+        transition: color 120ms ease, transform 120ms ease;
+    }
+
+    .listen-player-panel__lyric-line.is-active {
+        color: var(--app-text-primary, #aab8c5);
+        font-weight: 800;
+        transform: translateX(4px);
     }
 
     .listen-player__error {

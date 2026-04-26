@@ -22,7 +22,7 @@ Use this checklist after design-token or shared styling changes. Verify desktop,
 
 - Home/library landing
 - Media library list and grid
-- Registry/activity page
+- Activity page
 - Review queue/manual verification
 - Provider/API configuration
 - Settings overview

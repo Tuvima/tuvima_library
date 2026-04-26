@@ -238,6 +238,16 @@ One JSON file per metadata provider. All provider files are self-contained â€
 | `local_filesystem.json` | Local file metadata (processors) | Stage 0 | `source` |
 | `fanart_tv.json` | Fanart.tv (artwork) | Stage 2 | `source` |
 
+### fanart_tv.json - Artwork field map
+
+`fanart_tv.json` contains the API/client settings that are loaded at runtime. Fanart.tv artwork field mapping is currently implemented in `src/MediaEngine.Providers/Services/ImageEnrichmentService.cs`, not by `ConfigDrivenAdapter`, so the reference map is documented here instead of stored as unused runtime configuration.
+
+| Media type | Fanart.tv fields used |
+|---|---|
+| Movies | `movieposter`, `moviebackground`, `hdmovielogo`, `moviebanner`, `hdmovieclearart`, `movieclearart`, `moviedisc`, `characterart` |
+| TV | `tvposter`, `showbackground`, `hdtvlogo`, `clearlogo`, `tvbanner`, `hdclearart`, `clearart`, `seasonposter`, `seasonthumb`, `tvthumb`, `characterart` |
+| Music | `albumcover`, `artistbackground`, `musiclogo`, `cdart` |
+
 ### wikidata_reconciliation.json — Single Source of Truth
 
 This file is the authoritative configuration for all Wikidata-related behaviour. In addition to the common provider fields above, it contains:
