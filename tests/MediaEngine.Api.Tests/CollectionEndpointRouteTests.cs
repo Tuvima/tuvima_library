@@ -20,6 +20,10 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("Network          = row.Network", source, StringComparison.Ordinal);
         Assert.Contains("SeasonCount      = row.SeasonCount", source, StringComparison.Ordinal);
         Assert.Contains("LogoUrl          = row.LogoUrl", source, StringComparison.Ordinal);
+        Assert.Contains("@IsMusicAlbumGroup = 1 THEN COALESCE", source, StringComparison.Ordinal);
+        Assert.Contains("cv_parent_album.entity_id = wa.root_work_id", source, StringComparison.Ordinal);
+        Assert.Contains("cv_asset_album.entity_id = wa.asset_id", source, StringComparison.Ordinal);
+        Assert.Contains("cv_parent_album.entity_id = COALESCE(gp.id, p.id, w.id)", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
         Assert.Contains("MapDelete(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);

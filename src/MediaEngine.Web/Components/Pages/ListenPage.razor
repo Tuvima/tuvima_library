@@ -375,8 +375,14 @@ else
                         }
                         <div class="listen-actions">
                             <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => NavigateTo(AlbumsRoute))">Back to albums</button>
-                            <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(AlbumTracks, null, _albumDetail.DisplayName))" disabled="@(AlbumTracks.Count == 0)">Play</button>
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(AlbumTracks, null, _albumDetail.DisplayName, true))" disabled="@(AlbumTracks.Count == 0)">Shuffle</button>
+                            <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(AlbumTracks, null, _albumDetail.DisplayName))" disabled="@(AlbumTracks.Count == 0)">
+                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                                <span>Play</span>
+                            </button>
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(AlbumTracks, null, _albumDetail.DisplayName, true))" disabled="@(AlbumTracks.Count == 0)">
+                                <MudIcon Icon="@Icons.Material.Filled.Shuffle" Size="Size.Small" />
+                                <span>Shuffle</span>
+                            </button>
                             @if (!string.IsNullOrWhiteSpace(_albumDetail.Creator))
                             {
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => OpenArtist(_albumDetail.Creator!))">Artist</button>
@@ -392,47 +398,21 @@ else
                             <h2>@Pluralize(AlbumTracks.Count, "track")</h2>
                         </div>
                     </div>
-                    <div class="listen-track-toolbar">
-                        <div class="listen-track-toolbar__status">@TrackSelectionStatusText</div>
-                        <div class="listen-track-toolbar__actions">
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(false))" disabled="@(!HasTrackSelection)">Add to queue</button>
-                            @if (HasTrackSelection)
-                            {
-                                <details class="listen-row-menu">
-                                    <summary class="listen-row-menu__summary">Add to playlist</summary>
-                                    <div class="listen-row-menu__panel">
-                                        <button type="button" class="listen-row-menu__action" @onclick="@(() => AddSelectedTracksToPlaylistAsync())">Create new playlist</button>
-                                        @foreach (var playlist in PlaylistCollections)
-                                        {
-                                            <button type="button" class="listen-row-menu__action" @onclick="@(() => AddSelectedTracksToPlaylistAsync(playlist.Id))">Add to @playlist.Name</button>
-                                        }
-                                    </div>
-                                </details>
-                            }
-                            else
-                            {
-                                <button type="button" class="listen-button listen-button--secondary" disabled="true">Add to playlist</button>
-                            }
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync" disabled="@(!HasTrackSelection)">Edit</button>
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync" disabled="@(!HasTrackSelection)">Delete</button>
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="OpenTrackColumnsAsync">Columns</button>
-                        </div>
-                    </div>
-
-                    <ListenTrackDataGrid @ref="_trackGrid"
-                                         Items="@BuildTrackGridItems(AlbumTracks)"
-                                         Loading="@_loading"
-                                         SelectedIds="@_selectedTrackIds"
-                                         SelectedIdsChanged="OnTrackSelectionChanged"
-                                         OnArtistClicked="OnTrackArtistClicked"
-                                         OnFavoriteToggled="OnTrackFavoriteToggled"
-                                         OnRowActivated="OnTrackRowActivated"
-                                         OnRowContextRequested="OnTrackContextRequested"
-                                         OnRowDragStarted="OnTrackDragStarted"
-                                         OnRowDragEnded="OnTrackDragEnded"
-                                         ViewKey="listen-tracks" />
+                    <ListenSongTable Tracks="@AlbumTracks"
+                                     FavoriteIds="@_favoriteWorkIds"
+                                     SourceLabel="@_albumDetail.DisplayName"
+                                     AriaLabel="@($"{_albumDetail.DisplayName} songs")"
+                                     ShowArtwork="false"
+                                     ShowAlbum="false"
+                                     ShowGenre="false"
+                                     ShowDateAdded="false"
+                                     DefaultSortColumn="track"
+                                     DefaultSortDescending="false"
+                                     OnPlayRequested="PlayTracksAsync"
+                                     OnFavoriteToggled="ToggleFavoriteAsync"
+                                     OnDragStarted="OnTrackDragStarted"
+                                     OnDragEnded="OnTrackDragEnded"
+                                     OnMenuRequested="OpenTrackMenuAsync" />
                 </section>
             }
             else if (IsArtistsSurface)
@@ -524,8 +504,14 @@ else
                                         <p>@_artistDetail.Description</p>
                                     }
                                     <div class="listen-actions">
-                                        <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(ArtistTracks, null, _artistDetail.DisplayName))" disabled="@(ArtistTracks.Count == 0)">Play</button>
-                                        <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(ArtistTracks, null, _artistDetail.DisplayName, true))" disabled="@(ArtistTracks.Count == 0)">Shuffle</button>
+                                        <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(ArtistTracks, null, _artistDetail.DisplayName))" disabled="@(ArtistTracks.Count == 0)">
+                                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                                            <span>Play</span>
+                                        </button>
+                                        <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(ArtistTracks, null, _artistDetail.DisplayName, true))" disabled="@(ArtistTracks.Count == 0)">
+                                            <MudIcon Icon="@Icons.Material.Filled.Shuffle" Size="Size.Small" />
+                                            <span>Shuffle</span>
+                                        </button>
                                         @if (_artistDetail.ArtistPersonId.HasValue)
                                         {
                                             <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => Nav.NavigateTo($"/person/{_artistDetail.ArtistPersonId.Value}"))">View artist page</button>
@@ -598,6 +584,42 @@ else
                                     </div>
                                 </section>
                             }
+
+                            <section class="listen-section">
+                                <div class="listen-section__header">
+                                    <div>
+                                        <div class="listen-kicker">Songs</div>
+                                        <h2>@Pluralize(ArtistTracks.Count, "track")</h2>
+                                    </div>
+                                </div>
+
+                                @if (ArtistTracks.Count == 0)
+                                {
+                                    <div class="listen-empty">
+                                        <div>
+                                            <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 56px; opacity: 0.22;" />
+                                            <p>No songs are ready for this artist yet.</p>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <ListenSongTable Tracks="@ArtistTracks"
+                                                     FavoriteIds="@_favoriteWorkIds"
+                                                     SourceLabel="@_artistDetail!.DisplayName"
+                                                     AriaLabel="@($"{_artistDetail!.DisplayName} songs")"
+                                                     ShowArtist="false"
+                                                     ShowGenre="false"
+                                                     ShowDateAdded="false"
+                                                     DefaultSortColumn="album"
+                                                     DefaultSortDescending="false"
+                                                     OnPlayRequested="PlayTracksAsync"
+                                                     OnFavoriteToggled="ToggleFavoriteAsync"
+                                                     OnDragStarted="OnTrackDragStarted"
+                                                     OnDragEnded="OnTrackDragEnded"
+                                                     OnMenuRequested="OpenTrackMenuAsync" />
+                                }
+                            </section>
                         }
                     </div>
                 </section>
@@ -609,6 +631,16 @@ else
                         <div>
                             <div class="listen-kicker">Music</div>
                             <h2>Songs</h2>
+                        </div>
+                        <div class="listen-actions">
+                            <button type="button" class="listen-button listen-button--primary" @onclick='@(() => PlayTracksAsync(FilteredSongs, null, "All Music"))' disabled="@(FilteredSongs.Count == 0)">
+                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                                <span>Play</span>
+                            </button>
+                            <button type="button" class="listen-button listen-button--secondary" @onclick='@(() => PlayTracksAsync(FilteredSongs, null, "All Music", true))' disabled="@(FilteredSongs.Count == 0)">
+                                <MudIcon Icon="@Icons.Material.Filled.Shuffle" Size="Size.Small" />
+                                <span>Shuffle</span>
+                            </button>
                         </div>
                     </div>
 
@@ -627,95 +659,15 @@ else
                     }
                     else
                     {
-                        <div class="listen-playlist-track-list listen-playlist-track-list--songs" role="table" aria-label="Songs">
-                            <div class="listen-playlist-track-list__head" style="@($"grid-template-columns: {SongsGridTemplate}")" role="row">
-                                <button type="button" class="listen-sort-header listen-playlist-track-list__song-head" role="columnheader" @onclick='@(() => ToggleSongSort("title"))'>
-                                    <span>Song</span>
-                                    <span class="listen-sort-header__indicator">@SongSortIndicator("title")</span>
-                                </button>
-                                <button type="button" class="listen-sort-header listen-playlist-track-list__favorite-head" role="columnheader" @onclick='@(() => ToggleSongSort("favorite"))'>
-                                    <span>Favorite</span>
-                                    <span class="listen-sort-header__indicator">@SongSortIndicator("favorite")</span>
-                                </button>
-                                <button type="button" class="listen-sort-header" role="columnheader" @onclick='@(() => ToggleSongSort("time"))'>
-                                    <span>Time</span>
-                                    <span class="listen-sort-header__indicator">@SongSortIndicator("time")</span>
-                                </button>
-                                <button type="button" class="listen-sort-header" role="columnheader" @onclick='@(() => ToggleSongSort("artist"))'>
-                                    <span>Artist</span>
-                                    <span class="listen-sort-header__indicator">@SongSortIndicator("artist")</span>
-                                </button>
-                                <button type="button" class="listen-sort-header" role="columnheader" @onclick='@(() => ToggleSongSort("album"))'>
-                                    <span>Album</span>
-                                    <span class="listen-sort-header__indicator">@SongSortIndicator("album")</span>
-                                </button>
-                                <button type="button" class="listen-sort-header" role="columnheader" @onclick='@(() => ToggleSongSort("genre"))'>
-                                    <span>Genre</span>
-                                    <span class="listen-sort-header__indicator">@SongSortIndicator("genre")</span>
-                                </button>
-                                <button type="button" class="listen-sort-header" role="columnheader" @onclick='@(() => ToggleSongSort("plays"))'>
-                                    <span>Plays</span>
-                                    <span class="listen-sort-header__indicator">@SongSortIndicator("plays")</span>
-                                </button>
-                                <button type="button" class="listen-sort-header" role="columnheader" @onclick='@(() => ToggleSongSort("dateAdded"))'>
-                                    <span>Date Added</span>
-                                    <span class="listen-sort-header__indicator">@SongSortIndicator("dateAdded")</span>
-                                </button>
-                                <span role="columnheader" class="listen-playlist-track-list__actions-label">Actions</span>
-                            </div>
-                            @foreach (var track in FilteredSongs)
-                            {
-                                <div class="listen-playlist-track-row" style="@($"grid-template-columns: {SongsGridTemplate}")" role="row" @ondblclick='@(() => PlayTracksAsync(FilteredSongs, track.Id, "All Music"))'>
-                                    <div class="listen-playlist-track-row__song listen-playlist-track-row__song--no-handle" role="cell">
-                                        <div class="listen-playlist-track-row__art">
-                                            @if (!string.IsNullOrWhiteSpace(track.CoverUrl))
-                                            {
-                                                <img src="@track.CoverUrl" alt="" />
-                                            }
-                                            else
-                                            {
-                                                <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Size="Size.Small" />
-                                            }
-                                            <button type="button"
-                                                    class="listen-playlist-track-row__art-play"
-                                                    title="Play song"
-                                                    aria-label="@($"Play {track.Title}")"
-                                                    @onclick:stopPropagation="true"
-                                                    @onclick='@(() => PlayTracksAsync(FilteredSongs, track.Id, "All Music"))'>
-                                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
-                                            </button>
-                                        </div>
-                                        <span class="listen-playlist-track-row__title">@track.Title</span>
-                                    </div>
-                                    <div class="listen-playlist-track-row__favorite" role="cell">
-                                        <button type="button"
-                                                class="listen-track-grid__favorite @(_favoriteWorkIds.Contains(track.Id) ? "is-active" : null)"
-                                                aria-label="Toggle favorite"
-                                                title="Toggle favorite"
-                                                @onclick:stopPropagation="true"
-                                                @onclick="@(() => ToggleFavoriteAsync(track))">
-                                            <MudIcon Icon="@(_favoriteWorkIds.Contains(track.Id) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)" Size="Size.Small" />
-                                        </button>
-                                    </div>
-                                    <span class="listen-playlist-track-row__time" role="cell">@GetTrackDuration(track)</span>
-                                    <span class="listen-playlist-track-row__meta" role="cell">@FirstNonBlank(track.Artist, track.Author)</span>
-                                    <span class="listen-playlist-track-row__meta" role="cell">@FirstNonBlank(track.Album)</span>
-                                    <span class="listen-playlist-track-row__meta" role="cell">@FirstNonBlank(track.Genres.FirstOrDefault(), track.Genre)</span>
-                                    <span class="listen-playlist-track-row__time" role="cell">@GetPlayCountDisplay(track)</span>
-                                    <span class="listen-playlist-track-row__meta" role="cell">@FormatDateAdded(track.CreatedAt)</span>
-                                    <div class="listen-playlist-track-row__actions" role="cell">
-                                        <button type="button"
-                                                class="listen-icon-button"
-                                                title="Song options"
-                                                aria-label="@($"{track.Title} options")"
-                                                @onclick:stopPropagation="true"
-                                                @onclick='@(args => OpenTrackMenuAsync(track, args, "All Music"))'>
-                                            <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
-                                        </button>
-                                    </div>
-                                </div>
-                            }
-                        </div>
+                        <ListenSongTable Tracks="@FilteredSongs"
+                                         FavoriteIds="@_favoriteWorkIds"
+                                         SourceLabel="All Music"
+                                         AriaLabel="Songs"
+                                         OnPlayRequested="PlayTracksAsync"
+                                         OnFavoriteToggled="ToggleFavoriteAsync"
+                                         OnDragStarted="OnTrackDragStarted"
+                                         OnDragEnded="OnTrackDragEnded"
+                                         OnMenuRequested="OpenTrackMenuAsync" />
                     }
                 </section>
             }
@@ -847,23 +799,43 @@ else
                     else
                     {
                         <div class="listen-playlist-track-list" role="table" aria-label="@($"{ActivePlaylistTitle} songs")">
-                            <div class="listen-playlist-track-list__head" style="@($"grid-template-columns: {PlaylistGridTemplate}")" role="row">
-                                <span class="listen-playlist-track-list__song-head" role="columnheader">Song</span>
+                            <div class="listen-playlist-track-list__head"
+                                 style="@($"grid-template-columns: {PlaylistGridTemplate}")"
+                                 role="row"
+                                 @onmousemove="@(args => ResizeColumn(args.ClientX))"
+                                 @onmouseup="EndColumnResize"
+                                 @onmouseleave="EndColumnResize">
+                                <span class="listen-playlist-track-list__song-head" role="columnheader">
+                                    Song
+                                    <span class="listen-column-resizer" @onmousedown:stopPropagation="true" @onmousedown="@((args) => BeginColumnResize("playlist", "song", args.ClientX))"></span>
+                                </span>
                                 @if (IsPlaylistColumnVisible("favorite"))
                                 {
-                                    <span class="listen-playlist-track-list__favorite-head" role="columnheader">Favorite</span>
+                                    <span class="listen-playlist-track-list__favorite-head" role="columnheader">
+                                        Favorite
+                                        <span class="listen-column-resizer" @onmousedown:stopPropagation="true" @onmousedown="@((args) => BeginColumnResize("playlist", "favorite", args.ClientX))"></span>
+                                    </span>
                                 }
                                 @if (IsPlaylistColumnVisible("artist"))
                                 {
-                                    <span role="columnheader">Artist</span>
+                                    <span role="columnheader">
+                                        Artist
+                                        <span class="listen-column-resizer" @onmousedown:stopPropagation="true" @onmousedown="@((args) => BeginColumnResize("playlist", "artist", args.ClientX))"></span>
+                                    </span>
                                 }
                                 @if (IsPlaylistColumnVisible("album"))
                                 {
-                                    <span role="columnheader">Album</span>
+                                    <span role="columnheader">
+                                        Album
+                                        <span class="listen-column-resizer" @onmousedown:stopPropagation="true" @onmousedown="@((args) => BeginColumnResize("playlist", "album", args.ClientX))"></span>
+                                    </span>
                                 }
                                 @if (IsPlaylistColumnVisible("time"))
                                 {
-                                    <span role="columnheader">Time</span>
+                                    <span role="columnheader">
+                                        Time
+                                        <span class="listen-column-resizer" @onmousedown:stopPropagation="true" @onmousedown="@((args) => BeginColumnResize("playlist", "time", args.ClientX))"></span>
+                                    </span>
                                 }
                                 <span role="columnheader" class="listen-playlist-track-list__actions-label">Actions</span>
                             </div>
@@ -871,23 +843,17 @@ else
                             {
                                 var track = row.Work;
                                 var item = row.Item;
-                                <div class="listen-playlist-track-row @(item is not null && item.Id == _draggingPlaylistTrackItemId ? "is-dragging" : null)"
+                                <div class="listen-playlist-track-row @(item is not null && item.Id == _draggingPlaylistTrackItemId ? "is-dragging" : null) @(item is not null && item.Id == _playlistTrackDropTargetItemId && !_playlistTrackDropAfter ? "is-drop-before" : null)"
                                      style="@($"grid-template-columns: {PlaylistGridTemplate}")"
                                      role="row"
+                                     draggable="true"
+                                     @ondragstart="@(() => item is null ? Task.CompletedTask : BeginPlaylistTrackReorderAsync(item.Id))"
+                                     @ondragend="EndPlaylistTrackReorder"
                                      @ondblclick="@(() => PlayTracksAsync(ActivePlaylistTracks, track.Id, ActivePlaylistTitle))"
                                      @ondragover:preventDefault="true"
+                                     @ondragover="@(() => item is null ? Task.CompletedTask : SetPlaylistTrackDropTargetAsync(item.Id, false))"
                                      @ondrop="@(() => item is null ? Task.CompletedTask : DropPlaylistTrackReorderAsync(item.Id))">
-                                    <div class="listen-playlist-track-row__song" role="cell">
-                                        <button type="button"
-                                                class="listen-playlist-track-row__handle"
-                                                draggable="true"
-                                                title="Drag to reorder"
-                                                aria-label="@($"Drag {track.Title} to reorder")"
-                                                disabled="@(item is null)"
-                                                @ondragstart="@(() => item is null ? Task.CompletedTask : BeginPlaylistTrackReorderAsync(item.Id))"
-                                                @ondragend="EndPlaylistTrackReorder">
-                                            <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
-                                        </button>
+                                    <div class="listen-playlist-track-row__song listen-playlist-track-row__song--no-handle" role="cell">
                                         <div class="listen-playlist-track-row__art">
                                             @if (!string.IsNullOrWhiteSpace(track.CoverUrl))
                                             {
@@ -945,6 +911,10 @@ else
                                     </div>
                                 </div>
                             }
+                            <div class="listen-playlist-track-end-zone @(_draggingPlaylistTrackItemId.HasValue ? "is-active" : null)"
+                                 @ondragover:preventDefault="true"
+                                 @ondragover="@(() => SetPlaylistTrackEndDropTargetAsync())"
+                                 @ondrop="DropPlaylistTrackAtEndAsync"></div>
                         </div>
                     }
                 </section>
@@ -957,7 +927,7 @@ else
         </main>
         @if (_trackContextMenuWorkId.HasValue && ContextMenuTrack is not null)
         {
-            <div class="listen-context-menu" style="left:@($"{_trackContextMenuX}px"); top:@($"{_trackContextMenuY}px");" @onclick:stopPropagation="true">
+            <div class="listen-context-menu" style="--track-menu-x:@($"{_trackContextMenuX}px"); --track-menu-y:@($"{_trackContextMenuY}px");" @onclick:stopPropagation="true">
                 <div class="listen-context-menu__title">@ContextMenuTrack.Title</div>
                 <button type="button" class="listen-context-menu__action" @onclick="@(() => PlayTracksAsync(CurrentTrackSurfaceTracks, ContextMenuTrack.Id, _trackContextMenuSourceLabel))">Play now</button>
                 <button type="button" class="listen-context-menu__action" @onclick="@(() => Playback.InsertNextAsync(ContextMenuTrack))">Play next</button>

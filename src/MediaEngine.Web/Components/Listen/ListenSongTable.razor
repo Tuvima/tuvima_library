@@ -1,0 +1,388 @@
+@using System.Globalization
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+
+<div class="listen-song-table"
+     role="table"
+     aria-label="@AriaLabel"
+     @onmousemove="@(args => ResizeColumn(args.ClientX))"
+     @onmouseup="EndColumnResize"
+     @onmouseleave="EndColumnResize">
+    <div class="listen-song-table__head" style="@($"grid-template-columns: {GridTemplate}")" role="row">
+        @foreach (var column in VisibleColumns)
+        {
+            if (Sortable && IsSortableColumn(column.Key))
+            {
+                <button type="button"
+                        class="listen-song-table__sort-header @(column.Key == "song" ? "listen-song-table__song-head" : null) @(column.Key == "favorite" ? "listen-song-table__favorite-head" : null)"
+                        role="columnheader"
+                        @onclick="@(() => ToggleSort(column.Key))">
+                    <span>@column.Label</span>
+                    @if (!string.IsNullOrWhiteSpace(SortIndicator(column.Key)))
+                    {
+                        <MudIcon Icon="@SortIndicator(column.Key)" Size="Size.Small" />
+                    }
+                    <span class="listen-song-table__resizer"
+                          @onclick:stopPropagation="true"
+                          @onmousedown:stopPropagation="true"
+                          @onmousedown="@((args) => BeginColumnResize(column.Key, args.ClientX))"></span>
+                </button>
+            }
+            else
+            {
+                <span class="@(column.Key == "song" ? "listen-song-table__song-head" : null) @(column.Key == "favorite" ? "listen-song-table__favorite-head" : null)"
+                      role="columnheader">
+                    @column.Label
+                    <span class="listen-song-table__resizer"
+                          @onmousedown:stopPropagation="true"
+                          @onmousedown="@((args) => BeginColumnResize(column.Key, args.ClientX))"></span>
+                </span>
+            }
+        }
+    </div>
+
+    @foreach (var track in DisplayTracks)
+    {
+        <div class="listen-song-table__row"
+             style="@($"grid-template-columns: {GridTemplate}")"
+             role="row"
+             draggable="true"
+             @ondragstart="@(() => StartDragAsync(track.Id))"
+             @ondragend="EndDragAsync"
+             @ondblclick="@(() => PlayAsync(track.Id, false))">
+            <div class="listen-song-table__song @(ShowArtwork ? null : "listen-song-table__song--play-only")" role="cell">
+                @if (ShowArtwork)
+                {
+                    <div class="listen-song-table__art">
+                        @if (!string.IsNullOrWhiteSpace(track.CoverUrl))
+                        {
+                            <img src="@track.CoverUrl" alt="" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Size="Size.Small" />
+                        }
+                        <button type="button"
+                                class="listen-song-table__art-play"
+                                title="Play song"
+                                aria-label="@($"Play {track.Title}")"
+                                @onclick:stopPropagation="true"
+                                @onclick="@(() => PlayAsync(track.Id, false))">
+                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <button type="button"
+                            class="listen-song-table__play-only"
+                            title="Play song"
+                            aria-label="@($"Play {track.Title}")"
+                            @onclick:stopPropagation="true"
+                            @onclick="@(() => PlayAsync(track.Id, false))">
+                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                    </button>
+                }
+                <span class="listen-song-table__title">@track.Title</span>
+            </div>
+
+            @foreach (var column in VisibleDataColumns)
+            {
+                @switch (column.Key)
+                {
+                    case "favorite":
+                        <div class="listen-song-table__favorite" role="cell">
+                            <button type="button"
+                                    class="listen-song-table__favorite-button @(FavoriteIds.Contains(track.Id) ? "is-active" : null)"
+                                    aria-label="Toggle favorite"
+                                    title="Toggle favorite"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="@(() => ToggleFavoriteAsync(track))">
+                                <MudIcon Icon="@(FavoriteIds.Contains(track.Id) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)" Size="Size.Small" />
+                            </button>
+                        </div>
+                        break;
+                    case "time":
+                        <span class="listen-song-table__time" role="cell">@GetTrackDuration(track)</span>
+                        break;
+                    case "artist":
+                        <span class="listen-song-table__meta" role="cell">@FirstNonBlank(track.Artist, track.Author)</span>
+                        break;
+                    case "album":
+                        <span class="listen-song-table__meta" role="cell">@FirstNonBlank(track.Album)</span>
+                        break;
+                    case "genre":
+                        <span class="listen-song-table__meta" role="cell">@FirstNonBlank(track.Genres.FirstOrDefault(), track.Genre)</span>
+                        break;
+                    case "plays":
+                        <span class="listen-song-table__time" role="cell">@GetPlayCountDisplay(track)</span>
+                        break;
+                    case "dateAdded":
+                        <span class="listen-song-table__meta" role="cell">@FormatDateAdded(track.CreatedAt)</span>
+                        break;
+                    case "actions":
+                        <div class="listen-song-table__actions" role="cell">
+                            <button type="button"
+                                    class="listen-song-table__icon-button"
+                                    title="Song options"
+                                    aria-label="@($"{track.Title} options")"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="@(args => OpenMenuAsync(track, args))">
+                                <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
+                            </button>
+                        </div>
+                        break;
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<WorkViewModel> Tracks { get; set; } = [];
+    [Parameter] public IReadOnlySet<Guid> FavoriteIds { get; set; } = new HashSet<Guid>();
+    [Parameter] public string SourceLabel { get; set; } = "Music";
+    [Parameter] public string AriaLabel { get; set; } = "Songs";
+    [Parameter] public bool Sortable { get; set; } = true;
+    [Parameter] public bool EnableDrag { get; set; } = true;
+    [Parameter] public bool ShowArtwork { get; set; } = true;
+    [Parameter] public bool ShowArtist { get; set; } = true;
+    [Parameter] public bool ShowAlbum { get; set; } = true;
+    [Parameter] public bool ShowGenre { get; set; } = true;
+    [Parameter] public bool ShowPlays { get; set; } = true;
+    [Parameter] public bool ShowDateAdded { get; set; } = true;
+    [Parameter] public string DefaultSortColumn { get; set; } = "dateAdded";
+    [Parameter] public bool DefaultSortDescending { get; set; } = true;
+    [Parameter] public Func<IReadOnlyList<WorkViewModel>, Guid?, string?, bool, Task>? OnPlayRequested { get; set; }
+    [Parameter] public Func<WorkViewModel, Task>? OnFavoriteToggled { get; set; }
+    [Parameter] public Func<Guid, Task>? OnDragStarted { get; set; }
+    [Parameter] public Func<Task>? OnDragEnded { get; set; }
+    [Parameter] public Func<WorkViewModel, MouseEventArgs, string, Task>? OnMenuRequested { get; set; }
+
+    private readonly List<ListenSongTableColumn> _columns =
+    [
+        new("song", "Song", 320, 180),
+        new("favorite", "Favorite", 86, 64),
+        new("time", "Time", 100, 72),
+        new("artist", "Artist", 220, 120),
+        new("album", "Album", 220, 120),
+        new("genre", "Genre", 160, 100),
+        new("plays", "Plays", 100, 72),
+        new("dateAdded", "Date Added", 160, 110),
+        new("actions", "Actions", 52, 52),
+    ];
+
+    private string? _resizingColumnKey;
+    private double _resizeStartX;
+    private int _resizeStartWidth;
+    private string? _sortColumn;
+    private bool _sortDescending;
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrWhiteSpace(_sortColumn))
+        {
+            _sortColumn = DefaultSortColumn;
+            _sortDescending = DefaultSortDescending;
+        }
+    }
+
+    private IReadOnlyList<ListenSongTableColumn> VisibleColumns => _columns.Where(IsColumnVisible).ToList();
+    private IReadOnlyList<ListenSongTableColumn> VisibleDataColumns => VisibleColumns.Skip(1).ToList();
+
+    private string GridTemplate => string.Join(" ", VisibleColumns.Select(column => $"{column.Width}px"));
+
+    private IReadOnlyList<WorkViewModel> DisplayTracks => Sortable
+        ? SortTracks(Tracks)
+        : Tracks;
+
+    private bool IsColumnVisible(ListenSongTableColumn column) => column.Key switch
+    {
+        "artist" => ShowArtist,
+        "album" => ShowAlbum,
+        "genre" => ShowGenre,
+        "plays" => ShowPlays,
+        "dateAdded" => ShowDateAdded,
+        _ => true,
+    };
+
+    private static bool IsSortableColumn(string key) => key is not "actions";
+
+    private void BeginColumnResize(string key, double clientX)
+    {
+        var column = _columns.FirstOrDefault(item => item.Key == key);
+        if (column is null)
+            return;
+
+        _resizingColumnKey = key;
+        _resizeStartX = clientX;
+        _resizeStartWidth = column.Width;
+    }
+
+    private void ResizeColumn(double clientX)
+    {
+        if (string.IsNullOrWhiteSpace(_resizingColumnKey))
+            return;
+
+        var column = _columns.FirstOrDefault(item => item.Key == _resizingColumnKey);
+        if (column is null)
+            return;
+
+        column.Width = Math.Clamp(_resizeStartWidth + (int)Math.Round(clientX - _resizeStartX), column.MinWidth, 560);
+    }
+
+    private void EndColumnResize() => _resizingColumnKey = null;
+
+    private void ToggleSort(string key)
+    {
+        if (!Sortable || !IsSortableColumn(key))
+            return;
+
+        key = NormalizeSortColumn(key);
+        if (string.Equals(NormalizeSortColumn(_sortColumn), key, StringComparison.OrdinalIgnoreCase))
+        {
+            _sortDescending = !_sortDescending;
+            return;
+        }
+
+        _sortColumn = key;
+        _sortDescending = key is "dateAdded" or "plays" or "time" or "favorite";
+    }
+
+    private string SortIndicator(string key)
+    {
+        key = NormalizeSortColumn(key);
+        return string.Equals(NormalizeSortColumn(_sortColumn), key, StringComparison.OrdinalIgnoreCase)
+            ? (_sortDescending ? Icons.Material.Outlined.ArrowDownward : Icons.Material.Outlined.ArrowUpward)
+            : string.Empty;
+    }
+
+    private IReadOnlyList<WorkViewModel> SortTracks(IEnumerable<WorkViewModel> tracks)
+    {
+        var ordered = NormalizeSortColumn(_sortColumn) switch
+        {
+            "title" => _sortDescending
+                ? tracks.OrderByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+            "artist" => _sortDescending
+                ? tracks.OrderByDescending(track => track.Artist ?? track.Author, StringComparer.OrdinalIgnoreCase).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.Artist ?? track.Author, StringComparer.OrdinalIgnoreCase).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+            "album" => _sortDescending
+                ? tracks.OrderByDescending(track => track.Album, StringComparer.OrdinalIgnoreCase).ThenByDescending(track => ParseTrackNumber(track.TrackNumber))
+                : tracks.OrderBy(track => track.Album, StringComparer.OrdinalIgnoreCase).ThenBy(track => ParseTrackNumber(track.TrackNumber)),
+            "genre" => _sortDescending
+                ? tracks.OrderByDescending(track => track.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+            "favorite" => _sortDescending
+                ? tracks.OrderByDescending(track => FavoriteIds.Contains(track.Id)).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => FavoriteIds.Contains(track.Id)).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+            "plays" => _sortDescending
+                ? tracks.OrderByDescending(GetPlayCount).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(GetPlayCount).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+            "time" => _sortDescending
+                ? tracks.OrderByDescending(GetDurationSortKey).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(GetDurationSortKey).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+            "track" => _sortDescending
+                ? tracks.OrderByDescending(track => ParseTrackNumber(track.TrackNumber)).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => ParseTrackNumber(track.TrackNumber)).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+            _ => _sortDescending
+                ? tracks.OrderByDescending(track => track.CreatedAt).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.CreatedAt).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+        };
+
+        return ordered.ToList();
+    }
+
+    private static string NormalizeSortColumn(string? column) =>
+        (column ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "song" => "title",
+            "date_added" => "dateAdded",
+            "track_number" => "track",
+            _ => string.IsNullOrWhiteSpace(column) ? "dateAdded" : column,
+        };
+
+    private Task PlayAsync(Guid? startWorkId, bool shuffle)
+        => OnPlayRequested?.Invoke(DisplayTracks, startWorkId, SourceLabel, shuffle) ?? Task.CompletedTask;
+
+    private Task ToggleFavoriteAsync(WorkViewModel track)
+        => OnFavoriteToggled?.Invoke(track) ?? Task.CompletedTask;
+
+    private Task StartDragAsync(Guid trackId)
+        => EnableDrag ? OnDragStarted?.Invoke(trackId) ?? Task.CompletedTask : Task.CompletedTask;
+
+    private Task EndDragAsync()
+        => EnableDrag ? OnDragEnded?.Invoke() ?? Task.CompletedTask : Task.CompletedTask;
+
+    private Task OpenMenuAsync(WorkViewModel track, MouseEventArgs args)
+        => OnMenuRequested?.Invoke(track, args, SourceLabel) ?? Task.CompletedTask;
+
+    private static string GetTrackDuration(WorkViewModel work)
+        => LibraryHelpers.FormatDuration(GetTrackDurationSeconds(work), fallback: "0:00");
+
+    private static int GetDurationSortKey(WorkViewModel work)
+    {
+        var durationSeconds = GetTrackDurationSeconds(work);
+        return durationSeconds > 0 ? (int)Math.Min(durationSeconds, int.MaxValue) : 0;
+    }
+
+    private static long GetTrackDurationSeconds(WorkViewModel work)
+        => LibraryHelpers.NormalizeDurationSeconds(
+            GetCanonicalValue(work, "duration_sec"),
+            GetCanonicalValue(work, "duration_seconds"),
+            GetCanonicalValue(work, "duration"),
+            GetCanonicalValue(work, "runtime")) ?? 0;
+
+    private static string? GetCanonicalValue(WorkViewModel work, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = work.CanonicalValues.FirstOrDefault(item =>
+                string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
+    }
+
+    private static string FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "-";
+
+    private static string FormatDateAdded(DateTimeOffset createdAt)
+        => createdAt == default ? "-" : createdAt.LocalDateTime.ToString("M/d/yyyy", CultureInfo.CurrentCulture);
+
+    private static int GetPlayCount(WorkViewModel work)
+    {
+        var value = work.CanonicalValues.FirstOrDefault(item =>
+            string.Equals(item.Key, "play_count", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(item.Key, "plays", StringComparison.OrdinalIgnoreCase))?.Value;
+
+        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var plays) ? plays : 0;
+    }
+
+    private static string GetPlayCountDisplay(WorkViewModel work)
+        => GetPlayCount(work) > 0 ? GetPlayCount(work).ToString(CultureInfo.InvariantCulture) : "-";
+
+    private static int ParseTrackNumber(string? value)
+        => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : int.MaxValue;
+
+    private sealed class ListenSongTableColumn
+    {
+        public ListenSongTableColumn(string key, string label, int width, int minWidth = 64)
+        {
+            Key = key;
+            Label = label;
+            Width = width;
+            MinWidth = minWidth;
+        }
+
+        public string Key { get; }
+        public string Label { get; }
+        public int Width { get; set; }
+        public int MinWidth { get; }
+    }
+}

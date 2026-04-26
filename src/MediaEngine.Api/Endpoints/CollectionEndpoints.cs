@@ -1019,7 +1019,10 @@ public static class CollectionEndpoints
             using var conn = db.CreateConnection();
             using var cmd = conn.CreateCommand();
 
-            // Build the query: find all works matching groupField=groupValue, optionally filtered by media_type
+            // Build the query: find all works matching groupField=groupValue, optionally filtered by media_type.
+            // Music album drill-down is intentionally track-derived: albums exist here only because
+            // owned tracks point at an album root. Match the root album/title first, with asset album
+            // as a fallback for tracks that have not received parent-scoped provider metadata yet.
             var mediaTypeFilter = !string.IsNullOrWhiteSpace(mediaType)
                 ? "INNER JOIN works w ON w.id = e.work_id AND w.media_type = @MediaType"
                 : "INNER JOIN works w ON w.id = e.work_id";
@@ -1027,13 +1030,54 @@ public static class CollectionEndpoints
             cmd.CommandText = $"""
                 WITH matched_works AS (
                     SELECT DISTINCT e.work_id
-                    FROM canonical_values cv
-                    INNER JOIN media_assets ma ON ma.id = cv.entity_id
-                    INNER JOIN editions e ON e.id = ma.edition_id
+                    FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
                     {mediaTypeFilter}
                     LEFT JOIN works p ON p.id = w.parent_work_id
                     LEFT JOIN works gp ON gp.id = p.parent_work_id
-                    WHERE cv.key = @GroupField AND cv.value = @GroupValue COLLATE NOCASE
+                    WHERE (
+                        (
+                            @IsMusicAlbumGroup = 1
+                            AND COALESCE(
+                                (
+                                    SELECT cv_parent_album.value
+                                    FROM canonical_values cv_parent_album
+                                    WHERE cv_parent_album.entity_id = COALESCE(gp.id, p.id, w.id)
+                                      AND cv_parent_album.key = 'album'
+                                    LIMIT 1
+                                ),
+                                (
+                                    SELECT cv_parent_title.value
+                                    FROM canonical_values cv_parent_title
+                                    WHERE cv_parent_title.entity_id = COALESCE(gp.id, p.id, w.id)
+                                      AND cv_parent_title.key = 'title'
+                                    LIMIT 1
+                                ),
+                                (
+                                    SELECT cv_asset_album.value
+                                    FROM canonical_values cv_asset_album
+                                    WHERE cv_asset_album.entity_id = ma.id
+                                      AND cv_asset_album.key = 'album'
+                                    LIMIT 1
+                                )
+                            ) = @GroupValue COLLATE NOCASE
+                        )
+                        OR (
+                            @IsMusicAlbumGroup = 0
+                            AND EXISTS (
+                                SELECT 1
+                                FROM canonical_values cv
+                                WHERE cv.key = @GroupField
+                                  AND cv.value = @GroupValue COLLATE NOCASE
+                                  AND (
+                                      cv.entity_id = ma.id
+                                      OR cv.entity_id = w.id
+                                      OR cv.entity_id = p.id
+                                      OR cv.entity_id = gp.id
+                                  )
+                            )
+                        )
+                    )
                       AND (
                           @ArtistName IS NULL
                           OR EXISTS (
@@ -1096,6 +1140,14 @@ public static class CollectionEndpoints
             pArtist.ParameterName = "@ArtistName";
             pArtist.Value = string.IsNullOrWhiteSpace(artistName) ? DBNull.Value : artistName;
             cmd.Parameters.Add(pArtist);
+
+            var pIsMusicAlbumGroup = cmd.CreateParameter();
+            pIsMusicAlbumGroup.ParameterName = "@IsMusicAlbumGroup";
+            pIsMusicAlbumGroup.Value = string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase)
+                ? 1
+                : 0;
+            cmd.Parameters.Add(pIsMusicAlbumGroup);
 
             if (!string.IsNullOrWhiteSpace(mediaType))
             {
@@ -1444,20 +1496,56 @@ public static class CollectionEndpoints
                         WHERE e.work_id IN ({idList})
                           AND {visibleAssetPredicate}
                     ),
+                    resolved_group_values AS (
+                        SELECT
+                            wa.work_id,
+                            wa.asset_id,
+                            wa.root_work_id,
+                            CASE
+                                WHEN @IsMusicAlbumGroup = 1 THEN COALESCE(
+                                    (
+                                        SELECT cv_parent_album.value
+                                        FROM canonical_values cv_parent_album
+                                        WHERE cv_parent_album.entity_id = wa.root_work_id
+                                          AND cv_parent_album.key = 'album'
+                                        LIMIT 1
+                                    ),
+                                    (
+                                        SELECT cv_parent_title.value
+                                        FROM canonical_values cv_parent_title
+                                        WHERE cv_parent_title.entity_id = wa.root_work_id
+                                          AND cv_parent_title.key = 'title'
+                                        LIMIT 1
+                                    ),
+                                    (
+                                        SELECT cv_asset_album.value
+                                        FROM canonical_values cv_asset_album
+                                        WHERE cv_asset_album.entity_id = wa.asset_id
+                                          AND cv_asset_album.key = 'album'
+                                        LIMIT 1
+                                    )
+                                )
+                                ELSE cv_group.value
+                            END AS group_name
+                        FROM work_assets wa
+                        LEFT JOIN canonical_values cv_group
+                          ON @IsMusicAlbumGroup = 0
+                         AND cv_group.key = @GroupField
+                         AND (cv_group.entity_id = wa.asset_id
+                              OR cv_group.entity_id = wa.root_work_id)
+                    ),
                     grouped AS (
                         SELECT
-                            cv_group.value                          AS group_name,
-                            COUNT(DISTINCT wa.work_id)              AS work_count,
-                            MIN(wa.asset_id)                        AS first_asset_id,
-                            MIN(wa.root_work_id)                    AS first_root_work_id,
+                            rgv.group_name                          AS group_name,
+                            COUNT(DISTINCT rgv.work_id)             AS work_count,
+                            MIN(rgv.asset_id)                       AS first_asset_id,
+                            MIN(rgv.root_work_id)                   AS first_root_work_id,
                             -- Count distinct albums for artist grouping (track_count = work_count)
-                            COUNT(DISTINCT wa.root_work_id)         AS album_count
-                        FROM work_assets wa
-                        INNER JOIN canonical_values cv_group
-                          ON (cv_group.entity_id = wa.asset_id
-                              OR cv_group.entity_id = wa.root_work_id)
-                        WHERE cv_group.key = @GroupField
-                        GROUP BY cv_group.value
+                            COUNT(DISTINCT rgv.root_work_id)        AS album_count
+                        FROM resolved_group_values rgv
+                        WHERE rgv.group_name IS NOT NULL
+                          AND TRIM(rgv.group_name) != ''
+                        GROUP BY rgv.group_name
                     )
                     SELECT
                         g.group_name,
@@ -1754,6 +1842,14 @@ public static class CollectionEndpoints
                 gp.ParameterName = "@GroupField";
                 gp.Value = groupByField;
                 cmd.Parameters.Add(gp);
+
+                var isMusicAlbumGroup = cmd.CreateParameter();
+                isMusicAlbumGroup.ParameterName = "@IsMusicAlbumGroup";
+                isMusicAlbumGroup.Value = primaryMediaType.Equals("Music", StringComparison.OrdinalIgnoreCase)
+                    && groupByField.Equals("album", StringComparison.OrdinalIgnoreCase)
+                    ? 1
+                    : 0;
+                cmd.Parameters.Add(isMusicAlbumGroup);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
                 var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, string? CoverAspectClass, string? SquareAspectClass, string? BackgroundAspectClass, string? BannerAspectClass, int? CoverWidthPx, int? CoverHeightPx, int? SquareWidthPx, int? SquareHeightPx, int? BackgroundWidthPx, int? BackgroundHeightPx, int? BannerWidthPx, int? BannerHeightPx, int? SeasonCount, int AlbumCount)>();
