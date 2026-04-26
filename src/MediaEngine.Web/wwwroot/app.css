@@ -2129,6 +2129,72 @@ textarea.tl-textarea,
     min-height: var(--tl-control-height-sm) !important;
 }
 
+/* App shell controls are intentionally compact so they stay inside the fixed top bar. */
+.layout-shell__appbar.mud-appbar {
+    height: var(--app-topbar-height) !important;
+    min-height: var(--app-topbar-height) !important;
+    overflow: visible !important;
+}
+
+.layout-shell__appbar .mud-toolbar {
+    height: var(--app-topbar-height) !important;
+    min-height: var(--app-topbar-height) !important;
+    align-items: center !important;
+    overflow: visible !important;
+}
+
+.layout-shell__search-shell,
+.layout-shell__actions,
+.layout-shell__left-rail {
+    height: var(--app-topbar-height) !important;
+    align-items: center !important;
+}
+
+.layout-shell__search {
+    margin: 0 !important;
+}
+
+.layout-shell__search .mud-input-control {
+    margin: 0 !important;
+}
+
+.layout-shell__search .mud-input-control-input-container {
+    align-items: center !important;
+}
+
+.layout-shell__search .mud-input-root,
+.layout-shell__search .mud-input-slot,
+.layout-shell__search .mud-input-outlined {
+    height: 38px !important;
+    min-height: 38px !important;
+}
+
+.layout-shell__search .mud-input-slot {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.layout-shell__profile-trigger {
+    height: 40px !important;
+    min-height: 40px !important;
+    align-items: center !important;
+}
+
+.layout-shell__profile-trigger .mud-button-label {
+    height: 100%;
+    align-items: center !important;
+}
+
+.layout-shell__review-badge,
+.layout-shell__review-badge .mud-badge-root {
+    overflow: visible !important;
+}
+
+.layout-shell__review-badge .mud-badge {
+    top: 2px !important;
+    right: 2px !important;
+}
+
 .tl-input:focus,
 .tl-select:focus,
 .tl-textarea:focus,
