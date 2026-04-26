@@ -307,10 +307,40 @@ public sealed class UiShellRenderTests : TestContext
         var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "app.css"));
 
         Assert.Contains(".app-dialog-field", css);
-        Assert.Contains("min-height: 40px", css);
+        Assert.Contains("var(--tl-control-height-sm)", css);
+        Assert.Contains(".tl-form", css);
+        Assert.Contains(".tl-field-label", css);
+        Assert.Contains(".tl-filter-bar", css);
+        Assert.Contains(".tl-action-bar", css);
         Assert.Contains(".mud-popover .mud-paper", css);
         Assert.Contains(".app-artwork-picker__input", css);
         Assert.Contains("opacity: 0", css);
+    }
+
+    [Fact]
+    public void DesignTokens_DefineSharedControlAndFormSizing()
+    {
+        var tokens = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "tuvima.tokens.css"));
+
+        Assert.Contains("--tl-control-height-sm: 36px;", tokens);
+        Assert.Contains("--tl-control-height-md: 42px;", tokens);
+        Assert.Contains("--tl-control-height-lg: 48px;", tokens);
+        Assert.Contains("--tl-control-radius: 10px;", tokens);
+        Assert.Contains("--tl-form-row-gap: 16px;", tokens);
+        Assert.Contains("--tl-form-section-gap: 24px;", tokens);
+        Assert.Contains("--tl-card-padding: 20px;", tokens);
+    }
+
+    [Fact]
+    public void UiConsistencyAudit_DocumentsMigrationPlan()
+    {
+        var audit = File.ReadAllText(GetRepoFile("docs", "ui", "ui-consistency-audit.md"));
+
+        Assert.Contains("Inconsistent Form And Input Styling", audit);
+        Assert.Contains("Inline Styles", audit);
+        Assert.Contains("Duplicate Card And Panel Patterns", audit);
+        Assert.Contains("Recommended Priority Order", audit);
+        Assert.Contains("tl-filter-bar", audit);
     }
 
     private static string GetRepoFile(params string[] segments) =>

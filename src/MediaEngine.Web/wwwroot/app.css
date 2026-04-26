@@ -1923,6 +1923,326 @@ body,
     background: var(--tl-divider) !important;
     border-color: var(--tl-divider) !important;
 }
+
+/* ---------------------------------------------------------------------------
+   Control and form foundation
+   Migration-safe primitives for new UI work. Legacy settings/dialog classes
+   alias into these rules until pages can be renamed incrementally.
+   -------------------------------------------------------------------------- */
+
+.tl-page,
+.st-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-page-gap);
+}
+
+.tl-page-header,
+.st-page-header,
+.app-page-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-2);
+}
+
+.tl-page-title,
+.st-page-title {
+    margin: 0;
+    color: var(--tl-text-primary);
+    font-size: 1.35rem;
+    line-height: 1.25;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+.tl-page-subtitle,
+.st-page-subtitle {
+    margin: 0;
+    color: var(--tl-text-muted);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
+.tl-panel,
+.tl-section,
+.tl-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-form-section-gap);
+}
+
+.tl-card,
+.tl-panel,
+.st-card,
+.provider-card,
+.chain-card,
+.drawer-panel,
+.app-dialog-shell,
+.mud-card,
+.mud-paper {
+    padding: var(--tl-card-padding);
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface) !important;
+    border: 1px solid var(--tl-border-subtle) !important;
+    border-radius: var(--tl-radius-lg) !important;
+    box-shadow: none !important;
+}
+
+.tl-card--raised,
+.tl-card-raised,
+.st-card--accent,
+.provider-card-slotted {
+    background: var(--tl-bg-surface-raised) !important;
+    border-color: var(--tl-border-default) !important;
+    box-shadow: var(--tl-shadow-md) !important;
+}
+
+.tl-card--selected,
+.tl-card-selected {
+    background: var(--tl-accent-primary-soft) !important;
+    border-color: var(--tl-accent-primary-border) !important;
+}
+
+.tl-card--warning,
+.tl-card-warning,
+.tl-card-review {
+    background: var(--tl-status-warning-soft) !important;
+    border-color: var(--tl-status-warning-border) !important;
+}
+
+.tl-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-form-section-gap);
+}
+
+.tl-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: var(--tl-form-row-gap);
+}
+
+.tl-form-row,
+.tl-field,
+.app-dialog-field-shell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-2);
+    min-width: 0;
+}
+
+.tl-control-row,
+.tl-switch-row,
+.tl-setting-row,
+.st-toggle-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--tl-control-gap);
+    min-height: var(--tl-control-height-lg);
+    padding: var(--tl-space-3) 0;
+    border-bottom: 1px solid var(--tl-divider);
+}
+
+.tl-control-row:last-child,
+.tl-switch-row:last-child,
+.tl-setting-row:last-child,
+.st-toggle-row:last-child {
+    border-bottom: 0;
+}
+
+.tl-field-label,
+.mud-input-label,
+.mud-input-control > .mud-input-control-input-container > label {
+    color: var(--tl-text-secondary) !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+}
+
+.tl-field-description,
+.mud-input-helper-text,
+.mud-input-helper-text .mud-input-helper-text {
+    color: var(--tl-text-muted) !important;
+    font-size: 0.78rem !important;
+    line-height: 1.4 !important;
+}
+
+.tl-field-error,
+.mud-input-error,
+.mud-input-helper-text.mud-input-error {
+    color: var(--tl-status-danger) !important;
+}
+
+.tl-input,
+.tl-select,
+.tl-textarea,
+.tl-search-control,
+.tl-filter-bar input,
+.tl-filter-bar select,
+.app-dialog-field input,
+.app-dialog-field textarea,
+.app-dialog-select input,
+.mud-input-slot,
+.mud-input-outlined,
+.mud-input-filled-control,
+.mud-select-input,
+.mud-autocomplete input {
+    min-height: var(--tl-control-height-md) !important;
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-raised) !important;
+    border-radius: var(--tl-control-radius) !important;
+}
+
+.tl-input,
+.tl-select,
+.tl-textarea,
+.tl-search-control {
+    width: 100%;
+    padding: 0 var(--tl-control-padding-x);
+    border: 1px solid var(--tl-border-default);
+    transition: border-color var(--tl-control-transition), box-shadow var(--tl-control-transition), background var(--tl-control-transition);
+}
+
+.tl-textarea,
+textarea.tl-textarea {
+    min-height: 92px;
+    padding-top: var(--tl-space-3);
+    padding-bottom: var(--tl-space-3);
+    resize: vertical;
+}
+
+.tl-search-control,
+.tl-control-lg .mud-input-slot,
+.tl-control-lg .mud-input-outlined,
+.layout-shell__search .mud-input-slot {
+    min-height: var(--tl-control-height-lg) !important;
+}
+
+.tl-control-sm .mud-input-slot,
+.tl-control-sm .mud-input-outlined,
+.tl-filter-bar .mud-input-slot,
+.tl-filter-bar .mud-input-outlined,
+.tl-filter-bar .mud-select-input,
+.app-dialog-field .mud-input-slot,
+.app-dialog-field .mud-input-outlined,
+.app-dialog-select .mud-input-slot,
+.app-dialog-select .mud-input-outlined,
+.app-dialog-select .mud-select-input {
+    min-height: var(--tl-control-height-sm) !important;
+}
+
+.tl-input:focus,
+.tl-select:focus,
+.tl-textarea:focus,
+.tl-search-control:focus,
+.mud-input-focused .mud-input-outlined-border,
+.mud-input-outlined-border:focus-within {
+    border-color: var(--tl-accent-primary) !important;
+    box-shadow: var(--tl-shadow-focus) !important;
+    outline: none;
+}
+
+.mud-input-outlined-border,
+.mud-select .mud-input-outlined-border,
+.mud-autocomplete .mud-input-outlined-border,
+.mud-numeric-field .mud-input-outlined-border {
+    border-color: var(--tl-border-default) !important;
+    border-radius: var(--tl-control-radius) !important;
+}
+
+.mud-input-control.mud-disabled,
+.mud-input.mud-disabled,
+.mud-button-root:disabled,
+.mud-disabled {
+    color: var(--tl-text-disabled) !important;
+    opacity: 0.72 !important;
+}
+
+.tl-filter-bar,
+.tl-toolbar,
+.app-filter-bar,
+.app-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--tl-control-gap);
+    padding: var(--tl-toolbar-padding-y) var(--tl-toolbar-padding-x);
+}
+
+.tl-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--tl-control-gap);
+}
+
+.tl-button-primary,
+.tl-button-secondary,
+.tl-button-quiet,
+.tl-button-danger,
+.tl-button-warning,
+.tl-button-icon,
+.mud-button-root {
+    min-height: var(--tl-control-height-md) !important;
+    border-radius: var(--tl-control-radius) !important;
+    padding-inline: var(--tl-control-padding-x) !important;
+    text-transform: none !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+}
+
+.tl-button-sm,
+.mud-button-size-small {
+    min-height: var(--tl-control-height-sm) !important;
+    padding-inline: var(--tl-space-3) !important;
+}
+
+.tl-button-md {
+    min-height: var(--tl-control-height-md) !important;
+}
+
+.tl-button-lg {
+    min-height: var(--tl-control-height-lg) !important;
+    padding-inline: var(--tl-space-4) !important;
+}
+
+.tl-button-icon,
+.mud-icon-button {
+    width: var(--tl-control-height-md) !important;
+    min-width: var(--tl-control-height-md) !important;
+    padding: 0 !important;
+}
+
+.tl-button-icon.tl-button-sm,
+.mud-icon-button-size-small {
+    width: var(--tl-control-height-sm) !important;
+    min-width: var(--tl-control-height-sm) !important;
+}
+
+.mud-dialog,
+.mud-menu,
+.mud-popover,
+.mud-popover .mud-paper {
+    z-index: var(--tl-z-dropdown);
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-elevated) !important;
+    border: 1px solid var(--tl-border-default) !important;
+    border-radius: var(--tl-radius-lg) !important;
+    box-shadow: var(--tl-shadow-lg) !important;
+}
+
+.mud-switch .mud-switch-track,
+.mud-checkbox .mud-icon-root {
+    color: var(--tl-text-muted);
+}
+
+.mud-switch.mud-checked .mud-switch-track,
+.mud-checkbox.mud-checked .mud-icon-root {
+    color: var(--tl-accent-primary) !important;
+}
+
 /* Dialog-specific overrides must stay after the global surface layer. */
 .mud-dialog.collection-editor-dialog {
     background: var(--tl-bg-surface-elevated) !important;

@@ -97,6 +97,25 @@
     --tl-space-8: 32px;
     --tl-space-10: 40px;
 
+    --tl-control-height-sm: 36px;
+    --tl-control-height-md: 42px;
+    --tl-control-height-lg: 48px;
+    --tl-control-radius: 10px;
+    --tl-control-padding-x: 12px;
+    --tl-control-gap: 12px;
+    --tl-form-row-gap: 16px;
+    --tl-form-section-gap: 24px;
+    --tl-page-gap: 24px;
+    --tl-card-padding: 20px;
+    --tl-page-padding: 24px;
+    --tl-toolbar-padding-y: 10px;
+    --tl-toolbar-padding-x: 12px;
+    --tl-control-transition: 160ms ease;
+    --tl-z-dropdown: 1200;
+    --tl-z-sticky: 1300;
+    --tl-z-modal: 1400;
+    --tl-z-toast: 1500;
+
     --tl-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
     --tl-shadow-md: 0 12px 32px rgba(0, 0, 0, 0.26);
     --tl-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.36);
