@@ -151,9 +151,9 @@
 
     private string HeaderSubtitle =>
         IsSmartPlaylistLaunch
-            ? "Build a live playlist from rules, then choose an icon for how it appears in Listen."
+            ? "Build a live playlist from simple rules."
             : IsPlaylistLaunch
-                ? "Create a saved playlist with optional artwork and profile visibility."
+                ? "Create a saved playlist for your profile."
                 : EditingCollection is null
                     ? "Create a saved collection using either live rules or manual membership."
                     : "Update the collection settings, rules, and saved items without leaving the collections page.";
@@ -163,8 +163,8 @@
     private string FooterSummary =>
         IsPlaylistLaunch
             ? "Manual playlist. Add tracks from Listen after it is created."
-            : IsSmartPlaylistLaunch
-                ? "Smart playlist. Add one or more rules to keep it updated automatically."
+        : IsSmartPlaylistLaunch
+                ? "Smart playlist. Matching tracks update automatically."
                 : SupportsManualItems
             ? $"{_manualItems.Count} item(s) staged for this collection."
             : _previewResult is null
@@ -711,7 +711,7 @@
         <section class="collection-editor-section">
             <div class="collection-editor-section-title">Details</div>
 
-            @if (IsPlaylistLaunch)
+            @if (IsPlaylistDialog)
             {
                 <label class="app-artwork-picker collection-editor-artwork-picker">
                     @if (!string.IsNullOrWhiteSpace(_artworkPreviewUrl))
@@ -725,7 +725,7 @@
                     else
                     {
                         <span class="app-artwork-picker__placeholder">
-                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 28px;" />
+                            <MudIcon Icon="@CollectionTypeIcon" Style="font-size: 28px;" />
                         </span>
                     }
                     <span class="app-artwork-picker__edit" title="Edit artwork">
@@ -737,16 +737,14 @@
 
             <MudTextField T="string"
                           @bind-Value="_name"
-                          Label="Name"
-                          Placeholder="Collection name"
+                          Placeholder="Playlist Title"
                           Variant="Variant.Outlined"
                           Immediate="true"
                           Class="collection-editor-field app-dialog-field" />
 
             <MudTextField T="string"
                           @bind-Value="_description"
-                          Label="Description"
-                          Placeholder="What is this collection for?"
+                          Placeholder="Description (Optional)"
                           Variant="Variant.Outlined"
                           Lines="3"
                           Immediate="true"
@@ -794,81 +792,84 @@
                 </div>
             }
 
-            <div class="collection-editor-note">
-                @if (IsPlaylist)
-                {
-                    <span>Playlists are manual collections. Rules are turned off and membership is curated directly.</span>
-                }
-                else if (SupportsManualItems)
-                {
-                    <span>This collection is in manual mode right now. Use the Items tab to curate membership directly.</span>
-                }
-                else
-                {
-                    <span>This collection stays live and updates from matching rules.</span>
-                }
-            </div>
+            @if (!IsPlaylistDialog)
+            {
+                <div class="collection-editor-note">
+                    @if (IsPlaylist)
+                    {
+                        <span>Playlists are manual collections. Rules are turned off and membership is curated directly.</span>
+                    }
+                    else if (SupportsManualItems)
+                    {
+                        <span>This collection is in manual mode right now. Use the Items tab to curate membership directly.</span>
+                    }
+                    else
+                    {
+                        <span>This collection stays live and updates from matching rules.</span>
+                    }
+                </div>
+            }
         </section>
 
-        <section class="collection-editor-section">
-            <div class="collection-editor-section-title">Access</div>
+        @if (IsPlaylistDialog)
+        {
+            <MudCheckBox T="bool"
+                         Value="@(_visibility == "shared")"
+                         ValueChanged="@SetProfileVisibilityAsync"
+                         Color="Color.Primary"
+                         Dense="true"
+                         Label="Show in My Profile and Search" />
+        }
+        else
+        {
+            <section class="collection-editor-section">
+                <div class="collection-editor-section-title">Access</div>
 
-            <MudRadioGroup T="string" @bind-Value="_visibility">
-                <MudRadio T="string" Value="@("private")" Color="Color.Primary" Dense="true">Private</MudRadio>
-                @if (Request.CanManageSharedCollections)
-                {
-                    <MudRadio T="string" Value="@("shared")" Color="Color.Primary" Dense="true">Shared with all users</MudRadio>
-                }
-            </MudRadioGroup>
+                <MudRadioGroup T="string" @bind-Value="_visibility">
+                    <MudRadio T="string" Value="@("private")" Color="Color.Primary" Dense="true">Private</MudRadio>
+                    @if (Request.CanManageSharedCollections)
+                    {
+                        <MudRadio T="string" Value="@("shared")" Color="Color.Primary" Dense="true">Shared with all users</MudRadio>
+                    }
+                </MudRadioGroup>
 
-            <div class="collection-editor-note">
-                @if (_visibility == "shared")
-                {
-                    <span>Shared collections are visible to every profile and should be used for staff-curated sets.</span>
-                }
-                else
-                {
-                    <span>Private collections stay attached to the active profile only.</span>
-                }
-            </div>
-        </section>
+                <div class="collection-editor-note">
+                    @if (_visibility == "shared")
+                    {
+                        <span>Shared collections are visible to every profile and should be used for staff-curated sets.</span>
+                    }
+                    else
+                    {
+                        <span>Private collections stay attached to the active profile only.</span>
+                    }
+                </div>
+            </section>
+        }
 
         @if (IsSmartPlaylistLaunch)
         {
             @RenderRulesSection()
-            @RenderOptionsSection()
         }
     </div>;
+
+    private Task SetProfileVisibilityAsync(bool visible)
+    {
+        _visibility = visible ? "shared" : "private";
+        return Task.CompletedTask;
+    }
 
     private RenderFragment RenderRulesTab() => @<div class="collection-editor-pane">
         @RenderRulesSection()
     </div>;
 
     private RenderFragment RenderRulesSection() => @<section class="collection-editor-section">
-        <div class="collection-editor-section-title">Rules</div>
-
         <MudCheckBox T="bool"
                      Value="_rulesEnabled"
                      ValueChanged="OnRulesEnabledChanged"
-                     Color="Color.Error"
+                     Color="Color.Primary"
                      Dense="true"
                      Disabled="@IsPlaylist"
-                     Label="Build this collection from matching rules" />
-
-        <div class="collection-editor-note">
-            @if (IsPlaylist)
-            {
-                <span>Playlists do not use smart rules.</span>
-            }
-            else if (_rulesEnabled)
-            {
-                <span>Rules define the collection automatically. Matching items appear in the Items tab.</span>
-            }
-            else
-            {
-                <span>Rules are off. Membership is fully manual.</span>
-            }
-        </div>
+                     Label="Match for the following rule:" />
 
         @if (_rulesEnabled)
         {
@@ -887,19 +888,10 @@
                                    ValueChanged="@(value => OnRuleFieldChanged(rule, value))">
                             <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
                             <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("author")">Author</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("director")">Director</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("artist")">Artist</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("narrator")">Narrator</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("author")">Artist</MudSelectItem>
                             <MudSelectItem T="string" Value="@("album")">Album</MudSelectItem>
                             <MudSelectItem T="string" Value="@("series")">Series</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("show_name")">Show</MudSelectItem>
                             <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("decade")">Decade</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("vibe")">Vibe</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("publisher")">Publisher</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("language")">Language</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("added_within_days")">Added Within</MudSelectItem>
                             <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
                         </MudSelect>
 
@@ -915,32 +907,18 @@
                                       ValueChanged="@(value => OnRuleValueChanged(rule, value))"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense"
-                                      Placeholder="Value..."
                                       Immediate="true"
                                       DebounceInterval="350"
                                       Class="collection-editor-rule-input app-dialog-field" />
 
                         <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="@(() => AddRule(idx))" aria-label="Add rule" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small" Disabled="@(_rules.Count == 1)" OnClick="@(() => RemoveRule(idx))" aria-label="Remove rule" />
+                        <MudIconButton Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Disabled="@(_rules.Count == 1)" OnClick="@(() => RemoveRule(idx))" aria-label="Remove rule" />
                     </div>
                 }
             </div>
 
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Primary"
-                       Size="Size.Small"
-                       StartIcon="@Icons.Material.Outlined.Add"
-                       Class="collection-editor-add-rule"
-                       OnClick="@(() => AddRule(_rules.Count - 1))">
-                Add rule
-            </MudButton>
-
-            <div class="collection-editor-inline">
-                <span class="collection-editor-inline-label">Match mode</span>
-                <MudRadioGroup T="string" Value="_matchMode" ValueChanged="OnMatchModeChanged">
-                    <MudRadio T="string" Value="@("all")" Color="Color.Primary" Dense="true">All rules</MudRadio>
-                    <MudRadio T="string" Value="@("any")" Color="Color.Primary" Dense="true">Any rule</MudRadio>
-                </MudRadioGroup>
+            <div class="collection-editor-rule-extras">
+                <MudCheckBox T="bool" @bind-Value="_liveUpdating" Color="Color.Primary" Dense="true" Label="Live updating" />
             </div>
         }
     </section>;

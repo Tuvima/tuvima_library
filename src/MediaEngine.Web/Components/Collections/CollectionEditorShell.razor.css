@@ -126,10 +126,7 @@
 }
 
 .collection-editor-section {
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--app-radius-md);
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.02);
+    padding: 0;
     margin-bottom: 16px;
 }
 
@@ -141,7 +138,7 @@
 }
 
 .collection-editor-field {
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 
 .collection-editor-grid,
@@ -178,9 +175,13 @@
 
 .collection-editor-rule-row {
     display: grid;
-    grid-template-columns: minmax(130px, 0.95fr) minmax(120px, 0.7fr) minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(180px, 1.15fr) auto auto;
     gap: 8px;
     align-items: center;
+}
+
+.collection-editor-rule-extras {
+    margin-top: 14px;
 }
 
 .collection-editor-rule-input {

@@ -11,7 +11,7 @@
 }
 
 .app-dialog-shell--small {
-    width: min(100vw - 32px, 520px);
+    width: min(100vw - 32px, 420px);
 }
 
 .app-dialog-shell--medium {

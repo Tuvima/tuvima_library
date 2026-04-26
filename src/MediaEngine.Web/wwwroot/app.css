@@ -206,6 +206,46 @@ body {
     z-index: var(--app-z-modal) !important;
 }
 
+
+/* Paces-style default tabs: simple bordered navigation, no heavy pill/card treatment. */
+.mud-tabs-toolbar {
+    min-height: 42px !important;
+    border-bottom: 1px solid var(--app-border) !important;
+    background: transparent !important;
+}
+
+.mud-tabs-toolbar .mud-tabs-toolbar-content {
+    gap: 4px !important;
+}
+
+.mud-tab {
+    min-height: 42px !important;
+    padding: 0 16px 10px !important;
+    border-radius: 0 !important;
+    color: var(--app-text-muted) !important;
+    font-weight: 700 !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+    max-width: 180px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.mud-tab:hover,
+.mud-tab.mud-tab-active {
+    color: var(--app-accent-blue) !important;
+    background: transparent !important;
+}
+
+.mud-tabs-toolbar .mud-tabs-inkbar {
+    height: 2px !important;
+    background: var(--app-accent-blue) !important;
+}
+
+.mud-tab .mud-ripple {
+    border-radius: 0 !important;
+}
+
 /* -- Muted MudBlazor Input Overrides ----------------------------------- */
 .mud-input-outlined-border:focus-within,
 .mud-input-focused .mud-input-outlined-border {
