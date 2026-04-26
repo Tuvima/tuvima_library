@@ -21,7 +21,7 @@
     @* ── Hardware Profile ─────────────────────────────────────────────── *@
     <MudPaper Class="pa-4 mb-4 app-section-card">
         <div class="d-flex align-center justify-space-between mb-3">
-            <MudText Typo="Typo.h6" Style="color: #C9922E;">@L["Models_HardwareProfile"]</MudText>
+            <MudText Typo="Typo.h6" Style="color: var(--tl-accent-primary);">@L["Models_HardwareProfile"]</MudText>
             <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
                        OnClick="RunBenchmark" Disabled="@_benchmarking">
                 @if (_benchmarking)

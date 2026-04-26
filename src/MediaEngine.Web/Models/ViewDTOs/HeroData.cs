@@ -163,12 +163,12 @@ public sealed record HeroData
         var label = FormatLabel(mediaType);
         return label switch
         {
-            "Book"      => "rgba(37, 99, 235, 0.85)",   // blue
-            "Audiobook" => "rgba(139, 92, 246, 0.85)",  // purple
-            "Movie"     => "rgba(0, 191, 165, 0.85)",   // teal
-            "Video"     => "rgba(0, 191, 165, 0.85)",   // teal
-            "Comic"     => "rgba(124, 77, 255, 0.85)",  // violet
-            _           => "rgba(37, 99, 235, 0.85)",   // blue default
+            "Book"      => "var(--tl-media-book)",
+            "Audiobook" => "var(--tl-media-audio)",
+            "Movie"     => "var(--tl-media-video)",
+            "Video"     => "var(--tl-media-video)",
+            "Comic"     => "var(--tl-media-comic)",
+            _           => "var(--tl-accent-primary)",
         };
     }
 

@@ -1,11 +1,11 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @inject IStringLocalizer<SharedStrings> L
 @inject IEngineApiClient ApiClient
 
-@* ── Backdrop ── *@
+@* â”€â”€ Backdrop â”€â”€ *@
 <div class="vamd-backdrop" @onclick="OnClose"></div>
 
-@* ── Drawer Panel ── *@
+@* â”€â”€ Drawer Panel â”€â”€ *@
 <div class="vamd-drawer" @onclick:stopPropagation="true">
     <div class="vamd-header">
         <MudIconButton Icon="@Icons.Material.Outlined.Close"
@@ -13,7 +13,7 @@
                        Style="position:absolute;top:24px;right:24px;color:rgba(255,255,255,0.5);"
                        OnClick="OnClose" />
         <div style="display:flex;align-items:center;gap:12px;">
-            <MudIcon Icon="@Icons.Material.Outlined.CreateNewFolder" Style="font-size: 24px; color: #60A5FA;" />
+            <MudIcon Icon="@Icons.Material.Outlined.CreateNewFolder" Style="font-size: 24px; color: var(--tl-status-info);" />
             <h2 class="vamd-title">@L["VaultAddMedia_Title"]</h2>
         </div>
         <p class="vamd-hint">@L["VaultAddMedia_Hint"]</p>
@@ -22,7 +22,7 @@
     <div class="vamd-body">
         @if (_selectedFile is null)
         {
-            @* ── Drop Zone ── *@
+            @* â”€â”€ Drop Zone â”€â”€ *@
             <div class="vamd-drop-zone @(_isDragging ? "vamd-drop-zone--active" : "")"
                  @ondragenter="OnDragEnter"
                  @ondragover="OnDragOver"
@@ -31,11 +31,11 @@
                  @ondrop="OnDrop"
                  @ondrop:preventDefault="true">
                 <MudIcon Icon="@(_isDragging ? Icons.Material.Outlined.CloudUpload : Icons.Material.Outlined.UploadFile)"
-                         Style="@($"font-size: 48px; color: {(_isDragging ? "#60A5FA" : "rgba(255,255,255,0.1)")}; transition: color 0.2s;")" />
+                         Style="@($"font-size: 48px; color: {(_isDragging ? "var(--tl-status-info)" : "rgba(255,255,255,0.1)")}; transition: color 0.2s;")" />
                 <p class="vamd-drop-text">
                     @if (_isDragging)
                     {
-                        <span style="color: #60A5FA; font-weight: 800;">@L["VaultAddMedia_DropToImport"]</span>
+                        <span style="color: var(--tl-status-info); font-weight: 800;">@L["VaultAddMedia_DropToImport"]</span>
                     }
                     else
                     {
@@ -61,7 +61,7 @@
         }
         else
         {
-            @* ── Type Confirmation ── *@
+            @* â”€â”€ Type Confirmation â”€â”€ *@
             <div class="vamd-confirm-section">
                 <div class="vamd-file-info">
                     <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 24px; color: rgba(255,255,255,0.4);" />
@@ -108,7 +108,7 @@
                         @if (_uploading)
                         {
                             <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: white;" />
-                            <span>Uploading…</span>
+                            <span>Uploadingâ€¦</span>
                         }
                         else
                         {
@@ -140,7 +140,7 @@
     private static readonly string[] _mediaTypes =
         ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics"];
 
-    // Extensions that are unambiguous — auto-select media type.
+    // Extensions that are unambiguous â€” auto-select media type.
     private static readonly Dictionary<string, string> _autoDetect =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -157,7 +157,7 @@
 
     private void OnDrop()
     {
-        // Blazor server cannot access drag-drop file data from here — the InputFile
+        // Blazor server cannot access drag-drop file data from here â€” the InputFile
         // component inside the zone handles browser file selection via the label.
         _isDragging = false;
     }
@@ -183,7 +183,7 @@
         try
         {
             using var content = new MultipartFormDataContent();
-            // 10 GB max — media files can be large video files.
+            // 10 GB max â€” media files can be large video files.
             using var stream  = _selectedFile.OpenReadStream(maxAllowedSize: 10L * 1024 * 1024 * 1024);
             content.Add(new StreamContent(stream), "file", _selectedFile.Name);
             content.Add(new StringContent(_selectedMediaType), "mediaType");
@@ -329,8 +329,8 @@
     }
 
     .vamd-drop-zone--active {
-        border-color: #60A5FA;
-        background: rgba(96, 165, 250, 0.05);
+        border-color: var(--tl-status-info);
+        background: var(--tl-status-info-soft);
         transform: scale(1.02);
     }
 
@@ -353,9 +353,9 @@
         gap: 8px;
         padding: 10px 20px;
         border-radius: 12px;
-        border: 1px solid rgba(96, 165, 250, 0.3);
-        background: rgba(96, 165, 250, 0.1);
-        color: #60A5FA;
+        border: 1px solid var(--tl-status-info-border);
+        background: var(--tl-status-info-soft);
+        color: var(--tl-status-info);
         font-size: 11px;
         font-weight: 800;
         text-transform: uppercase;
@@ -365,7 +365,7 @@
     }
 
     .vamd-browse-btn:hover {
-        background: rgba(96, 165, 250, 0.2);
+        background: var(--tl-status-info-border);
     }
 
     .vamd-supported {
@@ -398,7 +398,7 @@
         color: rgba(255, 255, 255, 0.35);
     }
 
-    /* ── Confirm section ── */
+    /* â”€â”€ Confirm section â”€â”€ */
     .vamd-confirm-section {
         display: flex;
         flex-direction: column;
@@ -465,15 +465,15 @@
 
     ::deep .vamd-type-btn:hover,
     ::deep .vamd-type-btn:focus-visible {
-        border-color: rgba(96, 165, 250, 0.3);
-        background: rgba(96, 165, 250, 0.06);
+        border-color: var(--tl-status-info-border);
+        background: var(--tl-status-info-soft);
         color: rgba(255, 255, 255, 0.7);
     }
 
     ::deep .vamd-type-btn.mud-selected {
-        border-color: #60A5FA;
-        background: rgba(96, 165, 250, 0.15);
-        color: #60A5FA;
+        border-color: var(--tl-status-info);
+        background: var(--tl-status-info-border);
+        color: var(--tl-status-info);
     }
 
     .vamd-error {
@@ -500,7 +500,7 @@
         justify-content: center;
         gap: 8px;
         border-radius: 12px;
-        background: #60A5FA;
+        background: var(--tl-status-info);
         color: white;
         font-size: 12px;
         font-weight: 800;

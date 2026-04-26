@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 @inject IStringLocalizer<SharedStrings> L
 
@@ -172,8 +172,8 @@
     }
 
     .vault-view-modes .mud-chip.mud-chip-selected {
-        background: rgba(96, 165, 250, 0.12);
-        color: rgba(96, 165, 250, 0.92);
+        background: var(--tl-status-info-soft);
+        color: var(--tl-status-info);
     }
 
     @@media (max-width: 1024px) {

@@ -135,13 +135,13 @@ public sealed class ContentGroupViewModel
 
     public string MediaTypeColor => PrimaryMediaType switch
     {
-        "TV"         => "#FBBF24",
+        "TV"         => "var(--tl-media-video)",
         "Music"      => "#1ED760",
-        "Books"      => "#5DCAA5",
+        "Books"      => "var(--tl-status-success)",
         "Audiobooks" => "#84CC16",
-        "Movies"     => "#60A5FA",
-        "Comics"     => "#FB923C",
-        _            => "#60A5FA",
+        "Movies"     => "var(--tl-status-info)",
+        "Comics"     => "var(--tl-media-comic)",
+        _            => "var(--tl-status-info)",
     };
 }
 
@@ -236,11 +236,11 @@ public sealed class ManagedCollectionViewModel
 
     public string TypeColor => CollectionType switch
     {
-        "Smart"    => "#60A5FA",
-        "System"   => "#5DCAA5",
+        "Smart"    => "var(--tl-status-info)",
+        "System"   => "var(--tl-status-success)",
         "Mix"      => "#A78BFA",
-        "Playlist" => "#C9922E",
-        _          => "#60A5FA",
+        "Playlist" => "var(--tl-accent-primary)",
+        _          => "var(--tl-status-info)",
     };
 
     public string TypeLabel => CollectionType switch
@@ -255,10 +255,10 @@ public sealed class ManagedCollectionViewModel
 
     public string StatusColor => Status switch
     {
-        "Active"   => "#5DCAA5",
+        "Active"   => "var(--tl-status-success)",
         "Disabled" => "rgba(255,255,255,0.4)",
-        "Empty"    => "#EF9F27",
-        _          => "#5DCAA5",
+        "Empty"    => "var(--tl-status-warning)",
+        _          => "var(--tl-status-success)",
     };
 
     public string StatusLabel => Status switch

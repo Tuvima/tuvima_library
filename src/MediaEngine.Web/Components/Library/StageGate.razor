@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 <div class="stage-gate">
     <div class="stage-dot @(Stage.State == LibraryStageState.Running ? "stage-dot--running" : "")"
@@ -16,24 +16,24 @@
 
     private string DotColor => Stage.State switch
     {
-        LibraryStageState.Completed => "#5DCAA5",
-        LibraryStageState.Warning => "#EF9F27",
-        LibraryStageState.Failed => "#A05050",
+        LibraryStageState.Completed => "var(--tl-status-success)",
+        LibraryStageState.Warning => "var(--tl-status-warning)",
+        LibraryStageState.Failed => "var(--tl-status-danger)",
         LibraryStageState.Running => "#90CAF9",
         _ => "rgba(255,255,255,0.12)",
     };
 
     private string DotShadow => Stage.State switch
     {
-        LibraryStageState.Completed => "0 0 8px rgba(93,202,165,0.3)",
-        LibraryStageState.Warning => "0 0 8px rgba(239,159,39,0.3)",
+        LibraryStageState.Completed => "0 0 8px var(--tl-status-success-border)",
+        LibraryStageState.Warning => "0 0 8px var(--tl-status-warning-border)",
         LibraryStageState.Failed => "0 0 8px rgba(160,80,80,0.3)",
         LibraryStageState.Running => "0 0 8px rgba(144,202,249,0.4)",
         _ => "none",
     };
 
     private string LineColor => Stage.State == LibraryStageState.Completed
-        ? "rgba(93,202,165,0.3)"
+        ? "var(--tl-status-success-border)"
         : "rgba(255,255,255,0.08)";
 }
 

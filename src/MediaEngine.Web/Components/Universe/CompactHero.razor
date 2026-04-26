@@ -80,7 +80,7 @@
 
     [Parameter] public HeroData? Data { get; set; }
     [Parameter] public SpotlightMode Mode { get; set; } = SpotlightMode.Auto;
-    [Parameter] public string AccentColor { get; set; } = "#C9922E";
+    [Parameter] public string AccentColor { get; set; } = "var(--tl-accent-primary)";
     [Parameter] public string? Eyebrow { get; set; }
     [Parameter] public string FallbackLabel { get; set; } = "Details";
     [Parameter] public string FallbackIcon { get; set; } = MudBlazor.Icons.Material.Filled.Info;
@@ -197,7 +197,7 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.32em;
-        color: var(--accent, #C9922E);
+        color: var(--accent, var(--tl-accent-primary));
     }
 
     .spotlight-title {
@@ -247,7 +247,7 @@
 
     .spotlight-progress-fill {
         height: 100%;
-        background: var(--accent, #C9922E);
+        background: var(--accent, var(--tl-accent-primary));
         border-radius: 2px;
         transition: width 0.3s ease;
     }
@@ -273,7 +273,7 @@
         font-size: 0.84rem;
         font-weight: 700;
         color: #000;
-        background: var(--accent, #C9922E);
+        background: var(--accent, var(--tl-accent-primary));
         border: none;
         border-radius: 999px;
         padding: 10px 22px;

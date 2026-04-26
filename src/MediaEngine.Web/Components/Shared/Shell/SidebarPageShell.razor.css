@@ -2,10 +2,7 @@
     display: grid;
     grid-template-columns: minmax(236px, 284px) minmax(0, 1fr);
     min-height: calc(100vh - 64px);
-    background:
-        radial-gradient(circle at top left, rgba(201, 146, 46, 0.14), transparent 34%),
-        radial-gradient(circle at top right, rgba(59, 130, 246, 0.10), transparent 30%),
-        #0f1218;
+    background: var(--tl-bg-app-gradient);
 }
 
 .sidebar-rail {
@@ -14,8 +11,8 @@
     height: 100vh;
     overflow: auto;
     padding: 22px 14px 22px 18px;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(8, 10, 16, 0.88);
+    border-right: 1px solid var(--tl-border-subtle);
+    background: color-mix(in srgb, var(--tl-bg-shell) 88%, transparent);
     backdrop-filter: blur(20px);
 }
 
@@ -49,6 +46,6 @@
         position: static;
         height: auto;
         border-right: 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--tl-border-subtle);
     }
 }

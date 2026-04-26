@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Library
 
 <div class="stage-panel">
@@ -370,8 +370,8 @@
     .embedded-cover { margin-top: 8px; }
     .cover-thumbnail { width: 80px; height: auto; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); display: block; }
     .match-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
-    .match-badge--completed { background: rgba(93,202,165,0.15); border: 1px solid rgba(93,202,165,0.3); color: #5DCAA5; }
-    .match-badge--warning { background: rgba(239,159,39,0.12); border: 1px solid rgba(239,159,39,0.25); color: #EF9F27; }
+    .match-badge--completed { background: var(--tl-status-success-soft); border: 1px solid var(--tl-status-success-border); color: var(--tl-status-success); }
+    .match-badge--warning { background: var(--tl-status-warning-soft); border: 1px solid var(--tl-status-warning-border); color: var(--tl-status-warning); }
     .match-badge--pending { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
     .match-detail { font-size: 12px; color: rgba(255,255,255,0.5); margin: 4px 0 0 0; line-height: 1.4; }
     .qid-badge { display: inline-flex; }

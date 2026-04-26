@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
@@ -9,13 +9,13 @@
 
 @if (IsAlreadyMatched)
 {
-    @* ── Already-matched state ── *@
+    @* â”€â”€ Already-matched state â”€â”€ *@
     <div class="isearch-section">
         <span class="isearch-section-label">QUICK SEARCH</span>
 
         <div class="isearch-matched-banner">
-            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 13px; color: rgba(93,202,165,0.7);" />
-            <span>Already matched — search to update the canonical choice</span>
+            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 13px; color: var(--tl-status-success);" />
+            <span>Already matched â€” search to update the canonical choice</span>
         </div>
 
         @* Search input row *@
@@ -55,14 +55,14 @@
         }
         else if (_candidates.Count > 0)
         {
-            <span class="isearch-hint">@_candidates.Count @(_candidates.Count == 1 ? "result" : "results") · Edit query to search again</span>
+            <span class="isearch-hint">@_candidates.Count @(_candidates.Count == 1 ? "result" : "results") Â· Edit query to search again</span>
         }
         else if (!_searching)
         {
-            <span class="isearch-hint isearch-hint--empty">No results found · Try a different query</span>
+            <span class="isearch-hint isearch-hint--empty">No results found Â· Try a different query</span>
         }
 
-        @* ── File metadata comparison banner ── *@
+        @* â”€â”€ File metadata comparison banner â”€â”€ *@
         @if (_candidates.Count > 0 && _fileHintsForDisplay.Count > 0)
         {
             <div class="isearch-file-hints">
@@ -128,13 +128,13 @@
                                     }
                                 </div>
                             }
-                            @* ── Field match breakdown ── *@
+                            @* â”€â”€ Field match breakdown â”€â”€ *@
                             @if (c.DescriptionFieldMatches is { Count: > 0 })
                             {
                                 <div class="isearch-card-matches">
                                     @foreach (var fm in c.DescriptionFieldMatches)
                                     {
-                                        var matchColor = fm.Matched ? "#5DCAA5" : "rgba(200,190,220,0.3)";
+                                        var matchColor = fm.Matched ? "var(--tl-status-success)" : "rgba(200,190,220,0.3)";
                                         <span class="isearch-card-match-pill" style="border-color: @matchColor; color: @matchColor;"
                                               title="@(fm.Matched ? $"{fm.FieldKey}: \"{fm.FileValue}\" found (score: {fm.RawScore:P0})" : $"{fm.FieldKey}: \"{fm.FileValue}\" not found")">
                                             @if (fm.Matched)
@@ -192,7 +192,7 @@
                 @if (_registering)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 14px; height: 14px; color: rgba(93,202,165,0.7);" />
+                                         Style="width: 14px; height: 14px; color: var(--tl-status-success);" />
                 }
                 else
                 {
@@ -229,15 +229,15 @@
 }
 else
 {
-    @* ── Search workspace ── *@
+    @* â”€â”€ Search workspace â”€â”€ *@
     <div class="isearch-workspace">
         <h3 class="isearch-heading">Find Match</h3>
 
-        @* ── Search input row (promoted, larger) ── *@
+        @* â”€â”€ Search input row (promoted, larger) â”€â”€ *@
         <div class="isearch-search-row">
             <input class="isearch-input isearch-input--primary"
                    type="text"
-                   placeholder="Search title, author, ISBN…"
+                   placeholder="Search title, author, ISBNâ€¦"
                    @bind="_query"
                    @bind:event="oninput"
                    @onkeydown="HandleSearchKeyDown" />
@@ -264,7 +264,7 @@ else
             </button>
         </div>
 
-        @* ── Hint ── *@
+        @* â”€â”€ Hint â”€â”€ *@
         <span class="isearch-search-hint">
             @if (!_hasSearched)
             {
@@ -272,24 +272,24 @@ else
             }
             else if (_candidates.Count > 0)
             {
-                @($"{_candidates.Count} {(_candidates.Count == 1 ? "result" : "results")} · Edit query to search again")
+                @($"{_candidates.Count} {(_candidates.Count == 1 ? "result" : "results")} Â· Edit query to search again")
             }
             else if (!_searching)
             {
-                <span class="isearch-search-hint--empty">No results found · Try a different query</span>
+                <span class="isearch-search-hint--empty">No results found Â· Try a different query</span>
             }
         </span>
 
-        @* ── File metadata banner — helps the user compare at a glance ── *@
+        @* â”€â”€ File metadata banner â€” helps the user compare at a glance â”€â”€ *@
         @if (_hasSearched && _candidates.Count > 0)
         {
             <div class="isearch-file-banner">
                 <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 12px; color: rgba(200,190,220,0.40); flex-shrink: 0;" />
                 <span class="isearch-file-banner-label">Your file:</span>
-                <span class="isearch-file-banner-val">@(Item.Title ?? "—")</span>
+                <span class="isearch-file-banner-val">@(Item.Title ?? "â€”")</span>
                 @if (!string.IsNullOrWhiteSpace(Item.Author))
                 {
-                    <span class="isearch-file-banner-sep">·</span>
+                    <span class="isearch-file-banner-sep">Â·</span>
                     <span class="isearch-file-banner-val">@Item.Author</span>
                 }
                 @{
@@ -297,18 +297,18 @@ else
                 }
                 @if (!string.IsNullOrWhiteSpace(narratorHint))
                 {
-                    <span class="isearch-file-banner-sep">·</span>
+                    <span class="isearch-file-banner-sep">Â·</span>
                     <span class="isearch-file-banner-narrator">Narrated by @narratorHint</span>
                 }
                 @if (!string.IsNullOrWhiteSpace(Item.Year))
                 {
-                    <span class="isearch-file-banner-sep">·</span>
+                    <span class="isearch-file-banner-sep">Â·</span>
                     <span class="isearch-file-banner-val">@Item.Year</span>
                 }
             </div>
         }
 
-        @* ── Results list ── *@
+        @* â”€â”€ Results list â”€â”€ *@
         @if (_candidates.Count > 0)
         {
             <div class="isearch-results-list">
@@ -396,7 +396,7 @@ else
                                          Style="font-size: 12px;" />
                                 Year
                             </span>
-                            @* Description match badges — only shown when file hints were available *@
+                            @* Description match badges â€” only shown when file hints were available *@
                             @if (c.DescriptionFieldMatches is { Count: > 0 })
                             {
                                 @foreach (var fm in c.DescriptionFieldMatches)
@@ -423,7 +423,7 @@ else
             </div>
         }
 
-        @* ── Comparison panel (only when candidate selected) ── *@
+        @* â”€â”€ Comparison panel (only when candidate selected) â”€â”€ *@
         @if (_selectedCandidate is not null)
         {
             <div class="isearch-comparison">
@@ -431,26 +431,26 @@ else
                     <span class="isearch-comparison-label">Your File</span>
                     <div class="isearch-comparison-field">
                         <span class="isearch-comparison-key">Title</span>
-                        <span class="isearch-comparison-val">@(Item.Title ?? "—")</span>
+                        <span class="isearch-comparison-val">@(Item.Title ?? "â€”")</span>
                     </div>
                     <div class="isearch-comparison-field">
                         <span class="isearch-comparison-key">@CreatorLabel</span>
-                        <span class="isearch-comparison-val">@(Item.Author ?? "—")</span>
+                        <span class="isearch-comparison-val">@(Item.Author ?? "â€”")</span>
                     </div>
                     <div class="isearch-comparison-field">
                         <span class="isearch-comparison-key">Year</span>
-                        <span class="isearch-comparison-val">@(Item.Year ?? "—")</span>
+                        <span class="isearch-comparison-val">@(Item.Year ?? "â€”")</span>
                     </div>
                 </div>
                 <div class="isearch-comparison-col">
                     <span class="isearch-comparison-label">Selected Result</span>
                     <div class="isearch-comparison-field">
                         <span class="isearch-comparison-key">Title</span>
-                        <span class="isearch-comparison-val">@(_selectedCandidate.Title ?? "—")</span>
+                        <span class="isearch-comparison-val">@(_selectedCandidate.Title ?? "â€”")</span>
                     </div>
                     <div class="isearch-comparison-field">
                         <span class="isearch-comparison-key">@CreatorLabel</span>
-                        <span class="isearch-comparison-val">@(_selectedCandidate.Author ?? "—")</span>
+                        <span class="isearch-comparison-val">@(_selectedCandidate.Author ?? "â€”")</span>
                     </div>
                     <div class="isearch-comparison-field">
                         <span class="isearch-comparison-key">Year</span>
@@ -458,14 +458,14 @@ else
                             var (_, _, ym) = ComputeMatchSignals(_selectedCandidate);
                             var yearClass = ym == "match" ? "isearch-comparison-val--match" : ym == "warn" ? "isearch-comparison-val--warn" : "";
                         }
-                        <span class="isearch-comparison-val @yearClass">@(_selectedCandidate.Year ?? "—")</span>
+                        <span class="isearch-comparison-val @yearClass">@(_selectedCandidate.Year ?? "â€”")</span>
                     </div>
                 </div>
             </div>
         }
     </div>
 
-    @* ── Actions ── *@
+    @* â”€â”€ Actions â”€â”€ *@
     <div class="isearch-workspace-actions">
         @if (_selectedCandidate is not null)
         {
@@ -474,7 +474,7 @@ else
                 @if (_registering)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 14px; height: 14px; color: rgba(93,202,165,0.7);" />
+                                         Style="width: 14px; height: 14px; color: var(--tl-status-success);" />
                     <span>Registering...</span>
                 }
                 else if (_confirmingRegister)
@@ -489,7 +489,7 @@ else
                 }
                 else if (_resultSuccess && !string.IsNullOrEmpty(_resultMessage))
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px; color: #5DCAA5;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px; color: var(--tl-status-success);" />
                     <span>Identified</span>
                 }
                 else
@@ -537,7 +537,7 @@ else
 @code {
     [Parameter, EditorRequired] public LibraryCatalogItemViewModel Item { get; set; } = default!;
     /// <summary>
-    /// Full item detail — provides narrator, series, and other embedded metadata
+    /// Full item detail â€” provides narrator, series, and other embedded metadata
     /// used to build file hints for description-based candidate scoring.
     /// Optional: description scoring is skipped when null.
     /// </summary>
@@ -569,7 +569,7 @@ else
     private System.Threading.Timer? _registerTimer;
     private System.Threading.Timer? _unmatchTimer;
 
-    // Cover popup — rendered on document.body via JS to escape backdrop-filter containment.
+    // Cover popup â€” rendered on document.body via JS to escape backdrop-filter containment.
     private async Task ShowCoverPopup(string? url, MouseEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(url)) return;
@@ -590,7 +590,7 @@ else
         if (Item.EntityId != _lastItemId)
         {
             _lastItemId = Item.EntityId;
-            // Uses canonical title (typically the Reconciliation API label — short form).
+            // Uses canonical title (typically the Reconciliation API label â€” short form).
             // For items processed before the label confidence fix, this may still be the
             // full formal title from Wikidata Len label.
             _query = Item.Title ?? "";
@@ -682,7 +682,7 @@ else
             }
             else
             {
-                // No retail results — show empty state (no Wikidata fallback in retail-first mode)
+                // No retail results â€” show empty state (no Wikidata fallback in retail-first mode)
             }
 
             // Sort by composite score (includes description match bonus when hints were provided)
@@ -690,7 +690,7 @@ else
         }
         catch
         {
-            // Silent fail — empty results shown
+            // Silent fail â€” empty results shown
         }
 
         _searching = false;
@@ -731,10 +731,10 @@ else
             {
                 _awaitingStage2 = response.HydrationTriggered;
                 _resultMessage = _awaitingStage2
-                    ? (response.Message ?? $"Match accepted — Wikidata lookup in progress")
-                    : (response.Message ?? $"Identified — {response.ClaimsWritten} claims written");
+                    ? (response.Message ?? $"Match accepted â€” Wikidata lookup in progress")
+                    : (response.Message ?? $"Identified â€” {response.ClaimsWritten} claims written");
                 _resultSuccess = true;
-                // Clear search state — registration succeeded, UI should show completion state
+                // Clear search state â€” registration succeeded, UI should show completion state
                 _candidates = [];
                 _selectedCandidate = null;
                 _hasSearched = false;
@@ -744,7 +744,7 @@ else
             else
             {
                 _awaitingStage2 = false;
-                _resultMessage = "Identification failed — no response from engine";
+                _resultMessage = "Identification failed â€” no response from engine";
                 _resultSuccess = false;
             }
         }
@@ -827,11 +827,11 @@ else
         // Strip HTML tags for the truncated preview
         var plain = System.Text.RegularExpressions.Regex.Replace(desc, "<[^>]+>", " ");
         plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\s+", " ").Trim();
-        return plain.Length > 120 ? plain[..117] + "…" : plain;
+        return plain.Length > 120 ? plain[..117] + "â€¦" : plain;
     }
 
     private static string TruncateTitle(string title)
-        => title.Length > 30 ? title[..27] + "…" : title;
+        => title.Length > 30 ? title[..27] + "â€¦" : title;
 
     private void ToggleDescription(string descId)
     {
@@ -850,7 +850,7 @@ else
         // Convert \n to <br> first
         var result = html.Replace("\n", "<br />");
 
-        // Allow only safe tags — strip everything else
+        // Allow only safe tags â€” strip everything else
         var allowedTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { "b", "i", "em", "strong", "p", "br", "br /" };
 
@@ -906,7 +906,7 @@ else
     }
 
     /// <summary>
-    /// Builds a dictionary of file hint key→value pairs from the item's embedded metadata.
+    /// Builds a dictionary of file hint keyâ†’value pairs from the item's embedded metadata.
     /// These hints are sent to the Engine for DescriptionMatchService scoring.
     /// The Engine's config-driven field definitions determine which keys are relevant
     /// for each media type, so we include all available hints here.
@@ -915,32 +915,32 @@ else
     {
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        // Narrator — audiobooks
+        // Narrator â€” audiobooks
         var narrator = Detail?.Narrator ?? "";
         if (!string.IsNullOrWhiteSpace(narrator))
             hints["narrator"] = narrator;
 
-        // Series — books, audiobooks
+        // Series â€” books, audiobooks
         var series = Detail?.Series ?? "";
         if (!string.IsNullOrWhiteSpace(series))
             hints["series"] = series;
 
-        // Director — movies and TV (director is a person field, comes from Item.Author in movies)
+        // Director â€” movies and TV (director is a person field, comes from Item.Author in movies)
         var director = Detail?.Director ?? "";
         if (!string.IsNullOrWhiteSpace(director))
             hints["director"] = director;
 
-        // Cast — movies and TV
+        // Cast â€” movies and TV
         var cast = Detail?.Cast ?? "";
         if (!string.IsNullOrWhiteSpace(cast))
             hints["cast"] = cast;
 
-        // Language — books
+        // Language â€” books
         var language = Detail?.Language ?? "";
         if (!string.IsNullOrWhiteSpace(language))
             hints["language"] = language;
 
-        // Genre — music and others
+        // Genre â€” music and others
         var genre = Detail?.Genre ?? "";
         if (!string.IsNullOrWhiteSpace(genre))
             hints["genre"] = genre;
@@ -983,7 +983,7 @@ else
         public double Confidence { get; set; }
         /// <summary>Composite score combining fuzzy + description match. Used for ranking.</summary>
         public double CompositeScore { get; set; }
-        /// <summary>Description-based bonus score (0.0–1.0).</summary>
+        /// <summary>Description-based bonus score (0.0â€“1.0).</summary>
         public double DescriptionMatchScore { get; set; }
         /// <summary>Per-field description match details for badge rendering.</summary>
         public List<DescriptionFieldMatchDto>? DescriptionFieldMatches { get; set; }
@@ -995,7 +995,7 @@ else
 }
 
 <style>
-    /* ── Section ── */
+    /* â”€â”€ Section â”€â”€ */
     .isearch-section {
         padding: 12px 16px;
         border-top: none;
@@ -1011,7 +1011,7 @@ else
         margin-bottom: 10px;
     }
 
-    /* ── Already-matched banner ── */
+    /* â”€â”€ Already-matched banner â”€â”€ */
     .isearch-matched-banner {
         display: flex;
         align-items: center;
@@ -1026,7 +1026,7 @@ else
         margin-bottom: 10px;
     }
 
-    /* ── Search input row ── */
+    /* â”€â”€ Search input row â”€â”€ */
     .isearch-input-row {
         display: flex;
         gap: 6px;
@@ -1106,7 +1106,7 @@ else
         cursor: not-allowed;
     }
 
-    /* ── Hint text ── */
+    /* â”€â”€ Hint text â”€â”€ */
     .isearch-hint {
         display: block;
         font-size: 11px;
@@ -1119,12 +1119,12 @@ else
         color: rgba(239, 159, 39, 0.55);
     }
 
-    /* ── Candidate list ── */
+    /* â”€â”€ Candidate list â”€â”€ */
     .isearch-candidates {
         display: flex;
         flex-direction: column;
         gap: 6px;
-        /* No max-height / overflow-y here — the parent inspector panel scrolls.
+        /* No max-height / overflow-y here â€” the parent inspector panel scrolls.
            Constraining height here would clip the cover hover popup. */
     }
 
@@ -1154,7 +1154,7 @@ else
         border-color: rgba(74, 144, 217, 0.70);
     }
 
-    /* ── Card cover ── */
+    /* â”€â”€ Card cover â”€â”€ */
     .isearch-card-cover {
         width: 48px;
         height: 72px;
@@ -1176,7 +1176,7 @@ else
         border: 1px solid rgba(140, 120, 180, 0.10);
     }
 
-    /* ── Card body ── */
+    /* â”€â”€ Card body â”€â”€ */
     .isearch-card-body {
         flex: 1;
         min-width: 0;
@@ -1331,7 +1331,7 @@ else
         right: 6px;
     }
 
-    /* ── File hints comparison banner ── */
+    /* â”€â”€ File hints comparison banner â”€â”€ */
     .isearch-file-hints {
         display: flex;
         align-items: center;
@@ -1368,7 +1368,7 @@ else
         font-weight: 500;
     }
 
-    /* ── Actions section ── */
+    /* â”€â”€ Actions section â”€â”€ */
     .isearch-actions-section {
         padding: 12px 16px;
         border-top: 1px solid rgba(140, 120, 180, 0.1);
@@ -1410,7 +1410,7 @@ else
         color: rgba(93, 202, 165, 0.35);
     }
 
-    /* ── Secondary action buttons row ── */
+    /* â”€â”€ Secondary action buttons row â”€â”€ */
     .isearch-secondary-actions {
         display: flex;
         gap: 6px;
@@ -1470,7 +1470,7 @@ else
         cursor: not-allowed;
     }
 
-    /* ── Unmatch button (already-matched state) ── */
+    /* â”€â”€ Unmatch button (already-matched state) â”€â”€ */
     .isearch-btn-unmatch {
         display: flex;
         align-items: center;
@@ -1498,7 +1498,7 @@ else
         cursor: not-allowed;
     }
 
-    /* ── Result message ── */
+    /* â”€â”€ Result message â”€â”€ */
     .isearch-result {
         display: flex;
         align-items: center;
@@ -1519,7 +1519,7 @@ else
         color: rgba(239, 83, 80, 0.85);
     }
 
-    /* ── 2-click confirmation states ── */
+    /* â”€â”€ 2-click confirmation states â”€â”€ */
     .isearch-btn-reject--confirming {
         background: rgba(211, 47, 47, 0.25) !important;
         border-color: rgba(211, 47, 47, 0.5) !important;
@@ -1543,7 +1543,7 @@ else
         50% { opacity: 0.7; }
     }
 
-    /* ── Workspace container ── */
+    /* â”€â”€ Workspace container â”€â”€ */
     .isearch-workspace {
         padding: 20px 20px 0;
         display: flex;
@@ -1559,7 +1559,7 @@ else
         margin: 0;
     }
 
-    /* ── Primary search row ── */
+    /* â”€â”€ Primary search row â”€â”€ */
     .isearch-search-row {
         display: flex;
         gap: 8px;
@@ -1642,7 +1642,7 @@ else
         cursor: not-allowed;
     }
 
-    /* ── Search hint ── */
+    /* â”€â”€ Search hint â”€â”€ */
     .isearch-search-hint {
         display: block;
         font-size: 12px;
@@ -1655,7 +1655,7 @@ else
         color: rgba(239, 159, 39, 0.55);
     }
 
-    /* ── Results list ── */
+    /* â”€â”€ Results list â”€â”€ */
     .isearch-results-list {
         display: flex;
         flex-direction: column;
@@ -1687,7 +1687,7 @@ else
         background: rgba(74, 144, 217, 0.09);
     }
 
-    /* ── Result body ── */
+    /* â”€â”€ Result body â”€â”€ */
     .isearch-result-cover {
         width: 48px;
         height: 72px;
@@ -1774,7 +1774,7 @@ else
         color: rgba(200, 190, 220, 0.35);
     }
 
-    /* ── Match signals ── */
+    /* â”€â”€ Match signals â”€â”€ */
     .isearch-result-signals {
         flex-shrink: 0;
         display: flex;
@@ -1794,11 +1794,11 @@ else
     }
 
     .isearch-signal--match {
-        color: #5DCAA5;
+        color: var(--tl-status-success);
     }
 
     .isearch-signal--warn {
-        color: #EF9F27;
+        color: var(--tl-status-warning);
     }
 
     .isearch-signal--miss {
@@ -1815,7 +1815,7 @@ else
         padding: 0;
     }
 
-    /* ── Comparison panel ── */
+    /* â”€â”€ Comparison panel â”€â”€ */
     .isearch-comparison {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -1866,7 +1866,7 @@ else
         color: rgba(239, 159, 39, 0.80);
     }
 
-    /* ── Workspace actions ── */
+    /* â”€â”€ Workspace actions â”€â”€ */
     .isearch-workspace-actions {
         display: flex;
         gap: 12px;
@@ -1959,14 +1959,14 @@ else
         animation: pulse-confirm 1s ease-in-out infinite;
     }
 
-    /* Cover hover wrap — the popup is rendered on document.body via JS interop. */
+    /* Cover hover wrap â€” the popup is rendered on document.body via JS interop. */
     .isearch-cover-hover-wrap {
         position: relative;
         flex-shrink: 0;
         cursor: pointer;
     }
 
-    /* ── File metadata banner ── */
+    /* â”€â”€ File metadata banner â”€â”€ */
     .isearch-file-banner {
         display: flex;
         align-items: center;

@@ -31,7 +31,7 @@
                     @if (string.IsNullOrEmpty(Data.HeroUrl) && string.IsNullOrEmpty(Data.CoverUrl))
                     {
                         <div class="hero-gradient"
-                             style="--hero-accent: @(Data.DominantColor ?? "#C9922E");" />
+                             style="--hero-accent: @(Data.DominantColor ?? "var(--tl-accent-primary)");" />
                     }
                 </div>
             </div>

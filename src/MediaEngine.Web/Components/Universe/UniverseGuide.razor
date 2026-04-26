@@ -96,7 +96,7 @@
 
                             @if (entity.Works?.Count > 0)
                             {
-                                <MudText Typo="Typo.caption" Style="color: #C9922E; font-weight: 600; margin-bottom: 6px; display: block;">
+                                <MudText Typo="Typo.caption" Style="color: var(--tl-accent-primary); font-weight: 600; margin-bottom: 6px; display: block;">
                                     APPEARS IN
                                 </MudText>
                                 <MudStack Row="true" Style="flex-wrap: wrap; gap: 4px;" Class="mb-2">
@@ -114,7 +114,7 @@
                             }
                             @if (rels.Count > 0)
                             {
-                                <MudText Typo="Typo.caption" Style="color: #C9922E; font-weight: 600; margin-bottom: 6px; display: block;">
+                                <MudText Typo="Typo.caption" Style="color: var(--tl-accent-primary); font-weight: 600; margin-bottom: 6px; display: block;">
                                     RELATIONSHIPS
                                 </MudText>
                                 <MudStack Row="true" Style="flex-wrap: wrap; gap: 4px;">
@@ -152,7 +152,7 @@
         border-color: #444;
     }
     .guide-card-expanded {
-        border-color: #C9922E44;
+        border-color: var(--tl-accent-primary-border);
     }
     .guide-detail {
         margin-top: 10px;

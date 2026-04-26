@@ -67,7 +67,7 @@ public sealed class DiscoveryHeroViewModel
     public DiscoveryImageFitMode TileImageFitMode { get; init; } = DiscoveryImageFitMode.Fill;
     public DiscoveryImageFitMode HoverImageFitMode { get; init; } = DiscoveryImageFitMode.Contain;
     public string? LogoUrl { get; init; }
-    public string AccentColor { get; init; } = "#C9922E";
+    public string AccentColor { get; init; } = "var(--tl-accent-primary)";
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
     public double? ProgressPct { get; init; }
@@ -100,7 +100,7 @@ public sealed class DiscoveryCardViewModel
     public string? Tldr { get; init; }
     public IReadOnlyList<string> VibeTags { get; init; } = [];
     public string MediaKind { get; init; } = string.Empty;
-    public string AccentColor { get; init; } = "#60A5FA";
+    public string AccentColor { get; init; } = "var(--tl-status-info)";
     public DiscoveryCardShape Shape { get; init; } = DiscoveryCardShape.Portrait;
     public DiscoveryCardPresentation Presentation { get; init; } = DiscoveryCardPresentation.Default;
     public DiscoverySurfaceKind SurfaceKind { get; init; } = DiscoverySurfaceKind.CoverPortrait;
@@ -154,7 +154,7 @@ public sealed class DiscoveryShelfViewModel
 public sealed class DiscoveryPageViewModel
 {
     public string Key { get; init; } = string.Empty;
-    public string AccentColor { get; init; } = "#C9922E";
+    public string AccentColor { get; init; } = "var(--tl-accent-primary)";
     public DiscoveryHeroViewModel? Hero { get; init; }
     public IReadOnlyList<DiscoveryHubViewModel> Hubs { get; init; } = [];
     public IReadOnlyList<DiscoveryShelfViewModel> Shelves { get; init; } = [];

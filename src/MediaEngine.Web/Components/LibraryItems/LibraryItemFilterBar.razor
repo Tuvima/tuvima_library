@@ -1,8 +1,8 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
 <div class="rfb-bar">
-    @* ── Tabs: Review / No Match / Failed / All ── *@
+    @* â”€â”€ Tabs: Review / No Match / Failed / All â”€â”€ *@
     <div class="rfb-tabs">
         <button class="rfb-tab rfb-tab--review @(ActiveTab == "review" ? "rfb-tab--on" : "")"
                 @onclick="@(() => SetTab("review"))">
@@ -22,7 +22,7 @@
         </button>
     </div>
 
-    @* ── Search ── *@
+    @* â”€â”€ Search â”€â”€ *@
     <div class="rfb-search">
         <FuzzySearchField Value="@SearchText"
                           ValueChanged="SearchTextChanged"
@@ -30,7 +30,7 @@
                           Style="max-width: 240px;" />
     </div>
 
-    @* ── Select toggle ── *@
+    @* â”€â”€ Select toggle â”€â”€ *@
     <button class="rfb-icon-btn @(SelectionMode ? "rfb-icon-btn--on" : "")"
             @onclick="ToggleSelectionMode"
             title="Toggle selection mode">
@@ -39,7 +39,7 @@
 
     <div class="rfb-spacer"></div>
 
-    @* ── Group By dropdown ── *@
+    @* â”€â”€ Group By dropdown â”€â”€ *@
     <div class="rfb-dropdowns">
         <MudSelect T="string" Value="@GroupBy" ValueChanged="OnGroupByChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense"
@@ -51,7 +51,7 @@
             <MudSelectItem Value="@("status")">Status</MudSelectItem>
         </MudSelect>
 
-        @* ── Sort ── *@
+        @* â”€â”€ Sort â”€â”€ *@
         <MudSelect T="string" Value="@SortBy" ValueChanged="OnSortChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense"
                    Dense="true" Label="Sort"
@@ -80,7 +80,7 @@
     [Parameter] public string SortBy { get; set; } = "newest";
     [Parameter] public EventCallback<string> SortByChanged { get; set; }
 
-    // Kept for backward compat — no longer rendered but callers may still bind these
+    // Kept for backward compat â€” no longer rendered but callers may still bind these
     [Parameter] public int MaxDays { get; set; } = 60;
     [Parameter] public EventCallback<int> MaxDaysChanged { get; set; }
     [Parameter] public int CardSize { get; set; } = 80;
@@ -123,7 +123,7 @@
         row-gap: 8px;
     }
 
-    /* ── Tabs ── */
+    /* â”€â”€ Tabs â”€â”€ */
     .rfb-tabs {
         display: flex;
         gap: 2px;
@@ -149,32 +149,32 @@
     }
     .rfb-tab:hover { color: rgba(255,255,255,0.7); }
 
-    /* Active — default (All tab): white */
+    /* Active â€” default (All tab): white */
     .rfb-tab--on {
         background: rgba(255,255,255,0.08);
         color: #fff;
         font-weight: 500;
     }
 
-    /* Active state — Review: amber */
+    /* Active state â€” Review: amber */
     .rfb-tab--review.rfb-tab--on {
-        background: rgba(239,159,39,0.12);
-        color: #EF9F27;
+        background: var(--tl-status-warning-soft);
+        color: var(--tl-status-warning);
     }
 
-    /* Active state — No Match: gray */
+    /* Active state â€” No Match: gray */
     .rfb-tab--nomatch.rfb-tab--on {
         background: rgba(180,178,169,0.12);
         color: #B4B2A9;
     }
 
-    /* Active state — Failed: red */
+    /* Active state â€” Failed: red */
     .rfb-tab--failed.rfb-tab--on {
         background: rgba(239,83,80,0.12);
         color: #EF5350;
     }
 
-    /* ── Count badges ── */
+    /* â”€â”€ Count badges â”€â”€ */
     .rfb-tab-ct {
         font-size: 0.6875rem; /* 11px */
         font-weight: 500;
@@ -187,8 +187,8 @@
     /* Badge colors when tab is active */
     .rfb-tab--review.rfb-tab--on .rfb-tab-ct,
     .rfb-tab-ct--review {
-        background: rgba(239,159,39,0.15);
-        color: #EF9F27;
+        background: var(--tl-status-warning-soft);
+        color: var(--tl-status-warning);
         opacity: 1;
     }
     .rfb-tab--nomatch.rfb-tab--on .rfb-tab-ct,
@@ -204,10 +204,10 @@
         opacity: 1;
     }
 
-    /* ── Search ── */
+    /* â”€â”€ Search â”€â”€ */
     .rfb-search { flex-shrink: 0; }
 
-    /* ── Icon button (select toggle) ── */
+    /* â”€â”€ Icon button (select toggle) â”€â”€ */
     .rfb-icon-btn {
         display: flex;
         align-items: center;
@@ -228,21 +228,21 @@
         background: rgba(255,255,255,0.06);
     }
     .rfb-icon-btn--on {
-        background: rgba(201,146,46,0.15);
-        border-color: rgba(201,146,46,0.4);
-        color: #C9922E;
+        background: var(--tl-accent-primary-soft);
+        border-color: var(--tl-accent-primary-border);
+        color: var(--tl-accent-primary);
     }
 
     .rfb-spacer { flex: 1; min-width: 4px; }
 
-    /* ── Dropdowns group ── */
+    /* â”€â”€ Dropdowns group â”€â”€ */
     .rfb-dropdowns {
         display: flex;
         gap: 8px;
         flex-shrink: 0;
     }
 
-    /* ── Mobile responsive ── */
+    /* â”€â”€ Mobile responsive â”€â”€ */
     @@media (max-width: 768px) {
         .rfb-bar {
             padding-left: 12px;

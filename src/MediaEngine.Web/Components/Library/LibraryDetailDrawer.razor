@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Domain.Constants
 @using MediaEngine.Domain.Enums
 @namespace MediaEngine.Web.Components.Library
@@ -154,7 +154,7 @@
             {
                 <div class="vdd-problem-banner">
                     <div class="vdd-problem-banner-top">
-                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 18px; color: #EF9F27; flex-shrink: 0;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 18px; color: var(--tl-status-warning); flex-shrink: 0;" />
                         <span class="vdd-problem-banner-msg">@LibraryHelpers.GetReviewTriggerLabel(MediaItem.ReviewTrigger)</span>
                     </div>
                     <p class="vdd-problem-banner-hint">You can search for a match in the Pipeline section below, or check the Details section for clues.</p>
@@ -423,7 +423,7 @@
                                 @if (hasRetail && HasAnySearchFieldValue())
                                 {
                                     <p class="vdd-rematch-warning">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: var(--tl-status-warning);" />
                                         Quick Search lets you choose a new canonical provider-backed match for this field group.
                                     </p>
                                 }
@@ -488,7 +488,7 @@
                                                     <span class="vdd-result-card-meta">@result.LinkStatusLabel</span>
                                                     @if (!result.IsApplicable && !string.IsNullOrWhiteSpace(result.BlockedReason))
                                                     {
-                                                        <span class="vdd-result-card-meta" style="color: #EF9F27;">@result.BlockedReason</span>
+                                                        <span class="vdd-result-card-meta" style="color: var(--tl-status-warning);">@result.BlockedReason</span>
                                                     }
                                                 </div>
                                                 <div class="vdd-result-score">
@@ -617,7 +617,7 @@
                                                             @if (IsRealRetailMatch(MediaItem?.RetailMatch))
                                                             {
                                                                 <span class="vdd-overwrite-warning">
-                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: var(--tl-status-warning);" />
                                                                     Replaces the current provider-backed canonical selection for this field group.
                                                                 </span>
                                                             }
@@ -725,7 +725,7 @@
                                 @if (hasWikidata && !string.IsNullOrWhiteSpace(_wikidataSearchQuery))
                                 {
                                     <p class="vdd-rematch-warning">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: var(--tl-status-warning);" />
                                         Quick Search lets you choose a new canonical linked entity for this field group.
                                     </p>
                                 }
@@ -796,7 +796,7 @@
                                                     <span class="vdd-result-card-meta">@result.LinkStatusLabel</span>
                                                     @if (!result.IsApplicable && !string.IsNullOrWhiteSpace(result.BlockedReason))
                                                     {
-                                                        <span class="vdd-result-card-meta" style="color: #EF9F27;">@result.BlockedReason</span>
+                                                        <span class="vdd-result-card-meta" style="color: var(--tl-status-warning);">@result.BlockedReason</span>
                                                     }
                                                 </div>
                                                 <div class="vdd-result-score">
@@ -908,7 +908,7 @@
                                                             @if (IsWikidataMatched(MediaItem?.WikidataQid))
                                                             {
                                                                 <span class="vdd-overwrite-warning">
-                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: var(--tl-status-warning);" />
                                                                     Replaces the current linked canonical selection for this field group (@MediaItem?.WikidataQid).
                                                                 </span>
                                                             }
@@ -1077,7 +1077,7 @@
                 <div class="vdd-health-ring-wrap">
                     @{
                         var hp = _universeHealth.HealthPercent;
-                        var ringColor = hp >= 80 ? "#5DCAA5" : hp >= 50 ? "#C9922E" : "#EF4444";
+                        var ringColor = hp >= 80 ? "var(--tl-status-success)" : hp >= 50 ? "var(--tl-accent-primary)" : "#EF4444";
                         var circumference = 2 * Math.PI * 22;
                         var dashOffset = circumference * (1 - hp / 100.0);
                     }
@@ -1111,12 +1111,12 @@
                             <span class="vdd-entity-count-val">@_universeCharacters.Count</span>
                         </div>
                         <div class="vdd-entity-count-item">
-                            <MudIcon Icon="@Icons.Material.Outlined.LocationOn" Style="font-size: 16px; color: #60A5FA;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.LocationOn" Style="font-size: 16px; color: var(--tl-status-info);" />
                             <span class="vdd-entity-count-label">Locations</span>
                             <span class="vdd-entity-count-val">@(_universeHealth.EntitiesTotal - _universeCharacters.Count)</span>
                         </div>
                         <div class="vdd-entity-count-item">
-                            <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Style="font-size: 16px; color: #C9922E;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Style="font-size: 16px; color: var(--tl-accent-primary);" />
                             <span class="vdd-entity-count-label">Relationships</span>
                             <span class="vdd-entity-count-val">@_universeHealth.RelationshipsTotal</span>
                         </div>
@@ -2362,7 +2362,7 @@
     }
 
     private static string GetScoreColor(double score) =>
-        score >= 0.85 ? "#5DCAA5" : score >= 0.60 ? "#EF9F27" : "#A05050";
+        score >= 0.85 ? "var(--tl-status-success)" : score >= 0.60 ? "var(--tl-status-warning)" : "var(--tl-status-danger)";
 
     /// <summary>
     /// Builds the best available external URL for the current item's retail provider match,
@@ -2418,7 +2418,7 @@
     }
 
     .vdd-subtitle--clickable:hover {
-        color: #C9922E;
+        color: var(--tl-accent-primary);
     }
 
     .vdd-overwrite-warning {
@@ -2426,7 +2426,7 @@
         align-items: center;
         gap: 4px;
         font-size: 11px;
-        color: #EF9F27;
+        color: var(--tl-status-warning);
         margin-bottom: 4px;
         width: 100%;
     }
@@ -2596,9 +2596,9 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: #60A5FA;
-        background: rgba(96, 165, 250, 0.1);
-        border: 1px solid rgba(96, 165, 250, 0.2);
+        color: var(--tl-status-info);
+        background: var(--tl-status-info-soft);
+        border: 1px solid var(--tl-status-info-border);
         padding: 2px 8px;
         border-radius: 6px;
     }
@@ -2681,13 +2681,13 @@
     .vdd-location--library {
         background: rgba(93, 202, 165, 0.1);
         border: 1px solid rgba(93, 202, 165, 0.2);
-        color: #5DCAA5;
+        color: var(--tl-status-success);
     }
 
     .vdd-location--staging {
         background: rgba(239, 159, 39, 0.1);
         border: 1px solid rgba(239, 159, 39, 0.2);
-        color: #EF9F27;
+        color: var(--tl-status-warning);
     }
 
     .vdd-location-chip {
@@ -2702,13 +2702,13 @@
     .vdd-location-chip--library {
         background: rgba(93, 202, 165, 0.1);
         border: 1px solid rgba(93, 202, 165, 0.2);
-        color: #5DCAA5;
+        color: var(--tl-status-success);
     }
 
     .vdd-location-chip--pending {
         background: rgba(239, 159, 39, 0.1);
         border: 1px solid rgba(239, 159, 39, 0.2);
-        color: #EF9F27;
+        color: var(--tl-status-warning);
     }
 
     .vdd-location-chip--review {
@@ -2850,7 +2850,7 @@
         color: rgba(255, 255, 255, 0.3);
     }
 
-    .vdd-match-tag--provider { color: #60A5FA; }
+    .vdd-match-tag--provider { color: var(--tl-status-info); }
     .vdd-match-tag--authority { color: #A78BFA; }
 
     .vdd-stage-hint {
@@ -2881,9 +2881,9 @@
     }
 
     .vdd-provider-chip:hover {
-        background: rgba(96, 165, 250, 0.1);
-        border-color: rgba(96, 165, 250, 0.25);
-        color: #60A5FA;
+        background: var(--tl-status-info-soft);
+        border-color: var(--tl-status-info-border);
+        color: var(--tl-status-info);
     }
 
     .vdd-qid-result {
@@ -3114,7 +3114,7 @@
         border-radius: 10px;
         background: rgba(239, 159, 39, 0.08);
         border: 1px solid rgba(239, 159, 39, 0.15);
-        color: #EF9F27;
+        color: var(--tl-status-warning);
         font-size: 12px;
         font-weight: 700;
     }
@@ -3154,7 +3154,7 @@
     }
 
     .vdd-search-input:focus {
-        border-color: rgba(96, 165, 250, 0.3);
+        border-color: var(--tl-status-info-border);
     }
 
     .vdd-search-input::placeholder {
@@ -3167,9 +3167,9 @@
         gap: 6px;
         padding: 8px 14px;
         border-radius: 8px;
-        background: rgba(96, 165, 250, 0.15);
-        border: 1px solid rgba(96, 165, 250, 0.25);
-        color: #60A5FA;
+        background: var(--tl-status-info-border);
+        border: 1px solid var(--tl-status-info-border);
+        color: var(--tl-status-info);
         font-size: 11px;
         font-weight: 800;
         text-transform: uppercase;
@@ -3179,7 +3179,7 @@
     }
 
     .vdd-search-btn:hover:not(:disabled) {
-        background: rgba(96, 165, 250, 0.25);
+        background: var(--tl-status-info-border);
     }
 
     .vdd-search-btn:disabled {
@@ -3218,8 +3218,8 @@
     }
 
     .vdd-search-result-item--expanded {
-        background: rgba(96, 165, 250, 0.06);
-        border-color: rgba(96, 165, 250, 0.15);
+        background: var(--tl-status-info-soft);
+        border-color: var(--tl-status-info-border);
     }
 
     .vdd-detail-fields {
@@ -3396,7 +3396,7 @@
         border-radius: 6px;
         background: rgba(93, 202, 165, 0.15);
         border: 1px solid rgba(93, 202, 165, 0.3);
-        color: #5DCAA5;
+        color: var(--tl-status-success);
         font-size: 10px;
         font-weight: 800;
         text-transform: uppercase;
@@ -3438,9 +3438,9 @@
     }
 
     .vdd-rematch-btn:hover {
-        background: rgba(96, 165, 250, 0.08);
-        border-color: rgba(96, 165, 250, 0.2);
-        color: #60A5FA;
+        background: var(--tl-status-info-soft);
+        border-color: var(--tl-status-info-border);
+        color: var(--tl-status-info);
     }
 
     /* -- Pen name linking -- */
@@ -3449,7 +3449,7 @@
         align-items: center;
         gap: 8px;
         font-size: 13px;
-        color: #60A5FA;
+        color: var(--tl-status-info);
         font-weight: 600;
         background: none;
         border: none;
@@ -3655,7 +3655,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #C9922E;
+        color: var(--tl-accent-primary);
         background: rgba(201, 146, 46, 0.1);
         border: 1px solid rgba(201, 146, 46, 0.2);
         border-radius: 4px;
@@ -3758,13 +3758,13 @@
     }
 
     .vdd-type-dropdown:hover {
-        border-color: rgba(201,146,46,0.4);
+        border-color: var(--tl-accent-primary-border);
         color: rgba(255,255,255,0.9);
     }
 
     .vdd-type-dropdown:focus {
-        border-color: #C9922E;
-        box-shadow: 0 0 0 1px rgba(201,146,46,0.2);
+        border-color: var(--tl-accent-primary);
+        box-shadow: 0 0 0 1px var(--tl-accent-primary-border);
     }
 
     .vdd-type-dropdown option {
@@ -3794,18 +3794,18 @@
     }
 
     .vdd-pipeline-dot--ok {
-        background: #5DCAA5;
-        box-shadow: 0 0 6px rgba(93,202,165,0.4);
+        background: var(--tl-status-success);
+        box-shadow: 0 0 6px var(--tl-status-success-border);
     }
 
     .vdd-pipeline-dot--fail {
-        background: #A05050;
+        background: var(--tl-status-danger);
         box-shadow: 0 0 6px rgba(160,80,80,0.3);
     }
 
     .vdd-pipeline-dot--warn {
-        background: #C9922E;
-        box-shadow: 0 0 6px rgba(201,146,46,0.4);
+        background: var(--tl-accent-primary);
+        box-shadow: 0 0 6px var(--tl-accent-primary-border);
     }
 
     .vdd-pipeline-qid-link {
@@ -3951,8 +3951,8 @@
         font-size: 10px;
         padding: 2px 6px;
         border-radius: 3px;
-        background: rgba(93,202,165,0.12);
-        color: rgba(93,202,165,0.7);
+        background: var(--tl-status-success-soft);
+        color: var(--tl-status-success);
     }
 
     /* -- Status section -- */
@@ -4004,7 +4004,7 @@
 
     .vdd-meta-tab--active {
         background: rgba(96,165,250,0.1);
-        color: #60A5FA;
+        color: var(--tl-status-info);
     }
 
     .vdd-metadata-list {
@@ -4045,7 +4045,7 @@
         align-items: center;
         gap: 4px;
         font-size: 11px;
-        color: #60A5FA;
+        color: var(--tl-status-info);
         text-decoration: none;
         padding: 2px 0 2px 20px;
         opacity: 0.7;
@@ -4088,7 +4088,7 @@
 
     .vdd-alias-name {
         font-size: 13px;
-        color: #60A5FA;
+        color: var(--tl-status-info);
     }
 
     .vdd-alias-qid {
@@ -4110,7 +4110,7 @@
     /* -- NeedsReview problem banner -- */
     .vdd-problem-banner {
         background: rgba(239, 159, 39, 0.08);
-        border-left: 3px solid #EF9F27;
+        border-left: 3px solid var(--tl-status-warning);
         border-radius: 8px;
         padding: 12px 16px;
         margin-bottom: 16px;
@@ -4128,7 +4128,7 @@
     .vdd-problem-banner-msg {
         font-size: 13px;
         font-weight: 700;
-        color: #EF9F27;
+        color: var(--tl-status-warning);
         line-height: 1.4;
     }
 
@@ -4190,7 +4190,7 @@
     }
 
     .vdd-person-row:hover .vdd-person-name-link {
-        color: #60A5FA;
+        color: var(--tl-status-info);
     }
 
     .vdd-person-role-label {
@@ -4257,13 +4257,13 @@
     }
 
     .vdd-match-status--ok {
-        background: rgba(93,202,165,0.08);
-        color: #5DCAA5;
+        background: var(--tl-status-success-soft);
+        color: var(--tl-status-success);
     }
 
     .vdd-match-status--warn {
-        background: rgba(239,159,39,0.08);
-        color: #EF9F27;
+        background: var(--tl-status-warning-soft);
+        color: var(--tl-status-warning);
     }
 
     .vdd-match-status--fail {
@@ -4290,7 +4290,7 @@
         align-items: center;
         gap: 4px;
         font-size: 11px;
-        color: #EF9F27;
+        color: var(--tl-status-warning);
         margin-top: 6px;
     }
 
@@ -4344,12 +4344,12 @@
     }
 
     .vdd-result-card:hover {
-        border-color: rgba(96, 165, 250, 0.15);
+        border-color: var(--tl-status-info-border);
         background: rgba(15, 23, 42, 0.7);
     }
 
     .vdd-result-card--expanded {
-        border-color: rgba(96, 165, 250, 0.3);
+        border-color: var(--tl-status-info-border);
         background: rgba(15, 23, 42, 0.7);
     }
 
@@ -4476,7 +4476,7 @@
     }
 
     .vdd-suggested-field-item input {
-        accent-color: #5DCAA5;
+        accent-color: var(--tl-status-success);
     }
 
     .vdd-canonical-empty-state {
@@ -4691,8 +4691,8 @@
     }
 
     ::deep .vdd-details-tabs .mud-tab.mud-tab-active {
-        color: #C9922E;
-        box-shadow: inset 0 -2px 0 #C9922E;
+        color: var(--tl-accent-primary);
+        box-shadow: inset 0 -2px 0 var(--tl-accent-primary);
     }
 </style>
 

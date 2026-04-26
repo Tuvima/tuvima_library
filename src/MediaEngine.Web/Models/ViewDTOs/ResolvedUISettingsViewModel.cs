@@ -24,7 +24,7 @@ public sealed class ResolvedUISettingsViewModel
     public bool DarkMode { get; set; } = true;
 
     [JsonPropertyName("accent_color")]
-    public string AccentColor { get; set; } = "#EAB308";
+    public string AccentColor { get; set; } = "var(--tl-status-warning)";
 
     // ── Layout ─────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-.sidebar-page-header {
+﻿.sidebar-page-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -11,7 +11,7 @@
 }
 
 .sidebar-page-header__eyebrow {
-    color: rgba(255, 255, 255, 0.42);
+    color: var(--tl-text-muted);
     font-size: 0.74rem;
     font-weight: 800;
     letter-spacing: 0.12em;
@@ -20,7 +20,7 @@
 
 .sidebar-page-header h1 {
     margin: 0;
-    color: rgba(255, 255, 255, 0.95);
+    color: var(--tl-text-primary);
     font-size: clamp(1.6rem, 2.2vw, 2.2rem);
     line-height: 1.18;
 }
@@ -28,7 +28,7 @@
 .sidebar-page-header p {
     max-width: 56rem;
     margin: 8px 0 0;
-    color: rgba(255, 255, 255, 0.62);
+    color: var(--tl-text-secondary);
     line-height: 1.6;
 }
 
@@ -46,19 +46,19 @@
     min-height: 34px;
     padding: 0 12px;
     border-radius: var(--app-radius-md, 8px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--tl-border-subtle);
+    background: var(--tl-bg-surface-raised);
+    color: var(--tl-text-secondary);
     font-size: 0.84rem;
     font-weight: 850;
 }
 
 .sidebar-page-header__status.is-healthy {
-    color: #4ade80;
+    color: var(--tl-status-success);
 }
 
 .sidebar-page-header__status.is-warning {
-    color: #facc15;
+    color: var(--tl-accent-primary);
 }
 
 @media (max-width: 980px) {

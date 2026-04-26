@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject UIOrchestratorService Orchestrator
@@ -9,7 +9,7 @@
 <MudDialog Class="eo-dialog">
     <TitleContent>
         <div class="eo-title-bar">
-            <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Style="color: #C9922E; font-size: 1.2rem;" />
+            <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Style="color: var(--tl-accent-primary); font-size: 1.2rem;" />
             <span class="eo-title">Media Item Editor</span>
             <span style="flex: 1;"></span>
             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
@@ -19,7 +19,7 @@
     </TitleContent>
 
     <DialogContent>
-        @* ── Tab bar (inside dialog body so MudBlazor can't clip it) ── *@
+        @* â”€â”€ Tab bar (inside dialog body so MudBlazor can't clip it) â”€â”€ *@
         <div class="eo-tab-bar">
             <button class="eo-tab @(_activeTab == 0 ? "eo-tab--on" : "")"
                     @onclick="@(() => SetTab(0))">Details</button>
@@ -34,7 +34,7 @@
         <div class="eo-body">
             @if (_activeTab == 0)
             {
-                @* ══════════ DETAILS TAB ══════════ *@
+                @* â•â•â•â•â•â•â•â•â•â• DETAILS TAB â•â•â•â•â•â•â•â•â•â• *@
                 <div class="eo-meta-tab">
                     @if (_loadingMeta)
                     {
@@ -42,9 +42,9 @@
                     }
                     else
                     {
-                        @* ── Authority banner ── *@
+                        @* â”€â”€ Authority banner â”€â”€ *@
                         <div class="eo-authority-banner">
-                            <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Style="font-size: 0.9rem; color: rgba(201,146,46,0.7);" />
+                            <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Style="font-size: 0.9rem; color: var(--tl-accent-primary);" />
                             <span>Verified from authoritative sources</span>
                             @if (!string.IsNullOrEmpty(_wikidataQid))
                             {
@@ -58,7 +58,7 @@
 
                         @RenderGroupedFields()
 
-                        @* ── File Tags section ── *@
+                        @* â”€â”€ File Tags section â”€â”€ *@
                         @if (_fileTagClaims is { Count: > 0 })
                         {
                             <div class="eo-group" style="margin-top: 12px;">
@@ -80,9 +80,9 @@
             }
             else if (_activeTab == 1)
             {
-                @* ══════════ UPDATE MATCH TAB ══════════ *@
+                @* â•â•â•â•â•â•â•â•â•â• UPDATE MATCH TAB â•â•â•â•â•â•â•â•â•â• *@
                 <div class="eo-search-tab">
-                    @* ── Search bar + media type dropdown ── *@
+                    @* â”€â”€ Search bar + media type dropdown â”€â”€ *@
                     <div class="eo-search-row">
                         <MudTextField @bind-Value="_searchQuery" Placeholder="Search..."
                                       Variant="Variant.Outlined" Margin="Margin.Dense"
@@ -103,20 +103,20 @@
                         </MudSelect>
                     </div>
 
-                    @* ── Two-column: images (left 50%) + results (right 50%) ── *@
+                    @* â”€â”€ Two-column: images (left 50%) + results (right 50%) â”€â”€ *@
                     <div class="eo-search-columns" style="flex: 1; min-height: 0;">
-                        @* ── Left: image gallery ── *@
+                        @* â”€â”€ Left: image gallery â”€â”€ *@
                         <div class="eo-poster-col">
                             @if (_retailCovers.Count > 0)
                             {
-                                @* ── Selected image large ── *@
+                                @* â”€â”€ Selected image large â”€â”€ *@
                                 <div class="eo-poster-frame">
                                     <img src="@_retailCovers[_selectedCoverIndex].CoverUrl"
                                          alt="Cover art"
                                          class="eo-poster-img" />
                                 </div>
 
-                                @* ── Thumbnail strip: all images ── *@
+                                @* â”€â”€ Thumbnail strip: all images â”€â”€ *@
                                 @if (_retailCovers.Count > 1)
                                 {
                                     <div class="eo-thumb-strip">
@@ -136,7 +136,7 @@
                             {
                                 <div class="eo-poster-frame eo-poster-frame--empty">
                                     <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                                         Style="color: rgba(201,146,46,0.5);" />
+                                                         Style="color: var(--tl-accent-primary);" />
                                 </div>
                             }
                             else
@@ -148,13 +148,13 @@
                             }
                         </div>
 
-                        @* ── Right: scrollable results + sticky apply bar ── *@
+                        @* â”€â”€ Right: scrollable results + sticky apply bar â”€â”€ *@
                         <div style="display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
                             <div class="eo-results-col" style="flex: 1; min-height: 0;">
                                 @if (_searching)
                                 {
                                     <div class="eo-status">
-                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: #C9922E;" />
+                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-accent-primary);" />
                                         <span>Searching...</span>
                                     </div>
                                 }
@@ -209,11 +209,11 @@
                                 }
                             </div>
 
-                            @* ── Sticky Apply bar ── *@
+                            @* â”€â”€ Sticky Apply bar â”€â”€ *@
                             <div class="eo-apply-bar">
                                 @if (_applying)
                                 {
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: #C9922E;" />
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-accent-primary);" />
                                 }
                                 else if (_appliedItem is not null && _confirmingItem is null)
                                 {
@@ -247,7 +247,7 @@
             }
             else if (_activeTab == 2)
             {
-                @* ══════════ HISTORY TAB ══════════ *@
+                @* â•â•â•â•â•â•â•â•â•â• HISTORY TAB â•â•â•â•â•â•â•â•â•â• *@
                 <div class="eo-meta-tab">
                     @if (_loadingHistory)
                     {
@@ -287,7 +287,7 @@
             }
             else
             {
-                @* ══════════ IMAGES TAB (stub) ══════════ *@
+                @* â•â•â•â•â•â•â•â•â•â• IMAGES TAB (stub) â•â•â•â•â•â•â•â•â•â• *@
                 <div class="eo-meta-tab">
                     <div class="eo-status" style="padding: 80px 0;">
                         <MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary"
@@ -312,7 +312,7 @@
     [Parameter] public LibraryCatalogItemViewModel? LibraryCatalogItem { get; set; }
     [Parameter] public int InitialTab { get; set; }
 
-    // ── State ──────────────────────────────────────────────────────────
+    // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     private int _activeTab;
     private bool _loadingMeta;
     private List<CanonicalFieldViewModel>? _canonicalValues;
@@ -356,7 +356,7 @@
 
     private sealed record RetailCoverEntry(string CoverUrl, string ProviderName, int Priority);
 
-    // ── Lifecycle ──────────────────────────────────────────────────────
+    // â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     protected override async Task OnInitializedAsync()
     {
@@ -467,7 +467,7 @@
         StateHasChanged();
     }
 
-    // ── Preloaded candidates ───────────────────────────────────────────
+    // â”€â”€ Preloaded candidates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void TryLoadPreloadedCandidates()
     {
@@ -484,7 +484,7 @@
                 return;
             }
         }
-        catch { /* Not cached format — try review queue format */ }
+        catch { /* Not cached format â€” try review queue format */ }
 
         try
         {
@@ -511,7 +511,7 @@
 
     private sealed record ClaimFieldDto(string Key, string Value);
 
-    // ── Search ─────────────────────────────────────────────────────────
+    // â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private async Task OnMediaTypeChanged(string mediaType)
     {
@@ -569,7 +569,7 @@
                 var json = System.Text.Json.JsonSerializer.Serialize(_results);
                 await Orchestrator.SaveSearchResultsCacheAsync(EntityId, json);
             }
-            catch { /* Non-critical — cache write failure is silent */ }
+            catch { /* Non-critical â€” cache write failure is silent */ }
         }
     }
 
@@ -578,7 +578,7 @@
         if (e.Key == "Enter") await OnSearch();
     }
 
-    // ── Highlight & provider gallery ────────────────────────────────
+    // â”€â”€ Highlight & provider gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private async Task OnResultClicked(SearchResultItemViewModel item)
     {
@@ -637,7 +637,7 @@
             var secondary = await secondaryTask;
             if (ct.IsCancellationRequested || _highlightedItem != item) return;
 
-            // Combine, deduplicate by URL (not by provider — allow multiple from same provider),
+            // Combine, deduplicate by URL (not by provider â€” allow multiple from same provider),
             // sort by priority then confidence
             var allCovers = primary.Concat(secondary)
                 .Where(c => !string.IsNullOrEmpty(c.CoverUrl))
@@ -672,7 +672,7 @@
         _loadingRetail = false;
     }
 
-    // ── Apply ──────────────────────────────────────────────────────────
+    // â”€â”€ Apply â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private async Task OnConfirmApply(SearchResultItemViewModel item)
     {
@@ -706,7 +706,7 @@
                 _appliedItem = item;
                 _confirmingItem = null;
                 _appliedAny = true;
-                Snackbar.Add($"Match applied — {applied} field(s) updated", Severity.Success);
+                Snackbar.Add($"Match applied â€” {applied} field(s) updated", Severity.Success);
                 await LoadMetadataAsync();
             }
             else
@@ -731,9 +731,9 @@
         MudDialog.Close(_appliedAny ? DialogResult.Ok(true) : DialogResult.Cancel());
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────
+    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    // ── Details tab rendering ───────────────────────────────────────────
+    // â”€â”€ Details tab rendering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private RenderFragment RenderGroupedFields() => __builder =>
     {
@@ -755,7 +755,7 @@
                             <span class="eo-row-value">@Truncate(field.Value!, 300)</span>
                             @if (field.IsUserLocked)
                             {
-                                <MudIcon Icon="@Icons.Material.Filled.Lock" Style="font-size: 0.7rem; color: rgba(201,146,46,0.5);" title="Locked by you" />
+                                <MudIcon Icon="@Icons.Material.Filled.Lock" Style="font-size: 0.7rem; color: var(--tl-accent-primary);" title="Locked by you" />
                             }
                         </div>
                     }
@@ -768,13 +768,13 @@
         }
     };
 
-    // ── Details tab helpers ─────────────────────────────────────────────
+    // â”€â”€ Details tab helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>Fields that should not appear in the Details tab.</summary>
     private static readonly HashSet<string> HiddenKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "cover", "hero", "dominant_color",
-        // Companion QID fields — only work QID and edition QID are shown
+        // Companion QID fields â€” only work QID and edition QID are shown
         "genre_qid", "author_qid", "narrator_qid", "director_qid",
         "cast_member_qid", "characters_qid", "series_qid",
         "publisher_qid", "location_qid", "franchise_qid",
@@ -864,25 +864,25 @@
     private static string Truncate(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
 
-    // ── History helpers ─────────────────────────────────────────────────
+    // â”€â”€ History helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static string GetEventColor(string eventType) => eventType switch
     {
         "FileDetected"         => "#4A90D9",
         "MetadataExtracted"    => "#4A90D9",
-        "ConfidenceScored"     => "#C9922E",
+        "ConfidenceScored"     => "var(--tl-accent-primary)",
         "WikidataMatched"      => "#4CAF50",
         "WikidataMatchFailed"  => "#EF5350",
         "CoverArtFound"        => "#4CAF50",
         "CoverArtNotFound"     => "#EF5350",
         "PersonLinked"         => "#4CAF50",
-        "Staged"               => "#C9922E",
+        "Staged"               => "var(--tl-accent-primary)",
         "Promoted"             => "#4CAF50",
         "MetadataUpdated"      => "#4CAF50",
         "UserEdited"           => "#4A90D9",
         "Rejected"             => "#EF5350",
         "Recovered"            => "#4CAF50",
-        "ReviewCreated"        => "#C9922E",
+        "ReviewCreated"        => "var(--tl-accent-primary)",
         "ReviewResolved"       => "#4CAF50",
         "HydrationStarted"     => "#4A90D9",
         "HydrationCompleted"   => "#4CAF50",
@@ -903,7 +903,7 @@
 }
 
 <style>
-    /* ── Dialog shell ── */
+    /* â”€â”€ Dialog shell â”€â”€ */
     .eo-dialog {
         background: #0d1117 !important;
         max-width: 1100px !important;
@@ -924,7 +924,7 @@
         overflow: visible !important;
     }
 
-    /* ── Title bar ── */
+    /* â”€â”€ Title bar â”€â”€ */
     .eo-title-bar {
         display: flex;
         align-items: center;
@@ -940,7 +940,7 @@
         white-space: nowrap;
     }
 
-    /* ── Tab bar (below title, inside dialog content) ── */
+    /* â”€â”€ Tab bar (below title, inside dialog content) â”€â”€ */
     .eo-tab-bar {
         display: flex;
         gap: 2px;
@@ -971,11 +971,11 @@
     }
 
     .eo-tab--on {
-        color: #C9922E !important;
-        background: rgba(201,146,46,0.12) !important;
+        color: var(--tl-accent-primary) !important;
+        background: var(--tl-accent-primary-soft) !important;
     }
 
-    /* ── Body ── */
+    /* â”€â”€ Body â”€â”€ */
     .eo-body {
         height: 62vh;
         display: flex;
@@ -983,7 +983,7 @@
         overflow: hidden;
     }
 
-    /* ── Search tab ── */
+    /* â”€â”€ Search tab â”€â”€ */
     .eo-search-tab {
         display: flex;
         flex-direction: column;
@@ -1000,7 +1000,7 @@
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     }
 
-    /* ── Two-column 50/50 ── */
+    /* â”€â”€ Two-column 50/50 â”€â”€ */
     .eo-search-columns {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -1009,7 +1009,7 @@
         overflow: hidden;
     }
 
-    /* ── Poster gallery column ── */
+    /* â”€â”€ Poster gallery column â”€â”€ */
     .eo-poster-col {
         display: flex;
         flex-direction: column;
@@ -1056,7 +1056,7 @@
         letter-spacing: 0.05em;
     }
 
-    /* ── Thumbnail strip ── */
+    /* â”€â”€ Thumbnail strip â”€â”€ */
     .eo-thumb-strip {
         display: flex;
         gap: 8px;
@@ -1083,8 +1083,8 @@
     }
 
     .eo-thumb--on {
-        border-color: #C9922E !important;
-        background: rgba(201,146,46,0.08) !important;
+        border-color: var(--tl-accent-primary) !important;
+        background: var(--tl-accent-primary-soft) !important;
     }
 
     .eo-thumb img {
@@ -1109,7 +1109,7 @@
         white-space: nowrap;
     }
 
-    /* ── Results column ── */
+    /* â”€â”€ Results column â”€â”€ */
     .eo-results-col {
         overflow-y: auto;
         padding: 8px 12px;
@@ -1171,7 +1171,7 @@
     }
 
     .eo-result-type--audiobook {
-        color: #C9922E;
+        color: var(--tl-accent-primary);
         background: rgba(201, 146, 46, 0.10);
     }
 
@@ -1254,7 +1254,7 @@
         50% { opacity: 0.6; }
     }
 
-    /* ── Details tab ── */
+    /* â”€â”€ Details tab â”€â”€ */
     .eo-authority-banner {
         display: flex;
         align-items: center;
@@ -1318,7 +1318,7 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.7rem;
         font-weight: 600;
-        color: #C9922E;
+        color: var(--tl-accent-primary);
         background: rgba(201, 146, 46, 0.10);
         border: 1px solid rgba(201, 146, 46, 0.25);
         text-decoration: none;
@@ -1367,7 +1367,7 @@
         flex: 1;
     }
 
-    /* ── History timeline ── */
+    /* â”€â”€ History timeline â”€â”€ */
     .history-timeline {
         position: relative;
         padding-left: 20px;
@@ -1404,7 +1404,7 @@
         gap: 2px;
     }
 
-    /* ── Apply bar ── */
+    /* â”€â”€ Apply bar â”€â”€ */
     .eo-apply-bar {
         position: sticky;
         bottom: 0;

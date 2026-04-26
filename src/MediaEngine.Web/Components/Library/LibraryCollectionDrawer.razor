@@ -99,7 +99,7 @@
                         </div>
                         <div class="collection-config-row">
                             <span class="collection-config-label">@L["VaultCollection_LabelProgressTracking"]</span>
-                            <span class="collection-config-value" style="color:#5DCAA5;">@L["VaultCollection_ValueEnabled"]</span>
+                            <span class="collection-config-value" style="color:var(--tl-status-success);">@L["VaultCollection_ValueEnabled"]</span>
                         </div>
                         <div class="collection-config-row" style="border-bottom:none;">
                             <span class="collection-config-label">@L["VaultCollection_LabelItems"]</span>
@@ -201,7 +201,7 @@
                     @if (Collection.ItemCount > 0)
                     {
                         <div style="margin-top:12px;">
-                            <span style="font-size:10px;font-weight:900;color:#C9922E;cursor:pointer;letter-spacing:0.04em;">
+                            <span style="font-size:10px;font-weight:900;color:var(--tl-accent-primary);cursor:pointer;letter-spacing:0.04em;">
                                 @L["VaultCollection_ViewAllItems", Collection.ItemCount] →
                             </span>
                         </div>
@@ -288,7 +288,7 @@
         {
             <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
                 <span style="font-size:10px;color:rgba(255,255,255,0.3);">@L["VaultCollection_ManagedByOwner"]</span>
-                <span style="font-size:11px;font-weight:900;color:#C9922E;cursor:pointer;letter-spacing:0.04em;">
+                <span style="font-size:11px;font-weight:900;color:var(--tl-accent-primary);cursor:pointer;letter-spacing:0.04em;">
                     @L["VaultCollection_OpenInMyLibrary"] →
                 </span>
             </div>

@@ -33,7 +33,7 @@ else
                             <MudButton Variant="Variant.Text" Size="Size.Small"
                                        StartIcon="@Icons.Material.Filled.Block"
                                        OnClick="@(() => OnRejectGroup.InvokeAsync(group.Items.Select(i => i.EntityId).ToList()))"
-                                       Style="font-size: 0.68rem; color: #A05050; padding: 2px 6px; min-width: 0; height: 22px;">
+                                       Style="font-size: 0.68rem; color: var(--tl-status-danger); padding: 2px 6px; min-width: 0; height: 22px;">
                                 Reject All
                             </MudButton>
                         </div>
@@ -282,7 +282,7 @@ else
                 HeaderIcon: Icons.Material.Filled.Info, HeaderColor: "#B08940"));
         if (low.Count > 0)
             result.Add(new SectionGroup("low", "Low Confidence (<60%)", low,
-                HeaderIcon: Icons.Material.Filled.Warning, HeaderColor: "#A05050"));
+                HeaderIcon: Icons.Material.Filled.Warning, HeaderColor: "var(--tl-status-danger)"));
         return result;
     }
 

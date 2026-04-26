@@ -99,13 +99,13 @@
                 return "border-left: 3px solid #EF5350; border-radius: 0; opacity: 0.55;";
 
             if (NeedsReview)
-                return "border-left: 3px solid #EF9F27; border-radius: 0;";
+                return "border-left: 3px solid var(--tl-status-warning); border-radius: 0;";
 
             if (Item.MissingUniverse && string.IsNullOrEmpty(Item.ReviewTrigger))
                 return "border-left: 3px solid #B4B2A9; border-radius: 0;";
 
             if (isIdentified)
-                return "border-left: 3px solid #5DCAA5; border-radius: 0; opacity: 0.55;";
+                return "border-left: 3px solid var(--tl-status-success); border-radius: 0; opacity: 0.55;";
 
             return "";
         }
@@ -144,7 +144,7 @@
         box-shadow: 0 0 0 1.5px rgba(74,144,217,0.5);
     }
     .rc-wrap--selected .rc-thumb {
-        border-color: #C9922E;
+        border-color: var(--tl-accent-primary);
     }
 
     /* ── Thumbnail ── */
@@ -248,8 +248,8 @@
         transition: all 0.15s ease;
     }
     .rc-sel-mark--on {
-        background: #C9922E;
-        border-color: #C9922E;
+        background: var(--tl-accent-primary);
+        border-color: var(--tl-accent-primary);
     }
     .rc-sel-mark--on::after {
         content: '';

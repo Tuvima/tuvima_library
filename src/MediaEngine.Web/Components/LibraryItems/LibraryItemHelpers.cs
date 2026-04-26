@@ -70,7 +70,7 @@ public static class LibraryItemHelpers
         "Auto" => "background: rgba(90,138,94,0.15); color: #5A8A5E; font-size: 0.7rem; height: 22px;",
         "Review" => "background: rgba(176,137,64,0.15); color: #B08940; font-size: 0.7rem; height: 22px;",
         "Edited" => "background: rgba(92,122,153,0.15); color: #5C7A99; font-size: 0.7rem; height: 22px;",
-        "Duplicate" => "background: rgba(160,80,80,0.15); color: #A05050; font-size: 0.7rem; height: 22px;",
+        "Duplicate" => "background: rgba(160,80,80,0.15); color: var(--tl-status-danger); font-size: 0.7rem; height: 22px;",
         _ => "background: rgba(255,255,255,0.05); color: #6B6B6B; font-size: 0.7rem; height: 22px;",
     };
 

@@ -1,4 +1,4 @@
-.listen-track-grid {
+﻿.listen-track-grid {
     border: 1px solid var(--app-border, #293036);
     border-radius: var(--app-radius-lg, 8px);
     background: var(--app-surface, #1e1f27);
@@ -51,7 +51,7 @@
 }
 
 .listen-track-grid ::deep tr.listen-track-grid__row--selected {
-    background: var(--app-active-overlay, rgba(35, 109, 201, 0.16)) !important;
+    background: var(--app-active-overlay, var(--tl-accent-primary-soft)) !important;
 }
 
 .listen-track-grid__play-cell,

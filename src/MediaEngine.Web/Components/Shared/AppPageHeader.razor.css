@@ -1,4 +1,4 @@
-.app-page-header {
+﻿.app-page-header {
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -81,12 +81,12 @@
 
 .app-page-header__status--healthy {
     color: var(--app-success, #17c653);
-    background: rgba(23, 198, 83, 0.12);
+    background: var(--tl-status-success-soft);
 }
 
 .app-page-header__status--warning {
     color: var(--app-warning, #f6c000);
-    background: rgba(246, 192, 0, 0.12);
+    background: var(--tl-status-warning-soft);
 }
 
 .app-page-header__status--neutral {

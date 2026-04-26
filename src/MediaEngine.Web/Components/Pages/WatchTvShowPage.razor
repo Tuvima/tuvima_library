@@ -1,4 +1,4 @@
-@page "/watch/tv/show/{CollectionId:guid}"
+﻿@page "/watch/tv/show/{CollectionId:guid}"
 @using Microsoft.AspNetCore.Components
 @using MediaEngine.Web.Components.Watch
 @using MediaEngine.Web.Models.ViewDTOs
@@ -532,7 +532,7 @@ else
             parts.Add($"Episode {episodeNumber}");
         parts.Add($"{Math.Clamp(journey.ProgressPct, 0, 100):F0}% complete");
 
-        return string.Join(" · ", parts);
+        return string.Join(" Â· ", parts);
     }
 }
 
@@ -723,9 +723,9 @@ else
     }
 
     .watch-tv-button--primary {
-        background: #f4b000;
+        background: var(--tl-status-warning);
         color: #181208;
-        border-color: rgba(244, 176, 0, 0.8);
+        border-color: var(--tl-status-warning);
     }
 
     .watch-tv-button--secondary {
@@ -763,9 +763,9 @@ else
     }
 
     .watch-tv-pill.is-active {
-        background: #f4b000;
+        background: var(--tl-status-warning);
         color: #17120a;
-        border-color: rgba(244, 176, 0, 0.76);
+        border-color: var(--tl-status-warning);
     }
 
     .watch-tv-episodes,
@@ -802,7 +802,7 @@ else
     }
 
     .watch-tv-episode-card.is-highlighted .watch-tv-episode-card__art {
-        outline: 2px solid rgba(244, 176, 0, 0.82);
+        outline: 2px solid var(--tl-status-warning);
     }
 
     .watch-tv-episode-card__body {

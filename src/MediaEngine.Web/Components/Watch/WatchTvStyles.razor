@@ -2,7 +2,7 @@
 
 <style>
     .watch-tv-page {
-        color: rgba(255, 255, 255, 0.92);
+        color: var(--tl-text-primary);
         padding-bottom: 48px;
     }
 
@@ -14,11 +14,11 @@
         align-items: center;
         justify-content: center;
         text-align: center;
-        color: rgba(255, 255, 255, 0.84);
+        color: var(--tl-text-primary);
     }
 
     .watch-tv-state p {
-        color: rgba(255, 255, 255, 0.56);
+        color: var(--tl-text-muted);
         margin: 0;
     }
 
@@ -27,10 +27,10 @@
         overflow: hidden;
         min-height: 560px;
         margin-bottom: 26px;
-        border-radius: 30px;
-        background: linear-gradient(140deg, rgba(9, 12, 18, 0.96), rgba(8, 10, 16, 0.96));
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 28px 56px rgba(0, 0, 0, 0.28);
+        border-radius: var(--tl-radius-xl);
+        background: var(--tl-gradient-surface);
+        border: 1px solid var(--tl-border-subtle);
+        box-shadow: var(--tl-shadow-raised);
     }
 
     .watch-tv-hero__bg,
@@ -49,7 +49,7 @@
 
     .watch-tv-hero__overlay {
         background:
-            linear-gradient(90deg, rgba(8, 11, 16, 0.96) 0%, rgba(8, 11, 16, 0.86) 34%, rgba(8, 11, 16, 0.36) 70%, rgba(8, 11, 16, 0.88) 100%);
+            linear-gradient(90deg, rgba(7, 10, 18, 0.96) 0%, rgba(7, 10, 18, 0.86) 34%, rgba(7, 10, 18, 0.36) 70%, rgba(7, 10, 18, 0.88) 100%);
     }
 
     .watch-tv-hero__topbar,
@@ -89,7 +89,7 @@
         margin-bottom: 10px;
         font-size: 0.82rem;
         font-weight: 800;
-        color: rgba(255, 255, 255, 0.72);
+        color: var(--tl-text-secondary);
     }
 
     .watch-tv-hero h1 {
@@ -97,7 +97,7 @@
         font-size: clamp(2.8rem, 5vw, 5rem);
         line-height: 0.92;
         letter-spacing: -0.05em;
-        color: #fff;
+        color: var(--tl-text-primary);
     }
 
     .watch-tv-hero__description {
@@ -105,7 +105,7 @@
         margin: 18px 0 0;
         font-size: 1rem;
         line-height: 1.6;
-        color: rgba(255, 255, 255, 0.84);
+        color: var(--tl-text-secondary);
     }
 
     .watch-tv-hero__stats {
@@ -120,27 +120,27 @@
     .watch-tv-hero__stat-label {
         font-size: 0.78rem;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.56);
+        color: var(--tl-text-muted);
     }
 
     .watch-tv-hero__stat-value,
     .watch-tv-hero__supporting {
         margin-top: 4px;
-        color: rgba(255, 255, 255, 0.9);
+        color: var(--tl-text-primary);
     }
 
     .watch-tv-hero__supporting {
         font-size: 0.92rem;
-        color: rgba(255, 255, 255, 0.68);
+        color: var(--tl-text-secondary);
     }
 
     .watch-tv-hero__poster {
         width: clamp(200px, 18vw, 270px);
         aspect-ratio: 2 / 3;
         overflow: hidden;
-        border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        box-shadow: 0 24px 44px rgba(0, 0, 0, 0.34);
+        border-radius: var(--tl-radius-lg);
+        border: 1px solid var(--tl-border-default);
+        box-shadow: var(--tl-shadow-md);
     }
 
     .watch-tv-hero__poster img,
@@ -162,8 +162,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.06);
-        color: rgba(255, 255, 255, 0.36);
+        background: var(--tl-bg-surface-raised);
+        color: var(--tl-text-muted);
     }
 
     .watch-tv-button,
@@ -180,21 +180,21 @@
         gap: 8px;
         min-height: 44px;
         padding: 0 16px;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: var(--tl-radius-pill);
+        border: 1px solid var(--tl-border-default);
         cursor: pointer;
         font-weight: 800;
     }
 
     .watch-tv-button--primary {
-        background: #f4b000;
-        color: #181208;
-        border-color: rgba(244, 176, 0, 0.8);
+        background: var(--tl-gradient-primary);
+        color: var(--tl-text-on-accent);
+        border-color: var(--tl-accent-primary-border);
     }
 
     .watch-tv-button--secondary {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.94);
+        background: var(--tl-bg-surface-raised);
+        color: var(--tl-text-primary);
     }
 
     .watch-tv-section {
@@ -212,24 +212,24 @@
     .watch-tv-section__header h2 {
         margin: 0;
         font-size: 1.85rem;
-        color: #fff;
+        color: var(--tl-text-primary);
     }
 
     .watch-tv-pill {
         min-height: 38px;
         padding: 0 14px;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.04);
-        color: rgba(255, 255, 255, 0.7);
+        border-radius: var(--tl-radius-pill);
+        border: 1px solid var(--tl-border-subtle);
+        background: var(--tl-bg-surface-raised);
+        color: var(--tl-text-secondary);
         cursor: pointer;
         font-weight: 700;
     }
 
     .watch-tv-pill.is-active {
-        background: #f4b000;
-        color: #17120a;
-        border-color: rgba(244, 176, 0, 0.76);
+        background: var(--tl-accent-primary-soft);
+        color: var(--tl-accent-primary);
+        border-color: var(--tl-accent-primary-border);
     }
 
     .watch-tv-episodes,
@@ -259,14 +259,14 @@
     .watch-tv-episode-card__art,
     .watch-tv-related-card__poster {
         overflow: hidden;
-        border-radius: 20px;
+        border-radius: var(--tl-radius-lg);
         aspect-ratio: 16 / 9;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--tl-border-subtle);
+        background: var(--tl-bg-surface-raised);
     }
 
     .watch-tv-episode-card.is-highlighted .watch-tv-episode-card__art {
-        outline: 2px solid rgba(244, 176, 0, 0.82);
+        outline: 2px solid var(--tl-accent-primary);
     }
 
     .watch-tv-episode-card__body {
@@ -277,7 +277,7 @@
     .watch-tv-cast-card__role,
     .watch-tv-related-card__meta {
         font-size: 0.82rem;
-        color: rgba(255, 255, 255, 0.56);
+        color: var(--tl-text-muted);
     }
 
     .watch-tv-episode-card__title,
@@ -286,14 +286,14 @@
         margin-top: 6px;
         font-size: 1rem;
         font-weight: 800;
-        color: #fff;
+        color: var(--tl-text-primary);
     }
 
     .watch-tv-episode-card__description {
         margin-top: 8px;
         font-size: 0.88rem;
         line-height: 1.5;
-        color: rgba(255, 255, 255, 0.64);
+        color: var(--tl-text-secondary);
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
@@ -303,9 +303,9 @@
     .watch-tv-cast-card__image {
         overflow: hidden;
         aspect-ratio: 4 / 5;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.04);
+        border-radius: var(--tl-radius-lg);
+        border: 1px solid var(--tl-border-subtle);
+        background: var(--tl-bg-surface-raised);
     }
 
     .watch-tv-related-card__poster {

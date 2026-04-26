@@ -1,15 +1,15 @@
-@using MudBlazor
+﻿@using MudBlazor
 
 <div class="rab-container">
 
-    @* ── Auto-register slider ── *@
+    @* â”€â”€ Auto-register slider â”€â”€ *@
     <div class="rab-auto-section">
         <button class="rab-auto-btn" @onclick="OnAutoRegister"
                 disabled="@(Processing || EligibleCount == 0)">
             @if (Processing)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                     Style="width: 12px; height: 12px; color: rgba(93,202,165,0.6);" />
+                                     Style="width: 12px; height: 12px; color: var(--tl-status-success);" />
             }
             else
             {
@@ -28,7 +28,7 @@
         }
     </div>
 
-    @* ── Retry failed ── *@
+    @* â”€â”€ Retry failed â”€â”€ *@
     @if (FailedCount > 0)
     {
         <button class="rab-retry-btn" @onclick="OnRetryFailed" disabled="@Processing">
@@ -70,7 +70,7 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
     }
 
-    /* ── Auto-register section ── */
+    /* â”€â”€ Auto-register section â”€â”€ */
     .rab-auto-section {
         display: flex;
         align-items: center;
@@ -105,7 +105,7 @@
         cursor: not-allowed;
     }
 
-    /* ── Slider ── */
+    /* â”€â”€ Slider â”€â”€ */
     .rab-slider-wrap {
         display: flex;
         align-items: center;
@@ -128,7 +128,7 @@
         width: 12px;
         height: 12px;
         border-radius: 50%;
-        background: #5DCAA5;
+        background: var(--tl-status-success);
         cursor: pointer;
         border: none;
     }
@@ -137,7 +137,7 @@
         width: 12px;
         height: 12px;
         border-radius: 50%;
-        background: #5DCAA5;
+        background: var(--tl-status-success);
         cursor: pointer;
         border: none;
     }
@@ -157,7 +157,7 @@
         white-space: nowrap;
     }
 
-    /* ── Retry failed ── */
+    /* â”€â”€ Retry failed â”€â”€ */
     .rab-retry-btn {
         display: inline-flex;
         align-items: center;

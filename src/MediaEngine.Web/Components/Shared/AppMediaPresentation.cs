@@ -42,10 +42,10 @@ public static class AppMediaPresentation
         var label = LabelFor(mediaType);
         return label switch
         {
-            "Book" => "#5DCAA5",
+            "Book" => "var(--tl-status-success)",
             "Audiobook" or "Audio" => "#84CC16",
-            "Movie" or "Video" => "#60A5FA",
-            "TV" => "#FBBF24",
+            "Movie" or "Video" => "var(--tl-status-info)",
+            "TV" => "var(--tl-media-video)",
             "Music" => "#1ED760",
             "Comic" => "#7C4DFF",
             _ => "transparent",

@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Listen
+﻿@namespace MediaEngine.Web.Components.Listen
 @using System.Globalization
 @using System.Text.Json
 @using Microsoft.JSInterop
@@ -808,7 +808,7 @@
     }
 
     .listen-player-panel__tab.is-active {
-        background: var(--app-active-overlay, rgba(35, 109, 201, 0.16));
+        background: var(--app-active-overlay, var(--tl-accent-primary-soft));
         color: var(--app-primary, #236dc9);
     }
 

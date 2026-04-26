@@ -868,7 +868,7 @@
     private static string GetScoreHex(double score) => score switch
     {
         >= 0.85 => "#4CAF50",
-        >= 0.60 => "#EF9F27",
+        >= 0.60 => "var(--tl-status-warning)",
         _ => "rgba(248,248,248,0.55)",
     };
 

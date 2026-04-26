@@ -18,66 +18,66 @@
 
 :root {
     --app-font-sans:          "Nunito", "Segoe UI", sans-serif;
-    --app-accent:             #EAB308;
-    --app-text-primary:       rgba(248, 250, 252, 0.98);
-    --app-text-secondary:     rgba(248, 248, 248, 0.60);
-    --app-text-disabled:      rgba(248, 248, 248, 0.38);
-    --app-glass-bg:           rgba(12, 16, 36, 0.80);
-    --app-glass-border:       rgba(255, 255, 255, 0.08);
-    --app-glass-inner-bg:     rgba(255, 255, 255, 0.02);
-    --app-glass-inner-border: rgba(255, 255, 255, 0.06);
-    --app-text-muted:         rgba(248, 248, 248, 0.50);
-    --app-text-soft:          rgba(248, 248, 248, 0.60);
-    --app-text-faint:         rgba(248, 248, 248, 0.38);
-    --app-surface-1:          rgba(15, 23, 42, 0.92);
-    --app-surface-2:          rgba(15, 23, 42, 0.74);
-    --app-surface-3:          rgba(30, 41, 59, 0.58);
-    --app-border-subtle:      rgba(148, 163, 184, 0.18);
-    --app-border-strong:      rgba(96, 165, 250, 0.24);
-    --app-icon-muted:         rgba(248, 248, 248, 0.35);
-    --app-icon-soft:          rgba(248, 248, 248, 0.55);
-    --app-hover-overlay:      rgba(255, 255, 255, 0.05);
-    --app-active-overlay:     rgba(234, 179, 8, 0.22);
+    --app-accent:             var(--tl-accent-primary);
+    --app-text-primary:       var(--tl-text-primary);
+    --app-text-secondary:     var(--tl-text-secondary);
+    --app-text-disabled:      var(--tl-text-disabled);
+    --app-glass-bg:           var(--tl-bg-surface);
+    --app-glass-border:       var(--tl-border-default);
+    --app-glass-inner-bg:     var(--tl-bg-surface-raised);
+    --app-glass-inner-border: var(--tl-border-subtle);
+    --app-text-muted:         var(--tl-text-muted);
+    --app-text-soft:          var(--tl-text-secondary);
+    --app-text-faint:         var(--tl-text-disabled);
+    --app-surface-1:          var(--tl-bg-surface);
+    --app-surface-2:          var(--tl-bg-surface-raised);
+    --app-surface-3:          var(--tl-bg-surface-hover);
+    --app-border-subtle:      var(--tl-border-subtle);
+    --app-border-strong:      var(--tl-border-strong);
+    --app-icon-muted:         var(--tl-text-muted);
+    --app-icon-soft:          var(--tl-text-secondary);
+    --app-hover-overlay:      var(--tl-bg-surface-hover);
+    --app-active-overlay:     var(--tl-accent-primary-soft);
     --app-radius-xs:          0;
     --app-radius-sm:          2px;
     --app-radius-md:          4px;
     --app-radius-lg:          4px;
-    --app-surface-elev-1:     rgba(17, 24, 39, 0.94);
-    --app-success:            #81C784;
-    --app-warning:            #FFB74D;
-    --app-error:              #CF6679;
-    --app-info:               #4FC3F7;
-    --app-confidence-high:    #5DCAA5;
-    --app-confidence-medium:  #EF9F27;
-    --app-confidence-low:     #A05050;
+    --app-surface-elev-1:     var(--tl-bg-surface-elevated);
+    --app-success:            var(--tl-status-success);
+    --app-warning:            var(--tl-status-warning);
+    --app-error:              var(--tl-status-danger);
+    --app-info:               var(--tl-status-info);
+    --app-confidence-high:    var(--tl-status-success);
+    --app-confidence-medium:  var(--tl-status-warning);
+    --app-confidence-low:     var(--tl-status-danger);
     --app-z-dropdown:         1100;
     --app-z-drawer:           1200;
     --app-z-modal-backdrop:   1300;
     --app-z-modal:            1400;
     --app-z-context-menu:     1500;
     --app-z-toast:            1600;
-    --app-tab-border:         rgba(255, 255, 255, 0.08);
-    --app-tab-text:           rgba(248, 248, 248, 0.56);
-    --app-tab-text-hover:     rgba(248, 248, 248, 0.88);
-    --app-tab-text-active:    rgba(255, 255, 255, 0.96);
-    --app-tab-meta:           rgba(248, 248, 248, 0.42);
-    --app-tab-badge-bg:       rgba(255, 255, 255, 0.08);
-    --app-tab-badge-text:     rgba(255, 255, 255, 0.88);
-    --app-swatch-border:      rgba(255, 255, 255, 0.10);
-    --app-swatch-active:      rgba(255, 255, 255, 0.80);
-    --app-shadow:             0 8px 32px rgba(0, 0, 0, 0.50);
-    --app-shadow-md:          0 16px 36px rgba(15, 23, 42, 0.16);
-    --app-shadow-lg:          0 22px 48px rgba(15, 23, 42, 0.24);
-    --app-inset-glow:         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    --app-tab-border:         var(--tl-border-subtle);
+    --app-tab-text:           var(--tl-text-secondary);
+    --app-tab-text-hover:     var(--tl-text-primary);
+    --app-tab-text-active:    var(--tl-accent-primary);
+    --app-tab-meta:           var(--tl-text-muted);
+    --app-tab-badge-bg:       var(--tl-bg-surface-raised);
+    --app-tab-badge-text:     var(--tl-text-secondary);
+    --app-swatch-border:      var(--tl-border-default);
+    --app-swatch-active:      var(--tl-text-primary);
+    --app-shadow:             var(--tl-shadow-sm);
+    --app-shadow-md:          var(--tl-shadow-md);
+    --app-shadow-lg:          var(--tl-shadow-lg);
+    --app-inset-glow:         0 0 0 1px var(--tl-border-subtle) inset;
     --app-dock-width:         0px;   /* Dock is floating - does not offset content */
     --app-topbar-height:      72px;
 
     /* Dock panel - dark blue glassmorphic */
-    --app-dock-bg:            rgba(8, 13, 30, 0.92);
-    --app-dock-border:        rgba(255, 255, 255, 0.09);
-    --app-dock-text:          rgba(248, 248, 248, 0.82);
-    --app-dock-text-muted:    rgba(248, 248, 248, 0.38);
-    --app-dock-hover:         rgba(255, 255, 255, 0.08);
+    --app-dock-bg:            var(--tl-bg-shell);
+    --app-dock-border:        var(--tl-border-default);
+    --app-dock-text:          var(--tl-text-secondary);
+    --app-dock-text-muted:    var(--tl-text-muted);
+    --app-dock-hover:         var(--tl-bg-surface-hover);
 }
 
 /* -- Cinematic background ----------------------------------------------- */
@@ -89,9 +89,7 @@ html {
 body {
     margin: 0;
     background:
-        radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 30%),
-        radial-gradient(circle at top right, rgba(14, 165, 233, 0.10), transparent 24%),
-        linear-gradient(180deg, #0b1220 0%, #111827 100%);
+        var(--tl-bg-app-gradient);
     color: var(--app-text-primary);
     font-family: var(--app-font-sans);
     -webkit-font-smoothing: antialiased;
@@ -207,7 +205,7 @@ body {
 }
 /* Collection editors use the Mud dialog itself as the form surface. */
 .mud-dialog.collection-editor-dialog {
-    background: #1b1c22 !important;
+    background: var(--tl-bg-surface-elevated) !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius-md) !important;
     box-shadow: var(--app-shadow-lg) !important;
@@ -297,21 +295,21 @@ body {
     position: relative;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(135deg, #d4a03c 0%, #b87820 100%);
-    border: 1.5px solid rgba(0, 0, 0, 0.15);
-    border-radius: 8px;
+    background: var(--tl-gradient-primary);
+    border: 1.5px solid var(--tl-accent-primary-border);
+    border-radius: var(--tl-radius-lg);
     cursor: pointer;
     overflow: hidden;
     transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     padding: 0;
     width: fit-content;
-    box-shadow: 0 4px 18px rgba(185, 120, 32, 0.30);
+    box-shadow: var(--tl-shadow-md);
 }
 
 .collection-primary-cta:hover {
-    background: linear-gradient(135deg, #dda840 0%, #c08428 100%);
-    border-color: rgba(0, 0, 0, 0.22);
-    box-shadow: 0 6px 24px rgba(185, 120, 32, 0.50);
+    background: var(--tl-accent-primary-hover);
+    border-color: var(--tl-accent-primary-border);
+    box-shadow: var(--tl-shadow-raised);
 }
 
 .collection-primary-cta-inner {
@@ -325,7 +323,7 @@ body {
     font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: clamp(0.90rem, 1vw, 1.1rem);
     font-weight: 700;
-    color: #1a1208;
+    color: var(--tl-text-on-accent);
     letter-spacing: 0.01em;
     white-space: nowrap;
 }
@@ -372,7 +370,7 @@ body {
 /* Section card with amber accent border (for primary/featured sections) */
 .st-card--accent {
     background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(201, 146, 46, 0.2);
+    border: 1px solid var(--tl-accent-primary-border);
     border-radius: var(--app-radius-md);
     padding: 20px 24px;
     margin-bottom: 16px;
@@ -401,7 +399,7 @@ body {
 
 /* Accent section title - golden for featured panels */
 .st-section-title--accent {
-    color: #C9922E;
+    color: var(--tl-accent-primary);
 }
 
 /* Section body text */
@@ -649,7 +647,7 @@ body {
 .listen-player-panel__tab.is-active,
 .category-item.active {
     color: var(--app-primary) !important;
-    background: rgba(35, 109, 201, 0.14) !important;
+    background: var(--tl-accent-primary-soft) !important;
 }
 
 .category-strip,
@@ -687,7 +685,7 @@ body {
 .health-offline { background: var(--app-error) !important; box-shadow: none !important; }
 
 .mud-dialog.sme-dialog {
-    background: #1b1c22 !important;
+    background: var(--tl-bg-surface-elevated) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: var(--app-radius-md) !important;
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.4) !important;
@@ -696,7 +694,7 @@ body {
 
 .mud-dialog.sme-dialog .mud-dialog-content {
     padding: 0 !important;
-    background: #1b1c22 !important;
+    background: var(--tl-bg-surface-elevated) !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -708,27 +706,27 @@ body {
 :root {
     --app-font-sans: "Nunito", "Segoe UI", sans-serif;
     --app-font-brand: "Montserrat", "Segoe UI", sans-serif;
-    --app-bg: #17181e;
-    --app-surface: #1e1f27;
-    --app-surface-1: #1e1f27;
-    --app-surface-2: #272832;
-    --app-surface-3: #2d2f3a;
-    --app-surface-muted: rgba(39, 40, 50, 0.72);
-    --app-border: #293036;
-    --app-border-subtle: #293036;
-    --app-border-strong: #353c45;
-    --app-text-primary: #aab8c5;
-    --app-text-secondary: #8391a2;
-    --app-text-muted: #8391a2;
-    --app-text-soft: #9aa8b7;
-    --app-text-faint: rgba(131, 145, 162, 0.62);
-    --app-primary: #236dc9;
-    --app-primary-hover: #2f7bdd;
-    --app-secondary: #7b70ef;
-    --app-success: #17c653;
-    --app-info: #5bc3e1;
-    --app-warning: #f6c000;
-    --app-error: #f8285a;
+    --app-bg: var(--tl-bg-root);
+    --app-surface: var(--tl-bg-surface);
+    --app-surface-1: var(--tl-bg-surface);
+    --app-surface-2: var(--tl-bg-surface-raised);
+    --app-surface-3: var(--tl-bg-surface-hover);
+    --app-surface-muted: rgba(21, 30, 47, 0.72);
+    --app-border: var(--tl-border-default);
+    --app-border-subtle: var(--tl-border-subtle);
+    --app-border-strong: var(--tl-border-strong);
+    --app-text-primary: var(--tl-text-primary);
+    --app-text-secondary: var(--tl-text-secondary);
+    --app-text-muted: var(--tl-text-muted);
+    --app-text-soft: var(--tl-text-secondary);
+    --app-text-faint: var(--tl-text-disabled);
+    --app-primary: var(--tl-accent-primary);
+    --app-primary-hover: var(--tl-accent-primary-hover);
+    --app-secondary: var(--tl-accent-secondary);
+    --app-success: var(--tl-status-success);
+    --app-info: var(--tl-status-info);
+    --app-warning: var(--tl-status-warning);
+    --app-error: var(--tl-status-danger);
     --app-radius-xs: 4px;
     --app-radius-sm: 5px;
     --app-radius-md: 5px;
@@ -736,12 +734,12 @@ body {
     --app-radius-xl: 8px;
     --app-card-padding: 20px;
     --app-section-padding: 24px;
-    --app-shadow: 0 1px 4px rgba(130, 143, 163, 0.15);
-    --app-shadow-md: 0 3px 4px rgba(0, 0, 0, 0.18);
-    --app-shadow-lg: 0 8px 18px rgba(0, 0, 0, 0.22);
+    --app-shadow: var(--tl-shadow-sm);
+    --app-shadow-md: var(--tl-shadow-md);
+    --app-shadow-lg: var(--tl-shadow-lg);
     --app-topbar-height: 65px;
     --app-hover-overlay: rgba(255, 255, 255, 0.035);
-    --app-active-overlay: rgba(35, 109, 201, 0.16);
+    --app-active-overlay: var(--tl-accent-primary-soft);
     --app-glass-bg: var(--app-surface);
     --app-glass-border: var(--app-border);
     --app-glass-inner-bg: var(--app-surface-2);
@@ -1111,7 +1109,7 @@ body {
 .app-icon-picker__item.is-selected {
     color: var(--app-text-primary);
     border-color: var(--app-accent);
-    background: rgba(240, 185, 11, 0.12);
+    background: var(--tl-accent-primary-soft);
 }
 
 .mud-input-slot,
@@ -1166,12 +1164,12 @@ body {
     border: 1px solid var(--app-border);
 }
 
-.app-status-badge--success { color: var(--app-success); background: rgba(23, 198, 83, 0.12); }
-.app-status-badge--warning { color: var(--app-warning); background: rgba(246, 192, 0, 0.12); }
+.app-status-badge--success { color: var(--app-success); background: var(--tl-status-success-soft); }
+.app-status-badge--warning { color: var(--app-warning); background: var(--tl-status-warning-soft); }
 .app-status-badge--danger,
-.app-status-badge--error { color: var(--app-error); background: rgba(248, 40, 90, 0.12); }
-.app-status-badge--info { color: var(--app-info); background: rgba(91, 195, 225, 0.12); }
-.app-status-badge--primary { color: #76b5ff; background: rgba(35, 109, 201, 0.16); }
+.app-status-badge--error { color: var(--app-error); background: var(--tl-status-danger-soft); }
+.app-status-badge--info { color: var(--app-info); background: var(--tl-status-info-soft); }
+.app-status-badge--primary { color: var(--tl-accent-primary); background: var(--tl-accent-primary-soft); }
 
 .app-table-shell,
 .listen-track-grid,
@@ -1510,11 +1508,11 @@ code,
     line-height: 1;
     white-space: nowrap;
 }
-.app-status-badge--success { color: var(--app-success); background: rgba(23, 198, 83, 0.12); }
-.app-status-badge--warning { color: var(--app-warning); background: rgba(246, 192, 0, 0.12); }
-.app-status-badge--error { color: var(--app-error); background: rgba(248, 40, 90, 0.12); }
-.app-status-badge--info { color: var(--app-info); background: rgba(91, 195, 225, 0.12); }
-.app-status-badge--primary { color: #76b5ff; background: rgba(35, 109, 201, 0.16); }
+.app-status-badge--success { color: var(--app-success); background: var(--tl-status-success-soft); }
+.app-status-badge--warning { color: var(--app-warning); background: var(--tl-status-warning-soft); }
+.app-status-badge--error { color: var(--app-error); background: var(--tl-status-danger-soft); }
+.app-status-badge--info { color: var(--app-info); background: var(--tl-status-info-soft); }
+.app-status-badge--primary { color: var(--tl-accent-primary); background: var(--tl-accent-primary-soft); }
 
 .app-metric-card { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 14px 16px; color: var(--app-text-primary); background: var(--app-surface-2); border: 1px dashed var(--app-border-strong); border-radius: var(--app-radius-lg); }
 .app-metric-card__icon { color: var(--app-primary) !important; }
@@ -1927,7 +1925,7 @@ body,
 }
 /* Dialog-specific overrides must stay after the global surface layer. */
 .mud-dialog.collection-editor-dialog {
-    background: #1b1c22 !important;
+    background: var(--tl-bg-surface-elevated) !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius-md) !important;
     box-shadow: var(--app-shadow-lg) !important;
@@ -1951,7 +1949,7 @@ body,
 .mud-dialog.sme-dialog {
     width: min(100vw - 32px, 1040px) !important;
     max-width: 1040px !important;
-    background: #1b1c22 !important;
+    background: var(--tl-bg-surface-elevated) !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius-md) !important;
     box-shadow: var(--app-shadow-lg) !important;

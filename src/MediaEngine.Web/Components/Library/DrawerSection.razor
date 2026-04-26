@@ -7,7 +7,7 @@
                FullWidth="true"
                OnClick="Toggle">
         <div class="drawer-section-header-left">
-            <MudIcon Icon="@Icon" Style="@($"font-size: 16px; color: {(_hasProblem ? "#EF9F27" : "rgba(255,255,255,0.35)")};")" />
+            <MudIcon Icon="@Icon" Style="@($"font-size: 16px; color: {(_hasProblem ? "var(--tl-status-warning)" : "rgba(255,255,255,0.35)")};")" />
             <span class="drawer-section-title @(_hasProblem ? "drawer-section-title--problem" : "")">@Title</span>
         </div>
         <MudIcon Icon="@(_isOpen ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
@@ -83,7 +83,7 @@
     }
 
     .drawer-section-title--problem {
-        color: #EF9F27;
+        color: var(--tl-status-warning);
     }
 
     .drawer-section-body {

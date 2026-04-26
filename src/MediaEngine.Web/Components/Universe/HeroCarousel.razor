@@ -146,13 +146,13 @@
         get
         {
             var t = (CurrentItem?.MediaTypeLabel ?? "").ToLowerInvariant();
-            if (t.Contains("book") || t.Contains("epub"))   return "#5DCAA5";
+            if (t.Contains("book") || t.Contains("epub"))   return "var(--tl-status-success)";
             if (t.Contains("audio") || t.Contains("m4b"))   return "#A78BFA";
-            if (t.Contains("movie") || t.Contains("video")) return "#60A5FA";
-            if (t.Contains("tv"))                            return "#FBBF24";
+            if (t.Contains("movie") || t.Contains("video")) return "var(--tl-status-info)";
+            if (t.Contains("tv"))                            return "var(--tl-media-video)";
             if (t.Contains("music"))                         return "#22D3EE";
             if (t.Contains("comic"))                         return "#7C4DFF";
-            return "#C9922E";
+            return "var(--tl-accent-primary)";
         }
     }
 
@@ -256,7 +256,7 @@
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 10px;
         font-weight: 900;
-        color: #C9922E;
+        color: var(--tl-accent-primary);
         text-transform: uppercase;
         letter-spacing: 0.2em;
     }
@@ -439,6 +439,6 @@
 
     .hero-dot-active {
         width: 32px;
-        background: #C9922E;
+        background: var(--tl-accent-primary);
     }
 </style>

@@ -50,12 +50,12 @@
                         @if (field.IsUserLocked)
                         {
                             <MudIcon Icon="@Icons.Material.Outlined.Lock"
-                                     Style="font-size: 0.7rem; color: #C9922E;" />
+                                     Style="font-size: 0.7rem; color: var(--tl-accent-primary);" />
                         }
                         @if (field.IsConflicted)
                         {
                             <MudIcon Icon="@Icons.Material.Outlined.Warning"
-                                     Style="font-size: 0.7rem; color: #EF9F27;" />
+                                     Style="font-size: 0.7rem; color: var(--tl-status-warning);" />
                         }
                     </div>
                     @if (field.Key == "wikidata_qid" && !string.IsNullOrEmpty(field.Value))
@@ -199,7 +199,7 @@
     }
 
     .ims-subtab--active {
-        color: #C9922E;
+        color: var(--tl-accent-primary);
     }
 
     .ims-subtab--active::after {
@@ -209,7 +209,7 @@
         left: 12px;
         right: 12px;
         height: 2px;
-        background: #C9922E;
+        background: var(--tl-accent-primary);
         border-radius: 1px;
     }
 
@@ -267,7 +267,7 @@
         font-size: 11px;
         font-weight: 600;
         font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-        color: #5DCAA5;
+        color: var(--tl-status-success);
         background: rgba(93, 202, 165, 0.10);
         border: 1px solid rgba(93, 202, 165, 0.20);
         padding: 2px 8px;

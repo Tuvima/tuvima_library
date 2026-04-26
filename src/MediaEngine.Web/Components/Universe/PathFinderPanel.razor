@@ -5,7 +5,7 @@
 @* Mode 2 — Six Degrees path finder *@
 
 <div class="pathfinder-panel">
-    <MudText Typo="Typo.subtitle1" Class="mb-3" Style="color: #C9922E; font-weight: 600;">
+    <MudText Typo="Typo.subtitle1" Class="mb-3" Style="color: var(--tl-accent-primary); font-weight: 600;">
         Six Degrees
     </MudText>
     <MudText Typo="Typo.body2" Class="mb-4" Style="color: #888;">
@@ -23,7 +23,7 @@
             }
             else
             {
-                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="color: #C9922E;" />
+                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="color: var(--tl-accent-primary);" />
                 <MudText Typo="Typo.caption" Style="color: #e0e0e0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     @_startLabel
                 </MudText>
@@ -134,7 +134,7 @@
         background: #1a1a1a;
     }
     .slot-filled {
-        border: 1px solid #C9922E44;
+        border: 1px solid var(--tl-accent-primary-border);
         background: #1a1a1a;
     }
     .path-trail {
@@ -147,7 +147,7 @@
         transition: border-color 0.15s;
     }
     .path-trail:hover, .path-trail-selected {
-        border-color: #C9922E;
+        border-color: var(--tl-accent-primary);
     }
     .hop-chain {
         display: flex;

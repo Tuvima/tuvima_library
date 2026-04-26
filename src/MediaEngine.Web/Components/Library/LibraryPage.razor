@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Storage.Models
 
@@ -2428,8 +2428,8 @@
     }
 
     .vault-tab--active .vault-tab-badge {
-        background: rgba(96, 165, 250, 0.12);
-        color: rgba(96, 165, 250, 0.7);
+        background: var(--tl-status-info-soft);
+        color: var(--tl-status-info);
     }
 
     /* -- Toolbar row -- */
@@ -2487,8 +2487,8 @@
     }
 
     .vault-view-modes .mud-chip.mud-chip-selected {
-        background: rgba(96, 165, 250, 0.12);
-        color: rgba(96, 165, 250, 0.92);
+        background: var(--tl-status-info-soft);
+        color: var(--tl-status-info);
     }
 
     /* -- Add button -- */
@@ -2498,7 +2498,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        box-shadow: 0 4px 12px rgba(96, 165, 250, 0.2);
+        box-shadow: 0 4px 12px var(--tl-status-info-border);
         white-space: nowrap;
         flex-shrink: 0;
     }
@@ -2741,7 +2741,7 @@
     }
     .vault-progress-bar-fill {
         height: 100%;
-        background: #C9922E;
+        background: var(--tl-accent-primary);
         border-radius: 2px;
         transition: width 0.5s ease;
     }

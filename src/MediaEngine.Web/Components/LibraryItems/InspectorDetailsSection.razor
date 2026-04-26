@@ -348,8 +348,8 @@
         var matchLevel = Detail?.MatchLevel ?? "work";
         return matchLevel switch
         {
-            "edition"     => ("Fully Linked", "#5DCAA5", "Matched to a specific edition and linked to the wider catalogue"),
-            "retail_only" => ("Identified",   "#C9922E", "Cover and metadata confirmed but not yet linked to the wider catalogue"),
+            "edition"     => ("Fully Linked", "var(--tl-status-success)", "Matched to a specific edition and linked to the wider catalogue"),
+            "retail_only" => ("Identified",   "var(--tl-accent-primary)", "Cover and metadata confirmed but not yet linked to the wider catalogue"),
             "unlinked"    => ("Unlinked",     "#6B6B8A", "No external match found — metadata from file only"),
             _             => ("Linked",       "#5C7A99", "Matched to the catalogue but edition-specific data is unavailable"),
         };

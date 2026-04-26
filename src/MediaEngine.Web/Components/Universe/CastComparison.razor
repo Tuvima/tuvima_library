@@ -6,7 +6,7 @@
 
 <div class="cast-panel">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-        <MudText Typo="Typo.subtitle1" Style="color: #C9922E; font-weight: 600; flex: 1;">
+        <MudText Typo="Typo.subtitle1" Style="color: var(--tl-accent-primary); font-weight: 600; flex: 1;">
             Cast Comparison
         </MudText>
         <MudSwitch T="bool" @bind-Value="_multiActorOnly" Label="Multi-actor only"
@@ -59,7 +59,7 @@
                     @* Performer chips *@
                     @if (character.Performers.Count > 0)
                     {
-                        <MudText Typo="Typo.caption" Style="color: #C9922E; margin-top: 8px; margin-bottom: 4px; font-size: 11px; font-weight: 600;">
+                        <MudText Typo="Typo.caption" Style="color: var(--tl-accent-primary); margin-top: 8px; margin-bottom: 4px; font-size: 11px; font-weight: 600;">
                             PERFORMERS (@character.Performers.Count)
                         </MudText>
                         <div class="performer-row">

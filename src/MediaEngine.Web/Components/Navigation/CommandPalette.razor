@@ -1,12 +1,12 @@
-@namespace MediaEngine.Web.Components.Navigation
+﻿@namespace MediaEngine.Web.Components.Navigation
 @using MediaEngine.Web.Services.Navigation
 @inject NavigationManager Nav
 @inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
 
-@* Global Command Palette — keyboard-driven navigation and live search (Section 2.2 of the UI ASD).
+@* Global Command Palette â€” keyboard-driven navigation and live search (Section 2.2 of the UI ASD).
    Toggled with Ctrl+K.  Uses MudAutocomplete so results appear as the user types,
-   calling GET /collections/search for queries ≥ 2 characters and falling back to
+   calling GET /collections/search for queries â‰¥ 2 characters and falling back to
    static navigation links for empty / short queries.                               *@
 
 @if (_open)
@@ -60,21 +60,21 @@
     private bool _open = false;
     private MudAutocomplete<PaletteItem>? _autocomplete;
 
-    // ── Static navigation items ───────────────────────────────────────────────
+    // â”€â”€ Static navigation items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private PaletteItem[] StaticItems =>
     [
-        new(L["CmdPalette_Library"],  "/",         Icons.Material.Outlined.CollectionsBookmark, "#60A5FA", null),
+        new(L["CmdPalette_Library"],  "/",         Icons.Material.Outlined.CollectionsBookmark, "var(--tl-status-info)", null),
         new(L["CmdPalette_Settings"], "/settings", Icons.Material.Outlined.Settings,            "#94A3B8", L["CmdPalette_SettingsSubtitle"]),
     ];
 
-    // ── Search ────────────────────────────────────────────────────────────────
+    // â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private async Task<IEnumerable<PaletteItem>> SearchAsync(
         string value,
         CancellationToken ct)
     {
-        // Empty / too-short query → return static nav links.
+        // Empty / too-short query â†’ return static nav links.
         if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 2)
             return StaticItems;
 
@@ -99,7 +99,7 @@
         Nav.NavigateTo(item.Href);
     }
 
-    // ── Public surface ────────────────────────────────────────────────────────
+    // â”€â”€ Public surface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public void Open()
     {
@@ -122,7 +122,7 @@
             await _autocomplete.FocusAsync();
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    // â”€â”€ Private helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static string MediaIcon(string mediaType) =>
         UniverseMapper.ClassifyBucketPublic(mediaType) switch
@@ -149,7 +149,7 @@
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(r.Author)) parts.Add(r.Author);
         if (!string.IsNullOrEmpty(r.CollectionDisplayName)) parts.Add($"in {r.CollectionDisplayName}");
-        return string.Join(" · ", parts);
+        return string.Join(" Â· ", parts);
     }
 
     private sealed record PaletteItem(
@@ -163,7 +163,7 @@
 <style>
     .command-palette {
         border-radius: var(--app-radius-md) !important;
-        border: 1px solid rgba(96, 165, 250, 0.22);
+        border: 1px solid var(--tl-status-info-border);
         background: rgba(15, 23, 42, 0.96) !important;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);

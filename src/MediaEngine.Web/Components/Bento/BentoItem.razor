@@ -11,7 +11,7 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public int             ColSpan      { get; set; } = 1;
     [Parameter] public int             RowSpan      { get; set; } = 1;
-    [Parameter] public string          GlowColor    { get; set; } = "#EAB308";
+    [Parameter] public string          GlowColor    { get; set; } = "#8B5CF6";
     [Parameter] public string?         Class        { get; set; }
     [Parameter] public string?         Style        { get; set; }
 
@@ -31,7 +31,7 @@
             if (hex.Length == 3)
                 hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
             if (hex.Length != 6)
-                return $"rgba(234,179,8,{alpha:F2})";
+                return $"rgba(139,92,246,{alpha:F2})";
 
             var r = Convert.ToInt32(hex[..2], 16);
             var g = Convert.ToInt32(hex[2..4], 16);
@@ -40,7 +40,7 @@
         }
         catch
         {
-            return $"rgba(234,179,8,{alpha:F2})"; // fallback: golden amber
+            return $"rgba(139,92,246,{alpha:F2})";
         }
     }
 }
@@ -49,7 +49,7 @@
     .bento-item {
         position:               relative;
         min-height:             160px;
-        border-radius:          8px;
+        border-radius:          var(--tl-radius-lg);
         overflow:               hidden;
 
         background:             var(--app-glass-inner-bg);
@@ -58,9 +58,9 @@
         -webkit-backdrop-filter: blur(12px);
 
         box-shadow:
-            0 2px 12px  rgba(0, 0, 0, 0.20),
-            0 0  0 1px  rgba(255, 255, 255, 0.03) inset,
-            0 4px 20px  var(--bento-glow, rgba(234,179,8,0.12));
+            var(--tl-shadow-sm),
+            0 0 0 1px var(--tl-border-subtle) inset,
+            0 4px 20px var(--bento-glow, var(--tl-accent-primary-soft));
 
         transition:
             box-shadow   0.25s ease,
@@ -70,10 +70,10 @@
 
     .bento-item:hover {
         transform:    scale(1.02) translateY(-2px);
-        border-color: var(--bento-border, rgba(234,179,8,0.20));
+        border-color: var(--bento-border, var(--tl-accent-primary-border));
         box-shadow:
-            0 6px 28px  rgba(0, 0, 0, 0.30),
-            0 0  0 1px  rgba(255, 255, 255, 0.05) inset,
-            0 10px 36px var(--bento-glow-hover, rgba(234,179,8,0.28));
+            var(--tl-shadow-md),
+            0 0 0 1px var(--tl-border-default) inset,
+            0 10px 36px var(--bento-glow-hover, var(--tl-accent-primary-glow));
     }
 </style>

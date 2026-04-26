@@ -10,7 +10,7 @@
     {
         <div class="aic-checkbox" @onclick="HandleCheckboxClick" @onclick:stopPropagation="true">
             <MudIcon Icon="@(IsChecked ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)"
-                     Style="@($"font-size: 18px; color: {(IsChecked ? "#5DCAA5" : "rgba(200,190,220,0.25)")};")" />
+                     Style="@($"font-size: 18px; color: {(IsChecked ? "var(--tl-status-success)" : "rgba(200,190,220,0.25)")};")" />
         </div>
     }
 
@@ -466,7 +466,7 @@
 
     .aic-unreject-btn:hover {
         background: rgba(93, 202, 165, 0.15);
-        color: #5DCAA5;
+        color: var(--tl-status-success);
         border-color: rgba(93, 202, 165, 0.35);
     }
 

@@ -200,7 +200,7 @@
         {
             @* ── 1. Identity Card ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Identity
             </MudText>
             <MudPaper Elevation="0" Class="pa-4 mb-4"
@@ -264,7 +264,7 @@
                                     <tr>
                                         @if (idx == 0)
                                         {
-                                            <td style="color: #C9922E; vertical-align: top; font-weight: 600;">
+                                            <td style="color: var(--tl-accent-primary); vertical-align: top; font-weight: 600;">
                                                 @group.FieldKey
                                             </td>
                                         }
@@ -307,7 +307,7 @@
             @if (GetBridgeClaims(_result).Count > 0)
             {
                 <MudText Typo="Typo.h6" Class="mb-2"
-                         Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                         Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                     Bridge IDs (@GetBridgeClaims(_result).Count)
                 </MudText>
                 <MudPaper Elevation="0" Class="pa-4 mb-4"
@@ -337,7 +337,7 @@
 
             @* ── 1c. Bridge Hint Preview ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Bridge Hint Preview (@(_result.BridgeHintPreview?.Count ?? 0))
             </MudText>
             @if (_result.BridgeHintPreview is { Count: > 0 })
@@ -363,7 +363,7 @@
                             @foreach (var hint in _result.BridgeHintPreview)
                             {
                                 <tr>
-                                    <td style="color: #C9922E; font-weight: 600;">@hint.Key</td>
+                                    <td style="color: var(--tl-accent-primary); font-weight: 600;">@hint.Key</td>
                                     <td style="color: rgba(248,248,248,0.45); font-family: monospace; font-size: 0.75rem; word-break: break-all;">
                                         @hint.RawValue
                                     </td>
@@ -402,7 +402,7 @@
 
             @* ── 2. People ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 People (@_result.Persons.Count)
             </MudText>
 
@@ -497,7 +497,7 @@
 
             @* ── 3. Fictional Entities ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Fictional Entities (@_result.FictionalEntities.Count)
             </MudText>
 
@@ -546,7 +546,7 @@
 
             @* ── 4. Relationships ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Relationships (@_result.Relationships.Count)
             </MudText>
 
@@ -618,7 +618,7 @@
                 <MudExpansionPanel Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
                     <TitleContent>
                         <MudText Typo="Typo.h6"
-                                 Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                                 Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                             Raw Claims —
                             @(_result.ClaimGroups.Sum(g => g.Claims.Count)) total
                         </MudText>
@@ -640,7 +640,7 @@
                                     @foreach (var claim in group.Claims)
                                     {
                                         <tr>
-                                            <td style="color: #C9922E; font-weight: 600;">@group.FieldKey</td>
+                                            <td style="color: var(--tl-accent-primary); font-weight: 600;">@group.FieldKey</td>
                                             <td style="color: #F8F8F8; word-break: break-all;">@claim.Value</td>
                                             <td style="color: @ConfidenceColor(claim.Confidence);">
                                                 @claim.Confidence.ToString("P0")
@@ -890,7 +890,7 @@
     private static string ConfidenceColor(double c) => c switch
     {
         >= 0.85 => "#4ADE80",   // green
-        >= 0.60 => "#FACC15",   // amber
+        >= 0.60 => "var(--tl-status-warning)",   // amber
         _       => "#F87171",   // red
     };
 

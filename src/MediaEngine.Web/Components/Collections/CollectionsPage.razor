@@ -370,7 +370,7 @@
         "System" => "#4DB6AC",
         "Mix" => "#CE93D8",
         "Playlist" => "#FFB74D",
-        "Custom" => "#EAB308",
+        "Custom" => "var(--tl-status-warning)",
         _ => "#90A4AE",
     };
 
@@ -388,7 +388,7 @@
         collection.IsShared ? "Shared" : "Private";
 
     private static string GetVisibilityColor(CollectionListItemViewModel collection) =>
-        collection.IsShared ? "#60A5FA" : "#A78BFA";
+        collection.IsShared ? "var(--tl-status-info)" : "#A78BFA";
 
     private static string GetStatusClass(string status) =>
         $"collections-status-pill collections-status-{status.ToLowerInvariant()}";
@@ -474,7 +474,7 @@
     }
 
     .collections-tab-bar .mud-tab.mud-tab-active {
-        background: rgba(96, 165, 250, 0.16);
+        background: var(--tl-accent-primary-soft);
         color: rgba(248, 248, 248, 0.95);
     }
 
@@ -594,7 +594,7 @@
 
     .collections-status-active {
         background: rgba(93, 202, 165, 0.18) !important;
-        color: #5DCAA5 !important;
+        color: var(--tl-status-success) !important;
     }
 
     .collections-status-disabled {
@@ -604,7 +604,7 @@
 
     .collections-status-empty {
         background: rgba(239, 159, 39, 0.14) !important;
-        color: #EF9F27 !important;
+        color: var(--tl-status-warning) !important;
     }
 
     .collections-muted {

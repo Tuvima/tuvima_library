@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 <MudDrawer Open="@IsOpen" Anchor="Anchor.Bottom" Variant="@DrawerVariant.Temporary"
            OpenChanged="OnOpenChanged"
@@ -177,12 +177,12 @@
     }
 
     .vmd-action-btn--primary {
-        background: rgba(96, 165, 250, 0.85);
+        background: var(--tl-status-info);
         color: #fff;
     }
 
     .vmd-action-btn--primary:hover {
-        background: rgba(96, 165, 250, 1);
+        background: var(--tl-status-info);
     }
 
     .vmd-action-btn--danger {

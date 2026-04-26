@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Library
 @inject IStringLocalizer<SharedStrings> L
 
@@ -277,7 +277,7 @@
             return [];
 
         return PersonCredits
-            .GroupBy(credit => $"{FormatRole(credit.Role)} · {FormatMediaType(credit.MediaType)}")
+            .GroupBy(credit => $"{FormatRole(credit.Role)} Â· {FormatMediaType(credit.MediaType)}")
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .Select(group => (group.Key, group.ToList()))
             .ToList();
@@ -315,7 +315,7 @@
             parts.Add(credit.Year!);
         if (!string.IsNullOrWhiteSpace(credit.MediaType))
             parts.Add(FormatMediaType(credit.MediaType));
-        return string.Join(" · ", parts);
+        return string.Join(" Â· ", parts);
     }
 
     private static string? BuildCreditSubtitle(PersonLibraryCreditViewModel credit)
@@ -514,9 +514,9 @@
         padding: 8px;
         margin-top: 4px;
         border-radius: 8px;
-        background: rgba(96, 165, 250, 0.06);
-        border: 1px solid rgba(96, 165, 250, 0.1);
-        color: rgba(96, 165, 250, 0.8);
+        background: var(--tl-status-info-soft);
+        border: 1px solid var(--tl-status-info-soft);
+        color: var(--tl-status-info);
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
@@ -524,7 +524,7 @@
     }
 
     .pbd-show-more-btn:hover {
-        background: rgba(96, 165, 250, 0.12);
+        background: var(--tl-status-info-soft);
     }
 </style>
 

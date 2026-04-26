@@ -1,4 +1,4 @@
-@using MediaEngine.Domain.Constants
+﻿@using MediaEngine.Domain.Constants
 @namespace MediaEngine.Web.Components.Library
 
 <div class="src-card @(IsSelected ? "src-card--selected" : "")" @onclick="OnClick">
@@ -21,7 +21,7 @@
             @if (Mode == SearchMode.Wikidata && !string.IsNullOrEmpty(Qid))
             {
                 <span class="src-card-qid">@Qid</span>
-                <span> · </span>
+                <span> Â· </span>
             }
             @GetFieldValue(DisplayConfig.Headline)
         </div>
@@ -32,7 +32,7 @@
             }
             @if (!string.IsNullOrEmpty(tertiaryVal))
             {
-                <span> · @tertiaryVal</span>
+                <span> Â· @tertiaryVal</span>
             }
         </div>
         @if (DisplayConfig.DetailFields.Count > 0)
@@ -54,7 +54,7 @@
                 var bridgeVal = GetFieldValue(bridgeKey);
                 if (!string.IsNullOrEmpty(bridgeVal))
                 {
-                    <span class="src-card-bridge-chip src-card-bridge-chip--present">@FormatFieldLabel(bridgeKey) ✓</span>
+                    <span class="src-card-bridge-chip src-card-bridge-chip--present">@FormatFieldLabel(bridgeKey) âœ“</span>
                 }
             }
             @if (!string.IsNullOrEmpty(ProviderName))
@@ -148,8 +148,8 @@
     }
 
     .src-card--selected {
-        border-color: #C9922E;
-        background: rgba(201,146,46,0.08);
+        border-color: var(--tl-accent-primary);
+        background: var(--tl-accent-primary-soft);
     }
 
     .src-card-thumb {
@@ -237,8 +237,8 @@
     }
 
     .src-card-bridge-chip--present {
-        background: rgba(93,202,165,0.12);
-        color: rgba(93,202,165,0.7);
+        background: var(--tl-status-success-soft);
+        color: var(--tl-status-success);
     }
 
     .src-card-source {
@@ -257,15 +257,15 @@
         font-size: 11px;
         padding: 4px 10px;
         border-radius: 4px;
-        border: 1px solid rgba(201,146,46,0.3);
-        background: rgba(201,146,46,0.1);
-        color: #C9922E;
+        border: 1px solid var(--tl-accent-primary-border);
+        background: var(--tl-accent-primary-soft);
+        color: var(--tl-accent-primary);
         cursor: pointer;
         transition: background 0.15s;
     }
 
     .src-card-select-btn:hover {
-        background: rgba(201,146,46,0.2);
+        background: var(--tl-accent-primary-border);
     }
 </style>
 

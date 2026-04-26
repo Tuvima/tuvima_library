@@ -192,13 +192,13 @@ public sealed class DiscoveryComposerService
 
     private static string AccentForBucket(DiscoveryBucket bucket) => bucket switch
     {
-        DiscoveryBucket.Book => "#5DCAA5",
-        DiscoveryBucket.Comic => "#FB923C",
-        DiscoveryBucket.Audiobook => "#84CC16",
-        DiscoveryBucket.Movie => "#60A5FA",
-        DiscoveryBucket.Tv => "#38BDF8",
-        DiscoveryBucket.Music => "#1ED760",
-        _ => "#C9922E",
+        DiscoveryBucket.Book => "var(--tl-media-book)",
+        DiscoveryBucket.Comic => "var(--tl-media-comic)",
+        DiscoveryBucket.Audiobook => "var(--tl-media-audio)",
+        DiscoveryBucket.Movie => "var(--tl-status-info)",
+        DiscoveryBucket.Tv => "var(--tl-media-video)",
+        DiscoveryBucket.Music => "var(--tl-media-audio)",
+        _ => "var(--tl-accent-primary)",
     };
 
     private static DiscoverySurfaceKind ResolveHeroSurfaceKind(DisplayArtworkDto artwork)

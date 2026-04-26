@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 
 @if (TotalCount > 0)
@@ -343,7 +343,7 @@
     }
 
     .vac-dot--warn {
-        background: #f59e0b;
+        background: var(--tl-status-warning);
     }
 
     .vac-row-info {
@@ -431,7 +431,7 @@
     }
 
     .vac-row--selected {
-        background: rgba(96, 165, 250, 0.04);
+        background: var(--tl-status-info-soft);
     }
 
     .vac-bulk-bar {
@@ -439,15 +439,15 @@
         align-items: center;
         justify-content: space-between;
         padding: 8px 16px;
-        background: rgba(96, 165, 250, 0.06);
-        border-top: 1px solid rgba(96, 165, 250, 0.1);
+        background: var(--tl-status-info-soft);
+        border-top: 1px solid var(--tl-status-info-soft);
         border-radius: 0 0 10px 10px;
     }
 
     .vac-bulk-count {
         font-size: 11px;
         font-weight: 700;
-        color: rgba(96, 165, 250, 0.8);
+        color: var(--tl-status-info);
     }
 
     .vac-bulk-delete {

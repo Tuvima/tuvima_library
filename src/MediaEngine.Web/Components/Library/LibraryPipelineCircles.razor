@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Library
 
 <div class="pipeline-circles">
@@ -119,15 +119,15 @@
         transform: scale(1.1);
     }
 
-    .pipeline-circle.state-completed { border-color: #5DCAA5; }
+    .pipeline-circle.state-completed { border-color: var(--tl-status-success); }
     .pipeline-circle.state-running { border-color: #90CAF9; }
-    .pipeline-circle.state-warning { border-color: #EF9F27; }
-    .pipeline-circle.state-failed { border-color: #A05050; }
+    .pipeline-circle.state-warning { border-color: var(--tl-status-warning); }
+    .pipeline-circle.state-failed { border-color: var(--tl-status-danger); }
     .pipeline-circle.state-pending { border-color: rgba(255,255,255,0.12); }
 
-    .pipeline-circle.state-completed.selected { background: rgba(93,202,165,0.15); box-shadow: 0 0 20px rgba(93,202,165,0.4); }
+    .pipeline-circle.state-completed.selected { background: var(--tl-status-success-soft); box-shadow: 0 0 20px var(--tl-status-success-border); }
     .pipeline-circle.state-running.selected { background: rgba(144,202,249,0.15); box-shadow: 0 0 20px rgba(144,202,249,0.4); }
-    .pipeline-circle.state-warning.selected { background: rgba(239,159,39,0.15); box-shadow: 0 0 20px rgba(239,159,39,0.4); }
+    .pipeline-circle.state-warning.selected { background: var(--tl-status-warning-soft); box-shadow: 0 0 20px var(--tl-status-warning-border); }
     .pipeline-circle.state-failed.selected { background: rgba(160,80,80,0.15); box-shadow: 0 0 20px rgba(160,80,80,0.4); }
     .pipeline-circle.state-pending.selected { background: rgba(255,255,255,0.08); box-shadow: 0 0 20px rgba(255,255,255,0.15); }
 
@@ -163,10 +163,10 @@
         flex-shrink: 0;
     }
 
-    .pipeline-connector.state-completed { background: #5DCAA5; }
+    .pipeline-connector.state-completed { background: var(--tl-status-success); }
     .pipeline-connector.state-running { background: #90CAF9; }
-    .pipeline-connector.state-warning { background: #EF9F27; }
-    .pipeline-connector.state-failed { background: #A05050; }
+    .pipeline-connector.state-warning { background: var(--tl-status-warning); }
+    .pipeline-connector.state-failed { background: var(--tl-status-danger); }
     .pipeline-connector.state-pending { background: rgba(255,255,255,0.12); }
 </style>
 

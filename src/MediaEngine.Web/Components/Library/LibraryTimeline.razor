@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @namespace MediaEngine.Web.Components.Library
 
@@ -126,7 +126,7 @@
         return sb.ToString();
     }
 
-    // Set of event types that are engine internals — hidden from the user timeline.
+    // Set of event types that are engine internals â€” hidden from the user timeline.
     private static readonly HashSet<string> HiddenEvents = new(StringComparer.OrdinalIgnoreCase)
     {
         "file_scored", "confidence_scored",
@@ -150,13 +150,13 @@
 
     private static (string? Headline, string? Body, string StageClass, string Tint, List<string>? ExpandableFields) MapEvent(string eventType, string? detail)
     {
-        // Hidden engine internals — skip entirely
+        // Hidden engine internals â€” skip entirely
         if (HiddenEvents.Contains(eventType))
             return (null, null, "", "", null);
 
         return eventType switch
         {
-            // ── File stage (white dots) ────────────────────────────
+            // â”€â”€ File stage (white dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "file_detected" or "file_scanned" =>
                 ("File discovered",
                  "We found a new file in your library folder.",
@@ -179,7 +179,7 @@
 
             "promoted" or "moved_to_library" =>
                 ("Added to your library",
-                 string.IsNullOrEmpty(detail) ? "Identification complete — the file has been organised into your library." : detail,
+                 string.IsNullOrEmpty(detail) ? "Identification complete â€” the file has been organised into your library." : detail,
                  "stage-file", "", null),
 
             "file_ingested" =>
@@ -187,7 +187,7 @@
                  "The file has been fully processed and is part of your library.",
                  "stage-file", "", null),
 
-            // ── Retail stage (amber dots) ──────────────────────────
+            // â”€â”€ Retail stage (amber dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "retail_matched" =>
                 ("Provider match found",
                  string.IsNullOrEmpty(detail) ? "A retail provider confirmed the identity of this item." : detail,
@@ -223,7 +223,7 @@
                  string.IsNullOrEmpty(detail) ? "The latest information was fetched from retail providers." : detail,
                  "stage-retail", "", null),
 
-            // ── Wikidata stage (purple dots) ───────────────────────
+            // â”€â”€ Wikidata stage (purple dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "wikidata_bridge_resolved" =>
                 ("Linked to Wikidata",
                  string.IsNullOrEmpty(detail) ? "Identity confirmed using a bridge ID from the retail provider." : detail,
@@ -274,7 +274,7 @@
                  string.IsNullOrEmpty(detail) ? null : detail,
                  "stage-wikidata", "", null),
 
-            // ── Universe stage (teal dots) ─────────────────────────
+            // â”€â”€ Universe stage (teal dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "universe_grouped" =>
                 ("Assigned to a universe",
                  string.IsNullOrEmpty(detail) ? null : detail,
@@ -290,7 +290,7 @@
                  string.IsNullOrEmpty(detail) ? null : detail,
                  "stage-universe", "", null),
 
-            // ── User actions (blue dots) ───────────────────────────
+            // â”€â”€ User actions (blue dots) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             "user_field_edit" or "metadata_manual_override" =>
                 ("Field edited by user",
                  string.IsNullOrEmpty(detail) ? null : detail,
@@ -311,7 +311,7 @@
                  string.IsNullOrEmpty(detail) ? null : detail,
                  "stage-user", "event-warning", null),
 
-            // ── Catch-all ──────────────────────────────────────────
+            // â”€â”€ Catch-all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _ => ("Activity recorded",
                   string.IsNullOrEmpty(detail) ? null : detail,
                   "stage-other", "", null),
@@ -326,7 +326,7 @@
     {
         if (string.IsNullOrWhiteSpace(detail)) return null;
 
-        // Split on commas, semicolons, or pipes — common separators in detail strings
+        // Split on commas, semicolons, or pipes â€” common separators in detail strings
         var raw = detail.Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (raw.Length < 2) return null; // Not a field list if fewer than 2 items
 
@@ -340,7 +340,7 @@
 
     /// <summary>
     /// Converts a snake_case field name to a human-readable title.
-    /// Special cases: "isbn_13" → "ISBN-13", "tmdb_id" → "TMDB ID".
+    /// Special cases: "isbn_13" â†’ "ISBN-13", "tmdb_id" â†’ "TMDB ID".
     /// </summary>
     private static string FormatFieldName(string field)
     {
@@ -393,15 +393,15 @@
 
     /* Dot colours by stage */
     .event-dot.stage-file      { background: rgba(255,255,255,0.4); }
-    .event-dot.stage-retail    { background: #C9922E; }
+    .event-dot.stage-retail    { background: var(--tl-accent-primary); }
     .event-dot.stage-wikidata  { background: #A78BFA; }
-    .event-dot.stage-universe  { background: #5DCAA5; }
-    .event-dot.stage-user      { background: #60A5FA; }
+    .event-dot.stage-universe  { background: var(--tl-status-success); }
+    .event-dot.stage-user      { background: var(--tl-status-info); }
     .event-dot.stage-other     { background: rgba(255,255,255,0.2); }
 
     /* Event row tints for warning states */
-    .timeline-event.event-warning .event-dot   { background: #EF9F27; }
-    .timeline-event.event-warning .event-type  { color: rgba(239,159,39,0.8); }
+    .timeline-event.event-warning .event-dot   { background: var(--tl-status-warning); }
+    .timeline-event.event-warning .event-type  { color: var(--tl-status-warning); }
 
     /* Expandable extracted fields */
     .timeline-fields-details { margin-top: 4px; }
