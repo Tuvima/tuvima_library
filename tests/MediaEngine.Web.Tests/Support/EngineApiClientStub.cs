@@ -93,6 +93,27 @@ internal class EngineApiClientStub : DispatchProxy
                         ["Books"] = 1,
                         ["Music"] = 1,
                     },
+                    LibraryCounts = new Dictionary<string, int>
+                    {
+                        ["Movies"] = 12,
+                        ["Shows"] = 4,
+                        ["Books"] = 8,
+                    },
+                    ActivityBuckets = new Dictionary<string, int>
+                    {
+                        ["PlaybackUpdated"] = 2,
+                    },
+                    TopGenres = new Dictionary<string, int>
+                    {
+                        ["Drama"] = 3,
+                        ["Sci-Fi"] = 2,
+                    },
+                    ConsumedSeconds = 7200,
+                    ConsumedSecondsByMediaType = new Dictionary<string, double>
+                    {
+                        ["Movies"] = 5400,
+                        ["Books"] = 1800,
+                    },
                 },
                 ContinueItems =
                 [
@@ -103,6 +124,10 @@ internal class EngineApiClientStub : DispatchProxy
                         Title = "Landman",
                         Subtitle = "S2 - E10",
                         MediaType = "TV",
+                        CollectionName = "Landman",
+                        Route = "/watch/player/91000000-0000-0000-0000-000000000001",
+                        PositionSeconds = 1800,
+                        DurationSeconds = 2800,
                         ProgressPct = 64,
                         LastAccessed = DateTimeOffset.UtcNow.AddHours(-2),
                     },
@@ -116,6 +141,8 @@ internal class EngineApiClientStub : DispatchProxy
                         Title = "The Substance",
                         Subtitle = "Movie",
                         MediaType = "Movies",
+                        CollectionName = "Movies",
+                        Route = "/watch/player/91000000-0000-0000-0000-000000000002",
                         ProgressPct = 100,
                         LastAccessed = DateTimeOffset.UtcNow.AddDays(-1),
                     },
@@ -129,8 +156,24 @@ internal class EngineApiClientStub : DispatchProxy
                         Title = "Dexter: Resurrection",
                         Subtitle = "S1 - E10",
                         MediaType = "TV",
+                        CollectionName = "Dexter",
+                        Route = "/watch/player/91000000-0000-0000-0000-000000000003",
                         ProgressPct = 100,
                         LastAccessed = DateTimeOffset.UtcNow.AddDays(-4),
+                    },
+                ],
+                RecentlyAddedItems =
+                [
+                    new ProfileOverviewItemViewModel
+                    {
+                        AssetId = Guid.Parse("91000000-0000-0000-0000-000000000004"),
+                        WorkId = Guid.Parse("91000000-0000-0000-0000-000000000104"),
+                        Title = "Dune: Part Two",
+                        Subtitle = "Movie",
+                        MediaType = "Movies",
+                        ProgressPct = 0,
+                        LastAccessed = DateTimeOffset.UtcNow.AddDays(-3),
+                        AddedAt = DateTimeOffset.UtcNow.AddDays(-3),
                     },
                 ],
                 Activity =

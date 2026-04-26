@@ -2,6 +2,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
 
 <div class="st-page user-overview-page">
     @if (_loading)
@@ -17,74 +18,118 @@
     else
     {
         var profile = _overview.Profile;
-        var initials = GetInitials(profile.DisplayName);
+        var initials = GetInitials(_displayName);
 
         <section class="user-overview-hero">
-            <div class="user-overview-avatar" style="@($"--avatar-color: {profile.AvatarColor}")">
-                <span>@initials</span>
+            <div class="user-overview-profile">
+                <div class="user-overview-avatar" style="@($"--avatar-color: {_avatarColor}")">
+                    <span>@initials</span>
+                </div>
+
+                <div class="user-overview-identity">
+                    <MudTextField @bind-Value="_displayName"
+                                  Variant="Variant.Text"
+                                  Margin="Margin.Dense"
+                                  Immediate="true"
+                                  MaxLength="64"
+                                  Disabled="_savingProfile"
+                                  Class="user-overview-name-field" />
+
+                    <MudText Typo="Typo.body1" Class="user-overview-subtitle">Personal overview</MudText>
+
+                    <div class="user-overview-badges">
+                        <span>@profile.Role</span>
+                        <span>Joined @profile.CreatedAt.ToLocalTime().ToString("MMM yyyy")</span>
+                        <span>@_overview.Stats.TotalItems tracked items</span>
+                    </div>
+
+                    <div class="user-overview-swatches" aria-label="Avatar color">
+                        @foreach (var color in AvatarColors)
+                        {
+                            <button type="button"
+                                    class="@AvatarSwatchClass(color)"
+                                    style="@($"--swatch-color: {color}")"
+                                    title="@color"
+                                    disabled="@_savingProfile"
+                                    @onclick="() => SelectAvatarColor(color)">
+                            </button>
+                        }
+                    </div>
+
+                    @if (ProfileDirty)
+                    {
+                        <div class="user-overview-inline-actions">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       Disabled="@(_savingProfile || string.IsNullOrWhiteSpace(_displayName))"
+                                       OnClick="@SaveProfileAsync">
+                                Save
+                            </MudButton>
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Inherit"
+                                       Size="Size.Small"
+                                       Disabled="@_savingProfile"
+                                       OnClick="@CancelProfileEdit">
+                                Cancel
+                            </MudButton>
+                        </div>
+                    }
+                </div>
             </div>
 
-            <div class="user-overview-identity">
-                <MudText Typo="Typo.h4" Class="user-overview-title">@profile.DisplayName</MudText>
-                <MudText Typo="Typo.body1" Class="user-overview-subtitle">Personal overview</MudText>
-
-                <div class="user-overview-badges">
-                    <span>@profile.Role</span>
-                    <span>Joined @profile.CreatedAt.ToLocalTime().ToString("MMM yyyy")</span>
-                    <span>@_overview.Stats.TotalItems watched, read, or played</span>
+            <MudPaper Elevation="0" Class="user-overview-glance">
+                <div class="user-overview-panel-header">
+                    <MudText Typo="Typo.h6">At a Glance</MudText>
+                    <MudText Typo="Typo.caption" Class="user-overview-muted">This profile</MudText>
                 </div>
-
-                <div class="user-overview-actions">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Outlined.Edit"
-                               OnClick="@ToggleProfileEditor">
-                        Edit profile
-                    </MudButton>
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Inherit"
-                               StartIcon="@Icons.Material.Outlined.PlayArrow"
-                               Href="/settings/playback">
-                        Playback
-                    </MudButton>
+                <div class="user-overview-glance-grid">
+                    @foreach (var item in AtAGlanceItems())
+                    {
+                        <div class="user-overview-glance-item">
+                            <MudIcon Icon="@item.Icon" />
+                            <span>@item.Label</span>
+                            <strong>@item.Value</strong>
+                        </div>
+                    }
                 </div>
-            </div>
-
-            <div class="user-overview-stat-card user-overview-stat-card--featured">
-                <MudText Typo="Typo.overline">Your Activity</MudText>
-                <div class="user-overview-stat-grid">
-                    <div>
-                        <strong>@_overview.Stats.TotalItems</strong>
-                        <span>Total</span>
-                    </div>
-                    <div>
-                        <strong>@_overview.Stats.InProgress</strong>
-                        <span>In progress</span>
-                    </div>
-                    <div>
-                        <strong>@_overview.Stats.Completed</strong>
-                        <span>Completed</span>
-                    </div>
-                </div>
-                <div class="user-overview-stat-footer">
-                    <span>@_overview.Stats.RecentActivity recent actions</span>
-                </div>
-            </div>
+            </MudPaper>
         </section>
 
-        @if (_editingProfile)
-        {
-            <MudPaper Elevation="0" Class="user-overview-editor">
-                <ProfileTab />
-            </MudPaper>
-        }
+        <section class="user-overview-statistics">
+            <MudText Typo="Typo.h6">Your Statistics</MudText>
+            <div class="user-overview-stat-grid">
+                <MudPaper Elevation="0" Class="user-overview-panel">
+                    <div class="user-overview-panel-header">
+                        <MudText Typo="Typo.subtitle1">Content Library</MudText>
+                    </div>
+                    <DictionaryRows Items="@LibraryCounts()" EmptyText="Library totals are not available yet." />
+                </MudPaper>
+
+                <MudPaper Elevation="0" Class="user-overview-panel user-overview-panel--emphasis">
+                    <div class="user-overview-panel-header">
+                        <MudText Typo="Typo.subtitle1">Time Tracked</MudText>
+                        <MudText Typo="Typo.caption" Class="user-overview-muted">From saved progress</MudText>
+                    </div>
+                    <div class="user-overview-time-total">@FormatDuration(_overview.Stats.ConsumedSeconds)</div>
+                    <DictionaryRows Items="@ConsumedByMediaType()" EmptyText="Time appears after playback or reading progress is saved." Suffix="min" />
+                </MudPaper>
+
+                <MudPaper Elevation="0" Class="user-overview-panel">
+                    <div class="user-overview-panel-header">
+                        <MudText Typo="Typo.subtitle1">Activity</MudText>
+                    </div>
+                    <DictionaryRows Items="@_overview.Stats.ActivityBuckets" EmptyText="No personal activity has been recorded." />
+                </MudPaper>
+            </div>
+        </section>
 
         <section class="user-overview-dashboard">
             <MudPaper Elevation="0" Class="user-overview-panel user-overview-panel--wide">
                 <div class="user-overview-panel-header">
                     <div>
                         <MudText Typo="Typo.overline">Continue</MudText>
-                        <MudText Typo="Typo.h6">Pick up where you left off</MudText>
+                        <MudText Typo="Typo.h6">Continue Watching, Reading, Listening</MudText>
                     </div>
                 </div>
                 <MediaRail Items="@_overview.ContinueItems" EmptyText="Nothing is currently in progress." />
@@ -94,25 +139,20 @@
                 <div class="user-overview-panel-header">
                     <div>
                         <MudText Typo="Typo.overline">Taste</MudText>
-                        <MudText Typo="Typo.h6">Library habits</MudText>
+                        <MudText Typo="Typo.h6">Top Genres</MudText>
                     </div>
                 </div>
                 <MudText Typo="Typo.body2" Class="user-overview-muted">
                     @(_overview.Taste?.Summary ?? "Taste signals will appear after the library has enough activity.")
                 </MudText>
-                <div class="user-overview-chip-list">
-                    @foreach (var item in TopTasteItems())
-                    {
-                        <span>@item</span>
-                    }
-                </div>
+                <DictionaryRows Items="@TopGenres()" EmptyText="No genre signals yet." />
             </MudPaper>
 
             <MudPaper Elevation="0" Class="user-overview-panel user-overview-panel--wide">
                 <div class="user-overview-panel-header">
                     <div>
                         <MudText Typo="Typo.overline">History</MudText>
-                        <MudText Typo="Typo.h6">Recent details</MudText>
+                        <MudText Typo="Typo.h6">Recently Watched, Read, or Played</MudText>
                     </div>
                 </div>
                 <MediaRail Items="@_overview.RecentItems" EmptyText="Your recent history is empty." />
@@ -121,33 +161,18 @@
             <MudPaper Elevation="0" Class="user-overview-panel">
                 <div class="user-overview-panel-header">
                     <div>
-                        <MudText Typo="Typo.overline">Media Mix</MudText>
-                        <MudText Typo="Typo.h6">What you use most</MudText>
+                        <MudText Typo="Typo.overline">Mix</MudText>
+                        <MudText Typo="Typo.h6">Media Type Mix</MudText>
                     </div>
                 </div>
-                <div class="user-overview-mix">
-                    @if (_overview.Stats.MediaTypeMix.Count == 0)
-                    {
-                        <MudText Typo="Typo.body2" Class="user-overview-muted">No media mix yet.</MudText>
-                    }
-                    else
-                    {
-                        @foreach (var item in _overview.Stats.MediaTypeMix.OrderByDescending(item => item.Value))
-                        {
-                            <div class="user-overview-mix-row">
-                                <span>@item.Key</span>
-                                <strong>@item.Value</strong>
-                            </div>
-                        }
-                    }
-                </div>
+                <DictionaryRows Items="@_overview.Stats.MediaTypeMix" EmptyText="No media mix yet." />
             </MudPaper>
 
             <MudPaper Elevation="0" Class="user-overview-panel user-overview-panel--wide">
                 <div class="user-overview-panel-header">
                     <div>
                         <MudText Typo="Typo.overline">Completed</MudText>
-                        <MudText Typo="Typo.h6">Finished recently</MudText>
+                        <MudText Typo="Typo.h6">Finished Recently</MudText>
                     </div>
                 </div>
                 <MediaRail Items="@_overview.CompletedItems" EmptyText="Completed items will appear here." />
@@ -156,35 +181,38 @@
             <MudPaper Elevation="0" Class="user-overview-panel">
                 <div class="user-overview-panel-header">
                     <div>
-                        <MudText Typo="Typo.overline">Activity</MudText>
-                        <MudText Typo="Typo.h6">Personal timeline</MudText>
+                        <MudText Typo="Typo.overline">Recently Added</MudText>
+                        <MudText Typo="Typo.h6">New In Library</MudText>
                     </div>
                 </div>
-                <div class="user-overview-activity">
-                    @if (_overview.Activity.Count == 0)
-                    {
-                        <MudText Typo="Typo.body2" Class="user-overview-muted">No personal activity has been recorded.</MudText>
-                    }
-                    else
-                    {
-                        @foreach (var entry in _overview.Activity.Take(6))
-                        {
-                            <div class="user-overview-activity-row">
-                                <span>@entry.ActionType</span>
-                                <small>@(entry.Detail ?? entry.OccurredAt.ToLocalTime().ToString("MMM d, yyyy"))</small>
-                            </div>
-                        }
-                    }
-                </div>
+                <MediaRail Items="@_overview.RecentlyAddedItems" EmptyText="Recently added items will appear when library dates are available." />
             </MudPaper>
         </section>
     }
 </div>
 
 @code {
+    private static readonly string[] AvatarColors =
+    [
+        "#C9922E",
+        "#7C4DFF",
+        "#2E7CF6",
+        "#22C55E",
+        "#EF3D73",
+        "#06B6D4",
+    ];
+
     private bool _loading = true;
-    private bool _editingProfile;
+    private bool _savingProfile;
     private ProfileOverviewViewModel? _overview;
+    private string _displayName = string.Empty;
+    private string _savedDisplayName = string.Empty;
+    private string _avatarColor = "#7C4DFF";
+    private string _savedAvatarColor = "#7C4DFF";
+
+    private bool ProfileDirty =>
+        !string.Equals(_displayName.Trim(), _savedDisplayName, StringComparison.Ordinal)
+        || !string.Equals(_avatarColor, _savedAvatarColor, StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -194,26 +222,112 @@
         {
             _overview = await ApiClient.GetProfileOverviewAsync(profile.Id);
             if (_overview is null)
-            {
                 _overview = new ProfileOverviewViewModel { Profile = profile };
-            }
+
+            SyncProfileEditor(_overview.Profile);
         }
 
         _loading = false;
     }
 
-    private void ToggleProfileEditor() => _editingProfile = !_editingProfile;
-
-    private IEnumerable<string> TopTasteItems()
+    private async Task SaveProfileAsync()
     {
-        if (_overview?.Taste is null)
-            return [];
+        if (_overview is null || string.IsNullOrWhiteSpace(_displayName))
+            return;
 
-        return _overview.Taste.MediaTypeMix
-            .Concat(_overview.Taste.GenreDistribution)
+        _savingProfile = true;
+        var current = _overview.Profile;
+        var ok = await Orchestrator.UpdateProfileAsync(
+            current.Id,
+            _displayName.Trim(),
+            _avatarColor,
+            current.Role,
+            current.NavigationConfig);
+
+        if (ok)
+        {
+            var updated = current with { DisplayName = _displayName.Trim(), AvatarColor = _avatarColor };
+            _overview.Profile = updated;
+            SyncProfileEditor(updated);
+            Snackbar.Add("Profile updated.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Could not save profile.", Severity.Error);
+        }
+
+        _savingProfile = false;
+    }
+
+    private void CancelProfileEdit()
+    {
+        _displayName = _savedDisplayName;
+        _avatarColor = _savedAvatarColor;
+    }
+
+    private void SelectAvatarColor(string color) => _avatarColor = color;
+
+    private void SyncProfileEditor(ProfileViewModel profile)
+    {
+        _displayName = profile.DisplayName;
+        _savedDisplayName = profile.DisplayName;
+        _avatarColor = string.IsNullOrWhiteSpace(profile.AvatarColor) ? "#7C4DFF" : profile.AvatarColor;
+        _savedAvatarColor = _avatarColor;
+    }
+
+    private IReadOnlyDictionary<string, int> LibraryCounts() =>
+        _overview?.Stats.LibraryCounts.Count > 0
+            ? _overview.Stats.LibraryCounts
+            : _overview?.Stats.MediaTypeMix ?? new Dictionary<string, int>();
+
+    private IReadOnlyDictionary<string, int> TopGenres()
+    {
+        if (_overview?.Stats.TopGenres.Count > 0)
+            return _overview.Stats.TopGenres;
+
+        return _overview?.Taste?.GenreDistribution
             .OrderByDescending(item => item.Value)
-            .Take(5)
-            .Select(item => item.Key);
+            .Take(6)
+            .ToDictionary(item => item.Key, item => (int)Math.Round(item.Value * 100), StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, int>();
+    }
+
+    private IReadOnlyDictionary<string, int> ConsumedByMediaType() =>
+        _overview?.Stats.ConsumedSecondsByMediaType
+            .Where(item => item.Value > 0)
+            .OrderByDescending(item => item.Value)
+            .ToDictionary(item => item.Key, item => (int)Math.Round(item.Value / 60), StringComparer.OrdinalIgnoreCase)
+        ?? new Dictionary<string, int>();
+
+    private IEnumerable<GlanceItem> AtAGlanceItems()
+    {
+        if (_overview is null)
+            yield break;
+
+        var counts = LibraryCounts().OrderByDescending(item => item.Value).Take(3).ToList();
+        var icons = new[] { Icons.Material.Outlined.Movie, Icons.Material.Outlined.Tv, Icons.Material.Outlined.MenuBook };
+        for (var i = 0; i < counts.Count; i++)
+            yield return new GlanceItem(counts[i].Key, counts[i].Value.ToString("N0"), icons[i]);
+
+        yield return new GlanceItem("In progress", _overview.Stats.InProgress.ToString("N0"), Icons.Material.Outlined.PlayCircle);
+        yield return new GlanceItem("Completed", _overview.Stats.Completed.ToString("N0"), Icons.Material.Outlined.CheckCircle);
+        yield return new GlanceItem("Tracked time", FormatDuration(_overview.Stats.ConsumedSeconds), Icons.Material.Outlined.Schedule);
+    }
+
+    private string AvatarSwatchClass(string color) =>
+        string.Equals(color, _avatarColor, StringComparison.OrdinalIgnoreCase)
+            ? "user-overview-swatch user-overview-swatch--selected"
+            : "user-overview-swatch";
+
+    private static string FormatDuration(double seconds)
+    {
+        if (seconds <= 0)
+            return "0m";
+
+        var totalMinutes = (int)Math.Round(seconds / 60);
+        var hours = totalMinutes / 60;
+        var minutes = totalMinutes % 60;
+        return hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
     }
 
     private static string GetInitials(string name)
@@ -227,4 +341,5 @@
         };
     }
 
+    private readonly record struct GlanceItem(string Label, string Value, string Icon);
 }

@@ -840,6 +840,9 @@ public sealed class ProfileOverviewResponseDto
     [JsonPropertyName("completed_items")]
     public List<ProfileOverviewItemDto> CompletedItems { get; init; } = [];
 
+    [JsonPropertyName("recently_added_items")]
+    public List<ProfileOverviewItemDto> RecentlyAddedItems { get; init; } = [];
+
     [JsonPropertyName("activity")]
     public List<ProfileOverviewActivityDto> Activity { get; init; } = [];
 
@@ -863,6 +866,21 @@ public sealed class ProfileOverviewStatsDto
 
     [JsonPropertyName("media_type_mix")]
     public Dictionary<string, int> MediaTypeMix { get; init; } = [];
+
+    [JsonPropertyName("library_counts")]
+    public Dictionary<string, int> LibraryCounts { get; init; } = [];
+
+    [JsonPropertyName("activity_buckets")]
+    public Dictionary<string, int> ActivityBuckets { get; init; } = [];
+
+    [JsonPropertyName("top_genres")]
+    public Dictionary<string, int> TopGenres { get; init; } = [];
+
+    [JsonPropertyName("consumed_seconds")]
+    public double ConsumedSeconds { get; init; }
+
+    [JsonPropertyName("consumed_seconds_by_media_type")]
+    public Dictionary<string, double> ConsumedSecondsByMediaType { get; init; } = [];
 }
 
 public sealed class ProfileOverviewItemDto
@@ -885,11 +903,29 @@ public sealed class ProfileOverviewItemDto
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 
+    [JsonPropertyName("collection_name")]
+    public string? CollectionName { get; init; }
+
+    [JsonPropertyName("genre")]
+    public string? Genre { get; init; }
+
+    [JsonPropertyName("route")]
+    public string? Route { get; init; }
+
+    [JsonPropertyName("position_seconds")]
+    public double? PositionSeconds { get; init; }
+
+    [JsonPropertyName("duration_seconds")]
+    public double? DurationSeconds { get; init; }
+
     [JsonPropertyName("progress_pct")]
     public double ProgressPct { get; init; }
 
     [JsonPropertyName("last_accessed")]
     public DateTimeOffset LastAccessed { get; init; }
+
+    [JsonPropertyName("added_at")]
+    public DateTimeOffset? AddedAt { get; init; }
 }
 
 public sealed class ProfileOverviewActivityDto

@@ -780,7 +780,9 @@
             {
                 ["chapter_index"] = _currentChapterIndex.ToString(),
                 ["page_in_chapter"] = _currentPageInChapter.ToString(),
-                ["total_pages_in_chapter"] = _totalPagesInChapter.ToString()
+                ["total_pages_in_chapter"] = _totalPagesInChapter.ToString(),
+                ["position_seconds"] = Math.Max(0, _totalReadingTimeSecs).ToString(),
+                ["media_kind"] = "reading"
             };
 
             await Api.SaveProgressAsync(AssetId, progressPct: overallPercent, extendedProperties: extProps);

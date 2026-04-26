@@ -1,0 +1,27 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+
+<article class="user-overview-media-card">
+    <div class="user-overview-media-art">
+        @if (!string.IsNullOrWhiteSpace(Item.CoverUrl))
+        {
+            <img src="@Item.CoverUrl" alt="" />
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Outlined.Movie" />
+        }
+        @if (Item.ProgressPct > 0)
+        {
+            <span>@Math.Round(Item.ProgressPct)%</span>
+        }
+    </div>
+    <div class="user-overview-media-meta">
+        <strong title="@Item.Title">@Item.Title</strong>
+        <small>@(Item.CollectionName ?? Item.Subtitle ?? Item.MediaType)</small>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public ProfileOverviewItemViewModel Item { get; set; } = new();
+}

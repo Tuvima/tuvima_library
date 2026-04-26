@@ -145,7 +145,17 @@ else
 
         _lastSavedPct = progressPct;
         _lastSaveAt = now;
-        await Orchestrator.SaveProgressAsync(AssetId, _activeProfileId, progressPct);
+        await Orchestrator.SaveProgressAsync(
+            AssetId,
+            _activeProfileId,
+            progressPct,
+            new Dictionary<string, string>
+            {
+                ["position_seconds"] = Math.Max(0d, currentTime).ToString("F2"),
+                ["duration_seconds"] = Math.Max(0d, duration).ToString("F2"),
+                ["media_kind"] = "video",
+                ["completed"] = ended ? "true" : "false",
+            });
     }
 
     private void GoBack()

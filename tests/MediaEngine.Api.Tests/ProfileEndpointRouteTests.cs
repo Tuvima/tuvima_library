@@ -10,7 +10,10 @@ public sealed class ProfileEndpointRouteTests
         Assert.Contains("group.MapGet(\"/{id:guid}/overview\"", source, StringComparison.Ordinal);
         Assert.Contains("GetProfileOverview", source, StringComparison.Ordinal);
         Assert.Contains("GetRecentByProfileAsync(id, 20, ct)", source, StringComparison.Ordinal);
-        Assert.Contains("GetRecentAsync(id, 50, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("ReadProfileOverviewItems(db, id", source, StringComparison.Ordinal);
+        Assert.Contains("FROM user_states us", source, StringComparison.Ordinal);
+        Assert.Contains("RecentlyAddedItems = recentlyAdded", source, StringComparison.Ordinal);
+        Assert.Contains("ConsumedSeconds = items.Sum(EstimateConsumedSeconds)", source, StringComparison.Ordinal);
         Assert.Contains("Results.NotFound($\"Profile '{id}' not found.\")", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetSystemStatus", source, StringComparison.Ordinal);
     }
@@ -22,6 +25,19 @@ public sealed class ProfileEndpointRouteTests
 
         Assert.Contains("GetRecentByProfileAsync", source, StringComparison.Ordinal);
         Assert.Contains("WHERE  profile_id = @profileId", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReadersAndPlayers_SaveProgressMetadataForOverviewStats()
+    {
+        var watchSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\WatchPlayerPage.razor"));
+        var readerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\EpubReader.razor"));
+
+        Assert.Contains("[\"position_seconds\"]", watchSource, StringComparison.Ordinal);
+        Assert.Contains("[\"duration_seconds\"]", watchSource, StringComparison.Ordinal);
+        Assert.Contains("[\"media_kind\"] = \"video\"", watchSource, StringComparison.Ordinal);
+        Assert.Contains("[\"position_seconds\"]", readerSource, StringComparison.Ordinal);
+        Assert.Contains("[\"media_kind\"] = \"reading\"", readerSource, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath)

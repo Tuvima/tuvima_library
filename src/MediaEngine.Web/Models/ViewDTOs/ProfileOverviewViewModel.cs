@@ -25,6 +25,9 @@ public sealed class ProfileOverviewViewModel
     [JsonPropertyName("completed_items")]
     public List<ProfileOverviewItemViewModel> CompletedItems { get; set; } = [];
 
+    [JsonPropertyName("recently_added_items")]
+    public List<ProfileOverviewItemViewModel> RecentlyAddedItems { get; set; } = [];
+
     [JsonPropertyName("activity")]
     public List<ProfileOverviewActivityViewModel> Activity { get; set; } = [];
 
@@ -48,6 +51,21 @@ public sealed class ProfileOverviewStatsViewModel
 
     [JsonPropertyName("media_type_mix")]
     public Dictionary<string, int> MediaTypeMix { get; set; } = [];
+
+    [JsonPropertyName("library_counts")]
+    public Dictionary<string, int> LibraryCounts { get; set; } = [];
+
+    [JsonPropertyName("activity_buckets")]
+    public Dictionary<string, int> ActivityBuckets { get; set; } = [];
+
+    [JsonPropertyName("top_genres")]
+    public Dictionary<string, int> TopGenres { get; set; } = [];
+
+    [JsonPropertyName("consumed_seconds")]
+    public double ConsumedSeconds { get; set; }
+
+    [JsonPropertyName("consumed_seconds_by_media_type")]
+    public Dictionary<string, double> ConsumedSecondsByMediaType { get; set; } = [];
 }
 
 public sealed class ProfileOverviewItemViewModel
@@ -70,11 +88,29 @@ public sealed class ProfileOverviewItemViewModel
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
 
+    [JsonPropertyName("collection_name")]
+    public string? CollectionName { get; set; }
+
+    [JsonPropertyName("genre")]
+    public string? Genre { get; set; }
+
+    [JsonPropertyName("route")]
+    public string? Route { get; set; }
+
+    [JsonPropertyName("position_seconds")]
+    public double? PositionSeconds { get; set; }
+
+    [JsonPropertyName("duration_seconds")]
+    public double? DurationSeconds { get; set; }
+
     [JsonPropertyName("progress_pct")]
     public double ProgressPct { get; set; }
 
     [JsonPropertyName("last_accessed")]
     public DateTimeOffset LastAccessed { get; set; }
+
+    [JsonPropertyName("added_at")]
+    public DateTimeOffset? AddedAt { get; set; }
 }
 
 public sealed class ProfileOverviewActivityViewModel

@@ -1,0 +1,30 @@
+@namespace MediaEngine.Web.Components.Settings
+
+@if (Items.Count == 0)
+{
+    <MudText Typo="Typo.body2" Class="user-overview-muted">@EmptyText</MudText>
+}
+else
+{
+    <div class="user-overview-mix">
+        @foreach (var item in Items.OrderByDescending(item => item.Value).Take(Limit))
+        {
+            <div class="user-overview-mix-row">
+                <span>@item.Key</span>
+                <strong>@FormatValue(item.Value)</strong>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyDictionary<string, int> Items { get; set; } = new Dictionary<string, int>();
+    [Parameter] public string EmptyText { get; set; } = string.Empty;
+    [Parameter] public int Limit { get; set; } = 6;
+    [Parameter] public string? Suffix { get; set; }
+
+    private string FormatValue(int value) =>
+        string.IsNullOrWhiteSpace(Suffix)
+            ? value.ToString("N0")
+            : $"{value:N0} {Suffix}";
+}
