@@ -1,3 +1,15 @@
+.collection-editor-dialog {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+
+::deep .collection-editor-dialog .mud-dialog-content {
+    padding: 0 !important;
+    background: transparent !important;
+}
+
 .collection-editor-shell {
     display: flex;
     flex-direction: column;
@@ -98,7 +110,7 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 18px 24px 20px;
+    padding: 16px 20px 18px;
 }
 
 .collection-editor-artwork-picker {
@@ -116,7 +128,7 @@
 .collection-editor-section {
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: var(--app-radius-md);
-    padding: 18px;
+    padding: 16px;
     background: rgba(255, 255, 255, 0.02);
     margin-bottom: 16px;
 }
@@ -166,7 +178,7 @@
 
 .collection-editor-rule-row {
     display: grid;
-    grid-template-columns: minmax(140px, 0.95fr) minmax(130px, 0.7fr) minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(130px, 0.95fr) minmax(120px, 0.7fr) minmax(0, 1fr) auto auto;
     gap: 8px;
     align-items: center;
 }

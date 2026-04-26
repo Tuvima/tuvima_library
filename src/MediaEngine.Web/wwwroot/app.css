@@ -189,7 +189,7 @@ body {
 
 .mud-menu,
 .mud-popover {
-    z-index: var(--app-z-dropdown) !important;
+    z-index: calc(var(--app-z-modal) + 10) !important;
 }
 
 .mud-overlay-drawer,

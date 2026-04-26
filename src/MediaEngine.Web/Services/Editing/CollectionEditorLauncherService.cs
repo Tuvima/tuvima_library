@@ -15,6 +15,8 @@ public sealed class CollectionEditorLauncherService
     public async Task<bool> OpenAsync(CollectionEditorLaunchRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var isManualPlaylist = string.Equals(request.Mode, "Playlist", StringComparison.OrdinalIgnoreCase);
+        var isSmartPlaylist = string.Equals(request.Mode, "SmartPlaylist", StringComparison.OrdinalIgnoreCase);
 
         var dialog = await _dialogService.ShowAsync<CollectionEditorShell>(
             request.EditingCollection is null ? DialogTitleFor(request) : "Edit Collection",
@@ -26,8 +28,8 @@ public sealed class CollectionEditorLauncherService
             {
                 CloseButton = false,
                 NoHeader = true,
-                MaxWidth = MaxWidth.ExtraLarge,
-                FullWidth = true,
+                MaxWidth = isManualPlaylist ? MaxWidth.Small : isSmartPlaylist ? MaxWidth.Medium : MaxWidth.Large,
+                FullWidth = false,
                 BackdropClick = false,
             });
 

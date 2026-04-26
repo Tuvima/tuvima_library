@@ -85,7 +85,7 @@
 
     private static readonly (string Id, string Label)[] Tabs = [("details", "Details"), ("rules", "Rules"), ("items", "Items"), ("options", "Options")];
     private static readonly (string Id, string Label)[] PlaylistTabs = [("details", "Details")];
-    private static readonly (string Id, string Label)[] SmartPlaylistTabs = [("details", "Details"), ("rules", "Rules"), ("options", "Options")];
+    private static readonly (string Id, string Label)[] SmartPlaylistTabs = [("details", "Details")];
     private static readonly (string Label, string Icon)[] IconChoices =
     [
         ("Playlist", Icons.Material.Outlined.QueueMusic),
@@ -147,7 +147,7 @@
             : IsPlaylistLaunch
                 ? "New Playlist"
                 : "New Collection";
-    private string DialogSize => IsPlaylistLaunch ? "Medium" : "Large";
+    private string DialogSize => IsPlaylistLaunch ? "Small" : IsSmartPlaylistLaunch ? "Medium" : "Large";
 
     private string HeaderSubtitle =>
         IsSmartPlaylistLaunch
@@ -832,110 +832,118 @@
                 }
             </div>
         </section>
+
+        @if (IsSmartPlaylistLaunch)
+        {
+            @RenderRulesSection()
+            @RenderOptionsSection()
+        }
     </div>;
 
     private RenderFragment RenderRulesTab() => @<div class="collection-editor-pane">
-        <section class="collection-editor-section">
-            <div class="collection-editor-section-title">Rules</div>
+        @RenderRulesSection()
+    </div>;
 
-            <MudCheckBox T="bool"
-                         Value="_rulesEnabled"
-                         ValueChanged="OnRulesEnabledChanged"
-                         Color="Color.Error"
-                         Dense="true"
-                         Disabled="@IsPlaylist"
-                         Label="Build this collection from matching rules" />
+    private RenderFragment RenderRulesSection() => @<section class="collection-editor-section">
+        <div class="collection-editor-section-title">Rules</div>
 
-            <div class="collection-editor-note">
-                @if (IsPlaylist)
+        <MudCheckBox T="bool"
+                     Value="_rulesEnabled"
+                     ValueChanged="OnRulesEnabledChanged"
+                     Color="Color.Error"
+                     Dense="true"
+                     Disabled="@IsPlaylist"
+                     Label="Build this collection from matching rules" />
+
+        <div class="collection-editor-note">
+            @if (IsPlaylist)
+            {
+                <span>Playlists do not use smart rules.</span>
+            }
+            else if (_rulesEnabled)
+            {
+                <span>Rules define the collection automatically. Matching items appear in the Items tab.</span>
+            }
+            else
+            {
+                <span>Rules are off. Membership is fully manual.</span>
+            }
+        </div>
+
+        @if (_rulesEnabled)
+        {
+            <div class="collection-editor-rules">
+                @for (var i = 0; i < _rules.Count; i++)
                 {
-                    <span>Playlists do not use smart rules.</span>
-                }
-                else if (_rulesEnabled)
-                {
-                    <span>Rules define the collection automatically. Matching items appear in the Items tab.</span>
-                }
-                else
-                {
-                    <span>Rules are off. Membership is fully manual.</span>
+                    var idx = i;
+                    var rule = _rules[idx];
+
+                    <div class="collection-editor-rule-row">
+                        <MudSelect T="string"
+                                   Value="rule.Field"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="app-dialog-field app-dialog-select"
+                                   ValueChanged="@(value => OnRuleFieldChanged(rule, value))">
+                            <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("author")">Author</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("director")">Director</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("artist")">Artist</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("narrator")">Narrator</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("album")">Album</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("series")">Series</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("show_name")">Show</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("decade")">Decade</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("vibe")">Vibe</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("publisher")">Publisher</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("language")">Language</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("added_within_days")">Added Within</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
+                        </MudSelect>
+
+                        <MudSelect T="string" @bind-Value="rule.Op" Variant="Variant.Outlined" Dense="true" Class="app-dialog-field app-dialog-select">
+                            @foreach (var op in GetOperatorsForField(rule.Field))
+                            {
+                                <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudTextField T="string"
+                                      Value="rule.Value"
+                                      ValueChanged="@(value => OnRuleValueChanged(rule, value))"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Placeholder="Value..."
+                                      Immediate="true"
+                                      DebounceInterval="350"
+                                      Class="collection-editor-rule-input app-dialog-field" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="@(() => AddRule(idx))" aria-label="Add rule" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small" Disabled="@(_rules.Count == 1)" OnClick="@(() => RemoveRule(idx))" aria-label="Remove rule" />
+                    </div>
                 }
             </div>
 
-            @if (_rulesEnabled)
-            {
-                <div class="collection-editor-rules">
-                    @for (var i = 0; i < _rules.Count; i++)
-                    {
-                        var idx = i;
-                        var rule = _rules[idx];
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Outlined.Add"
+                       Class="collection-editor-add-rule"
+                       OnClick="@(() => AddRule(_rules.Count - 1))">
+                Add rule
+            </MudButton>
 
-                        <div class="collection-editor-rule-row">
-                            <MudSelect T="string"
-                                       Value="rule.Field"
-                                       Variant="Variant.Outlined"
-                                       Dense="true"
-                                       Class="app-dialog-field app-dialog-select"
-                                       ValueChanged="@(value => OnRuleFieldChanged(rule, value))">
-                                <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("author")">Author</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("director")">Director</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("artist")">Artist</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("narrator")">Narrator</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("album")">Album</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("series")">Series</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("show_name")">Show</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("decade")">Decade</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("vibe")">Vibe</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("publisher")">Publisher</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("language")">Language</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("added_within_days")">Added Within</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
-                            </MudSelect>
-
-                            <MudSelect T="string" @bind-Value="rule.Op" Variant="Variant.Outlined" Dense="true" Class="app-dialog-field app-dialog-select">
-                                @foreach (var op in GetOperatorsForField(rule.Field))
-                                {
-                                    <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
-                                }
-                            </MudSelect>
-
-                            <MudTextField T="string"
-                                          Value="rule.Value"
-                                          ValueChanged="@(value => OnRuleValueChanged(rule, value))"
-                                          Variant="Variant.Outlined"
-                                          Margin="Margin.Dense"
-                                          Placeholder="Value..."
-                                          Immediate="true"
-                                          DebounceInterval="350"
-                                          Class="collection-editor-rule-input app-dialog-field" />
-
-                            <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="@(() => AddRule(idx))" aria-label="Add rule" />
-                            <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small" Disabled="@(_rules.Count == 1)" OnClick="@(() => RemoveRule(idx))" aria-label="Remove rule" />
-                        </div>
-                    }
-                </div>
-
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Primary"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Outlined.Add"
-                           Class="collection-editor-add-rule"
-                           OnClick="@(() => AddRule(_rules.Count - 1))">
-                    Add rule
-                </MudButton>
-
-                <div class="collection-editor-inline">
-                    <span class="collection-editor-inline-label">Match mode</span>
-                    <MudRadioGroup T="string" Value="_matchMode" ValueChanged="OnMatchModeChanged">
-                        <MudRadio T="string" Value="@("all")" Color="Color.Primary" Dense="true">All rules</MudRadio>
-                        <MudRadio T="string" Value="@("any")" Color="Color.Primary" Dense="true">Any rule</MudRadio>
-                    </MudRadioGroup>
-                </div>
-            }
-        </section>
-    </div>;
+            <div class="collection-editor-inline">
+                <span class="collection-editor-inline-label">Match mode</span>
+                <MudRadioGroup T="string" Value="_matchMode" ValueChanged="OnMatchModeChanged">
+                    <MudRadio T="string" Value="@("all")" Color="Color.Primary" Dense="true">All rules</MudRadio>
+                    <MudRadio T="string" Value="@("any")" Color="Color.Primary" Dense="true">Any rule</MudRadio>
+                </MudRadioGroup>
+            </div>
+        }
+    </section>;
 
     private RenderFragment RenderItemsTab() => @<div class="collection-editor-pane">
         <section class="collection-editor-section">
@@ -1055,45 +1063,48 @@
     </div>;
 
     private RenderFragment RenderOptionsTab() => @<div class="collection-editor-pane">
-        <section class="collection-editor-section">
-            <div class="collection-editor-section-title">Options</div>
-
-            <div class="collection-editor-grid">
-                <MudSelect T="string" @bind-Value="_sortField" Label="Sort field" Variant="Variant.Outlined" Class="collection-editor-field">
-                    <MudSelectItem T="string" Value="@string.Empty">Library default</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("title")">Title</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("creator")">Creator</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("added_at")">Date Added</MudSelectItem>
-                </MudSelect>
-
-                <MudSelect T="string" @bind-Value="_sortDirection" Label="Sort direction" Variant="Variant.Outlined" Class="collection-editor-field">
-                    <MudSelectItem T="string" Value="@("asc")">Ascending</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("desc")">Descending</MudSelectItem>
-                </MudSelect>
-            </div>
-
-            @if (!SupportsManualItems)
-            {
-                <MudCheckBox T="bool" @bind-Value="_liveUpdating" Color="Color.Error" Dense="true" Label="Live updating" />
-                <div class="collection-editor-note collection-editor-note--tight">
-                    <span>When enabled, this collection re-evaluates itself as the library changes.</span>
-                </div>
-            }
-            else
-            {
-                <div class="collection-editor-note collection-editor-note--tight">
-                    <span>Manual collections keep the items you save. Sort settings act as defaults when the collection is displayed elsewhere.</span>
-                </div>
-            }
-
-            @if (EditingCollection is not null)
-            {
-                <div class="collection-editor-toggle-grid">
-                    <MudCheckBox T="bool" @bind-Value="_isEnabled" Color="Color.Primary" Dense="true" Label="Enabled" />
-                    <MudCheckBox T="bool" @bind-Value="_isFeatured" Color="Color.Primary" Dense="true" Label="Featured" />
-                </div>
-            }
-        </section>
+        @RenderOptionsSection()
     </div>;
+
+    private RenderFragment RenderOptionsSection() => @<section class="collection-editor-section">
+        <div class="collection-editor-section-title">Options</div>
+
+        <div class="collection-editor-grid">
+            <MudSelect T="string" @bind-Value="_sortField" Label="Sort field" Variant="Variant.Outlined" Class="collection-editor-field">
+                <MudSelectItem T="string" Value="@string.Empty">Library default</MudSelectItem>
+                <MudSelectItem T="string" Value="@("title")">Title</MudSelectItem>
+                <MudSelectItem T="string" Value="@("creator")">Creator</MudSelectItem>
+                <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
+                <MudSelectItem T="string" Value="@("added_at")">Date Added</MudSelectItem>
+            </MudSelect>
+
+            <MudSelect T="string" @bind-Value="_sortDirection" Label="Sort direction" Variant="Variant.Outlined" Class="collection-editor-field">
+                <MudSelectItem T="string" Value="@("asc")">Ascending</MudSelectItem>
+                <MudSelectItem T="string" Value="@("desc")">Descending</MudSelectItem>
+            </MudSelect>
+        </div>
+
+        @if (!SupportsManualItems)
+        {
+            <MudCheckBox T="bool" @bind-Value="_liveUpdating" Color="Color.Error" Dense="true" Label="Live updating" />
+            <div class="collection-editor-note collection-editor-note--tight">
+                <span>When enabled, this collection re-evaluates itself as the library changes.</span>
+            </div>
+        }
+        else
+        {
+            <div class="collection-editor-note collection-editor-note--tight">
+                <span>Manual collections keep the items you save. Sort settings act as defaults when the collection is displayed elsewhere.</span>
+            </div>
+        }
+
+        @if (EditingCollection is not null)
+        {
+            <div class="collection-editor-toggle-grid">
+                <MudCheckBox T="bool" @bind-Value="_isEnabled" Color="Color.Primary" Dense="true" Label="Enabled" />
+                <MudCheckBox T="bool" @bind-Value="_isFeatured" Color="Color.Primary" Dense="true" Label="Featured" />
+            </div>
+        }
+    </section>;
+
 }

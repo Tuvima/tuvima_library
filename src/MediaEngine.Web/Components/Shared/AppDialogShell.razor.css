@@ -11,11 +11,11 @@
 }
 
 .app-dialog-shell--small {
-    width: min(100vw - 32px, 420px);
+    width: min(100vw - 32px, 520px);
 }
 
 .app-dialog-shell--medium {
-    width: min(100vw - 32px, 680px);
+    width: min(100vw - 32px, 760px);
 }
 
 .app-dialog-shell--fullscreen-editor {

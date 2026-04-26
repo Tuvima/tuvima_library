@@ -48,8 +48,8 @@ public sealed class MediaEditorLauncherService
             {
                 CloseButton = false,
                 NoHeader = true,
-                MaxWidth = MaxWidth.ExtraLarge,
-                FullWidth = true,
+                MaxWidth = MaxWidth.Large,
+                FullWidth = false,
                 BackdropClick = false,
             });
         if (dialog is null)
