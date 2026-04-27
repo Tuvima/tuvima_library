@@ -1,0 +1,63 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<section class="tl-detail-hero @HeroClass" style="@GradientStyle">
+    <HeroBackdrop Artwork="Model.Artwork" />
+    <div class="tl-detail-hero__shade"></div>
+    <div class="tl-detail-hero__inner">
+        <HeroArtworkCard Model="Model" />
+        <div class="tl-detail-hero__copy">
+            @if (!string.IsNullOrWhiteSpace(Model.Artwork.LogoUrl))
+            {
+                <img class="tl-detail-hero__logo" src="@Model.Artwork.LogoUrl" alt="@Model.Title" />
+            }
+            else
+            {
+                <h1>@Model.Title</h1>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+            {
+                <div class="tl-detail-hero__subtitle">@Model.Subtitle</div>
+            }
+
+            <HeroMetadataPills Metadata="Model.Metadata" IdentityStatus="Model.IdentityStatus" IsAdminView="Model.IsAdminView" />
+
+            @if (!string.IsNullOrWhiteSpace(Model.Tagline))
+            {
+                <p class="tl-detail-hero__tagline">@Model.Tagline</p>
+            }
+            else if (!string.IsNullOrWhiteSpace(Model.Description))
+            {
+                <p class="tl-detail-hero__tagline">@Truncate(Model.Description, 260)</p>
+            }
+
+            <HeroActionRow PrimaryActions="Model.PrimaryActions"
+                           SecondaryActions="Model.SecondaryActions"
+                           OnActionSelected="OnActionSelected" />
+        </div>
+
+        <OverflowActionMenu Actions="Model.OverflowActions" OnActionSelected="OnActionSelected" />
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+    [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+
+    private string HeroClass => $"tl-detail-hero--{Model.Artwork.PresentationMode.ToString().ToLowerInvariant()}";
+
+    private string GradientStyle
+    {
+        get
+        {
+            var primary = Model.Artwork.PrimaryColor ?? "#C9922E";
+            var secondary = Model.Artwork.SecondaryColor ?? "#271A3A";
+            var accent = Model.Artwork.AccentColor ?? "#4F7DBA";
+            return $"--tl-detail-primary:{primary};--tl-detail-secondary:{secondary};--tl-detail-accent:{accent};";
+        }
+    }
+
+    private static string Truncate(string value, int max)
+        => value.Length <= max ? value : value[..max].TrimEnd() + "...";
+}

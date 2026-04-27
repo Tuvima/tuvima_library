@@ -1,0 +1,36 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<div class="tl-detail-tab-panel">
+    @if (Groups.Count > 1)
+    {
+        <div class="tl-season-selector">
+            @foreach (var group in Groups)
+            {
+                <button type="button"
+                        class="tl-season-selector__button @(group.Key == _selectedKey ? "is-active" : null)"
+                        @onclick="@(() => _selectedKey = group.Key)">
+                    @group.Title
+                </button>
+            }
+        </div>
+    }
+
+    <ChildrenListTab Groups="ActiveGroups" />
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
+
+    private string? _selectedKey;
+
+    private IReadOnlyList<MediaGroupingViewModel> ActiveGroups
+    {
+        get
+        {
+            if (Groups.Count == 0) return [];
+            _selectedKey ??= Groups[0].Key;
+            return Groups.Where(group => group.Key == _selectedKey).ToList();
+        }
+    }
+}

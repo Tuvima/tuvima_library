@@ -1,0 +1,27 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<div class="tl-detail-tab-panel">
+    @if (Relationships.Count > 0)
+    {
+        <section class="tl-detail-panel">
+            <div class="tl-section-heading"><h2>Relationships</h2></div>
+            @foreach (var group in Relationships)
+            {
+                <div class="tl-related-group">
+                    <span>@group.Title</span>
+                    @foreach (var chip in group.Items)
+                    {
+                        <RelatedEntityChip Chip="chip" />
+                    }
+                </div>
+            }
+        </section>
+    }
+    <ChildrenListTab Groups="Groups" />
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<RelationshipGroup> Relationships { get; set; } = [];
+    [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
+}

@@ -1,0 +1,46 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<div class="tl-detail-actions">
+    @foreach (var action in PrimaryActions)
+    {
+        <button type="button" class="tl-detail-action tl-detail-action--primary" @onclick="@(() => Select(action))">
+            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+            <span>@action.Label</span>
+        </button>
+    }
+    @foreach (var action in SecondaryActions.Take(3))
+    {
+        <button type="button" class="tl-detail-action tl-detail-action--secondary" @onclick="@(() => Select(action))">
+            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+            <span>@action.Label</span>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<DetailAction> PrimaryActions { get; set; } = [];
+    [Parameter] public IReadOnlyList<DetailAction> SecondaryActions { get; set; } = [];
+    [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+
+    private Task Select(DetailAction action) => OnActionSelected.InvokeAsync(action);
+
+    public static string IconFor(DetailAction action) => action.Icon switch
+    {
+        "play_arrow" => Icons.Material.Filled.PlayArrow,
+        "headphones" => Icons.Material.Outlined.Headphones,
+        "menu_book" => Icons.Material.Outlined.MenuBook,
+        "shuffle" => Icons.Material.Outlined.Shuffle,
+        "playlist_add" => Icons.Material.Outlined.PlaylistAdd,
+        "check_circle" => Icons.Material.Outlined.CheckCircle,
+        "link" => Icons.Material.Outlined.Link,
+        "compare_arrows" => Icons.Material.Outlined.CompareArrows,
+        "image" => Icons.Material.Outlined.Image,
+        "sync" => Icons.Material.Outlined.Sync,
+        "delete" => Icons.Material.Outlined.Delete,
+        "edit" => Icons.Material.Outlined.Edit,
+        "info" => Icons.Material.Outlined.Info,
+        "account_tree" => Icons.Material.Outlined.AccountTree,
+        _ => Icons.Material.Outlined.OpenInNew,
+    };
+}

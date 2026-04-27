@@ -1,0 +1,19 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<nav class="tl-detail-tabs" aria-label="Detail sections">
+    @foreach (var tab in Tabs)
+    {
+        <button type="button"
+                class="tl-detail-tab @(tab.Key == ActiveTab ? "is-active" : null)"
+                @onclick="@(() => ActiveTabChanged.InvokeAsync(tab.Key))">
+            @tab.Label
+        </button>
+    }
+</nav>
+
+@code {
+    [Parameter] public IReadOnlyList<DetailTab> Tabs { get; set; } = [];
+    [Parameter] public string ActiveTab { get; set; } = "overview";
+    [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
+}

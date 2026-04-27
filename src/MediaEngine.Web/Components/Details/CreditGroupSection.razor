@@ -1,0 +1,27 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<section class="tl-detail-panel">
+    <div class="tl-section-heading"><h2>@Group.Title</h2></div>
+    <div class="tl-credit-strip">
+        @foreach (var credit in Group.Credits)
+        {
+            @if (credit.EntityType == RelatedEntityType.MusicArtist)
+            {
+                <MusicArtistCreditCard Credit="credit" />
+            }
+            else if (!string.IsNullOrWhiteSpace(credit.CharacterName))
+            {
+                <CastCharacterPairCard Credit="credit" />
+            }
+            else
+            {
+                <PersonCreditCard Credit="credit" />
+            }
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public CreditGroupViewModel Group { get; set; } = default!;
+}

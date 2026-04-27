@@ -1,0 +1,391 @@
+::deep .tl-detail-page {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), transparent 30rem),
+        radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), transparent 24rem),
+        #101115;
+    color: #f6f0e8;
+    font-family: "Montserrat", "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+::deep .tl-detail-hero {
+    position: relative;
+    min-height: clamp(34rem, 72vh, 52rem);
+    overflow: hidden;
+    isolation: isolate;
+    background:
+        radial-gradient(circle at 72% 28%, color-mix(in srgb, var(--tl-detail-accent) 42%, transparent), transparent 28rem),
+        linear-gradient(135deg, color-mix(in srgb, var(--tl-detail-primary) 48%, #0c1018), color-mix(in srgb, var(--tl-detail-secondary) 58%, #101115) 52%, #0e1015);
+}
+
+::deep .tl-detail-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.16;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px);
+    background-size: 3px 3px;
+    mix-blend-mode: overlay;
+}
+
+::deep .tl-detail-hero__backdrop,
+::deep .tl-hero-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: -3;
+}
+
+::deep .tl-detail-hero__backdrop img,
+::deep .tl-hero-backdrop img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+::deep .tl-detail-hero__shade {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background:
+        linear-gradient(90deg, rgba(10, 10, 14, 0.92), rgba(10, 10, 14, 0.62) 42%, rgba(10, 10, 14, 0.32) 74%, rgba(10, 10, 14, 0.76)),
+        linear-gradient(0deg, #101115 0%, rgba(16,17,21,0.62) 26%, rgba(16,17,21,0.04) 62%);
+}
+
+::deep .tl-detail-hero__inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(11rem, 17rem) minmax(0, 48rem) auto;
+    align-items: end;
+    gap: clamp(1.4rem, 4vw, 3.2rem);
+    min-height: inherit;
+    padding: clamp(5rem, 12vh, 8rem) clamp(1.25rem, 5vw, 5.5rem) clamp(2rem, 7vh, 5rem);
+}
+
+::deep .tl-detail-hero__copy {
+    display: grid;
+    gap: 1rem;
+    align-content: end;
+    max-width: 48rem;
+}
+
+::deep .tl-detail-hero__copy h1 {
+    margin: 0;
+    font-size: clamp(2.45rem, 6vw, 5.8rem);
+    line-height: 0.94;
+    font-weight: 850;
+    letter-spacing: 0;
+    text-wrap: balance;
+}
+
+::deep .tl-detail-hero__logo {
+    width: min(28rem, 72vw);
+    max-height: 11rem;
+    object-fit: contain;
+    object-position: left center;
+}
+
+::deep .tl-detail-hero__subtitle,
+::deep .tl-detail-hero__tagline {
+    color: rgba(246, 240, 232, 0.78);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 42rem;
+}
+
+::deep .tl-metadata-pills,
+::deep .tl-detail-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+::deep .tl-metadata-pill,
+::deep .tl-detail-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 1.9rem;
+    padding: 0.28rem 0.65rem;
+    border: 1px solid rgba(246, 240, 232, 0.15);
+    border-radius: 999px;
+    background: rgba(246, 240, 232, 0.075);
+    color: rgba(246, 240, 232, 0.84);
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+::deep .tl-hero-artwork,
+::deep .tl-hero-artwork-card {
+    position: relative;
+    align-self: end;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: linear-gradient(145deg, rgba(246, 240, 232, 0.12), rgba(246, 240, 232, 0.04));
+    box-shadow: 0 1.5rem 4rem rgba(0,0,0,0.52);
+}
+
+::deep .tl-hero-artwork img,
+::deep .tl-hero-artwork-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+::deep .tl-hero-artwork--paired,
+::deep .tl-paired-artwork {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+    padding: 0.7rem;
+    aspect-ratio: 1.35 / 1;
+}
+
+::deep .tl-hero-artwork--paired img,
+::deep .tl-paired-artwork img {
+    border-radius: 0.7rem;
+    box-shadow: 0 0.8rem 2rem rgba(0,0,0,0.36);
+}
+
+::deep .tl-generated-identity,
+::deep .tl-generated-card {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    text-align: center;
+    background:
+        radial-gradient(circle at 70% 20%, color-mix(in srgb, var(--tl-detail-accent, #517eb7) 38%, transparent), transparent 60%),
+        linear-gradient(145deg, color-mix(in srgb, var(--tl-detail-primary, #c9922e) 48%, #15171f), color-mix(in srgb, var(--tl-detail-secondary, #271a3a) 62%, #111318));
+    color: white;
+    font-size: clamp(2rem, 6vw, 4rem);
+    font-weight: 850;
+}
+
+::deep .tl-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 0.35rem;
+}
+
+::deep .tl-action-row .mud-button-root,
+::deep .tl-detail-action,
+::deep .tl-panel-action {
+    border-radius: 999px;
+    font-weight: 750;
+    letter-spacing: 0;
+}
+
+::deep .tl-overflow-menu {
+    align-self: start;
+    justify-self: end;
+}
+
+::deep .tl-glass-panel,
+::deep .tl-owned-formats,
+::deep .tl-sync-panel,
+::deep .tl-series-placement,
+::deep .tl-credit-section,
+::deep .tl-characters-section,
+::deep .tl-details-panel,
+::deep .tl-registry-panel {
+    margin: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 5vw, 5.5rem) 0;
+    padding: clamp(1rem, 2.6vw, 1.6rem);
+    border: 1px solid rgba(246, 240, 232, 0.11);
+    border-radius: 1rem;
+    background: rgba(25, 27, 34, 0.72);
+    box-shadow: 0 1rem 3rem rgba(0,0,0,0.22);
+    backdrop-filter: blur(18px);
+}
+
+::deep .tl-section-title {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #fff8eb;
+}
+
+::deep .tl-horizontal-strip,
+::deep .tl-credit-strip,
+::deep .tl-character-strip,
+::deep .tl-media-grid,
+::deep .tl-format-grid,
+::deep .tl-series-strip {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(9rem, 13rem);
+    gap: 0.9rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scrollbar-width: thin;
+}
+
+::deep .tl-media-grid {
+    grid-auto-flow: unset;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    overflow: visible;
+}
+
+::deep .tl-credit-card,
+::deep .tl-character-card,
+::deep .tl-cast-pair-card,
+::deep .tl-music-artist-card,
+::deep .tl-media-card,
+::deep .tl-format-card,
+::deep .tl-series-item {
+    border: 1px solid rgba(246, 240, 232, 0.1);
+    border-radius: 0.85rem;
+    background: rgba(246, 240, 232, 0.055);
+    overflow: hidden;
+    color: #f6f0e8;
+}
+
+::deep .tl-credit-card img,
+::deep .tl-character-card img,
+::deep .tl-music-artist-card img,
+::deep .tl-media-card img,
+::deep .tl-format-card img,
+::deep .tl-series-item img {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    display: block;
+}
+
+::deep .tl-credit-card__body,
+::deep .tl-character-card__body,
+::deep .tl-media-card__body,
+::deep .tl-format-card__body,
+::deep .tl-series-item__body {
+    padding: 0.72rem;
+}
+
+::deep .tl-credit-card__title,
+::deep .tl-character-card__title,
+::deep .tl-media-card__title,
+::deep .tl-format-card__title,
+::deep .tl-series-item__title {
+    font-weight: 780;
+    line-height: 1.25;
+}
+
+::deep .tl-credit-card__role,
+::deep .tl-character-card__role,
+::deep .tl-media-card__meta,
+::deep .tl-format-card__meta {
+    margin-top: 0.25rem;
+    color: rgba(246, 240, 232, 0.62);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+::deep .tl-detail-tabs {
+    display: flex;
+    gap: 1.25rem;
+    overflow-x: auto;
+    margin: 1.5rem clamp(1rem, 5vw, 5.5rem) 0;
+    border-bottom: 1px solid rgba(246, 240, 232, 0.1);
+}
+
+::deep .tl-detail-tabs button {
+    min-height: 3rem;
+    padding: 0 0.1rem;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: rgba(246, 240, 232, 0.58);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+::deep .tl-detail-tabs button[aria-selected="true"],
+::deep .tl-detail-tabs .active {
+    border-bottom-color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 82%, #fff);
+    color: #fff8eb;
+}
+
+::deep .tl-detail-body {
+    padding: 0 0 clamp(3rem, 8vh, 6rem);
+}
+
+::deep .tl-episode-season-selector {
+    display: flex;
+    gap: 0.65rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+::deep .tl-episode-card {
+    display: grid;
+    grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.8rem;
+    border-radius: 0.9rem;
+    border: 1px solid rgba(246, 240, 232, 0.1);
+    background: rgba(246, 240, 232, 0.052);
+}
+
+::deep .tl-episode-card img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 0.65rem;
+}
+
+@media (max-width: 760px) {
+    ::deep .tl-detail-hero {
+        min-height: auto;
+    }
+
+    ::deep .tl-detail-hero__inner {
+        grid-template-columns: 1fr;
+        padding: 5rem 1rem 2rem;
+    }
+
+    ::deep .tl-hero-artwork,
+    ::deep .tl-hero-artwork-card {
+        width: min(13rem, 58vw);
+    }
+
+    ::deep .tl-overflow-menu {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+
+    ::deep .tl-detail-tabs {
+        margin-inline: 1rem;
+        gap: 0.9rem;
+    }
+
+    ::deep .tl-glass-panel,
+    ::deep .tl-owned-formats,
+    ::deep .tl-sync-panel,
+    ::deep .tl-series-placement,
+    ::deep .tl-credit-section,
+    ::deep .tl-characters-section,
+    ::deep .tl-details-panel,
+    ::deep .tl-registry-panel {
+        margin-inline: 1rem;
+        border-radius: 0.8rem;
+    }
+
+    ::deep .tl-episode-card {
+        grid-template-columns: 1fr;
+    }
+}

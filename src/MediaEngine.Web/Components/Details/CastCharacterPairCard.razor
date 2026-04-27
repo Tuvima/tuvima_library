@@ -1,0 +1,14 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<article class="tl-cast-pair-card">
+    <PersonCreditCard Credit="Credit" />
+    @if (!string.IsNullOrWhiteSpace(Credit.CharacterName))
+    {
+        <div class="tl-cast-pair-card__as">as @Credit.CharacterName</div>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public EntityCreditViewModel Credit { get; set; } = default!;
+}

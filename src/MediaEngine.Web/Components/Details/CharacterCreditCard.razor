@@ -1,0 +1,21 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<article class="tl-character-card">
+    <div class="tl-character-card__image">
+        @if (!string.IsNullOrWhiteSpace(Credit.ImageUrl))
+        {
+            <img src="@Credit.ImageUrl" alt="@Credit.DisplayName" />
+        }
+        else
+        {
+            <GeneratedIdentity Name="@Credit.DisplayName" />
+        }
+    </div>
+    <div class="tl-character-card__name">@Credit.DisplayName</div>
+    <div class="tl-character-card__role">@Credit.PrimaryRole</div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public EntityCreditViewModel Credit { get; set; } = default!;
+}

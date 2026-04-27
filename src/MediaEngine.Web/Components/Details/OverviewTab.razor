@@ -1,0 +1,38 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<div class="tl-detail-tab-panel">
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <section class="tl-detail-panel">
+            <div class="tl-section-heading"><h2>Overview</h2></div>
+            <p class="tl-detail-copy">@Model.Description</p>
+        </section>
+    }
+
+    @if (Model.RelationshipStrip.Count > 0)
+    {
+        <section class="tl-detail-panel">
+            <div class="tl-section-heading"><h2>Related</h2></div>
+            <div class="tl-related-groups">
+                @foreach (var group in Model.RelationshipStrip)
+                {
+                    <div class="tl-related-group">
+                        <span>@group.Title</span>
+                        @foreach (var chip in group.Items)
+                        {
+                            <RelatedEntityChip Chip="chip" />
+                        }
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    <ContributorsSection Groups="Model.ContributorGroups" />
+    <CharactersSection Groups="Model.CharacterGroups" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+}

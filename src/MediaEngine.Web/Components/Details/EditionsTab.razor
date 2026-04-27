@@ -1,0 +1,8 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<FormatsTab Formats="Formats" />
+
+@code {
+    [Parameter] public IReadOnlyList<OwnedFormatViewModel> Formats { get; set; } = [];
+}

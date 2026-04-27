@@ -1,0 +1,23 @@
+@namespace MediaEngine.Web.Components.Details
+
+<div class="tl-generated-identity">
+    <span>@Initials</span>
+</div>
+
+@code {
+    [Parameter] public string? Name { get; set; }
+
+    private string Initials
+    {
+        get
+        {
+            var parts = (Name ?? "?").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length switch
+            {
+                0 => "?",
+                1 => parts[0][..1].ToUpperInvariant(),
+                _ => $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant(),
+            };
+        }
+    }
+}

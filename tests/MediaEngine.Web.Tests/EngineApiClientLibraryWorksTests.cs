@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using MediaEngine.Contracts.Details;
 using Microsoft.Extensions.Logging.Abstractions;
 using MediaEngine.Web.Services.Integration;
 
@@ -9,6 +10,77 @@ namespace MediaEngine.Web.Tests;
 
 public sealed class EngineApiClientLibraryWorksTests
 {
+    [Fact]
+    public async Task GetDetailPageAsync_BuildsExpectedUrlAndNormalizesArtwork()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        const string json = """
+            {
+              "id": "11111111-1111-1111-1111-111111111111",
+              "entityType": 0,
+              "presentationContext": 3,
+              "title": "Dune",
+              "artwork": {
+                "coverUrl": "/stream/cover",
+                "backdropUrl": "/stream/backdrop",
+                "relatedArtworkUrls": ["/stream/related"],
+                "dominantColors": ["#c9922e"],
+                "presentationMode": 1,
+                "source": 2
+              },
+              "ownedFormats": [
+                {
+                  "id": "22222222-2222-2222-2222-222222222222",
+                  "formatType": 0,
+                  "displayName": "Ebook",
+                  "coverUrl": "/stream/ebook-cover",
+                  "actions": []
+                }
+              ],
+              "multiFormatState": 0,
+              "metadata": [],
+              "primaryActions": [],
+              "secondaryActions": [],
+              "overflowActions": [],
+              "contributorGroups": [],
+              "previewContributors": [],
+              "characterGroups": [],
+              "previewCharacters": [],
+              "relationshipStrip": [],
+              "tabs": [],
+              "mediaGroups": [],
+              "identityStatus": 0,
+              "libraryStatus": 1,
+              "isAdminView": false
+            }
+            """;
+
+        using var httpClient = CreateHttpClient(request =>
+        {
+            capturedRequest = request;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+        });
+
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+        var detail = await client.GetDetailPageAsync(
+            DetailEntityType.Work,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DetailPresentationContext.Read);
+
+        Assert.NotNull(detail);
+        Assert.NotNull(capturedRequest);
+        Assert.Equal(
+            "http://localhost:61495/api/details/work/11111111-1111-1111-1111-111111111111?context=read",
+            capturedRequest!.RequestUri!.ToString());
+        Assert.Equal("http://localhost:61495/stream/cover", detail!.Artwork.CoverUrl);
+        Assert.Equal("http://localhost:61495/stream/backdrop", detail.Artwork.BackdropUrl);
+        Assert.Equal("http://localhost:61495/stream/related", Assert.Single(detail.Artwork.RelatedArtworkUrls));
+        Assert.Equal("http://localhost:61495/stream/ebook-cover", Assert.Single(detail.OwnedFormats).CoverUrl);
+    }
+
     [Fact]
     public async Task GetLibraryWorksAsync_MapsReturnedItemsForHomePage()
     {

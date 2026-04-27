@@ -1,0 +1,40 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<section class="tl-detail-panel tl-series-panel">
+    <div class="tl-detail-panel__header">
+        <div>
+            <h2>@Placement.SeriesTitle</h2>
+            @if (!string.IsNullOrWhiteSpace(Placement.PositionLabel))
+            {
+                <p>@Placement.PositionLabel</p>
+            }
+        </div>
+    </div>
+    <div class="tl-series-strip">
+        @foreach (var item in Placement.OrderedItems)
+        {
+            <article class="tl-series-item @(item.IsCurrent ? "is-current" : null)">
+                <div class="tl-series-item__art">
+                    @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                    {
+                        <img src="@item.ArtworkUrl" alt="@item.Title" />
+                    }
+                    else
+                    {
+                        <GeneratedIdentity Name="@item.Title" />
+                    }
+                </div>
+                <div class="tl-series-item__title">@item.Title</div>
+                <div class="tl-series-item__meta">@FirstNonBlank(item.PositionLabel, item.PositionNumber?.ToString())</div>
+            </article>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public SeriesPlacementViewModel Placement { get; set; } = default!;
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+}

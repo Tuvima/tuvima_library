@@ -1,11 +1,35 @@
 @page "/book/{Id:guid}"
-@using MediaEngine.Web.Components.Universe
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Details
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject NavigationManager Nav
 
-<PageTitle>@(Id.ToString()) — Tuvima Library</PageTitle>
+@namespace MediaEngine.Web.Components.Pages
 
-<BookDetailContent WorkId="@Id"
-                   AutoOpenEdit="@(AutoEdit == true)"
-                   PreferredMode="@Mode" />
+<PageTitle>@((_detail?.Title ?? "Book")) - Tuvima Library</PageTitle>
+
+@if (_loading)
+{
+    <div class="tl-detail-page">
+        <div class="tl-glass-panel">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </div>
+    </div>
+}
+else if (_detail is null)
+{
+    <div class="tl-detail-page">
+        <div class="tl-glass-panel">
+            <MudText Typo="Typo.h5">Book not found</MudText>
+            <MudText Typo="Typo.body2">This title could not be loaded from your library.</MudText>
+        </div>
+    </div>
+}
+else
+{
+    <DetailPage Model="_detail" OnActionSelected="HandleActionAsync" />
+}
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -15,4 +39,27 @@
 
     [SupplyParameterFromQuery(Name = "mode")]
     public string? Mode { get; set; }
+
+    private DetailPageViewModel? _detail;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        var context = string.Equals(Mode, "listen", StringComparison.OrdinalIgnoreCase)
+            ? DetailPresentationContext.Listen
+            : DetailPresentationContext.Read;
+
+        // Work is the preferred read route because it can collapse ebook + audiobook into one canonical detail page.
+        _detail = await ApiClient.GetDetailPageAsync(DetailEntityType.Work, Id, context);
+        _loading = false;
+    }
+
+    private Task HandleActionAsync(DetailAction action)
+    {
+        if (!string.IsNullOrWhiteSpace(action.Route))
+            Nav.NavigateTo(action.Route);
+
+        return Task.CompletedTask;
+    }
 }

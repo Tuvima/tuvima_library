@@ -1,0 +1,53 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<div class="tl-hero-art @ArtClass">
+    @if (Model.Artwork.PresentationMode == ArtworkPresentationMode.PairedEditionGradient && Model.OwnedFormats.Count > 1)
+    {
+        <div class="tl-hero-art__pair">
+            @foreach (var format in Model.OwnedFormats.Take(2))
+            {
+                <div class="tl-hero-art__paired-cover">
+                    @if (!string.IsNullOrWhiteSpace(format.CoverUrl))
+                    {
+                        <img src="@format.CoverUrl" alt="@format.DisplayName" />
+                    }
+                    else
+                    {
+                        <GeneratedIdentity Name="@format.DisplayName" />
+                    }
+                    <span>@format.DisplayName</span>
+                </div>
+            }
+            @if (Model.MultiFormatState == MultiFormatState.MultipleFormatsSyncEnabled)
+            {
+                <div class="tl-hero-art__sync">
+                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" />
+                </div>
+            }
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(ImageUrl))
+    {
+        <img src="@ImageUrl" alt="@Model.Title" />
+    }
+    else
+    {
+        <GeneratedIdentity Name="@Model.Title" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+
+    private string? ImageUrl => Model.Artwork.PortraitUrl
+        ?? Model.Artwork.CharacterImageUrl
+        ?? Model.Artwork.PosterUrl
+        ?? Model.Artwork.CoverUrl;
+
+    private string ArtClass => Model.EntityType is DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist
+        ? "tl-hero-art--square"
+        : Model.EntityType is DetailEntityType.Person or DetailEntityType.Character
+            ? "tl-hero-art--portrait"
+            : "tl-hero-art--poster";
+}

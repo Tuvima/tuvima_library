@@ -1,0 +1,21 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@if (Actions.Count > 0)
+{
+    <MudMenu Class="tl-detail-overflow" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+        <ActivatorContent>
+            <button type="button" class="tl-detail-icon-button" aria-label="More actions">
+                <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
+            </button>
+        </ActivatorContent>
+        <ChildContent>
+            <ManageActionsMenu Actions="Actions" OnActionSelected="OnActionSelected" />
+        </ChildContent>
+    </MudMenu>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<DetailAction> Actions { get; set; } = [];
+    [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+}

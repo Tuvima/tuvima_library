@@ -1,93 +1,54 @@
-﻿@page "/collection/{Id:guid}"
-@using MediaEngine.Web.Services.Navigation
-
-@inject UIOrchestratorService Orchestrator
+@page "/collection/{Id:guid}"
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Details
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
 @inject NavigationManager Nav
 
-<PageTitle>Opening Collection - Tuvima</PageTitle>
+@namespace MediaEngine.Web.Components.Pages
+
+<PageTitle>@((_detail?.Title ?? "Collection")) - Tuvima</PageTitle>
 
 @if (_loading)
 {
-    <div class="collection-resolver-state">
-        <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.28);" />
-        <h3>Opening the right detail page...</h3>
-        <p>Redirecting this legacy collection link to its media-specific destination.</p>
+    <div class="tl-detail-page">
+        <div class="tl-glass-panel">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </div>
     </div>
 }
-else if (_error is not null)
+else if (_detail is null)
 {
-    <div class="collection-resolver-state">
-        <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 52px; opacity: 0.22;" />
-        <h3>Collection unavailable</h3>
-        <p>@_error</p>
-        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/"))">
-            Back to Home
-        </MudButton>
+    <div class="tl-detail-page">
+        <div class="tl-glass-panel">
+            <MudText Typo="Typo.h5">Collection unavailable</MudText>
+            <MudText Typo="Typo.body2">This collection could not be loaded from your library.</MudText>
+        </div>
     </div>
+}
+else
+{
+    <DetailPage Model="_detail" OnActionSelected="HandleActionAsync" />
 }
 
 @code {
     [Parameter] public Guid Id { get; set; }
 
+    private DetailPageViewModel? _detail;
     private bool _loading = true;
-    private string? _error;
 
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
-        _error = null;
+        _detail = await ApiClient.GetDetailPageAsync(DetailEntityType.Collection, Id, DetailPresentationContext.Default);
+        _loading = false;
+    }
 
-        var collections = await Orchestrator.GetCollectionsAsync();
-        var collection = collections.FirstOrDefault(item => item.Id == Id);
+    private Task HandleActionAsync(DetailAction action)
+    {
+        if (!string.IsNullOrWhiteSpace(action.Route))
+            Nav.NavigateTo(action.Route);
 
-        if (collection is null)
-        {
-            _loading = false;
-            _error = "This collection could not be found in your library.";
-            return;
-        }
-
-        var targetUrl = MediaNavigation.ForCollection(collection);
-        if (string.Equals(targetUrl, $"/collection/{Id}", StringComparison.OrdinalIgnoreCase))
-        {
-            var firstWork = collection.Works.FirstOrDefault();
-            targetUrl = firstWork is not null
-                ? MediaNavigation.ForWork(firstWork)
-                : string.Empty;
-        }
-
-        if (string.IsNullOrWhiteSpace(targetUrl))
-        {
-            _loading = false;
-            _error = "This collection does not have a media-specific detail page yet.";
-            return;
-        }
-
-        Nav.NavigateTo(targetUrl, replace: true);
+        return Task.CompletedTask;
     }
 }
-
-<style>
-    .collection-resolver-state {
-        min-height: 55vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        text-align: center;
-        color: rgba(255, 255, 255, 0.78);
-    }
-
-    .collection-resolver-state h3 {
-        margin: 0;
-        font-size: 1.2rem;
-        color: rgba(255, 255, 255, 0.94);
-    }
-
-    .collection-resolver-state p {
-        margin: 0;
-        max-width: 38rem;
-        color: rgba(255, 255, 255, 0.56);
-    }
-</style>

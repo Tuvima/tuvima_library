@@ -1,0 +1,92 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@if (Model is not null)
+{
+    <article class="tl-detail-page">
+        <DetailHero Model="Model" OnActionSelected="OnActionSelected" />
+
+        @if (Model.SeriesPlacement is not null)
+        {
+            <SeriesPlacementPanel Placement="Model.SeriesPlacement" />
+        }
+
+        @if (Model.OwnedFormats.Count > 1)
+        {
+            <OwnedFormatsPanel Formats="Model.OwnedFormats"
+                               MultiFormatState="Model.MultiFormatState"
+                               SyncCapability="Model.SyncCapability" />
+        }
+
+        @if (Model.PreviewContributors.Count > 0)
+        {
+            <PeoplePreviewStrip Credits="Model.PreviewContributors" />
+        }
+
+        <DetailTabs Tabs="Model.Tabs" ActiveTab="@_activeTab" ActiveTabChanged="SetActiveTab" />
+
+        <section class="tl-detail-body">
+            @if (_activeTab is "overview")
+            {
+                <MediaEngine.Web.Components.Details.OverviewTab Model="Model" />
+            }
+            else if (_activeTab is "episodes")
+            {
+                <EpisodesTab Groups="Model.MediaGroups" />
+            }
+            else if (_activeTab is "tracks" or "items" or "media" or "works" or "albums")
+            {
+                <ChildrenListTab Groups="Model.MediaGroups" />
+            }
+            else if (_activeTab is "contributors" or "people" or "credits" or "cast")
+            {
+                <PeopleAndCharactersTab ContributorGroups="Model.ContributorGroups"
+                                        CharacterGroups="Model.CharacterGroups" />
+            }
+            else if (_activeTab is "characters" or "portrayals")
+            {
+                <CharactersSection Groups="Model.CharacterGroups" />
+            }
+            else if (_activeTab is "universe" or "timeline" or "relationships" or "related")
+            {
+                <UniverseTab Relationships="Model.RelationshipStrip" Groups="Model.MediaGroups" />
+            }
+            else if (_activeTab is "formats")
+            {
+                <FormatsTab Formats="Model.OwnedFormats" />
+            }
+            else if (_activeTab is "sync")
+            {
+                <SyncTab Sync="Model.ReadingListeningSync" Capability="Model.SyncCapability" />
+            }
+            else if (_activeTab is "editions")
+            {
+                <EditionsTab Formats="Model.OwnedFormats" />
+            }
+            else if (_activeTab is "registry")
+            {
+                <RegistryTab Model="Model" />
+            }
+            else
+            {
+                <DetailsTab Model="Model" />
+            }
+        </section>
+    </article>
+}
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel? Model { get; set; }
+    [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+
+    private string _activeTab = "overview";
+
+    protected override void OnParametersSet()
+    {
+        var firstVisible = Model?.Tabs.FirstOrDefault(tab => !tab.IsAdminOnly || Model.IsAdminView);
+        if (firstVisible is not null && !Model!.Tabs.Any(tab => tab.Key == _activeTab && (!tab.IsAdminOnly || Model.IsAdminView)))
+            _activeTab = firstVisible.Key;
+    }
+
+    private void SetActiveTab(string key) => _activeTab = key;
+}

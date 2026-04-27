@@ -1,0 +1,12 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<div class="tl-detail-tab-panel">
+    <ContributorsSection Groups="ContributorGroups" />
+    <CharactersSection Groups="CharacterGroups" />
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<CreditGroupViewModel> ContributorGroups { get; set; } = [];
+    [Parameter] public IReadOnlyList<CharacterGroupViewModel> CharacterGroups { get; set; } = [];
+}

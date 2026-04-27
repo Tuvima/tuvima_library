@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Storage.Models;
 using MediaEngine.Domain.Models;
@@ -79,6 +80,13 @@ public interface IEngineApiClient
         int? offset = null,
         int? limit = null,
         Guid? profileId = null,
+        CancellationToken ct = default);
+
+    /// <summary>GET /api/details/{entityType}/{id}?context=... - unified detail-page model.</summary>
+    Task<DetailPageViewModel?> GetDetailPageAsync(
+        DetailEntityType entityType,
+        Guid id,
+        DetailPresentationContext context = DetailPresentationContext.Default,
         CancellationToken ct = default);
 
     /// <summary>POST /ingestion/scan — dry-run scan of a directory path.</summary>

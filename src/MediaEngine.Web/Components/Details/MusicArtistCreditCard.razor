@@ -1,0 +1,10 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<article class="tl-music-artist-card">
+    <PersonCreditCard Credit="Credit" />
+</article>
+
+@code {
+    [Parameter, EditorRequired] public EntityCreditViewModel Credit { get; set; } = default!;
+}

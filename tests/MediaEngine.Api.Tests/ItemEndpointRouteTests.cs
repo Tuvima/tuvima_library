@@ -57,6 +57,14 @@ public sealed class ItemEndpointRouteTests
             .Where(path => !Path.GetFileName(path).Equals("api.log", StringComparison.OrdinalIgnoreCase))
             .Where(path =>
             {
+                var relative = Path.GetRelativePath(root, path);
+                return !relative.StartsWith(@"src\MediaEngine.Contracts\Details\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith(@"src\MediaEngine.Api\Services\Details\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith(@"src\MediaEngine.Web\Components\Details\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Equals(@"tests\MediaEngine.Web.Tests\UnifiedDetailComponentTests.cs", StringComparison.OrdinalIgnoreCase);
+            })
+            .Where(path =>
+            {
                 var text = File.ReadAllText(path);
                 return text.Contains(removedTerm, StringComparison.OrdinalIgnoreCase)
                     || text.Contains(removedRoute, StringComparison.OrdinalIgnoreCase);

@@ -1,0 +1,19 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@if (Artwork.PresentationMode == ArtworkPresentationMode.CinematicBackdrop && !string.IsNullOrWhiteSpace(BackdropUrl))
+{
+    <div class="tl-detail-backdrop tl-detail-backdrop--image">
+        <img src="@BackdropUrl" alt="" />
+    </div>
+}
+else
+{
+    <div class="tl-detail-backdrop tl-detail-backdrop--generated"></div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ArtworkSet Artwork { get; set; } = default!;
+
+    private string? BackdropUrl => Artwork.BackdropUrl ?? Artwork.BannerUrl;
+}

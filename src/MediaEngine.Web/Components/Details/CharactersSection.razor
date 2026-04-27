@@ -1,0 +1,19 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@foreach (var group in Groups)
+{
+    <section class="tl-detail-panel">
+        <div class="tl-section-heading"><h2>@group.Title</h2></div>
+        <div class="tl-credit-strip">
+            @foreach (var character in group.Characters)
+            {
+                <CharacterCreditCard Credit="character" />
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<CharacterGroupViewModel> Groups { get; set; } = [];
+}

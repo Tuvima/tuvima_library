@@ -285,6 +285,7 @@ builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayFavoriteProje
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayCardBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayShelfBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayComposerService>();
+builder.Services.AddScoped<MediaEngine.Api.Services.Details.DetailComposerService>();
 
 // -- Intelligence --------------------------------------------------------------
 builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
@@ -1050,6 +1051,7 @@ app.MapWorkEndpoints();
 app.MapProgressEndpoints();
 app.MapActivityEndpoints();
 app.MapDisplayEndpoints();
+app.MapDetailEndpoints();
 app.MapUniverseGraphEndpoints();
 app.MapCharacterEndpoints();
 app.MapCanonEndpoints();

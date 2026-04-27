@@ -1,4 +1,4 @@
-@page "/person/{Id:guid}"
+@page "/details/{EntityType}/{Id:guid}"
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Details
 @using MediaEngine.Web.Services.Integration
@@ -7,7 +7,7 @@
 
 @namespace MediaEngine.Web.Components.Pages
 
-<PageTitle>@((_detail?.Title ?? "Person")) - Tuvima Library</PageTitle>
+<PageTitle>@((_detail?.Title ?? "Details")) - Tuvima Library</PageTitle>
 
 @if (_loading)
 {
@@ -21,11 +21,8 @@ else if (_detail is null)
 {
     <div class="tl-detail-page">
         <div class="tl-glass-panel">
-            <MudAlert Severity="Severity.Warning" Class="mb-4">Person not found.</MudAlert>
-            <MudText Typo="Typo.body2">This person could not be loaded from your library.</MudText>
-            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/"))">
-                Back to Home
-            </MudButton>
+            <MudText Typo="Typo.h5">Detail page not found</MudText>
+            <MudText Typo="Typo.body2">This item could not be loaded from your library.</MudText>
         </div>
     </div>
 }
@@ -35,6 +32,7 @@ else
 }
 
 @code {
+    [Parameter] public string EntityType { get; set; } = string.Empty;
     [Parameter] public Guid Id { get; set; }
 
     [SupplyParameterFromQuery(Name = "context")]
@@ -46,7 +44,16 @@ else
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
-        _detail = await ApiClient.GetDetailPageAsync(DetailEntityType.Person, Id, ParseContext(Context));
+        _detail = null;
+
+        if (!TryParseEntityType(EntityType, out var entityType))
+        {
+            _loading = false;
+            return;
+        }
+
+        var context = ParseContext(Context);
+        _detail = await ApiClient.GetDetailPageAsync(entityType, Id, context);
         _loading = false;
     }
 
@@ -56,6 +63,18 @@ else
             Nav.NavigateTo(action.Route);
 
         return Task.CompletedTask;
+    }
+
+    private static bool TryParseEntityType(string value, out DetailEntityType entityType)
+    {
+        var normalized = value.Replace("-", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal);
+        if (normalized.Contains("podcast", StringComparison.OrdinalIgnoreCase))
+        {
+            entityType = default;
+            return false;
+        }
+
+        return Enum.TryParse(normalized, ignoreCase: true, out entityType);
     }
 
     private static DetailPresentationContext ParseContext(string? value)

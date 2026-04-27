@@ -1,0 +1,18 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<section class="tl-detail-panel">
+    <div class="tl-section-heading"><h2>Details</h2></div>
+    <dl class="tl-detail-dl">
+        <dt>Type</dt>
+        <dd>@Model.EntityType</dd>
+        <dt>Library Status</dt>
+        <dd>@Model.LibraryStatus</dd>
+        <dt>Identity</dt>
+        <dd>@Model.IdentityStatus</dd>
+    </dl>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+}

@@ -1,0 +1,51 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<section class="tl-detail-panel tl-owned-formats">
+    <div class="tl-detail-panel__header">
+        <div>
+            <h2>Owned Formats</h2>
+            <p>@Summary</p>
+        </div>
+        <OptionalSyncPanel Capability="SyncCapability" MultiFormatState="MultiFormatState" />
+    </div>
+    <div class="tl-owned-formats__grid">
+        @foreach (var format in Formats)
+        {
+            <article class="tl-owned-format-card">
+                <div class="tl-owned-format-card__art">
+                    @if (!string.IsNullOrWhiteSpace(format.CoverUrl))
+                    {
+                        <img src="@format.CoverUrl" alt="@format.DisplayName" />
+                    }
+                    else
+                    {
+                        <GeneratedIdentity Name="@format.DisplayName" />
+                    }
+                </div>
+                <div>
+                    <h3>@format.DisplayName</h3>
+                    <p>@string.Join(" • ", new[] { format.FileFormat, format.PrimaryContributor, format.Runtime, format.PageCount is null ? null : $"{format.PageCount} pages" }.Where(x => !string.IsNullOrWhiteSpace(x)))</p>
+                    @foreach (var action in format.Actions.Take(1))
+                    {
+                        <button type="button" class="tl-detail-mini-action">@action.Label</button>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter] public IReadOnlyList<OwnedFormatViewModel> Formats { get; set; } = [];
+    [Parameter] public MultiFormatState MultiFormatState { get; set; }
+    [Parameter] public ReadingListeningSyncCapabilityViewModel? SyncCapability { get; set; }
+
+    private string Summary => MultiFormatState switch
+    {
+        MultiFormatState.MultipleFormatsSyncEnabled => "Read and listen progress is synced for this work.",
+        MultiFormatState.MultipleFormatsSyncAvailable => $"You own this work in {Formats.Count} formats. Read + Listen Sync is available.",
+        MultiFormatState.MultipleFormatsSyncUnavailable => $"You own this work in {Formats.Count} formats. Progress is tracked separately.",
+        _ => $"You own this work in {Formats.Count} formats. Progress is tracked separately.",
+    };
+}

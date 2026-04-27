@@ -1,0 +1,10 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<button type="button" class="tl-related-chip">
+    <span>@Chip.Label</span>
+</button>
+
+@code {
+    [Parameter, EditorRequired] public MediaEngine.Contracts.Details.RelatedEntityChip Chip { get; set; } = default!;
+}

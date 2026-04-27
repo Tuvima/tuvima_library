@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Models;
@@ -744,6 +745,27 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /api/v1/display/shelves/{ShelfKey} failed", shelfKey);
+            return null;
+        }
+    }
+
+    public async Task<DetailPageViewModel?> GetDetailPageAsync(
+        DetailEntityType entityType,
+        Guid id,
+        DetailPresentationContext context = DetailPresentationContext.Default,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var entity = Uri.EscapeDataString(entityType.ToString().ToLowerInvariant());
+            var ctx = Uri.EscapeDataString(context.ToString().ToLowerInvariant());
+            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/details/{entity}/{id:D}?context={ctx}", ct);
+            return detail is null ? null : NormalizeDetailArtwork(detail);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /api/details/{EntityType}/{Id} failed", entityType, id);
             return null;
         }
     }
@@ -3674,6 +3696,124 @@ public sealed class EngineApiClient : IEngineApiClient
             BackgroundUrl = artwork.BackgroundUrl is null ? null : AbsoluteUrl(artwork.BackgroundUrl),
             LogoUrl = artwork.LogoUrl is null ? null : AbsoluteUrl(artwork.LogoUrl),
         };
+
+    private DetailPageViewModel NormalizeDetailArtwork(DetailPageViewModel detail)
+    {
+        var artwork = detail.Artwork;
+        return new DetailPageViewModel
+        {
+            Id = detail.Id,
+            EntityType = detail.EntityType,
+            PresentationContext = detail.PresentationContext,
+            Title = detail.Title,
+            Subtitle = detail.Subtitle,
+            Tagline = detail.Tagline,
+            Description = detail.Description,
+            Artwork = new ArtworkSet
+            {
+                BackdropUrl = NormalizeOptionalUrl(artwork.BackdropUrl),
+                BannerUrl = NormalizeOptionalUrl(artwork.BannerUrl),
+                PosterUrl = NormalizeOptionalUrl(artwork.PosterUrl),
+                CoverUrl = NormalizeOptionalUrl(artwork.CoverUrl),
+                LogoUrl = NormalizeOptionalUrl(artwork.LogoUrl),
+                PortraitUrl = NormalizeOptionalUrl(artwork.PortraitUrl),
+                CharacterImageUrl = NormalizeOptionalUrl(artwork.CharacterImageUrl),
+                RelatedArtworkUrls = artwork.RelatedArtworkUrls.Select(AbsoluteUrl).ToList(),
+                DominantColors = artwork.DominantColors,
+                PrimaryColor = artwork.PrimaryColor,
+                SecondaryColor = artwork.SecondaryColor,
+                AccentColor = artwork.AccentColor,
+                PresentationMode = artwork.PresentationMode,
+                Source = artwork.Source,
+            },
+            OwnedFormats = detail.OwnedFormats.Select(format => new OwnedFormatViewModel
+            {
+                Id = format.Id,
+                FormatType = format.FormatType,
+                DisplayName = format.DisplayName,
+                CoverUrl = NormalizeOptionalUrl(format.CoverUrl),
+                EditionTitle = format.EditionTitle,
+                Publisher = format.Publisher,
+                ReleaseDate = format.ReleaseDate,
+                PrimaryContributor = format.PrimaryContributor,
+                FileFormat = format.FileFormat,
+                Runtime = format.Runtime,
+                PageCount = format.PageCount,
+                ChapterCount = format.ChapterCount,
+                Progress = format.Progress,
+                Actions = format.Actions,
+            }).ToList(),
+            MultiFormatState = detail.MultiFormatState,
+            ReadingListeningSync = detail.ReadingListeningSync,
+            SyncCapability = detail.SyncCapability,
+            SeriesPlacement = detail.SeriesPlacement,
+            Metadata = detail.Metadata,
+            PrimaryActions = detail.PrimaryActions,
+            SecondaryActions = detail.SecondaryActions,
+            OverflowActions = detail.OverflowActions,
+            ContributorGroups = detail.ContributorGroups.Select(NormalizeCreditGroup).ToList(),
+            PreviewContributors = detail.PreviewContributors.Select(NormalizeCredit).ToList(),
+            CharacterGroups = detail.CharacterGroups.Select(group => new CharacterGroupViewModel
+            {
+                Title = group.Title,
+                GroupType = group.GroupType,
+                Characters = group.Characters.Select(NormalizeCredit).ToList(),
+            }).ToList(),
+            PreviewCharacters = detail.PreviewCharacters.Select(NormalizeCredit).ToList(),
+            RelationshipStrip = detail.RelationshipStrip,
+            Tabs = detail.Tabs,
+            MediaGroups = detail.MediaGroups.Select(group => new MediaGroupingViewModel
+            {
+                Key = group.Key,
+                Title = group.Title,
+                Items = group.Items.Select(item => new MediaGroupingItemViewModel
+                {
+                    Id = item.Id,
+                    EntityType = item.EntityType,
+                    Title = item.Title,
+                    Subtitle = item.Subtitle,
+                    Description = item.Description,
+                    ArtworkUrl = NormalizeOptionalUrl(item.ArtworkUrl),
+                    Metadata = item.Metadata,
+                    Actions = item.Actions,
+                    IsOwned = item.IsOwned,
+                    ProgressState = item.ProgressState,
+                }).ToList(),
+            }).ToList(),
+            IdentityStatus = detail.IdentityStatus,
+            LibraryStatus = detail.LibraryStatus,
+            IsAdminView = detail.IsAdminView,
+        };
+    }
+
+    private CreditGroupViewModel NormalizeCreditGroup(CreditGroupViewModel group) => new()
+    {
+        Title = group.Title,
+        GroupType = group.GroupType,
+        Credits = group.Credits.Select(NormalizeCredit).ToList(),
+    };
+
+    private EntityCreditViewModel NormalizeCredit(EntityCreditViewModel credit) => new()
+    {
+        EntityId = credit.EntityId,
+        EntityType = credit.EntityType,
+        DisplayName = credit.DisplayName,
+        ImageUrl = NormalizeOptionalUrl(credit.ImageUrl),
+        FallbackInitials = credit.FallbackInitials,
+        PrimaryRole = credit.PrimaryRole,
+        SecondaryRole = credit.SecondaryRole,
+        CharacterName = credit.CharacterName,
+        CharacterEntityId = credit.CharacterEntityId,
+        CharacterImageUrl = NormalizeOptionalUrl(credit.CharacterImageUrl),
+        SortOrder = credit.SortOrder,
+        IsPrimary = credit.IsPrimary,
+        IsCanonical = credit.IsCanonical,
+        SourceName = credit.SourceName,
+        SourceId = credit.SourceId,
+    };
+
+    private string? NormalizeOptionalUrl(string? value)
+        => string.IsNullOrWhiteSpace(value) ? value : AbsoluteUrl(value);
 
     /// <summary>
     /// Converts relative /stream/… paths stored in canonical values to absolute

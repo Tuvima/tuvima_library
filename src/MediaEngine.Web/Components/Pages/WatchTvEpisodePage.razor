@@ -1,313 +1,55 @@
-﻿@page "/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}"
-@using Microsoft.AspNetCore.Components
-@using MediaEngine.Web.Components.Watch
-@using MediaEngine.Web.Models.ViewDTOs
+@page "/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}"
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Details
 @using MediaEngine.Web.Services.Integration
-@using MediaEngine.Web.Services.Playback
+@inject IEngineApiClient ApiClient
+@inject NavigationManager Nav
 
 @namespace MediaEngine.Web.Components.Pages
 
-@inject IEngineApiClient ApiClient
-@inject UIOrchestratorService Orchestrator
-@inject WatchlistService WatchlistService
-@inject NavigationManager Nav
-
-<PageTitle>@((_episode?.Title ?? "Episode")) - Tuvima</PageTitle>
-<WatchTvStyles />
+<PageTitle>@((_detail?.Title ?? "Episode")) - Tuvima</PageTitle>
 
 @if (_loading)
 {
-    <div class="watch-tv-state">
-        <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.28);" />
+    <div class="tl-detail-page">
+        <div class="tl-glass-panel">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </div>
     </div>
 }
-else if (_show is null || _episode is null)
+else if (_detail is null)
 {
-    <div class="watch-tv-state">
-        <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 56px; opacity: 0.22;" />
-        <h3>Episode not found</h3>
-        <p>This episode could not be loaded from your library.</p>
-        <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="GoBack">Back</button>
+    <div class="tl-detail-page">
+        <div class="tl-glass-panel">
+            <MudText Typo="Typo.h5">Episode not found</MudText>
+            <MudText Typo="Typo.body2">This episode could not be loaded from your library.</MudText>
+        </div>
     </div>
 }
 else
 {
-    <div class="watch-tv-page">
-        <section class="watch-tv-hero watch-tv-hero--episode">
-            @if (!string.IsNullOrWhiteSpace(HeroBackgroundUrl))
-            {
-                <div class="watch-tv-hero__bg">
-                    <img src="@HeroBackgroundUrl" alt="" />
-                </div>
-            }
-
-            <div class="watch-tv-hero__overlay"></div>
-
-            <div class="watch-tv-hero__topbar">
-                <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="GoBack">
-                    <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
-                    <span>Back</span>
-                </button>
-
-                <div class="watch-tv-hero__quick-actions">
-                    <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="OpenTrailer">
-                        <MudIcon Icon="@Icons.Material.Outlined.OndemandVideo" Style="font-size: 18px;" />
-                        <span>Trailer</span>
-                    </button>
-                    <button type="button"
-                            class="watch-tv-button watch-tv-button--secondary"
-                            @onclick="ToggleWatchlistAsync"
-                            disabled="@(!_show.RootWorkId.HasValue || !_activeProfileId.HasValue || _watchlistBusy)">
-                        <MudIcon Icon="@WatchlistIcon" Style="font-size: 18px;" />
-                        <span>@WatchlistLabel</span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="watch-tv-hero__content watch-tv-hero__content--episode">
-                <div class="watch-tv-hero__copy">
-                    <div class="watch-tv-hero__eyebrow">
-                        @($"Episode {_episode.EpisodeNumber ?? "?"}")
-                    </div>
-                    <div class="watch-tv-hero__context">@_show.DisplayName</div>
-                    <h1>@_episode.Title</h1>
-
-                    @if (!string.IsNullOrWhiteSpace(_episode.Description))
-                    {
-                        <p class="watch-tv-hero__description">@_episode.Description</p>
-                    }
-
-                    <div class="watch-tv-hero__stats">
-                        @foreach (var stat in HeroStats)
-                        {
-                            <div class="watch-tv-hero__stat">
-                                <div class="watch-tv-hero__stat-label">@stat.Label</div>
-                                <div class="watch-tv-hero__stat-value">@stat.Value</div>
-                            </div>
-                        }
-                    </div>
-
-                    <div class="watch-tv-hero__actions">
-                        <button type="button" class="watch-tv-button watch-tv-button--primary" @onclick="PlayEpisodeAsync">
-                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 18px;" />
-                            <span>@PrimaryActionLabel</span>
-                        </button>
-                        <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="OpenShow">
-                            <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 18px;" />
-                            <span>Back to show</span>
-                        </button>
-                    </div>
-
-                    <WatchPlaybackSpecs Summary="_episode.PlaybackSummary" />
-                </div>
-            </div>
-        </section>
-
-        @if (ActiveSeason is not null)
-        {
-            <section class="watch-tv-section">
-                <div class="watch-tv-section__header">
-                    <h2>Episodes</h2>
-                    <div class="watch-tv-section__pills">
-                        <span class="watch-tv-pill is-active">@SeasonLabel(ActiveSeason)</span>
-                    </div>
-                </div>
-
-                <div class="watch-tv-episodes">
-                    @foreach (var episode in ActiveSeason.Episodes.OrderBy(episode => ParseOrdinal(episode.Episode)))
-                    {
-                        <button type="button"
-                                class="watch-tv-episode-card @(episode.WorkId == WorkId ? "is-highlighted" : "")"
-                                @onclick="@(() => OpenEpisode(episode.WorkId))">
-                            <div class="watch-tv-episode-card__art">
-                                @if (!string.IsNullOrWhiteSpace(GetEpisodeImage(episode)))
-                                {
-                                    <img src="@GetEpisodeImage(episode)" alt="@episode.Title" />
-                                }
-                                else
-                                {
-                                    <div class="watch-tv-episode-card__art-placeholder">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Movie" Style="font-size: 36px;" />
-                                    </div>
-                                }
-                            </div>
-                            <div class="watch-tv-episode-card__body">
-                                <div class="watch-tv-episode-card__eyebrow">@($"Episode {episode.Episode ?? episode.Ordinal?.ToString() ?? "?"}")</div>
-                                <div class="watch-tv-episode-card__title">@episode.Title</div>
-                            </div>
-                        </button>
-                    }
-                </div>
-            </section>
-        }
-    </div>
+    <DetailPage Model="_detail" OnActionSelected="HandleActionAsync" />
 }
 
 @code {
     [Parameter] public Guid CollectionId { get; set; }
     [Parameter] public Guid WorkId { get; set; }
-    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
-    private CollectionGroupDetailViewModel? _show;
-    private LibraryItemDetailViewModel? _episode;
-    private Guid? _assetId;
-    private ProgressStateDto? _progress;
-    private Guid? _activeProfileId;
-    private WatchlistMembership? _watchlist;
+    private DetailPageViewModel? _detail;
     private bool _loading = true;
-    private bool _watchlistBusy;
-
-    private CollectionGroupSeasonViewModel? ActiveSeason =>
-        _show?.Seasons.FirstOrDefault(season => season.Episodes.Any(episode => episode.WorkId == WorkId))
-        ?? _show?.Seasons.FirstOrDefault(season => season.SeasonNumber.ToString() == _episode?.SeasonNumber);
-
-    private string? HeroBackgroundUrl =>
-        _episode?.BackgroundUrl ?? _episode?.BannerUrl ?? _episode?.HeroUrl ?? _episode?.CoverUrl ?? _show?.BackgroundUrl ?? _show?.BannerUrl ?? _show?.CoverUrl;
-
-    private string PrimaryActionLabel => _progress?.ProgressPct is > 0 and < 99.5 ? "Resume" : "Play";
-
-    private string WatchlistIcon => _watchlist?.IsInWatchlist == true
-        ? Icons.Material.Outlined.BookmarkAdded
-        : Icons.Material.Outlined.BookmarkAdd;
-
-    private string WatchlistLabel => _watchlist?.IsInWatchlist == true
-        ? "In watchlist"
-        : "Watchlist";
-
-    private IReadOnlyList<(string Label, string Value)> HeroStats =>
-        _episode is null
-            ? []
-            : new[]
-            {
-                ("Directed by", _episode.Director),
-                ("Written by", _episode.Writer),
-                ("Release date", _episode.ReleaseDate),
-                ("Runtime", _episode.Runtime),
-            }
-            .Where(item => !string.IsNullOrWhiteSpace(item.Item2))
-            .Select(item => (item.Item1, item.Item2!))
-            .ToList();
 
     protected override async Task OnParametersSetAsync()
     {
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
         _loading = true;
-        StateHasChanged();
-
-        var showTask = ApiClient.GetCollectionGroupDetailAsync(CollectionId);
-        var episodeTask = ApiClient.GetLibraryItemDetailAsync(WorkId);
-        var profileTask = Orchestrator.GetActiveProfileAsync();
-
-        await Task.WhenAll(showTask, episodeTask, profileTask);
-
-        _show = showTask.Result;
-        _episode = episodeTask.Result;
-        _activeProfileId = profileTask.Result?.Id;
-
-        _assetId = await Orchestrator.ResolveWorkToAssetAsync(WorkId);
-        if (_assetId.HasValue)
-            _progress = await Orchestrator.GetProgressAsync(_assetId.Value);
-
-        if (_show?.RootWorkId is Guid rootWorkId && _activeProfileId.HasValue)
-            _watchlist = await WatchlistService.GetMembershipAsync(rootWorkId, _activeProfileId.Value);
-
+        _detail = await ApiClient.GetDetailPageAsync(DetailEntityType.TvEpisode, WorkId, DetailPresentationContext.Watch);
         _loading = false;
     }
 
-    private async Task PlayEpisodeAsync()
+    private Task HandleActionAsync(DetailAction action)
     {
-        if (!_assetId.HasValue)
-            _assetId = await Orchestrator.ResolveWorkToAssetAsync(WorkId);
+        if (!string.IsNullOrWhiteSpace(action.Route))
+            Nav.NavigateTo(action.Route);
 
-        if (_assetId.HasValue)
-        {
-            Nav.NavigateTo($"/watch/player/{_assetId.Value}?workId={WorkId}&collectionId={CollectionId}&returnUrl={Uri.EscapeDataString(CurrentEpisodeUrl())}");
-        }
+        return Task.CompletedTask;
     }
-
-    private async Task ToggleWatchlistAsync()
-    {
-        if (_show?.RootWorkId is not Guid rootWorkId || !_activeProfileId.HasValue || _watchlistBusy)
-            return;
-
-        _watchlistBusy = true;
-        try
-        {
-            _watchlist = await WatchlistService.ToggleAsync(rootWorkId, _activeProfileId.Value);
-        }
-        finally
-        {
-            _watchlistBusy = false;
-        }
-    }
-
-    private void OpenTrailer()
-    {
-        var query = Uri.EscapeDataString($"{_show?.DisplayName} {_episode?.Title} trailer");
-        Nav.NavigateTo($"https://www.youtube.com/results?search_query={query}", forceLoad: true);
-    }
-
-    private void OpenShow()
-    {
-        Nav.NavigateTo($"/watch/tv/show/{CollectionId}?returnUrl={Uri.EscapeDataString(ReturnUrl ?? "/watch/tv")}");
-    }
-
-    private void OpenEpisode(Guid workId)
-    {
-        Nav.NavigateTo($"/watch/tv/show/{CollectionId}/episode/{workId}?returnUrl={Uri.EscapeDataString(ReturnUrl ?? "/watch/tv")}");
-    }
-
-    private void GoBack()
-    {
-        if (!string.IsNullOrWhiteSpace(ReturnUrl))
-        {
-            Nav.NavigateTo(ReturnUrl!);
-            return;
-        }
-
-        OpenShow();
-    }
-
-    private string CurrentEpisodeUrl()
-    {
-        var path = $"/watch/tv/show/{CollectionId}/episode/{WorkId}";
-        return !string.IsNullOrWhiteSpace(ReturnUrl)
-            ? $"{path}?returnUrl={Uri.EscapeDataString(ReturnUrl!)}"
-            : path;
-    }
-
-    private static string SeasonLabel(CollectionGroupSeasonViewModel season) =>
-        !string.IsNullOrWhiteSpace(season.SeasonLabel)
-            ? season.SeasonLabel!
-            : $"Season {season.SeasonNumber}";
-
-    private static int ParseOrdinal(string? value) =>
-        int.TryParse(value, out var parsed) ? parsed : int.MaxValue;
-
-    private static string? GetEpisodeImage(CollectionGroupWorkViewModel episode) =>
-        episode.BackgroundUrl ?? episode.BannerUrl ?? episode.HeroUrl ?? episode.CoverUrl;
 }
-
-<style>
-    .watch-tv-hero--episode .watch-tv-hero__overlay {
-        background:
-            linear-gradient(90deg, rgba(8, 11, 16, 0.94) 0%, rgba(8, 11, 16, 0.82) 36%, rgba(8, 11, 16, 0.24) 78%, rgba(8, 11, 16, 0.86) 100%);
-    }
-
-    .watch-tv-hero__content--episode {
-        grid-template-columns: 1fr;
-        min-height: 440px;
-        align-items: end;
-    }
-
-    .watch-tv-hero__context {
-        margin-bottom: 12px;
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: rgba(255, 255, 255, 0.72);
-    }
-</style>
