@@ -113,6 +113,21 @@
     --tl-toolbar-padding-y: 10px;
     --tl-toolbar-padding-x: 12px;
     --tl-control-transition: 160ms ease;
+    --tl-motion-duration-fast: 140ms;
+    --tl-motion-duration-medium: 220ms;
+    --tl-motion-duration-slow: 360ms;
+    --tl-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --tl-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+    --tl-hover-quiet-y: -2px;
+    --tl-hover-standard-y: -5px;
+    --tl-hover-media-y: -8px;
+    --tl-hover-media-scale: 1.025;
+    --tl-hover-artwork-scale: 1.075;
+    --tl-hover-artwork-pan-y: -2%;
+    --tl-hover-overlay-opacity: 1;
+    --tl-hover-overlay-bg: linear-gradient(180deg, transparent 34%, rgba(7, 10, 18, 0.76) 100%);
+    --tl-hover-border-color: rgba(182, 194, 214, 0.32);
+    --tl-hover-glow-color: var(--tl-accent-primary-glow);
     --tl-z-dropdown: 1200;
     --tl-z-sticky: 1300;
     --tl-z-modal: 1400;
@@ -123,6 +138,9 @@
     --tl-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.36);
     --tl-shadow-focus: 0 0 0 3px rgba(139, 92, 246, 0.22);
     --tl-shadow-raised: 0 18px 44px rgba(0, 0, 0, 0.28);
+    --tl-shadow-hover-quiet: 0 10px 24px rgba(0, 0, 0, 0.24);
+    --tl-shadow-hover-standard: 0 18px 42px rgba(0, 0, 0, 0.32), 0 0 0 1px var(--tl-hover-glow-color);
+    --tl-shadow-hover-media: 0 26px 70px rgba(0, 0, 0, 0.46), 0 0 0 1px var(--tl-hover-glow-color), 0 0 34px rgba(139, 92, 246, 0.18);
 
     --tl-gradient-primary: linear-gradient(135deg, var(--tl-accent-primary) 0%, var(--tl-accent-primary-active) 100%);
     --tl-gradient-warning: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);

@@ -1,7 +1,7 @@
 ﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 
-<div class="rc-wrap @(IsFocused ? "rc-wrap--focused" : "") @(IsSelected ? "rc-wrap--selected" : "") @(NeedsReview ? "rc-wrap--review" : "")"
+<div class="rc-wrap tl-card-hover--media @(IsFocused ? "rc-wrap--focused" : "") @(IsSelected ? "rc-wrap--selected" : "") @(NeedsReview ? "rc-wrap--review" : "")"
      @onclick="HandleClick"
      @onclick:stopPropagation="true"
      style="@CardStateStyle">
@@ -113,13 +113,8 @@
         position: relative;
         width: var(--rc-card-width, 80px);
         cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
         z-index: 1;
         border-radius: 4px;
-    }
-    .rc-wrap:hover {
-        transform: translateY(-2px);
-        z-index: 2;
     }
     .rc-wrap--focused {
         z-index: 10;
@@ -141,16 +136,22 @@
         overflow: hidden;
         background: #0D1230;
         border: 2px solid var(--tl-border-subtle);
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        transition: border-color var(--tl-motion-duration-medium) var(--tl-motion-ease-standard), box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard);
     }
 
+    .rc-thumb::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        opacity: 0;
+        pointer-events: none;
+        background: var(--tl-hover-overlay-bg);
+        transition: opacity var(--tl-motion-duration-medium) var(--tl-motion-ease-standard);
+    }
 
     .rc-thumb--square {
         height: var(--rc-card-width, 80px);
-    }
-    .rc-wrap:hover .rc-thumb {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        border-color: var(--tl-border-strong);
     }
     .rc-wrap--review .rc-thumb {
         border-color: rgba(176,137,64,0.35);
@@ -160,6 +161,8 @@
         height: 100%;
         object-fit: contain;
         background: #0D1230;
+        transition: transform var(--tl-motion-duration-slow) var(--tl-motion-ease-emphasized), filter var(--tl-motion-duration-medium) var(--tl-motion-ease-standard);
+        transform-origin: center;
     }
     .rc-thumb-fallback {
         width: 100%;
@@ -231,6 +234,7 @@
         border: 1.5px solid var(--tl-text-secondary);
         background: rgba(0,0,0,0.6);
         transition: all 0.15s ease;
+        z-index: 3;
     }
     .rc-sel-mark--on {
         background: var(--tl-accent-primary);
@@ -260,6 +264,7 @@
         align-items: center;
         justify-content: center;
         border: 1px solid var(--tl-border-default);
+        z-index: 3;
     }
 
 

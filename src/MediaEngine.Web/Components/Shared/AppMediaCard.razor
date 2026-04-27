@@ -36,6 +36,7 @@
     [Parameter] public RenderFragment? Meta { get; set; }
     [Parameter] public EventCallback OnSelected { get; set; }
     [Parameter] public string? Class { get; set; }
+    [Parameter] public AppCardHoverBehavior HoverBehavior { get; set; } = AppCardHoverBehavior.Media;
 
     private string AspectRatio => Variant switch
     {
@@ -55,8 +56,14 @@
         {
             "app-media-card",
             $"app-media-card--{Variant.ToString().ToLowerInvariant()}",
+            HoverClass,
             Class,
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string? HoverClass =>
+        HoverBehavior == AppCardHoverBehavior.None
+            ? null
+            : $"tl-card-hover--{HoverBehavior.ToString().ToLowerInvariant()}";
 
     private Task OnClick() => OnSelected.InvokeAsync();
 }

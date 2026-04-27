@@ -43,6 +43,7 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? BodyClassName { get; set; }
+    [Parameter] public AppCardHoverBehavior HoverBehavior { get; set; } = AppCardHoverBehavior.Standard;
 
     private bool HasHeader =>
         !string.IsNullOrWhiteSpace(Eyebrow)
@@ -56,8 +57,14 @@
             new[]
             {
                 "app-surface-card",
+                HoverClass,
                 string.IsNullOrWhiteSpace(Class) ? null : Class,
             }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string? HoverClass =>
+        HoverBehavior == AppCardHoverBehavior.None
+            ? null
+            : $"tl-card-hover--{HoverBehavior.ToString().ToLowerInvariant()}";
 
     private string BodyClass =>
         string.Join(

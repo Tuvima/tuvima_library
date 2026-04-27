@@ -10,6 +10,14 @@ public enum AppMediaCardVariant
     List,
 }
 
+public enum AppCardHoverBehavior
+{
+    None,
+    Quiet,
+    Standard,
+    Media,
+}
+
 public enum AppStatusTone
 {
     Neutral,

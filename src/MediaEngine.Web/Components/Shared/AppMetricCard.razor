@@ -22,12 +22,19 @@
     [Parameter] public string? Icon { get; set; }
     [Parameter] public AppStatusTone Tone { get; set; } = AppStatusTone.Neutral;
     [Parameter] public string? Class { get; set; }
+    [Parameter] public AppCardHoverBehavior HoverBehavior { get; set; } = AppCardHoverBehavior.Quiet;
 
     private string RootClass =>
         string.Join(" ", new[]
         {
             "app-metric-card",
             $"app-metric-card--{Tone.ToString().ToLowerInvariant()}",
+            HoverClass,
             Class,
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string? HoverClass =>
+        HoverBehavior == AppCardHoverBehavior.None
+            ? null
+            : $"tl-card-hover--{HoverBehavior.ToString().ToLowerInvariant()}";
 }
