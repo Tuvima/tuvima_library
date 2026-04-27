@@ -1,4 +1,5 @@
 using Dapper;
+using System.Text;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Domain;
@@ -110,16 +111,28 @@ public sealed class DetailComposerService
         var multiFormatState = ownedFormats.Count > 1
             ? MultiFormatState.MultipleFormatsSeparateProgress
             : MultiFormatState.SingleFormat;
+        var ownedCoverUrls = ownedFormats
+            .Select(f => f.CoverUrl)
+            .Where(url => !string.IsNullOrWhiteSpace(url))
+            .Cast<string>()
+            .ToList();
+        var foregroundArtworkUrl = FirstNonBlank(
+            detail.CoverUrl,
+            GetValue(values, "cover_url"),
+            GetValue(values, "cover"),
+            GetValue(values, "poster_url"),
+            GetValue(values, "poster"),
+            ownedCoverUrls.FirstOrDefault());
 
         var artwork = BuildArtwork(
             entityType,
             detail.BackgroundUrl ?? detail.HeroUrl,
             detail.BannerUrl,
-            detail.CoverUrl,
-            detail.CoverUrl,
+            foregroundArtworkUrl,
+            foregroundArtworkUrl,
             null,
             values,
-            ownedFormats.Select(f => f.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().ToList(),
+            ownedCoverUrls,
             ownedFormats.Count,
             detail.ArtworkSource);
 
@@ -525,12 +538,12 @@ public sealed class DetailComposerService
             return null;
 
         using var conn = _db.CreateConnection();
-        var rows = (await conn.QueryAsync<SeriesRow>(new CommandDefinition(
+        var rawRows = await conn.QueryAsync(new CommandDefinition(
             """
-            SELECT w.id AS WorkId,
-                   COALESCE(title_asset.value, title_work.value, 'Untitled') AS Title,
-                   COALESCE(pos_asset.value, pos_work.value) AS PositionLabel,
-                   COALESCE(cover_asset.value, cover_work.value) AS ArtworkUrl
+            SELECT CAST(w.id AS TEXT) AS WorkId,
+                   CAST(COALESCE(title_asset.value, title_work.value, 'Untitled') AS TEXT) AS Title,
+                   CAST(COALESCE(pos_asset.value, pos_work.value) AS TEXT) AS PositionLabel,
+                   CAST(COALESCE(cover_asset.value, cover_work.value) AS TEXT) AS ArtworkUrl
             FROM works w
             LEFT JOIN editions e ON e.work_id = w.id
             LEFT JOIN media_assets ma ON ma.edition_id = e.id
@@ -547,19 +560,28 @@ public sealed class DetailComposerService
             ORDER BY CAST(COALESCE(pos_asset.value, pos_work.value, w.ordinal, 9999) AS REAL), Title;
             """,
             new { series = detail.Series },
-            cancellationToken: ct))).ToList();
+            cancellationToken: ct));
+        var rows = rawRows.Select(row => new SeriesRow(
+            StringValue(row.WorkId) ?? string.Empty,
+            StringValue(row.Title) ?? "Untitled",
+            StringValue(row.PositionLabel),
+            StringValue(row.ArtworkUrl))).ToList();
 
-        var items = rows.Select((row, index) => new SeriesItemViewModel
+        var items = rows.Select((row, index) =>
         {
-            Id = row.WorkId.ToString("D"),
-            EntityType = entityType,
-            Title = row.Title,
-            ArtworkUrl = row.ArtworkUrl,
-            PositionNumber = TryParseInt(row.PositionLabel) ?? index + 1,
-            PositionLabel = row.PositionLabel,
-            IsCurrent = row.WorkId == workId,
-            IsOwned = true,
-            ProgressState = LibraryProgressState.Unknown,
+            var rowWorkId = Guid.TryParse(row.WorkId, out var parsed) ? parsed : Guid.Empty;
+            return new SeriesItemViewModel
+            {
+                Id = row.WorkId,
+                EntityType = entityType,
+                Title = row.Title,
+                ArtworkUrl = row.ArtworkUrl,
+                PositionNumber = TryParseInt(row.PositionLabel) ?? index + 1,
+                PositionLabel = row.PositionLabel,
+                IsCurrent = rowWorkId == workId,
+                IsOwned = true,
+                ProgressState = LibraryProgressState.Unknown,
+            };
         }).ToList();
 
         if (items.Count == 0)
@@ -607,20 +629,20 @@ public sealed class DetailComposerService
     private async Task<IReadOnlyList<CollectionWorkSummary>> LoadCollectionWorksAsync(Guid collectionId, CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<CollectionWorkSummary>(new CommandDefinition(
+        var rawRows = await conn.QueryAsync(new CommandDefinition(
             """
-            SELECT w.id AS Id,
-                   w.media_type AS MediaType,
+            SELECT CAST(w.id AS TEXT) AS Id,
+                   CAST(w.media_type AS TEXT) AS MediaType,
                    w.ordinal AS Ordinal,
-                   COALESCE(title_asset.value, episode_title.value, title_work.value, 'Untitled') AS Title,
-                   COALESCE(desc_asset.value, desc_work.value) AS Description,
-                   COALESCE(season.value, '') AS Season,
-                   COALESCE(episode.value, '') AS Episode,
-                   COALESCE(track.value, '') AS TrackNumber,
-                   COALESCE(runtime.value, duration.value) AS Duration,
-                   COALESCE(year_asset.value, year_work.value) AS Year,
-                   COALESCE(cover_asset.value, cover_work.value) AS ArtworkUrl,
-                   COALESCE(bg_asset.value, bg_work.value, banner_asset.value, banner_work.value) AS BackgroundUrl
+                   CAST(COALESCE(title_asset.value, episode_title.value, title_work.value, 'Untitled') AS TEXT) AS Title,
+                   CAST(COALESCE(desc_asset.value, desc_work.value) AS TEXT) AS Description,
+                   CAST(COALESCE(season.value, '') AS TEXT) AS Season,
+                   CAST(COALESCE(episode.value, '') AS TEXT) AS Episode,
+                   CAST(COALESCE(track.value, '') AS TEXT) AS TrackNumber,
+                   CAST(COALESCE(runtime.value, duration.value) AS TEXT) AS Duration,
+                   CAST(COALESCE(year_asset.value, year_work.value) AS TEXT) AS Year,
+                   CAST(COALESCE(cover_asset.value, cover_work.value) AS TEXT) AS ArtworkUrl,
+                   CAST(COALESCE(bg_asset.value, bg_work.value, banner_asset.value, banner_work.value) AS TEXT) AS BackgroundUrl
             FROM works w
             LEFT JOIN editions e ON e.work_id = w.id
             LEFT JOIN media_assets ma ON ma.edition_id = e.id
@@ -648,7 +670,19 @@ public sealed class DetailComposerService
             """,
             new { collectionId = collectionId.ToString() },
             cancellationToken: ct));
-        return rows.ToList();
+        return rawRows.Select(row => new CollectionWorkSummary(
+            StringValue(row.Id) ?? string.Empty,
+            StringValue(row.MediaType) ?? string.Empty,
+            IntValue(row.Ordinal),
+            StringValue(row.Title) ?? "Untitled",
+            StringValue(row.Description),
+            StringValue(row.Season),
+            StringValue(row.Episode),
+            StringValue(row.TrackNumber),
+            StringValue(row.Duration),
+            StringValue(row.Year),
+            StringValue(row.ArtworkUrl),
+            StringValue(row.BackgroundUrl))).ToList();
     }
 
     private async Task<Dictionary<string, string>> LoadCanonicalMapAsync(Guid entityId, CancellationToken ct)
@@ -940,7 +974,7 @@ public sealed class DetailComposerService
     private static MediaGroupingItemViewModel ToMediaItem(CollectionWorkSummary work)
         => new()
         {
-            Id = work.Id.ToString("D"),
+            Id = work.Id,
             EntityType = InferMediaItemEntityType(work),
             Title = work.Title,
             Subtitle = FirstNonBlank(FormatSeasonEpisode(work.Season, work.Episode), work.Year, work.Duration),
@@ -986,10 +1020,10 @@ public sealed class DetailComposerService
             return [];
 
         var root = works.FirstOrDefault()?.Id;
-        if (root is null)
+        if (!Guid.TryParse(root, out var rootWorkId))
             return [];
 
-        var cast = await CastCreditQueries.BuildForWorkAsync(root.Value, _canonicalArrays, _persons, _db, ct);
+        var cast = await CastCreditQueries.BuildForWorkAsync(rootWorkId, _canonicalArrays, _persons, _db, ct);
         return cast.Count == 0
             ? []
             : [new CreditGroupViewModel
@@ -1278,12 +1312,37 @@ public sealed class DetailComposerService
     private static int? TryParseInt(string? value)
         => int.TryParse(value, out var parsed) ? parsed : null;
 
+    private static string? StringValue(object? value)
+    {
+        if (value is null or DBNull)
+            return null;
+
+        if (value is byte[] bytes)
+            return Encoding.UTF8.GetString(bytes);
+
+        var text = Convert.ToString(value);
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    private static int? IntValue(object? value)
+    {
+        if (value is null or DBNull)
+            return null;
+
+        return value switch
+        {
+            int i => i,
+            long l => checked((int)l),
+            _ => int.TryParse(Convert.ToString(value), out var parsed) ? parsed : null,
+        };
+    }
+
     private sealed record WorkContributorResult(IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> CastCredits);
     private sealed record CanonicalPair(string Key, string Value);
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl);
-    private sealed record SeriesRow(Guid WorkId, string Title, string? PositionLabel, string? ArtworkUrl);
-    private sealed record CollectionWorkSummary(Guid Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? ArtworkUrl, string? BackgroundUrl);
+    private sealed record SeriesRow(string WorkId, string Title, string? PositionLabel, string? ArtworkUrl);
+    private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? ArtworkUrl, string? BackgroundUrl);
     private sealed record CharacterDetailRow(Guid Id, string Label, string? WikidataQid, string? UniverseQid, string? UniverseLabel, string? ImageUrl, string? EntitySubType);
     private sealed record CharacterPortraitRow(Guid Id, string? ImageUrl, string? LocalImagePath, bool IsDefault);
 }

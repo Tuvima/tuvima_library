@@ -82,7 +82,7 @@ public sealed class DisplayCardBuilder
             .First();
         var mediaKind = DisplayMediaRules.NormalizeDisplayKind(representative.MediaType);
         var title = FirstNonBlank(representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
-        var action = new DisplayActionDto("openCollection", "Open", null, null, collectionId, $"/collection/{collectionId}");
+        var action = new DisplayActionDto("openCollection", "Open", null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind));
 
         return new DisplayCardDto(
             Id: collectionId,
@@ -133,24 +133,39 @@ public sealed class DisplayCardBuilder
         {
             return mediaKind switch
             {
-                "Movie" => $"/watch/movies/{workId}",
-                "TV" => $"/watch/tv/{collectionId}",
+                "Movie" => $"/watch/movie/{workId}?collectionId={collectionId.Value}",
+                "TV" => $"/watch/tv/show/{collectionId.Value}",
                 "Music" => $"/listen/music/albums/{collectionId}",
+                "Audiobook" => $"/book/{workId}?mode=listen",
+                "Comic" => $"/book/{workId}?mode=read",
+                "Book" => $"/book/{workId}?mode=read",
                 _ => $"/collection/{collectionId}",
             };
         }
 
         return mediaKind switch
         {
-            "Movie" => $"/watch/movies/{workId}",
-            "TV" => $"/watch/tv/episodes/{workId}",
+            "Movie" => $"/watch/movie/{workId}",
+            "TV" => $"/details/tvepisode/{workId}?context=watch",
             "Music" => $"/listen/music/tracks/{workId}",
-            "Audiobook" => $"/book/{workId}",
-            "Comic" => $"/book/{workId}",
-            "Book" => $"/book/{workId}",
+            "Audiobook" => $"/book/{workId}?mode=listen",
+            "Comic" => $"/book/{workId}?mode=read",
+            "Book" => $"/book/{workId}?mode=read",
             _ => $"/book/{workId}",
         };
     }
+
+    private static string CollectionUrlFor(Guid collectionId, Guid representativeWorkId, string mediaKind) =>
+        mediaKind switch
+        {
+            "Movie" => $"/watch/movie/{representativeWorkId}?collectionId={collectionId}",
+            "TV" => $"/watch/tv/show/{collectionId}",
+            "Music" => $"/listen/music/albums/{collectionId}",
+            "Audiobook" => $"/book/{representativeWorkId}?mode=listen",
+            "Comic" => $"/details/comicseries/{collectionId}?context=comics",
+            "Book" => $"/details/bookseries/{collectionId}?context=read",
+            _ => $"/collection/{collectionId}",
+        };
 
     private static DisplayCardFlagsDto FlagsFor(string mediaType, bool isCollection) =>
         new(DisplayMediaRules.IsWatchKind(mediaType) || DisplayMediaRules.IsListenKind(mediaType), DisplayMediaRules.IsReadKind(mediaType), !isCollection, isCollection, false);
