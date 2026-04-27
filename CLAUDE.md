@@ -544,7 +544,7 @@ Reusable visual components, organised by feature slice.
 | Subfolder | What lives here |
 |---|---|
 | `Bento/` | `BentoGrid`, `BentoItem` — legacy glass-tile wrappers |
-| `Browse/` | `MediaBrowseShell`, `MediaBrowseHero`, `BrowseQueryBuilder`, `BrowseState` — shared shell and extracted query/state helpers used by Read / Watch / Listen |
+| `Browse/` | `MediaBrowseShell`, `MediaBrowseHero`, `BrowseQueryBuilder`, `BrowseState`, `BrowseArtworkRules` — shared shell and extracted query/state/artwork helpers used by Read / Watch / Listen |
 | `Collections/` | `CollectionsPage`, `CollectionEditorShell` |
 | `Discovery/` | `DiscoveryHero`, `DiscoveryShelf`, `DiscoveryCard`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |

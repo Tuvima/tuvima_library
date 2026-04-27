@@ -17,9 +17,9 @@
         <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-8">
             <MudIcon Icon="@Icons.Material.Outlined.DesktopAccessDisabled"
                      Color="Color.Secondary"
-                     Style="font-size: 3rem;" />
+                     Class="tl-icon-xl" />
             <MudText Typo="Typo.h6" Color="Color.Secondary">@L["Libraries_NotAvailable"]</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Style="text-align: center;">
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="tl-text-center">
                 @L["Libraries_NotAvailableDescription"]
             </MudText>
         </MudStack>
@@ -35,7 +35,7 @@ else
         {
             <MudChip T="string" Size="Size.Small" Color="Color.Default"
                      Icon="@Icons.Material.Outlined.Visibility"
-                     Style="margin-left: auto;">
+                     Class="tl-ml-auto">
                 @L["Libraries_ViewOnly"]
             </MudChip>
         }
@@ -43,7 +43,7 @@ else
 <div class="folder-path-row mb-5">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
             <div class="health-dot @HealthClass(_libraryHealthy, _libValidating, _libraryRoot)" />
-            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_LibraryFolder"]</MudText>
+            <MudText Typo="Typo.subtitle2" Class="tl-font-semibold">@L["Libraries_LibraryFolder"]</MudText>
         </MudStack>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_libraryRoot"
@@ -68,7 +68,7 @@ else
 <div class="folder-path-row mb-5">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
             <div class="health-dot @HealthClass(_watchHealthy, _watchValidating, _watchDir)" />
-            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_WatchFolder"]</MudText>
+            <MudText Typo="Typo.subtitle2" Class="tl-font-semibold">@L["Libraries_WatchFolder"]</MudText>
         </MudStack>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_watchDir"

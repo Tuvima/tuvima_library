@@ -35,12 +35,12 @@
     else
     {
         <MudTable Items="@_keys" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm"
-                  Style="background: transparent;">
+                  Class="tl-table-transparent">
             <HeaderContent>
                 <MudTh>@L["ApiKeys_Label"]</MudTh>
                 <MudTh>@L["ApiKeys_Key"]</MudTh>
                 <MudTh>@L["ApiKeys_Created"]</MudTh>
-                <MudTh Style="text-align:right">@L["ApiKeys_Actions"]</MudTh>
+                <MudTh Class="tl-text-right">@L["ApiKeys_Actions"]</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd>
@@ -51,10 +51,7 @@
                     </MudStack>
                 </MudTd>
                 <MudTd>
-                    <code style="font-family: monospace; font-size: 0.85rem;
-                                  background: rgba(0,0,0,0.2); padding: 4px 8px;
-                                  border-radius: 4px; word-break: break-all;
-                                  overflow-wrap: anywhere;">
+                    <code class="tl-inline-code">
                         @GetKeyDisplay(context.Id)
                     </code>
                 </MudTd>
@@ -63,7 +60,7 @@
                         @context.CreatedAt.LocalDateTime.ToString("MMM d, yyyy  -  HH:mm")
                     </MudText>
                 </MudTd>
-                <MudTd Style="text-align:right">
+                <MudTd Class="tl-text-right">
                     <MudIconButton Icon="@(_revealedKeys.Contains(context.Id)
                                              ? Icons.Material.Filled.VisibilityOff
                                              : Icons.Material.Filled.Visibility)"
@@ -115,9 +112,7 @@
                     @L["ApiKeys_CopyKeyNow"]
                 </MudText>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                    <code style="font-family: monospace; font-size: 0.85rem;
-                                  background: rgba(0,0,0,0.4); padding: 6px 12px;
-                                  border-radius: 4px; word-break: break-all; flex: 1;">
+                    <code class="tl-inline-code tl-inline-code--strong tl-flex-1">
                         @_newKey.Key
                     </code>
                     <MudIconButton Icon="@(_copyAnimating

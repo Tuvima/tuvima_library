@@ -513,8 +513,8 @@
             MetaLine = null,
             SupportingLine = hero.Progress?.Label,
             CoverUrl = hero.Artwork.CoverUrl ?? hero.Artwork.SquareUrl,
-            CoverAspectRatioCss = ResolveArtworkAspectRatio(hero.Artwork.CoverUrl, hero.Artwork.CoverWidthPx, hero.Artwork.CoverHeightPx, hero.Artwork.SquareWidthPx, hero.Artwork.SquareHeightPx),
-            BackgroundUrl = ResolveWideArtwork(hero.Artwork.BackgroundUrl, hero.Artwork.BannerUrl),
+            CoverAspectRatioCss = BrowseArtworkRules.ResolveArtworkAspectRatio(hero.Artwork.CoverUrl, hero.Artwork.CoverWidthPx, hero.Artwork.CoverHeightPx, hero.Artwork.SquareWidthPx, hero.Artwork.SquareHeightPx),
+            BackgroundUrl = BrowseArtworkRules.ResolveWideArtwork(hero.Artwork.BackgroundUrl, hero.Artwork.BannerUrl),
             ProgressPct = hero.Progress?.Percent,
             PrimaryActionLabel = primaryAction?.Label ?? "Open",
             SecondaryActionLabel = secondaryAction is null ? null : "Details",
@@ -538,14 +538,14 @@
 
         if (IsContainerGrouping && _groups.Count > 0)
         {
-            var preferred = PreferWideArt(_groups, group => ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl));
+            var preferred = PreferWideArt(_groups, group => BrowseArtworkRules.ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl));
             var pick = PickStable(preferred, _groups.Select(group => group.DisplayName));
             return BuildGroupHero(pick);
         }
 
         if (_items.Count > 0)
         {
-            var preferred = PreferWideArt(_items, item => ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl));
+            var preferred = PreferWideArt(_items, item => BrowseArtworkRules.ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl));
             var pick = PickStable(preferred, _items.Select(item => item.EntityId.ToString("N")));
             return BuildItemHero(pick);
         }
@@ -557,7 +557,7 @@
     {
         var primaryUrl = BuildJourneyPrimaryUrl(item);
         var secondaryUrl = MediaNavigation.ForJourney(item);
-        var backgroundUrl = ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
+        var backgroundUrl = BrowseArtworkRules.ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
         var listenTitle = Preset.HeroVariant == BrowseHeroVariant.Listen && !string.IsNullOrWhiteSpace(item.CollectionDisplayName)
             ? item.CollectionDisplayName!
             : item.Title;
@@ -577,7 +577,7 @@
             MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.Series, item.ProgressDisplay),
             SupportingLine = supporting,
             CoverUrl = item.CoverUrl,
-            CoverAspectRatioCss = ResolveArtworkAspectRatio(item.CoverUrl, item.CoverWidthPx, item.CoverHeightPx),
+            CoverAspectRatioCss = BrowseArtworkRules.ResolveArtworkAspectRatio(item.CoverUrl, item.CoverWidthPx, item.CoverHeightPx),
             BackgroundUrl = backgroundUrl,
             ProgressPct = item.ProgressPct,
             PrimaryActionLabel = item.ActionVerb,
@@ -589,7 +589,7 @@
 
     private BrowseHeroViewModel BuildItemHero(LibraryItemViewModel item)
     {
-        var backgroundUrl = ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
+        var backgroundUrl = BrowseArtworkRules.ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
         return new BrowseHeroViewModel
         {
             Variant = Preset.HeroVariant,
@@ -626,8 +626,8 @@
                     ? $"{group.AlbumCount.Value} albums"
                     : null,
             CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
-            CoverAspectRatioCss = ResolveArtworkAspectRatio(group.ArtistPhotoUrl ?? group.CoverUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx),
-            BackgroundUrl = ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl),
+            CoverAspectRatioCss = BrowseArtworkRules.ResolveArtworkAspectRatio(group.ArtistPhotoUrl ?? group.CoverUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx),
+            BackgroundUrl = BrowseArtworkRules.ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl),
             PrimaryActionLabel = "Explore",
             SecondaryActionLabel = "Open",
             PrimaryNavigationUrl = navigationUrl,
@@ -642,7 +642,7 @@
             "Music" => "album",
             _ => "default",
         };
-        var wideArtwork = ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
+        var wideArtwork = BrowseArtworkRules.ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
         var navigationUrl = MediaNavigation.ForLibraryItem(item);
         var card = new DisplayCardDto(
             Id: item.EntityId,
@@ -653,9 +653,9 @@
             GroupingType: "work",
             Title: item.Title,
             Subtitle: item.Creator ?? item.ContextLabel,
-            Facts: CompactFacts(item.ContextLabel, item.Year, item.Runtime ?? item.Duration),
+            Facts: BrowseArtworkRules.CompactFacts(item.ContextLabel, item.Year, item.Runtime ?? item.Duration),
             Artwork: new DisplayArtworkDto(item.CoverUrl, item.ArtistPhotoUrl, item.BannerUrl, wideArtwork, null, null, null, null, null, null, null, null, null, AccentForMedia(item.MediaType)),
-            PreferredShape: PreferredDisplayShape(item.MediaType, wideArtwork, item.ArtistPhotoUrl),
+            PreferredShape: BrowseArtworkRules.PreferredDisplayShape(item.MediaType, wideArtwork, item.ArtistPhotoUrl),
             Presentation: presentation,
             TileTextMode: "caption",
             PreviewPlacement: IsReadMedia(item.MediaType) ? "bottom" : "smart",
@@ -691,7 +691,7 @@
             _ => "default",
         };
 
-        var wideArtwork = ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl);
+        var wideArtwork = BrowseArtworkRules.ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl);
         var navigationUrl = BuildGroupNavigationUrl(group);
         var displayMediaType = FormatMediaLabel(group.PrimaryMediaType);
         var coverUrl = string.Equals(presentation, "artist", StringComparison.OrdinalIgnoreCase)
@@ -706,9 +706,9 @@
             GroupingType: string.Equals(presentation, "default", StringComparison.OrdinalIgnoreCase) ? "collection" : presentation,
             Title: group.DisplayName,
             Subtitle: group.Creator ?? group.Network,
-            Facts: CompactFacts(group.Year, $"{group.WorkCount} items"),
+            Facts: BrowseArtworkRules.CompactFacts(group.Year, $"{group.WorkCount} items"),
             Artwork: new DisplayArtworkDto(coverUrl, group.ArtistPhotoUrl, group.BannerUrl, wideArtwork, group.LogoUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx, group.BannerWidthPx, group.BannerHeightPx, group.BackgroundWidthPx, group.BackgroundHeightPx, group.MediaTypeColor ?? AccentForMedia(group.PrimaryMediaType)),
-            PreferredShape: PreferredDisplayShape(group.PrimaryMediaType, wideArtwork, group.ArtistPhotoUrl),
+            PreferredShape: BrowseArtworkRules.PreferredDisplayShape(group.PrimaryMediaType, wideArtwork, group.ArtistPhotoUrl),
             Presentation: presentation,
             TileTextMode: "caption",
             PreviewPlacement: "smart",
@@ -1068,36 +1068,6 @@
         return new Guid(bytes);
     }
 
-    private static string? ResolveWideArtwork(string? backgroundUrl, string? bannerUrl) =>
-        backgroundUrl ?? bannerUrl;
-
-    private static string ResolveArtworkAspectRatio(
-        string? artworkUrl,
-        int? width,
-        int? height,
-        int? squareWidth = null,
-        int? squareHeight = null)
-    {
-        if (width is > 0 && height is > 0)
-        {
-            return $"{width.Value} / {height.Value}";
-        }
-
-        if (squareWidth is > 0 && squareHeight is > 0)
-        {
-            return $"{squareWidth.Value} / {squareHeight.Value}";
-        }
-
-        return !string.IsNullOrWhiteSpace(artworkUrl) && IsLikelySquareArtwork(artworkUrl)
-            ? "1 / 1"
-            : "2 / 3";
-    }
-
-    private static bool IsLikelySquareArtwork(string artworkUrl) =>
-        artworkUrl.Contains("square", StringComparison.OrdinalIgnoreCase)
-        || artworkUrl.Contains("album", StringComparison.OrdinalIgnoreCase)
-        || artworkUrl.Contains("artist", StringComparison.OrdinalIgnoreCase);
-
     private static DiscoveryCardViewModel WithCardOverrides(
         DiscoveryCardViewModel card,
         string? description,
@@ -1152,41 +1122,6 @@
         SortTimestamp = card.SortTimestamp,
         IsCollection = card.IsCollection,
     };
-
-    private static IReadOnlyList<string> CompactFacts(params string?[] values)
-    {
-        var facts = new List<string>();
-        foreach (var value in values)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                continue;
-            }
-
-            var cleaned = value.Trim();
-            if (!facts.Contains(cleaned, StringComparer.OrdinalIgnoreCase))
-            {
-                facts.Add(cleaned);
-            }
-        }
-
-        return facts;
-    }
-
-    private static string PreferredDisplayShape(string? mediaType, string? wideArtwork, string? squareArtwork)
-    {
-        if (!string.IsNullOrWhiteSpace(wideArtwork) && IsWatchMedia(mediaType))
-        {
-            return "landscape";
-        }
-
-        if (!string.IsNullOrWhiteSpace(squareArtwork) || IsListenMedia(mediaType))
-        {
-            return "square";
-        }
-
-        return "portrait";
-    }
 
     private static bool IsReadMedia(string? mediaType)
     {

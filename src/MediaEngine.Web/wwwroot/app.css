@@ -2424,6 +2424,52 @@ textarea.tl-textarea,
   color: var(--app-text-soft);
 }
 
+.tl-table-transparent {
+  background: transparent;
+}
+
+.tl-text-right {
+  text-align: right;
+}
+
+.tl-text-center {
+  text-align: center;
+}
+
+.tl-ml-auto {
+  margin-left: auto;
+}
+
+.tl-font-semibold {
+  font-weight: 600;
+}
+
+.tl-icon-xl {
+  font-size: 3rem;
+}
+
+.tl-inline-code {
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--app-text);
+  font-family: monospace;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.tl-inline-code--strong {
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.tl-flex-1 {
+  flex: 1;
+}
+
 .mud-dialog,
 .mud-menu,
 .mud-popover,
