@@ -110,6 +110,17 @@
                 <ChildContent>
                     <MudText Typo="Typo.overline" Class="px-4 pt-3">@L["TopBar_SignedInAs"]</MudText>
                     <MudText Typo="Typo.subtitle2" Class="px-4 pb-3">@_displayName</MudText>
+                    @if (_profiles.Count > 1)
+                    {
+                        <MudDivider />
+                        @foreach (var profile in _profiles)
+                        {
+                            <MudMenuItem Icon="@(profile.Id == _activeProfileId ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Person)"
+                                         OnClick="@(() => SwitchProfileAsync(profile.Id))">
+                                @profile.DisplayName
+                            </MudMenuItem>
+                        }
+                    }
                     <MudDivider />
                     <MudMenuItem Href="/settings/review" Icon="@Icons.Material.Outlined.RateReview">
                         @(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])
@@ -144,7 +155,9 @@
     private string _engineStatusSummary = string.Empty;
     private string _profileRole = "Profile";
     private string _searchTerm = string.Empty;
+    private Guid? _activeProfileId;
     private int _reviewCount;
+    private List<ProfileViewModel> _profiles = [];
     private const string NavLabelStyle = "font-family:'Montserrat',sans-serif;font-weight:400;font-size:1.02rem;letter-spacing:0.16em;line-height:1;text-transform:uppercase;";
 
     private readonly record struct ShellNavLink(string Path, string LabelKey);
@@ -287,6 +300,8 @@
                 return;
             }
 
+            _profiles = await Orchestrator.GetProfilesAsync();
+            _activeProfileId = profile.Id;
             _avatarColor = profile.AvatarColor;
             _displayName = string.IsNullOrWhiteSpace(profile.DisplayName)
                 ? "User"
@@ -299,6 +314,18 @@
         catch
         {
         }
+    }
+
+    private async Task SwitchProfileAsync(Guid profileId)
+    {
+        var profile = await Orchestrator.SetActiveProfileAsync(profileId);
+        if (profile is null)
+        {
+            return;
+        }
+
+        await LoadActiveProfileAsync();
+        StateHasChanged();
     }
 
     private async Task LoadReviewCountAsync()

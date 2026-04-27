@@ -33,6 +33,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 {
     private readonly IEngineApiClient              _api;
     private readonly UniverseStateContainer         _state;
+    private readonly ActiveProfileSessionService    _activeProfileSession;
     private readonly IConfiguration                 _config;
     private readonly ILogger<UIOrchestratorService> _logger;
 
@@ -41,13 +42,15 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public UIOrchestratorService(
         IEngineApiClient              api,
         UniverseStateContainer         state,
+        ActiveProfileSessionService    activeProfileSession,
         IConfiguration                 config,
         ILogger<UIOrchestratorService> logger)
     {
-        _api    = api;
-        _state  = state;
-        _config = config;
-        _logger = logger;
+        _api                  = api;
+        _state                = state;
+        _activeProfileSession = activeProfileSession;
+        _config               = config;
+        _logger               = logger;
     }
 
     // -- Collections ------------------------------------------------------------------
@@ -86,6 +89,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default)
         => _api.GetLibraryWorksAsync(ct);
 
+    public Task<WorkDetailViewModel?> GetWorkDetailAsync(Guid workId, CancellationToken ct = default)
+        => _api.GetWorkDetailAsync(workId, ct);
+
+    public Task<List<EditionViewModel>> GetWorkEditionsAsync(Guid workId, CancellationToken ct = default)
+        => _api.GetWorkEditionsAsync(workId, ct);
     // -- System status ---------------------------------------------------------
 
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
@@ -161,16 +169,29 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         => _api.GetProfilesAsync(ct);
 
     /// <summary>
-    /// Returns the currently active profile (first profile — the seed Owner by default).
-    /// Ready for future session-based profile selection.
+    /// Returns the browser/session-selected active profile, falling back to the seed Owner.
     /// </summary>
     public async Task<ProfileViewModel?> GetActiveProfileAsync(CancellationToken ct = default)
     {
         var profiles = await GetProfilesAsync(ct);
-        return profiles?.FirstOrDefault();
+        return await _activeProfileSession.ResolveAsync(profiles, ct);
     }
 
-    /// <summary>Creates a new user profile. Returns true on success.</summary>
+    /// <summary>Persists the active browser/session profile and notifies layout consumers.</summary>
+    public async Task<ProfileViewModel?> SetActiveProfileAsync(Guid profileId, CancellationToken ct = default)
+    {
+        var profiles = await GetProfilesAsync(ct);
+        var profile = profiles.FirstOrDefault(p => p.Id == profileId);
+        if (profile is null)
+        {
+            return null;
+        }
+
+        await _activeProfileSession.SetActiveProfileAsync(profileId, ct);
+        OnProfileChanged?.Invoke();
+        return profile;
+    }
+/// <summary>Creates a new user profile. Returns true on success.</summary>
     public async Task<bool> CreateProfileAsync(
         string displayName, string avatarColor, string role,
         string? navigationConfig = null,

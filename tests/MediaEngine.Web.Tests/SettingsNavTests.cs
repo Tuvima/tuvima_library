@@ -24,6 +24,20 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
+    public void SettingsPage_UsesActiveProfileRoleInsteadOfHardcodedAdministrator()
+    {
+        var settingsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
+        var orchestratorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\UIOrchestratorService.cs"));
+        var sessionSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\ActiveProfileSessionService.cs"));
+
+        Assert.Contains("await LoadActiveProfileRoleAsync()", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("SettingsNav.ResolveRoute(Section, _currentRole)", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("private readonly string _currentRole = \"Administrator\"", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("SetActiveProfileAsync", orchestratorSource, StringComparison.Ordinal);
+        Assert.Contains("tuvima-active-profile-id", sessionSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RouteFor_Overview_UsesBaseSettingsUrl()
     {
         Assert.Equal("/settings", SettingsNav.RouteFor(SettingsSection.Overview));

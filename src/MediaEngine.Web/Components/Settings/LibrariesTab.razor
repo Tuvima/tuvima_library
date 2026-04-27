@@ -95,27 +95,27 @@ else
     {
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
             <MudIcon Icon="@Icons.Material.Outlined.Storage" Color="Color.Default" />
-            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_ConfiguredLibraries"]</MudText>
+            <MudText Typo="Typo.subtitle2" Class="tl-section-title">@L["Libraries_ConfiguredLibraries"]</MudText>
         </MudStack>
-        <MudText Typo="Typo.caption" Style="color: var(--app-text-soft); margin-bottom: 12px; display: block;">
+        <MudText Typo="Typo.caption" Class="tl-section-hint">
             @L["Libraries_ConfiguredLibrariesHint"]
         </MudText>
 
         @foreach (var lib in _libraries)
         {
-            <MudPaper Elevation="0" Style="@LibraryCardStyle" Class="mb-3">
+            <MudPaper Elevation="0" Class="tl-card tl-card--compact mb-3">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@lib.Name</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="tl-section-title">@lib.Name</MudText>
                     @foreach (var mt in lib.MediaTypes)
                     {
                         <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                 Style="font-size: 0.7rem; opacity: 0.8;">@mt</MudChip>
+                                 Class="tl-chip-muted">@mt</MudChip>
                     }
                     @if (lib.ReadOnly)
                     {
                         <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                 Icon="@Icons.Material.Outlined.Lock"
-                                 Style="font-size: 0.7rem;">Read-only</MudChip>
+                                  Icon="@Icons.Material.Outlined.Lock"
+                                  Class="tl-chip-muted">Read-only</MudChip>
                     }
                     @{
                         var wbLabel = lib.WritebackOverride switch
@@ -132,16 +132,16 @@ else
                         };
                     }
                     <MudChip T="string" Size="Size.Small" Color="@wbColor"
-                             Style="font-size: 0.7rem;">@wbLabel</MudChip>
+                             Class="tl-chip-muted">@wbLabel</MudChip>
                 </MudStack>
 
                 @foreach (var path in lib.EffectiveSourcePaths)
                 {
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="ml-2 mb-1">
                         <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small"
-                                 Style="color: var(--app-text-soft); font-size: 1rem;" />
+                                 Class="tl-muted-icon" />
                         <MudText Typo="Typo.body2"
-                                 Style="font-family: monospace; font-size: 0.8rem; color: var(--app-text-soft);">
+                                 Class="tl-mono-muted">
                             @path
                         </MudText>
                     </MudStack>
@@ -152,9 +152,9 @@ else
         <MudDivider Class="my-6" />
     }
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_FileOrganization"]</MudText>
+        <MudText Typo="Typo.subtitle2" Class="tl-section-title">@L["Libraries_FileOrganization"]</MudText>
     </MudStack>
-    <MudText Typo="Typo.caption" Style="color: var(--app-text-soft); margin-bottom: 12px; display: block;">
+    <MudText Typo="Typo.caption" Class="tl-section-hint">
         @L["Libraries_FileOrganizationHint"]
     </MudText>
 
@@ -196,8 +196,8 @@ else
     }
     @if (previewParts.Count > 0)
     {
-        <MudPaper Elevation="0" Style="@PreviewStyle" Class="mb-5 mt-2 pa-3">
-            <MudText Typo="Typo.caption" Style="color: var(--app-text-soft); margin-bottom: 6px; display: block;">
+        <MudPaper Elevation="0" Class="tl-panel tl-panel--compact mb-5 mt-2">
+            <MudText Typo="Typo.caption" Class="tl-section-hint tl-section-hint--tight">
                 @L["Libraries_PreviewExampleOutput"]
             </MudText>
             <div class="org-preview-tree">
@@ -352,17 +352,6 @@ else
         ["{Edition}"]   = "First Edition",
         ["{Ext}"]       = ".epub",
     };
-
-    private const string LibraryCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 16px;";
-
-    private const string PreviewStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 6px;";
 
     private string              _watchDir              = string.Empty;
     private string              _libraryRoot           = string.Empty;

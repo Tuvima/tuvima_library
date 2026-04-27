@@ -224,7 +224,12 @@ public sealed class WorkViewModel
 /// <summary>A single scored metadata field on a Work or Edition.</summary>
 public sealed class CanonicalValueViewModel
 {
+    [System.Text.Json.Serialization.JsonPropertyName("key")]
     public string          Key          { get; init; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("value")]
     public string          Value        { get; init; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("last_scored_at")]
     public DateTimeOffset  LastScoredAt { get; init; }
 }

@@ -294,7 +294,7 @@ Six language concerns addressed across six phases (all implemented): UI language
 ### 3.15 — Target State Features
 **Detail:** [`docs/architecture/target-state.md`](docs/architecture/target-state.md)
 
-Not yet implemented: full Authentication & Multi-User (profiles, PIN/password, parental controls), a full Transcoding Pipeline (Shadow Transcoder), a deeper Music Domain Model (MusicBrainz, richer `MusicProcessor`), full Interoperability (OPDS 1.2, Audiobookshelf API, webhooks, import wizard, PWA), and advanced Browse & Discovery pages (UniverseDetail, WorkDetail, Statistics).
+Not yet implemented: full Authentication & Multi-User (PIN/password, parental controls), a full Transcoding Pipeline (Shadow Transcoder), a deeper Music Domain Model (MusicBrainz, richer `MusicProcessor`), full Interoperability (OPDS 1.2, Audiobookshelf API, webhooks, import wizard, PWA), and advanced Browse & Discovery pages (UniverseDetail, Statistics). Local profiles exist, and the Dashboard persists an active browser profile selection for role-aware navigation.
 
 ### 3.16 — Supported Library Types
 
@@ -544,7 +544,7 @@ Reusable visual components, organised by feature slice.
 | Subfolder | What lives here |
 |---|---|
 | `Bento/` | `BentoGrid`, `BentoItem` — legacy glass-tile wrappers |
-| `Browse/` | `MediaBrowseShell`, `MediaBrowseHero` — shared shell used by Read / Watch / Listen |
+| `Browse/` | `MediaBrowseShell`, `MediaBrowseHero`, `BrowseQueryBuilder`, `BrowseState` — shared shell and extracted query/state helpers used by Read / Watch / Listen |
 | `Collections/` | `CollectionsPage`, `CollectionEditorShell` |
 | `Discovery/` | `DiscoveryHero`, `DiscoveryShelf`, `DiscoveryCard`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |

@@ -46,6 +46,7 @@ public sealed class UiShellRenderTests : TestContext
         Services.AddSingleton<ThemeService>();
         Services.AddScoped<DeviceContextService>();
         Services.AddScoped<UniverseStateContainer>();
+        Services.AddScoped<ActiveProfileSessionService>();
         Services.AddScoped<UIOrchestratorService>();
         Services.AddScoped<CollectionEditorLauncherService>();
         Services.AddScoped<DiscoveryComposerService>();

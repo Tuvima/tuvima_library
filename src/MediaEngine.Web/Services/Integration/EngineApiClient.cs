@@ -272,6 +272,34 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── POST /ingestion/scan ──────────────────────────────────────────────────
 
+    public async Task<WorkDetailViewModel?> GetWorkDetailAsync(Guid workId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<WorkDetailViewModel>($"/works/{workId:D}", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /works/{WorkId} failed", workId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<List<EditionViewModel>> GetWorkEditionsAsync(Guid workId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<EditionViewModel>>($"/works/{workId:D}/editions", ct)
+                   ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /works/{WorkId}/editions failed", workId);
+            LastError = ex.Message;
+            return [];
+        }
+    }
     public async Task<ScanResultViewModel?> TriggerScanAsync(
         string? rootPath = null,
         CancellationToken ct = default)

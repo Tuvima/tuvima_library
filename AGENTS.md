@@ -200,6 +200,7 @@ These are the most important concepts:
 
 - **Profile**
   - A user/persona with a role and preferences.
+  - The Dashboard stores the active local profile in browser storage and uses that role to filter Settings navigation. The seed Owner Administrator remains the fallback.
 
 - **Review Queue**
   - The safety net for uncertain matches.

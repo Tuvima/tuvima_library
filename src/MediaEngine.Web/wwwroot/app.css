@@ -2377,8 +2377,51 @@ textarea.tl-textarea,
 }
 
 .activity-entry-detail {
-    margin-top: 2px;
-    font-size: 0.8rem;
+  margin-top: 2px;
+  font-size: 0.8rem;
+}
+
+.tl-panel,
+.tl-card--compact {
+  background: var(--app-glass-inner-bg);
+  border: 1px solid var(--app-glass-inner-border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.tl-panel--compact {
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.tl-section-title {
+  font-weight: 600;
+}
+
+.tl-section-hint {
+  color: var(--app-text-soft);
+  margin-bottom: 12px;
+  display: block;
+}
+
+.tl-section-hint--tight {
+  margin-bottom: 6px;
+}
+
+.tl-chip-muted {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.tl-muted-icon {
+  color: var(--app-text-soft);
+  font-size: 1rem;
+}
+
+.tl-mono-muted {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--app-text-soft);
 }
 
 .mud-dialog,

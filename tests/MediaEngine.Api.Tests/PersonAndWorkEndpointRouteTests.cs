@@ -50,6 +50,21 @@ public sealed class PersonAndWorkEndpointRouteTests
     }
 
     [Fact]
+    public void WorkEndpoints_ExposeReadOnlyWorkAndEditionIdentitySurfaces()
+    {
+        var workEndpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\WorkEndpoints.cs"));
+        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\Dtos.cs"));
+
+        Assert.Contains("group.MapGet(\"/{workId:guid}\", async (", workEndpointSource, StringComparison.Ordinal);
+        Assert.Contains(".WithName(\"GetWorkDetail\")", workEndpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/{workId:guid}/editions\", async (", workEndpointSource, StringComparison.Ordinal);
+        Assert.Contains(".WithName(\"GetWorkEditions\")", workEndpointSource, StringComparison.Ordinal);
+        Assert.Contains("public sealed class WorkDetailDto", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("public sealed class EditionDto", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("public sealed class EditionAssetDto", dtoSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PersonAndUniverseEndpoints_PreferLocalHeadshotRoutes()
     {
         var personSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonEndpoints.cs"));

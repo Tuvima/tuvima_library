@@ -6,8 +6,8 @@
 
 <MudDialog>
     <TitleContent>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 20px; color: var(--tl-status-warning);" />
+        <div class="rpd-title">
+            <MudIcon Icon="@Icons.Material.Outlined.Warning" Class="rpd-title-icon" />
             <span>Report a problem</span>
         </div>
     </TitleContent>
@@ -16,8 +16,8 @@
             @if (!string.IsNullOrEmpty(ItemTitle))
             {
                 <div class="rpd-item-label">
-                    <span style="color: rgba(255,255,255,0.40); font-size: 11px;">Reporting issue with:</span>
-                    <span style="color: rgba(255,255,255,0.80); font-size: 13px; font-weight: 500;">@ItemTitle</span>
+                    <span class="rpd-item-eyebrow">Reporting issue with:</span>
+                    <span class="rpd-item-title">@ItemTitle</span>
                 </div>
             }
 
@@ -40,13 +40,13 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Variant="Variant.Text" Size="Size.Small"
-                   Style="color: rgba(255,255,255,0.45);">Cancel</MudButton>
+                   Class="rpd-cancel">Cancel</MudButton>
         <MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
                    Disabled="@(string.IsNullOrEmpty(_category) || _submitting)">
             @if (_submitting)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                     Style="width: 14px; height: 14px; margin-right: 6px;" />
+                                     Class="rpd-spinner" />
             }
             Submit Report
         </MudButton>
@@ -98,6 +98,17 @@
         min-width: 320px;
     }
 
+    .rpd-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .rpd-title-icon {
+        font-size: 20px;
+        color: var(--tl-status-warning);
+    }
+
     .rpd-item-label {
         display: flex;
         flex-direction: column;
@@ -106,5 +117,26 @@
         background: rgba(255, 255, 255, 0.03);
         border-radius: 8px;
         border: 0.5px solid var(--tl-border-subtle);
+    }
+
+    .rpd-item-eyebrow {
+        color: rgba(255,255,255,0.40);
+        font-size: 11px;
+    }
+
+    .rpd-item-title {
+        color: rgba(255,255,255,0.80);
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .rpd-cancel {
+        color: rgba(255,255,255,0.45);
+    }
+
+    .rpd-spinner {
+        width: 14px;
+        height: 14px;
+        margin-right: 6px;
     }
 </style>

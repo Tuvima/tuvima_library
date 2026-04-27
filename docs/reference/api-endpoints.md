@@ -36,6 +36,14 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 |---|---|---|---|
 | GET | `/library/works` | All works with their canonical values | Required |
 
+## Works
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/works/{id}` | Work detail with canonical values, editions, and owned assets | Required |
+| GET | `/works/{id}/editions` | Editions and owned assets for a work | Required |
+| GET | `/works/{id}/cast` | Actor and character credits for a single work | Required |
+
 ---
 
 ## Collections
@@ -43,7 +51,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/collections` | All media collections (Series) with their child works | Required |
-| GET | `/collections/search?q=` | Search collections by name. Returns matching Series and Universes. | Required |
+| GET | `/collections/search?q=` | SQL-backed search across visible library works, canonical values, and collection names. Returns up to 20 work results. | Required |
 
 ---
 
@@ -211,6 +219,8 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | GET | `/settings/providers` | Provider configuration status â€” enabled state, last health check, rate limit info | Required |
 | GET | `/settings/server-general` | Core server settings (name, language preferences, country) | Required |
 | PUT | `/settings/server-general` | Update core server settings | Administrator |
+| POST | `/settings/organization-template/preview` | Validate an organization template and return a sample preview without saving | Administrator |
+| PUT | `/settings/organization-template` | Save the organization template after validation | Administrator |
 
 ---
 

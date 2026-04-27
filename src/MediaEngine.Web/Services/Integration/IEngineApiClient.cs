@@ -47,6 +47,12 @@ public interface IEngineApiClient
     /// <summary>GET /library/works — flat list of works with canonical values (excludes staging).</summary>
     Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default);
 
+    /// <summary>GET /works/{id} — one work with editions and assets.</summary>
+    Task<WorkDetailViewModel?> GetWorkDetailAsync(Guid workId, CancellationToken ct = default);
+
+    /// <summary>GET /works/{id}/editions — editions and assets for one work.</summary>
+    Task<List<EditionViewModel>> GetWorkEditionsAsync(Guid workId, CancellationToken ct = default);
+
     /// <summary>GET /api/v1/display/home — cross-platform consumer display model for Home.</summary>
     Task<DisplayPageDto?> GetDisplayHomeAsync(CancellationToken ct = default);
 

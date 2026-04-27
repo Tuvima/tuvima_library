@@ -223,7 +223,7 @@
 
     private int ActiveBrowseTabIndex => GetSelectedIndex(Preset.Tabs.Select(tab => tab.Id), _activeTabId);
     private bool _isGroupDrilldown => _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType);
-    private bool IsContainerGrouping => _grouping is "series" or "shows" or "albums" or "artists";
+    private bool IsContainerGrouping => BrowseQueryBuilder.IsContainerGrouping(_grouping);
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
 
@@ -290,27 +290,21 @@
 
     private void ReadUrlState()
     {
-        var requestedTab = string.IsNullOrWhiteSpace(Tab) ? null : Tab.Trim().ToLowerInvariant();
-        var fallbackTab = Preset.Tabs[0];
-        var resolvedTab = Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, requestedTab, StringComparison.OrdinalIgnoreCase))
-                          ?? fallbackTab;
+        var state = BrowseQueryBuilder.Read(Preset, Tab, Nav.Uri);
+        _activeTabId = state.ActiveTabId;
+        _grouping = state.Grouping;
+        _layout = state.Layout;
+        _searchText = state.SearchText;
+        _sortBy = state.SortBy;
 
-        _activeTabId = resolvedTab.Id;
-
-        var query = System.Web.HttpUtility.ParseQueryString(Nav.ToAbsoluteUri(Nav.Uri).Query);
-        _grouping = ResolveGrouping(query["grouping"], resolvedTab);
-        _layout = ResolveLayout(query["layout"], resolvedTab, _grouping);
-        _searchText = query["search"] ?? string.Empty;
-        _sortBy = ResolveSort(query["sort"]);
-
-        if (Guid.TryParse(query["group"], out var groupId) && !string.IsNullOrWhiteSpace(query["groupType"]))
+        if (state.IsGroupDrilldown)
         {
-            _activeGroupId = groupId;
-            _activeGroupType = Uri.UnescapeDataString(query["groupType"]!);
-            _activeGroupName = query["groupName"] is { Length: > 0 } groupName ? Uri.UnescapeDataString(groupName) : null;
-            _activeGroupField = query["groupField"] is { Length: > 0 } groupField ? Uri.UnescapeDataString(groupField) : null;
-            _activeGroupMediaType = query["groupMediaType"] is { Length: > 0 } mediaType ? Uri.UnescapeDataString(mediaType) : null;
-            _activeArtistName = query["artistName"] is { Length: > 0 } artistName ? Uri.UnescapeDataString(artistName) : null;
+            _activeGroupId = state.GroupId;
+            _activeGroupType = state.GroupType;
+            _activeGroupName = state.GroupName;
+            _activeGroupField = state.GroupField;
+            _activeGroupMediaType = state.GroupMediaType;
+            _activeArtistName = state.ArtistName;
         }
         else
         {
@@ -318,40 +312,14 @@
         }
     }
 
-    private string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab)
-    {
-        if (string.IsNullOrWhiteSpace(requestedGrouping))
-        {
-            return tab.DefaultGrouping;
-        }
+    private static string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab) =>
+        BrowseQueryBuilder.ResolveGrouping(requestedGrouping, tab);
 
-        return tab.GroupingOptions.Any(option => string.Equals(option.Value, requestedGrouping, StringComparison.OrdinalIgnoreCase))
-            ? requestedGrouping
-            : tab.DefaultGrouping;
-    }
+    private static LibraryLayoutMode ResolveLayout(string? requestedLayout, BrowseTabPreset tab, string grouping) =>
+        BrowseQueryBuilder.ResolveLayout(requestedLayout, tab, grouping);
 
-    private LibraryLayoutMode ResolveLayout(string? requestedLayout, BrowseTabPreset tab, string grouping)
-    {
-        if (grouping == "tracks")
-        {
-            return LibraryLayoutMode.List;
-        }
-
-        return Enum.TryParse<LibraryLayoutMode>(requestedLayout, ignoreCase: true, out var parsed)
-            ? parsed
-            : tab.DefaultLayout;
-    }
-
-    private string ResolveSort(string? requestedSort)
-    {
-        var allowed = GetSortOptions().Select(option => option.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(requestedSort) && allowed.Contains(requestedSort))
-        {
-            return requestedSort;
-        }
-
-        return IsContainerGrouping ? "featured" : "newest";
-    }
+    private string ResolveSort(string? requestedSort) =>
+        BrowseQueryBuilder.ResolveSort(requestedSort, _activeTabId, _grouping);
 
     private async Task LoadBrowseContentAsync(bool append = false)
     {
@@ -1043,28 +1011,11 @@
             ? GenerateDeterministicGuid(group.DisplayName)
             : group.CollectionId;
 
-    private string? GetSystemViewGroupField() => (_activeTabId, _grouping) switch
-    {
-        ("tv", "shows") => "show_name",
-        ("music", "artists") => "artist",
-        ("music", "albums") => "album",
-        ("books", "series") => "series",
-        ("audiobooks", "series") => "series",
-        ("comics", "series") => "series",
-        _ => null,
-    };
+    private string? GetSystemViewGroupField() =>
+        BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping);
 
-    private string? GetGroupType() => (_activeTabId, _grouping) switch
-    {
-        ("movies", "series") => "movie-series",
-        ("tv", "shows") => "tv-show",
-        ("music", "artists") => "artist",
-        ("music", "albums") => "album",
-        ("books", "series") => "book-series",
-        ("audiobooks", "series") => "book-series",
-        ("comics", "series") => "comic-series",
-        _ => null,
-    };
+    private string? GetGroupType() =>
+        BrowseQueryBuilder.GetGroupType(_activeTabId, _grouping);
 
     private void ClearActiveGroupState()
     {
@@ -1094,9 +1045,8 @@
         return MediaNavigation.ForJourney(item);
     }
 
-    private IEnumerable<(string Value, string Label)> GetSortOptions() => IsContainerGrouping
-        ? [("featured", "Featured"), ("title", "A-Z"), ("newest", "Newest")]
-        : [("newest", "Newest"), ("title", "A-Z"), ("oldest", "Oldest"), ("creator", "Creator"), ("year", "Year")];
+    private IEnumerable<(string Value, string Label)> GetSortOptions() =>
+        BrowseQueryBuilder.GetSortOptions(_activeTabId, _grouping);
 
     private static T PickStable<T>(IReadOnlyList<T> candidates, IEnumerable<string> candidateKeys)
     {
