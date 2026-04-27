@@ -259,6 +259,11 @@ window.clearDiscoveryCardHover = function (cardEl) {
     var panel = cardEl.__discoveryHoverPanel || cardEl.querySelector('.discovery-card-hover-panel');
     cardEl.classList.remove('is-hover-active');
 
+    if (cardEl.__discoveryShowTimer) {
+        window.clearTimeout(cardEl.__discoveryShowTimer);
+        cardEl.__discoveryShowTimer = null;
+    }
+
     if (!panel) return;
 
     panel.classList.remove('is-visible');
@@ -291,11 +296,28 @@ window.registerDiscoveryCardHover = function (cardEl) {
     if (!cardEl || cardEl.__discoveryHoverRegistered) return;
 
     var show = function () {
-        window.showDiscoveryCardHover(cardEl);
+        if (cardEl.__discoveryHideTimer) {
+            window.clearTimeout(cardEl.__discoveryHideTimer);
+            cardEl.__discoveryHideTimer = null;
+        }
+
+        if (cardEl.__discoveryShowTimer) {
+            window.clearTimeout(cardEl.__discoveryShowTimer);
+        }
+
+        cardEl.__discoveryShowTimer = window.setTimeout(function () {
+            cardEl.__discoveryShowTimer = null;
+            window.showDiscoveryCardHover(cardEl);
+        }, 260);
     };
 
     var scheduleHide = function () {
         if (cardEl.__discoveryPinned) return;
+        if (cardEl.__discoveryShowTimer) {
+            window.clearTimeout(cardEl.__discoveryShowTimer);
+            cardEl.__discoveryShowTimer = null;
+        }
+
         if (cardEl.__discoveryHideTimer) {
             window.clearTimeout(cardEl.__discoveryHideTimer);
         }
@@ -306,6 +328,11 @@ window.registerDiscoveryCardHover = function (cardEl) {
     };
 
     var keepOpen = function () {
+        if (cardEl.__discoveryShowTimer) {
+            window.clearTimeout(cardEl.__discoveryShowTimer);
+            cardEl.__discoveryShowTimer = null;
+        }
+
         if (cardEl.__discoveryHideTimer) {
             window.clearTimeout(cardEl.__discoveryHideTimer);
             cardEl.__discoveryHideTimer = null;
@@ -372,6 +399,9 @@ window.unregisterDiscoveryCardHover = function (cardEl) {
     if (cardEl.__discoveryHideTimer) {
         window.clearTimeout(cardEl.__discoveryHideTimer);
     }
+    if (cardEl.__discoveryShowTimer) {
+        window.clearTimeout(cardEl.__discoveryShowTimer);
+    }
 
     cardEl.__discoveryPinned = false;
     window.clearDiscoveryCardHover(cardEl);
@@ -382,6 +412,7 @@ window.unregisterDiscoveryCardHover = function (cardEl) {
     delete cardEl.__discoveryHoverHide;
     delete cardEl.__discoveryHoverKeepOpen;
     delete cardEl.__discoveryHoverReposition;
+    delete cardEl.__discoveryShowTimer;
     delete cardEl.__discoveryHideTimer;
     delete cardEl.__discoveryPinned;
     delete cardEl.__discoveryHoverRegistered;

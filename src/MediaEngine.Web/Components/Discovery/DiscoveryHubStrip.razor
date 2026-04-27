@@ -129,6 +129,11 @@
         transition: transform var(--tl-motion-duration-medium) var(--tl-motion-ease-emphasized), border-color var(--tl-motion-duration-medium) var(--tl-motion-ease-standard), box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard);
     }
 
+    .discovery-hub-card.tl-card-hover--media:hover,
+    .discovery-hub-card.tl-card-hover--media:focus-visible {
+        transition-delay: 180ms;
+    }
+
     .discovery-hub-image {
         position: absolute;
         inset: 0;
@@ -145,6 +150,7 @@
         transform: scale(var(--tl-hover-artwork-scale)) translateY(var(--tl-hover-artwork-pan-y));
         filter: saturate(1.08) contrast(1.04);
         opacity: 0.72;
+        transition-delay: 180ms;
     }
 
     .discovery-hub-stack {
@@ -166,6 +172,7 @@
     .discovery-hub-card:hover .discovery-hub-stack-image,
     .discovery-hub-card:focus-visible .discovery-hub-stack-image {
         filter: saturate(1.08) contrast(1.04);
+        transition-delay: 180ms;
     }
 
     .discovery-hub-overlay {
