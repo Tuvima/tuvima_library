@@ -1,4 +1,4 @@
-// app.js — Global JavaScript helpers for the Dashboard
+// app.js â€” Global JavaScript helpers for the Dashboard
 
 /**
  * Ensures the dark theme class is applied to <body>.
@@ -148,13 +148,7 @@ window.positionDiscoveryCardHover = function (cardEl) {
         var hoverLift = parseFloat(computedStyle.getPropertyValue('--discovery-hover-lift')) || 0;
         var prefersBottomPlacement = panel.classList.contains('is-placement-bottom')
             && window.innerWidth > 700;
-        if (window.innerWidth > 700) {
-            var hoverPanelScale = 1.08;
-            var targetPanelWidth = Math.min(window.innerWidth - (gutter * 2), cardRect.width * hoverPanelScale);
-            panel.style.width = targetPanelWidth + 'px';
-        } else {
-            panel.style.width = '';
-        }
+        panel.style.width = '';
 
         var panelWidth = panel.offsetWidth;
         var panelHeight = panel.offsetHeight;

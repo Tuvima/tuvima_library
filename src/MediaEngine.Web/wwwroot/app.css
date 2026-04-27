@@ -1343,33 +1343,44 @@ code,
 
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .app-media-artwork,
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .rc-thumb,
-.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-art {
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-art,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-card-media {
     border-color: var(--tl-hover-border-color) !important;
     box-shadow: var(--tl-shadow-hover-media) !important;
 }
 
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .app-media-artwork::after,
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .rc-thumb::after,
-.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-art::after {
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-art::after,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-card-gradient,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-hub-overlay {
     opacity: var(--tl-hover-overlay-opacity);
 }
 
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .app-media-artwork__image,
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .rc-thumb-img,
-.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-art img {
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-art img,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-card-image,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-card-stack-image,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-hub-image,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-hub-stack-image {
     transform: scale(var(--tl-hover-artwork-scale)) translateY(var(--tl-hover-artwork-pan-y));
     filter: saturate(1.08) contrast(1.04);
 }
 
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .app-media-card__title,
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .rc-title,
-.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-meta strong {
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-meta strong,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-card-title,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-hub-title {
     color: var(--tl-text-primary) !important;
 }
 
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .app-media-card__subtitle,
 .tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .app-media-card__meta,
-.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-meta small {
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .user-overview-media-meta small,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-card-subtitle,
+.tl-card-hover--media:is(:hover, :focus-visible, :focus-within) .discovery-hub-subtitle {
     color: var(--tl-text-secondary) !important;
 }
 
@@ -1399,7 +1410,11 @@ code,
     .tl-card-hover--media,
     .tl-card-hover--media .app-media-artwork__image,
     .tl-card-hover--media .rc-thumb-img,
-    .tl-card-hover--media .user-overview-media-art img {
+    .tl-card-hover--media .user-overview-media-art img,
+    .tl-card-hover--media .discovery-card-image,
+    .tl-card-hover--media .discovery-card-stack-image,
+    .tl-card-hover--media .discovery-hub-image,
+    .tl-card-hover--media .discovery-hub-stack-image {
         transition-duration: 1ms !important;
         transform: none !important;
         animation: none !important;

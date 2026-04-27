@@ -17,7 +17,7 @@
             @foreach (var hub in Hubs)
             {
                 <a href="@hub.NavigationUrl"
-                   class="discovery-hub-card"
+                   class="discovery-hub-card tl-card-hover--media"
                    style="--hub-accent: @(string.IsNullOrWhiteSpace(hub.AccentColor) ? "#1CE783" : hub.AccentColor);">
                     @if (!string.IsNullOrWhiteSpace(hub.ImageUrl))
                     {
@@ -126,12 +126,7 @@
             linear-gradient(180deg, rgba(13, 18, 30, 0.98) 0%, rgba(7, 10, 18, 0.98) 100%);
         text-decoration: none;
         box-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
-        transition: transform 0.18s ease, border-color 0.18s ease;
-    }
-
-    .discovery-hub-card:hover {
-        transform: translateY(-3px);
-        border-color: color-mix(in srgb, var(--hub-accent) 50%, var(--tl-border-default));
+        transition: transform var(--tl-motion-duration-medium) var(--tl-motion-ease-emphasized), border-color var(--tl-motion-duration-medium) var(--tl-motion-ease-standard), box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard);
     }
 
     .discovery-hub-image {
@@ -142,6 +137,14 @@
         object-fit: cover;
         display: block;
         opacity: 0.58;
+        transition: transform var(--tl-motion-duration-slow) var(--tl-motion-ease-emphasized), filter var(--tl-motion-duration-medium) var(--tl-motion-ease-standard), opacity var(--tl-motion-duration-medium) var(--tl-motion-ease-standard);
+    }
+
+    .discovery-hub-card:hover .discovery-hub-image,
+    .discovery-hub-card:focus-visible .discovery-hub-image {
+        transform: scale(var(--tl-hover-artwork-scale)) translateY(var(--tl-hover-artwork-pan-y));
+        filter: saturate(1.08) contrast(1.04);
+        opacity: 0.72;
     }
 
     .discovery-hub-stack {
@@ -157,6 +160,12 @@
         box-shadow: 0 20px 36px rgba(0, 0, 0, 0.34);
         border: 1px solid rgba(255, 255, 255, 0.14);
         opacity: 0.96;
+        transition: transform var(--tl-motion-duration-slow) var(--tl-motion-ease-emphasized), filter var(--tl-motion-duration-medium) var(--tl-motion-ease-standard);
+    }
+
+    .discovery-hub-card:hover .discovery-hub-stack-image,
+    .discovery-hub-card:focus-visible .discovery-hub-stack-image {
+        filter: saturate(1.08) contrast(1.04);
     }
 
     .discovery-hub-overlay {
@@ -236,6 +245,16 @@
     @@media (max-width: 640px) {
         .discovery-hubs-grid {
             grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+        .discovery-hub-card,
+        .discovery-hub-image,
+        .discovery-hub-stack-image {
+            transition-duration: 1ms !important;
+            transform: none !important;
+            animation: none !important;
         }
     }
 </style>

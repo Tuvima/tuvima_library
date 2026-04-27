@@ -4,7 +4,7 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<div class="discovery-card @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @HoverPlacementClass @(_expanded ? "is-expanded" : "")"
+<div class="discovery-card tl-card-hover--media @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @HoverPlacementClass @(_expanded ? "is-expanded" : "")"
      @ref="_cardRef"
      style="--discovery-accent: @Item.AccentColor;"
      tabindex="0"
@@ -486,20 +486,20 @@
 }
 
 <style>
-    .discovery-card { --discovery-hover-lift:clamp(8px,1.2vw,12px); --discovery-card-media-height:clamp(192px,18.4vw,232px); --discovery-card-media-aspect:2 / 3; --discovery-hover-panel-width:clamp(320px,24vw,380px); display:flex; flex:0 0 auto; flex-direction:column; gap:12px; color:#f8fafc; outline:none; position:relative; overflow:visible; scroll-snap-align:start; z-index:0; transition:z-index .18s ease; }
+    .discovery-card { --discovery-hover-lift:clamp(8px,1.2vw,12px); --discovery-card-media-height:clamp(192px,18.4vw,232px); --discovery-card-media-aspect:2 / 3; --discovery-hover-panel-width:clamp(320px,24vw,380px); display:flex; flex:0 0 auto; flex-direction:column; gap:12px; color:#f8fafc; outline:none; position:relative; overflow:visible; scroll-snap-align:start; z-index:0; transition:z-index var(--tl-motion-duration-fast) var(--tl-motion-ease-standard), transform var(--tl-motion-duration-medium) var(--tl-motion-ease-emphasized), box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard); }
     .discovery-card.is-portrait { width:calc(var(--discovery-card-media-height) * 2 / 3); --discovery-card-media-aspect:2 / 3; --discovery-hover-panel-width:clamp(430px,40vw,560px); --discovery-hover-clearance:clamp(286px,32vw,420px); }
     .discovery-card.is-landscape { width:calc(var(--discovery-card-media-height) * 16 / 9); --discovery-card-media-aspect:16 / 9; --discovery-hover-panel-width:clamp(360px,28vw,440px); }
     .discovery-card.is-square { width:var(--discovery-card-media-height); --discovery-card-media-aspect:1 / 1; --discovery-hover-panel-width:clamp(248px,18vw,292px); --discovery-hover-clearance:clamp(254px,28vw,356px); }
     .discovery-card-frame { position:relative; display:flex; flex-direction:column; overflow:visible; width:100%; }
     .discovery-card:hover, .discovery-card:focus-within, .discovery-card.is-expanded, .discovery-card.is-hover-active { z-index:24; }
-    .discovery-card-media { position:relative; overflow:hidden; width:100%; height:auto; aspect-ratio:var(--discovery-card-media-aspect); border-radius:var(--app-radius-md); background:radial-gradient(circle at top left,color-mix(in srgb,var(--discovery-accent) 28%,transparent) 0%,transparent 55%),linear-gradient(180deg,rgba(16,21,36,.94) 0%,rgba(7,10,18,.96) 100%); border:1px solid rgba(255,255,255,.08); box-shadow:0 18px 44px rgba(0,0,0,.26); cursor:pointer; z-index:1; transform-origin:center top; transition:transform .2s ease,border-color .18s ease,box-shadow .18s ease; }
+    .discovery-card-media { position:relative; overflow:hidden; width:100%; height:auto; aspect-ratio:var(--discovery-card-media-aspect); border-radius:var(--app-radius-md); background:radial-gradient(circle at top left,color-mix(in srgb,var(--discovery-accent) 28%,transparent) 0%,transparent 55%),linear-gradient(180deg,rgba(16,21,36,.94) 0%,rgba(7,10,18,.96) 100%); border:1px solid rgba(255,255,255,.08); box-shadow:0 18px 44px rgba(0,0,0,.26); cursor:pointer; z-index:1; transform-origin:center top; transition:transform var(--tl-motion-duration-medium) var(--tl-motion-ease-emphasized),border-color var(--tl-motion-duration-medium) var(--tl-motion-ease-standard),box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard); }
     .discovery-card-media.has-artwork-surface { background:transparent; border-color:transparent; }
-    .discovery-card:hover .discovery-card-media, .discovery-card:focus-within .discovery-card-media, .discovery-card.is-expanded .discovery-card-media, .discovery-card.is-hover-active .discovery-card-media { transform:translateY(calc(-1 * var(--discovery-hover-lift))) scale(1.01); border-color:color-mix(in srgb,var(--discovery-accent) 42%,rgba(255,255,255,.16)); box-shadow:0 18px 40px rgba(0,0,0,.3); }
+    .discovery-card:hover .discovery-card-media, .discovery-card:focus-within .discovery-card-media, .discovery-card.is-expanded .discovery-card-media, .discovery-card.is-hover-active .discovery-card-media { transform:translateY(var(--tl-hover-quiet-y)) scale(1.01); border-color:var(--tl-hover-border-color); box-shadow:var(--tl-shadow-hover-media); }
     .discovery-card:hover .discovery-card-media.has-artwork-surface, .discovery-card:focus-within .discovery-card-media.has-artwork-surface, .discovery-card.is-expanded .discovery-card-media.has-artwork-surface, .discovery-card.is-hover-active .discovery-card-media.has-artwork-surface { border-color:transparent; }
-    .discovery-card-image { width:100%; height:100%; display:block; transition:transform .45s ease; }
+    .discovery-card-image { width:100%; height:100%; display:block; transition:transform var(--tl-motion-duration-slow) var(--tl-motion-ease-emphasized), filter var(--tl-motion-duration-medium) var(--tl-motion-ease-standard); }
     .discovery-card-image.is-fill { object-fit:cover; }
     .discovery-card-image.is-contained { object-fit:contain; padding:0; background:transparent; }
-    .discovery-card:hover .discovery-card-image, .discovery-card:focus-within .discovery-card-image, .discovery-card.is-expanded .discovery-card-image, .discovery-card.is-hover-active .discovery-card-image { transform:scale(1.04); }
+    .discovery-card:hover .discovery-card-image, .discovery-card:focus-within .discovery-card-image, .discovery-card.is-expanded .discovery-card-image, .discovery-card.is-hover-active .discovery-card-image { transform:scale(var(--tl-hover-artwork-scale)) translateY(var(--tl-hover-artwork-pan-y)); filter:saturate(1.08) contrast(1.04); }
     .discovery-card-stack { position:absolute; inset:0; }
     .discovery-card-stack-image { position:absolute; aspect-ratio:2 / 3; border-radius:var(--app-radius-md); object-fit:cover; box-shadow:0 20px 36px rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.14); opacity:.98; }
     .discovery-card-fallback, .discovery-card-hover-fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
@@ -518,9 +518,9 @@
     .discovery-card-touch-toggle { position:absolute; top:12px; right:12px; width:38px; height:38px; border:none; border-radius:var(--app-radius-md); background:rgba(2,6,16,.62); color:rgba(248,250,252,.94); display:none; align-items:center; justify-content:center; z-index:3; }
     .discovery-card-hover-panel { position:fixed; left:-9999px; top:-9999px; width:min(84vw,var(--discovery-hover-panel-width, 360px)); max-width:440px; max-height:min(70vh,560px); opacity:0; visibility:hidden; pointer-events:none; z-index:4001; transform:translateY(12px) scale(.982); transform-origin:left top; border:1px solid rgba(255,255,255,.08); border-radius:var(--app-radius-md); background:linear-gradient(180deg,rgba(17,20,29,.96) 0%,rgba(7,10,18,.995) 100%); box-shadow:0 24px 48px rgba(0,0,0,.42); overflow:hidden; backdrop-filter:blur(24px) saturate(142%); transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s; }
     .discovery-card-hover-panel.is-art-popover.is-portrait { display:grid; grid-template-columns:minmax(150px,38%) minmax(220px,1fr); align-items:stretch; max-width:560px; }
-    .discovery-card-hover-panel.is-placement-bottom.is-art-popover.is-portrait { display:block; width:min(84vw, clamp(150px, 14vw, 220px)); max-width:220px; }
-    .discovery-card-hover-panel.is-placement-bottom.is-art-popover.is-square { display:block; width:min(84vw, clamp(180px, 16vw, 260px)); max-width:260px; }
-    .discovery-card-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; }
+    .discovery-card-hover-panel.is-placement-bottom.is-art-popover.is-portrait { display:block; width:min(84vw, clamp(300px, 28vw, 420px)); max-width:420px; }
+    .discovery-card-hover-panel.is-placement-bottom.is-art-popover.is-square { display:block; width:min(84vw, clamp(280px, 24vw, 360px)); max-width:360px; }
+    .discovery-card-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; box-shadow:var(--tl-shadow-hover-media); }
     .discovery-card-hover-art { position:relative; overflow:hidden; background:radial-gradient(circle at top right,color-mix(in srgb,var(--discovery-accent) 18%,transparent) 0%,transparent 40%),linear-gradient(180deg,rgba(10,14,24,.94) 0%,rgba(5,8,14,.98) 100%); }
     .discovery-card-hover-panel.is-art-popover .discovery-card-hover-art { cursor:pointer; }
     .discovery-card-hover-panel.is-banner-popover .discovery-card-hover-art { aspect-ratio:16 / 9; min-height:150px; max-height:min(38vh,248px); }
@@ -566,6 +566,28 @@
     .discovery-card:hover .discovery-card-caption, .discovery-card:focus-within .discovery-card-caption, .discovery-card.is-expanded .discovery-card-caption, .discovery-card.is-hover-active .discovery-card-caption { opacity:0; transform:translateY(-12px); pointer-events:none; }
     .discovery-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     @@media (hover:none) { .discovery-card-touch-toggle { display:inline-flex; } }
+    @@media (prefers-reduced-motion: reduce) {
+        .discovery-card,
+        .discovery-card-media,
+        .discovery-card-image,
+        .discovery-card-caption,
+        .discovery-card-hover-panel {
+            transition-duration: 1ms !important;
+            transform: none !important;
+            animation: none !important;
+        }
+
+        .discovery-card:hover .discovery-card-media,
+        .discovery-card:focus-within .discovery-card-media,
+        .discovery-card.is-expanded .discovery-card-media,
+        .discovery-card.is-hover-active .discovery-card-media,
+        .discovery-card:hover .discovery-card-image,
+        .discovery-card:focus-within .discovery-card-image,
+        .discovery-card.is-expanded .discovery-card-image,
+        .discovery-card.is-hover-active .discovery-card-image {
+            transform: none !important;
+        }
+    }
     @@media (max-width:640px) {
         .discovery-card { --discovery-card-media-height:clamp(170px,47vw,204px); --discovery-hover-panel-width:min(92vw,360px); }
         .discovery-card.is-portrait { --discovery-hover-clearance:clamp(268px,56vw,392px); }
