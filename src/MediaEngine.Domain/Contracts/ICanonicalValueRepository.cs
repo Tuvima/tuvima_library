@@ -80,11 +80,12 @@ public interface ICanonicalValueRepository
 
     /// <summary>
     /// Returns all canonical values where the key matches and the value
-    /// starts with the given prefix.  Used to find NF placeholder QIDs
-    /// for incrementing the counter.
+    /// starts with the given prefix. Empty prefix returns every value for the
+    /// key. Used to find NF placeholder QIDs for incrementing the counter and
+    /// to scan all values for aggregate profile signals.
     /// </summary>
     /// <param name="key">The canonical value key (e.g. "wikidata_qid").</param>
-    /// <param name="prefix">The value prefix to match (e.g. "NF").</param>
+    /// <param name="prefix">The value prefix to match (e.g. "NF"), or empty for all values.</param>
     /// <param name="ct">Cancellation token.</param>
     Task<IReadOnlyList<CanonicalValue>> FindByKeyAndPrefixAsync(
         string key,

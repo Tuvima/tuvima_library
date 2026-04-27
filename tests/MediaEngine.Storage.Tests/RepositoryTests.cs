@@ -221,6 +221,46 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal("New", values[0].Value);
     }
 
+    [Fact]
+    public async Task CanonicalValue_FindByKeyAndPrefix_EmptyPrefixReturnsAllValuesForKey()
+    {
+        var repo = new CanonicalValueRepository(_db);
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var otherKey = Guid.NewGuid();
+
+        await repo.UpsertBatchAsync([
+            new CanonicalValue
+            {
+                EntityId = first,
+                Key = "genre",
+                Value = "Science Fiction",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+            new CanonicalValue
+            {
+                EntityId = second,
+                Key = "genre",
+                Value = "Fantasy",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+            new CanonicalValue
+            {
+                EntityId = otherKey,
+                Key = "media_type",
+                Value = "Book",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+        ]);
+
+        var values = await repo.FindByKeyAndPrefixAsync("genre", "");
+
+        Assert.Equal(2, values.Count);
+        Assert.Contains(values, item => item.EntityId == first && item.Value == "Science Fiction");
+        Assert.Contains(values, item => item.EntityId == second && item.Value == "Fantasy");
+        Assert.DoesNotContain(values, item => item.EntityId == otherKey);
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  ReviewQueueRepository
     // ════════════════════════════════════════════════════════════════════════

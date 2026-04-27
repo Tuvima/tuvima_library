@@ -245,7 +245,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     {
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
+        ArgumentNullException.ThrowIfNull(prefix);
 
         using var conn = _db.CreateConnection();
         var rows = conn.Query<CanonicalValueRow>("""
