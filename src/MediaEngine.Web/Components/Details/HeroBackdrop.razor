@@ -1,21 +1,61 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-@if (!string.IsNullOrWhiteSpace(HeroImageUrl))
-{
-    <div class="tl-detail-backdrop tl-detail-backdrop--image @(HasRealBackdrop ? "tl-detail-backdrop--backdrop" : "tl-detail-backdrop--fallback-art")">
-        <img src="@HeroImageUrl" alt="" />
-    </div>
-}
-else
-{
-    <div class="tl-detail-backdrop tl-detail-backdrop--generated"></div>
-}
+<div class="@StageClass">
+    @if (!string.IsNullOrWhiteSpace(HeroImageUrl))
+    {
+        <img class="tl-detail-media-stage__image" src="@HeroImageUrl" alt="" />
+    }
+    else
+    {
+        <div class="tl-detail-media-stage__generated" aria-hidden="true"></div>
+    }
+
+    @if (ShouldRenderHeroBrand)
+    {
+        <div class="tl-detail-hero-brand">
+            @if (!string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl))
+            {
+                <img src="@HeroBrand.ImageUrl" alt="@HeroBrand.Label" />
+            }
+            else
+            {
+                <span>@HeroBrand?.Label</span>
+            }
+        </div>
+    }
+</div>
 
 @code {
     [Parameter, EditorRequired] public ArtworkSet Artwork { get; set; } = default!;
+    [Parameter] public DetailEntityType EntityType { get; set; }
+    [Parameter] public HeroBrandViewModel? HeroBrand { get; set; }
 
     private bool HasRealBackdrop => !string.IsNullOrWhiteSpace(Artwork.BackdropUrl) || !string.IsNullOrWhiteSpace(Artwork.BannerUrl);
+    private bool HasHeroImage => !string.IsNullOrWhiteSpace(HeroImageUrl);
+    private bool IsTvEntity => EntityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+    private bool ShouldRenderHeroBrand => IsTvEntity && (!string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl) || !string.IsNullOrWhiteSpace(HeroBrand?.Label));
+
+    private string StageClass
+    {
+        get
+        {
+            var imageClass = HasRealBackdrop
+                ? "tl-detail-media-stage--real-backdrop"
+                : HasHeroImage
+                    ? "tl-detail-media-stage--cover-only"
+                    : "tl-detail-media-stage--generated";
+            var entityClass = EntityType switch
+            {
+                DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-detail-media-stage--landscape",
+                DetailEntityType.MusicAlbum => "tl-detail-media-stage--square",
+                DetailEntityType.Person or DetailEntityType.MusicArtist or DetailEntityType.Character => "tl-detail-media-stage--portrait",
+                _ => "tl-detail-media-stage--poster",
+            };
+
+            return $"tl-detail-media-stage {imageClass} {entityClass}";
+        }
+    }
 
     private string? HeroImageUrl => FirstNonBlank(
         Artwork.BackdropUrl,

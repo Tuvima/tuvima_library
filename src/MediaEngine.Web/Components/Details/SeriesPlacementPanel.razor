@@ -1,35 +1,49 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<section class="tl-detail-panel tl-series-panel @PanelClass">
-    <div class="tl-detail-panel__header">
-        <div>
-            <h2>@Placement.SeriesTitle</h2>
-            @if (!string.IsNullOrWhiteSpace(Placement.PositionLabel))
+<section class="tl-series-placement tl-series-layout @PanelClass">
+    <aside class="tl-detail-panel tl-series-summary">
+        <h2>Series</h2>
+        <div class="tl-series-summary__body">
+            <div class="tl-series-summary__art">
+                @if (!string.IsNullOrWhiteSpace(Placement.CurrentItem.ArtworkUrl))
+                {
+                    <img src="@Placement.CurrentItem.ArtworkUrl" alt="@Placement.CurrentItem.Title" />
+                }
+                else
+                {
+                    <GeneratedIdentity Name="@Placement.SeriesTitle" />
+                }
+            </div>
+            <div>
+                <div class="tl-series-summary__title">@Placement.SeriesTitle</div>
+                <div class="tl-series-summary__meta">@OwnedCount of @Placement.OrderedItems.Count @MediaNoun</div>
+                <button type="button" class="tl-series-summary__button">View Series</button>
+            </div>
+        </div>
+    </aside>
+
+    <section class="tl-detail-panel tl-series-panel">
+        <div class="tl-series-strip">
+            @foreach (var item in Placement.OrderedItems)
             {
-                <p>@Placement.PositionLabel</p>
+                <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(!item.IsOwned ? "is-missing" : null)">
+                    <div class="tl-series-item__badge">@FirstNonBlank(item.PositionLabel, item.PositionNumber?.ToString())</div>
+                    <div class="tl-series-item__art">
+                        @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                        {
+                            <img src="@item.ArtworkUrl" alt="@item.Title" />
+                        }
+                        else
+                        {
+                            <div class="tl-series-item__missing-art" aria-label="Missing from library">?</div>
+                        }
+                    </div>
+                    <div class="tl-series-item__title">@(item.IsOwned ? item.Title : $"Book {item.PositionNumber}")</div>
+                </article>
             }
         </div>
-    </div>
-    <div class="tl-series-strip">
-        @foreach (var item in Placement.OrderedItems)
-        {
-            <article class="tl-series-item @(item.IsCurrent ? "is-current" : null)">
-                <div class="tl-series-item__art">
-                    @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-                    {
-                        <img src="@item.ArtworkUrl" alt="@item.Title" />
-                    }
-                    else
-                    {
-                        <GeneratedIdentity Name="@item.Title" />
-                    }
-                </div>
-                <div class="tl-series-item__title">@item.Title</div>
-                <div class="tl-series-item__meta">@FirstNonBlank(item.PositionLabel, item.PositionNumber?.ToString())</div>
-            </article>
-        }
-    </div>
+    </section>
 </section>
 
 @code {
@@ -40,6 +54,17 @@
         DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
         DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-series-panel--square",
         _ => "tl-series-panel--portrait",
+    };
+
+    private int OwnedCount => Placement.OrderedItems.Count(item => item.IsOwned);
+
+    private string MediaNoun => Placement.CurrentItem.EntityType switch
+    {
+        DetailEntityType.Movie => Placement.OrderedItems.Count == 1 ? "movie" : "movies",
+        DetailEntityType.TvEpisode => Placement.OrderedItems.Count == 1 ? "episode" : "episodes",
+        DetailEntityType.MusicAlbum => Placement.OrderedItems.Count == 1 ? "album" : "albums",
+        DetailEntityType.ComicIssue => Placement.OrderedItems.Count == 1 ? "issue" : "issues",
+        _ => Placement.OrderedItems.Count == 1 ? "book" : "books",
     };
 
     private static string? FirstNonBlank(params string?[] values)

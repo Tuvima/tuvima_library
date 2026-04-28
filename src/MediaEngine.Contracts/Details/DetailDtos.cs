@@ -12,6 +12,7 @@ public sealed class DetailPageViewModel
     public string? Description { get; init; }
 
     public ArtworkSet Artwork { get; init; } = new();
+    public HeroBrandViewModel? HeroBrand { get; init; }
 
     public IReadOnlyList<OwnedFormatViewModel> OwnedFormats { get; init; } = [];
     public MultiFormatState MultiFormatState { get; init; } = MultiFormatState.SingleFormat;
@@ -90,6 +91,12 @@ public sealed class ArtworkSet
 
     public ArtworkPresentationMode PresentationMode { get; init; } = ArtworkPresentationMode.GeneratedIdentity;
     public ArtworkSource Source { get; init; } = ArtworkSource.Generated;
+}
+
+public sealed class HeroBrandViewModel
+{
+    public string? Label { get; init; }
+    public string? ImageUrl { get; init; }
 }
 
 public enum ArtworkPresentationMode

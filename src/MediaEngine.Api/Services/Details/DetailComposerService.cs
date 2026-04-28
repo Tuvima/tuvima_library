@@ -147,9 +147,10 @@ public sealed class DetailComposerService
 
         var contributors = await BuildWorkContributorsAsync(workId, detail, entityType, ct);
         var characters = BuildCharacterGroupsFromCast(contributors.CastCredits);
-        var contributorGroups = BuildContributorGroups(detail, entityType, contributors.CastCredits);
+        var contributorGroups = await BuildContributorGroupsAsync(workId, detail, entityType, contributors.CastCredits, values, ct);
         var seriesPlacement = await BuildSeriesPlacementAsync(workId, detail, entityType, ct);
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, ct);
+        var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, detail.Description, detail.WikidataQid, values, ct);
 
         return new DetailPageViewModel
         {
@@ -158,9 +159,13 @@ public sealed class DetailComposerService
             PresentationContext = context,
             Title = FirstNonBlank(detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled"),
             Subtitle = BuildSubtitle(detail, entityType, multiFormatState),
-            Tagline = detail.Tagline,
+            Tagline = heroSummary,
             Description = detail.Description,
             Artwork = artwork,
+            HeroBrand = BuildHeroBrand(
+                entityType,
+                FirstNonBlank(GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
+                FirstNonBlank(GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
             OwnedFormats = ownedFormats,
             MultiFormatState = multiFormatState,
             SyncCapability = BuildSyncCapability(workId, ownedFormats, multiFormatState),
@@ -198,9 +203,11 @@ public sealed class DetailComposerService
                    (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('description', 'overview') LIMIT 1) AS Description,
                    (SELECT value FROM canonical_values WHERE entity_id = c.id AND key = 'tagline' LIMIT 1) AS Tagline,
                    (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('cover_url', 'cover') LIMIT 1) AS CoverUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('background_url', 'background') LIMIT 1) AS BackgroundUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('banner_url', 'banner') LIMIT 1) AS BannerUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('logo_url', 'logo') LIMIT 1) AS LogoUrl
+                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('background_url', 'background', 'hero_url', 'hero') LIMIT 1) AS BackgroundUrl,
+                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('banner_url', 'banner', 'hero_url', 'hero') LIMIT 1) AS BannerUrl,
+                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('logo_url', 'logo') LIMIT 1) AS LogoUrl,
+                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('network', 'studio', 'broadcaster') LIMIT 1) AS HeroBrandLabel,
+                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('network_logo_url', 'network_logo', 'studio_logo_url', 'broadcaster_logo_url') LIMIT 1) AS HeroBrandImageUrl
             FROM collections c
             WHERE c.id = @collectionId
             LIMIT 1;
@@ -215,9 +222,28 @@ public sealed class DetailComposerService
         if (entityType == DetailEntityType.Collection)
             entityType = InferCollectionEntityType(works);
 
-        var relatedArt = works.Select(w => w.ArtworkUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(8).ToList();
+        var relatedArt = works
+            .SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })
+            .Where(url => !string.IsNullOrWhiteSpace(url))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
         var values = await LoadCanonicalMapAsync(collectionId, ct);
-        var artwork = BuildArtwork(entityType, row.BackgroundUrl, row.BannerUrl, row.CoverUrl, row.CoverUrl, null, values, relatedArt, 0, null, row.LogoUrl);
+        var fallbackBackdrop = works.Select(w => w.BackgroundUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+        var fallbackCover = works.Select(w => w.ArtworkUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+        var artwork = BuildArtwork(
+            entityType,
+            FirstNonBlank(row.BackgroundUrl, fallbackBackdrop),
+            row.BannerUrl,
+            FirstNonBlank(row.CoverUrl, fallbackCover),
+            FirstNonBlank(row.CoverUrl, fallbackCover),
+            null,
+            values,
+            relatedArt,
+            0,
+            null,
+            row.LogoUrl);
 
         return new DetailPageViewModel
         {
@@ -229,6 +255,7 @@ public sealed class DetailComposerService
             Tagline = row.Tagline,
             Description = row.Description,
             Artwork = artwork,
+            HeroBrand = BuildHeroBrand(entityType, row.HeroBrandLabel, row.HeroBrandImageUrl),
             Metadata = BuildCollectionMetadata(entityType, works),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context),
             SecondaryActions = BuildSecondaryActions(collectionId, entityType),
@@ -359,9 +386,13 @@ public sealed class DetailComposerService
                    display_name AS DisplayName,
                    wikidata_qid AS WikidataQid,
                    (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('description', 'overview') LIMIT 1) AS Description,
-                   (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('background_url', 'background') LIMIT 1) AS BackgroundUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('banner_url', 'banner') LIMIT 1) AS BannerUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('cover_url', 'cover') LIMIT 1) AS CoverUrl
+                   (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key = 'tagline' LIMIT 1) AS Tagline,
+                   (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('background_url', 'background', 'hero_url', 'hero') LIMIT 1) AS BackgroundUrl,
+                   (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('banner_url', 'banner', 'hero_url', 'hero') LIMIT 1) AS BannerUrl,
+                   (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('cover_url', 'cover') LIMIT 1) AS CoverUrl,
+                   (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('logo_url', 'logo') LIMIT 1) AS LogoUrl,
+                   NULL AS HeroBrandLabel,
+                   NULL AS HeroBrandImageUrl
             FROM collections
             WHERE id = @id
             LIMIT 1;
@@ -461,36 +492,59 @@ public sealed class DetailComposerService
         return new WorkContributorResult(cast);
     }
 
-    private static IReadOnlyList<CreditGroupViewModel> BuildContributorGroups(
+    private async Task<IReadOnlyList<CreditGroupViewModel>> BuildContributorGroupsAsync(
+        Guid workId,
         LibraryItemDetail detail,
         DetailEntityType entityType,
-        IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> cast)
+        IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> cast,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        CancellationToken ct)
     {
         var groups = new List<CreditGroupViewModel>();
-        void AddTextCredit(string title, CreditGroupType type, string? value, string role)
+        async Task AddTextCreditAsync(string title, CreditGroupType type, string? value, string role, string canonicalArrayKey)
         {
             if (string.IsNullOrWhiteSpace(value)) return;
+            var keyedEntries = await _canonicalArrays.GetValuesAsync(workId, canonicalArrayKey, ct);
+            var credits = new List<EntityCreditViewModel>();
+            foreach (var (name, index) in SplitNames(value).Select((name, index) => (name, index)))
+            {
+                var qid = keyedEntries.FirstOrDefault(entry => entry.Value.Equals(name, StringComparison.OrdinalIgnoreCase))?.ValueQid;
+                qid ??= GetValue(canonicalValues, $"{canonicalArrayKey}_qid");
+                var person = string.IsNullOrWhiteSpace(qid) ? null : await _persons.FindByQidAsync(qid, ct);
+                person ??= await _persons.FindByNameAsync(name, ct);
+                var imageUrl = person is null
+                    ? FirstNonBlank(
+                        GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
+                        GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
+                        GetValue(canonicalValues, $"{canonicalArrayKey}_photo_url"),
+                        SplitNames(value).Count == 1 ? GetValue(canonicalValues, "headshot_url") : null)
+                    : ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
+                credits.Add(new EntityCreditViewModel
+                {
+                    EntityId = person?.Id.ToString("D") ?? name,
+                    EntityType = RelatedEntityType.Person,
+                    DisplayName = person?.Name ?? name,
+                    ImageUrl = imageUrl,
+                    FallbackInitials = Initials(person?.Name ?? name),
+                    PrimaryRole = role,
+                    SortOrder = index,
+                    IsPrimary = index == 0,
+                    IsCanonical = !string.IsNullOrWhiteSpace(person?.WikidataQid),
+                });
+            }
+
             groups.Add(new CreditGroupViewModel
             {
                 Title = title,
                 GroupType = type,
-                Credits = SplitNames(value).Select((name, index) => new EntityCreditViewModel
-                {
-                    EntityId = name,
-                    EntityType = RelatedEntityType.Person,
-                    DisplayName = name,
-                    FallbackInitials = Initials(name),
-                    PrimaryRole = role,
-                    SortOrder = index,
-                    IsPrimary = index == 0,
-                }).ToList(),
+                Credits = credits,
             });
         }
 
-        AddTextCredit("Authors", CreditGroupType.Authors, detail.Author, "Author");
-        AddTextCredit("Narrators", CreditGroupType.Narrators, detail.Narrator, "Narrator");
-        AddTextCredit("Directors", CreditGroupType.Directors, detail.Director, "Director");
-        AddTextCredit("Writers", CreditGroupType.Writers, detail.Writer, "Writer");
+        await AddTextCreditAsync("Authors", CreditGroupType.Authors, detail.Author, "Author", "author");
+        await AddTextCreditAsync("Narrators", CreditGroupType.Narrators, detail.Narrator, "Narrator", "narrator");
+        await AddTextCreditAsync("Directors", CreditGroupType.Directors, detail.Director, "Director", "director");
+        await AddTextCreditAsync("Writers", CreditGroupType.Writers, detail.Writer, "Writer", "writer");
 
         if (cast.Count > 0)
         {
@@ -551,6 +605,7 @@ public sealed class DetailComposerService
             """
             SELECT CAST(w.id AS TEXT) AS WorkId,
                    CAST(COALESCE(title_asset.value, title_work.value, 'Untitled') AS TEXT) AS Title,
+                   CAST(w.media_type AS TEXT) AS MediaType,
                    CAST(COALESCE(pos_asset.value, pos_work.value) AS TEXT) AS PositionLabel,
                    CAST(COALESCE(cover_asset.value, cover_work.value) AS TEXT) AS ArtworkUrl
             FROM works w
@@ -565,14 +620,22 @@ public sealed class DetailComposerService
             LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ma.id AND cover_asset.key IN ('cover_url', 'cover')
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover')
             WHERE COALESCE(series_asset.value, series_work.value) = @series
+              AND (
+                    @mediaFilter = 'Other'
+                 OR (@mediaFilter = 'Read' AND w.media_type IN ('Books', 'Book', 'Ebook', 'Comics', 'Comic'))
+                 OR (@mediaFilter = 'Listen' AND w.media_type IN ('Audiobooks', 'Audiobook', 'Audio'))
+                 OR (@mediaFilter = 'Watch' AND w.media_type IN ('Movies', 'Movie', 'TV', 'Television'))
+                 OR (@mediaFilter = 'Music' AND w.media_type IN ('Music', 'MusicAlbum'))
+              )
             GROUP BY w.id
             ORDER BY CAST(COALESCE(pos_asset.value, pos_work.value, w.ordinal, 9999) AS REAL), Title;
             """,
-            new { series = detail.Series },
+            new { series = detail.Series, mediaFilter = SeriesMediaFilter(entityType, detail.MediaType) },
             cancellationToken: ct));
         var rows = rawRows.Select(row => new SeriesRow(
             StringValue(row.WorkId) ?? string.Empty,
             StringValue(row.Title) ?? "Untitled",
+            StringValue(row.MediaType),
             StringValue(row.PositionLabel),
             StringValue(row.ArtworkUrl))).ToList();
 
@@ -592,6 +655,7 @@ public sealed class DetailComposerService
                 ProgressState = LibraryProgressState.Unknown,
             };
         }).ToList();
+        items = AddMissingSeriesPlaceholders(items, entityType);
 
         if (items.Count == 0)
         {
@@ -635,6 +699,58 @@ public sealed class DetailComposerService
         return [];
     }
 
+    private static string SeriesMediaFilter(DetailEntityType entityType, string mediaType)
+        => entityType switch
+        {
+            DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work when mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)
+                || mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)
+                || mediaType.Equals("Books", StringComparison.OrdinalIgnoreCase)
+                || mediaType.Equals("Comics", StringComparison.OrdinalIgnoreCase) => "Read",
+            DetailEntityType.Audiobook => "Listen",
+            DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Watch",
+            DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "Music",
+            _ when mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase) => "Listen",
+            _ when mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("TV", StringComparison.OrdinalIgnoreCase) => "Watch",
+            _ => "Other",
+        };
+
+    private static List<SeriesItemViewModel> AddMissingSeriesPlaceholders(
+        IReadOnlyList<SeriesItemViewModel> items,
+        DetailEntityType entityType)
+    {
+        var numbered = items
+            .Where(item => item.PositionNumber.HasValue && item.PositionNumber.Value > 0)
+            .GroupBy(item => item.PositionNumber!.Value)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        if (numbered.Count == 0)
+            return items.ToList();
+
+        var max = numbered.Keys.Max();
+        var filled = new List<SeriesItemViewModel>(max);
+        for (var position = 1; position <= max; position++)
+        {
+            if (numbered.TryGetValue(position, out var existing))
+            {
+                filled.Add(existing);
+                continue;
+            }
+
+            filled.Add(new SeriesItemViewModel
+            {
+                Id = $"missing-{position}",
+                EntityType = entityType,
+                Title = "Missing from library",
+                PositionNumber = position,
+                PositionLabel = position.ToString(),
+                IsOwned = false,
+                ProgressState = LibraryProgressState.Unknown,
+            });
+        }
+
+        return filled;
+    }
+
     private async Task<IReadOnlyList<CollectionWorkSummary>> LoadCollectionWorksAsync(Guid collectionId, CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
@@ -651,7 +767,7 @@ public sealed class DetailComposerService
                    CAST(COALESCE(runtime.value, duration.value) AS TEXT) AS Duration,
                    CAST(COALESCE(year_asset.value, year_work.value) AS TEXT) AS Year,
                    CAST(COALESCE(cover_asset.value, cover_work.value) AS TEXT) AS ArtworkUrl,
-                   CAST(COALESCE(bg_asset.value, bg_work.value, banner_asset.value, banner_work.value) AS TEXT) AS BackgroundUrl
+                   CAST(COALESCE(bg_asset.value, bg_work.value, hero_asset.value, hero_work.value, banner_asset.value, banner_work.value) AS TEXT) AS BackgroundUrl
             FROM works w
             LEFT JOIN editions e ON e.work_id = w.id
             LEFT JOIN media_assets ma ON ma.edition_id = e.id
@@ -671,6 +787,8 @@ public sealed class DetailComposerService
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover')
             LEFT JOIN canonical_values bg_asset ON bg_asset.entity_id = ma.id AND bg_asset.key IN ('background_url', 'background')
             LEFT JOIN canonical_values bg_work ON bg_work.entity_id = w.id AND bg_work.key IN ('background_url', 'background')
+            LEFT JOIN canonical_values hero_asset ON hero_asset.entity_id = ma.id AND hero_asset.key IN ('hero_url', 'hero')
+            LEFT JOIN canonical_values hero_work ON hero_work.entity_id = w.id AND hero_work.key IN ('hero_url', 'hero')
             LEFT JOIN canonical_values banner_asset ON banner_asset.entity_id = ma.id AND banner_asset.key IN ('banner_url', 'banner')
             LEFT JOIN canonical_values banner_work ON banner_work.entity_id = w.id AND banner_work.key IN ('banner_url', 'banner')
             WHERE w.collection_id = @collectionId
@@ -703,6 +821,40 @@ public sealed class DetailComposerService
             cancellationToken: ct));
         return rows.GroupBy(r => r.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<string?> BuildHeroSummaryAsync(
+        string? tagline,
+        string? description,
+        string? wikidataQid,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        CancellationToken ct)
+    {
+        // Hero copy should prefer short canonical/provider copy. Wikidata descriptions
+        // plug in here through qid_labels.description when a linked QID is available.
+        var canonicalSummary = FirstText(
+            tagline,
+            GetValue(canonicalValues, "short_description"),
+            GetValue(canonicalValues, "wikidata_description"),
+            GetValue(canonicalValues, "wikidata_summary"),
+            GetValue(canonicalValues, "summary"));
+
+        if (!string.IsNullOrWhiteSpace(canonicalSummary))
+            return NormalizeHeroSummary(canonicalSummary);
+
+        if (!string.IsNullOrWhiteSpace(wikidataQid))
+        {
+            using var conn = _db.CreateConnection();
+            var qidDescription = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+                "SELECT description FROM qid_labels WHERE qid = @qid LIMIT 1;",
+                new { qid = wikidataQid },
+                cancellationToken: ct));
+
+            if (!string.IsNullOrWhiteSpace(qidDescription))
+                return NormalizeHeroSummary(qidDescription);
+        }
+
+        return BuildFallbackHeroSummary(description);
     }
 
     private async Task<WorkArtworkFallback> LoadWorkArtworkFallbackAsync(Guid workId, CancellationToken ct)
@@ -804,7 +956,7 @@ public sealed class DetailComposerService
     private static IReadOnlyList<MetadataPill> BuildMetadataPills(LibraryItemDetail detail, DetailEntityType entityType)
     {
         var values = new List<MetadataPill>();
-        AddPlain(values, detail.Rating, "rating");
+        AddPlain(values, FormatRating(detail.Rating), "rating");
 
         foreach (var genre in SplitMetadataValues(detail.Genre).Take(3))
         {
@@ -919,6 +1071,8 @@ public sealed class DetailComposerService
     {
         var actions = new List<DetailAction>
         {
+            new() { Key = "details", Label = "Details", Icon = "info" },
+            new() { Key = "sync-settings", Label = "Sync Settings", Icon = "sync", Tooltip = "Sync settings are coming soon", IsDisabled = true, IsStub = true },
             new() { Key = "manage-artwork", Label = "Manage Artwork", Icon = "image", IsAdminOnly = true },
             new() { Key = "refresh", Label = "Refresh Metadata", Icon = "sync", IsAdminOnly = true },
             new() { Key = "file-info", Label = "View File Info", Icon = "info", IsAdminOnly = true },
@@ -939,7 +1093,8 @@ public sealed class DetailComposerService
         {
             DetailEntityType.TvShow => ["episodes", "overview", "people", "universe", "details"],
             DetailEntityType.TvSeason => ["episodes", "overview", "people", "details"],
-            DetailEntityType.Movie when hasSeries => ["series", "overview", "people", "characters", "universe", "related", "details"],
+            DetailEntityType.Movie when hasSeries => ["series", "overview", "people", "universe", "related", "details"],
+            DetailEntityType.Movie => ["overview", "people", "universe", "related", "details"],
             DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["series", "overview", "chapters", "contributors", "characters", "universe", "editions", "details"],
             DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "chapters", "contributors", "characters", "series", "universe", "editions", "details"],
             DetailEntityType.Work when hasSeries => ["series", "overview", "formats", "chapters", "contributors", "characters", "universe", "editions", "details"],
@@ -966,6 +1121,17 @@ public sealed class DetailComposerService
     {
         if (!string.IsNullOrWhiteSpace(label))
             values.Add(new MetadataPill { Label = label, Kind = kind });
+    }
+
+    private static string? FormatRating(string? rating)
+    {
+        if (string.IsNullOrWhiteSpace(rating))
+            return null;
+
+        var trimmed = rating.Trim();
+        return double.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            ? parsed.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+            : trimmed;
     }
 
     private static IEnumerable<string> SplitMetadataValues(string? value)
@@ -1109,6 +1275,21 @@ public sealed class DetailComposerService
         }
 
         return groups;
+    }
+
+    private static HeroBrandViewModel? BuildHeroBrand(DetailEntityType entityType, string? label, string? imageUrl)
+    {
+        if (entityType is not (DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(label) && string.IsNullOrWhiteSpace(imageUrl))
+            return null;
+
+        return new HeroBrandViewModel
+        {
+            Label = string.IsNullOrWhiteSpace(label) ? null : label,
+            ImageUrl = string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl,
+        };
     }
 
     private static IReadOnlyList<MediaGroupingViewModel> BuildCollectionMediaGroups(DetailEntityType entityType, IReadOnlyList<CollectionWorkSummary> works)
@@ -1445,7 +1626,7 @@ public sealed class DetailComposerService
 
     private static string ToTabLabel(string key) => key switch
     {
-        "people" => "Cast & Characters",
+        "people" => "Cast",
         "movies-tv" => "Movies & TV",
         "appears-on" => "Appears On",
         _ => string.Join(" ", key.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(word => char.ToUpperInvariant(word[0]) + word[1..])),
@@ -1453,6 +1634,34 @@ public sealed class DetailComposerService
 
     private static string? GetValue(IReadOnlyDictionary<string, string> values, string key)
         => values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : null;
+
+    private static string? FirstText(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static string? NormalizeHeroSummary(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = string.Join(
+            ' ',
+            value.Replace("\r", "\n", StringComparison.Ordinal)
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+        return normalized.Length <= 260 ? normalized : normalized[..260].TrimEnd() + "...";
+    }
+
+    private static string? BuildFallbackHeroSummary(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            return null;
+
+        var firstParagraph = description.Replace("\r", "\n", StringComparison.Ordinal)
+            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+
+        return NormalizeHeroSummary(firstParagraph ?? description);
+    }
 
     private static string FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
@@ -1512,8 +1721,8 @@ public sealed class DetailComposerService
         public string? BannerUrl { get; init; }
     }
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator);
-    private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl);
-    private sealed record SeriesRow(string WorkId, string Title, string? PositionLabel, string? ArtworkUrl);
+    private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
+    private sealed record SeriesRow(string WorkId, string Title, string? MediaType, string? PositionLabel, string? ArtworkUrl);
     private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? ArtworkUrl, string? BackgroundUrl);
     private sealed record CharacterDetailRow(Guid Id, string Label, string? WikidataQid, string? UniverseQid, string? UniverseLabel, string? ImageUrl, string? EntitySubType);
     private sealed record CharacterPortraitRow(Guid Id, string? ImageUrl, string? LocalImagePath, bool IsDefault);

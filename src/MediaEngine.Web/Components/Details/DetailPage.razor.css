@@ -15,7 +15,7 @@
 
 ::deep .tl-detail-hero {
     position: relative;
-    min-height: clamp(34rem, 72vh, 52rem);
+    min-height: clamp(38rem, 78vh, 58rem);
     overflow: hidden;
     isolation: isolate;
     background:
@@ -39,18 +39,133 @@
 
 ::deep .tl-detail-hero__backdrop,
 ::deep .tl-hero-backdrop,
-::deep .tl-detail-backdrop {
+::deep .tl-detail-backdrop,
+::deep .tl-detail-media-stage {
     position: absolute;
     inset: 0;
+    width: 100%;
     z-index: -3;
+    display: grid;
+    place-items: center end;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 72% 38%, color-mix(in srgb, var(--tl-detail-accent) 34%, transparent), transparent 28rem),
+        linear-gradient(90deg, color-mix(in srgb, #101115 72%, var(--tl-detail-primary)) 0%, color-mix(in srgb, #101115 48%, var(--tl-detail-secondary)) 100%);
 }
 
 ::deep .tl-detail-hero__backdrop img,
 ::deep .tl-hero-backdrop img,
-::deep .tl-detail-backdrop img {
+::deep .tl-detail-backdrop img,
+::deep .tl-detail-media-stage__image {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center center;
+    opacity: 1;
+    filter: saturate(1.04) contrast(1.02);
+}
+
+::deep .tl-detail-media-stage::before,
+::deep .tl-detail-media-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+::deep .tl-detail-media-stage::before {
+    z-index: 1;
+    background:
+        radial-gradient(
+            circle at 72% 38%,
+            color-mix(in srgb, var(--tl-detail-primary) 5%, transparent) 0%,
+            color-mix(in srgb, var(--tl-detail-primary) 14%, transparent) 28%,
+            color-mix(in srgb, var(--tl-detail-primary) 30%, transparent) 52%,
+            color-mix(in srgb, var(--tl-detail-primary) 52%, transparent) 76%,
+            color-mix(in srgb, var(--tl-detail-primary) 70%, #101115) 100%
+        );
+}
+
+::deep .tl-detail-media-stage::after {
+    z-index: 2;
+    background:
+        linear-gradient(180deg, transparent 44%, rgba(0, 0, 0, 0.28) 72%, #101115 100%),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0%, transparent 45%, rgba(0, 0, 0, 0.22) 100%),
+        linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--tl-detail-primary) 52%, #101115) 0%,
+            color-mix(in srgb, var(--tl-detail-primary) 44%, #101115) 30%,
+            color-mix(in srgb, var(--tl-detail-primary) 24%, transparent) 50%,
+            color-mix(in srgb, var(--tl-detail-primary) 8%, transparent) 66%,
+            transparent 78%
+        );
+}
+
+::deep .tl-detail-media-stage--real-backdrop .tl-detail-media-stage__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center right;
+    transform: none;
+    transform-origin: center center;
+}
+
+::deep .tl-detail-media-stage--cover-only {
+    padding-right: clamp(2rem, 9vw, 10rem);
+    background:
+        radial-gradient(circle at 74% 45%, color-mix(in srgb, var(--tl-detail-primary) 66%, transparent), transparent 20rem),
+        radial-gradient(circle at 88% 56%, color-mix(in srgb, var(--tl-detail-accent) 42%, transparent), transparent 28rem),
+        linear-gradient(90deg, color-mix(in srgb, #101115 76%, var(--tl-detail-primary)) 0%, color-mix(in srgb, #101115 40%, var(--tl-detail-secondary)) 72%, #101115 100%);
+}
+
+::deep .tl-detail-media-stage--cover-only .tl-detail-media-stage__image {
+    justify-self: end;
+    width: min(30rem, 34vw);
+    height: min(42rem, 72vh);
+    object-fit: contain;
+    object-position: center;
+}
+
+::deep .tl-detail-media-stage--square .tl-detail-media-stage__image {
+    width: min(30rem, 34vw);
+    height: min(30rem, 56vh);
+}
+
+::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__image {
+    width: min(28rem, 32vw);
+    height: min(38rem, 68vh);
+}
+
+::deep .tl-detail-media-stage__generated {
+    width: min(26rem, 34vw);
+    height: min(26rem, 48vh);
+    border-radius: 2rem;
+    background:
+        radial-gradient(circle at 36% 28%, color-mix(in srgb, var(--tl-detail-accent) 44%, transparent), transparent 12rem),
+        linear-gradient(135deg, color-mix(in srgb, var(--tl-detail-primary) 74%, #101115), color-mix(in srgb, var(--tl-detail-secondary) 72%, #101115));
+    box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.34);
+}
+
+::deep .tl-detail-hero-brand {
+    position: absolute;
+    right: clamp(1.25rem, 3vw, 3rem);
+    bottom: clamp(1.6rem, 5vh, 3rem);
+    z-index: 4;
+    color: rgba(255, 248, 235, 0.92);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    text-shadow: 0 0.3rem 1.2rem rgba(0, 0, 0, 0.62);
+}
+
+::deep .tl-detail-hero-brand img {
+    display: block;
+    max-width: 6rem;
+    max-height: 2.6rem;
+    object-fit: contain;
+    opacity: 1;
+    filter: drop-shadow(0 0.3rem 1.2rem rgba(0, 0, 0, 0.72));
 }
 
 ::deep .tl-detail-hero__shade {
@@ -58,8 +173,7 @@
     inset: 0;
     z-index: -2;
     background:
-        linear-gradient(90deg, rgba(10, 10, 14, 0.92), rgba(10, 10, 14, 0.62) 42%, rgba(10, 10, 14, 0.32) 74%, rgba(10, 10, 14, 0.76)),
-        linear-gradient(0deg, #101115 0%, rgba(16,17,21,0.62) 26%, rgba(16,17,21,0.04) 62%);
+        linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0%, transparent 24%, transparent 52%, rgba(0, 0, 0, 0.24) 78%, #101115 100%);
 }
 
 ::deep .tl-detail-hero__inner {
@@ -430,6 +544,10 @@
     line-height: 1.35;
 }
 
+::deep .tl-detail-copy {
+    white-space: pre-line;
+}
+
 ::deep .tl-detail-tabs {
     display: flex;
     gap: 1.25rem;
@@ -713,32 +831,39 @@
 ::deep .tl-detail-backdrop--image img {
     width: 100%;
     height: 100%;
-    opacity: 0.9;
+    opacity: 1;
     filter: saturate(1.03) contrast(1.02);
     object-fit: cover;
-    object-position: center right;
+    object-position: center center;
+}
+
+::deep .tl-detail-backdrop--backdrop img {
+    object-fit: cover;
+    object-position: center center;
 }
 
 ::deep .tl-detail-backdrop--fallback-art {
+    display: grid;
+    place-items: center end;
+    padding-right: clamp(2rem, 10vw, 11rem);
     background:
-        radial-gradient(circle at 76% 42%, color-mix(in srgb, var(--tl-detail-primary) 50%, transparent), transparent 24rem),
-        linear-gradient(90deg, color-mix(in srgb, var(--tl-detail-primary) 52%, #15171f), color-mix(in srgb, var(--tl-detail-secondary) 64%, #101115));
+        radial-gradient(circle at 73% 48%, color-mix(in srgb, var(--tl-detail-primary) 58%, transparent), transparent 18rem),
+        radial-gradient(circle at 84% 54%, color-mix(in srgb, var(--tl-detail-accent) 34%, transparent), transparent 28rem),
+        linear-gradient(90deg, color-mix(in srgb, #111217 84%, var(--tl-detail-primary)) 0%, color-mix(in srgb, #111217 50%, var(--tl-detail-primary)) 42%, color-mix(in srgb, #111217 34%, var(--tl-detail-secondary)) 74%, #111217 100%);
 }
 
 ::deep .tl-detail-backdrop--fallback-art img {
-    width: min(44rem, 46vw);
-    height: min(44rem, 76vh);
-    margin-left: auto;
-    margin-right: clamp(1rem, 8vw, 8rem);
+    width: min(28rem, 31vw);
+    height: min(40rem, 70vh);
+    margin: 0;
+    opacity: 1;
     object-fit: contain;
     object-position: center;
 }
 
 ::deep .tl-detail-hero__shade {
     background:
-        linear-gradient(90deg, rgba(10, 13, 17, 0.96) 0%, rgba(12, 15, 20, 0.84) 30%, rgba(12, 15, 20, 0.34) 58%, rgba(12, 15, 20, 0.18) 78%, rgba(12, 15, 20, 0.5) 100%),
-        linear-gradient(0deg, #111217 0%, rgba(17,18,23,0.78) 16%, rgba(17,18,23,0.12) 58%),
-        radial-gradient(circle at 16% 48%, color-mix(in srgb, var(--tl-detail-primary) 36%, transparent), transparent 34rem);
+        linear-gradient(180deg, rgba(0, 0, 0, 0.16) 0%, transparent 26%, transparent 54%, rgba(0, 0, 0, 0.24) 78%, #111217 100%);
 }
 
 ::deep .tl-detail-hero__inner {
@@ -788,10 +913,17 @@
 }
 
 ::deep .tl-detail-metadata-item:not(:last-child)::after {
-    content: "•";
+    content: "\2022";
     display: inline-block;
     margin-inline: 0.45rem;
     color: rgba(255,255,255,0.86);
+}
+
+::deep .tl-detail-metadata-item--rating::before {
+    content: "\2605";
+    display: inline-block;
+    margin-right: 0.22rem;
+    color: #f6b94b;
 }
 
 ::deep .tl-detail-admin-health {
@@ -851,6 +983,15 @@
     pointer-events: none;
     transform: translate(-50%, 0.3rem);
     transition: opacity 160ms ease, transform 160ms ease;
+}
+
+::deep .tl-hover-action-menu__tray::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.55rem;
+    height: 0.65rem;
 }
 
 ::deep .tl-hover-action-menu:hover .tl-hover-action-menu__tray,
@@ -961,6 +1102,136 @@
     width: min(105rem, calc(100% - 3rem));
 }
 
+::deep .tl-series-layout {
+    display: grid;
+    grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
+    gap: 0.8rem;
+}
+
+::deep .tl-series-summary {
+    align-self: stretch;
+}
+
+::deep .tl-series-summary h2 {
+    margin: 0 0 1.15rem;
+    color: #fff;
+    font-size: 1.05rem;
+}
+
+::deep .tl-series-summary__body {
+    display: grid;
+    grid-template-columns: 4.6rem minmax(0, 1fr);
+    align-items: center;
+    gap: 1rem;
+}
+
+::deep .tl-series-summary__art {
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    border-radius: 0.35rem;
+    background: rgba(255,255,255,0.06);
+}
+
+::deep .tl-series-summary__art img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+::deep .tl-series-summary__title {
+    color: #fff;
+    font-weight: 850;
+}
+
+::deep .tl-series-summary__meta {
+    margin-top: 0.25rem;
+    color: rgba(255,255,255,0.68);
+    font-size: 0.86rem;
+}
+
+::deep .tl-series-summary__button {
+    margin-top: 1rem;
+    min-height: 2.3rem;
+    padding-inline: 0.9rem;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 0.35rem;
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+}
+
+::deep .tl-series-panel {
+    overflow: hidden;
+}
+
+::deep .tl-series-strip {
+    display: flex;
+    gap: 0.9rem;
+    overflow-x: auto;
+    padding: 0.2rem 0.1rem 0.35rem;
+}
+
+::deep .tl-series-item {
+    position: relative;
+    flex: 0 0 clamp(7.5rem, 9vw, 9.5rem);
+}
+
+::deep .tl-series-item__art {
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 0.35rem;
+    background: rgba(255,255,255,0.05);
+}
+
+::deep .tl-series-item.is-current .tl-series-item__art {
+    border-color: #f5ad38;
+    box-shadow: 0 0 0 1px rgba(245,173,56,0.46), 0 0.8rem 1.8rem rgba(0,0,0,0.34);
+}
+
+::deep .tl-series-item.is-missing .tl-series-item__art {
+    border-style: dashed;
+    border-color: rgba(255,255,255,0.22);
+}
+
+::deep .tl-series-item__badge {
+    position: absolute;
+    z-index: 2;
+    top: 0.35rem;
+    right: 0.35rem;
+    display: grid;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,0.24);
+    border-radius: 0.25rem;
+    background: rgba(10,13,17,0.72);
+    color: rgba(255,255,255,0.86);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+::deep .tl-series-item__missing-art {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    color: rgba(255,255,255,0.46);
+    font-size: clamp(2.8rem, 5vw, 4.5rem);
+    font-weight: 900;
+    background:
+        radial-gradient(circle at 50% 35%, rgba(255,255,255,0.08), transparent 46%),
+        linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+}
+
+::deep .tl-series-item__title {
+    margin-top: 0.45rem;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.8rem;
+    text-align: center;
+}
+
 ::deep .tl-series-panel--portrait .tl-series-item__art img,
 ::deep .tl-owned-format-card__art img,
 ::deep .tl-child-card__art img {
@@ -968,15 +1239,31 @@
     object-fit: contain;
 }
 
+::deep .tl-series-panel--portrait .tl-series-item__art {
+    aspect-ratio: 2 / 3;
+}
+
 ::deep .tl-series-panel--square .tl-series-item__art img {
     aspect-ratio: 1 / 1;
     object-fit: contain;
+}
+
+::deep .tl-series-panel--square .tl-series-item__art {
+    aspect-ratio: 1 / 1;
 }
 
 ::deep .tl-series-panel--landscape .tl-series-item__art img,
 ::deep .tl-episode-card img {
     aspect-ratio: 16 / 9;
     object-fit: cover;
+}
+
+::deep .tl-series-panel--landscape .tl-series-item {
+    flex-basis: clamp(12rem, 17vw, 18rem);
+}
+
+::deep .tl-series-panel--landscape .tl-series-item__art {
+    aspect-ratio: 16 / 9;
 }
 
 @media (max-width: 760px) {
@@ -1040,21 +1327,59 @@
         max-width: 100%;
     }
 
+    ::deep .tl-detail-media-stage {
+        width: 100%;
+        place-items: start center;
+        padding-right: 0;
+    }
+
+    ::deep .tl-detail-media-stage--real-backdrop .tl-detail-media-stage__image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center top;
+        transform: none;
+        opacity: 1;
+    }
+
+    ::deep .tl-detail-media-stage--cover-only {
+        padding-right: 0;
+    }
+
+    ::deep .tl-detail-media-stage--cover-only .tl-detail-media-stage__image,
+    ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__image,
+    ::deep .tl-detail-media-stage--square .tl-detail-media-stage__image {
+        width: min(21rem, 76vw);
+        height: min(28rem, 58vh);
+        margin: 4.5rem 0 0;
+        opacity: 1;
+    }
+
     ::deep .tl-detail-backdrop--image img {
         object-position: center;
-        opacity: 0.58;
+        opacity: 1;
+    }
+
+    ::deep .tl-detail-backdrop--fallback-art {
+        place-items: start center;
+        padding-right: 0;
     }
 
     ::deep .tl-detail-backdrop--fallback-art img {
         width: min(21rem, 76vw);
         height: min(28rem, 58vh);
-        margin: 4.5rem auto 0;
+        margin: 4.5rem 0 0;
     }
 
     ::deep .tl-detail-hero__shade {
         background:
-            linear-gradient(90deg, rgba(10, 13, 17, 0.88), rgba(10, 13, 17, 0.72)),
-            linear-gradient(0deg, #111217 0%, rgba(17,18,23,0.78) 28%, rgba(17,18,23,0.2) 72%);
+            linear-gradient(90deg, rgba(10, 13, 17, 0.48), rgba(10, 13, 17, 0.2)),
+            linear-gradient(0deg, #111217 0%, rgba(17,18,23,0.8) 30%, rgba(17,18,23,0.22) 74%);
+    }
+
+    ::deep .tl-detail-hero-brand {
+        right: 1rem;
+        bottom: 1.25rem;
     }
 
     ::deep .tl-credit-preview--bar,

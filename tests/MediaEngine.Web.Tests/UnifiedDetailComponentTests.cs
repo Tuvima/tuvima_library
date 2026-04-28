@@ -6,11 +6,38 @@ public sealed class UnifiedDetailComponentTests
     public void HeroBackdrop_DoesNotUseBlurredCoverFallback()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroBackdrop.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.DoesNotContain("filter: blur(", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Artwork.BackdropUrl", source);
         Assert.Contains("Artwork.CoverUrl", source);
-        Assert.Contains("tl-detail-backdrop--fallback-art", source);
+        Assert.Contains("tl-detail-media-stage--cover-only", source);
+        Assert.DoesNotContain("tl-detail-media-stage--cover-only .tl-detail-media-stage__image {\r\n    filter: blur(", styles, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("tl-detail-media-stage--cover-only .tl-detail-media-stage__image {\n    filter: blur(", styles, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("place-items: center end", styles);
+        Assert.Contains("object-fit: contain", styles);
+        Assert.Contains("opacity: 1", styles);
+        Assert.DoesNotContain("opacity: 0.58", styles);
+        Assert.Contains("circle at 72% 38%", styles);
+        Assert.Contains("transparent 78%", styles);
+        Assert.Contains("width: 100%", styles);
+        Assert.Contains("tl-detail-media-stage--real-backdrop .tl-detail-media-stage__image", styles);
+        Assert.Contains("object-position: center right", styles);
+        Assert.Contains("min-height: clamp(38rem, 78vh, 58rem)", styles);
+    }
+
+    [Fact]
+    public void HeroBackdrop_RendersTvHeroBrand()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroBackdrop.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+        var client = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+
+        Assert.Contains("HeroBrandViewModel", source);
+        Assert.Contains("tl-detail-hero-brand", source);
+        Assert.Contains("DetailEntityType.TvShow", source);
+        Assert.Contains("tl-detail-hero-brand img", styles);
+        Assert.Contains("NormalizeHeroBrand", client);
     }
 
     [Fact]
@@ -20,6 +47,7 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("tl-detail-metadata-row", source);
         Assert.Contains("tl-detail-metadata-item", source);
+        Assert.Contains("tl-detail-metadata-item--rating", source);
         Assert.DoesNotContain("tl-detail-pill", source);
     }
 
@@ -44,6 +72,48 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("FormatsTab", source);
         Assert.Contains("SyncTab", source);
         Assert.Contains("RegistryTab", source);
+    }
+
+    [Fact]
+    public void OverviewTab_DoesNotRepeatContributorsOrCharacters()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/OverviewTab.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+
+        Assert.DoesNotContain("ContributorsSection", source);
+        Assert.DoesNotContain("CharactersSection", source);
+        Assert.DoesNotContain("RelatedEntityChip", source);
+        Assert.Contains("white-space: pre-line", styles);
+    }
+
+    [Fact]
+    public void DetailHero_PutsOverflowActionsInHeroActionRow()
+    {
+        var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var actions = ReadSource("src/MediaEngine.Web/Components/Details/HeroActionRow.razor");
+
+        Assert.Contains("OverflowActions=\"Model.OverflowActions\"", hero);
+        Assert.Contains("OverflowActionMenu", actions);
+    }
+
+    [Fact]
+    public void EngineClient_NormalizesSeriesAndCreditImageUrls()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+
+        Assert.Contains("NormalizeSeriesPlacement", source);
+        Assert.Contains("NormalizeSeriesItem", source);
+        Assert.Contains("ImageUrl = NormalizeOptionalUrl(credit.ImageUrl)", source);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesWikidataDescriptionForHeroSummary()
+    {
+        var source = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
+
+        Assert.Contains("BuildHeroSummaryAsync", source);
+        Assert.Contains("qid_labels", source);
+        Assert.Contains("wikidata_description", source);
     }
 
     [Fact]

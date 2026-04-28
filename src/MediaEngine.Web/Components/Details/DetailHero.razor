@@ -2,11 +2,10 @@
 @using MediaEngine.Contracts.Details
 
 <section class="tl-detail-hero @HeroClass" style="@GradientStyle">
-    <HeroBackdrop Artwork="Model.Artwork" />
+    <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
     <div class="tl-detail-hero__shade"></div>
     <div class="tl-detail-titlebar">
         <div class="tl-detail-titlebar__title">@Model.Title</div>
-        <OverflowActionMenu Actions="Model.OverflowActions" OnActionSelected="OnActionSelected" />
     </div>
     <div class="tl-detail-hero__inner">
         <div class="tl-detail-hero__copy">
@@ -32,6 +31,7 @@
 
             <HeroActionRow PrimaryActions="Model.PrimaryActions"
                            SecondaryActions="Model.SecondaryActions"
+                           OverflowActions="Model.OverflowActions"
                            OnActionSelected="OnActionSelected" />
         </div>
     </div>

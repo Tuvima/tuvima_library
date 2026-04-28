@@ -3726,6 +3726,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 PresentationMode = artwork.PresentationMode,
                 Source = artwork.Source,
             },
+            HeroBrand = NormalizeHeroBrand(detail.HeroBrand),
             OwnedFormats = detail.OwnedFormats.Select(format => new OwnedFormatViewModel
             {
                 Id = format.Id,
@@ -3746,7 +3747,7 @@ public sealed class EngineApiClient : IEngineApiClient
             MultiFormatState = detail.MultiFormatState,
             ReadingListeningSync = detail.ReadingListeningSync,
             SyncCapability = detail.SyncCapability,
-            SeriesPlacement = detail.SeriesPlacement,
+            SeriesPlacement = NormalizeSeriesPlacement(detail.SeriesPlacement),
             Metadata = detail.Metadata,
             PrimaryActions = detail.PrimaryActions,
             SecondaryActions = detail.SecondaryActions,
@@ -3786,6 +3787,15 @@ public sealed class EngineApiClient : IEngineApiClient
         };
     }
 
+    private HeroBrandViewModel? NormalizeHeroBrand(HeroBrandViewModel? heroBrand)
+        => heroBrand is null
+            ? null
+            : new HeroBrandViewModel
+            {
+                Label = heroBrand.Label,
+                ImageUrl = NormalizeOptionalUrl(heroBrand.ImageUrl),
+            };
+
     private CreditGroupViewModel NormalizeCreditGroup(CreditGroupViewModel group) => new()
     {
         Title = group.Title,
@@ -3811,6 +3821,41 @@ public sealed class EngineApiClient : IEngineApiClient
         SourceName = credit.SourceName,
         SourceId = credit.SourceId,
     };
+
+    private SeriesPlacementViewModel? NormalizeSeriesPlacement(SeriesPlacementViewModel? placement)
+        => placement is null
+            ? null
+            : new SeriesPlacementViewModel
+            {
+                SeriesId = placement.SeriesId,
+                SeriesTitle = placement.SeriesTitle,
+                UniverseId = placement.UniverseId,
+                UniverseTitle = placement.UniverseTitle,
+                PositionNumber = placement.PositionNumber,
+                TotalKnownItems = placement.TotalKnownItems,
+                PositionLabel = placement.PositionLabel,
+                OrderingType = placement.OrderingType,
+                PreviousItem = NormalizeSeriesItem(placement.PreviousItem),
+                CurrentItem = NormalizeSeriesItem(placement.CurrentItem) ?? new SeriesItemViewModel(),
+                NextItem = NormalizeSeriesItem(placement.NextItem),
+                OrderedItems = placement.OrderedItems.Select(NormalizeSeriesItem).OfType<SeriesItemViewModel>().ToList(),
+            };
+
+    private SeriesItemViewModel? NormalizeSeriesItem(SeriesItemViewModel? item)
+        => item is null
+            ? null
+            : new SeriesItemViewModel
+            {
+                Id = item.Id,
+                EntityType = item.EntityType,
+                Title = item.Title,
+                ArtworkUrl = NormalizeOptionalUrl(item.ArtworkUrl),
+                PositionNumber = item.PositionNumber,
+                PositionLabel = item.PositionLabel,
+                IsCurrent = item.IsCurrent,
+                IsOwned = item.IsOwned,
+                ProgressState = item.ProgressState,
+            };
 
     private string? NormalizeOptionalUrl(string? value)
         => string.IsNullOrWhiteSpace(value) ? value : AbsoluteUrl(value);

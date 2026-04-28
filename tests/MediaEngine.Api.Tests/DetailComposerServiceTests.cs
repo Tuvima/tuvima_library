@@ -92,4 +92,56 @@ public sealed class DetailComposerServiceTests
 
         Assert.Equal(ArtworkPresentationMode.PortraitEcho, mode);
     }
+
+    [Fact]
+    public void DetailComposer_SourceKeepsMovieTabsCastOnlyAndAddsOverflowMenu()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("DetailEntityType.Movie when hasSeries => [\"series\", \"overview\", \"people\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("\"people\" => \"Cast\"", source);
+        Assert.Contains("sync-settings", source);
+    }
+
+    [Fact]
+    public void DetailComposer_MapsTvNetworkIntoHeroBrand()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("HeroBrand = BuildHeroBrand", source);
+        Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode", source);
+        Assert.Contains("network_logo_url", source);
+        Assert.Contains("HeroBrandImageUrl", source);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesChildArtworkFallbackForCollectionDetails()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("fallbackBackdrop", source);
+        Assert.Contains("fallbackCover", source);
+        Assert.Contains("'hero_url', 'hero'", source);
+        Assert.Contains("SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })", source);
+    }
+
+    [Fact]
+    public void DetailComposer_FormatsRatingsAndUsesCreditImageFallbacks()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("FormatRating(detail.Rating)", source);
+        Assert.Contains("ToString(\"0.0\"", source);
+        Assert.Contains("canonicalArrayKey}_qid", source);
+        Assert.Contains("headshot_url", source);
+    }
+
+    private static string FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            directory = directory.Parent;
+
+        return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+    }
 }

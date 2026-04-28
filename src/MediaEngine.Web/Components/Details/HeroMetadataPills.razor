@@ -6,13 +6,13 @@
     {
         @if (!string.IsNullOrWhiteSpace(pill.Route))
         {
-            <a class="tl-detail-metadata-item"
+            <a class="@MetadataClass(pill)"
                href="@pill.Route"
                title="@pill.Tooltip">@pill.Label</a>
         }
         else
         {
-            <span class="tl-detail-metadata-item" title="@pill.Tooltip">@pill.Label</span>
+            <span class="@MetadataClass(pill)" title="@pill.Tooltip">@pill.Label</span>
         }
     }
     @if (IsAdminView)
@@ -34,4 +34,9 @@
         CanonicalIdentityStatus.LocalOnly => "Local only",
         _ => "Identity unknown",
     };
+
+    private static string MetadataClass(MetadataPill item)
+        => item.Kind?.Equals("rating", StringComparison.OrdinalIgnoreCase) == true
+            ? "tl-detail-metadata-item tl-detail-metadata-item--rating"
+            : "tl-detail-metadata-item";
 }

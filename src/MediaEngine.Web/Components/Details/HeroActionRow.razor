@@ -72,11 +72,13 @@
             </MudTooltip>
         }
     }
+    <OverflowActionMenu Actions="OverflowActions" OnActionSelected="OnActionSelected" />
 </div>
 
 @code {
     [Parameter] public IReadOnlyList<DetailAction> PrimaryActions { get; set; } = [];
     [Parameter] public IReadOnlyList<DetailAction> SecondaryActions { get; set; } = [];
+    [Parameter] public IReadOnlyList<DetailAction> OverflowActions { get; set; } = [];
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private Task Select(DetailAction action)
