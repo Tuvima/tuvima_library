@@ -1,9 +1,9 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<section class="tl-credit-preview">
-    <div class="tl-section-heading">
-        <h2>People</h2>
+<section class="tl-credit-preview tl-credit-preview--bar">
+    <div class="tl-credit-preview__heading">
+        <h2>@Title</h2>
     </div>
     <div class="tl-credit-strip">
         @foreach (var credit in Credits)
@@ -14,5 +14,6 @@
 </section>
 
 @code {
+    [Parameter] public string Title { get; set; } = "People";
     [Parameter] public IReadOnlyList<EntityCreditViewModel> Credits { get; set; } = [];
 }

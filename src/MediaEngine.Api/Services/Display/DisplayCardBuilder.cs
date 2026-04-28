@@ -113,7 +113,7 @@ public sealed class DisplayCardBuilder
         var isContinue = progressPct is > 0 and < 99.5;
         if (mediaKind is "Book" or "Comic")
         {
-            return new DisplayActionDto("readAsset", isContinue ? "Continue Reading" : "Read", workId, assetId, collectionId, assetId.HasValue ? $"/read/{assetId}" : $"/book/{workId}");
+            return new DisplayActionDto("readWork", isContinue ? "Continue Reading" : "Read", workId, assetId, collectionId, WebUrlFor(workId, collectionId, mediaKind));
         }
 
         if (mediaKind is "Movie" or "TV" or "Music" or "Audiobook")

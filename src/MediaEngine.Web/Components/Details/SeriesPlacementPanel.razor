@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<section class="tl-detail-panel tl-series-panel">
+<section class="tl-detail-panel tl-series-panel @PanelClass">
     <div class="tl-detail-panel__header">
         <div>
             <h2>@Placement.SeriesTitle</h2>
@@ -34,6 +34,13 @@
 
 @code {
     [Parameter, EditorRequired] public SeriesPlacementViewModel Placement { get; set; } = default!;
+
+    private string PanelClass => Placement.CurrentItem.EntityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-series-panel--square",
+        _ => "tl-series-panel--portrait",
+    };
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));

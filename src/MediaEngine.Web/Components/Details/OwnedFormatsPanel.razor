@@ -9,10 +9,82 @@
         </div>
         <OptionalSyncPanel Capability="SyncCapability" MultiFormatState="MultiFormatState" />
     </div>
+
+    @if (Formats.Count > 1)
+    {
+        <div class="tl-format-switcher" role="tablist" aria-label="Owned formats">
+            @foreach (var format in Formats)
+            {
+                <button type="button"
+                        role="tab"
+                        aria-selected="@(format.Id == SelectedFormat.Id)"
+                        class="@(format.Id == SelectedFormat.Id ? "is-active" : null)"
+                        @onclick="@(() => SelectFormat(format.Id))">
+                    @FormatLabel(format)
+                </button>
+            }
+        </div>
+    }
+
+    <div class="tl-format-focus">
+        <article class="tl-owned-format-card tl-owned-format-card--active">
+            <div class="tl-owned-format-card__art">
+                @if (!string.IsNullOrWhiteSpace(SelectedFormat.CoverUrl))
+                {
+                    <img src="@SelectedFormat.CoverUrl" alt="@SelectedFormat.DisplayName" />
+                }
+                else
+                {
+                    <GeneratedIdentity Name="@SelectedFormat.DisplayName" />
+                }
+            </div>
+            <div>
+                <h3>@SelectedFormat.DisplayName</h3>
+                <p>@FormatSummary(SelectedFormat)</p>
+                <div class="tl-format-progress-row">
+                    <span>@ProgressLabel(SelectedFormat)</span>
+                    <div class="tl-format-progress-track">
+                        <span style="width:@ProgressPercent(SelectedFormat)%"></span>
+                    </div>
+                    <strong>@ProgressPercent(SelectedFormat)%</strong>
+                </div>
+                @foreach (var action in SelectedFormat.Actions.Take(1))
+                {
+                    <button type="button" class="tl-detail-mini-action">@action.Label</button>
+                }
+            </div>
+        </article>
+
+        @if (AlternateFormats.Count > 0)
+        {
+            <div class="tl-alternate-formats" aria-label="Alternate formats">
+                @foreach (var format in AlternateFormats)
+                {
+                    <button type="button" class="tl-alternate-format" @onclick="@(() => SelectFormat(format.Id))">
+                        @if (!string.IsNullOrWhiteSpace(format.CoverUrl))
+                        {
+                            <img src="@format.CoverUrl" alt="@format.DisplayName" />
+                        }
+                        <span>@FormatLabel(format)</span>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+    @if (Formats.Count > 1 && Formats.Any(format => format.FormatType == MediaFormatType.Ebook) && Formats.Any(format => format.FormatType == MediaFormatType.Audiobook))
+    {
+        <div class="tl-sync-coming-soon">
+            <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" />
+            <span>Sync reading and listening</span>
+            <span class="tl-sync-coming-soon__badge">Coming soon</span>
+        </div>
+    }
+
     <div class="tl-owned-formats__grid">
         @foreach (var format in Formats)
         {
-            <article class="tl-owned-format-card">
+            <article class="tl-owned-format-card @(format.Id == SelectedFormat.Id ? "is-selected" : null)" @onclick="@(() => SelectFormat(format.Id))">
                 <div class="tl-owned-format-card__art">
                     @if (!string.IsNullOrWhiteSpace(format.CoverUrl))
                     {
@@ -25,7 +97,7 @@
                 </div>
                 <div>
                     <h3>@format.DisplayName</h3>
-                    <p>@string.Join(" • ", new[] { format.FileFormat, format.PrimaryContributor, format.Runtime, format.PageCount is null ? null : $"{format.PageCount} pages" }.Where(x => !string.IsNullOrWhiteSpace(x)))</p>
+                    <p>@FormatSummary(format)</p>
                     @foreach (var action in format.Actions.Take(1))
                     {
                         <button type="button" class="tl-detail-mini-action">@action.Label</button>
@@ -41,6 +113,22 @@
     [Parameter] public MultiFormatState MultiFormatState { get; set; }
     [Parameter] public ReadingListeningSyncCapabilityViewModel? SyncCapability { get; set; }
 
+    private string? _selectedFormatId;
+
+    private OwnedFormatViewModel SelectedFormat => Formats.FirstOrDefault(format => format.Id == _selectedFormatId)
+        ?? Formats.FirstOrDefault()
+        ?? new OwnedFormatViewModel { DisplayName = "Format" };
+
+    private IReadOnlyList<OwnedFormatViewModel> AlternateFormats => Formats.Where(format => format.Id != SelectedFormat.Id).ToList();
+
+    protected override void OnParametersSet()
+    {
+        if (Formats.Count > 0 && !Formats.Any(format => format.Id == _selectedFormatId))
+            _selectedFormatId = Formats[0].Id;
+    }
+
+    private void SelectFormat(string id) => _selectedFormatId = id;
+
     private string Summary => MultiFormatState switch
     {
         MultiFormatState.MultipleFormatsSyncEnabled => "Read and listen progress is synced for this work.",
@@ -48,4 +136,23 @@
         MultiFormatState.MultipleFormatsSyncUnavailable => $"You own this work in {Formats.Count} formats. Progress is tracked separately.",
         _ => $"You own this work in {Formats.Count} formats. Progress is tracked separately.",
     };
+
+    private static string FormatLabel(OwnedFormatViewModel format) => format.FormatType switch
+    {
+        MediaFormatType.Ebook => "Ebook",
+        MediaFormatType.Audiobook => "Audiobook",
+        MediaFormatType.ComicIssue => "Comic",
+        MediaFormatType.Movie => "Movie",
+        MediaFormatType.MusicAlbum => "Album",
+        _ => format.DisplayName,
+    };
+
+    private static string FormatSummary(OwnedFormatViewModel format)
+        => string.Join(" - ", new[] { format.FileFormat, format.PrimaryContributor, format.Runtime, format.PageCount is null ? null : $"{format.PageCount} pages" }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    private static int ProgressPercent(OwnedFormatViewModel format)
+        => Math.Clamp((int)Math.Round(format.Progress?.Percent ?? 0), 0, 100);
+
+    private static string ProgressLabel(OwnedFormatViewModel format)
+        => format.Progress?.Label ?? (format.FormatType == MediaFormatType.Audiobook ? "Listening progress" : "Reading progress");
 }

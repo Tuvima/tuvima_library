@@ -4,28 +4,37 @@
 <div class="tl-hero-art @ArtClass">
     @if (Model.Artwork.PresentationMode == ArtworkPresentationMode.PairedEditionGradient && Model.OwnedFormats.Count > 1)
     {
-        <div class="tl-hero-art__pair">
-            @foreach (var format in Model.OwnedFormats.Take(2))
+        <div class="tl-hero-art__paired-primary">
+            @if (!string.IsNullOrWhiteSpace(Model.OwnedFormats[0].CoverUrl))
             {
-                <div class="tl-hero-art__paired-cover">
-                    @if (!string.IsNullOrWhiteSpace(format.CoverUrl))
-                    {
-                        <img src="@format.CoverUrl" alt="@format.DisplayName" />
-                    }
-                    else
-                    {
-                        <GeneratedIdentity Name="@format.DisplayName" />
-                    }
-                    <span>@format.DisplayName</span>
-                </div>
+                <img src="@Model.OwnedFormats[0].CoverUrl" alt="@Model.OwnedFormats[0].DisplayName" />
             }
-            @if (Model.MultiFormatState == MultiFormatState.MultipleFormatsSyncEnabled)
+            else
             {
-                <div class="tl-hero-art__sync">
-                    <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" />
-                </div>
+                <GeneratedIdentity Name="@Model.OwnedFormats[0].DisplayName" />
             }
+            <span>@Model.OwnedFormats[0].DisplayName</span>
         </div>
+        @if (Model.OwnedFormats.Skip(1).FirstOrDefault() is { } alternate)
+        {
+            <div class="tl-hero-art__paired-mini">
+                @if (!string.IsNullOrWhiteSpace(alternate.CoverUrl))
+                {
+                    <img src="@alternate.CoverUrl" alt="@alternate.DisplayName" />
+                }
+                else
+                {
+                    <GeneratedIdentity Name="@alternate.DisplayName" />
+                }
+                <span>@alternate.DisplayName</span>
+            </div>
+        }
+        @if (Model.MultiFormatState == MultiFormatState.MultipleFormatsSyncEnabled)
+        {
+            <div class="tl-hero-art__sync">
+                <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" />
+            </div>
+        }
     }
     else if (!string.IsNullOrWhiteSpace(ImageUrl))
     {

@@ -8,7 +8,31 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroBackdrop.razor");
 
         Assert.DoesNotContain("filter: blur(", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ArtworkPresentationMode.CinematicBackdrop", source);
+        Assert.Contains("Artwork.BackdropUrl", source);
+        Assert.Contains("Artwork.CoverUrl", source);
+        Assert.Contains("tl-detail-backdrop--fallback-art", source);
+    }
+
+    [Fact]
+    public void HeroMetadata_UsesInlineRowInsteadOfPills()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroMetadataPills.razor");
+
+        Assert.Contains("tl-detail-metadata-row", source);
+        Assert.Contains("tl-detail-metadata-item", source);
+        Assert.DoesNotContain("tl-detail-pill", source);
+    }
+
+    [Fact]
+    public void HeroActions_ExposeHoverMenusAndWatchPartyStub()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroActionRow.razor");
+        var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
+
+        Assert.Contains("tl-reaction-menu", source);
+        Assert.Contains("tl-format-menu", source);
+        Assert.Contains("watch-party", composer);
+        Assert.Contains("IsStub = true", composer);
     }
 
     [Fact]

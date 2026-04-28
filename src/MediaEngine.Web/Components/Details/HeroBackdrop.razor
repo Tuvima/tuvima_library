@@ -1,10 +1,10 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-@if (Artwork.PresentationMode == ArtworkPresentationMode.CinematicBackdrop && !string.IsNullOrWhiteSpace(BackdropUrl))
+@if (!string.IsNullOrWhiteSpace(HeroImageUrl))
 {
-    <div class="tl-detail-backdrop tl-detail-backdrop--image">
-        <img src="@BackdropUrl" alt="" />
+    <div class="tl-detail-backdrop tl-detail-backdrop--image @(HasRealBackdrop ? "tl-detail-backdrop--backdrop" : "tl-detail-backdrop--fallback-art")">
+        <img src="@HeroImageUrl" alt="" />
     </div>
 }
 else
@@ -15,5 +15,17 @@ else
 @code {
     [Parameter, EditorRequired] public ArtworkSet Artwork { get; set; } = default!;
 
-    private string? BackdropUrl => Artwork.BackdropUrl ?? Artwork.BannerUrl;
+    private bool HasRealBackdrop => !string.IsNullOrWhiteSpace(Artwork.BackdropUrl) || !string.IsNullOrWhiteSpace(Artwork.BannerUrl);
+
+    private string? HeroImageUrl => FirstNonBlank(
+        Artwork.BackdropUrl,
+        Artwork.BannerUrl,
+        Artwork.PosterUrl,
+        Artwork.CoverUrl,
+        Artwork.PortraitUrl,
+        Artwork.CharacterImageUrl,
+        Artwork.RelatedArtworkUrls.FirstOrDefault());
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

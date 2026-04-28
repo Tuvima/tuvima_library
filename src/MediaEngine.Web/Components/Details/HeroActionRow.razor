@@ -4,17 +4,73 @@
 <div class="tl-detail-actions">
     @foreach (var action in PrimaryActions)
     {
-        <button type="button" class="tl-detail-action tl-detail-action--primary" @onclick="@(() => Select(action))">
+        <button type="button"
+                class="tl-detail-action tl-detail-action--primary"
+                disabled="@action.IsDisabled"
+                title="@TooltipFor(action)"
+                @onclick="@(() => Select(action))">
             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
             <span>@action.Label</span>
         </button>
     }
-    @foreach (var action in SecondaryActions.Take(3))
+    @foreach (var action in SecondaryActions)
     {
-        <button type="button" class="tl-detail-action tl-detail-action--secondary" @onclick="@(() => Select(action))">
-            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
-            <span>@action.Label</span>
-        </button>
+        @if (action.Key == "reaction-menu")
+        {
+            <div class="tl-hover-action-menu tl-reaction-menu" tabindex="0" aria-label="@action.Label">
+                <button type="button" class="tl-detail-icon-action" aria-label="@action.Label">
+                    <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                </button>
+                <div class="tl-hover-action-menu__tray">
+                    @foreach (var child in action.Children)
+                    {
+                        <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
+                            <button type="button"
+                                    class="tl-detail-icon-action"
+                                    aria-label="@child.Label"
+                                    disabled="@child.IsDisabled"
+                                    @onclick="@(() => Select(child))">
+                                <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
+                            </button>
+                        </MudTooltip>
+                    }
+                </div>
+            </div>
+        }
+        else if (action.Key == "format-tools")
+        {
+            <div class="tl-hover-action-menu tl-format-menu" tabindex="0" aria-label="@action.Label">
+                <button type="button" class="tl-detail-icon-action" aria-label="@action.Label">
+                    <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                </button>
+                <div class="tl-hover-action-menu__tray">
+                    @foreach (var child in action.Children)
+                    {
+                        <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
+                            <button type="button"
+                                    class="tl-detail-icon-action"
+                                    aria-label="@child.Label"
+                                    disabled="@child.IsDisabled"
+                                    @onclick="@(() => Select(child))">
+                                <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
+                            </button>
+                        </MudTooltip>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
+                <button type="button"
+                        class="tl-detail-icon-action @(action.IsStub ? "tl-detail-icon-action--stub" : null)"
+                        aria-label="@action.Label"
+                        disabled="@action.IsDisabled"
+                        @onclick="@(() => Select(action))">
+                    <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                </button>
+            </MudTooltip>
+        }
     }
 </div>
 
@@ -23,15 +79,24 @@
     [Parameter] public IReadOnlyList<DetailAction> SecondaryActions { get; set; } = [];
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
-    private Task Select(DetailAction action) => OnActionSelected.InvokeAsync(action);
+    private Task Select(DetailAction action)
+        => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);
+
+    private static string TooltipFor(DetailAction action)
+        => action.Tooltip ?? (action.IsStub ? $"{action.Label} (coming soon)" : action.Label);
 
     public static string IconFor(DetailAction action) => action.Icon switch
     {
         "play_arrow" => Icons.Material.Filled.PlayArrow,
         "headphones" => Icons.Material.Outlined.Headphones,
         "menu_book" => Icons.Material.Outlined.MenuBook,
+        "groups" => Icons.Material.Outlined.Groups,
         "shuffle" => Icons.Material.Outlined.Shuffle,
+        "add" => Icons.Material.Outlined.Add,
         "playlist_add" => Icons.Material.Outlined.PlaylistAdd,
+        "thumb_up" => Icons.Material.Outlined.ThumbUp,
+        "thumb_down" => Icons.Material.Outlined.ThumbDown,
+        "favorite" => Icons.Material.Outlined.FavoriteBorder,
         "check_circle" => Icons.Material.Outlined.CheckCircle,
         "link" => Icons.Material.Outlined.Link,
         "compare_arrows" => Icons.Material.Outlined.CompareArrows,
@@ -41,6 +106,8 @@
         "edit" => Icons.Material.Outlined.Edit,
         "info" => Icons.Material.Outlined.Info,
         "account_tree" => Icons.Material.Outlined.AccountTree,
+        "auto_stories" => Icons.Material.Outlined.AutoStories,
+        "settings" => Icons.Material.Outlined.Settings,
         _ => Icons.Material.Outlined.OpenInNew,
     };
 }

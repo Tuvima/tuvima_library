@@ -1,6 +1,7 @@
 using Dapper;
 using System.Text;
 using MediaEngine.Api.Endpoints;
+using MediaEngine.Api.Services.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
@@ -108,6 +109,7 @@ public sealed class DetailComposerService
         var values = detail.CanonicalValues.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
         var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
         var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct);
+        var artworkFallback = await LoadWorkArtworkFallbackAsync(workId, ct);
         var multiFormatState = ownedFormats.Count > 1
             ? MultiFormatState.MultipleFormatsSeparateProgress
             : MultiFormatState.SingleFormat;
@@ -122,12 +124,19 @@ public sealed class DetailComposerService
             GetValue(values, "cover"),
             GetValue(values, "poster_url"),
             GetValue(values, "poster"),
+            artworkFallback.CoverUrl,
+            artworkFallback.SquareUrl,
             ownedCoverUrls.FirstOrDefault());
+        var backdropUrl = FirstNonBlank(
+            detail.BackgroundUrl,
+            detail.HeroUrl,
+            artworkFallback.BackgroundUrl);
+        var bannerUrl = FirstNonBlank(detail.BannerUrl, artworkFallback.BannerUrl);
 
         var artwork = BuildArtwork(
             entityType,
-            detail.BackgroundUrl ?? detail.HeroUrl,
-            detail.BannerUrl,
+            backdropUrl,
+            bannerUrl,
             foregroundArtworkUrl,
             foregroundArtworkUrl,
             null,
@@ -158,14 +167,14 @@ public sealed class DetailComposerService
             SeriesPlacement = seriesPlacement,
             Metadata = BuildMetadataPills(detail, entityType),
             PrimaryActions = BuildPrimaryActions(workId, entityType, context, ownedFormats),
-            SecondaryActions = BuildSecondaryActions(workId, entityType),
+            SecondaryActions = BuildSecondaryActions(workId, entityType, ownedFormats),
             OverflowActions = BuildOverflowActions(workId, entityType, isAdminView),
             ContributorGroups = contributorGroups,
             PreviewContributors = contributorGroups.SelectMany(g => g.Credits).OrderBy(c => c.SortOrder).Take(12).ToList(),
             CharacterGroups = characters,
             PreviewCharacters = characters.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = BuildRelationshipStrip(detail, seriesPlacement),
-            Tabs = BuildTabs(entityType, context, isAdminView),
+            Tabs = BuildTabs(entityType, context, isAdminView, seriesPlacement is not null),
             MediaGroups = mediaGroups,
             IdentityStatus = ResolveIdentityStatus(detail.WikidataQid, detail.Status, detail.Confidence),
             LibraryStatus = LibraryStatus.Owned,
@@ -222,7 +231,7 @@ public sealed class DetailComposerService
             Artwork = artwork,
             Metadata = BuildCollectionMetadata(entityType, works),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context),
-            SecondaryActions = [new DetailAction { Key = "collection", Label = "Add to Collection", Icon = "playlist_add" }],
+            SecondaryActions = BuildSecondaryActions(collectionId, entityType),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
             ContributorGroups = await BuildCollectionCreditsAsync(collectionId, works, entityType, ct),
             CharacterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct),
@@ -696,6 +705,65 @@ public sealed class DetailComposerService
             .ToDictionary(g => g.Key, g => g.First().Value, StringComparer.OrdinalIgnoreCase);
     }
 
+    private async Task<WorkArtworkFallback> LoadWorkArtworkFallbackAsync(Guid workId, CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        var row = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
+            """
+            WITH ranked_assets AS (
+                SELECT
+                    w.id AS WorkId,
+                    COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                    ma.id AS AssetId,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY w.id
+                        ORDER BY CASE WHEN mc.claimed_at IS NULL THEN 1 ELSE 0 END, mc.claimed_at ASC, ma.id
+                    ) AS AssetRank
+                FROM works w
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                LEFT JOIN metadata_claims mc ON mc.entity_id = ma.id
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                WHERE w.id = @workId
+            )
+            SELECT
+                CAST(AssetId AS TEXT) AS AssetId,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster') LIMIT 1) AS CoverUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('square_url', 'square') LIMIT 1) AS SquareUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url', 'background') LIMIT 1) AS BackgroundUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('banner_url', 'banner') LIMIT 1) AS BannerUrl,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'cover_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'cover_state' LIMIT 1)) AS CoverState,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'square_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_state' LIMIT 1)) AS SquareState,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'background_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'background_state' LIMIT 1)) AS BackgroundState,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'banner_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_state' LIMIT 1)) AS BannerState
+            FROM ranked_assets
+            WHERE AssetRank = 1
+            LIMIT 1;
+            """,
+            new { workId = workId.ToString("D") },
+            cancellationToken: ct));
+
+        if (row is null)
+            return new WorkArtworkFallback();
+
+        var assetIdValue = StringValue(row.AssetId);
+        if (!Guid.TryParse(assetIdValue, out Guid assetId))
+            return new WorkArtworkFallback();
+
+        return new WorkArtworkFallback
+        {
+            CoverUrl = DisplayArtworkUrlResolver.Resolve(StringValue(row.CoverUrl), assetId, "cover", StringValue(row.CoverState)),
+            SquareUrl = DisplayArtworkUrlResolver.Resolve(StringValue(row.SquareUrl), assetId, "square", StringValue(row.SquareState)),
+            BackgroundUrl = DisplayArtworkUrlResolver.Resolve(StringValue(row.BackgroundUrl), assetId, "background", StringValue(row.BackgroundState)),
+            BannerUrl = DisplayArtworkUrlResolver.Resolve(StringValue(row.BannerUrl), assetId, "banner", StringValue(row.BannerState)),
+        };
+    }
+
     private static ArtworkSet BuildArtwork(
         DetailEntityType entityType,
         string? backdropUrl,
@@ -735,12 +803,29 @@ public sealed class DetailComposerService
 
     private static IReadOnlyList<MetadataPill> BuildMetadataPills(LibraryItemDetail detail, DetailEntityType entityType)
     {
-        var values = new[] { FormatEntityType(entityType), detail.Year, detail.Runtime, detail.Genre, detail.Rating, detail.Language }
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(value => new MetadataPill { Label = value! })
+        var values = new List<MetadataPill>();
+        AddPlain(values, detail.Rating, "rating");
+
+        foreach (var genre in SplitMetadataValues(detail.Genre).Take(3))
+        {
+            values.Add(new MetadataPill
+            {
+                Label = genre,
+                Kind = "genre",
+                Route = $"/search?genre={Uri.EscapeDataString(genre)}",
+                Tooltip = $"Browse {genre}",
+            });
+        }
+
+        AddPlain(values, FormatEntityType(entityType), "type");
+        AddPlain(values, detail.Year, "year");
+        AddPlain(values, detail.Runtime, "duration");
+        AddPlain(values, detail.Language, "audio");
+
+        return values
+            .Where(value => !string.IsNullOrWhiteSpace(value.Label))
+            .DistinctBy(value => value.Label, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        return values;
     }
 
     private static IReadOnlyList<DetailAction> BuildPrimaryActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, IReadOnlyList<OwnedFormatViewModel> formats)
@@ -766,12 +851,69 @@ public sealed class DetailComposerService
         };
     }
 
-    private static IReadOnlyList<DetailAction> BuildSecondaryActions(Guid id, DetailEntityType entityType)
-        =>
-        [
-            new DetailAction { Key = "add", Label = "Add to Collection", Icon = "playlist_add" },
-            new DetailAction { Key = "mark", Label = entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.ComicIssue ? "Mark Finished" : "Mark Watched", Icon = "check_circle" },
-        ];
+    private static IReadOnlyList<DetailAction> BuildSecondaryActions(Guid id, DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel>? formats = null)
+    {
+        var actions = new List<DetailAction>();
+
+        if (entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode)
+        {
+            actions.Add(new DetailAction
+            {
+                Key = "watch-party",
+                Label = "Watch Party",
+                Icon = "groups",
+                Tooltip = "Watch Party is coming soon",
+                IsDisabled = true,
+                IsStub = true,
+                DisplayStyle = "icon",
+            });
+        }
+
+        actions.Add(new DetailAction
+        {
+            Key = "add-to-collection",
+            Label = "Add to collection",
+            Icon = "add",
+            Tooltip = "Add to collection",
+            DisplayStyle = "icon",
+        });
+
+        actions.Add(new DetailAction
+        {
+            Key = "reaction-menu",
+            Label = "Rate",
+            Icon = "thumb_up",
+            Tooltip = "Rate this item",
+            DisplayStyle = "hover-menu",
+            Children =
+            [
+                new DetailAction { Key = "like", Label = "Thumbs up", Icon = "thumb_up", Tooltip = "Thumbs up" },
+                new DetailAction { Key = "dislike", Label = "Thumbs down", Icon = "thumb_down", Tooltip = "Thumbs down" },
+            ],
+        });
+
+        if (formats?.Any(f => f.FormatType == MediaFormatType.Ebook) == true &&
+            formats.Any(f => f.FormatType == MediaFormatType.Audiobook))
+        {
+            actions.Add(new DetailAction
+            {
+                Key = "format-tools",
+                Label = "Read/listen tools",
+                Icon = "headphones",
+                Tooltip = "Read/listen tools",
+                DisplayStyle = "hover-menu",
+                Children =
+                [
+                    new DetailAction { Key = "sync-progress", Label = "Sync Progress", Icon = "sync", Tooltip = "Sync Progress (coming soon)", IsDisabled = true, IsStub = true },
+                    new DetailAction { Key = "read-along", Label = "Read Along", Icon = "auto_stories", Tooltip = "Read Along (coming soon)", IsDisabled = true, IsStub = true },
+                    new DetailAction { Key = "keep-separate", Label = "Keep Separate", Icon = "link", Tooltip = "Keep reading and listening progress separate", IsDisabled = true },
+                    new DetailAction { Key = "format-settings", Label = "Format Settings", Icon = "settings", Tooltip = "Format Settings (coming soon)", IsDisabled = true, IsStub = true },
+                ],
+            });
+        }
+
+        return actions;
+    }
 
     private static IReadOnlyList<DetailAction> BuildOverflowActions(Guid id, DetailEntityType entityType, bool isAdminView)
     {
@@ -791,13 +933,18 @@ public sealed class DetailComposerService
         return actions.Where(a => !a.IsAdminOnly || isAdminView).ToList();
     }
 
-    private static IReadOnlyList<DetailTab> BuildTabs(DetailEntityType entityType, DetailPresentationContext context, bool isAdminView)
+    private static IReadOnlyList<DetailTab> BuildTabs(DetailEntityType entityType, DetailPresentationContext context, bool isAdminView, bool hasSeries = false)
     {
         string[] keys = entityType switch
         {
             DetailEntityType.TvShow => ["episodes", "overview", "people", "universe", "details"],
             DetailEntityType.TvSeason => ["episodes", "overview", "people", "details"],
+            DetailEntityType.Movie when hasSeries => ["series", "overview", "people", "characters", "universe", "related", "details"],
+            DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["series", "overview", "chapters", "contributors", "characters", "universe", "editions", "details"],
             DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "chapters", "contributors", "characters", "series", "universe", "editions", "details"],
+            DetailEntityType.Work when hasSeries => ["series", "overview", "formats", "chapters", "contributors", "characters", "universe", "editions", "details"],
+            DetailEntityType.Work => ["overview", "formats", "chapters", "contributors", "characters", "series", "universe", "editions", "details"],
+            DetailEntityType.ComicIssue when hasSeries => ["series", "overview", "contributors", "characters", "universe", "editions", "details"],
             DetailEntityType.ComicIssue => ["overview", "contributors", "characters", "series", "universe", "editions", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "credits", "related", "details"],
             DetailEntityType.MusicArtist when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "related", "details"],
@@ -813,6 +960,24 @@ public sealed class DetailComposerService
         if (isAdminView)
             tabs.Add(new DetailTab { Key = "registry", Label = "Registry", IsAdminOnly = true });
         return tabs;
+    }
+
+    private static void AddPlain(List<MetadataPill> values, string? label, string kind)
+    {
+        if (!string.IsNullOrWhiteSpace(label))
+            values.Add(new MetadataPill { Label = label, Kind = kind });
+    }
+
+    private static IEnumerable<string> SplitMetadataValues(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            yield break;
+
+        foreach (var part in value.Split([',', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!string.IsNullOrWhiteSpace(part))
+                yield return part;
+        }
     }
 
     private static IReadOnlyList<DetailAction> BuildFormatActions(Guid workId, MediaFormatType format)
@@ -845,8 +1010,8 @@ public sealed class DetailComposerService
             Reason = "Sync needs review. We could not confidently align this ebook and audiobook yet.",
             TextEditionId = ebook.Id,
             AudioEditionId = audio.Id,
-            PreviewAction = new DetailAction { Key = "preview-sync", Label = "Preview", Icon = "compare_arrows" },
-            EnableAction = new DetailAction { Key = "enable-sync", Label = "Enable Sync", Icon = "link" },
+            PreviewAction = new DetailAction { Key = "preview-sync", Label = "Preview Sync", Icon = "compare_arrows", Tooltip = "Preview Sync is coming soon", IsDisabled = true, IsStub = true },
+            EnableAction = new DetailAction { Key = "enable-sync", Label = "Enable Sync", Icon = "link", Tooltip = "Sync Progress is coming soon", IsDisabled = true, IsStub = true },
         };
     }
 
@@ -1339,6 +1504,13 @@ public sealed class DetailComposerService
 
     private sealed record WorkContributorResult(IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> CastCredits);
     private sealed record CanonicalPair(string Key, string Value);
+    private sealed record WorkArtworkFallback
+    {
+        public string? CoverUrl { get; init; }
+        public string? SquareUrl { get; init; }
+        public string? BackgroundUrl { get; init; }
+        public string? BannerUrl { get; init; }
+    }
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl);
     private sealed record SeriesRow(string WorkId, string Title, string? PositionLabel, string? ArtworkUrl);

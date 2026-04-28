@@ -114,6 +114,9 @@ public sealed class MetadataPill
 {
     public string Label { get; init; } = string.Empty;
     public string? Icon { get; init; }
+    public string? Kind { get; init; }
+    public string? Route { get; init; }
+    public string? Tooltip { get; init; }
 }
 
 public sealed class DetailAction
@@ -122,9 +125,14 @@ public sealed class DetailAction
     public string Label { get; init; } = string.Empty;
     public string? Icon { get; init; }
     public string? Route { get; init; }
+    public string? Tooltip { get; init; }
     public bool IsPrimary { get; init; }
     public bool IsDestructive { get; init; }
     public bool IsAdminOnly { get; init; }
+    public bool IsDisabled { get; init; }
+    public bool IsStub { get; init; }
+    public string? DisplayStyle { get; init; }
+    public IReadOnlyList<DetailAction> Children { get; init; } = [];
 }
 
 public sealed class DetailTab

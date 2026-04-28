@@ -6,21 +6,10 @@
     <article class="tl-detail-page">
         <DetailHero Model="Model" OnActionSelected="OnActionSelected" />
 
-        @if (Model.SeriesPlacement is not null)
-        {
-            <SeriesPlacementPanel Placement="Model.SeriesPlacement" />
-        }
-
-        @if (Model.OwnedFormats.Count > 1)
-        {
-            <OwnedFormatsPanel Formats="Model.OwnedFormats"
-                               MultiFormatState="Model.MultiFormatState"
-                               SyncCapability="Model.SyncCapability" />
-        }
-
         @if (Model.PreviewContributors.Count > 0)
         {
-            <PeoplePreviewStrip Credits="Model.PreviewContributors" />
+            <PeoplePreviewStrip Title="@CreditPreviewTitle(Model)"
+                                Credits="Model.PreviewContributors" />
         }
 
         <DetailTabs Tabs="Model.Tabs" ActiveTab="@_activeTab" ActiveTabChanged="SetActiveTab" />
@@ -33,6 +22,17 @@
             else if (_activeTab is "episodes")
             {
                 <EpisodesTab Groups="Model.MediaGroups" />
+            }
+            else if (_activeTab is "series")
+            {
+                @if (Model.SeriesPlacement is not null)
+                {
+                    <SeriesPlacementPanel Placement="Model.SeriesPlacement" />
+                }
+                else
+                {
+                    <ChildrenListTab Groups="Model.MediaGroups" />
+                }
             }
             else if (_activeTab is "tracks" or "items" or "media" or "works" or "albums")
             {
@@ -80,13 +80,46 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private string _activeTab = "overview";
+    private string? _loadedModelKey;
 
     protected override void OnParametersSet()
     {
         var firstVisible = Model?.Tabs.FirstOrDefault(tab => !tab.IsAdminOnly || Model.IsAdminView);
-        if (firstVisible is not null && !Model!.Tabs.Any(tab => tab.Key == _activeTab && (!tab.IsAdminOnly || Model.IsAdminView)))
+        var modelKey = Model is null ? null : $"{Model.EntityType}:{Model.Id}:{Model.PresentationContext}";
+
+        if (firstVisible is not null && modelKey != _loadedModelKey)
+        {
             _activeTab = firstVisible.Key;
+            _loadedModelKey = modelKey;
+        }
+        else if (firstVisible is not null && !Model!.Tabs.Any(tab => tab.Key == _activeTab && (!tab.IsAdminOnly || Model.IsAdminView)))
+        {
+            _activeTab = firstVisible.Key;
+        }
     }
 
     private void SetActiveTab(string key) => _activeTab = key;
+
+    private static string CreditPreviewTitle(DetailPageViewModel model) => model.EntityType switch
+    {
+        DetailEntityType.Movie => "Starring",
+        DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Cast & Crew",
+        DetailEntityType.Book => "Authors",
+        DetailEntityType.Audiobook => "Author & Narrator",
+        DetailEntityType.Work when model.OwnedFormats.Any(f => f.FormatType == MediaFormatType.Audiobook) => "Author & Narrator",
+        DetailEntityType.Work => "Authors",
+        DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "Creative Team",
+        DetailEntityType.MusicAlbum => "Artists & Credits",
+        DetailEntityType.MusicArtist => model.PresentationContext == DetailPresentationContext.Listen ? "Artists & Credits" : "Related People",
+        DetailEntityType.Person => model.PresentationContext switch
+        {
+            DetailPresentationContext.Listen => "Music Credits",
+            DetailPresentationContext.Watch => "Movies & TV",
+            DetailPresentationContext.Read => "Books & Audiobooks",
+            _ => "Related Works",
+        },
+        DetailEntityType.Character => "Portrayals",
+        DetailEntityType.Universe => "People",
+        _ => "Credits",
+    };
 }
