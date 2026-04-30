@@ -89,8 +89,26 @@ public sealed class ArtworkSet
     public string? SecondaryColor { get; init; }
     public string? AccentColor { get; init; }
 
+    public HeroArtworkViewModel HeroArtwork { get; init; } = new();
     public ArtworkPresentationMode PresentationMode { get; init; } = ArtworkPresentationMode.GeneratedIdentity;
     public ArtworkSource Source { get; init; } = ArtworkSource.Generated;
+}
+
+public sealed class HeroArtworkViewModel
+{
+    public string? Url { get; init; }
+    public HeroArtworkMode Mode { get; init; } = HeroArtworkMode.Placeholder;
+    public bool HasImage { get; init; }
+    public double? AspectRatio { get; init; }
+    public string? BackgroundPosition { get; init; }
+    public string? MobilePosition { get; init; }
+}
+
+public enum HeroArtworkMode
+{
+    Background,
+    CoverFallback,
+    Placeholder
 }
 
 public sealed class HeroBrandViewModel

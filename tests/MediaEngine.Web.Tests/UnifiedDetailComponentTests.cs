@@ -3,27 +3,48 @@ namespace MediaEngine.Web.Tests;
 public sealed class UnifiedDetailComponentTests
 {
     [Fact]
-    public void HeroBackdrop_DoesNotUseBlurredCoverFallback()
+    public void HeroBackdrop_RendersCentralizedHeroArtworkModes()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroBackdrop.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.DoesNotContain("filter: blur(", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Artwork.BackdropUrl", source);
-        Assert.Contains("Artwork.CoverUrl", source);
-        Assert.Contains("tl-detail-media-stage--cover-only", source);
-        Assert.DoesNotContain("tl-detail-media-stage--cover-only .tl-detail-media-stage__image {\r\n    filter: blur(", styles, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("tl-detail-media-stage--cover-only .tl-detail-media-stage__image {\n    filter: blur(", styles, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("place-items: center end", styles);
+        Assert.Contains("Artwork.HeroArtwork", source);
+        Assert.Contains("HeroArtworkMode.Background", source);
+        Assert.Contains("HeroArtworkMode.CoverFallback", source);
+        Assert.Contains("tl-detail-media-stage--background", source);
+        Assert.Contains("tl-detail-media-stage--cover-fallback", source);
+        Assert.Contains("tl-detail-media-stage__cover-atmosphere", source);
+        Assert.Contains("tl-detail-media-stage__cover-wrap", source);
+        Assert.Contains("@onerror=\"HandleImageError\"", source);
+
+        Assert.Contains("tl-detail-media-stage--background .tl-detail-media-stage__overlay", styles);
+        Assert.Contains("tl-detail-media-stage--cover-fallback .tl-detail-media-stage__overlay", styles);
+        Assert.Contains("filter: blur(64px) saturate(1.15)", styles);
+        Assert.Contains("opacity: 0.28", styles);
+        Assert.Contains("transform: scale(1.35)", styles);
         Assert.Contains("object-fit: contain", styles);
         Assert.Contains("opacity: 1", styles);
         Assert.DoesNotContain("opacity: 0.58", styles);
-        Assert.Contains("circle at 72% 38%", styles);
-        Assert.Contains("transparent 78%", styles);
-        Assert.Contains("width: 100%", styles);
-        Assert.Contains("tl-detail-media-stage--real-backdrop .tl-detail-media-stage__image", styles);
-        Assert.Contains("object-position: center right", styles);
-        Assert.Contains("min-height: clamp(38rem, 78vh, 58rem)", styles);
+        Assert.Contains("width: fit-content", styles);
+        Assert.Contains("height: 100%", styles);
+        Assert.DoesNotContain("0 0 0 1px rgba(255, 255, 255, 0.10)", styles);
+        Assert.Contains("content: none", styles);
+        Assert.Contains("filter: none", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.98) 0%", styles);
+        Assert.Contains("inset: 0 0 0 34%", styles);
+        Assert.Contains("width: 66%", styles);
+        Assert.Contains("height: 100%", styles);
+        Assert.Contains("object-position: var(--hero-image-position, center right)", styles);
+        Assert.Contains("object-fit: contain", styles);
+        Assert.Contains("mask-image:", styles);
+        Assert.Contains("transparent 0%", styles);
+        Assert.DoesNotContain("background-size: contain", styles);
+        Assert.DoesNotContain("tl-detail-media-stage__background {\r\n    position: absolute;\r\n    inset: 0;\r\n    width: 100%;\r\n    height: 100%;\r\n    object-fit: cover", styles);
+        Assert.Contains("min-height: clamp(42rem, 84vh, 64rem)", styles);
+        Assert.DoesNotContain("tl-detail-backdrop", styles);
+        Assert.DoesNotContain("tl-hero-art", styles);
+        Assert.DoesNotContain("var(--tl-detail-accent) 30%", styles);
+        Assert.DoesNotContain("linear-gradient(135deg, color-mix(in srgb, var(--tl-detail-primary) 36%, #101115)", styles);
     }
 
     [Fact]
@@ -103,7 +124,33 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("NormalizeSeriesPlacement", source);
         Assert.Contains("NormalizeSeriesItem", source);
+        Assert.Contains("NormalizeHeroArtwork", source);
         Assert.Contains("ImageUrl = NormalizeOptionalUrl(credit.ImageUrl)", source);
+    }
+
+    [Fact]
+    public void RoutePages_DoNotChooseHeroArtwork()
+    {
+        var root = FindRepoRoot();
+        var detailRoutes = new[]
+        {
+            "WatchMoviePage.razor",
+            "WatchTvShowPage.razor",
+            "WatchTvEpisodePage.razor",
+            "BookDetail.razor",
+            "CollectionDetail.razor",
+            "PersonDetail.razor",
+            "UnifiedDetailPage.razor",
+        };
+        var pageSources = detailRoutes
+            .Select(path => File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Pages", path)));
+
+        foreach (var source in pageSources)
+        {
+            Assert.DoesNotContain("HeroArtwork", source);
+            Assert.DoesNotContain("BackdropUrl", source);
+            Assert.DoesNotContain("CoverUrl", source);
+        }
     }
 
     [Fact]

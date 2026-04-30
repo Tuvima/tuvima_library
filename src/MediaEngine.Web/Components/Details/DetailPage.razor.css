@@ -14,136 +14,234 @@
 }
 
 ::deep .tl-detail-hero {
+    --hero-bg-rgb: 8, 10, 15;
+    --hero-accent-rgb: 44, 180, 190;
+    --hero-focus-x: 68%;
+    --hero-focus-y: 42%;
     position: relative;
-    min-height: clamp(38rem, 78vh, 58rem);
+    min-height: clamp(42rem, 84vh, 64rem);
     overflow: hidden;
     isolation: isolate;
-    background:
-        radial-gradient(circle at 72% 28%, color-mix(in srgb, var(--tl-detail-accent) 42%, transparent), transparent 28rem),
-        linear-gradient(135deg, color-mix(in srgb, var(--tl-detail-primary) 48%, #0c1018), color-mix(in srgb, var(--tl-detail-secondary) 58%, #101115) 52%, #0e1015);
+    background: rgb(var(--hero-bg-rgb));
 }
 
 ::deep .tl-detail-hero::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    opacity: 0.16;
-    pointer-events: none;
-    background-image:
-        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px);
-    background-size: 3px 3px;
-    mix-blend-mode: overlay;
+    content: none;
 }
 
-::deep .tl-detail-hero__backdrop,
-::deep .tl-hero-backdrop,
-::deep .tl-detail-backdrop,
 ::deep .tl-detail-media-stage {
     position: absolute;
     inset: 0;
     width: 100%;
     z-index: -3;
-    display: grid;
-    place-items: center end;
     overflow: hidden;
+    background: rgb(var(--hero-bg-rgb));
+}
+
+::deep .tl-detail-media-stage--background {
     background:
-        radial-gradient(circle at 72% 38%, color-mix(in srgb, var(--tl-detail-accent) 34%, transparent), transparent 28rem),
-        linear-gradient(90deg, color-mix(in srgb, #101115 72%, var(--tl-detail-primary)) 0%, color-mix(in srgb, #101115 48%, var(--tl-detail-secondary)) 100%);
+        radial-gradient(
+            ellipse at 76% 48%,
+            rgba(var(--hero-accent-rgb), 0.18) 0%,
+            rgba(var(--hero-accent-rgb), 0.10) 34%,
+            rgba(var(--hero-bg-rgb), 0.62) 72%,
+            rgba(var(--hero-bg-rgb), 1.00) 100%
+        ),
+        linear-gradient(
+            90deg,
+            rgba(var(--hero-bg-rgb), 1.00) 0%,
+            rgba(var(--hero-bg-rgb), 0.98) 38%,
+            rgba(var(--hero-bg-rgb), 0.80) 58%,
+            rgba(var(--hero-bg-rgb), 0.46) 78%,
+            rgba(var(--hero-bg-rgb), 0.70) 100%
+        );
 }
 
-::deep .tl-detail-hero__backdrop img,
-::deep .tl-hero-backdrop img,
-::deep .tl-detail-backdrop img,
-::deep .tl-detail-media-stage__image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center center;
+::deep .tl-detail-media-stage__background,
+::deep .tl-detail-media-stage__cover {
+    display: block;
     opacity: 1;
-    filter: saturate(1.04) contrast(1.02);
+    filter: none;
 }
 
-::deep .tl-detail-media-stage::before,
-::deep .tl-detail-media-stage::after {
-    content: "";
+::deep .tl-detail-media-stage__background {
+    position: absolute;
+    inset: 0 0 0 34%;
+    width: 66%;
+    height: 100%;
+    object-fit: contain;
+    object-position: var(--hero-image-position, center right);
+    -webkit-mask-image:
+        linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(0, 0, 0, 0.00) 4%,
+            rgba(0, 0, 0, 0.22) 12%,
+            rgba(0, 0, 0, 0.68) 22%,
+            #000 34%
+        ),
+        radial-gradient(
+            ellipse at 68% 47%,
+            #000 0%,
+            #000 64%,
+            rgba(0, 0, 0, 0.78) 80%,
+            rgba(0, 0, 0, 0.38) 94%,
+            transparent 100%
+        );
+    -webkit-mask-composite: source-in;
+    mask-image:
+        linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(0, 0, 0, 0.00) 4%,
+            rgba(0, 0, 0, 0.22) 12%,
+            rgba(0, 0, 0, 0.68) 22%,
+            #000 34%
+        ),
+        radial-gradient(
+            ellipse at 68% 47%,
+            #000 0%,
+            #000 64%,
+            rgba(0, 0, 0, 0.78) 80%,
+            rgba(0, 0, 0, 0.38) 94%,
+            transparent 100%
+        );
+    mask-composite: intersect;
+}
+
+::deep .tl-detail-media-stage__overlay {
     position: absolute;
     inset: 0;
+    z-index: 2;
     pointer-events: none;
 }
 
-::deep .tl-detail-media-stage::before {
-    z-index: 1;
+::deep .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
     background:
+        linear-gradient(
+            180deg,
+            rgba(var(--hero-bg-rgb), 0.00) 42%,
+            rgba(var(--hero-bg-rgb), 0.34) 70%,
+            rgba(var(--hero-bg-rgb), 0.88) 100%
+        ),
         radial-gradient(
-            circle at 72% 38%,
-            color-mix(in srgb, var(--tl-detail-primary) 5%, transparent) 0%,
-            color-mix(in srgb, var(--tl-detail-primary) 14%, transparent) 28%,
-            color-mix(in srgb, var(--tl-detail-primary) 30%, transparent) 52%,
-            color-mix(in srgb, var(--tl-detail-primary) 52%, transparent) 76%,
-            color-mix(in srgb, var(--tl-detail-primary) 70%, #101115) 100%
-        );
-}
-
-::deep .tl-detail-media-stage::after {
-    z-index: 2;
-    background:
-        linear-gradient(180deg, transparent 44%, rgba(0, 0, 0, 0.28) 72%, #101115 100%),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0%, transparent 45%, rgba(0, 0, 0, 0.22) 100%),
+            ellipse at var(--hero-focus-x) var(--hero-focus-y),
+            rgba(var(--hero-bg-rgb), 0.00) 0%,
+            rgba(var(--hero-bg-rgb), 0.00) 54%,
+            rgba(var(--hero-bg-rgb), 0.08) 70%,
+            rgba(var(--hero-bg-rgb), 0.30) 88%,
+            rgba(var(--hero-bg-rgb), 0.66) 100%
+        ),
         linear-gradient(
             90deg,
-            color-mix(in srgb, var(--tl-detail-primary) 52%, #101115) 0%,
-            color-mix(in srgb, var(--tl-detail-primary) 44%, #101115) 30%,
-            color-mix(in srgb, var(--tl-detail-primary) 24%, transparent) 50%,
-            color-mix(in srgb, var(--tl-detail-primary) 8%, transparent) 66%,
-            transparent 78%
+            rgba(var(--hero-bg-rgb), 0.98) 0%,
+            rgba(var(--hero-bg-rgb), 0.94) 24%,
+            rgba(var(--hero-bg-rgb), 0.78) 38%,
+            rgba(var(--hero-bg-rgb), 0.48) 52%,
+            rgba(var(--hero-bg-rgb), 0.16) 66%,
+            rgba(var(--hero-bg-rgb), 0.00) 80%
         );
 }
 
-::deep .tl-detail-media-stage--real-backdrop .tl-detail-media-stage__image {
-    width: 100%;
+::deep .tl-detail-media-stage--cover-fallback {
+    background:
+        radial-gradient(
+            ellipse at 72% 50%,
+            rgba(var(--hero-accent-rgb), 0.42) 0%,
+            rgba(var(--hero-accent-rgb), 0.20) 34%,
+            rgba(var(--hero-bg-rgb), 0.92) 78%,
+            rgba(var(--hero-bg-rgb), 1.00) 100%
+        ),
+        linear-gradient(
+            90deg,
+            rgba(var(--hero-bg-rgb), 1.00) 0%,
+            rgba(var(--hero-bg-rgb), 0.96) 32%,
+            rgba(var(--hero-bg-rgb), 0.74) 54%,
+            rgba(var(--hero-bg-rgb), 0.42) 72%,
+            rgba(var(--hero-bg-rgb), 0.88) 100%
+        );
+}
+
+::deep .tl-detail-media-stage__cover-atmosphere {
+    position: absolute;
+    inset: -20%;
+    z-index: 0;
+    background-image: var(--hero-image);
+    background-size: cover;
+    background-position: var(--hero-image-position, center);
+    filter: blur(64px) saturate(1.15);
+    opacity: 0.28;
+    transform: scale(1.35);
+}
+
+::deep .tl-detail-media-stage--cover-fallback .tl-detail-media-stage__overlay {
+    background:
+        linear-gradient(
+            90deg,
+            rgba(var(--hero-bg-rgb), 1.00) 0%,
+            rgba(var(--hero-bg-rgb), 0.96) 32%,
+            rgba(var(--hero-bg-rgb), 0.62) 58%,
+            rgba(var(--hero-bg-rgb), 0.22) 76%
+        ),
+        radial-gradient(
+            ellipse at 72% 50%,
+            rgba(var(--hero-accent-rgb), 0.38) 0%,
+            rgba(var(--hero-accent-rgb), 0.16) 36%,
+            rgba(var(--hero-bg-rgb), 0.72) 82%,
+            rgba(var(--hero-bg-rgb), 1.00) 100%
+        ),
+        linear-gradient(
+            180deg,
+            rgba(var(--hero-bg-rgb), 0.00) 40%,
+            rgba(var(--hero-bg-rgb), 0.85) 100%
+        );
+}
+
+::deep .tl-detail-media-stage__cover-wrap {
+    position: absolute;
+    z-index: 3;
+    right: clamp(3.5rem, 8vw, 8.75rem);
+    top: 50%;
+    width: fit-content;
+    max-width: clamp(18rem, 30vw, 30rem);
+    height: min(42rem, 76vh);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-50%);
+}
+
+::deep .tl-detail-media-stage__cover {
+    width: auto;
     height: 100%;
-    object-fit: cover;
-    object-position: center right;
-    transform: none;
-    transform-origin: center center;
-}
-
-::deep .tl-detail-media-stage--cover-only {
-    padding-right: clamp(2rem, 9vw, 10rem);
-    background:
-        radial-gradient(circle at 74% 45%, color-mix(in srgb, var(--tl-detail-primary) 66%, transparent), transparent 20rem),
-        radial-gradient(circle at 88% 56%, color-mix(in srgb, var(--tl-detail-accent) 42%, transparent), transparent 28rem),
-        linear-gradient(90deg, color-mix(in srgb, #101115 76%, var(--tl-detail-primary)) 0%, color-mix(in srgb, #101115 40%, var(--tl-detail-secondary)) 72%, #101115 100%);
-}
-
-::deep .tl-detail-media-stage--cover-only .tl-detail-media-stage__image {
-    justify-self: end;
-    width: min(30rem, 34vw);
-    height: min(42rem, 72vh);
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0.75rem;
     object-fit: contain;
-    object-position: center;
+    box-shadow:
+        0 2.25rem 5.625rem rgba(0, 0, 0, 0.56);
 }
 
-::deep .tl-detail-media-stage--square .tl-detail-media-stage__image {
-    width: min(30rem, 34vw);
-    height: min(30rem, 56vh);
+::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
+    width: clamp(16rem, 27vw, 25rem);
 }
 
-::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__image {
-    width: min(28rem, 32vw);
-    height: min(38rem, 68vh);
+::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__cover-wrap {
+    width: clamp(15rem, 25vw, 23rem);
 }
 
-::deep .tl-detail-media-stage__generated {
-    width: min(26rem, 34vw);
-    height: min(26rem, 48vh);
-    border-radius: 2rem;
+::deep .tl-detail-media-stage--placeholder,
+::deep .tl-detail-media-stage__placeholder {
+    position: absolute;
+    inset: 0;
     background:
-        radial-gradient(circle at 36% 28%, color-mix(in srgb, var(--tl-detail-accent) 44%, transparent), transparent 12rem),
-        linear-gradient(135deg, color-mix(in srgb, var(--tl-detail-primary) 74%, #101115), color-mix(in srgb, var(--tl-detail-secondary) 72%, #101115));
-    box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.34);
+        radial-gradient(
+            ellipse at 72% 44%,
+            rgba(80, 120, 180, 0.20) 0%,
+            rgba(20, 28, 40, 0.72) 52%,
+            rgba(8, 10, 15, 1.00) 100%
+        ),
+        linear-gradient(135deg, rgb(8, 10, 15), rgb(18, 24, 34));
 }
 
 ::deep .tl-detail-hero-brand {
@@ -166,14 +264,6 @@
     object-fit: contain;
     opacity: 1;
     filter: drop-shadow(0 0.3rem 1.2rem rgba(0, 0, 0, 0.72));
-}
-
-::deep .tl-detail-hero__shade {
-    position: absolute;
-    inset: 0;
-    z-index: -2;
-    background:
-        linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0%, transparent 24%, transparent 52%, rgba(0, 0, 0, 0.24) 78%, #101115 100%);
 }
 
 ::deep .tl-detail-hero__inner {
@@ -240,89 +330,6 @@
     color: rgba(246, 240, 232, 0.84);
     font-size: 0.78rem;
     font-weight: 650;
-}
-
-::deep .tl-hero-artwork,
-::deep .tl-hero-artwork-card,
-::deep .tl-hero-art {
-    position: relative;
-    align-self: end;
-    width: 100%;
-    max-width: 31rem;
-    aspect-ratio: 2 / 3;
-    border-radius: 1rem;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.16);
-    background: rgba(7, 9, 13, 0.76);
-    box-shadow: 0 1.5rem 4rem rgba(0,0,0,0.52);
-}
-
-::deep .tl-hero-artwork img,
-::deep .tl-hero-artwork-card img,
-::deep .tl-hero-art > img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-}
-
-::deep .tl-hero-art__paired-primary {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
-    padding: 0;
-}
-
-::deep .tl-hero-art__paired-primary img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-::deep .tl-hero-art__paired-primary span,
-::deep .tl-hero-art__paired-mini span {
-    position: absolute;
-    left: 0.7rem;
-    bottom: 0.7rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 999px;
-    background: rgba(0,0,0,0.62);
-    color: #fff8eb;
-    font-size: 0.72rem;
-    font-weight: 800;
-}
-
-::deep .tl-hero-art__paired-mini {
-    position: absolute;
-    right: -9%;
-    bottom: 7%;
-    width: 42%;
-    aspect-ratio: 2 / 3;
-    border: 1px solid rgba(255,255,255,0.22);
-    border-radius: 0.7rem;
-    overflow: hidden;
-    background: #080a0f;
-    box-shadow: 0 1rem 2.5rem rgba(0,0,0,0.48);
-}
-
-::deep .tl-hero-art__paired-mini img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-::deep .tl-hero-art__sync {
-    position: absolute;
-    right: 28%;
-    bottom: 28%;
-    width: 2.3rem;
-    height: 2.3rem;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    background: rgba(8, 10, 14, 0.82);
-    border: 1px solid rgba(255,255,255,0.26);
 }
 
 ::deep .tl-generated-identity,
@@ -786,14 +793,6 @@
     border-color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 76%, #fff);
 }
 
-/* Hulu-primary detail shell: one full-width media stage, plain metadata text, and a solid relationship bar. */
-::deep .tl-detail-hero {
-    min-height: clamp(34rem, 78vh, 52rem);
-    background:
-        radial-gradient(circle at 72% 28%, color-mix(in srgb, var(--tl-detail-accent) 30%, transparent), transparent 34rem),
-        linear-gradient(135deg, color-mix(in srgb, var(--tl-detail-primary) 36%, #101115), color-mix(in srgb, var(--tl-detail-secondary) 50%, #101115) 55%, #101115);
-}
-
 ::deep .tl-detail-titlebar {
     position: absolute;
     inset: 0 0 auto;
@@ -826,44 +825,6 @@
     grid-column: 3;
     justify-self: end;
     align-self: center;
-}
-
-::deep .tl-detail-backdrop--image img {
-    width: 100%;
-    height: 100%;
-    opacity: 1;
-    filter: saturate(1.03) contrast(1.02);
-    object-fit: cover;
-    object-position: center center;
-}
-
-::deep .tl-detail-backdrop--backdrop img {
-    object-fit: cover;
-    object-position: center center;
-}
-
-::deep .tl-detail-backdrop--fallback-art {
-    display: grid;
-    place-items: center end;
-    padding-right: clamp(2rem, 10vw, 11rem);
-    background:
-        radial-gradient(circle at 73% 48%, color-mix(in srgb, var(--tl-detail-primary) 58%, transparent), transparent 18rem),
-        radial-gradient(circle at 84% 54%, color-mix(in srgb, var(--tl-detail-accent) 34%, transparent), transparent 28rem),
-        linear-gradient(90deg, color-mix(in srgb, #111217 84%, var(--tl-detail-primary)) 0%, color-mix(in srgb, #111217 50%, var(--tl-detail-primary)) 42%, color-mix(in srgb, #111217 34%, var(--tl-detail-secondary)) 74%, #111217 100%);
-}
-
-::deep .tl-detail-backdrop--fallback-art img {
-    width: min(28rem, 31vw);
-    height: min(40rem, 70vh);
-    margin: 0;
-    opacity: 1;
-    object-fit: contain;
-    object-position: center;
-}
-
-::deep .tl-detail-hero__shade {
-    background:
-        linear-gradient(180deg, rgba(0, 0, 0, 0.16) 0%, transparent 26%, transparent 54%, rgba(0, 0, 0, 0.24) 78%, #111217 100%);
 }
 
 ::deep .tl-detail-hero__inner {
@@ -1276,11 +1237,6 @@
         padding: 5rem 1rem 2rem;
     }
 
-    ::deep .tl-hero-artwork,
-    ::deep .tl-hero-artwork-card {
-        width: min(17rem, 68vw);
-    }
-
     ::deep .tl-overflow-menu {
         position: absolute;
         top: 1rem;
@@ -1329,52 +1285,56 @@
 
     ::deep .tl-detail-media-stage {
         width: 100%;
-        place-items: start center;
-        padding-right: 0;
     }
 
-    ::deep .tl-detail-media-stage--real-backdrop .tl-detail-media-stage__image {
+    ::deep .tl-detail-media-stage--background .tl-detail-media-stage__background {
+        inset: 0;
         width: 100%;
         height: 100%;
-        object-fit: cover;
-        object-position: center top;
-        transform: none;
-        opacity: 1;
+        object-fit: contain;
+        object-position: var(--mobile-image-position, 62% top);
+        -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0, 0, 0, 0.62) 68%, transparent 100%);
+        mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0, 0, 0, 0.62) 68%, transparent 100%);
     }
 
-    ::deep .tl-detail-media-stage--cover-only {
-        padding-right: 0;
-    }
-
-    ::deep .tl-detail-media-stage--cover-only .tl-detail-media-stage__image,
-    ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__image,
-    ::deep .tl-detail-media-stage--square .tl-detail-media-stage__image {
-        width: min(21rem, 76vw);
-        height: min(28rem, 58vh);
-        margin: 4.5rem 0 0;
-        opacity: 1;
-    }
-
-    ::deep .tl-detail-backdrop--image img {
-        object-position: center;
-        opacity: 1;
-    }
-
-    ::deep .tl-detail-backdrop--fallback-art {
-        place-items: start center;
-        padding-right: 0;
-    }
-
-    ::deep .tl-detail-backdrop--fallback-art img {
-        width: min(21rem, 76vw);
-        height: min(28rem, 58vh);
-        margin: 4.5rem 0 0;
-    }
-
-    ::deep .tl-detail-hero__shade {
+    ::deep .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
         background:
-            linear-gradient(90deg, rgba(10, 13, 17, 0.48), rgba(10, 13, 17, 0.2)),
-            linear-gradient(0deg, #111217 0%, rgba(17,18,23,0.8) 30%, rgba(17,18,23,0.22) 74%);
+            linear-gradient(
+                180deg,
+                rgba(var(--hero-bg-rgb), 0.08) 0%,
+                rgba(var(--hero-bg-rgb), 0.36) 38%,
+                rgba(var(--hero-bg-rgb), 0.86) 62%,
+                rgba(var(--hero-bg-rgb), 1.00) 100%
+            );
+    }
+
+    ::deep .tl-detail-hero--cover-fallback {
+        min-height: 47.5rem;
+    }
+
+    ::deep .tl-detail-media-stage__cover-atmosphere {
+        inset: -24%;
+        transform: scale(1.45);
+        opacity: 0.24;
+    }
+
+    ::deep .tl-detail-media-stage__cover-wrap {
+        position: relative;
+        right: auto;
+        top: auto;
+        width: min(62vw, 17.5rem);
+        margin: 5rem auto 2rem;
+        transform: none;
+    }
+
+    ::deep .tl-detail-media-stage--cover-fallback .tl-detail-media-stage__overlay {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(var(--hero-bg-rgb), 0.08) 0%,
+                rgba(var(--hero-bg-rgb), 0.26) 38%,
+                rgba(var(--hero-bg-rgb), 0.92) 100%
+            );
     }
 
     ::deep .tl-detail-hero-brand {

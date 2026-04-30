@@ -3,7 +3,6 @@
 
 <section class="tl-detail-hero @HeroClass" style="@GradientStyle">
     <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
-    <div class="tl-detail-hero__shade"></div>
     <div class="tl-detail-titlebar">
         <div class="tl-detail-titlebar__title">@Model.Title</div>
     </div>
@@ -41,7 +40,7 @@
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
-    private string HeroClass => $"tl-detail-hero--{Model.Artwork.PresentationMode.ToString().ToLowerInvariant()}";
+    private string HeroClass => $"tl-detail-hero--{ToKebabCase(Model.Artwork.HeroArtwork.Mode.ToString())}";
 
     private string GradientStyle
     {
@@ -50,10 +49,63 @@
             var primary = Model.Artwork.PrimaryColor ?? "#C9922E";
             var secondary = Model.Artwork.SecondaryColor ?? "#271A3A";
             var accent = Model.Artwork.AccentColor ?? "#4F7DBA";
-            return $"--tl-detail-primary:{primary};--tl-detail-secondary:{secondary};--tl-detail-accent:{accent};";
+            var parsedColors = new[] { primary, secondary, accent }
+                .Select(TryParseHexColor)
+                .Where(color => color is not null)
+                .Select(color => color!.Value)
+                .ToList();
+            var background = parsedColors.Count == 0
+                ? (R: 8, G: 10, B: 15)
+                : parsedColors.OrderBy(RelativeLuminance).First();
+            var accentColor = parsedColors.Count == 0
+                ? (R: 44, G: 180, B: 190)
+                : parsedColors.OrderByDescending(Saturation).ThenByDescending(RelativeLuminance).First();
+
+            return $"--tl-detail-primary:{primary};--tl-detail-secondary:{secondary};--tl-detail-accent:{accent};--hero-bg-rgb:{ToRgb(background)};--hero-accent-rgb:{ToRgb(accentColor)};";
         }
     }
 
     private static string Truncate(string value, int max)
         => value.Length <= max ? value : value[..max].TrimEnd() + "...";
+
+    private static string ToKebabCase(string value)
+    {
+        var chars = new List<char>(value.Length + 4);
+        foreach (var ch in value)
+        {
+            if (char.IsUpper(ch) && chars.Count > 0)
+                chars.Add('-');
+
+            chars.Add(char.ToLowerInvariant(ch));
+        }
+
+        return new string(chars.ToArray());
+    }
+
+    private static (int R, int G, int B)? TryParseHexColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var hex = value.Trim().TrimStart('#');
+        if (hex.Length == 3)
+            hex = string.Concat(hex.Select(ch => $"{ch}{ch}"));
+
+        if (hex.Length != 6 || !int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
+            return null;
+
+        return ((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff);
+    }
+
+    private static double RelativeLuminance((int R, int G, int B) color)
+        => (0.2126 * color.R) + (0.7152 * color.G) + (0.0722 * color.B);
+
+    private static double Saturation((int R, int G, int B) color)
+    {
+        var max = Math.Max(color.R, Math.Max(color.G, color.B)) / 255d;
+        var min = Math.Min(color.R, Math.Min(color.G, color.B)) / 255d;
+        return max == 0 ? 0 : (max - min) / max;
+    }
+
+    private static string ToRgb((int R, int G, int B) color) => $"{color.R}, {color.G}, {color.B}";
 }

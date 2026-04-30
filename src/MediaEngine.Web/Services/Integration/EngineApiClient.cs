@@ -3723,6 +3723,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 PrimaryColor = artwork.PrimaryColor,
                 SecondaryColor = artwork.SecondaryColor,
                 AccentColor = artwork.AccentColor,
+                HeroArtwork = NormalizeHeroArtwork(artwork.HeroArtwork),
                 PresentationMode = artwork.PresentationMode,
                 Source = artwork.Source,
             },
@@ -3784,6 +3785,22 @@ public sealed class EngineApiClient : IEngineApiClient
             IdentityStatus = detail.IdentityStatus,
             LibraryStatus = detail.LibraryStatus,
             IsAdminView = detail.IsAdminView,
+        };
+    }
+
+    private HeroArtworkViewModel NormalizeHeroArtwork(HeroArtworkViewModel? heroArtwork)
+    {
+        if (heroArtwork is null)
+            return new HeroArtworkViewModel();
+
+        return new HeroArtworkViewModel
+        {
+            Url = NormalizeOptionalUrl(heroArtwork.Url),
+            Mode = heroArtwork.Mode,
+            HasImage = heroArtwork.HasImage && !string.IsNullOrWhiteSpace(heroArtwork.Url),
+            AspectRatio = heroArtwork.AspectRatio,
+            BackgroundPosition = heroArtwork.BackgroundPosition,
+            MobilePosition = heroArtwork.MobilePosition,
         };
     }
 

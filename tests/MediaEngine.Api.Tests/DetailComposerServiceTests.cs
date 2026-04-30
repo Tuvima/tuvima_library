@@ -94,6 +94,60 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void ResolveHeroArtwork_PrioritizesBackgroundOverCover()
+    {
+        var artwork = HeroArtworkResolver.Resolve(
+            DetailEntityType.Movie,
+            backdropUrl: "/backdrop.jpg",
+            bannerUrl: null,
+            coverUrl: "/cover.jpg",
+            posterUrl: null,
+            portraitUrl: null,
+            characterImageUrl: null,
+            relatedArtworkUrls: []);
+
+        Assert.Equal(HeroArtworkMode.Background, artwork.Mode);
+        Assert.True(artwork.HasImage);
+        Assert.Equal("/backdrop.jpg", artwork.Url);
+    }
+
+    [Fact]
+    public void ResolveHeroArtwork_UsesCoverFallbackWithoutBackground()
+    {
+        var artwork = HeroArtworkResolver.Resolve(
+            DetailEntityType.Book,
+            backdropUrl: null,
+            bannerUrl: null,
+            coverUrl: "/cover.jpg",
+            posterUrl: null,
+            portraitUrl: null,
+            characterImageUrl: null,
+            relatedArtworkUrls: []);
+
+        Assert.Equal(HeroArtworkMode.CoverFallback, artwork.Mode);
+        Assert.True(artwork.HasImage);
+        Assert.Equal("/cover.jpg", artwork.Url);
+    }
+
+    [Fact]
+    public void ResolveHeroArtwork_UsesPlaceholderWithoutImages()
+    {
+        var artwork = HeroArtworkResolver.Resolve(
+            DetailEntityType.Collection,
+            backdropUrl: null,
+            bannerUrl: null,
+            coverUrl: null,
+            posterUrl: null,
+            portraitUrl: null,
+            characterImageUrl: null,
+            relatedArtworkUrls: []);
+
+        Assert.Equal(HeroArtworkMode.Placeholder, artwork.Mode);
+        Assert.False(artwork.HasImage);
+        Assert.Null(artwork.Url);
+    }
+
+    [Fact]
     public void DetailComposer_SourceKeepsMovieTabsCastOnlyAndAddsOverflowMenu()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
@@ -123,6 +177,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("fallbackCover", source);
         Assert.Contains("'hero_url', 'hero'", source);
         Assert.Contains("SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })", source);
+        Assert.Contains("NULLIF(cover_asset.value, '')", source);
+        Assert.Contains("COALESCE(gp.id, p.id, w.id)", source);
+        Assert.Contains("ResolveCollectionArtworkUrl", source);
+        Assert.Contains("DisplayArtworkUrlResolver.Resolve(value, assetId, kind, state)", source);
     }
 
     [Fact]

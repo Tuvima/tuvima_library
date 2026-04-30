@@ -195,19 +195,19 @@ public sealed class DetailComposerService
         CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<CollectionDetailRow>(new CommandDefinition(
+        var rawRow = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
             """
             SELECT c.id AS Id,
                    c.display_name AS DisplayName,
                    c.wikidata_qid AS WikidataQid,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('description', 'overview') LIMIT 1) AS Description,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key = 'tagline' LIMIT 1) AS Tagline,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('cover_url', 'cover') LIMIT 1) AS CoverUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('background_url', 'background', 'hero_url', 'hero') LIMIT 1) AS BackgroundUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('banner_url', 'banner', 'hero_url', 'hero') LIMIT 1) AS BannerUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('logo_url', 'logo') LIMIT 1) AS LogoUrl,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('network', 'studio', 'broadcaster') LIMIT 1) AS HeroBrandLabel,
-                   (SELECT value FROM canonical_values WHERE entity_id = c.id AND key IN ('network_logo_url', 'network_logo', 'studio_logo_url', 'broadcaster_logo_url') LIMIT 1) AS HeroBrandImageUrl
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key IN ('description', 'overview') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS Description,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key = 'tagline' AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS Tagline,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key IN ('cover_url', 'cover', 'poster_url', 'poster') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS CoverUrl,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key IN ('background_url', 'background', 'hero_url', 'hero') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS BackgroundUrl,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key IN ('banner_url', 'banner', 'hero_url', 'hero') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS BannerUrl,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key IN ('logo_url', 'logo') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS LogoUrl,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key IN ('network', 'studio', 'broadcaster') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS HeroBrandLabel,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key IN ('network_logo_url', 'network_logo', 'studio_logo_url', 'broadcaster_logo_url') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS HeroBrandImageUrl
             FROM collections c
             WHERE c.id = @collectionId
             LIMIT 1;
@@ -215,8 +215,21 @@ public sealed class DetailComposerService
             new { collectionId = collectionId.ToString() },
             cancellationToken: ct));
 
-        if (row is null)
+        if (rawRow is null)
             return null;
+
+        var row = new CollectionDetailRow(
+            Guid.Parse(StringValue(rawRow.Id) ?? collectionId.ToString("D")),
+            StringValue(rawRow.DisplayName),
+            StringValue(rawRow.WikidataQid),
+            StringValue(rawRow.Description),
+            StringValue(rawRow.Tagline),
+            StringValue(rawRow.CoverUrl),
+            StringValue(rawRow.BackgroundUrl),
+            StringValue(rawRow.BannerUrl),
+            StringValue(rawRow.LogoUrl),
+            StringValue(rawRow.HeroBrandLabel),
+            StringValue(rawRow.HeroBrandImageUrl));
 
         var works = await LoadCollectionWorksAsync(collectionId, ct);
         if (entityType == DetailEntityType.Collection)
@@ -757,18 +770,23 @@ public sealed class DetailComposerService
         var rawRows = await conn.QueryAsync(new CommandDefinition(
             """
             SELECT CAST(w.id AS TEXT) AS Id,
+                   CAST(ma.id AS TEXT) AS AssetId,
                    CAST(w.media_type AS TEXT) AS MediaType,
                    w.ordinal AS Ordinal,
-                   CAST(COALESCE(title_asset.value, episode_title.value, title_work.value, 'Untitled') AS TEXT) AS Title,
-                   CAST(COALESCE(desc_asset.value, desc_work.value) AS TEXT) AS Description,
-                   CAST(COALESCE(season.value, '') AS TEXT) AS Season,
-                   CAST(COALESCE(episode.value, '') AS TEXT) AS Episode,
-                   CAST(COALESCE(track.value, '') AS TEXT) AS TrackNumber,
-                   CAST(COALESCE(runtime.value, duration.value) AS TEXT) AS Duration,
-                   CAST(COALESCE(year_asset.value, year_work.value) AS TEXT) AS Year,
-                   CAST(COALESCE(cover_asset.value, cover_work.value) AS TEXT) AS ArtworkUrl,
-                   CAST(COALESCE(bg_asset.value, bg_work.value, hero_asset.value, hero_work.value, banner_asset.value, banner_work.value) AS TEXT) AS BackgroundUrl
+                   CAST(COALESCE(NULLIF(title_asset.value, ''), NULLIF(episode_title.value, ''), NULLIF(title_work.value, ''), 'Untitled') AS TEXT) AS Title,
+                   CAST(COALESCE(NULLIF(desc_asset.value, ''), NULLIF(desc_work.value, '')) AS TEXT) AS Description,
+                   CAST(COALESCE(NULLIF(season.value, ''), '') AS TEXT) AS Season,
+                   CAST(COALESCE(NULLIF(episode.value, ''), '') AS TEXT) AS Episode,
+                   CAST(COALESCE(NULLIF(track.value, ''), '') AS TEXT) AS TrackNumber,
+                   CAST(COALESCE(NULLIF(runtime.value, ''), NULLIF(duration.value, '')) AS TEXT) AS Duration,
+                   CAST(COALESCE(NULLIF(year_asset.value, ''), NULLIF(year_work.value, '')) AS TEXT) AS Year,
+                   CAST(COALESCE(NULLIF(cover_asset.value, ''), NULLIF(poster_asset.value, ''), NULLIF(cover_work.value, ''), NULLIF(poster_work.value, ''), NULLIF(cover_root.value, ''), NULLIF(poster_root.value, '')) AS TEXT) AS ArtworkUrl,
+                   CAST(COALESCE(NULLIF(bg_asset.value, ''), NULLIF(bg_work.value, ''), NULLIF(hero_asset.value, ''), NULLIF(hero_work.value, ''), NULLIF(banner_asset.value, ''), NULLIF(banner_work.value, ''), NULLIF(bg_root.value, ''), NULLIF(hero_root.value, ''), NULLIF(banner_root.value, '')) AS TEXT) AS BackgroundUrl,
+                   CAST(COALESCE(NULLIF(cover_state_asset.value, ''), NULLIF(cover_state_work.value, ''), NULLIF(cover_state_root.value, '')) AS TEXT) AS CoverState,
+                   CAST(COALESCE(NULLIF(bg_state_asset.value, ''), NULLIF(bg_state_work.value, ''), NULLIF(hero_state_asset.value, ''), NULLIF(hero_state_work.value, ''), NULLIF(banner_state_asset.value, ''), NULLIF(banner_state_work.value, ''), NULLIF(bg_state_root.value, ''), NULLIF(hero_state_root.value, ''), NULLIF(banner_state_root.value, '')) AS TEXT) AS BackgroundState
             FROM works w
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
             LEFT JOIN editions e ON e.work_id = w.id
             LEFT JOIN media_assets ma ON ma.edition_id = e.id
             LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ma.id AND title_asset.key = 'title'
@@ -785,12 +803,31 @@ public sealed class DetailComposerService
             LEFT JOIN canonical_values year_work ON year_work.entity_id = w.id AND year_work.key IN ('year', 'release_year')
             LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ma.id AND cover_asset.key IN ('cover_url', 'cover')
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover')
+            LEFT JOIN canonical_values poster_asset ON poster_asset.entity_id = ma.id AND poster_asset.key IN ('poster_url', 'poster')
+            LEFT JOIN canonical_values poster_work ON poster_work.entity_id = w.id AND poster_work.key IN ('poster_url', 'poster')
+            LEFT JOIN canonical_values cover_root ON cover_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_root.key IN ('cover_url', 'cover')
+            LEFT JOIN canonical_values poster_root ON poster_root.entity_id = COALESCE(gp.id, p.id, w.id) AND poster_root.key IN ('poster_url', 'poster')
             LEFT JOIN canonical_values bg_asset ON bg_asset.entity_id = ma.id AND bg_asset.key IN ('background_url', 'background')
             LEFT JOIN canonical_values bg_work ON bg_work.entity_id = w.id AND bg_work.key IN ('background_url', 'background')
             LEFT JOIN canonical_values hero_asset ON hero_asset.entity_id = ma.id AND hero_asset.key IN ('hero_url', 'hero')
             LEFT JOIN canonical_values hero_work ON hero_work.entity_id = w.id AND hero_work.key IN ('hero_url', 'hero')
             LEFT JOIN canonical_values banner_asset ON banner_asset.entity_id = ma.id AND banner_asset.key IN ('banner_url', 'banner')
             LEFT JOIN canonical_values banner_work ON banner_work.entity_id = w.id AND banner_work.key IN ('banner_url', 'banner')
+            LEFT JOIN canonical_values bg_root ON bg_root.entity_id = COALESCE(gp.id, p.id, w.id) AND bg_root.key IN ('background_url', 'background')
+            LEFT JOIN canonical_values hero_root ON hero_root.entity_id = COALESCE(gp.id, p.id, w.id) AND hero_root.key IN ('hero_url', 'hero')
+            LEFT JOIN canonical_values banner_root ON banner_root.entity_id = COALESCE(gp.id, p.id, w.id) AND banner_root.key IN ('banner_url', 'banner')
+            LEFT JOIN canonical_values cover_state_asset ON cover_state_asset.entity_id = ma.id AND cover_state_asset.key = 'cover_state'
+            LEFT JOIN canonical_values cover_state_work ON cover_state_work.entity_id = w.id AND cover_state_work.key = 'cover_state'
+            LEFT JOIN canonical_values cover_state_root ON cover_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_state_root.key = 'cover_state'
+            LEFT JOIN canonical_values bg_state_asset ON bg_state_asset.entity_id = ma.id AND bg_state_asset.key = 'background_state'
+            LEFT JOIN canonical_values bg_state_work ON bg_state_work.entity_id = w.id AND bg_state_work.key = 'background_state'
+            LEFT JOIN canonical_values hero_state_asset ON hero_state_asset.entity_id = ma.id AND hero_state_asset.key = 'hero_state'
+            LEFT JOIN canonical_values hero_state_work ON hero_state_work.entity_id = w.id AND hero_state_work.key = 'hero_state'
+            LEFT JOIN canonical_values banner_state_asset ON banner_state_asset.entity_id = ma.id AND banner_state_asset.key = 'banner_state'
+            LEFT JOIN canonical_values banner_state_work ON banner_state_work.entity_id = w.id AND banner_state_work.key = 'banner_state'
+            LEFT JOIN canonical_values bg_state_root ON bg_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND bg_state_root.key = 'background_state'
+            LEFT JOIN canonical_values hero_state_root ON hero_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND hero_state_root.key = 'hero_state'
+            LEFT JOIN canonical_values banner_state_root ON banner_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND banner_state_root.key = 'banner_state'
             WHERE w.collection_id = @collectionId
             GROUP BY w.id
             ORDER BY CAST(NULLIF(Season, '') AS INTEGER), CAST(NULLIF(Episode, '') AS INTEGER), CAST(NULLIF(TrackNumber, '') AS INTEGER), COALESCE(w.ordinal, 9999), Title;
@@ -808,8 +845,8 @@ public sealed class DetailComposerService
             StringValue(row.TrackNumber),
             StringValue(row.Duration),
             StringValue(row.Year),
-            StringValue(row.ArtworkUrl),
-            StringValue(row.BackgroundUrl))).ToList();
+            ResolveCollectionArtworkUrl(StringValue(row.ArtworkUrl), StringValue(row.AssetId), "cover", StringValue(row.CoverState)),
+            ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)))).ToList();
     }
 
     private async Task<Dictionary<string, string>> LoadCanonicalMapAsync(Guid entityId, CancellationToken ct)
@@ -933,6 +970,8 @@ public sealed class DetailComposerService
         var secondary = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkSecondaryHex), GetValue(values, "secondary_color"), "#271A3A");
         var accent = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkAccentHex), GetValue(values, "accent_color"), "#4F7DBA");
         var mode = ResolveArtworkPresentationMode(entityType, backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl, relatedArtwork.Count, ownedFormatCount);
+        var characterImageUrl = entityType == DetailEntityType.Character ? portraitUrl : null;
+        var heroArtwork = HeroArtworkResolver.Resolve(entityType, backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl, characterImageUrl, relatedArtwork);
 
         return new ArtworkSet
         {
@@ -942,12 +981,13 @@ public sealed class DetailComposerService
             CoverUrl = coverUrl,
             LogoUrl = logoUrl ?? GetValue(values, "logo_url") ?? GetValue(values, "logo"),
             PortraitUrl = portraitUrl,
-            CharacterImageUrl = entityType == DetailEntityType.Character ? portraitUrl : null,
+            CharacterImageUrl = characterImageUrl,
             RelatedArtworkUrls = relatedArtwork,
             DominantColors = [primary, secondary, accent],
             PrimaryColor = primary,
             SecondaryColor = secondary,
             AccentColor = accent,
+            HeroArtwork = heroArtwork,
             PresentationMode = mode,
             Source = ResolveArtworkSource(artworkSource),
         };
@@ -1696,6 +1736,17 @@ public sealed class DetailComposerService
 
         var text = Convert.ToString(value);
         return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    private static string? ResolveCollectionArtworkUrl(string? value, string? assetIdValue, string kind, string? state)
+    {
+        if (!Guid.TryParse(assetIdValue, out var assetId))
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+
+        // Collection and TV-show detail pages are composed from representative
+        // child works. Their downloaded artwork is stored on the child asset, so
+        // route the same local image stream URLs used by work/movie detail pages.
+        return DisplayArtworkUrlResolver.Resolve(value, assetId, kind, state);
     }
 
     private static int? IntValue(object? value)

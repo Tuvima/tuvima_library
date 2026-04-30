@@ -1,14 +1,23 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="@StageClass">
-    @if (!string.IsNullOrWhiteSpace(HeroImageUrl))
+<div class="@StageClass" style="@StageStyle">
+    @if (EffectiveMode == HeroArtworkMode.Background && !string.IsNullOrWhiteSpace(HeroImageUrl))
     {
-        <img class="tl-detail-media-stage__image" src="@HeroImageUrl" alt="" />
+        <img class="tl-detail-media-stage__background" src="@HeroImageUrl" alt="" @onerror="HandleImageError" />
+        <div class="tl-detail-media-stage__overlay" aria-hidden="true"></div>
+    }
+    else if (EffectiveMode == HeroArtworkMode.CoverFallback && !string.IsNullOrWhiteSpace(HeroImageUrl))
+    {
+        <div class="tl-detail-media-stage__cover-atmosphere" aria-hidden="true"></div>
+        <div class="tl-detail-media-stage__overlay" aria-hidden="true"></div>
+        <div class="tl-detail-media-stage__cover-wrap">
+            <img class="tl-detail-media-stage__cover" src="@HeroImageUrl" alt="" @onerror="HandleImageError" />
+        </div>
     }
     else
     {
-        <div class="tl-detail-media-stage__generated" aria-hidden="true"></div>
+        <div class="tl-detail-media-stage__placeholder" aria-hidden="true"></div>
     }
 
     @if (ShouldRenderHeroBrand)
@@ -31,20 +40,29 @@
     [Parameter] public DetailEntityType EntityType { get; set; }
     [Parameter] public HeroBrandViewModel? HeroBrand { get; set; }
 
-    private bool HasRealBackdrop => !string.IsNullOrWhiteSpace(Artwork.BackdropUrl) || !string.IsNullOrWhiteSpace(Artwork.BannerUrl);
-    private bool HasHeroImage => !string.IsNullOrWhiteSpace(HeroImageUrl);
+    private bool _imageFailed;
+    private string? _lastHeroImageUrl;
+
     private bool IsTvEntity => EntityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
     private bool ShouldRenderHeroBrand => IsTvEntity && (!string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl) || !string.IsNullOrWhiteSpace(HeroBrand?.Label));
+    private HeroArtworkViewModel HeroArtwork => Artwork.HeroArtwork;
+    private string? HeroImageUrl => HeroArtwork.HasImage && !string.IsNullOrWhiteSpace(HeroArtwork.Url) && !_imageFailed
+        ? HeroArtwork.Url
+        : null;
+    private HeroArtworkMode EffectiveMode => string.IsNullOrWhiteSpace(HeroImageUrl)
+        ? HeroArtworkMode.Placeholder
+        : HeroArtwork.Mode;
 
     private string StageClass
     {
         get
         {
-            var imageClass = HasRealBackdrop
-                ? "tl-detail-media-stage--real-backdrop"
-                : HasHeroImage
-                    ? "tl-detail-media-stage--cover-only"
-                    : "tl-detail-media-stage--generated";
+            var imageClass = EffectiveMode switch
+            {
+                HeroArtworkMode.Background => "tl-detail-media-stage--background",
+                HeroArtworkMode.CoverFallback => "tl-detail-media-stage--cover-fallback",
+                _ => "tl-detail-media-stage--placeholder",
+            };
             var entityClass = EntityType switch
             {
                 DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-detail-media-stage--landscape",
@@ -57,15 +75,31 @@
         }
     }
 
-    private string? HeroImageUrl => FirstNonBlank(
-        Artwork.BackdropUrl,
-        Artwork.BannerUrl,
-        Artwork.PosterUrl,
-        Artwork.CoverUrl,
-        Artwork.PortraitUrl,
-        Artwork.CharacterImageUrl,
-        Artwork.RelatedArtworkUrls.FirstOrDefault());
+    private string StageStyle
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(HeroImageUrl))
+                return string.Empty;
 
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            var position = HeroArtwork.BackgroundPosition ?? "center";
+            var mobilePosition = HeroArtwork.MobilePosition ?? position;
+            return $"--hero-image:url(\"{EscapeCssString(HeroImageUrl)}\");--hero-image-position:{position};--mobile-image-position:{mobilePosition};";
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        var nextUrl = Artwork.HeroArtwork.Url;
+        if (!string.Equals(nextUrl, _lastHeroImageUrl, StringComparison.Ordinal))
+        {
+            _imageFailed = false;
+            _lastHeroImageUrl = nextUrl;
+        }
+    }
+
+    private void HandleImageError() => _imageFailed = true;
+
+    private static string EscapeCssString(string value)
+        => value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
 }
