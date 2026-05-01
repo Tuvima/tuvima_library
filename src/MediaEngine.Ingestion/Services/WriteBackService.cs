@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
@@ -25,6 +26,7 @@ public sealed class WriteBackService : IWriteBackService
     private readonly IEnumerable<IMetadataTagger>  _taggers;
     private readonly ISystemActivityRepository     _activityRepo;
     private readonly WritebackConfigState?         _hashState;
+    private readonly IEnrichmentConcurrencyLimiter _concurrency;
     private readonly ILogger<WriteBackService>     _logger;
 
     public WriteBackService(
@@ -35,7 +37,8 @@ public sealed class WriteBackService : IWriteBackService
         IEnumerable<IMetadataTagger>  taggers,
         ISystemActivityRepository     activityRepo,
         ILogger<WriteBackService>     logger,
-        WritebackConfigState?         hashState = null)
+        WritebackConfigState?         hashState = null,
+        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null)
     {
         _assetRepo     = assetRepo;
         _canonicalRepo = canonicalRepo;
@@ -44,11 +47,18 @@ public sealed class WriteBackService : IWriteBackService
         _taggers       = taggers;
         _activityRepo  = activityRepo;
         _hashState     = hashState;
+        _concurrency   = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
         _logger        = logger;
     }
 
     /// <inheritdoc/>
-    public async Task WriteMetadataAsync(Guid assetId, string trigger, CancellationToken ct = default, Guid? ingestionRunId = null)
+    public Task WriteMetadataAsync(Guid assetId, string trigger, CancellationToken ct = default, Guid? ingestionRunId = null) =>
+        _concurrency.RunAsync(
+            EnrichmentWorkKind.WriteBack,
+            token => WriteMetadataCoreAsync(assetId, trigger, token, ingestionRunId),
+            ct);
+
+    private async Task WriteMetadataCoreAsync(Guid assetId, string trigger, CancellationToken ct, Guid? ingestionRunId)
     {
         // Load write-back configuration.
         var config = _configLoader.LoadConfig<WriteBackConfiguration>("", "writeback")

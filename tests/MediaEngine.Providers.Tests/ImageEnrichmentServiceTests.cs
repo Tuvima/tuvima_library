@@ -263,6 +263,46 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         Assert.True(File.Exists(episodeStill.LocalImagePath));
     }
 
+    [Fact]
+    public async Task EnrichWorkImagesAsync_TvEpisodeStill_DoesNotUseTmdbUrlCanonicalFallback()
+    {
+        var show = await _works.InsertParentAsync(MediaType.TV, "show:tmdb-fallback", null, null);
+        var season = await _works.InsertChildAsync(MediaType.TV, show, 1);
+        var episode = await _works.InsertChildAsync(MediaType.TV, season, 2);
+        var asset = await SeedAssetForExistingWorkAsync(episode, Path.Combine("TV", "Fallback Show", "Season 01", "Fallback - s01e02.mkv"));
+
+        await SeedCanonicalsAsync(
+            show,
+            ("media_type", "TV"),
+            ("tvdb_id", "54321"));
+        await SeedCanonicalsAsync(
+            episode,
+            ("episode_still_url", "https://images.test/tmdb-episode-still.jpg"));
+
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            if (url.Contains("/tv/54321?", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = """
+                    {
+                      "seasonposter": [
+                        { "url": "https://images.test/season-poster.jpg", "likes": "8", "lang": "en", "season": "1" }
+                      ]
+                    }
+                    """;
+                return JsonResponse(payload);
+            }
+
+            return ImageResponse([9, 9, 9, 9]);
+        });
+
+        await service.EnrichWorkImagesAsync(asset.AssetId, "QSHOW");
+
+        var episodeStills = await _entityAssets.GetByEntityAsync(episode.ToString(), "EpisodeStill");
+        Assert.Empty(episodeStills);
+    }
+
     private ImageEnrichmentService CreateService(Func<HttpRequestMessage, HttpResponseMessage> responder)
     {
         return new ImageEnrichmentService(

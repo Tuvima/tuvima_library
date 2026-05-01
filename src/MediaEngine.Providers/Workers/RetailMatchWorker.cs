@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
@@ -50,6 +51,11 @@ public sealed class RetailMatchWorker
     private readonly WorkClaimRouter _claimRouter;
     private readonly IHttpClientFactory _httpFactory;
     private readonly PostPipelineService _postPipeline;
+    private readonly IEnrichmentConcurrencyLimiter _concurrency;
+    private readonly IEntityAssetRepository? _entityAssetRepo;
+    private readonly IImageCacheRepository? _imageCache;
+    private readonly AssetPathService? _assetPaths;
+    private readonly IAssetExportService? _assetExportService;
     private readonly ILogger<RetailMatchWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
@@ -89,7 +95,12 @@ public sealed class RetailMatchWorker
         WorkClaimRouter claimRouter,
         IHttpClientFactory httpFactory,
         PostPipelineService postPipeline,
-        ILogger<RetailMatchWorker> logger)
+        ILogger<RetailMatchWorker> logger,
+        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null,
+        IEntityAssetRepository? entityAssetRepo = null,
+        IImageCacheRepository? imageCache = null,
+        AssetPathService? assetPaths = null,
+        IAssetExportService? assetExportService = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -107,6 +118,11 @@ public sealed class RetailMatchWorker
         _claimRouter = claimRouter;
         _httpFactory = httpFactory;
         _postPipeline = postPipeline;
+        _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
+        _entityAssetRepo = entityAssetRepo;
+        _imageCache = imageCache;
+        _assetPaths = assetPaths;
+        _assetExportService = assetExportService;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
@@ -148,7 +164,10 @@ public sealed class RetailMatchWorker
         {
             try
             {
-                await ProcessJobAsync(job, ct);
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.RetailProvider,
+                    token => ProcessJobAsync(job, token),
+                    ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -160,11 +179,21 @@ public sealed class RetailMatchWorker
 
         // Process Music jobs grouped by album (artist+album key).
         if (musicJobs.Count > 0)
-            await ProcessMusicBatchAsync(musicJobs, ct);
+        {
+            await _concurrency.RunAsync(
+                EnrichmentWorkKind.RetailProvider,
+                token => ProcessMusicBatchAsync(musicJobs, token),
+                ct);
+        }
 
         // Process TV jobs grouped by show+season (show_name+season_number key).
         if (tvJobs.Count > 0)
-            await ProcessTvBatchAsync(tvJobs, ct);
+        {
+            await _concurrency.RunAsync(
+                EnrichmentWorkKind.RetailProvider,
+                token => ProcessTvBatchAsync(tvJobs, token),
+                ct);
+        }
 
         foreach (var runId in jobs
                      .Select(j => j.IngestionRunId)
@@ -1470,7 +1499,7 @@ public sealed class RetailMatchWorker
                 },
                 structuralAdjustment),
             BridgeIdsJson      = bridgeIdsJson,
-            ImageUrl           = showPosterUrl ?? BuildTmdbImageUrl(bestEpisode["still_path"]?.GetValue<string>()),
+            ImageUrl           = showPosterUrl,
             Outcome            = decision.Outcome,
         };
 
@@ -1507,6 +1536,14 @@ public sealed class RetailMatchWorker
 
             if (bridgeEntries.Count > 0)
                 await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
+
+            if (lineage is not null)
+            {
+                await DownloadAndPersistTmdbEpisodeStillAsync(
+                    bestEpisode,
+                    lineage.TargetForSelfScope,
+                    ct);
+            }
         }
 
         if (decision.Outcome == "AutoAccepted")
@@ -1598,7 +1635,6 @@ public sealed class RetailMatchWorker
         Add(MetadataFieldConstants.Title,         episode["name"]?.GetValue<string>(), 0.80);
         Add(MetadataFieldConstants.EpisodeDescription, episode["overview"]?.GetValue<string>(), 0.85);
         Add(MetadataFieldConstants.ShowName,      showName, 0.85);
-        Add("episode_still_url", BuildTmdbImageUrl(episode["still_path"]?.GetValue<string>()), 0.85);
 
         var airDate = episode["air_date"]?.GetValue<string>();
         if (!string.IsNullOrWhiteSpace(airDate) && airDate.Length >= 4)
@@ -1655,6 +1691,158 @@ public sealed class RetailMatchWorker
             return null;
 
         return $"https://image.tmdb.org/t/p/w500{stillPath}";
+    }
+
+    private async Task DownloadAndPersistTmdbEpisodeStillAsync(
+        JsonNode episode,
+        Guid episodeWorkId,
+        CancellationToken ct)
+    {
+        if (_entityAssetRepo is null || _assetPaths is null)
+            return;
+
+        var stillUrl = BuildTmdbImageUrl(episode["still_path"]?.GetValue<string>());
+        if (string.IsNullOrWhiteSpace(stillUrl))
+            return;
+
+        var existingVariants = (await _entityAssetRepo.GetByEntityAsync(
+            episodeWorkId.ToString(),
+            AssetType.EpisodeStill.ToString(),
+            ct)).ToList();
+
+        var userOverride = existingVariants.FirstOrDefault(asset => asset.IsPreferred && asset.IsUserOverride);
+        if (userOverride is not null)
+        {
+            _logger.LogDebug(
+                "TV: preserving user-selected episode still for Work {EpisodeWorkId}",
+                episodeWorkId);
+            return;
+        }
+
+        var existingTmdbStill = existingVariants.FirstOrDefault(asset =>
+            string.Equals(asset.SourceProvider, "tmdb", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(asset.LocalImagePath)
+            && File.Exists(asset.LocalImagePath));
+
+        if (existingTmdbStill is not null)
+        {
+            await _entityAssetRepo.SetPreferredAsync(existingTmdbStill.Id, ct);
+            await UpsertPreferredEpisodeStillCanonicalAsync(episodeWorkId, existingTmdbStill, ct);
+            return;
+        }
+
+        byte[] bytes;
+        try
+        {
+            using var client = _httpFactory.CreateClient("tmdb");
+            bytes = await client.GetByteArrayAsync(stillUrl, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "TV: failed to download TMDB episode still for Work {EpisodeWorkId}",
+                episodeWorkId);
+            return;
+        }
+
+        if (bytes.Length == 0)
+            return;
+
+        var variant = new EntityAsset
+        {
+            Id = Guid.NewGuid(),
+            EntityId = episodeWorkId.ToString(),
+            EntityType = "Work",
+            AssetTypeValue = AssetType.EpisodeStill.ToString(),
+            ImageUrl = null,
+            LocalImagePath = string.Empty,
+            SourceProvider = "tmdb",
+            AssetClassValue = "Artwork",
+            StorageLocationValue = "Central",
+            OwnerScope = "Episode",
+            IsPreferred = false,
+            IsUserOverride = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        variant.LocalImagePath = _assetPaths.GetCentralAssetPath(
+            "Work",
+            episodeWorkId,
+            AssetType.EpisodeStill.ToString(),
+            variant.Id,
+            InferTmdbStillExtension(stillUrl));
+
+        await PersistTmdbEpisodeStillBytesAsync(bytes, variant.LocalImagePath, stillUrl, ct);
+        ArtworkVariantHelper.StampMetadataAndRenditions(variant, _assetPaths);
+        await _entityAssetRepo.UpsertAsync(variant, ct);
+        await _entityAssetRepo.SetPreferredAsync(variant.Id, ct);
+        await UpsertPreferredEpisodeStillCanonicalAsync(episodeWorkId, variant, ct);
+
+        if (_assetExportService is not null)
+            await _assetExportService.ReconcileArtworkAsync(
+                variant.EntityId,
+                variant.EntityType,
+                variant.AssetTypeValue,
+                ct);
+
+        _logger.LogInformation(
+            "TV: downloaded TMDB episode still for Work {EpisodeWorkId} ({Bytes} bytes)",
+            episodeWorkId,
+            bytes.Length);
+    }
+
+    private async Task PersistTmdbEpisodeStillBytesAsync(
+        byte[] bytes,
+        string destinationPath,
+        string sourceUrl,
+        CancellationToken ct)
+    {
+        AssetPathService.EnsureDirectory(destinationPath);
+
+        if (_imageCache is null)
+        {
+            await File.WriteAllBytesAsync(destinationPath, bytes, ct);
+            return;
+        }
+
+        var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var cachedPath = await _imageCache.FindByHashAsync(hash, ct);
+        if (!string.IsNullOrWhiteSpace(cachedPath) && File.Exists(cachedPath))
+        {
+            if (!string.Equals(cachedPath, destinationPath, StringComparison.OrdinalIgnoreCase))
+                File.Copy(cachedPath, destinationPath, overwrite: true);
+
+            return;
+        }
+
+        await File.WriteAllBytesAsync(destinationPath, bytes, ct);
+        await _imageCache.InsertAsync(hash, destinationPath, sourceUrl, ct);
+    }
+
+    private async Task UpsertPreferredEpisodeStillCanonicalAsync(
+        Guid episodeWorkId,
+        EntityAsset preferredVariant,
+        CancellationToken ct)
+    {
+        await _canonicalRepo.UpsertBatchAsync(
+            ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(
+                episodeWorkId,
+                preferredVariant,
+                DateTimeOffset.UtcNow),
+            ct);
+    }
+
+    private static string InferTmdbStillExtension(string imageUrl)
+    {
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri))
+        {
+            var extension = Path.GetExtension(imageUri.AbsolutePath);
+            if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+                return ".png";
+        }
+
+        return ".jpg";
     }
 
     // ── Grouping key helpers ─────────────────────────────────────────────────

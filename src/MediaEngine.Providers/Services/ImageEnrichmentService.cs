@@ -164,6 +164,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         var canonicalLookup = await LoadEffectiveCanonicalLookupAsync(
             context.CanonicalEntityId,
             assetId,
+            context.SelfEntityId,
             ct);
         var tmdbId = GetCanonical(canonicalLookup, BridgeIdKeys.TmdbId, "tmdb_movie_id", "tmdb_tv_id");
         var tvdbId = GetCanonical(canonicalLookup, BridgeIdKeys.TvdbId);
@@ -200,7 +201,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             apiKey,
             fanartConfig?.Name,
             ct);
-        if (json is null) return;
+        if (json is null)
+            return;
 
         // ── Step 4: Parse response and download work-level assets ──
         if (FieldMappings.TryGetValue(resolvedMediaType, out var mappings))
@@ -429,7 +431,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         }
     }
 
-    private async Task ProcessEpisodeScopedImageArrayAsync(
+    private async Task<bool> ProcessEpisodeScopedImageArrayAsync(
         JsonNode json,
         IReadOnlyList<string> jsonFields,
         AssetType assetType,
@@ -439,9 +441,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var imageNodes = ResolveImageNodes(json, jsonFields);
         if (imageNodes.Count == 0)
-            return;
+            return false;
 
         var seasonCache = new Dictionary<int, Guid?>();
+        var storedAny = false;
         foreach (var episodeGroup in imageNodes
                      .Select(node => new
                      {
@@ -485,14 +488,17 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 continue;
             }
 
-            await ProcessRankedImagesAsync(
+            var localPath = await ProcessRankedImagesAsync(
                 episodeGroup.Select(entry => entry.Node),
                 assetType,
                 episodeWorkId.Value,
                 workQid,
                 updatePreferred: true,
                 ct);
+            storedAny |= !string.IsNullOrWhiteSpace(localPath);
         }
+
+        return storedAny;
     }
 
     private async Task<string?> ProcessRankedImagesAsync(
@@ -501,7 +507,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         Guid ownerEntityId,
         string workQid,
         bool updatePreferred,
-        CancellationToken ct)
+        CancellationToken ct,
+        string sourceProvider = "fanart_tv")
     {
         var rankedImages = imageNodes
             .Where(n => n is not null)
@@ -548,7 +555,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 AssetTypeValue = assetType.ToString(),
                 ImageUrl = imageUrl,
                 LocalImagePath = string.Empty,
-                SourceProvider = "fanart_tv",
+                SourceProvider = sourceProvider,
                 AssetClassValue = "Artwork",
                 StorageLocationValue = "Central",
                 OwnerScope = InferOwnerScope(assetType),
@@ -678,9 +685,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         var mediaFilePath = asset?.FilePathRoot;
 
         return lineage is null
-            ? new ImageWorkContext(entityId, entityId, mediaFilePath, GetContainerFolder(mediaFilePath))
+            ? new ImageWorkContext(entityId, entityId, entityId, mediaFilePath, GetContainerFolder(mediaFilePath))
             : new ImageWorkContext(
                 entityId,
+                lineage.TargetForSelfScope,
                 lineage.TargetForParentScope,
                 mediaFilePath,
                 ResolveArtworkFolderPath(lineage.MediaType, mediaFilePath));
@@ -857,6 +865,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private async Task<Dictionary<string, string>> LoadEffectiveCanonicalLookupAsync(
         Guid canonicalEntityId,
         Guid assetId,
+        Guid selfEntityId,
         CancellationToken ct)
     {
         var lookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -871,16 +880,29 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             }
         }
 
-        if (assetId == canonicalEntityId)
-            return lookup;
-
-        foreach (var canonical in await _canonicalRepo.GetByEntityAsync(assetId, ct))
+        if (selfEntityId != canonicalEntityId)
         {
-            if (!string.IsNullOrWhiteSpace(canonical.Key)
-                && !string.IsNullOrWhiteSpace(canonical.Value)
-                && !lookup.ContainsKey(canonical.Key))
+            foreach (var canonical in await _canonicalRepo.GetByEntityAsync(selfEntityId, ct))
             {
-                lookup[canonical.Key] = canonical.Value;
+                if (!string.IsNullOrWhiteSpace(canonical.Key)
+                    && !string.IsNullOrWhiteSpace(canonical.Value)
+                    && !lookup.ContainsKey(canonical.Key))
+                {
+                    lookup[canonical.Key] = canonical.Value;
+                }
+            }
+        }
+
+        if (assetId != canonicalEntityId && assetId != selfEntityId)
+        {
+            foreach (var canonical in await _canonicalRepo.GetByEntityAsync(assetId, ct))
+            {
+                if (!string.IsNullOrWhiteSpace(canonical.Key)
+                    && !string.IsNullOrWhiteSpace(canonical.Value)
+                    && !lookup.ContainsKey(canonical.Key))
+                {
+                    lookup[canonical.Key] = canonical.Value;
+                }
             }
         }
 
@@ -991,5 +1013,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         return false;
     }
 
-    private sealed record ImageWorkContext(Guid AssetId, Guid CanonicalEntityId, string? MediaFilePath, string? ArtworkFolderPath);
+    private sealed record ImageWorkContext(
+        Guid AssetId,
+        Guid SelfEntityId,
+        Guid CanonicalEntityId,
+        string? MediaFilePath,
+        string? ArtworkFolderPath);
 }

@@ -874,6 +874,16 @@ public static class IntegrationTestEndpoints
             if (sawExpectedAssetCount && activeIdentityJobs == 0 && stableSnapshots >= 6)
                 return true;
 
+            if (sawExpectedAssetCount && stableSnapshots >= 12)
+            {
+                logger.LogWarning(
+                    "  Ingestion wait advancing after {StableSnapshots} stable snapshots with {ActiveJobs} active identity job(s) and {Pending} pending work(s)",
+                    stableSnapshots,
+                    activeIdentityJobs,
+                    pendingCount);
+                return true;
+            }
+
             lastAssetCount = assetCount;
             lastResolvedCount = resolvedCount;
             lastClaimCount = claimCount;
@@ -923,13 +933,12 @@ public static class IntegrationTestEndpoints
                 };
                 mtResult.Items.Add(ir);
 
-                var statusUpper = (item.Status ?? "").ToUpperInvariant();
-                if (statusUpper.Contains("IDENTIFIED") || statusUpper.Contains("CONFIRMED") || statusUpper.Contains("REGISTERED"))
-                    mtResult.Identified++;
-                else if (statusUpper.Contains("REVIEW"))
+                if (IsReviewStatus(item.Status))
                     mtResult.NeedsReview++;
-                else if (statusUpper.Contains("FAIL") || statusUpper.Contains("QUARANTINE"))
+                else if (IsFailureStatus(item.Status))
                     mtResult.Failed++;
+                else if (IsIdentifiedStatus(item.Status))
+                    mtResult.Identified++;
                 else
                     mtResult.NeedsReview++; // Default to review if unknown status
             }
@@ -1054,12 +1063,13 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var validationItems = allItems.Items.Where(IsOwnedValidationItem).ToList();
         var expectations = DevSeedEndpoints.GetAllExpectations()
             .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         var providerNamesById = await LoadProviderNamesByIdAsync(db);
 
-        foreach (var item in allItems.Items)
+        foreach (var item in validationItems)
         {
             // Fetch detail to get creator fields (author/director/artist)
             var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
@@ -1077,7 +1087,11 @@ public static class IntegrationTestEndpoints
             var validStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "Verified", "Provisional", "NeedsReview", "Identified", "Confirmed",
-                "Registered", "InReview", "Quarantined", "Rejected", "QidNoMatch",
+                "Registered", "InReview", "Quarantined", "Rejected",
+                "Queued", "RetailSearching", "RetailMatched", "RetailMatchedNeedsReview",
+                "RetailNoMatch", "BridgeSearching", "QidResolved", "QidNeedsReview",
+                "QidNoMatch", "Hydrating", "UniverseEnriching", "Ready",
+                "ReadyWithoutUniverse", "Completed", "Failed",
             };
 
             bool creatorRequired =
@@ -1139,7 +1153,7 @@ public static class IntegrationTestEndpoints
         }
 
         // ── Child entity validation (TV episodes, Music tracks) ──────────
-        foreach (var item in allItems.Items)
+        foreach (var item in validationItems)
         {
             if (string.IsNullOrWhiteSpace(item.WikidataQid)) continue;
 
@@ -1208,6 +1222,7 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var validationItems = allItems.Items.Where(IsOwnedValidationItem).ToList();
         var organizer = new FileOrganizer(loggerFactory.CreateLogger<FileOrganizer>());
         var assetPathService = new AssetPathService(options.Value.LibraryRoot);
         var assetIds = await LoadWorkAssetIdsAsync(db);
@@ -1222,7 +1237,7 @@ public static class IntegrationTestEndpoints
             .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        foreach (var item in allItems.Items)
+        foreach (var item in validationItems)
         {
             var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
             expectations.TryGetValue(NormalizeExpectationKey(item.Title, item.MediaType), out var expected);
@@ -1355,11 +1370,12 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var validationItems = allItems.Items.Where(IsOwnedValidationItem).ToList();
 
         if (stages == 1)
         {
             // Stage 1 only: NO items should have a Wikidata QID
-            foreach (var item in allItems.Items)
+            foreach (var item in validationItems)
             {
                 bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid);
                 var result = new StageGatingResult
@@ -1380,7 +1396,7 @@ public static class IntegrationTestEndpoints
         {
             // Stage 1+2: items WITH a retail match SHOULD have a QID;
             // items WITHOUT a retail match should NOT have a QID.
-            foreach (var item in allItems.Items)
+            foreach (var item in validationItems)
             {
                 // Only "matched" counts as a successful retail match. "failed" means
                 // the provider ran but returned nothing; "none" means no provider ran
@@ -1451,7 +1467,7 @@ public static class IntegrationTestEndpoints
 
             // Poll for universe/parent collection creation (timeout: 3 minutes)
             var deadline = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(3);
-            int lastCollectionCount = 0;
+            int? lastCollectionCount = null;
             int stableCount = 0;
             while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
             {
@@ -1460,13 +1476,15 @@ public static class IntegrationTestEndpoints
                 using (var conn = db.CreateConnection())
                     collectionCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM collections WHERE parent_collection_id IS NOT NULL;");
 
-                if (collectionCount == lastCollectionCount && collectionCount > 0) stableCount++;
+                if (lastCollectionCount.HasValue && collectionCount == lastCollectionCount.Value) stableCount++;
                 else stableCount = 0;
                 lastCollectionCount = collectionCount;
 
                 logger.LogInformation("  Stage 3: {Collections} collections with parent, stable={Stable}", collectionCount, stableCount);
                 if (stableCount >= 3) break;
             }
+
+            await WaitForArtworkActivityToSettleAsync(db, logger, TimeSpan.FromMinutes(2), ct);
 
             // Validate universe creation for known test data
             using (var conn = db.CreateConnection())
@@ -1547,6 +1565,37 @@ public static class IntegrationTestEndpoints
     }
 
     // ── Check universes ───────────────────────────────────────────────────
+
+    private static async Task WaitForArtworkActivityToSettleAsync(
+        IDatabaseConnection db,
+        ILogger logger,
+        TimeSpan timeout,
+        CancellationToken ct)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        var lastAssetCount = -1;
+        var stableCount = 0;
+
+        while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3), ct);
+
+            int assetCount;
+            using (var conn = db.CreateConnection())
+                assetCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM entity_assets;");
+
+            if (assetCount == lastAssetCount)
+                stableCount++;
+            else
+                stableCount = 0;
+
+            lastAssetCount = assetCount;
+            if (stableCount >= 2)
+                break;
+        }
+
+        logger.LogInformation("  Stage 3 artwork assets settled at {Count}", Math.Max(lastAssetCount, 0));
+    }
 
     private static async Task CheckUniversesAsync(
         ILibraryItemRepository libraryItemRepo,
@@ -1942,12 +1991,13 @@ public static class IntegrationTestEndpoints
 
         var allItems = await libraryItemRepo.GetPageAsync(
             new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var validationItems = allItems.Items.Where(IsOwnedValidationItem).ToList();
         var providerNamesById = await LoadProviderNamesByIdAsync(db);
         var assetIdsByWork = await LoadWorkAssetIdsAsync(db);
         var hierarchy = await LoadWorkHierarchyAsync(db);
 
         using var conn = db.CreateConnection();
-        foreach (var item in allItems.Items
+        foreach (var item in validationItems
             .Where(item => IsIdentifiedStatus(item.Status))
             .OrderBy(item => item.MediaType)
             .ThenBy(item => item.Title))
@@ -2494,10 +2544,9 @@ public static class IntegrationTestEndpoints
 
     private static string StatusClass(string? status)
     {
-        var s = (status ?? "").ToUpperInvariant();
-        if (s.Contains("IDENTIFIED") || s.Contains("CONFIRMED") || s.Contains("REGISTERED")) return "status-identified";
-        if (s.Contains("REVIEW")) return "status-review";
-        if (s.Contains("FAIL") || s.Contains("QUARANTINE")) return "status-failed";
+        if (IsReviewStatus(status)) return "status-review";
+        if (IsFailureStatus(status)) return "status-failed";
+        if (IsIdentifiedStatus(status)) return "status-identified";
         return "status-unknown";
     }
 
@@ -2868,8 +2917,21 @@ public static class IntegrationTestEndpoints
         var value = status ?? "";
         return value.Contains("Identified", StringComparison.OrdinalIgnoreCase)
             || value.Contains("Confirmed", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("Registered", StringComparison.OrdinalIgnoreCase);
+            || value.Contains("Registered", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("RetailMatched", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("BridgeSearching", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("QidResolved", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("Hydrating", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("UniverseEnriching", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("Ready", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("ReadyWithoutUniverse", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("Completed", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool IsOwnedValidationItem(LibraryCatalogItem item) =>
+        !string.IsNullOrWhiteSpace(item.FilePath)
+        || item.IsReadyForLibrary
+        || string.Equals(item.LibraryVisibility, "review_only", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsWikipediaProvider(
         string? providerId,
@@ -3080,6 +3142,7 @@ public static class IntegrationTestEndpoints
     {
         var value = status ?? "";
         return value.Contains("fail", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("RetailNoMatch", StringComparison.OrdinalIgnoreCase)
             || value.Contains("quarantine", StringComparison.OrdinalIgnoreCase)
             || value.Contains("reject", StringComparison.OrdinalIgnoreCase);
     }

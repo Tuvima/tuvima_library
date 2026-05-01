@@ -246,6 +246,45 @@ public sealed class ExtensionToClaimsTests
     // ── Unknown property code → no claim emitted ─────────────────────────────
 
     [Fact]
+    public void P179Series_WithP1545Qualifier_EmitsSeriesPosition()
+    {
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
+        {
+            ["P179"] =
+            [
+                new WikidataClaim
+                {
+                    PropertyId = "P179",
+                    Rank = "normal",
+                    Value = new WikidataValue
+                    {
+                        Kind = WikidataValueKind.EntityId,
+                        RawValue = "Dune series",
+                        EntityId = "Q115652",
+                    },
+                    Qualifiers = new Dictionary<string, IReadOnlyList<WikidataValue>>
+                    {
+                        ["P1545"] =
+                        [
+                            new WikidataValue
+                            {
+                                Kind = WikidataValueKind.String,
+                                RawValue = "2",
+                            },
+                        ],
+                    },
+                },
+            ],
+        };
+        var labels = new Dictionary<string, string> { ["P179"] = "series" };
+
+        var claims = ConvertToClaims("Q1234", properties, labels);
+
+        Assert.Contains(claims, c => c.Key == "series" && c.Value == "Dune series");
+        Assert.Contains(claims, c => c.Key == "series_position" && c.Value == "2");
+    }
+
+    [Fact]
     public void UnknownPropertyCode_SkippedSilently()
     {
         // P999 is not in the labels dictionary.

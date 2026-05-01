@@ -3868,6 +3868,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     var seriesLabel = strVal ?? claim.Value?.EntityLabel ?? claim.Value?.RawValue;
                     if (!string.IsNullOrWhiteSpace(seriesLabel) && IsLikelyAwardList(seriesLabel))
                         continue;
+
+                    var seriesPosition = ExtractQualifierValue(claim, "P1545");
+                    if (!string.IsNullOrWhiteSpace(seriesPosition))
+                    {
+                        yield return new ProviderClaim(
+                            MetadataFieldConstants.SeriesPosition,
+                            seriesPosition,
+                            ClaimConfidence.WikidataProperty);
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(strVal))
@@ -3939,6 +3948,30 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return (val.RawValue, ClaimConfidence.WikidataProperty);
 
         return (null, 0.0);
+    }
+
+    private static string? ExtractQualifierValue(WikidataClaim claim, string propertyId)
+    {
+        if (!claim.Qualifiers.TryGetValue(propertyId, out var values))
+            return null;
+
+        foreach (var value in values)
+        {
+            var text = value.Amount?.ToString() ?? value.RawValue;
+            text = text.Trim().TrimStart('+');
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            if (decimal.TryParse(text, out var numeric)
+                && decimal.Truncate(numeric) == numeric)
+            {
+                return decimal.ToInt32(numeric).ToString();
+            }
+
+            return text;
+        }
+
+        return null;
     }
 
     private static bool IsBridgeProperty(string pCode) => pCode switch

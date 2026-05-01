@@ -23,6 +23,7 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
     private readonly RetailMatchWorker _retailWorker;
     private readonly WikidataBridgeWorker _bridgeWorker;
     private readonly QuickHydrationWorker _hydrationWorker;
+    private readonly IEnrichmentConcurrencyLimiter _concurrency;
     private readonly ILogger<SynchronousIdentityPipelineService> _logger;
 
     public SynchronousIdentityPipelineService(
@@ -31,13 +32,15 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
         RetailMatchWorker retailWorker,
         WikidataBridgeWorker bridgeWorker,
         QuickHydrationWorker hydrationWorker,
-        ILogger<SynchronousIdentityPipelineService> logger)
+        ILogger<SynchronousIdentityPipelineService> logger,
+        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null)
     {
         _jobRepo = jobRepo;
         _canonicalRepo = canonicalRepo;
         _retailWorker = retailWorker;
         _bridgeWorker = bridgeWorker;
         _hydrationWorker = hydrationWorker;
+        _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
         _logger = logger;
     }
 
@@ -91,8 +94,11 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
 
             // Fetch full Wikidata properties (genre, series, description, people, etc.)
             // This was previously skipped, leaving manual QID matches without enrichment data.
-            await _bridgeWorker.FetchAndPersistPropertiesAsync(
-                request.EntityId, request.PreResolvedQid, job.MediaType, ct);
+            await _concurrency.RunAsync(
+                EnrichmentWorkKind.Wikidata,
+                token => _bridgeWorker.FetchAndPersistPropertiesAsync(
+                    request.EntityId, request.PreResolvedQid, job.MediaType, token),
+                ct);
         }
         // Path B: Skip retail, run bridge (user confirmed a retail match, now auto-resolve Wikidata)
         else if (request.SkipRetailStage)
@@ -102,7 +108,10 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatched, ct: ct);
 
             // Stage 2: Wikidata bridge resolution using existing bridge IDs + text fallback
-            await _bridgeWorker.ProcessJobAsync(job, ct);
+            await _concurrency.RunAsync(
+                EnrichmentWorkKind.Wikidata,
+                token => _bridgeWorker.ProcessJobAsync(job, token),
+                ct);
 
             var updatedJob = await _jobRepo.GetByIdAsync(job.Id, ct);
             if (updatedJob is not null)
@@ -114,7 +123,10 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             await _jobRepo.CreateAsync(job, ct);
 
             // Stage 1: Retail identification
-            await _retailWorker.ProcessJobAsync(job, ct);
+            await _concurrency.RunAsync(
+                EnrichmentWorkKind.RetailProvider,
+                token => _retailWorker.ProcessJobAsync(job, token),
+                ct);
 
             // Reload job state after retail worker
             var updatedJob = await _jobRepo.GetByIdAsync(job.Id, ct);
@@ -129,7 +141,10 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             if (job.State == nameof(IdentityJobState.RetailMatched) ||
                 job.State == nameof(IdentityJobState.RetailMatchedNeedsReview))
             {
-                await _bridgeWorker.ProcessJobAsync(job, ct);
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.Wikidata,
+                    token => _bridgeWorker.ProcessJobAsync(job, token),
+                    ct);
 
                 updatedJob = await _jobRepo.GetByIdAsync(job.Id, ct);
                 if (updatedJob is not null)

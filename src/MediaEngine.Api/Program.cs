@@ -536,6 +536,10 @@ builder.Services.AddSingleton<IMetadataTagger, VideoMetadataTagger>();
 builder.Services.AddSingleton<IMetadataTagger, ComicMetadataTagger>();
 builder.Services.AddSingleton<MediaEngine.Ingestion.Services.WritebackConfigState>();
 builder.Services.AddSingleton<IWriteBackService, MediaEngine.Ingestion.Services.WriteBackService>();
+builder.Services.AddSingleton<IEnrichmentConcurrencyLimiter>(sp =>
+    new EnrichmentConcurrencyLimiter(
+        sp.GetRequiredService<IConfigurationLoader>().LoadHydration(),
+        sp.GetRequiredService<ILogger<EnrichmentConcurrencyLimiter>>()));
 builder.Services.AddSingleton<IBackgroundWorker, BackgroundWorker>();
 
 // IngestionEngine registered as a singleton, IIngestionEngine interface, AND a
@@ -739,7 +743,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         return new Tuvima.Wikidata.WikidataReconciler(httpClient, reconcilerOptions);
     });
 
-    // Sub-service registrations — Tuvima.Wikidata v2.5.0 exposes nine focused
+    // Sub-service registrations — Tuvima.Wikidata v2.6.0 exposes nine focused
     // sub-services on the facade. Registering each as a singleton allows the
     // adapter slimdown phases to inject narrow slices (Stage2Service,
     // PersonsService, AuthorsService, ChildrenService, LabelsService) instead

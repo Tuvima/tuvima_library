@@ -23,6 +23,7 @@ public sealed class EnrichmentService : IEnrichmentService
     private readonly IWriteBackService _writeBack;
     private readonly ICollectionRepository _collectionRepo;
     private readonly IParentCollectionResolver _parentCollectionResolver;
+    private readonly IEnrichmentConcurrencyLimiter _concurrency;
     private readonly ILogger<EnrichmentService> _logger;
 
     public EnrichmentService(
@@ -36,7 +37,8 @@ public sealed class EnrichmentService : IEnrichmentService
         IWriteBackService writeBack,
         ICollectionRepository collectionRepo,
         IParentCollectionResolver parentCollectionResolver,
-        ILogger<EnrichmentService> logger)
+        ILogger<EnrichmentService> logger,
+        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null)
     {
         _coverArt = coverArt;
         _persons = persons;
@@ -48,6 +50,7 @@ public sealed class EnrichmentService : IEnrichmentService
         _writeBack = writeBack;
         _collectionRepo = collectionRepo;
         _parentCollectionResolver = parentCollectionResolver;
+        _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
         _logger = logger;
     }
 
@@ -55,7 +58,10 @@ public sealed class EnrichmentService : IEnrichmentService
     {
         _logger.LogInformation("Quick pass starting for entity {Id} (QID {Qid})", entityId, qid);
         await _coverArt.DownloadAndPersistAsync(entityId, qid, ct);
-        await _persons.EnrichFromClaimsAsync(entityId, ct);
+        await _concurrency.RunAsync(
+            EnrichmentWorkKind.Wikidata,
+            token => _persons.EnrichFromClaimsAsync(entityId, token),
+            ct);
         await _writeBack.WriteMetadataAsync(entityId, "quick_hydration", ct);
         _logger.LogInformation("Quick pass completed for entity {Id}", entityId);
     }
@@ -70,16 +76,28 @@ public sealed class EnrichmentService : IEnrichmentService
 
     public async Task RunUniverseCorePassAsync(Guid entityId, string qid, CancellationToken ct = default)
     {
-        await _children.DiscoverAsync(entityId, qid, ct);
-        await _fictional.EnrichAsync(entityId, qid, ct);
-        await _persons.EnrichActorCharacterMappingsAsync(entityId, qid, ct);
-        await ResolveParentCollectionAsync(entityId, ct);
+        await _concurrency.RunAsync(
+            EnrichmentWorkKind.Wikidata,
+            async token =>
+            {
+                await _children.DiscoverAsync(entityId, qid, token);
+                await _fictional.EnrichAsync(entityId, qid, token);
+                await _persons.EnrichActorCharacterMappingsAsync(entityId, qid, token);
+                await ResolveParentCollectionAsync(entityId, token);
+            },
+            ct);
     }
 
     public async Task RunUniverseEnhancerPassAsync(Guid entityId, string qid, CancellationToken ct = default)
     {
-        await _images.EnrichWorkImagesAsync(entityId, qid, ct);
-        await _descriptions.EnrichAsync(entityId, qid, ct);
+        await _concurrency.RunAsync(
+            EnrichmentWorkKind.Fanart,
+            token => _images.EnrichWorkImagesAsync(entityId, qid, token),
+            ct);
+        await _concurrency.RunAsync(
+            EnrichmentWorkKind.Wikidata,
+            token => _descriptions.EnrichAsync(entityId, qid, token),
+            ct);
         await _writeBack.WriteMetadataAsync(entityId, "universe_enrichment", ct);
     }
 
@@ -92,19 +110,34 @@ public sealed class EnrichmentService : IEnrichmentService
                 await _coverArt.DownloadAndPersistAsync(entityId, qid, ct);
                 break;
             case EnrichmentType.Persons:
-                await _persons.EnrichFromClaimsAsync(entityId, ct);
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.Wikidata,
+                    token => _persons.EnrichFromClaimsAsync(entityId, token),
+                    ct);
                 break;
             case EnrichmentType.Children:
-                await _children.DiscoverAsync(entityId, qid, ct);
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.Wikidata,
+                    token => _children.DiscoverAsync(entityId, qid, token),
+                    ct);
                 break;
             case EnrichmentType.Images:
-                await _images.EnrichWorkImagesAsync(entityId, qid, ct);
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.Fanart,
+                    token => _images.EnrichWorkImagesAsync(entityId, qid, token),
+                    ct);
                 break;
             case EnrichmentType.Fictional:
-                await _fictional.EnrichAsync(entityId, qid, ct);
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.Wikidata,
+                    token => _fictional.EnrichAsync(entityId, qid, token),
+                    ct);
                 break;
             case EnrichmentType.Descriptions:
-                await _descriptions.EnrichAsync(entityId, qid, ct);
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.Wikidata,
+                    token => _descriptions.EnrichAsync(entityId, qid, token),
+                    ct);
                 break;
             case EnrichmentType.WriteBack:
                 await _writeBack.WriteMetadataAsync(entityId, "manual_enrichment", ct);

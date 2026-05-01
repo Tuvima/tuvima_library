@@ -31,6 +31,30 @@ public sealed class HydrationSettings
     [JsonPropertyName("stage_concurrency")]
     public int StageConcurrency { get; set; } = 3;
 
+    /// <summary>
+    /// Maximum app-wide concurrent retail provider work items across all libraries.
+    /// </summary>
+    [JsonPropertyName("max_concurrent_retail_provider_jobs")]
+    public int MaxConcurrentRetailProviderJobs { get; set; } = 2;
+
+    /// <summary>
+    /// Maximum app-wide concurrent Wikidata/Wikipedia work items across all libraries.
+    /// </summary>
+    [JsonPropertyName("max_concurrent_wikidata_jobs")]
+    public int MaxConcurrentWikidataJobs { get; set; } = 1;
+
+    /// <summary>
+    /// Maximum app-wide concurrent Fanart.tv/image enrichment work items across all libraries.
+    /// </summary>
+    [JsonPropertyName("max_concurrent_fanart_jobs")]
+    public int MaxConcurrentFanartJobs { get; set; } = 1;
+
+    /// <summary>
+    /// Maximum app-wide concurrent metadata write-back work items across all libraries.
+    /// </summary>
+    [JsonPropertyName("max_concurrent_writeback_jobs")]
+    public int MaxConcurrentWriteBackJobs { get; set; } = 1;
+
     /// <summary>Timeout in seconds for Stage 1 (Retail Identification — provider API calls).</summary>
     [JsonPropertyName("stage1_timeout_seconds")]
     public int Stage1TimeoutSeconds { get; set; } = 45;

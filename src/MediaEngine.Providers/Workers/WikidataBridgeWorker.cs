@@ -46,6 +46,7 @@ public sealed class WikidataBridgeWorker
     private readonly PostPipelineService _postPipeline;
     private readonly CoverArtWorker _coverArt;
     private readonly BatchProgressService? _batchProgress;
+    private readonly IEnrichmentConcurrencyLimiter _concurrency;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
@@ -77,7 +78,8 @@ public sealed class WikidataBridgeWorker
         PostPipelineService postPipeline,
         CoverArtWorker coverArt,
         ILogger<WikidataBridgeWorker> logger,
-        BatchProgressService? batchProgress = null)
+        BatchProgressService? batchProgress = null,
+        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -98,6 +100,7 @@ public sealed class WikidataBridgeWorker
         _coverArt = coverArt;
         _logger = logger;
         _batchProgress = batchProgress;
+        _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
 
         // Lease size is read once at construction. A restart applies any
         // config change — same lifetime as every other CoreConfiguration value.
@@ -128,7 +131,13 @@ public sealed class WikidataBridgeWorker
     ///             The adapter's response cache ensures jobs sharing a QID hit the
     ///             cache on the second and subsequent FetchAsync calls.
     /// </summary>
-    public async Task<int> PollAsync(CancellationToken ct)
+    public Task<int> PollAsync(CancellationToken ct) =>
+        _concurrency.RunAsync(
+            EnrichmentWorkKind.Wikidata,
+            PollCoreAsync,
+            ct);
+
+    private async Task<int> PollCoreAsync(CancellationToken ct)
     {
         // ── Phase 1: Lease ────────────────────────────────────────────────────
         // Strict retail gate: only RetailMatched or RetailMatchedNeedsReview.

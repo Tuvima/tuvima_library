@@ -1132,6 +1132,190 @@ public sealed class WorkerPipelineTests
     }
 
     [Fact]
+    public async Task RetailMatchWorker_TvEpisodeRetailMatch_DownloadsTmdbStillAsLocalAsset()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"tuvima_retail_tv_still_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var entityId = Guid.NewGuid();
+            var episodeWorkId = Guid.NewGuid();
+            var showWorkId = Guid.NewGuid();
+            var jobId = Guid.NewGuid();
+            var providerId = Guid.NewGuid();
+
+            var jobRepo = new StubIdentityJobRepository();
+            var candidateRepo = new StubRetailCandidateRepository();
+            var canonicalRepo = new StubCanonicalValueRepository();
+            var entityAssetRepo = new StubEntityAssetRepository();
+            var imageCache = new StubImageCacheRepository();
+            var configLoader = new StubConfigurationLoader
+            {
+                Providers =
+                [
+                    new ProviderConfiguration
+                    {
+                        Name = "tmdb",
+                        Enabled = true,
+                        HttpClient = new HttpClientConfig { ApiKey = "test-key" },
+                    },
+                ],
+            };
+
+            await jobRepo.CreateAsync(new IdentityJob
+            {
+                Id = jobId,
+                EntityId = entityId,
+                EntityType = "MediaAsset",
+                MediaType = "TV",
+                State = "Queued",
+            });
+
+            await canonicalRepo.UpsertBatchAsync(
+            [
+                new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.ShowName, Value = "Tuvima Test Show", LastScoredAt = DateTimeOffset.UtcNow },
+                new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Pilot", LastScoredAt = DateTimeOffset.UtcNow },
+                new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.EpisodeTitle, Value = "Pilot", LastScoredAt = DateTimeOffset.UtcNow },
+                new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.SeasonNumber, Value = "1", LastScoredAt = DateTimeOffset.UtcNow },
+                new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.EpisodeNumber, Value = "1", LastScoredAt = DateTimeOffset.UtcNow },
+            ]);
+
+            var requests = new List<string>();
+            var worker = new RetailMatchWorker(
+                jobRepo,
+                candidateRepo,
+                CreateStubStageOutcomeFactory(),
+                CreateStubTimelineRecorder(),
+                CreateStubBatchProgressService(),
+                [
+                    new StubExternalMetadataProvider
+                    {
+                        Name = "tmdb",
+                        ProviderId = providerId,
+                        Claims = [],
+                    },
+                ],
+                new RetailMatchScoringService(
+                    new ExactMatchFuzzyMatchingService(),
+                    configLoader,
+                    coverArtHash: null,
+                    logger: null),
+                new StubMetadataClaimRepository(),
+                canonicalRepo,
+                new StubScoringEngine(),
+                configLoader,
+                new StubBridgeIdRepository(),
+                new StubWorkRepository
+                {
+                    Lineage = new WorkLineage(
+                        entityId,
+                        Guid.NewGuid(),
+                        episodeWorkId,
+                        showWorkId,
+                        showWorkId,
+                        WorkKind.Child,
+                        MediaType.TV),
+                },
+                new WorkClaimRouter(),
+                new RoutingHttpClientFactory(request =>
+                {
+                    var url = request.RequestUri?.ToString() ?? string.Empty;
+                    requests.Add(url);
+
+                    if (url.Contains("/search/tv?", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return JsonResponse("""
+                            {
+                              "results": [
+                                { "id": 123, "name": "Tuvima Test Show", "poster_path": "/poster.jpg", "first_air_date": "2024-01-01" }
+                              ]
+                            }
+                            """);
+                    }
+
+                    if (url.Contains("/tv/123/season/1?", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return JsonResponse("""
+                            {
+                              "episodes": [
+                                {
+                                  "id": 999,
+                                  "name": "Pilot",
+                                  "overview": "The first episode.",
+                                  "season_number": 1,
+                                  "episode_number": 1,
+                                  "air_date": "2024-01-01",
+                                  "vote_average": 8.1,
+                                  "still_path": "/episode-still.jpg"
+                                }
+                              ]
+                            }
+                            """);
+                    }
+
+                    if (url.Contains("/tv/123?", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return JsonResponse("""
+                            {
+                              "name": "Tuvima Test Show",
+                              "overview": "Show description.",
+                              "tagline": "A test tagline.",
+                              "poster_path": "/poster.jpg",
+                              "first_air_date": "2024-01-01",
+                              "networks": [{ "name": "Test Network" }]
+                            }
+                            """);
+                    }
+
+                    if (url.Contains("image.tmdb.org/t/p/w500/episode-still.jpg", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new HttpResponseMessage(HttpStatusCode.OK)
+                        {
+                            Content = new ByteArrayContent([1, 2, 3, 4, 5]),
+                        };
+                    }
+
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                }),
+                null!,
+                NullLogger<RetailMatchWorker>.Instance,
+                entityAssetRepo: entityAssetRepo,
+                imageCache: imageCache,
+                assetPaths: new AssetPathService(tempRoot));
+
+            var processed = await worker.PollAsync(CancellationToken.None);
+
+            Assert.Equal(1, processed);
+            Assert.Contains(requests, url => url.Contains("image.tmdb.org/t/p/w500/episode-still.jpg", StringComparison.OrdinalIgnoreCase));
+
+            var updatedJob = await jobRepo.GetByIdAsync(jobId);
+            Assert.NotNull(updatedJob);
+            Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+            var still = Assert.Single(entityAssetRepo.Assets);
+            Assert.Equal(episodeWorkId.ToString(), still.EntityId);
+            Assert.Equal("EpisodeStill", still.AssetTypeValue);
+            Assert.Equal("Episode", still.OwnerScope);
+            Assert.Equal("tmdb", still.SourceProvider);
+            Assert.Null(still.ImageUrl);
+            Assert.True(File.Exists(still.LocalImagePath));
+
+            Assert.Contains(canonicalRepo.Values, value =>
+                value.EntityId == episodeWorkId
+                && string.Equals(value.Key, "episode_still", StringComparison.OrdinalIgnoreCase)
+                && value.Value.StartsWith("/stream/artwork/", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(canonicalRepo.Values, value =>
+                string.Equals(value.Key, "episode_still_url", StringComparison.OrdinalIgnoreCase)
+                && value.Value.Contains("image.tmdb.org", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            try { Directory.Delete(tempRoot, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task RetailMatchWorker_OutcomePriorityPrefersAmbiguousCandidateOverRejectedHighScore()
     {
         var entityId = Guid.NewGuid();
@@ -1605,6 +1789,11 @@ public sealed class WorkerPipelineTests
             NullLogger<BatchProgressService>.Instance);
     }
 
+    private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(json, Encoding.UTF8, "application/json"),
+    };
+
     // ══════════════════════════════════════════════════════════════════════
     //  Stub implementations
     // ══════════════════════════════════════════════════════════════════════
@@ -1824,6 +2013,9 @@ public sealed class WorkerPipelineTests
 
     private sealed class StubConfigurationLoader : IConfigurationLoader
     {
+        public IReadOnlyList<ProviderConfiguration> Providers { get; init; } = [];
+        public HydrationSettings Hydration { get; init; } = new();
+
         public PipelineConfiguration LoadPipelines() => new()
         {
             Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
@@ -1856,8 +2048,8 @@ public sealed class WorkerPipelineTests
             },
         };
 
-        public HydrationSettings LoadHydration() => new();
-        public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
+        public HydrationSettings LoadHydration() => Hydration;
+        public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => Providers;
         public ScoringSettings LoadScoring() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
 
@@ -2341,6 +2533,102 @@ public sealed class WorkerPipelineTests
             => Task.FromResult(_responder(request));
     }
 
+    private sealed class StubEntityAssetRepository : IEntityAssetRepository
+    {
+        public List<EntityAsset> Assets { get; } = [];
+
+        public Task<IReadOnlyList<EntityAsset>> GetByEntityAsync(string entityId, string? assetType = null, CancellationToken ct = default)
+        {
+            var assets = Assets
+                .Where(asset => string.Equals(asset.EntityId, entityId, StringComparison.OrdinalIgnoreCase)
+                    && (assetType is null || string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            return Task.FromResult<IReadOnlyList<EntityAsset>>(assets);
+        }
+
+        public Task<EntityAsset?> FindByIdAsync(Guid assetId, CancellationToken ct = default)
+            => Task.FromResult(Assets.FirstOrDefault(asset => asset.Id == assetId));
+
+        public Task UpsertAsync(EntityAsset asset, CancellationToken ct = default)
+        {
+            Assets.RemoveAll(existing => existing.Id == asset.Id);
+            Assets.Add(asset);
+            return Task.CompletedTask;
+        }
+
+        public Task SetPreferredAsync(Guid assetId, CancellationToken ct = default)
+        {
+            var target = Assets.FirstOrDefault(asset => asset.Id == assetId);
+            if (target is null)
+                return Task.CompletedTask;
+
+            foreach (var asset in Assets.Where(asset =>
+                         string.Equals(asset.EntityId, target.EntityId, StringComparison.OrdinalIgnoreCase)
+                         && string.Equals(asset.AssetTypeValue, target.AssetTypeValue, StringComparison.OrdinalIgnoreCase)))
+            {
+                asset.IsPreferred = asset.Id == assetId;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteByEntityAsync(string entityId, CancellationToken ct = default)
+        {
+            Assets.RemoveAll(asset => string.Equals(asset.EntityId, entityId, StringComparison.OrdinalIgnoreCase));
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteAsync(Guid assetId, CancellationToken ct = default)
+        {
+            Assets.RemoveAll(asset => asset.Id == assetId);
+            return Task.CompletedTask;
+        }
+
+        public Task<EntityAsset?> GetPreferredAsync(string entityId, string assetType, CancellationToken ct = default)
+            => Task.FromResult(Assets.FirstOrDefault(asset =>
+                string.Equals(asset.EntityId, entityId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase)
+                && asset.IsPreferred));
+
+        public Task<IReadOnlyList<EntityAsset>> GetPreferredByEntitiesAsync(IReadOnlyCollection<string> entityIds, CancellationToken ct = default)
+        {
+            var entitySet = entityIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var assets = Assets
+                .Where(asset => entitySet.Contains(asset.EntityId) && asset.IsPreferred)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<EntityAsset>>(assets);
+        }
+    }
+
+    private sealed class StubImageCacheRepository : IImageCacheRepository
+    {
+        private readonly Dictionary<string, string> _byHash = new(StringComparer.OrdinalIgnoreCase);
+
+        public Task<string?> FindByHashAsync(string contentHash, CancellationToken ct = default)
+            => Task.FromResult(_byHash.GetValueOrDefault(contentHash));
+
+        public Task InsertAsync(string contentHash, string filePath, string? sourceUrl = null, CancellationToken ct = default)
+        {
+            _byHash[contentHash] = filePath;
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> IsUserOverrideAsync(string contentHash, CancellationToken ct = default)
+            => Task.FromResult(false);
+
+        public Task<string?> FindBySourceUrlAsync(string sourceUrl, CancellationToken ct = default)
+            => Task.FromResult<string?>(null);
+
+        public Task SetUserOverrideAsync(string contentHash, bool isOverride, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task SetPerceptualHashAsync(string contentHash, ulong phash, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task<ulong?> GetPerceptualHashAsync(string contentHash, CancellationToken ct = default)
+            => Task.FromResult<ulong?>(null);
+    }
+
     /// <summary>
     /// Stub IWorkRepository — every method returns a no-op default. The
     /// pipeline tests don't exercise the asset → work lineage path, so
@@ -2349,6 +2637,8 @@ public sealed class WorkerPipelineTests
     /// </summary>
     private sealed class StubWorkRepository : IWorkRepository
     {
+        public WorkLineage? Lineage { get; init; }
+
         public Task<Guid?> FindParentByKeyAsync(MediaType mediaType, string parentKey, CancellationToken ct = default)
             => Task.FromResult<Guid?>(null);
 
@@ -2380,6 +2670,6 @@ public sealed class WorkerPipelineTests
             => Task.CompletedTask;
 
         public Task<WorkLineage?> GetLineageByAssetAsync(Guid assetId, CancellationToken ct = default)
-            => Task.FromResult<WorkLineage?>(null);
+            => Task.FromResult(Lineage);
     }
 }
