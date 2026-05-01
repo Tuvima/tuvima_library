@@ -244,7 +244,7 @@ public sealed class WikidataBridgeWorker
                     }
                 }
 
-                var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint) = BuildLookupHints(mediaType, canonicals);
+                var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint) = BuildLookupHints(mediaType, canonicals);
 
                 BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
 
@@ -259,7 +259,8 @@ public sealed class WikidataBridgeWorker
                     YearHint: yearHint,
                     AlbumHint: albumHint,
                     ArtistHint: artistHint,
-                    SeriesHint: seriesHint));
+                    SeriesHint: seriesHint,
+                    LanguageHint: languageHint));
             }
 
             // ── Phase 4: Resolve QIDs via the unified facade ──────────────────────
@@ -289,6 +290,7 @@ public sealed class WikidataBridgeWorker
                     Title              = ctx.TitleHint,
                     Author             = ctx.AuthorHint,
                     Year               = ctx.YearHint,
+                    FileLanguage       = ctx.LanguageHint,
                     SeriesTitle        = ctx.SeriesHint,
                 })
                 .ToList();
@@ -414,6 +416,7 @@ public sealed class WikidataBridgeWorker
                         Title          = representative.TitleHint,
                         Year           = representative.YearHint,
                         PreResolvedQid = representative.ResolvedQid,
+                        FileLanguage   = representative.LanguageHint,
                     }, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -598,6 +601,7 @@ public sealed class WikidataBridgeWorker
                                     Title          = ctx.TitleHint,
                                     Year           = ctx.YearHint,
                                     PreResolvedQid = ctx.ResolvedQid,
+                                    FileLanguage   = ctx.LanguageHint,
                                 }, ct);
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -657,6 +661,7 @@ public sealed class WikidataBridgeWorker
                             Title          = ctx.TitleHint,
                             Year           = ctx.YearHint,
                             PreResolvedQid = ctx.ResolvedQid,
+                            FileLanguage   = ctx.LanguageHint,
                         }, ct);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -707,6 +712,7 @@ public sealed class WikidataBridgeWorker
                             Title      = ctx.TitleHint,
                             Author     = ctx.AuthorHint,
                             Year       = ctx.YearHint,
+                            FileLanguage = ctx.LanguageHint,
                         }, ct);
 
                     if (fallbackClaims.Count > 0)
@@ -833,7 +839,7 @@ public sealed class WikidataBridgeWorker
             }
         }
 
-        var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint) = BuildLookupHints(mediaType, canonicals);
+        var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint) = BuildLookupHints(mediaType, canonicals);
 
         BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
 
@@ -848,7 +854,8 @@ public sealed class WikidataBridgeWorker
             YearHint:      yearHint,
             AlbumHint:     albumHint,
             ArtistHint:    artistHint,
-            SeriesHint:    seriesHint);
+            SeriesHint:    seriesHint,
+            LanguageHint:  languageHint);
 
         // Resolve QID for this single job via the unified facade.
         try
@@ -867,6 +874,7 @@ public sealed class WikidataBridgeWorker
                     Title              = titleHint,
                     Author             = authorHint,
                     Year               = yearHint,
+                    FileLanguage       = languageHint,
                     SeriesTitle        = seriesHint,
                 }, ct);
 
@@ -922,7 +930,7 @@ public sealed class WikidataBridgeWorker
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
     }
 
-    internal static (string? TitleHint, string? AuthorHint, string? YearHint, string? AlbumHint, string? ArtistHint, string? SeriesHint) BuildLookupHints(
+    internal static (string? TitleHint, string? AuthorHint, string? YearHint, string? AlbumHint, string? ArtistHint, string? SeriesHint, string? LanguageHint) BuildLookupHints(
         MediaType mediaType,
         IReadOnlyList<CanonicalValue> canonicals)
     {
@@ -934,6 +942,7 @@ public sealed class WikidataBridgeWorker
         var titleHint = GetCanonical(canonicals, MetadataFieldConstants.Title);
         var authorHint = GetCanonical(canonicals, MetadataFieldConstants.Author);
         var yearHint = GetCanonical(canonicals, MetadataFieldConstants.Year);
+        var languageHint = GetCanonical(canonicals, MetadataFieldConstants.Language);
         string? albumHint = null;
         string? artistHint = null;
         string? seriesHint = null;
@@ -962,7 +971,7 @@ public sealed class WikidataBridgeWorker
             authorHint ??= artistHint;
         }
 
-        return (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint);
+        return (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint);
     }
 
     private static string? BuildComicTitleHint(string seriesHint, string? titleHint)
@@ -1049,6 +1058,9 @@ public sealed class WikidataBridgeWorker
         var titleHint = canonicals
             .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title,
                 StringComparison.OrdinalIgnoreCase))?.Value;
+        var languageHint = canonicals
+            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Language,
+                StringComparison.OrdinalIgnoreCase))?.Value;
 
         try
         {
@@ -1060,6 +1072,7 @@ public sealed class WikidataBridgeWorker
                     MediaType      = mediaType,
                     Title          = titleHint,
                     PreResolvedQid = qid,
+                    FileLanguage   = languageHint,
                     HydrationPass  = HydrationPass.Universe,
                 }, ct);
 
@@ -1294,6 +1307,7 @@ public sealed class WikidataBridgeWorker
         public string? AlbumHint { get; }
         public string? ArtistHint { get; }
         public string? SeriesHint { get; }
+        public string? LanguageHint { get; }
 
         // Populated during Phase 5 distribution.
         public string? ResolvedQid { get; set; }
@@ -1317,7 +1331,8 @@ public sealed class WikidataBridgeWorker
             string? YearHint,
             string? AlbumHint,
             string? ArtistHint,
-            string? SeriesHint)
+            string? SeriesHint,
+            string? LanguageHint)
         {
             this.Job           = Job;
             this.MediaType     = MediaType;
@@ -1330,6 +1345,7 @@ public sealed class WikidataBridgeWorker
             this.AlbumHint     = AlbumHint;
             this.ArtistHint    = ArtistHint;
             this.SeriesHint    = SeriesHint;
+            this.LanguageHint  = LanguageHint;
         }
     }
 

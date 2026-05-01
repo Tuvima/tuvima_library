@@ -14,6 +14,14 @@ namespace MediaEngine.Providers.Tests;
 public sealed class ReconciliationAdapterFallbackTests
 {
     [Fact]
+    public void ResolveDisplayLanguage_PrefersFileLanguageWhenDifferent()
+    {
+        Assert.Equal("ja", ReconciliationAdapter.ResolveDisplayLanguage("en-US", "ja-JP"));
+        Assert.Equal("en", ReconciliationAdapter.ResolveDisplayLanguage("en-US", "en-GB"));
+        Assert.Equal("en", ReconciliationAdapter.ResolveDisplayLanguage("en", null));
+    }
+
+    [Fact]
     public void BuildComicsParentFallbackRequest_UsesSeriesTitleWithoutAuthorConstraint()
     {
         var adapter = CreateAdapter();
@@ -32,9 +40,9 @@ public sealed class ReconciliationAdapterFallbackTests
         Assert.NotNull(fallback);
         Assert.Equal("batman", fallback!.CorrelationKey);
         Assert.Equal("Batman", fallback.Title);
-        Assert.Null(fallback.Author);
-        Assert.Equal(["Q1004", "Q14406742"], fallback.CirrusSearchTypes);
-        Assert.Equal(0.55, fallback.AcceptThreshold, 3);
+        Assert.Null(fallback.Creator);
+        Assert.Equal(BridgeMediaKind.ComicSeries, fallback.MediaKind);
+        Assert.Equal(BridgeRollupTarget.ReturnWorkAndEdition, fallback.RollupTarget);
     }
 
     [Fact]
@@ -53,7 +61,7 @@ public sealed class ReconciliationAdapterFallbackTests
 
         Assert.NotNull(fallback);
         Assert.Equal("Batman comic book series", fallback!.Title);
-        Assert.Null(fallback.Author);
+        Assert.Null(fallback.Creator);
     }
 
     [Fact]
@@ -92,13 +100,13 @@ public sealed class ReconciliationAdapterFallbackTests
         Assert.NotNull(fallback);
         Assert.Equal("clair", fallback!.CorrelationKey);
         Assert.Equal("Clair de Lune", fallback.Title);
-        Assert.Equal("Claude Debussy", fallback.Author);
-        Assert.Equal(["Q105543609", "Q207628"], fallback.CirrusSearchTypes);
-        Assert.Equal(0.55, fallback.AcceptThreshold, 3);
+        Assert.Equal("Claude Debussy", fallback.Creator);
+        Assert.Equal(BridgeMediaKind.MusicWork, fallback.MediaKind);
+        Assert.Equal(BridgeRollupTarget.ReturnWorkAndEdition, fallback.RollupTarget);
     }
 
     [Fact]
-    public void BuildStage2Request_PrefersMusicCollectionBridge_WhenCollectionIdPresent()
+    public void BuildBridgeResolutionRequest_PreservesMusicBridgeIdsWithOfficialProperties()
     {
         var adapter = CreateAdapter();
 
@@ -115,29 +123,54 @@ public sealed class ReconciliationAdapterFallbackTests
             },
             WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                [BridgeIdKeys.AppleMusicId] = "P4857",
-                [BridgeIdKeys.AppleMusicCollectionId] = "P4857",
+                [BridgeIdKeys.AppleMusicId] = "P10110",
+                [BridgeIdKeys.AppleMusicCollectionId] = "P2281",
             },
             IsEditionAware = true,
         };
 
         var method = typeof(ReconciliationAdapter).GetMethod(
-            "BuildStage2Request",
+            "BuildBridgeResolutionRequest",
             BindingFlags.Instance | BindingFlags.NonPublic);
 
         Assert.NotNull(method);
 
-        var stage2Request = method!.Invoke(adapter, [request]);
+        var bridgeRequest = method!.Invoke(adapter, [request]);
 
-        Assert.NotNull(stage2Request);
-        Assert.Contains("Bridge", stage2Request!.GetType().Name, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(bridgeRequest);
+        Assert.IsType<BridgeResolutionRequest>(bridgeRequest);
 
-        var bridgeIdsProperty = stage2Request.GetType().GetProperty("BridgeIds", BindingFlags.Instance | BindingFlags.Public);
+        var bridgeIdsProperty = bridgeRequest!.GetType().GetProperty("BridgeIds", BindingFlags.Instance | BindingFlags.Public);
         Assert.NotNull(bridgeIdsProperty);
 
-        var bridgeIds = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(bridgeIdsProperty!.GetValue(stage2Request));
-        Assert.Single(bridgeIds);
+        var bridgeIds = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(bridgeIdsProperty!.GetValue(bridgeRequest));
+        Assert.Equal(2, bridgeIds.Count);
         Assert.Equal("1446014467", bridgeIds[BridgeIdKeys.AppleMusicCollectionId]);
+    }
+
+    [Fact]
+    public void BuildBridgeResolutionRequest_UsesFileLanguageForForeignContent()
+    {
+        var adapter = CreateAdapter();
+
+        var request = new WikidataResolveRequest
+        {
+            CorrelationKey = "norwegian-wood",
+            MediaType = MediaType.Books,
+            Title = "Norwegian Wood",
+            Author = "Haruki Murakami",
+            FileLanguage = "ja-JP",
+        };
+
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "BuildBridgeResolutionRequest",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var bridgeRequest = Assert.IsType<BridgeResolutionRequest>(method!.Invoke(adapter, [request]));
+
+        Assert.Equal("ja", bridgeRequest.Language);
     }
 
     [Fact]

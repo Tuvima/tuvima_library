@@ -699,6 +699,28 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         // P279 subclass walking: depth 3 matches our former custom walk. The library's
         // internal BFS walker with ConcurrentDictionary cache replaces our _learnedClasses.
         TypeHierarchyDepth = 3,
+        // Bulk ingestion fans out into many small Wikidata API requests while the v3
+        // bridge resolver scores text and type fallbacks. Keep pacing enabled, but
+        // use a modest app-level rate so a clean 88-item run can finish inside the
+        // integration harness window.
+        WikidataRateLimit = new Tuvima.Wikidata.ProviderRateLimitOptions
+        {
+            MaxConcurrentRequests = 3,
+            RequestsPerSecond = 3,
+            MaxBatchSize = 50,
+        },
+        WikipediaRateLimit = new Tuvima.Wikidata.ProviderRateLimitOptions
+        {
+            MaxConcurrentRequests = 3,
+            RequestsPerSecond = 3,
+            MaxBatchSize = 50,
+        },
+        CommonsRateLimit = new Tuvima.Wikidata.ProviderRateLimitOptions
+        {
+            MaxConcurrentRequests = 2,
+            RequestsPerSecond = 2,
+            MaxBatchSize = 50,
+        },
         // Include Wikipedia sitelink titles in the label scoring pool so common names
         // like "Frankenstein" score higher than the formal label.
         IncludeSitelinkLabels = true,
@@ -743,9 +765,9 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         return new Tuvima.Wikidata.WikidataReconciler(httpClient, reconcilerOptions);
     });
 
-    // Sub-service registrations — Tuvima.Wikidata v2.6.0 exposes nine focused
+    // Sub-service registrations — Tuvima.Wikidata v3.0.0 exposes focused
     // sub-services on the facade. Registering each as a singleton allows the
-    // adapter slimdown phases to inject narrow slices (Stage2Service,
+    // adapter slimdown phases to inject narrow slices (BridgeResolutionService,
     // PersonsService, AuthorsService, ChildrenService, LabelsService) instead
     // of the full reconciler. We do this manually rather than calling
     // AddWikidataReconciliation() so the Engine owns the exact named client
@@ -761,7 +783,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Authors);
     builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Labels);
     builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Persons);
-    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Stage2);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Bridge);
 }
 
 // ReconciliationAdapter — Wikidata Reconciliation API + Data Extension API.

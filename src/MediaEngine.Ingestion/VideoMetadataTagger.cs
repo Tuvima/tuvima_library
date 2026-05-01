@@ -81,7 +81,14 @@ public sealed class VideoMetadataTagger : IMetadataTagger
             if (shouldBackup)
                 File.Copy(filePath, backupPath, overwrite: true);
 
-            using var file = TagLib.File.Create(filePath);
+            using var file = CreateTagFileOrSkip(filePath);
+            if (file is null)
+            {
+                if (shouldBackup && File.Exists(backupPath))
+                    File.Delete(backupPath);
+
+                return Task.CompletedTask;
+            }
 
             if (tags.TryGetValue("title", out var title))
                 file.Tag.Title = title;
@@ -126,7 +133,7 @@ public sealed class VideoMetadataTagger : IMetadataTagger
             {
                 file.Save();
             }
-            catch (ArgumentException argEx) when (argEx.Message.Contains("Not-a-Number"))
+            catch (ArgumentException argEx) when (IsNanDurationMetadata(argEx))
             {
                 _logger.LogWarning("VideoTagger: skipping save for {Path} — file contains NaN duration metadata", filePath);
                 return Task.CompletedTask;
@@ -161,7 +168,10 @@ public sealed class VideoMetadataTagger : IMetadataTagger
 
         try
         {
-            using var file = TagLib.File.Create(filePath);
+            using var file = CreateTagFileOrSkip(filePath);
+            if (file is null)
+                return Task.CompletedTask;
+
             file.Tag.Pictures =
             [
                 new TagLib.Picture(new TagLib.ByteVector(imageData))
@@ -183,6 +193,23 @@ public sealed class VideoMetadataTagger : IMetadataTagger
 
         return Task.CompletedTask;
     }
+
+    private TagLib.File? CreateTagFileOrSkip(string filePath)
+    {
+        try
+        {
+            return TagLib.File.Create(filePath);
+        }
+        catch (ArgumentException argEx) when (IsNanDurationMetadata(argEx))
+        {
+            _logger.LogWarning("VideoTagger: skipping {Path} — file contains NaN duration metadata", filePath);
+            return null;
+        }
+    }
+
+    private static bool IsNanDurationMetadata(ArgumentException ex)
+        => ex.Message.Contains("Not-a-Number", StringComparison.OrdinalIgnoreCase)
+           || ex.Message.Contains("NaN", StringComparison.OrdinalIgnoreCase);
 
     private void RestoreBackup(string filePath, string backupPath)
     {

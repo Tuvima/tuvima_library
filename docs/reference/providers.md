@@ -149,14 +149,14 @@ Bridge IDs are external platform identifiers that the Wikidata Reconciliation ad
 
 ### Stage 2 Resolution Flow Per Bridge ID
 
-The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v2.5.0's `Stage2Service` sub-service. The hand-rolled bridge / music / text resolution helpers were deleted in the adapter slimdown (see `.claude/plans/adapter-slimdown-remediation.md`).
+The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v3.0's `BridgeResolutionService`.
 
-1. **Discriminated request build:** The adapter wraps each `WikidataResolveRequest` in one of `BridgeStage2Request`, `MusicStage2Request`, or `TextStage2Request` and passes it to `_reconciler.Stage2.ResolveBatchAsync`. The library natively groups requests by natural key (one round-trip per unique ISBN / album / text signature).
-2. **Direct lookup:** For `BridgeStage2Request`, the library searches Wikidata using `haswbstatement:{P-code}={value}` (e.g. `haswbstatement:P212=978-0441013593`).
-3. **Edition awareness:** For edition-aware media types (Books, Audiobooks, Movies, Comics, Music), the request carries an `EditionPivotRule` with media-type-specific work classes (Q7725634/Q571) and edition classes (Q122731938/Q3331189). The library walks P629 to surface the work QID via `Stage2Result.WorkQid` when the resolved entity is an edition.
-4. **TMDB media-type switch:** `tmdb_id` uses P4947 for movies and P4983 for TV series — the property code is selected based on the effective media type after Stage 1 and passed via `BridgeStage2Request.WikidataProperties`.
-5. **Fallback:** If a `BridgeStage2Request` returns NotFound and the input has Title + non-Unknown MediaType, the adapter issues a second-pass `TextStage2Request` with the appropriate `CirrusSearchTypes` filter. Sentinel-only requests (no real bridge IDs at all) return NotFound with no fallback.
-6. **Claim follow-up:** After every successful resolution, the adapter calls `ExtendAsync` over `Stage2BridgePCodes` (15 well-known external identifier P-codes) and converts the response via `ExtensionToClaims` to populate `WikidataResolveResult.Claims` and `CollectedBridgeIds`. The library's `Stage2Result` deliberately does not carry property claims.
+1. **Bridge request build:** The adapter converts each `WikidataResolveRequest` into a `BridgeResolutionRequest` with bridge IDs, media kind, title/creator/year/series hints, language, custom P-code mappings, and rollup preference.
+2. **Direct lookup:** The package groups `(propertyId, normalizedValue)` lookups so duplicate ISBN/TMDB/Apple/MusicBrainz/ComicVine IDs share one Wikidata query.
+3. **Edition awareness:** The package walks P629 for edition/release-to-work rollups and can return both the resolved entity QID and canonical work QID plus the relationship path.
+4. **Media-specific bridge mapping:** TMDB, Apple, TVDB, MusicBrainz, OpenLibrary, Google Books, and ComicVine keys are mapped to official Wikidata properties inside the package; app config only overrides or supplies custom mappings.
+5. **Fallback:** When bridge lookup does not produce a usable candidate and title hints are present, the bridge resolver performs typed text fallback internally. The adapter keeps a small application-level fallback pass for historical parity.
+6. **Claim and diagnostics follow-up:** After every successful resolution, the adapter calls `ExtendAsync` over the known bridge P-codes to populate `WikidataResolveResult.Claims` and `CollectedBridgeIds`, and it also carries `BridgeDiagnostics`, ranked candidates, and rollup details from the package result.
 
 ### Preferred Bridge ID Order (per media type)
 

@@ -5,10 +5,9 @@ namespace MediaEngine.Storage.Models;
 
 /// <summary>
 /// Media-type → edition-pivot rule map loaded from the <c>edition_pivot</c> section of <c>config/providers/wikidata_reconciliation.json</c>.
-/// Consumed by <c>ReconciliationAdapter.BuildStage2Request</c> to produce the
-/// per-request <c>Tuvima.Wikidata.EditionPivotRule</c> that tells the
-/// <c>Stage2Service</c> sub-service which Wikidata P31 classes identify work-level
-/// vs edition-level entities.
+/// Consumed by <c>ReconciliationAdapter.BuildBridgeResolutionRequest</c> to decide
+/// whether a <c>BridgeResolutionRequest</c> should resolve at edition or canonical
+/// work level.
 ///
 /// <para>
 /// Media types listed here are edition-aware; types not listed return
@@ -47,8 +46,7 @@ public sealed class EditionPivotConfiguration
 
 /// <summary>
 /// A single edition-pivot rule entry. Corresponds one-to-one with
-/// <c>Tuvima.Wikidata.EditionPivotRule</c> but is serialisable from JSON —
-/// the library's type is not.
+/// the adapter uses when choosing a bridge rollup target.
 /// </summary>
 public sealed class EditionPivotRuleEntry
 {

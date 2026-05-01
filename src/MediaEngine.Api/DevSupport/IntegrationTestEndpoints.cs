@@ -551,21 +551,23 @@ public static class IntegrationTestEndpoints
             }
         }
 
-        logger.LogInformation("[Phase 3] Waiting for ingestion to complete (timeout: 8 minutes)...");
+        var ingestionTimeout = ResolveIngestionTimeout(configLoader, logger);
+        logger.LogInformation("[Phase 3] Waiting for ingestion to complete (timeout: {Timeout})...", ingestionTimeout);
         var ingestionSw = Stopwatch.StartNew();
         bool ingestionComplete = await WaitForIngestionAsync(
             db,
             identityJobRepo,
             logger,
-            TimeSpan.FromMinutes(8),
+            ingestionTimeout,
             report.TotalFilesSeeded,
+            stages,
             ct);
         ingestionSw.Stop();
         report.IngestionDuration = ingestionSw.Elapsed;
 
         if (!ingestionComplete)
         {
-            report.IssuesFound.Add("Ingestion did not complete within 8 minutes");
+            report.IssuesFound.Add($"Ingestion did not complete within {ingestionTimeout}");
             logger.LogWarning("[Phase 3] Ingestion timeout — proceeding with partial results");
         }
 
@@ -791,6 +793,29 @@ public static class IntegrationTestEndpoints
         ILogger logger)
         => DevSeedEndpoints.SeedAllAsync(options, configLoader, activeTypes, logger);
 
+    private static TimeSpan ResolveIngestionTimeout(IConfigurationLoader configLoader, ILogger logger)
+    {
+        var fallback = TimeSpan.FromMinutes(8);
+
+        try
+        {
+            var gate = configLoader.LoadCore().Pipeline.BatchGate;
+            if (!gate.Enabled)
+                return fallback;
+
+            // Stage 2 may intentionally wait for the batch gate before making
+            // Wikidata calls. The test timeout must include that configured
+            // waiting window plus enough room for the provider work itself.
+            var gatedTimeout = TimeSpan.FromSeconds(gate.TimeoutSeconds) + TimeSpan.FromMinutes(10);
+            return gatedTimeout > fallback ? gatedTimeout : fallback;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Integration test: failed to read batch gate timeout; using {Fallback}", fallback);
+            return fallback;
+        }
+    }
+
     // ── Wait for ingestion ────────────────────────────────────────────────
 
     private static async Task<bool> WaitForIngestionAsync(
@@ -799,6 +824,7 @@ public static class IntegrationTestEndpoints
         ILogger logger,
         TimeSpan timeout,
         int expectedCount,
+        int stages,
         CancellationToken ct)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
@@ -820,6 +846,7 @@ public static class IntegrationTestEndpoints
             int resolvedCount;
             int claimCount;
             int pendingCount;
+            string jobStateSummary;
 
             using (var conn = db.CreateConnection())
             {
@@ -840,9 +867,16 @@ public static class IntegrationTestEndpoints
                     LEFT JOIN review_queue rq ON rq.entity_id = ma.id AND rq.status = 'Pending'
                     WHERE w.wikidata_qid IS NULL AND rq.id IS NULL AND w.curator_state IS NULL
                     """);
+                var jobStates = conn.Query<(string State, int Count)>("""
+                    SELECT state AS State, COUNT(*) AS Count
+                    FROM identity_jobs
+                    GROUP BY state
+                    ORDER BY state;
+                    """);
+                jobStateSummary = string.Join(", ", jobStates.Select(s => $"{s.State}:{s.Count}"));
             }
 
-            int activeIdentityJobs = await CountActiveIdentityJobsAsync(identityJobRepo, ct);
+            int activeIdentityJobs = await CountActiveIdentityJobsAsync(db, identityJobRepo, stages, ct);
             sawExpectedAssetCount |= assetCount >= expectedCount;
 
             bool snapshotStable =
@@ -855,7 +889,7 @@ public static class IntegrationTestEndpoints
             stableSnapshots = snapshotStable ? stableSnapshots + 1 : 0;
 
             logger.LogInformation(
-                "  Ingestion: assets={Assets}/{Expected}, resolved={Resolved}/{Works}, pending={Pending}, claims={Claims}, activeJobs={Jobs}, stable={Stable}/4",
+                "  Ingestion: assets={Assets}/{Expected}, resolved={Resolved}/{Works}, pending={Pending}, claims={Claims}, activeJobs={Jobs}, stable={Stable}/4, jobStates=[{JobStates}]",
                 assetCount,
                 expectedCount,
                 resolvedCount,
@@ -863,7 +897,8 @@ public static class IntegrationTestEndpoints
                 pendingCount,
                 claimCount,
                 activeIdentityJobs,
-                stableSnapshots);
+                stableSnapshots,
+                jobStateSummary);
 
             if (assetCount >= expectedCount && totalWorks > 0 && pendingCount == 0 && activeIdentityJobs == 0 && stableSnapshots >= 2)
                 return true;
@@ -874,14 +909,13 @@ public static class IntegrationTestEndpoints
             if (sawExpectedAssetCount && activeIdentityJobs == 0 && stableSnapshots >= 6)
                 return true;
 
-            if (sawExpectedAssetCount && stableSnapshots >= 12)
+            if (sawExpectedAssetCount && activeIdentityJobs > 0 && stableSnapshots >= 12)
             {
                 logger.LogWarning(
-                    "  Ingestion wait advancing after {StableSnapshots} stable snapshots with {ActiveJobs} active identity job(s) and {Pending} pending work(s)",
+                    "  Ingestion wait still waiting after {StableSnapshots} stable snapshots with {ActiveJobs} active identity job(s) and {Pending} pending work(s)",
                     stableSnapshots,
                     activeIdentityJobs,
                     pendingCount);
-                return true;
             }
 
             lastAssetCount = assetCount;
@@ -1708,8 +1742,20 @@ public static class IntegrationTestEndpoints
                 ),
                 work_qids AS (
                     SELECT wa.work_id,
-                           (SELECT cv.value FROM canonical_values cv
-                            WHERE cv.entity_id = wa.asset_id AND cv.key = 'wikidata_qid' LIMIT 1) AS qid
+                           COALESCE(
+                               (SELECT cv.value FROM canonical_values cv
+                                WHERE cv.entity_id = wa.asset_id AND cv.key = 'wikidata_qid' LIMIT 1),
+                               (SELECT cv.value FROM canonical_values cv
+                                WHERE cv.entity_id = wa.work_id AND cv.key = 'wikidata_qid' LIMIT 1),
+                               (SELECT cv.value FROM canonical_values cv
+                                WHERE cv.entity_id = wa.root_work_id AND cv.key = 'wikidata_qid' LIMIT 1),
+                               (SELECT ij.resolved_qid FROM identity_jobs ij
+                                WHERE ij.entity_id = wa.asset_id
+                                  AND ij.resolved_qid IS NOT NULL
+                                  AND TRIM(ij.resolved_qid) <> ''
+                                ORDER BY ij.updated_at DESC, ij.created_at DESC
+                                LIMIT 1)
+                           ) AS qid
                     FROM work_assets wa
                 ),
                 work_reviews AS (
@@ -1998,7 +2044,7 @@ public static class IntegrationTestEndpoints
 
         using var conn = db.CreateConnection();
         foreach (var item in validationItems
-            .Where(item => IsIdentifiedStatus(item.Status))
+            .Where(item => IsIdentifiedStatus(item.Status) && ShouldValidateDescriptionSources(item.MediaType))
             .OrderBy(item => item.MediaType)
             .ThenBy(item => item.Title))
         {
@@ -2552,10 +2598,32 @@ public static class IntegrationTestEndpoints
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
-    private static Task<int> CountActiveIdentityJobsAsync(
+    private static async Task<int> CountActiveIdentityJobsAsync(
+        IDatabaseConnection db,
         IIdentityJobRepository identityJobRepo,
+        int stages,
         CancellationToken ct)
-        => identityJobRepo.CountActiveAsync(ct);
+    {
+        if (stages >= 123)
+            return await identityJobRepo.CountActiveAsync(ct);
+
+        ct.ThrowIfCancellationRequested();
+        using var conn = db.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>("""
+            SELECT COUNT(*)
+            FROM identity_jobs
+            WHERE state NOT IN (
+                'Ready',
+                'ReadyWithoutUniverse',
+                'Completed',
+                'Failed',
+                'RetailNoMatch',
+                'QidNoMatch',
+                'QidNeedsReview',
+                'UniverseEnriching'
+            );
+            """);
+    }
 
     private static async Task<Dictionary<Guid, Guid>> LoadWorkAssetIdsAsync(IDatabaseConnection db)
     {
@@ -3000,6 +3068,13 @@ public static class IntegrationTestEndpoints
             missing.Add($"canonical winner is {check.CanonicalProvider ?? "unknown"}, expected Wikipedia/Wikidata");
 
         return missing.Count == 0 ? "unknown description source issue" : string.Join("; ", missing);
+    }
+
+    private static bool ShouldValidateDescriptionSources(string? mediaType)
+    {
+        // Music tracks do not need per-song prose. If we add music description
+        // validation later, it should target album-level metadata only.
+        return !string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class ProviderNameRow

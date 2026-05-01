@@ -81,6 +81,13 @@ public sealed class WikidataResolveRequest
     public string? Year { get; init; }
 
     /// <summary>
+    /// BCP-47 language detected from the source file. When it differs from the
+    /// configured metadata language, Wikidata label/description lookups prefer
+    /// this language and fall back to the configured metadata language.
+    /// </summary>
+    public string? FileLanguage { get; init; }
+
+    /// <summary>
     /// Optional parent/container title for fallback roll-up resolution.
     /// Currently used for comics to retry against the series title when the
     /// issue-level entity is missing on Wikidata.

@@ -59,7 +59,10 @@ public sealed class BridgeIdHelper
         BridgeIdKeys.AudibleId => true,
         BridgeIdKeys.GoodreadsId => true,
         BridgeIdKeys.MusicBrainzId => true,
+        BridgeIdKeys.MusicBrainzRecordingId => true,
+        BridgeIdKeys.MusicBrainzReleaseGroupId => true,
         BridgeIdKeys.ComicVineId => true,
+        BridgeIdKeys.OpenLibraryId => true,
         "gcd_id" => true,
 
         "apple_music_id" => true,
@@ -119,10 +122,18 @@ public sealed class BridgeIdHelper
             }
 
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzRecordingId))
-                map[BridgeIdKeys.MusicBrainzRecordingId] = "P966";
+                map[BridgeIdKeys.MusicBrainzRecordingId] = "P4404";
 
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzReleaseGroupId))
                 map[BridgeIdKeys.MusicBrainzReleaseGroupId] = "P436";
+
+            if (!map.ContainsKey(BridgeIdKeys.OpenLibraryId))
+            {
+                if (map.TryGetValue("openlibrary_id", out var openLibraryPCode))
+                    map[BridgeIdKeys.OpenLibraryId] = openLibraryPCode;
+                else
+                    map[BridgeIdKeys.OpenLibraryId] = "P648";
+            }
 
             _claimKeyToPCode = map;
         }

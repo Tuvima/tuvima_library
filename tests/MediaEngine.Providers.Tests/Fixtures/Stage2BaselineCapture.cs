@@ -230,7 +230,7 @@ public sealed class Stage2BaselineCapture : IDisposable
     /// writes the outcome to <c>tests/fixtures/stage2-baseline-v2.json</c>.
     /// After Commit F2 of the adapter slimdown remediation, the legacy
     /// hand-rolled path has been deleted and <c>ResolveBatchAsync</c> is a
-    /// thin pass-through to <c>Tuvima.Wikidata.Stage2Service</c>.
+    /// thin pass-through to <c>Tuvima.Wikidata.BridgeResolutionService</c>.
     ///
     /// <para>
     /// Constructs the adapter with a real <see cref="ConfigurationDirectoryLoader"/>

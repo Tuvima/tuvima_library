@@ -39,7 +39,7 @@ public sealed class ExtensionToClaimsTests
     /// <summary>
     /// Helper: creates a WikidataClaim with a string value.
     /// </summary>
-    private static WikidataClaim StringClaim(string propertyId, string value) =>
+    private static WikidataClaim StringClaim(string propertyId, string value, string? language = null) =>
         new()
         {
             PropertyId = propertyId,
@@ -48,6 +48,7 @@ public sealed class ExtensionToClaimsTests
             {
                 Kind = WikidataValueKind.String,
                 RawValue = value,
+                Language = language,
             }
         };
 
@@ -58,10 +59,11 @@ public sealed class ExtensionToClaimsTests
         string entityQid,
         IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> properties,
         Dictionary<string, string> propertyLabels,
-        bool isWork = true)
+        bool isWork = true,
+        string? metadataLanguage = null)
     {
         // ExtensionToClaims(entityQid, properties, propertyLabels, isWork, castMemberLimit, metadataLanguage)
-        var result = ExtensionToClaimsMethod.Invoke(null, [entityQid, properties, propertyLabels, isWork, 20, (string?)null]);
+        var result = ExtensionToClaimsMethod.Invoke(null, [entityQid, properties, propertyLabels, isWork, 20, metadataLanguage]);
         return ((IEnumerable<ProviderClaim>)result!).ToList();
     }
 
@@ -208,6 +210,26 @@ public sealed class ExtensionToClaimsTests
     }
 
     // ── P179 award list filtering ────────────────────────────────────────
+
+    [Fact]
+    public void P1476Title_PrefersConfiguredDisplayLanguage()
+    {
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
+        {
+            ["P1476"] =
+            [
+                StringClaim("P1476", "Norwegian Wood", "en"),
+                StringClaim("P1476", "ノルウェイの森", "ja"),
+            ],
+        };
+        var labels = new Dictionary<string, string> { ["P1476"] = "title" };
+
+        var claims = ConvertToClaims("Q751348", properties, labels, metadataLanguage: "ja");
+
+        var titleClaims = claims.Where(c => c.Key == "title").ToList();
+        Assert.Single(titleClaims);
+        Assert.Equal("ノルウェイの森", titleClaims[0].Value);
+    }
 
     [Fact]
     public void P179Series_AwardListPattern_Filtered()

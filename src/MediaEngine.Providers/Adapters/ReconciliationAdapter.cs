@@ -51,6 +51,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     // Parsed once at construction.
     private readonly Guid _providerId;
 
+    // Source-language Wikidata labels should beat metadata-language matched labels
+    // for foreign-language files while still staying below user locks.
+    private const double SourceLanguageTitleConfidence = 0.99;
+
     // Lazy cache for the edition pivot config. Built from _config on first use.
     private EditionPivotConfiguration? _editionPivotCache;
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -324,13 +328,14 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         Dictionary<string, string>? propertyConstraints = null,
         CancellationToken ct = default,
         MediaType mediaType = MediaType.Unknown,
-        List<PropertyConstraint>? multiValueConstraints = null)
+        List<PropertyConstraint>? multiValueConstraints = null,
+        string? fileLanguage = null)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
             return [];
 
         var request = BuildTextReconciliationRequest(
-            query, mediaType, fileLanguage: null,
+            query, mediaType, fileLanguage,
             propertyConstraints, multiValueConstraints);
 
         try
@@ -374,8 +379,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // performs concurrent multi-language search and dedupes by QID.
         string? singleLanguage = null;
         List<string>? languages = null;
-        var fileLang = fileLanguage?.Split('-', '_')[0].ToLowerInvariant().Trim();
-        var metaLang = metadataLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
+        var fileLang = NormalizeOptionalLang(fileLanguage);
+        var metaLang = NormalizeLang(metadataLanguage);
         if (!string.IsNullOrEmpty(fileLang)
             && !string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
         {
@@ -1361,12 +1366,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Library-backed Stage 2 resolution.
+    // Library-backed Wikidata identity resolution.
     //
     // The public ResolveAsync / ResolveBatchAsync methods on this adapter
     // dispatch into this region. Bridge / music / text reconciliation is
-    // delegated to Tuvima.Wikidata.Stage2Service; we add a follow-up Data
-    // Extension call to populate ProviderClaim payloads (Stage2Result
+    // delegated to Tuvima.Wikidata.BridgeResolutionService; we add a follow-up Data
+    // Extension call to populate ProviderClaim payloads (BridgeResolutionResult
     // deliberately does not carry claims). The hand-rolled ResolveBridgeAsync
     // / ResolveMusicAlbumAsync / ResolveByTextAsync helpers were removed in
     // Commit F2 of the adapter slimdown remediation; see commit history for
@@ -1375,135 +1380,112 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
     /// <summary>
     /// Wikidata bridge identifier P-codes collected via Data Extension after
-    /// every successful Stage 2 resolution. The collected values populate
+    /// every successful Wikidata bridge resolution. The collected values populate
     /// <see cref="WikidataResolveResult.CollectedBridgeIds"/> for downstream
     /// consumers (most notably <c>WikidataBridgeWorker</c>).
     /// </summary>
-    private static readonly IReadOnlyList<string> Stage2BridgePCodes =
+    private static readonly IReadOnlyList<string> BridgeResolutionPCodes =
     [
         "P31",   // instance_of — for post-resolution media-type validation
         "P212",  // ISBN-13
-        "P5848", // Apple Books ID
+        "P957",  // ISBN-10
+        "P6395", // Apple Books ID
         "P5749", // ASIN
         "P4947", // TMDB movie ID
+        "P4983", // TMDB TV series ID
         "P345",  // IMDb ID
+        "P4835", // TheTVDB series ID
+        "P7043", // TheTVDB episode ID
         "P9586", // Apple TV movie ID
-        "P9750", // Apple TV show ID
-        "P4857", // Apple Music ID
+        "P9751", // Apple TV show ID
+        "P9750", // Apple TV episode ID
+        "P6381", // iTunes TV season ID
+        "P6398", // iTunes movie ID
+        "P2281", // Apple Music album ID
+        "P2850", // Apple Music artist ID
+        "P10110", // Apple Music track ID
         "P1243", // ISRC
 
         "P434",  // MusicBrainz artist ID
-        "P436",  // MusicBrainz release ID
+        "P435",  // MusicBrainz work ID
+        "P436",  // MusicBrainz release group ID
+        "P5813", // MusicBrainz release ID
+        "P4404", // MusicBrainz recording ID
         "P5905", // Comic Vine ID
         "P2969", // Goodreads ID
+        "P648",  // Open Library ID
+        "P675",  // Google Books ID
         "P1085", // LibraryThing ID
     ];
 
     /// <summary>
-    /// Builds the appropriate <see cref="IStage2Request"/> subtype for a
+    /// Builds the bridge resolution request for a
     /// <see cref="WikidataResolveRequest"/>. Returns <c>null</c> when none of
-    /// the three branches (music, bridge, text) is applicable, in which case
+    /// music, bridge, or text resolution is applicable, in which case
     /// the caller leaves the result as <see cref="WikidataResolveResult.NotFound"/>.
     /// </summary>
-    private IStage2Request? BuildStage2Request(WikidataResolveRequest r)
+    private BridgeResolutionRequest? BuildBridgeResolutionRequest(WikidataResolveRequest r)
     {
-        var language = TryGetMetadataLanguage();
+        var language = ResolveDisplayLanguage(TryGetMetadataLanguage(), r.FileLanguage);
         var realBridgeIds = r.BridgeIds?
             .Where(kvp => !kvp.Key.StartsWith('_') && !string.IsNullOrWhiteSpace(kvp.Value))
-            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal);
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // ── Music branch — album-aware grouping ─────────────────────────────
-        if (r.MediaType == MediaType.Music)
-        {
-            var musicCollectionBridgeIds = realBridgeIds?
-                .Where(kvp => string.Equals(
-                    kvp.Key, BridgeIdKeys.AppleMusicCollectionId, StringComparison.OrdinalIgnoreCase))
-                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal);
-
-            var musicCollectionProperties = musicCollectionBridgeIds is { Count: > 0 }
-                && r.WikidataProperties is { Count: > 0 }
-                    ? r.WikidataProperties
-                        .Where(kvp => musicCollectionBridgeIds.ContainsKey(kvp.Key))
-                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal)
-                    : null;
-
-            if (musicCollectionBridgeIds is { Count: > 0 } && musicCollectionProperties is { Count: > 0 })
-            {
-                EditionPivotRule? pivot = r.IsEditionAware
-                    ? BuildEditionPivotRule(r.MediaType)
-                    : null;
-
-                return Stage2Request.Bridge(
-                    correlationKey:     r.CorrelationKey,
-                    bridgeIds:          musicCollectionBridgeIds,
-                    wikidataProperties: musicCollectionProperties,
-                    editionPivot:       pivot,
-                    language:           language);
-            }
-
-            if (!string.IsNullOrWhiteSpace(r.AlbumTitle))
-            {
-                return Stage2Request.Music(
-                    correlationKey: r.CorrelationKey,
-                    albumTitle:     r.AlbumTitle!,
-                    artist:         r.Artist,
-                    language:       language);
-            }
-        }
+        var title = r.MediaType == MediaType.Music && !string.IsNullOrWhiteSpace(r.AlbumTitle)
+            ? r.AlbumTitle
+            : r.Title;
 
         // ── Bridge branch — at least one real (non-sentinel) external ID ────
         // Sentinel keys (those starting with '_') are stripped here so the
         // library's strict bridge resolver doesn't trip on them.
-        if (realBridgeIds is { Count: > 0 } && r.WikidataProperties is { Count: > 0 })
-        {
-            EditionPivotRule? pivot = r.IsEditionAware
-                ? BuildEditionPivotRule(r.MediaType)
-                : null;
-
-            return Stage2Request.Bridge(
-                correlationKey:     r.CorrelationKey,
-                bridgeIds:          realBridgeIds,
-                wikidataProperties: r.WikidataProperties,
-                editionPivot:       pivot,
-                language:           language);
-        }
+        if (realBridgeIds.Count == 0 && string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(r.SeriesTitle))
+            return null;
 
         // ── Text fallback — only when title and a known media type are present ─
-        if (!string.IsNullOrWhiteSpace(r.Title) && r.MediaType != MediaType.Unknown)
-        {
-            var cirrusTypes = GetCirrusTypesForMediaType(r.MediaType);
-            if (cirrusTypes.Count == 0) return null;
-
-            return Stage2Request.Text(
-                correlationKey:    r.CorrelationKey,
-                title:             r.Title!,
-                cirrusSearchTypes: cirrusTypes,
-                author:            r.Author,
-                queryCleaners:     QueryCleaners.All(),
-                language:          language,
-                acceptThreshold:   ReviewThreshold / 100.0); // adapter uses 0–100, library uses 0–1
-        }
-
-        return null;
+        return new BridgeResolutionRequest
+            {
+                CorrelationKey = r.CorrelationKey,
+                MediaKind = ToBridgeMediaKind(r.MediaType, r),
+                BridgeIds = realBridgeIds,
+                CustomWikidataProperties = r.WikidataProperties,
+                Title = title,
+                Creator = r.Artist ?? r.Author,
+                Year = int.TryParse(r.Year, out var parsedYear) ? parsedYear : null,
+                SeriesTitle = r.SeriesTitle,
+                Language = language,
+                RollupTarget = ToBridgeRollupTarget(r)
+            };
     }
 
     /// <summary>
-    /// Translates a media-type edition-pivot entry from the reconciliation provider config
-    /// into the library's <see cref="EditionPivotRule"/>. Returns <c>null</c> when the
-    /// media type is not edition-aware (movies, TV, comics).
+    /// Translates the app media type and available hints into the bridge media kind
+    /// used by Tuvima.Wikidata for property selection and ranking.
     /// </summary>
-    private EditionPivotRule? BuildEditionPivotRule(MediaType mediaType)
+    private static BridgeMediaKind ToBridgeMediaKind(MediaType mediaType, WikidataResolveRequest request) => mediaType switch
     {
-        _editionPivotCache ??= _config.GetEditionPivotConfiguration();
-        var entry = _editionPivotCache.GetRuleFor(mediaType);
-        if (entry is null) return null;
+        MediaType.Books => BridgeMediaKind.Book,
+        MediaType.Audiobooks => BridgeMediaKind.Audiobook,
+        MediaType.Movies => BridgeMediaKind.Movie,
+        MediaType.TV => BridgeMediaKind.TvSeries,
+        MediaType.Comics => string.IsNullOrWhiteSpace(request.SeriesTitle)
+            ? BridgeMediaKind.ComicSeries
+            : BridgeMediaKind.ComicIssue,
+        MediaType.Music => !string.IsNullOrWhiteSpace(request.AlbumTitle)
+            ? BridgeMediaKind.MusicAlbum
+            : BridgeMediaKind.MusicWork,
+        _ => BridgeMediaKind.Unknown
+    };
 
-        return new EditionPivotRule
-        {
-            WorkClasses    = entry.WorkClasses,
-            EditionClasses = entry.EditionClasses,
-            PreferEdition  = entry.PreferEdition,
-        };
+    private static BridgeRollupTarget ToBridgeRollupTarget(WikidataResolveRequest request)
+    {
+        if (!request.IsEditionAware)
+            return BridgeRollupTarget.ReturnWorkAndEdition;
+
+        return request.MediaType == MediaType.Audiobooks
+            ? BridgeRollupTarget.PreferEdition
+            : BridgeRollupTarget.ReturnWorkAndEdition;
     }
 
     /// <summary>
@@ -1548,13 +1530,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             : (IReadOnlyList<string>)["Q122731938", "Q106833962"];
     }
 
-    private static ResolveStrategy MapStage2MatchedStrategy(Stage2MatchedStrategy m) => m switch
+    private static ResolveStrategy MapBridgeResolutionStrategy(BridgeResolutionStrategy m) => m switch
     {
-        Stage2MatchedStrategy.BridgeId           => ResolveStrategy.BridgeId,
-        Stage2MatchedStrategy.MusicAlbum         => ResolveStrategy.MusicAlbum,
-        Stage2MatchedStrategy.TextReconciliation => ResolveStrategy.TextReconciliation,
-        Stage2MatchedStrategy.NotResolved        => ResolveStrategy.NotResolved,
-        _                                        => ResolveStrategy.NotResolved,
+        BridgeResolutionStrategy.BridgeId => ResolveStrategy.BridgeId,
+        BridgeResolutionStrategy.TextSearch => ResolveStrategy.TextReconciliation,
+        BridgeResolutionStrategy.NotResolved => ResolveStrategy.NotResolved,
+        _ => ResolveStrategy.NotResolved,
     };
 
     private string? TryGetMetadataLanguage()
@@ -1570,7 +1551,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// canonical series/work QID when the issue entity itself is missing on
     /// Wikidata, while preserving the issue-level retail metadata from Stage 1.
     /// </summary>
-    internal TextStage2Request? BuildComicsParentFallbackRequest(
+    internal BridgeResolutionRequest? BuildComicsParentFallbackRequest(
         WikidataResolveRequest input,
         bool disambiguate = false)
     {
@@ -1586,17 +1567,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (disambiguate)
             queryTitle = BuildComicSeriesRollupQuery(queryTitle);
 
-        return Stage2Request.Text(
-            correlationKey:    input.CorrelationKey,
-            title:             queryTitle,
-            cirrusSearchTypes: cirrusTypes,
-            author:            null,
-            queryCleaners:     QueryCleaners.All(),
-            language:          TryGetMetadataLanguage(),
-            acceptThreshold:   ReviewThreshold / 100.0);
+        _ = cirrusTypes;
+        return new BridgeResolutionRequest
+        {
+            CorrelationKey = input.CorrelationKey,
+            MediaKind = BridgeMediaKind.ComicSeries,
+            Title = queryTitle,
+            Language = ResolveDisplayLanguage(TryGetMetadataLanguage(), input.FileLanguage),
+            RollupTarget = BridgeRollupTarget.ReturnWorkAndEdition
+        };
     }
 
-    internal TextStage2Request? BuildMusicWorkFallbackRequest(WikidataResolveRequest input)
+    internal BridgeResolutionRequest? BuildMusicWorkFallbackRequest(WikidataResolveRequest input)
     {
         if (input.MediaType != MediaType.Music
             || string.IsNullOrWhiteSpace(input.Title))
@@ -1606,14 +1588,16 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (cirrusTypes.Count == 0)
             return null;
 
-        return Stage2Request.Text(
-            correlationKey:    input.CorrelationKey,
-            title:             input.Title!,
-            cirrusSearchTypes: cirrusTypes,
-            author:            input.Artist ?? input.Author,
-            queryCleaners:     QueryCleaners.All(),
-            language:          TryGetMetadataLanguage(),
-            acceptThreshold:   ReviewThreshold / 100.0);
+        _ = cirrusTypes;
+        return new BridgeResolutionRequest
+        {
+            CorrelationKey = input.CorrelationKey,
+            MediaKind = BridgeMediaKind.MusicWork,
+            Title = input.Title!,
+            Creator = input.Artist ?? input.Author,
+            Language = ResolveDisplayLanguage(TryGetMetadataLanguage(), input.FileLanguage),
+            RollupTarget = BridgeRollupTarget.ReturnWorkAndEdition
+        };
     }
 
     private IReadOnlyList<string> GetMusicWorkFallbackCirrusTypes()
@@ -1666,10 +1650,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// After Stage2Service resolves a QID, fetches its bridge property claims
+    /// After BridgeResolutionService resolves a QID, fetches its bridge property claims
     /// via Data Extension and produces the same <see cref="ProviderClaim"/> list
     /// + <c>CollectedBridgeIds</c> dictionary that the legacy
-    /// <c>ResolveBridgeAsync</c> path produces. Stage2Result deliberately does
+    /// <c>ResolveBridgeAsync</c> path produces. BridgeResolutionResult deliberately does
     /// not carry claims, so this follow-up call is required for parity with
     /// the consumer contract (<c>WikidataBridgeWorker.AdditionalClaims</c>).
     /// </summary>
@@ -1679,19 +1663,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             bool isEdition,
             string? workQid,
             string? editionQid,
+            string? fileLanguage,
             CancellationToken ct)
     {
         var collectedBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var claims = new List<ProviderClaim>();
-        var language = TryGetMetadataLanguage();
+        var language = ResolveDisplayLanguage(TryGetMetadataLanguage(), fileLanguage);
 
         try
         {
-            var extensions = await ExtendAsync([resolvedQid], Stage2BridgePCodes, ct).ConfigureAwait(false);
+            var extensions = await ExtendAsync([resolvedQid], BridgeResolutionPCodes, ct).ConfigureAwait(false);
 
             if (extensions.TryGetValue(resolvedQid, out var resolvedProps))
             {
-                foreach (var pCode in Stage2BridgePCodes)
+                foreach (var pCode in BridgeResolutionPCodes)
                 {
                     if (!resolvedProps.TryGetValue(pCode, out var pValues) || pValues.Count == 0)
                         continue;
@@ -1765,10 +1750,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Batched library-backed Stage 2 resolution.
-    /// 1) Builds an <see cref="IStage2Request"/> per input via <see cref="BuildStage2Request"/>.
-    /// 2) Dispatches the whole list to <c>_reconciler.Stage2.ResolveBatchAsync</c>
-    ///    (which natively groups by natural key — one round-trip per unique ISBN/album/text).
+    /// Batched library-backed Wikidata identity resolution.
+    /// 1) Builds a <see cref="BridgeResolutionRequest"/> per input via <see cref="BuildBridgeResolutionRequest"/>.
+    /// 2) Dispatches the whole list to <c>_reconciler.Bridge.ResolveBatchAsync</c>
+    ///    (which natively groups by natural key so one unique ISBN/album/text hint shares one provider lookup).
     /// 3) For each resolved entry, calls <see cref="BuildClaimsForResolvedQidAsync"/>
     ///    to populate the <c>Claims</c> + <c>CollectedBridgeIds</c> the consumer
     ///    contract requires.
@@ -1788,10 +1773,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // Build the library request set + remember which input each library request
         // came from so the text-fallback pass can find it later.
         var inputByCorrelationKey = requests.ToDictionary(r => r.CorrelationKey, StringComparer.Ordinal);
-        var libRequests = new List<IStage2Request>(requests.Count);
+        var libRequests = new List<BridgeResolutionRequest>(requests.Count);
         foreach (var r in requests)
         {
-            var libReq = BuildStage2Request(r);
+            var libReq = BuildBridgeResolutionRequest(r);
             if (libReq is not null)
                 libRequests.Add(libReq);
         }
@@ -1799,15 +1784,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (libRequests.Count == 0) return results;
 
         // ── Pass 1: dispatch built requests to the library ──────────────────
-        IReadOnlyDictionary<string, Stage2Result> libResults;
+        IReadOnlyDictionary<string, BridgeResolutionResult> libResults;
         try
         {
-            libResults = await _reconciler.Stage2.ResolveBatchAsync(libRequests, ct).ConfigureAwait(false);
+            libResults = await _reconciler.Bridge.ResolveBatchAsync(libRequests, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "{Provider}: Stage2.ResolveBatchAsync failed", Name);
+            _logger.LogWarning(ex, "{Provider}: Bridge.ResolveBatchAsync failed", Name);
             return results;
         }
 
@@ -1815,10 +1800,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         // ── Pass 2: text fallback for bridge requests that came back empty ──
         // The legacy ResolveBridgeAsync issued an inline text reconciliation when
-        // bridge ID lookups failed. The library's BridgeStage2Request does not,
-        // so we replicate the fallback here for parity. Skipped when the request
-        // was already a TextStage2Request or when no Title/Author is available.
-        var textFallbackRequests = new List<IStage2Request>();
+        // bridge ID lookups failed. The bridge resolver handles this internally,
+        // but this application-level pass preserves the old adapter behavior for
+        // requests with no usable bridge result and a title/author fallback.
+        var textFallbackRequests = new List<BridgeResolutionRequest>();
         foreach (var input in requests)
         {
             // Only consider entries that are still NotFound after pass 1.
@@ -1836,14 +1821,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             var cirrusTypes = GetCirrusTypesForMediaType(input.MediaType);
             if (cirrusTypes.Count == 0) continue;
 
-            textFallbackRequests.Add(Stage2Request.Text(
-                correlationKey:    input.CorrelationKey,
-                title:             input.Title!,
-                cirrusSearchTypes: cirrusTypes,
-                author:            input.Author,
-                queryCleaners:     QueryCleaners.All(),
-                language:          TryGetMetadataLanguage(),
-                acceptThreshold:   ReviewThreshold / 100.0));
+            textFallbackRequests.Add(new BridgeResolutionRequest
+            {
+                CorrelationKey = input.CorrelationKey,
+                MediaKind = ToBridgeMediaKind(input.MediaType, input),
+                Title = input.Title!,
+                Creator = input.Author,
+                Language = ResolveDisplayLanguage(TryGetMetadataLanguage(), input.FileLanguage),
+                RollupTarget = ToBridgeRollupTarget(input)
+            });
         }
 
         if (textFallbackRequests.Count > 0)
@@ -1854,7 +1840,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var fallbackResults = await _reconciler.Stage2
+                var fallbackResults = await _reconciler.Bridge
                     .ResolveBatchAsync(textFallbackRequests, ct).ConfigureAwait(false);
                 await PopulateResultsAsync(fallbackResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
@@ -1871,7 +1857,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // Wikidata even though the parent series/work does. Retry those items
         // once against the series title alone so Batman-like imports can land
         // on the parent comic series QID instead of staying QidNoMatch.
-        var musicWorkFallbackRequests = new List<IStage2Request>();
+        var musicWorkFallbackRequests = new List<BridgeResolutionRequest>();
         foreach (var input in requests)
         {
             if (results[input.CorrelationKey].Found)
@@ -1890,7 +1876,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var fallbackResults = await _reconciler.Stage2
+                var fallbackResults = await _reconciler.Bridge
                     .ResolveBatchAsync(musicWorkFallbackRequests, ct).ConfigureAwait(false);
                 await PopulateResultsAsync(fallbackResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
@@ -1902,7 +1888,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
         }
 
-        var comicParentFallbackRequests = new List<IStage2Request>();
+        var comicParentFallbackRequests = new List<BridgeResolutionRequest>();
         foreach (var input in requests)
         {
             if (results[input.CorrelationKey].Found)
@@ -1921,7 +1907,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var parentResults = await _reconciler.Stage2
+                var parentResults = await _reconciler.Bridge
                     .ResolveBatchAsync(comicParentFallbackRequests, ct).ConfigureAwait(false);
                 await PopulateResultsAsync(parentResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
@@ -1938,7 +1924,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // often need a comics-specific keyword to surface the series entity at
         // the top of reconciliation results. Retry those items once with a
         // synthesized "comic book" suffix.
-        var disambiguatedComicParentRequests = new List<IStage2Request>();
+        var disambiguatedComicParentRequests = new List<BridgeResolutionRequest>();
         foreach (var input in requests)
         {
             if (results[input.CorrelationKey].Found)
@@ -1957,7 +1943,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var parentResults = await _reconciler.Stage2
+                var parentResults = await _reconciler.Bridge
                     .ResolveBatchAsync(disambiguatedComicParentRequests, ct).ConfigureAwait(false);
                 await PopulateResultsAsync(parentResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
@@ -2004,7 +1990,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// pass 1 + pass 2 sequence safely.
     /// </summary>
     private async Task PopulateResultsAsync(
-        IReadOnlyDictionary<string, Stage2Result> libResults,
+        IReadOnlyDictionary<string, BridgeResolutionResult> libResults,
         Dictionary<string, WikidataResolveResult> results,
         IReadOnlyDictionary<string, WikidataResolveRequest>? inputByCorrelationKey,
         CancellationToken ct)
@@ -2014,23 +2000,29 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (results.TryGetValue(correlationKey, out var existing) && existing.Found)
                 continue;
 
-            if (!libResult.Found || string.IsNullOrWhiteSpace(libResult.Qid))
+            if (!libResult.Found || string.IsNullOrWhiteSpace(libResult.ResolvedEntityQid))
             {
                 _logger.LogInformation(
                     "{Provider}: Stage2 — {Key} not resolved", Name, correlationKey);
                 continue;
             }
 
-            var finalQid = libResult.Qid!;
-            var finalIsEdition = libResult.IsEdition;
-            var finalWorkQid = libResult.WorkQid ?? libResult.Qid!;
-            var finalEditionQid = libResult.EditionQid;
+            var finalQid = libResult.ResolvedEntityQid!;
+            var finalWorkQid = libResult.CanonicalWorkQid ?? finalQid;
+            var finalIsEdition = libResult.Rollup?.RelationshipPath.Any(step =>
+                string.Equals(step.PropertyId, "P629", StringComparison.OrdinalIgnoreCase)) == true
+                && string.Equals(finalQid, libResult.SelectedCandidate?.Qid, StringComparison.OrdinalIgnoreCase);
+            var finalEditionQid = finalIsEdition ? finalQid : null;
+            WikidataResolveRequest? input = null;
+            if (inputByCorrelationKey is not null)
+                inputByCorrelationKey.TryGetValue(correlationKey, out input);
 
             var (claims, collectedBridgeIds) = await BuildClaimsForResolvedQidAsync(
                 finalQid,
                 finalIsEdition,
                 finalWorkQid,
                 finalEditionQid,
+                input?.FileLanguage,
                 ct).ConfigureAwait(false);
 
             // ── P31 media-type validation ─────────────────────────────────────
@@ -2038,9 +2030,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // verify the entity's P31 is valid for the requested media type.
             // Without this check, an ISBN shared between a novel and its film
             // adaptation can resolve to the film entity instead of the book.
-            if (inputByCorrelationKey is not null
-                && inputByCorrelationKey.TryGetValue(correlationKey, out var input)
-                && input.MediaType != MediaType.Unknown)
+            if (input is not null && input.MediaType != MediaType.Unknown)
             {
                 if (!ValidateP31ForMediaType(claims, finalWorkQid, input.MediaType))
                 {
@@ -2081,6 +2071,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         finalIsEdition,
                         finalWorkQid,
                         finalEditionQid,
+                        comicInput.FileLanguage,
                         ct).ConfigureAwait(false);
 
                     if (!ValidateP31ForMediaType(claims, finalWorkQid, comicInput.MediaType))
@@ -2106,8 +2097,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 EditionQid          = finalEditionQid,
                 Claims              = claims,
                 CollectedBridgeIds  = collectedBridgeIds,
-                MatchedBy           = MapStage2MatchedStrategy(libResult.MatchedBy),
-                PrimaryBridgeIdType = libResult.PrimaryBridgeIdType,
+                MatchedBy           = MapBridgeResolutionStrategy(libResult.MatchedBy),
+                PrimaryBridgeIdType = libResult.SelectedCandidate?.MatchedBridgeIdType,
+                BridgeDiagnostics   = libResult.Diagnostics,
+                RankedBridgeCandidates = libResult.Candidates,
+                BridgeRollup        = libResult.Rollup,
             };
 
             _logger.LogInformation(
@@ -2194,7 +2188,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         foreach (var query in queries)
         {
-            var candidates = await ReconcileAsync(query, null, ct, MediaType.Comics).ConfigureAwait(false);
+            var candidates = await ReconcileAsync(
+                query,
+                null,
+                ct,
+                MediaType.Comics,
+                fileLanguage: request.FileLanguage).ConfigureAwait(false);
             if (candidates.Count == 0)
                 continue;
 
@@ -2216,6 +2215,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 isEdition: false,
                 workQid: preferred.Id,
                 editionQid: null,
+                fileLanguage: request.FileLanguage,
                 ct).ConfigureAwait(false);
 
             if (!ValidateP31ForMediaType(claims, preferred.Id, MediaType.Comics))
@@ -2313,9 +2313,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     // ── Public Stage 2 facade ────────────────────────────────────────────────
 
     /// <summary>
-    /// Single-request Stage 2 resolution. Pure pass-through to
+    /// Single-request Wikidata identity resolution. Pure pass-through to
     /// <see cref="ResolveAsyncViaLibraryAsync"/>, which delegates to
-    /// <c>Tuvima.Wikidata.Stage2Service.ResolveAsync</c> and follows up with
+    /// <c>Tuvima.Wikidata.BridgeResolutionService.ResolveAsync</c> and follows up with
     /// a Data Extension call to populate <c>Claims</c> + <c>CollectedBridgeIds</c>.
     /// <para>
     /// The hand-rolled <c>ResolveBridgeAsync</c> / <c>ResolveMusicAlbumAsync</c>
@@ -2334,9 +2334,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Batched Stage 2 resolution. Pure pass-through to
+    /// Batched Wikidata identity resolution. Pure pass-through to
     /// <see cref="ResolveBatchAsyncViaLibraryAsync"/>, which delegates to
-    /// <c>Tuvima.Wikidata.Stage2Service.ResolveBatchAsync</c> (the library
+    /// <c>Tuvima.Wikidata.BridgeResolutionService.ResolveBatchAsync</c> (the library
     /// natively groups requests by natural key — music album, bridge ID,
     /// text signature — so N callers asking for the same ISBN share a
     /// single Wikidata round-trip).
@@ -2360,6 +2360,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // Use PreResolvedQid if provided — skip reconciliation entirely.
         var qid = request.PreResolvedQid;
         string? reconciliationLabel = null;
+        var metadataLanguage = _configLoader?.LoadCore().Language.Metadata ?? request.Language;
+        var displayLanguage = ResolveDisplayLanguage(metadataLanguage, request.FileLanguage);
 
         if (string.IsNullOrWhiteSpace(qid))
         {
@@ -2418,7 +2420,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
             }
 
-            var candidates = await ReconcileAsync(searchTitle, constraints, ct, request.MediaType, multiValueConstraints).ConfigureAwait(false);
+            var candidates = await ReconcileAsync(
+                searchTitle,
+                constraints,
+                ct,
+                request.MediaType,
+                multiValueConstraints,
+                request.FileLanguage).ConfigureAwait(false);
 
             if (candidates.Count == 0)
             {
@@ -2455,7 +2463,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         Name, candidates.Count, request.Title, request.MediaType);
 
                     var retryQuery = $"{searchTitle} {typeHint}";
-                    var retryCandidates = await ReconcileAsync(retryQuery, null, ct, request.MediaType).ConfigureAwait(false);
+                    var retryCandidates = await ReconcileAsync(
+                        retryQuery,
+                        null,
+                        ct,
+                        request.MediaType,
+                        fileLanguage: request.FileLanguage).ConfigureAwait(false);
 
                     if (retryCandidates.Count > 0)
                     {
@@ -2505,9 +2518,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // foreign-language label just because English is missing.
             try
             {
-                var labelLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
                 var label = await _reconciler!.Labels
-                    .GetAsync(qid, labelLanguage, withFallbackLanguage: false, ct)
+                    .GetAsync(qid, displayLanguage, withFallbackLanguage: false, ct)
                     .ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(label))
                     reconciliationLabel = label;
@@ -2585,7 +2597,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         // Extend the resolved QID with work properties.
         var workProps = _config.DataExtension.WorkProperties;
-        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+        var language = displayLanguage;
 
         var claims = new List<ProviderClaim>
         {
@@ -2599,10 +2611,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (audiobookEditionQid is not null)
             claims.Add(new ProviderClaim("audiobook_edition_qid", audiobookEditionQid, 1.0));
 
-        // Emit the reconciliation match label as a title claim. Wikidata is the authority for
-        // canonical data (CLAUDE.md §3.2 Tier C), so the display-language title from Wikidata
-        // must beat the file processor's embedded title (which may be in a foreign language).
-        // Confidence 0.98 ensures it wins over file processor (1.0 is reserved for user locks).
+        // Emit the reconciliation match label as a title claim. Source-language
+        // labels can add a stronger title claim later when the file language
+        // differs from the configured metadata language.
         if (!string.IsNullOrWhiteSpace(reconciliationLabel))
             claims.Add(new ProviderClaim(MetadataFieldConstants.Title, reconciliationLabel, ClaimConfidence.ReconciliationTitle));
 
@@ -3055,30 +3066,32 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             "{Provider}: fetched {Count} work claims for {QID} (audiobook edition pivot: {Pivoted})",
             Name, claims.Count, masterWorkQid, audiobookEditionQid is not null);
 
-        // ── Wikipedia description ─────────────────────────────────────────────
+        // Wikipedia description.
         // Fetch a rich Wikipedia description for this work using the resolved QID.
-        // Failures never block — an empty list is returned and execution continues.
+        // Failures never block; an empty list is returned and execution continues.
         var wikiWorkClaims = await FetchWikipediaDescriptionAsync(masterWorkQid, language, ct)
             .ConfigureAwait(false);
         claims.AddRange(wikiWorkClaims);
 
-        // ── Original title (for foreign-language files) ───────────────────────
+        // Original title for foreign-language files.
         // When the file's detected language differs from the configured metadata
         // language, fetch the Wikidata entity label in the file's language and
-        // emit it as "original_title". This preserves the native-language title
-        // alongside the metadata-language title resolved above.
+        // emit it as both "original_title" and the source-language title winner.
+        // This keeps English/search aliases available while aligning the displayed
+        // title with the content language.
         if (!string.IsNullOrEmpty(request.FileLanguage) && _reconciler is not null)
         {
-            var fileLang = request.FileLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
-            var metaLang = language.Split('-', '_')[0].ToLowerInvariant().Trim();
+            var fileLang = NormalizeOptionalLang(request.FileLanguage);
+            var metaLang = NormalizeLang(metadataLanguage);
 
-            if (!string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(fileLang)
+                && !string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
             {
                 // Pure label fetch in the file's native language.
                 // Labels.GetAsync replaces a full GetEntitiesAsync call (which
                 // also fetches sitelinks, descriptions, claims) with a single
                 // label-only payload. withFallbackLanguage: false because we
-                // ONLY want the original-language title — falling back to
+                // ONLY want the original-language title; falling back to
                 // English would defeat the purpose of original_title.
                 try
                 {
@@ -3089,6 +3102,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     if (!string.IsNullOrWhiteSpace(fileLangLabel))
                     {
                         claims.Add(new ProviderClaim(MetadataFieldConstants.OriginalTitle, fileLangLabel, ClaimConfidence.OriginalTitle));
+                        claims.Add(new ProviderClaim(MetadataFieldConstants.Title, fileLangLabel, SourceLanguageTitleConfidence));
+                        if (!string.IsNullOrWhiteSpace(reconciliationLabel)
+                            && !string.Equals(reconciliationLabel, fileLangLabel, StringComparison.OrdinalIgnoreCase))
+                        {
+                            claims.Add(new ProviderClaim("alternate_title", reconciliationLabel, ClaimConfidence.AlternateTitle));
+                        }
                         _logger.LogDebug(
                             "{Provider}: original_title '{OriginalTitle}' emitted for {QID} in file language '{Lang}'",
                             Name, fileLangLabel, masterWorkQid, fileLang);
@@ -3644,11 +3663,31 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         return cleaned.Trim();
     }
 
+    internal static string ResolveDisplayLanguage(string? metadataLanguage, string? fileLanguage)
+    {
+        var metadata = NormalizeLang(metadataLanguage);
+        var file = NormalizeOptionalLang(fileLanguage);
+
+        return !string.IsNullOrWhiteSpace(file)
+               && !string.Equals(file, metadata, StringComparison.OrdinalIgnoreCase)
+            ? file
+            : metadata;
+    }
+
+    private static string? NormalizeOptionalLang(string? lang)
+    {
+        if (string.IsNullOrWhiteSpace(lang))
+            return null;
+
+        var primary = lang.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+        return string.IsNullOrWhiteSpace(primary) ? null : primary.ToLowerInvariant();
+    }
+
     private static string NormalizeLang(string? lang)
     {
         if (string.IsNullOrWhiteSpace(lang))
             return "en";
-        var primary = lang.Split('-', StringSplitOptions.RemoveEmptyEntries)[0];
+        var primary = lang.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)[0];
         return primary.ToLowerInvariant();
     }
 
@@ -3980,11 +4019,27 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         "P957"  => true, // isbn_10
         "P5749" => true, // asin
         "P4947" => true, // tmdb_movie_id
+        "P4983" => true, // tmdb_tv_id
         "P345"  => true, // imdb_id
         "P6395" => true, // apple_books_id
+        "P9586" => true, // apple_tv_movie_id
+        "P9751" => true, // apple_tv_show_id
+        "P9750" => true, // apple_tv_episode_id
+        "P6381" => true, // itunes_tv_season_id
+        "P6398" => true, // apple_itunes_id
+        "P2281" => true, // apple_music_collection_id
+        "P2850" => true, // apple_artist_id
+        "P10110" => true, // apple_music_id
         "P5905" => true, // comic_vine_id
         "P434"  => true, // musicbrainz_artist_id
-        "P436"  => true, // musicbrainz_release_id
+        "P435"  => true, // musicbrainz_work_id
+        "P436"  => true, // musicbrainz_release_group_id
+        "P5813" => true, // musicbrainz_release_id
+        "P4404" => true, // musicbrainz_recording_id
+        "P4835" => true, // tvdb_id
+        "P7043" => true, // tvdb_episode_id
+        "P648"  => true, // open_library_id
+        "P675"  => true, // google_books_id
 
         _       => false,
     };

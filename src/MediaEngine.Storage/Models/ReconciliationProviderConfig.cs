@@ -24,9 +24,8 @@ public sealed class ReconciliationProviderConfig
     [JsonPropertyName("data_extension")] public DataExtensionSettings DataExtension { get; set; } = new();
 
     /// <summary>
-    /// Returns the edition pivot rules as an <see cref="EditionPivotConfiguration"/> for
-    /// consumption by <c>ReconciliationAdapter.BuildEditionPivotRule</c>. This replaces
-    /// the former standalone <c>config/edition-pivot.json</c> file.
+    /// Returns the edition pivot rules as an <see cref="EditionPivotConfiguration"/>.
+    /// This replaces the former standalone <c>config/edition-pivot.json</c> file.
     /// </summary>
     public EditionPivotConfiguration GetEditionPivotConfiguration() => new()
     {

@@ -1674,6 +1674,7 @@ public sealed class WorkerPipelineTests
             new() { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Chapter One", LastScoredAt = DateTimeOffset.UtcNow },
             new() { EntityId = entityId, Key = MetadataFieldConstants.Series, Value = "Saga", LastScoredAt = DateTimeOffset.UtcNow },
             new() { EntityId = entityId, Key = "writer", Value = "Brian K. Vaughan", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = entityId, Key = MetadataFieldConstants.Language, Value = "ja", LastScoredAt = DateTimeOffset.UtcNow },
         };
 
         var hints = WikidataBridgeWorker.BuildLookupHints(MediaType.Comics, canonicals);
@@ -1683,6 +1684,7 @@ public sealed class WorkerPipelineTests
         Assert.Null(hints.AlbumHint);
         Assert.Null(hints.ArtistHint);
         Assert.Equal("Saga", hints.SeriesHint);
+        Assert.Equal("ja", hints.LanguageHint);
     }
 
     // ── Test 4: QuickHydrationWorker queues Stage 3 after quick hydration ──

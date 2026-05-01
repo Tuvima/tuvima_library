@@ -1,12 +1,14 @@
+using Tuvima.Wikidata;
+
 namespace MediaEngine.Providers.Models;
 
 /// <summary>
-/// Unified Stage 2 resolution result returned by
+/// Unified Wikidata identity resolution result returned by
 /// <c>ReconciliationAdapter.ResolveAsync</c> and <c>ResolveBatchAsync</c>.
 ///
 /// <para>
-/// The public Stage 2 result type — populated by ReconciliationAdapter via
-/// the Tuvima.Wikidata Stage2Service sub-service plus a Data Extension follow-up.
+/// Populated by ReconciliationAdapter via the Tuvima.Wikidata Bridge service
+/// plus a Data Extension follow-up.
 /// Carries the resolved QID, claims fetched via Data Extension, any platform
 /// IDs collected from Wikidata, and a tag identifying which strategy matched.
 /// </para>
@@ -43,6 +45,15 @@ public sealed class WikidataResolveResult
     /// (e.g. <c>tmdb_id</c>, <c>isbn</c>) of the first bridge ID that resolved.
     /// </summary>
     public string? PrimaryBridgeIdType { get; init; }
+
+    /// <summary>Diagnostics emitted by the Tuvima.Wikidata bridge resolver.</summary>
+    public BridgeResolutionDiagnostics? BridgeDiagnostics { get; init; }
+
+    /// <summary>Ranked candidates considered by the Tuvima.Wikidata bridge resolver.</summary>
+    public IReadOnlyList<BridgeCandidate> RankedBridgeCandidates { get; init; } = [];
+
+    /// <summary>Edition/work rollup path selected by the Tuvima.Wikidata bridge resolver.</summary>
+    public CanonicalRollup? BridgeRollup { get; init; }
 
     /// <summary>Singleton not-found result.</summary>
     public static WikidataResolveResult NotFound { get; } = new()
