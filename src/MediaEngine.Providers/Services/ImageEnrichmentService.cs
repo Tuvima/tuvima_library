@@ -41,6 +41,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
     private const string FanartBaseUrl = "https://webservice.fanart.tv/v3";
     private const string FanartProviderConfigName = "fanart_tv";
+    private const int MaxFanartVariantsPerAssetType = 3;
     private const double CharacterMatchThreshold = 0.70;
 
     private sealed record ImageFieldMapping(AssetType Type, bool UpdatePreferred, params string[] JsonFields);
@@ -459,21 +460,26 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 seasonCache[episodeGroup.Key.SeasonOrdinal] = seasonWorkId;
             }
 
-            if (!seasonWorkId.HasValue)
+            Guid? episodeWorkId = null;
+            if (seasonWorkId.HasValue)
+            {
+                episodeWorkId = await _workRepo.FindChildByOrdinalAsync(seasonWorkId.Value, episodeGroup.Key.EpisodeOrdinal, ct);
+            }
+            else
             {
                 _logger.LogDebug(
-                    "[IMAGE-ENRICH] No season work found for show {ShowWorkId} season {Season} while processing episode stills",
+                    "[IMAGE-ENRICH] No season work found for show {ShowWorkId} season {Season}; trying direct episode child lookup",
                     showWorkId,
                     episodeGroup.Key.SeasonOrdinal);
-                continue;
             }
 
-            var episodeWorkId = await _workRepo.FindChildByOrdinalAsync(seasonWorkId.Value, episodeGroup.Key.EpisodeOrdinal, ct);
+            episodeWorkId ??= await _workRepo.FindChildByOrdinalAsync(showWorkId, episodeGroup.Key.EpisodeOrdinal, ct);
             if (!episodeWorkId.HasValue)
             {
                 _logger.LogDebug(
-                    "[IMAGE-ENRICH] No episode work found for season {SeasonWorkId} episode {Episode} while processing {AssetType}",
-                    seasonWorkId.Value,
+                    "[IMAGE-ENRICH] No episode work found for season {SeasonWorkId} or show {ShowWorkId} episode {Episode} while processing {AssetType}",
+                    seasonWorkId?.ToString() ?? "(none)",
+                    showWorkId,
                     episodeGroup.Key.EpisodeOrdinal,
                     assetType);
                 continue;
@@ -502,6 +508,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             .Where(n => IsAllowedArtworkLanguage(n, assetType))
             .OrderByDescending(GetArtworkLanguageRank)
             .ThenByDescending(GetLikes)
+            .Take(MaxFanartVariantsPerAssetType)
             .ToList();
 
         if (rankedImages.Count == 0)

@@ -226,6 +226,43 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         Assert.True(File.Exists(episodeStill.LocalImagePath));
     }
 
+    [Fact]
+    public async Task EnrichWorkImagesAsync_TvEpisodeStill_AttachesWhenEpisodeIsDirectShowChild()
+    {
+        var show = await _works.InsertParentAsync(MediaType.TV, "show:direct-episode", null, null);
+        var episode = await _works.InsertChildAsync(MediaType.TV, show, 2);
+        var asset = await SeedAssetForExistingWorkAsync(episode, Path.Combine("TV", "Direct Episode Show", "Season 01", "Direct - s01e02.mkv"));
+
+        await SeedCanonicalsAsync(
+            show,
+            ("media_type", "TV"),
+            ("tvdb_id", "54321"));
+
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            if (url.Contains("/tv/54321?", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = """
+                    {
+                      "tvthumb": [
+                        { "url": "https://images.test/direct-episode-still.jpg", "likes": "6", "lang": "en", "season": "1", "episode": "2" }
+                      ]
+                    }
+                    """;
+                return JsonResponse(payload);
+            }
+
+            return ImageResponse([8, 8, 8, 8]);
+        });
+
+        await service.EnrichWorkImagesAsync(asset.AssetId, "QSHOW");
+
+        var episodeStill = Assert.Single(await _entityAssets.GetByEntityAsync(episode.ToString(), "EpisodeStill"));
+        Assert.Equal("Episode", episodeStill.OwnerScope);
+        Assert.True(File.Exists(episodeStill.LocalImagePath));
+    }
+
     private ImageEnrichmentService CreateService(Func<HttpRequestMessage, HttpResponseMessage> responder)
     {
         return new ImageEnrichmentService(

@@ -29,6 +29,8 @@ public static class MetadataFieldConstants
     public const string Author          = "author";
     public const string Year            = "year";
     public const string Description     = "description";
+    public const string ShortDescription = "short_description";
+    public const string Tagline         = "tagline";
     public const string Cover           = "cover";
     public const string Rating          = "rating";
     public const string Series          = "series";
@@ -57,6 +59,7 @@ public static class MetadataFieldConstants
     public const string ArtworkAccentHex = "artwork_accent_hex";
     public const string ShowName        = "show_name";
     public const string EpisodeTitle    = "episode_title";
+    public const string EpisodeDescription = "episode_description";
     public const string Network         = "network";
     public const string Biography       = "biography";
     public const string QidResolutionMethod = "qid_resolution_method";

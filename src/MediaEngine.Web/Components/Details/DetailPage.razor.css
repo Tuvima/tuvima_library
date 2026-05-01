@@ -406,6 +406,7 @@
 
 ::deep .tl-glass-panel,
 ::deep .tl-detail-panel,
+::deep .tl-episode-panel,
 ::deep .tl-credit-preview,
 ::deep .tl-owned-formats,
 ::deep .tl-sync-panel,
@@ -612,6 +613,210 @@
 ::deep .tl-season-selector__button.is-active {
     border-color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 70%, #fff);
     color: #fff8eb;
+}
+
+::deep .tl-episode-panel {
+    width: min(105rem, calc(100% - 3rem));
+    padding: 0;
+    border-radius: 0.35rem;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+::deep .tl-episode-panel__header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+}
+
+::deep .tl-episode-panel__header h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.35rem;
+    font-weight: 850;
+}
+
+::deep .tl-episode-panel__meta,
+::deep .tl-episode-row__meta {
+    color: rgba(255,255,255,0.62);
+    font-size: 0.82rem;
+    font-weight: 650;
+}
+
+::deep .tl-season-dropdown {
+    position: relative;
+    min-width: min(14rem, 48vw);
+}
+
+::deep .tl-season-dropdown select {
+    width: 100%;
+    min-height: 2.75rem;
+    appearance: none;
+    padding: 0 2.6rem 0 1rem;
+    border: 1px solid rgba(255,255,255,0.26);
+    border-radius: 0.18rem;
+    background: #24262b;
+    color: #fff;
+    font: inherit;
+    font-size: 0.94rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+::deep .tl-season-dropdown::after {
+    content: "";
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    border-left: 0.32rem solid transparent;
+    border-right: 0.32rem solid transparent;
+    border-top: 0.4rem solid rgba(255,255,255,0.88);
+    transform: translateY(-35%);
+}
+
+::deep .tl-episode-empty {
+    padding: 1rem 0;
+    color: rgba(255,255,255,0.68);
+}
+
+::deep .tl-episode-list {
+    display: grid;
+    gap: 0;
+}
+
+::deep .tl-episode-row {
+    display: grid;
+    grid-template-columns: 3.75rem minmax(12rem, 16.5rem) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: center;
+    min-height: 8rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.13);
+    color: #fff;
+}
+
+::deep .tl-episode-row:first-child {
+    padding-inline: 0.85rem;
+    border-radius: 0.25rem;
+    background: rgba(255,255,255,0.12);
+}
+
+::deep .tl-episode-row__number {
+    justify-self: center;
+    color: rgba(255,255,255,0.78);
+    font-size: 1.45rem;
+    font-weight: 550;
+}
+
+::deep .tl-episode-row__thumb {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    border-radius: 0.2rem;
+    background: rgba(255,255,255,0.08);
+    color: inherit;
+    text-decoration: none;
+}
+
+::deep .tl-episode-row__thumb img,
+::deep .tl-episode-row__thumb .tl-generated-identity {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+::deep .tl-episode-row__thumb img {
+    display: block;
+}
+
+::deep .tl-episode-row__thumb .tl-generated-identity {
+    display: grid;
+}
+
+::deep .tl-episode-row__play {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 2.65rem;
+    height: 2.65rem;
+    border: 2px solid rgba(255,255,255,0.84);
+    border-radius: 50%;
+    background: rgba(0,0,0,0.34);
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 150ms ease, background 150ms ease;
+}
+
+::deep .tl-episode-row__play::before {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    top: 0.72rem;
+    border-left: 0.78rem solid #fff;
+    border-top: 0.52rem solid transparent;
+    border-bottom: 0.52rem solid transparent;
+}
+
+::deep .tl-episode-row:hover .tl-episode-row__play,
+::deep .tl-episode-row:focus-within .tl-episode-row__play {
+    opacity: 1;
+}
+
+::deep .tl-episode-row__body {
+    min-width: 0;
+}
+
+::deep .tl-episode-row__titleline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: baseline;
+}
+
+::deep .tl-episode-row__titleline h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 0.98rem;
+    font-weight: 850;
+    line-height: 1.3;
+}
+
+::deep .tl-episode-row__titleline span {
+    color: rgba(255,255,255,0.82);
+    font-size: 0.9rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+::deep .tl-episode-row__body p {
+    max-width: 72rem;
+    margin: 0.42rem 0 0;
+    color: rgba(255,255,255,0.72);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+::deep .tl-episode-row__meta {
+    margin-top: 0.45rem;
+}
+
+::deep .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 ::deep .tl-owned-format-card,
@@ -1063,77 +1268,41 @@
     width: min(105rem, calc(100% - 3rem));
 }
 
-::deep .tl-series-layout {
-    display: grid;
-    grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
-    gap: 0.8rem;
+::deep .tl-series-placement {
+    padding: 1rem 0 0.9rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
-::deep .tl-series-summary {
-    align-self: stretch;
+::deep .tl-series-header {
+    margin-bottom: 0.8rem;
 }
 
-::deep .tl-series-summary h2 {
-    margin: 0 0 1.15rem;
+::deep .tl-series-header h2 {
+    margin: 0;
     color: #fff;
-    font-size: 1.05rem;
-}
-
-::deep .tl-series-summary__body {
-    display: grid;
-    grid-template-columns: 4.6rem minmax(0, 1fr);
-    align-items: center;
-    gap: 1rem;
-}
-
-::deep .tl-series-summary__art {
-    aspect-ratio: 2 / 3;
-    overflow: hidden;
-    border-radius: 0.35rem;
-    background: rgba(255,255,255,0.06);
-}
-
-::deep .tl-series-summary__art img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-::deep .tl-series-summary__title {
-    color: #fff;
-    font-weight: 850;
-}
-
-::deep .tl-series-summary__meta {
-    margin-top: 0.25rem;
-    color: rgba(255,255,255,0.68);
-    font-size: 0.86rem;
-}
-
-::deep .tl-series-summary__button {
-    margin-top: 1rem;
-    min-height: 2.3rem;
-    padding-inline: 0.9rem;
-    border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 0.35rem;
-    background: rgba(255,255,255,0.04);
-    color: #fff;
-}
-
-::deep .tl-series-panel {
-    overflow: hidden;
+    font-size: 1.12rem;
+    font-weight: 760;
+    letter-spacing: 0;
 }
 
 ::deep .tl-series-strip {
     display: flex;
-    gap: 0.9rem;
+    gap: clamp(0.95rem, 1.8vw, 1.25rem);
     overflow-x: auto;
-    padding: 0.2rem 0.1rem 0.35rem;
+    padding: 0 0 0.35rem;
 }
 
 ::deep .tl-series-item {
     position: relative;
-    flex: 0 0 clamp(7.5rem, 9vw, 9.5rem);
+    flex: 0 0 clamp(7.8rem, 11.4vw, 9.7rem);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+    color: #fff;
 }
 
 ::deep .tl-series-item__art {
@@ -1141,36 +1310,39 @@
     display: grid;
     place-items: center;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 0.35rem;
-    background: rgba(255,255,255,0.05);
+    aspect-ratio: 2 / 3;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.45rem;
+    background: #111820;
 }
 
 ::deep .tl-series-item.is-current .tl-series-item__art {
-    border-color: #f5ad38;
-    box-shadow: 0 0 0 1px rgba(245,173,56,0.46), 0 0.8rem 1.8rem rgba(0,0,0,0.34);
+    border-color: #7b55ff;
+    box-shadow: 0 0 0 1px rgba(123,85,255,0.78), 0 0.8rem 1.8rem rgba(0,0,0,0.34);
 }
 
 ::deep .tl-series-item.is-missing .tl-series-item__art {
     border-style: dashed;
-    border-color: rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.26);
 }
 
 ::deep .tl-series-item__badge {
     position: absolute;
     z-index: 2;
-    top: 0.35rem;
-    right: 0.35rem;
-    display: grid;
-    min-width: 1.35rem;
+    left: 50%;
+    bottom: 0.42rem;
+    min-width: 1.5rem;
     height: 1.35rem;
+    padding-inline: 0.25rem;
+    transform: translateX(-50%);
+    display: grid;
     place-items: center;
-    border: 1px solid rgba(255,255,255,0.24);
-    border-radius: 0.25rem;
-    background: rgba(10,13,17,0.72);
-    color: rgba(255,255,255,0.86);
-    font-size: 0.75rem;
-    font-weight: 800;
+    border: 0;
+    border-radius: 0;
+    background: rgba(5,8,12,0.44);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 760;
 }
 
 ::deep .tl-series-item__missing-art {
@@ -1178,19 +1350,36 @@
     width: 100%;
     height: 100%;
     place-items: center;
-    color: rgba(255,255,255,0.46);
-    font-size: clamp(2.8rem, 5vw, 4.5rem);
-    font-weight: 900;
+    color: rgba(255,255,255,0.58);
+    font-size: 2.25rem;
+    font-weight: 820;
     background:
-        radial-gradient(circle at 50% 35%, rgba(255,255,255,0.08), transparent 46%),
-        linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+        linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+        repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0 0.55rem, transparent 0.55rem 1.1rem);
+}
+
+::deep .tl-series-item__missing-art span {
+    padding-bottom: 0.7rem;
 }
 
 ::deep .tl-series-item__title {
-    margin-top: 0.45rem;
-    color: rgba(255,255,255,0.8);
-    font-size: 0.8rem;
-    text-align: center;
+    margin-top: 0.55rem;
+    color: #fff;
+    font-size: 0.86rem;
+    line-height: 1.22;
+    text-align: left;
+}
+
+::deep .tl-series-item__meta,
+::deep .tl-series-owned-summary {
+    margin-top: 0.12rem;
+    color: rgba(255,255,255,0.58);
+    font-size: 0.78rem;
+    line-height: 1.2;
+}
+
+::deep .tl-series-owned-summary {
+    margin-top: 0.55rem;
 }
 
 ::deep .tl-series-panel--portrait .tl-series-item__art img,
@@ -1250,6 +1439,7 @@
 
     ::deep .tl-glass-panel,
     ::deep .tl-detail-panel,
+    ::deep .tl-episode-panel,
     ::deep .tl-credit-preview,
     ::deep .tl-owned-formats,
     ::deep .tl-sync-panel,
@@ -1264,6 +1454,45 @@
 
     ::deep .tl-episode-card {
         grid-template-columns: 1fr;
+    }
+
+    ::deep .tl-episode-panel {
+        width: calc(100% - 2rem);
+    }
+
+    ::deep .tl-episode-panel__header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    ::deep .tl-season-dropdown {
+        width: 100%;
+    }
+
+    ::deep .tl-episode-row {
+        grid-template-columns: 2.1rem minmax(7.5rem, 38vw) minmax(0, 1fr);
+        gap: 0.7rem;
+        min-height: 6.8rem;
+    }
+
+    ::deep .tl-episode-row:first-child {
+        padding-inline: 0.55rem;
+    }
+
+    ::deep .tl-episode-row__number {
+        font-size: 1.05rem;
+    }
+
+    ::deep .tl-episode-row__titleline {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+    }
+
+    ::deep .tl-episode-row__body p {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
 
     ::deep .tl-detail-tab-panel {

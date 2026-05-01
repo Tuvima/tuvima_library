@@ -42,7 +42,12 @@ public sealed class ReconciliationAdapterContractTests
             ],
         };
 
-        var projection = ReconciliationAdapter.BuildTvManifestProjection(manifest);
+        var projection = ReconciliationAdapter.BuildTvManifestProjection(
+            manifest,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["QEpisode1"] = "Walter White starts cooking methamphetamine after his cancer diagnosis.",
+            });
 
         Assert.Equal(2, projection.SeasonCount);
         Assert.Equal(2, projection.EpisodeCount);
@@ -61,6 +66,9 @@ public sealed class ReconciliationAdapterContractTests
         Assert.Equal("QEpisode1", firstEpisode.GetProperty("qid").GetString());
         Assert.Equal("Pilot", firstEpisode.GetProperty("title").GetString());
         Assert.Equal(1, firstEpisode.GetProperty("episode_number").GetInt32());
+        Assert.Equal(
+            "Walter White starts cooking methamphetamine after his cancer diagnosis.",
+            firstEpisode.GetProperty("description").GetString());
         Assert.Equal("2008-01-20", firstEpisode.GetProperty("air_date").GetString());
         Assert.Equal(58, firstEpisode.GetProperty("duration_minutes").GetInt32());
         Assert.Equal("Vince Gilligan", firstEpisode.GetProperty("director").GetString());

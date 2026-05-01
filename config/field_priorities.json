@@ -1,8 +1,8 @@
 {
   "field_overrides": {
     "description": {
-      "priority": ["apple_api", "google_books", "open_library", "tmdb", "Wikidata Reconciliation"],
-      "note": "Retail provider descriptions are edition-specific; Wikidata is work-level fallback"
+      "priority": ["Wikidata Reconciliation", "apple_api", "google_books", "open_library", "tmdb"],
+      "note": "Prefer rich Wikipedia descriptions from the reconciliation provider, then fall back to retail descriptions"
     },
     "biography": {
       "priority": ["Wikidata Reconciliation"],

@@ -85,14 +85,19 @@
                                OnClick="@OpenReviewQueue" />
             }
 
+            <span class="layout-shell__account-spacer" aria-hidden="true"></span>
+
             <MudMenu AnchorOrigin="Origin.BottomRight"
                      TransformOrigin="Origin.TopRight"
-                     Class="layout-shell__profile-menu">
-                <ActivatorContent>
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Inherit"
-                               Class="layout-shell__profile-trigger"
-                               aria-label="@_displayName">
+                     Class="layout-shell__profile-menu"
+                     Style="background:transparent !important; border:0 !important; box-shadow:none !important;"
+                     PopoverClass="layout-shell__profile-popover"
+                     ListClass="layout-shell__profile-menu-list">
+                <ActivatorContent Context="menuContext">
+                    <button type="button"
+                            class="layout-shell__profile-trigger"
+                            aria-label="@_displayName"
+                            @onclick="menuContext.ToggleAsync">
                         <MudAvatar Size="Size.Medium"
                                    Style="@GetAvatarStyle()"
                                    Class="layout-shell__avatar">
@@ -104,7 +109,7 @@
                         </span>
                         <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown"
                                  Class="layout-shell__profile-chevron" />
-                    </MudButton>
+                    </button>
                 </ActivatorContent>
 
                 <ChildContent>

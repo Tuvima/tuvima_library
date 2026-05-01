@@ -129,6 +129,16 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
+    public void SeriesPlacementPanel_DoesNotRenderViewAllLink()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/SeriesPlacementPanel.razor");
+
+        Assert.Contains("Part of @Placement.SeriesTitle", source);
+        Assert.DoesNotContain("View all", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("tl-series-view-all", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void RoutePages_DoNotChooseHeroArtwork()
     {
         var root = FindRepoRoot();

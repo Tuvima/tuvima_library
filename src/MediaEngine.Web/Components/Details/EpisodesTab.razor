@@ -1,36 +1,182 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-tab-panel">
-    @if (Groups.Count > 1)
-    {
-        <div class="tl-season-selector">
-            @foreach (var group in Groups)
+<section class="tl-episode-panel">
+    <div class="tl-episode-panel__header">
+        <div>
+            <h2>Episodes</h2>
+            @if (ActiveGroup is not null)
             {
-                <button type="button"
-                        class="tl-season-selector__button @(group.Key == _selectedKey ? "is-active" : null)"
-                        @onclick="@(() => _selectedKey = group.Key)">
-                    @group.Title
-                </button>
+                <div class="tl-episode-panel__meta">@ActiveGroup.Items.Count @EpisodeWord(ActiveGroup.Items.Count)</div>
+            }
+        </div>
+
+        @if (Groups.Count > 1)
+        {
+            <label class="tl-season-dropdown">
+                <span class="sr-only">Season</span>
+                <select value="@SelectedKey" @onchange="SelectSeason">
+                    @foreach (var group in Groups)
+                    {
+                        <option value="@group.Key">@group.Title</option>
+                    }
+                </select>
+            </label>
+        }
+    </div>
+
+    @if (ActiveGroup is null || ActiveGroup.Items.Count == 0)
+    {
+        <div class="tl-episode-empty">No episodes are available for this season yet.</div>
+    }
+    else
+    {
+        <div class="tl-episode-list">
+            @foreach (var item in ActiveGroup.Items.Select((episode, index) => (episode, index)))
+            {
+                var route = item.episode.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route;
+                var episodeNumber = EpisodeNumber(item.episode, item.index);
+                var runtime = RuntimeLabel(item.episode);
+                var secondaryMeta = SecondaryMetadata(item.episode, runtime);
+
+                <article class="tl-episode-row">
+                    <div class="tl-episode-row__number">@episodeNumber</div>
+
+                    @if (!string.IsNullOrWhiteSpace(route))
+                    {
+                        <a class="tl-episode-row__thumb" href="@route" aria-label="@($"Open {item.episode.Title}")">
+                            @Thumbnail(item.episode)
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="tl-episode-row__thumb">
+                            @Thumbnail(item.episode)
+                        </div>
+                    }
+
+                    <div class="tl-episode-row__body">
+                        <div class="tl-episode-row__titleline">
+                            <h3>@item.episode.Title</h3>
+                            @if (!string.IsNullOrWhiteSpace(runtime))
+                            {
+                                <span>@runtime</span>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(item.episode.Description))
+                        {
+                            <p>@item.episode.Description</p>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(item.episode.Subtitle))
+                        {
+                            <p>@item.episode.Subtitle</p>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(secondaryMeta))
+                        {
+                            <div class="tl-episode-row__meta">@secondaryMeta</div>
+                        }
+                    </div>
+                </article>
             }
         </div>
     }
-
-    <ChildrenListTab Groups="ActiveGroups" />
-</div>
+</section>
 
 @code {
     [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
 
     private string? _selectedKey;
 
-    private IReadOnlyList<MediaGroupingViewModel> ActiveGroups
+    private string? SelectedKey
     {
         get
         {
-            if (Groups.Count == 0) return [];
-            _selectedKey ??= Groups[0].Key;
-            return Groups.Where(group => group.Key == _selectedKey).ToList();
+            if (Groups.Count == 0)
+                return null;
+
+            if (string.IsNullOrWhiteSpace(_selectedKey) || !Groups.Any(group => group.Key == _selectedKey))
+                _selectedKey = Groups[0].Key;
+
+            return _selectedKey;
         }
     }
+
+    private MediaGroupingViewModel? ActiveGroup
+        => SelectedKey is null
+            ? null
+            : Groups.FirstOrDefault(group => group.Key == SelectedKey);
+
+    private void SelectSeason(ChangeEventArgs args)
+    {
+        var value = args.Value?.ToString();
+        if (!string.IsNullOrWhiteSpace(value))
+            _selectedKey = value;
+    }
+
+    private static RenderFragment Thumbnail(MediaGroupingItemViewModel episode) => builder =>
+    {
+        if (!string.IsNullOrWhiteSpace(episode.ArtworkUrl))
+        {
+            builder.OpenElement(0, "img");
+            builder.AddAttribute(1, "src", episode.ArtworkUrl);
+            builder.AddAttribute(2, "alt", episode.Title);
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenComponent<GeneratedIdentity>(3);
+            builder.AddAttribute(4, "Name", episode.Title);
+            builder.CloseComponent();
+        }
+
+        builder.OpenElement(5, "span");
+        builder.AddAttribute(6, "class", "tl-episode-row__play");
+        builder.AddAttribute(7, "aria-hidden", "true");
+        builder.CloseElement();
+    };
+
+    private static string EpisodeNumber(MediaGroupingItemViewModel episode, int index)
+    {
+        var subtitle = episode.Subtitle ?? string.Empty;
+        var marker = subtitle.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < marker.Length; i++)
+        {
+            if ((string.Equals(marker[i], "E", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(marker[i], "Episode", StringComparison.OrdinalIgnoreCase))
+                && i < marker.Length - 1)
+            {
+                return marker[i + 1].Trim();
+            }
+
+            if (marker[i].StartsWith('E') && marker[i].Length > 1 && int.TryParse(marker[i][1..], out var compact))
+                return compact.ToString();
+        }
+
+        return (index + 1).ToString();
+    }
+
+    private static string? RuntimeLabel(MediaGroupingItemViewModel episode)
+        => episode.Metadata.FirstOrDefault(m => string.Equals(m.Kind, "duration", StringComparison.OrdinalIgnoreCase))?.Label
+            ?? episode.Metadata.FirstOrDefault(m => LooksLikeRuntime(m.Label))?.Label;
+
+    private static string? SecondaryMetadata(MediaGroupingItemViewModel episode, string? runtime)
+    {
+        var labels = episode.Metadata
+            .Select(m => m.Label)
+            .Where(label => !string.IsNullOrWhiteSpace(label) && !string.Equals(label, runtime, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return labels.Count == 0 ? null : string.Join(" • ", labels);
+    }
+
+    private static bool LooksLikeRuntime(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+            && (value.Contains(':', StringComparison.Ordinal)
+                || value.Contains("min", StringComparison.OrdinalIgnoreCase)
+                || value.Contains("m", StringComparison.OrdinalIgnoreCase));
+
+    private static string EpisodeWord(int count) => count == 1 ? "episode" : "episodes";
 }

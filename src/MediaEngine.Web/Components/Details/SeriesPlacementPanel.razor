@@ -1,49 +1,38 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<section class="tl-series-placement tl-series-layout @PanelClass">
-    <aside class="tl-detail-panel tl-series-summary">
-        <h2>Series</h2>
-        <div class="tl-series-summary__body">
-            <div class="tl-series-summary__art">
-                @if (!string.IsNullOrWhiteSpace(Placement.CurrentItem.ArtworkUrl))
-                {
-                    <img src="@Placement.CurrentItem.ArtworkUrl" alt="@Placement.CurrentItem.Title" />
-                }
-                else
-                {
-                    <GeneratedIdentity Name="@Placement.SeriesTitle" />
-                }
-            </div>
-            <div>
-                <div class="tl-series-summary__title">@Placement.SeriesTitle</div>
-                <div class="tl-series-summary__meta">@OwnedCount of @Placement.OrderedItems.Count @MediaNoun</div>
-                <button type="button" class="tl-series-summary__button">View Series</button>
-            </div>
-        </div>
-    </aside>
+<section class="tl-series-placement @PanelClass">
+    <div class="tl-series-header">
+        <h2>Part of @Placement.SeriesTitle</h2>
+    </div>
 
-    <section class="tl-detail-panel tl-series-panel">
-        <div class="tl-series-strip">
-            @foreach (var item in Placement.OrderedItems)
-            {
-                <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(!item.IsOwned ? "is-missing" : null)">
-                    <div class="tl-series-item__badge">@FirstNonBlank(item.PositionLabel, item.PositionNumber?.ToString())</div>
-                    <div class="tl-series-item__art">
-                        @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-                        {
-                            <img src="@item.ArtworkUrl" alt="@item.Title" />
-                        }
-                        else
-                        {
-                            <div class="tl-series-item__missing-art" aria-label="Missing from library">?</div>
-                        }
-                    </div>
-                    <div class="tl-series-item__title">@(item.IsOwned ? item.Title : $"Book {item.PositionNumber}")</div>
-                </article>
-            }
-        </div>
-    </section>
+    <div class="tl-series-strip" aria-label="@Placement.SeriesTitle series order">
+        @foreach (var item in Placement.OrderedItems)
+        {
+            <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(!item.IsOwned ? "is-missing" : null)">
+                <div class="tl-series-item__art">
+                    @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                    {
+                        <img src="@item.ArtworkUrl" alt="@item.Title" />
+                    }
+                    else
+                    {
+                        <div class="tl-series-item__missing-art" aria-label="Missing from library">
+                            <span>@SeriesNumber(item)</span>
+                        </div>
+                    }
+                    <div class="tl-series-item__badge">@SeriesNumber(item)</div>
+                </div>
+                <div class="tl-series-item__title">@(item.IsOwned ? item.Title : $"Book {SeriesNumber(item)}")</div>
+                @if (!item.IsOwned)
+                {
+                    <div class="tl-series-item__meta">Missing from library</div>
+                }
+            </article>
+        }
+    </div>
+
+    <div class="tl-series-owned-summary">@OwnedCount of @Placement.OrderedItems.Count @MediaNoun in library</div>
 </section>
 
 @code {
@@ -66,6 +55,9 @@
         DetailEntityType.ComicIssue => Placement.OrderedItems.Count == 1 ? "issue" : "issues",
         _ => Placement.OrderedItems.Count == 1 ? "book" : "books",
     };
+
+    private static string SeriesNumber(SeriesItemViewModel item)
+        => item.PositionNumber?.ToString() ?? FirstNonBlank(item.PositionLabel, "?")!;
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));

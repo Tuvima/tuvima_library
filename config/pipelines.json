@@ -7,7 +7,7 @@
     ],
     "field_priorities": {
       "cover": ["apple_api", "open_library"],
-      "description": ["apple_api", "open_library"],
+      "description": ["Wikidata Reconciliation", "apple_api", "open_library"],
       "rating": ["apple_api"],
       "page_count": ["open_library"]
     }
@@ -20,7 +20,7 @@
     "field_priorities": {
       "cover": ["apple_api"],
       "narrator": ["apple_api"],
-      "description": ["apple_api"],
+      "description": ["Wikidata Reconciliation", "apple_api"],
       "rating": ["apple_api"]
     }
   },
@@ -31,7 +31,7 @@
     ],
     "field_priorities": {
       "cover": ["apple_api"],
-      "description": ["apple_api"],
+      "description": ["Wikidata Reconciliation", "apple_api"],
       "genre": ["apple_api"],
       "album": ["apple_api"],
       "track_number": ["apple_api"],
@@ -45,7 +45,7 @@
     ],
     "field_priorities": {
       "cover": ["tmdb"],
-      "description": ["tmdb"],
+      "description": ["Wikidata Reconciliation", "tmdb"],
       "rating": ["tmdb"]
     }
   },
@@ -56,7 +56,8 @@
     ],
     "field_priorities": {
       "cover": ["tmdb"],
-      "description": ["tmdb"],
+      "description": ["Wikidata Reconciliation", "tmdb"],
+      "episode_description": ["Wikidata Reconciliation", "tmdb"],
       "rating": ["tmdb"]
     }
   },
@@ -67,7 +68,7 @@
     ],
     "field_priorities": {
       "cover": ["comicvine"],
-      "description": ["comicvine"]
+      "description": ["Wikidata Reconciliation", "comicvine"]
     }
   }
 }

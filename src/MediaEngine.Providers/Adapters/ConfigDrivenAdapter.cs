@@ -708,9 +708,17 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                         if (strategy.ReleaseSelection is not null)
                         {
                             var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection);
-                            return ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType);
+                            return await EnrichClaimsWithTmdbDetailsAsync(
+                                ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType),
+                                resultNode,
+                                request.MediaType,
+                                ct).ConfigureAwait(false);
                         }
-                        return ExtractClaims(resultNode, request.MediaType);
+                        return await EnrichClaimsWithTmdbDetailsAsync(
+                            ExtractClaims(resultNode, request.MediaType),
+                                resultNode,
+                                request.MediaType,
+                                ct).ConfigureAwait(false);
                     }
                 }
             }
@@ -793,9 +801,17 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                             if (strategy.ReleaseSelection is not null)
                             {
                                 var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection);
-                                return ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType);
+                                return await EnrichClaimsWithTmdbDetailsAsync(
+                                ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType),
+                                resultNode,
+                                request.MediaType,
+                                ct).ConfigureAwait(false);
                             }
-                            return ExtractClaims(resultNode, request.MediaType);
+                            return await EnrichClaimsWithTmdbDetailsAsync(
+                            ExtractClaims(resultNode, request.MediaType),
+                                resultNode,
+                                request.MediaType,
+                                ct).ConfigureAwait(false);
                         }
                     }
                 }
@@ -841,16 +857,117 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             if (strategy.ReleaseSelection is not null)
             {
                 var releaseNode = ApplyReleaseSelection(resultObj, strategy.ReleaseSelection);
-                return ExtractClaimsWithRelease(resultObj, releaseNode, request.MediaType);
+                return await EnrichClaimsWithTmdbDetailsAsync(
+                                ExtractClaimsWithRelease(resultObj, releaseNode, request.MediaType),
+                    resultObj,
+                    request.MediaType,
+                    ct).ConfigureAwait(false);
             }
 
             // Extract claims from field mappings (filtered by media type).
-            return ExtractClaims(resultObj, request.MediaType);
+            return await EnrichClaimsWithTmdbDetailsAsync(
+                ExtractClaims(resultObj, request.MediaType),
+                    resultObj,
+                    request.MediaType,
+                    ct).ConfigureAwait(false);
         }
         finally
         {
             _throttle.Release();
         }
+    }
+
+    private async Task<IReadOnlyList<ProviderClaim>> EnrichClaimsWithTmdbDetailsAsync(
+        IReadOnlyList<ProviderClaim> claims,
+        JsonNode resultNode,
+        MediaType mediaType,
+        CancellationToken ct)
+    {
+        if (!string.Equals(Name, "tmdb", StringComparison.OrdinalIgnoreCase)
+            || mediaType is not (MediaType.Movies or MediaType.TV)
+            || string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+        {
+            return claims;
+        }
+
+        var tmdbId = claims.FirstOrDefault(c =>
+            string.Equals(c.Key, BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase))?.Value
+            ?? resultNode["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
+            ?? resultNode["id"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(tmdbId))
+            return claims;
+
+        var endpoint = mediaType == MediaType.TV ? "tv" : "movie";
+        var baseUrl = _config.Endpoints.GetValueOrDefault("api") ?? "https://api.themoviedb.org/3";
+        var url = $"{baseUrl.TrimEnd('/')}/{endpoint}/{Uri.EscapeDataString(tmdbId)}?language=en-US&api_key={Uri.EscapeDataString(_config.HttpClient.ApiKey)}";
+
+        try
+        {
+            var detailCacheKey = BuildCacheKey(url);
+            var cacheTtlHours = _config.CacheTtlHours ?? 168;
+            JsonNode? details = null;
+
+            if (_responseCache is not null)
+            {
+                var cached = await _responseCache.FindAsync(detailCacheKey, ct).ConfigureAwait(false);
+                if (cached is not null)
+                    details = JsonNode.Parse(cached.ResponseJson);
+            }
+
+            if (details is null)
+            {
+                using var client = _httpFactory.CreateClient(_config.Name);
+                using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    return claims;
+
+                response.EnsureSuccessStatusCode();
+                var responseBody = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                details = JsonNode.Parse(responseBody);
+
+                if (_responseCache is not null && !string.IsNullOrWhiteSpace(responseBody))
+                {
+                    var etag = response.Headers.ETag?.Tag?.Trim('"');
+                    await _responseCache.UpsertAsync(
+                        detailCacheKey,
+                        _providerId.ToString(),
+                        ComputeSha256(url),
+                        responseBody,
+                        etag,
+                        cacheTtlHours,
+                        ct).ConfigureAwait(false);
+                }
+            }
+
+            if (details is null)
+                return claims;
+
+            var enriched = claims.ToList();
+            AddIfMissing(enriched, MetadataFieldConstants.Description, details["overview"]?.GetValue<string>(), 0.85);
+            AddIfMissing(enriched, MetadataFieldConstants.Tagline, details["tagline"]?.GetValue<string>(), 0.70);
+            AddIfMissing(enriched, MetadataFieldConstants.Runtime, details["runtime"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.90);
+
+            return enriched;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "{Provider}: detail enrichment failed for {MediaType} id {TmdbId}", Name, mediaType, tmdbId);
+            return claims;
+        }
+    }
+
+    private static void AddIfMissing(List<ProviderClaim> claims, string key, string? value, double confidence)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (claims.Any(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(c.Value, value, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        claims.Add(new ProviderClaim(key, value, confidence));
     }
 
     /// <summary>

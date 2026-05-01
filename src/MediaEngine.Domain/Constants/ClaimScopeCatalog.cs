@@ -60,6 +60,8 @@ public static class ClaimScopeCatalog
             [MetadataFieldConstants.Series]            = ClaimScope.Parent,
             [MetadataFieldConstants.Franchise]         = ClaimScope.Parent,
             [MetadataFieldConstants.Network]           = ClaimScope.Parent,
+            [MetadataFieldConstants.Tagline]           = ClaimScope.Parent,
+            [MetadataFieldConstants.ShortDescription]  = ClaimScope.Parent,
             [MetadataFieldConstants.PublisherField]    = ClaimScope.Parent,
             [MetadataFieldConstants.SeasonCount]       = ClaimScope.Parent,
             [MetadataFieldConstants.EpisodeCount]      = ClaimScope.Parent,

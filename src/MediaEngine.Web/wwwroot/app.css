@@ -2651,3 +2651,33 @@ textarea.tl-textarea,
     overflow: hidden !important;
     background: transparent !important;
 }
+
+.layout-shell__profile-popover.mud-popover,
+.layout-shell__profile-popover.mud-popover .mud-paper,
+.layout-shell__profile-menu-list.mud-list {
+    color: var(--app-text-primary, #aab8c5) !important;
+    background: var(--app-surface, #1e1f27) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.layout-shell__profile-menu.mud-menu {
+    color: var(--app-text-primary, #aab8c5) !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.layout-shell__profile-popover .mud-list-item,
+.layout-shell__profile-popover .mud-menu-item {
+    color: var(--app-text-primary, #aab8c5) !important;
+}
+
+.layout-shell__profile-popover .mud-list-item:hover,
+.layout-shell__profile-popover .mud-list-item:focus,
+.layout-shell__profile-popover .mud-menu-item:hover,
+.layout-shell__profile-popover .mud-menu-item:focus {
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035)) !important;
+}

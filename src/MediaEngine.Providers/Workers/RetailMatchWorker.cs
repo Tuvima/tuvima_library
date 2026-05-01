@@ -725,9 +725,7 @@ public sealed class RetailMatchWorker
 
         var providerId = appleProvider?.ProviderId ?? Guid.Empty;
 
-        var bridgeIdsJson = JsonSerializer.Serialize(
-            claims.Where(c => BridgeIdHelper.IsBridgeId(c.Key))
-                  .ToDictionary(c => c.Key, c => c.Value));
+        var bridgeIdsJson = BuildBridgeIdsJson(claims);
 
         var candidate = new RetailMatchCandidate
         {
@@ -1050,6 +1048,8 @@ public sealed class RetailMatchWorker
             return;
         }
 
+        var showDetails = await FetchTmdbShowDetailsAsync(tvId, tmdbApiKey, lang, country, ct);
+
         // Step 2: Determine unique seasons needed (may be multiple if batch spans seasons).
         var seasonGroups = groupJobs
             .GroupBy(j => jobHints[j.EntityId].GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
@@ -1084,7 +1084,7 @@ public sealed class RetailMatchWorker
             try
             {
                 await ApplyTvEpisodeAsync(
-                    job, hints, allEpisodes, tvId, showPosterPath, matchedShowName,
+                    job, hints, allEpisodes, tvId, showPosterPath, matchedShowName, showDetails,
                     tmdbProvider, retailAcceptThreshold, retailAmbiguousThreshold, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1212,6 +1212,34 @@ public sealed class RetailMatchWorker
     }
 
     /// <summary>
+    /// Fetches show-level TMDB details so series pages can use the provider tagline and overview.
+    /// </summary>
+    private async Task<JsonNode?> FetchTmdbShowDetailsAsync(
+        string tvId, string apiKey, string lang, string country, CancellationToken ct)
+    {
+        var url = $"https://api.themoviedb.org/3/tv/{tvId}?language={lang}-{country}&api_key={apiKey}";
+
+        await ThrottleTmdbAsync(ct);
+
+        try
+        {
+            using var client = _httpFactory.CreateClient("tmdb");
+            using var response = await client.GetAsync(url, ct);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return null;
+
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "RetailMatchWorker: TMDB show detail fetch failed for tv_id={TvId}", tvId);
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Fetches all episodes for a TMDB season. Returns the raw episode JSON nodes.
     /// </summary>
     private async Task<IReadOnlyList<JsonNode>> FetchTmdbSeasonEpisodesAsync(
@@ -1263,6 +1291,7 @@ public sealed class RetailMatchWorker
         string tvId,
         string? showPosterPath,
         string? matchedShowName,
+        JsonNode? showDetails,
         IExternalMetadataProvider? tmdbProvider,
         double retailAcceptThreshold,
         double retailAmbiguousThreshold,
@@ -1335,7 +1364,9 @@ public sealed class RetailMatchWorker
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var providerShowName = matchedShowName ?? showName;
         var showPosterUrl = BuildTmdbImageUrl(showPosterPath);
-        var claims = BuildTvEpisodeClaims(bestEpisode, tvId, providerShowName, fileSeason, showPosterUrl);
+        var claims = BuildTvShowClaims(showDetails, tvId, providerShowName, showPosterUrl)
+            .Concat(BuildTvEpisodeClaims(bestEpisode, tvId, providerShowName, fileSeason, showPosterUrl))
+            .ToList();
 
         // For retail scoring, the candidate title is the episode title and author/creator
         // is the show name (best available approximation for TV scoring).
@@ -1414,9 +1445,7 @@ public sealed class RetailMatchWorker
 
         var providerId = tmdbProvider?.ProviderId ?? Guid.Empty;
 
-        var bridgeIdsJson = JsonSerializer.Serialize(
-            claims.Where(c => BridgeIdHelper.IsBridgeId(c.Key))
-                  .ToDictionary(c => c.Key, c => c.Value));
+        var bridgeIdsJson = BuildBridgeIdsJson(claims);
 
         var candidate = new RetailMatchCandidate
         {
@@ -1534,6 +1563,19 @@ public sealed class RetailMatchWorker
         }
     }
 
+    private static string BuildBridgeIdsJson(IEnumerable<ProviderClaim> claims)
+    {
+        var bridgeIds = claims
+            .Where(c => BridgeIdHelper.IsBridgeId(c.Key))
+            .GroupBy(c => c.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First().Value,
+                StringComparer.OrdinalIgnoreCase);
+
+        return JsonSerializer.Serialize(bridgeIds);
+    }
+
     /// <summary>
     /// Builds <see cref="ProviderClaim"/> list from a raw TMDB episode JSON node.
     /// Includes show-level bridge ID (tmdb_id for the show) so Stage 2 can bridge to Wikidata.
@@ -1554,8 +1596,9 @@ public sealed class RetailMatchWorker
 
         // For TV, "title" in the system is typically the episode title.
         Add(MetadataFieldConstants.Title,         episode["name"]?.GetValue<string>(), 0.80);
-        Add(MetadataFieldConstants.Description,   episode["overview"]?.GetValue<string>(), 0.85);
+        Add(MetadataFieldConstants.EpisodeDescription, episode["overview"]?.GetValue<string>(), 0.85);
         Add(MetadataFieldConstants.ShowName,      showName, 0.85);
+        Add("episode_still_url", BuildTmdbImageUrl(episode["still_path"]?.GetValue<string>()), 0.85);
 
         var airDate = episode["air_date"]?.GetValue<string>();
         if (!string.IsNullOrWhiteSpace(airDate) && airDate.Length >= 4)
@@ -1573,6 +1616,32 @@ public sealed class RetailMatchWorker
         var rating = episode["vote_average"]?.GetValue<double?>()?.ToString("F1");
         if (!string.IsNullOrWhiteSpace(rating))
             Add(MetadataFieldConstants.Rating, rating, 0.80);
+
+        return claims;
+    }
+
+    private static IReadOnlyList<ProviderClaim> BuildTvShowClaims(
+        JsonNode? showDetails, string showTvId, string? fallbackShowName, string? fallbackPosterUrl)
+    {
+        var claims = new List<ProviderClaim>();
+
+        void Add(string key, string? value, double confidence)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                claims.Add(new ProviderClaim(key, value, confidence));
+        }
+
+        Add(MetadataFieldConstants.ShowName, showDetails?["name"]?.GetValue<string>() ?? fallbackShowName, 0.90);
+        Add(MetadataFieldConstants.Title, showDetails?["name"]?.GetValue<string>() ?? fallbackShowName, 0.86);
+        Add(MetadataFieldConstants.Description, showDetails?["overview"]?.GetValue<string>(), 0.86);
+        Add(MetadataFieldConstants.Tagline, showDetails?["tagline"]?.GetValue<string>(), 0.78);
+        Add(MetadataFieldConstants.Network, showDetails?["networks"]?[0]?["name"]?.GetValue<string>(), 0.85);
+        Add(MetadataFieldConstants.Cover, BuildTmdbImageUrl(showDetails?["poster_path"]?.GetValue<string>()) ?? fallbackPosterUrl, 0.90);
+        Add(BridgeIdKeys.TmdbId, showTvId, 1.0);
+
+        var firstAirDate = showDetails?["first_air_date"]?.GetValue<string>();
+        if (!string.IsNullOrWhiteSpace(firstAirDate) && firstAirDate.Length >= 4)
+            Add(MetadataFieldConstants.Year, firstAirDate[..4], 0.85);
 
         return claims;
     }
@@ -2428,9 +2497,7 @@ public sealed class RetailMatchWorker
                     "single_item");
 
                 // Extract bridge IDs from claims
-                var bridgeIdsJson = System.Text.Json.JsonSerializer.Serialize(
-                    claims.Where(c => BridgeIdHelper.IsBridgeId(c.Key))
-                          .ToDictionary(c => c.Key, c => c.Value));
+                var bridgeIdsJson = BuildBridgeIdsJson(claims);
 
                 // Build candidate record
                 var candidate = new RetailMatchCandidate

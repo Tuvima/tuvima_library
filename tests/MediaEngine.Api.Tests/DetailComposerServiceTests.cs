@@ -184,6 +184,17 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_SeriesPlacementUsesWikidataPositionsWithoutRowOrderFallback()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("claim_key = 'series_position' AND provider_id = @wikidataProviderId", source);
+        Assert.Contains("WellKnownProviders.Wikidata.ToString()", source);
+        Assert.Contains("PositionNumber = positionNumber", source);
+        Assert.DoesNotContain("PositionNumber = positionNumber ?? index + 1", source);
+    }
+
+    [Fact]
     public void DetailComposer_FormatsRatingsAndUsesCreditImageFallbacks()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));

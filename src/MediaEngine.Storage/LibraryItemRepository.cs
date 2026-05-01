@@ -528,8 +528,12 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             Language = Canonical("language"),
             Genre = projection?.Genre ?? Canonical("genre"),
             Runtime = projection?.Runtime ?? Canonical("runtime"),
-            Description = projection?.Description ?? Canonical("description"),
-            Tagline = Canonical("tagline"),
+            Description = projection?.Description
+                ?? Canonical("episode_description")
+                ?? Canonical("description")
+                ?? Canonical("overview")
+                ?? Canonical("plot_summary"),
+            Tagline = Canonical("tagline") ?? Canonical("short_description"),
             Series = projection?.Series ?? Canonical("series"),
             SeriesPosition = projection?.SeriesPosition ?? Canonical("series_position"),
             ShowName = projection?.ShowName ?? Canonical("show_name"),

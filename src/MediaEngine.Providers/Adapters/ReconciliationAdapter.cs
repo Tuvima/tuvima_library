@@ -1091,7 +1091,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         return claims;
     }
 
-    internal static TvManifestProjection BuildTvManifestProjection(ChildEntityManifest manifest)
+    internal static TvManifestProjection BuildTvManifestProjection(
+        ChildEntityManifest manifest,
+        IReadOnlyDictionary<string, string>? episodeDescriptions = null)
     {
         ArgumentNullException.ThrowIfNull(manifest);
 
@@ -1119,6 +1121,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     title = episode.Title,
                     ordinal = episodeNumber,
                     episode_number = episodeNumber,
+                    description = GetChildDescription(episode.Qid, episodeDescriptions),
                     air_date = episode.ReleaseDate?.ToString("yyyy-MM-dd"),
                     duration_minutes = episode.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
                     director = episode.Creators?.GetValueOrDefault("Director"),
@@ -1151,6 +1154,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     title = episode.Title,
                     ordinal = fallbackOrdinal,
                     episode_number = fallbackOrdinal,
+                    description = GetChildDescription(episode.Qid, episodeDescriptions),
                     air_date = episode.ReleaseDate?.ToString("yyyy-MM-dd"),
                     duration_minutes = episode.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
                     director = episode.Creators?.GetValueOrDefault("Director"),
@@ -1173,6 +1177,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             totalEpisodes,
             unassigned.Count,
             JsonSerializer.Serialize(new { seasons = seasonNodes }));
+    }
+
+    private static string? GetChildDescription(
+        string qid,
+        IReadOnlyDictionary<string, string>? descriptions)
+    {
+        if (descriptions is null || string.IsNullOrWhiteSpace(qid))
+            return null;
+
+        return descriptions.TryGetValue(qid, out var description)
+            ? description
+            : null;
     }
 
     internal sealed record TvManifestProjection(
@@ -3313,7 +3329,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 // adapter can group directly from the manifest. Any episode that
                 // still arrives without a usable Parent is surfaced under an
                 // "Unassigned" pseudo-season instead of triggering extra fetches.
-                var projection = BuildTvManifestProjection(manifest);
+                var episodeDescriptions = await FetchWikipediaExtractsAsync(
+                    manifest.Children.Skip(Math.Min(manifest.PrimaryCount, manifest.Children.Count)).Select(c => c.Qid),
+                    language,
+                    ct).ConfigureAwait(false);
+                var projection = BuildTvManifestProjection(manifest, episodeDescriptions);
                 claims.Add(new ProviderClaim(MetadataFieldConstants.SeasonCount,       projection.SeasonCount.ToString(),  ClaimConfidence.WikidataProperty));
                 claims.Add(new ProviderClaim(MetadataFieldConstants.EpisodeCount,      projection.EpisodeCount.ToString(), ClaimConfidence.WikidataProperty));
                 claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, projection.JsonBlob,               ClaimConfidence.WikidataProperty));
@@ -3550,6 +3570,52 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// Preserves "Unabridged" when it is part of the title itself (e.g. "The Unabridged Story")
     /// and "A Novel" when it appears in the middle of a title (e.g. "A Novel Approach to Chess").
     /// </summary>
+    private async Task<IReadOnlyDictionary<string, string>> FetchWikipediaExtractsAsync(
+        IEnumerable<string> qids,
+        string language,
+        CancellationToken ct)
+    {
+        if (_reconciler is null)
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var uniqueQids = qids
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(200)
+            .ToList();
+
+        if (uniqueQids.Count == 0)
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var lang = NormalizeLang(language);
+            var fallbackLangs = string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : (IReadOnlyList<string>)["en"];
+
+            var summaries = await _reconciler.GetWikipediaSummariesAsync(
+                uniqueQids, lang, fallbackLangs, ct).ConfigureAwait(false);
+
+            return summaries
+                .Where(summary => !string.IsNullOrWhiteSpace(summary.EntityId)
+                    && !string.IsNullOrWhiteSpace(summary.Extract))
+                .GroupBy(summary => summary.EntityId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => StripLeadingMediaWikiHeadings(group.First().Extract),
+                    StringComparer.OrdinalIgnoreCase);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "{Provider}: batch Wikipedia description fetch failed for {Count} child entities",
+                Name, uniqueQids.Count);
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
     internal static string CleanAudiobookTitle(string title)
     {
         if (string.IsNullOrEmpty(title))
@@ -3734,7 +3800,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (pCode.Length == 3 && pCode[0] == 'D' && char.IsLower(pCode[1]))
             {
                 if (claims.Count > 0 && !string.IsNullOrWhiteSpace(claims[0].Value?.RawValue))
-                    yield return new ProviderClaim(MetadataFieldConstants.Description, claims[0].Value!.RawValue!, ClaimConfidence.Description);
+                    yield return new ProviderClaim(MetadataFieldConstants.ShortDescription, claims[0].Value!.RawValue!, ClaimConfidence.Description);
                 continue;
             }
 

@@ -53,6 +53,7 @@ public static class IntegrationTestEndpoints
         public List<WatchFolderCheckResult> WatchFolderChecks { get; set; } = [];
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
         public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
+        public List<DescriptionSourceCheckResult> DescriptionSourceChecks { get; set; } = [];
         public List<string> IssuesFound { get; set; } = [];
         public List<string> FixesApplied { get; set; } = [];
         public int TotalItems { get; set; }
@@ -186,7 +187,34 @@ public static class IntegrationTestEndpoints
         public int WithSeasonPoster { get; set; }
         public int WithSeasonThumb { get; set; }
         public int WithEpisodeStill { get; set; }
-        public bool Pass => EligibleCount == 0 || WithAnyFanart > 0;
+        public bool Pass =>
+            EligibleCount == 0
+            || (WithAnyFanart > 0
+                && (!string.Equals(MediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                    || WithEpisodeStill > 0));
+    }
+
+    private sealed class DescriptionSourceCheckResult
+    {
+        public string Title { get; set; } = "";
+        public string MediaType { get; set; } = "";
+        public Guid EntityId { get; set; }
+        public string DescriptionKey { get; set; } = "";
+        public bool RequiresWikipediaDescription { get; set; }
+        public bool RequiresRetailDescription { get; set; }
+        public bool HasWikipediaDescription { get; set; }
+        public bool HasRetailDescription { get; set; }
+        public bool HasAnyDescription { get; set; }
+        public bool CanonicalUsesWikipedia { get; set; }
+        public string? CanonicalProvider { get; set; }
+        public bool HasTagline { get; set; }
+        public string? Detail { get; set; }
+
+        public bool Pass =>
+            HasAnyDescription
+            && (!RequiresWikipediaDescription || HasWikipediaDescription)
+            && (!RequiresRetailDescription || HasRetailDescription)
+            && (!HasWikipediaDescription || CanonicalUsesWikipedia);
     }
 
     private sealed class OptionalArtworkState
@@ -567,6 +595,9 @@ public static class IntegrationTestEndpoints
         // ── Phase 4e: Reconciliation — expected vs. actual outcomes ─────────
         logger.LogInformation("[Phase 4e] Running reconciliation pass...");
         await RunReconciliationAsync(db, report, activeTypes, logger, ct);
+
+        logger.LogInformation("[Phase 4f] Validating description source priority and fallback storage...");
+        await ValidateDescriptionSourcesAsync(db, libraryItemRepo, report, logger, ct);
 
         // ── Phase 5: Test manual search for review items ──────────────────
         logger.LogInformation("[Phase 5] Testing manual search on review items...");
@@ -1900,6 +1931,118 @@ public static class IntegrationTestEndpoints
 
     // ── HTML Report Generator ─────────────────────────────────────────────
 
+    private static async Task ValidateDescriptionSourcesAsync(
+        IDatabaseConnection db,
+        ILibraryItemRepository libraryItemRepo,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        report.DescriptionSourceChecks.Clear();
+
+        var allItems = await libraryItemRepo.GetPageAsync(
+            new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var providerNamesById = await LoadProviderNamesByIdAsync(db);
+        var assetIdsByWork = await LoadWorkAssetIdsAsync(db);
+        var hierarchy = await LoadWorkHierarchyAsync(db);
+
+        using var conn = db.CreateConnection();
+        foreach (var item in allItems.Items
+            .Where(item => IsIdentifiedStatus(item.Status))
+            .OrderBy(item => item.MediaType)
+            .ThenBy(item => item.Title))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var descriptionKey = string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                ? MetadataFieldConstants.EpisodeDescription
+                : MetadataFieldConstants.Description;
+
+            var entityIds = ResolveEntityScope(item.EntityId, assetIdsByWork, hierarchy);
+            var keys = new[]
+            {
+                descriptionKey,
+                MetadataFieldConstants.Description,
+                MetadataFieldConstants.Tagline,
+                MetadataFieldConstants.ShortDescription,
+            }.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+            var claims = (await conn.QueryAsync<DescriptionClaimRow>("""
+                SELECT claim_key AS ClaimKey,
+                       provider_id AS ProviderId
+                FROM metadata_claims
+                WHERE entity_id IN @entityIds
+                  AND claim_key IN @keys
+                  AND claim_value IS NOT NULL
+                  AND TRIM(claim_value) <> '';
+                """, new
+            {
+                entityIds = entityIds.Select(id => id.ToString()).ToArray(),
+                keys,
+            })).ToList();
+
+            var canonicals = (await conn.QueryAsync<DescriptionCanonicalRow>("""
+                SELECT key AS Key,
+                       winning_provider_id AS WinningProviderId
+                FROM canonical_values
+                WHERE entity_id IN @entityIds
+                  AND key IN @keys
+                  AND value IS NOT NULL
+                  AND TRIM(value) <> '';
+                """, new
+            {
+                entityIds = entityIds.Select(id => id.ToString()).ToArray(),
+                keys,
+            })).ToList();
+
+            var targetClaims = claims
+                .Where(row => string.Equals(row.ClaimKey, descriptionKey, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var targetCanonicals = canonicals
+                .Where(row => string.Equals(row.Key, descriptionKey, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var hasWikipediaDescription = targetClaims.Any(row => IsWikipediaProvider(row.ProviderId, providerNamesById));
+            var hasRetailDescription = targetClaims.Any(row => IsRetailProvider(row.ProviderId, providerNamesById));
+            var hasAnyDescription = targetClaims.Count > 0 || targetCanonicals.Count > 0;
+            var canonicalWikipedia = targetCanonicals.Any(row => IsWikipediaProvider(row.WinningProviderId, providerNamesById));
+            var canonicalProvider = targetCanonicals
+                .Select(row => ProviderLabel(row.WinningProviderId, providerNamesById))
+                .FirstOrDefault(label => !string.IsNullOrWhiteSpace(label));
+
+            var check = new DescriptionSourceCheckResult
+            {
+                Title = item.Title,
+                MediaType = item.MediaType,
+                EntityId = item.EntityId,
+                DescriptionKey = descriptionKey,
+                RequiresWikipediaDescription = !string.IsNullOrWhiteSpace(item.WikidataQid),
+                RequiresRetailDescription = string.Equals(item.RetailMatch, "matched", StringComparison.OrdinalIgnoreCase),
+                HasWikipediaDescription = hasWikipediaDescription,
+                HasRetailDescription = hasRetailDescription,
+                HasAnyDescription = hasAnyDescription,
+                CanonicalUsesWikipedia = canonicalWikipedia,
+                CanonicalProvider = canonicalProvider,
+                HasTagline = claims.Any(row => string.Equals(row.ClaimKey, MetadataFieldConstants.Tagline, StringComparison.OrdinalIgnoreCase))
+                    || canonicals.Any(row => string.Equals(row.Key, MetadataFieldConstants.Tagline, StringComparison.OrdinalIgnoreCase)),
+            };
+
+            if (!check.Pass)
+            {
+                check.Detail = BuildDescriptionCheckDetail(check);
+                report.IssuesFound.Add(
+                    $"Description source validation failed for {check.MediaType} '{check.Title}': {check.Detail}");
+            }
+
+            report.DescriptionSourceChecks.Add(check);
+        }
+
+        logger.LogInformation(
+            "  Description source checks: {Pass}/{Total} passed",
+            report.DescriptionSourceChecks.Count(check => check.Pass),
+            report.DescriptionSourceChecks.Count);
+    }
+
     private static string GenerateHtmlReport(TestReport report)
     {
         var sb = new StringBuilder();
@@ -1979,6 +2122,8 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
         SummaryCard(sb, report.LibraryChecks.Count(v => v.Pass).ToString() + "/" + report.LibraryChecks.Count, "Library Checks", "#22D3EE");
         SummaryCard(sb, report.FileSystemChecks.Count(f => f.Pass).ToString() + "/" + report.FileSystemChecks.Count, "Filesystem", "#38BDF8");
+        if (report.DescriptionSourceChecks.Count > 0)
+            SummaryCard(sb, report.DescriptionSourceChecks.Count(d => d.Pass) + "/" + report.DescriptionSourceChecks.Count, "Descriptions", "#34D399");
         if (report.Stage3FanartSummaries.Count > 0)
             SummaryCard(sb, report.Stage3FanartSummaries.Sum(s => s.WithAnyFanart) + "/" + report.Stage3FanartSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
@@ -2114,6 +2259,28 @@ public static class IntegrationTestEndpoints
                     $"<td>{Check(v.HasRetailMatch)} <span class=\"mono\">{Esc(v.RetailMatch ?? "")}</span></td>" +
                     $"<td>{Check(v.HasExpectedRetailProvider)} <span class=\"mono\">{Esc(v.ActualRetailProvider ?? "â€”")}</span></td>" +
                     $"<td>{Check(v.HasWikidataQid)} <span class=\"mono\">{Esc(v.WikidataQid ?? "")}</span></td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
+
+        if (report.DescriptionSourceChecks.Count > 0)
+        {
+            int descriptionPass = report.DescriptionSourceChecks.Count(d => d.Pass);
+            string descriptionBadge = descriptionPass == report.DescriptionSourceChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.DescriptionSourceChecks.Count - descriptionPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Description Source Validation {descriptionBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Key</th><th>Wikipedia</th><th>Retail</th><th>Canonical</th><th>Tagline</th><th>Status</th><th>Detail</th></tr>");
+            foreach (var check in report.DescriptionSourceChecks.OrderBy(d => d.MediaType).ThenBy(d => d.Title))
+            {
+                string badge = check.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(check.Title)}</td><td>{Esc(check.MediaType)}</td><td class=\"mono\">{Esc(check.DescriptionKey)}</td>" +
+                    $"<td>{BoolMark(check.HasWikipediaDescription)}</td><td>{BoolMark(check.HasRetailDescription)}</td>" +
+                    $"<td>{BoolMark(check.CanonicalUsesWikipedia)} <span class=\"mono\">{Esc(check.CanonicalProvider ?? "unknown")}</span></td>" +
+                    $"<td>{BoolMark(check.HasTagline)}</td><td>{badge}</td><td>{Esc(check.Detail ?? "")}</td></tr>");
             }
             sb.AppendLine("</table>");
         }
@@ -2661,6 +2828,118 @@ public static class IntegrationTestEndpoints
     private static string NormalizeExpectationKey(string title, string mediaType) =>
         $"{title.Trim().ToLowerInvariant()}|{mediaType.Trim().ToLowerInvariant()}";
 
+    private sealed class DescriptionClaimRow
+    {
+        public string ClaimKey { get; set; } = "";
+        public string ProviderId { get; set; } = "";
+    }
+
+    private sealed class DescriptionCanonicalRow
+    {
+        public string Key { get; set; } = "";
+        public string? WinningProviderId { get; set; }
+    }
+
+    private static IReadOnlyList<Guid> ResolveEntityScope(
+        Guid workId,
+        IReadOnlyDictionary<Guid, Guid> assetIdsByWork,
+        IReadOnlyDictionary<Guid, WorkHierarchyNode> hierarchy)
+    {
+        var ids = new List<Guid> { workId };
+        if (assetIdsByWork.TryGetValue(workId, out var assetId))
+            ids.Add(assetId);
+
+        var visited = new HashSet<Guid> { workId };
+        Guid? current = workId;
+        while (current.HasValue
+            && hierarchy.TryGetValue(current.Value, out var node)
+            && node.ParentWorkId is { } parentId
+            && visited.Add(parentId))
+        {
+            ids.Add(parentId);
+            current = parentId;
+        }
+
+        return ids.Distinct().ToList();
+    }
+
+    private static bool IsIdentifiedStatus(string? status)
+    {
+        var value = status ?? "";
+        return value.Contains("Identified", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Confirmed", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Registered", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsWikipediaProvider(
+        string? providerId,
+        IReadOnlyDictionary<Guid, string> providerNamesById)
+    {
+        if (!Guid.TryParse(providerId, out var id))
+            return false;
+
+        if (id == WellKnownProviders.Wikidata || id == WellKnownProviders.Wikipedia)
+            return true;
+
+        return providerNamesById.TryGetValue(id, out var name)
+            && (name.Contains("wikidata", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("wikipedia", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsRetailProvider(
+        string? providerId,
+        IReadOnlyDictionary<Guid, string> providerNamesById)
+    {
+        if (!Guid.TryParse(providerId, out var id))
+            return false;
+
+        if (id == WellKnownProviders.AppleApi
+            || id == WellKnownProviders.OpenLibrary
+            || id == WellKnownProviders.GoogleBooks
+            || id == WellKnownProviders.Tmdb
+            || id == WellKnownProviders.ComicVine
+            || id == WellKnownProviders.MusicBrainz)
+        {
+            return true;
+        }
+
+        return providerNamesById.TryGetValue(id, out var name)
+            && !IsNonRetailProvider(name)
+            && (name.Contains("apple", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("open_library", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("google_books", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("tmdb", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("comic", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("musicbrainz", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string? ProviderLabel(
+        string? providerId,
+        IReadOnlyDictionary<Guid, string> providerNamesById)
+    {
+        if (!Guid.TryParse(providerId, out var id))
+            return null;
+
+        return providerNamesById.TryGetValue(id, out var name)
+            ? name
+            : id.ToString();
+    }
+
+    private static string BuildDescriptionCheckDetail(DescriptionSourceCheckResult check)
+    {
+        var missing = new List<string>();
+        if (!check.HasAnyDescription)
+            missing.Add($"{check.DescriptionKey} missing");
+        if (check.RequiresWikipediaDescription && !check.HasWikipediaDescription)
+            missing.Add("Wikipedia/Wikidata description missing");
+        if (check.RequiresRetailDescription && !check.HasRetailDescription)
+            missing.Add("retail fallback description missing");
+        if (check.HasWikipediaDescription && !check.CanonicalUsesWikipedia)
+            missing.Add($"canonical winner is {check.CanonicalProvider ?? "unknown"}, expected Wikipedia/Wikidata");
+
+        return missing.Count == 0 ? "unknown description source issue" : string.Join("; ", missing);
+    }
+
     private sealed class ProviderNameRow
     {
         public string Id { get; set; } = "";
@@ -2908,8 +3187,12 @@ public static class IntegrationTestEndpoints
 
             if (!summary.Pass)
             {
+                var reason = string.Equals(summary.MediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                    && summary.WithEpisodeStill == 0
+                    ? "no stored episode stills were created"
+                    : "no stored optional artwork assets were created";
                 report.IssuesFound.Add(
-                    $"Stage 3 fanart: no stored optional artwork assets were created for eligible {summary.MediaType} items");
+                    $"Stage 3 fanart: {reason} for eligible {summary.MediaType} items");
             }
         }
     }
