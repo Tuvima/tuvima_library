@@ -44,6 +44,7 @@ public sealed class RetailMatchWorker
     private readonly IRetailMatchScoringService _retailScoring;
     private readonly IMetadataClaimRepository _claimRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ICanonicalValueArrayRepository? _arrayRepo;
     private readonly IScoringEngine _scoringEngine;
     private readonly IConfigurationLoader _configLoader;
     private readonly IBridgeIdRepository _bridgeIdRepo;
@@ -100,7 +101,8 @@ public sealed class RetailMatchWorker
         IEntityAssetRepository? entityAssetRepo = null,
         IImageCacheRepository? imageCache = null,
         AssetPathService? assetPaths = null,
-        IAssetExportService? assetExportService = null)
+        IAssetExportService? assetExportService = null,
+        ICanonicalValueArrayRepository? arrayRepo = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -111,6 +113,7 @@ public sealed class RetailMatchWorker
         _retailScoring = retailScoring;
         _claimRepo = claimRepo;
         _canonicalRepo = canonicalRepo;
+        _arrayRepo = arrayRepo;
         _scoringEngine = scoringEngine;
         _configLoader = configLoader;
         _bridgeIdRepo = bridgeIdRepo;
@@ -804,7 +807,7 @@ public sealed class RetailMatchWorker
             await ScoringHelper.PersistAndScoreWithLineageAsync(
                 job.EntityId, claims, providerId, lineage,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                logger: _logger);
+                arrayRepo: _arrayRepo, logger: _logger);
 
             var bridgeEntries = claims
                 .Where(c => BridgeIdHelper.IsBridgeId(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
@@ -1522,7 +1525,7 @@ public sealed class RetailMatchWorker
             await ScoringHelper.PersistAndScoreWithLineageAsync(
                 job.EntityId, claims, providerId, lineage,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                logger: _logger);
+                arrayRepo: _arrayRepo, logger: _logger);
 
             var bridgeEntries = claims
                 .Where(c => BridgeIdHelper.IsBridgeId(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
@@ -2735,7 +2738,7 @@ public sealed class RetailMatchWorker
                     await ScoringHelper.PersistAndScoreWithLineageAsync(
                         job.EntityId, claims, provider.ProviderId, lineage,
                         _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                        logger: _logger);
+                        arrayRepo: _arrayRepo, logger: _logger);
 
                     // Extract bridge IDs for Stage 2
                     var bridgeEntries = claims

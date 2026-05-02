@@ -58,9 +58,20 @@ internal static class CastCreditQueries
         if (fallbackCredits.Count > 0)
             return fallbackCredits;
 
-        return work.RootWorkId.HasValue && work.RootWorkId.Value != workId
-            ? await BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, canonicalArrayRepo, personRepo, ct)
-            : [];
+        fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(workId, personRepo, db, ct);
+        if (fallbackCredits.Count > 0)
+            return fallbackCredits;
+
+        if (work.RootWorkId.HasValue && work.RootWorkId.Value != workId)
+        {
+            fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, canonicalArrayRepo, personRepo, ct);
+            if (fallbackCredits.Count > 0)
+                return fallbackCredits;
+
+            return await BuildFallbackCreditsFromMetadataClaimsAsync(work.RootWorkId.Value, personRepo, db, ct);
+        }
+
+        return [];
     }
 
     public static async Task<List<CastCreditDto>> BuildForCollectionRootAsync(
@@ -77,7 +88,10 @@ internal static class CastCreditQueries
         if (explicitCredits.Count > 0)
             return explicitCredits;
 
-        return await BuildFallbackCreditsFromCanonicalArrayAsync(rootWorkId, canonicalArrayRepo, personRepo, ct);
+        var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(rootWorkId, canonicalArrayRepo, personRepo, ct);
+        return fallbackCredits.Count > 0
+            ? fallbackCredits
+            : await BuildFallbackCreditsFromMetadataClaimsAsync(rootWorkId, personRepo, db, ct);
     }
 
     private static async Task<List<CastCreditDto>> BuildExplicitCastAsync(
@@ -213,21 +227,141 @@ internal static class CastCreditQueries
                 continue;
 
             Person? person = null;
-            if (!string.IsNullOrWhiteSpace(entry.ValueQid))
-                person = await personRepo.FindByQidAsync(entry.ValueQid, ct);
+            var qid = ExtractQid(entry.ValueQid);
+            if (!string.IsNullOrWhiteSpace(qid))
+                person = await personRepo.FindByQidAsync(qid, ct);
             person ??= await personRepo.FindByNameAsync(entry.Value, ct);
 
             credits.Add(new CastCreditDto
             {
                 PersonId = person?.Id,
                 Name = person?.Name ?? entry.Value,
-                WikidataQid = entry.ValueQid ?? person?.WikidataQid,
+                WikidataQid = qid ?? person?.WikidataQid,
                 HeadshotUrl = BuildHeadshotUrl(person?.Id, person?.LocalHeadshotPath, person?.HeadshotUrl),
             });
         }
 
         return credits;
     }
+
+    private static async Task<List<CastCreditDto>> BuildFallbackCreditsFromMetadataClaimsAsync(
+        Guid workId,
+        IPersonRepository personRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        using var conn = db.CreateConnection();
+        var rows = (await conn.QueryAsync<CastClaimRow>(new CommandDefinition(
+            """
+            SELECT mc.rowid       AS RowNumber,
+                   mc.claim_key   AS ClaimKey,
+                   mc.claim_value AS ClaimValue
+            FROM metadata_claims mc
+            WHERE mc.entity_id = @workId
+              AND mc.claim_key IN ('cast_member', 'cast_member_qid')
+              AND NULLIF(mc.claim_value, '') IS NOT NULL
+            ORDER BY mc.rowid;
+            """,
+            new { workId = workId.ToString("D") },
+            cancellationToken: ct))).ToList();
+
+        var entries = BuildCastEntriesFromClaims(rows)
+            .Take(12)
+            .ToList();
+
+        var credits = new List<CastCreditDto>(entries.Count);
+        foreach (var entry in entries)
+        {
+            Person? person = null;
+            if (!string.IsNullOrWhiteSpace(entry.Qid))
+                person = await personRepo.FindByQidAsync(entry.Qid, ct);
+            person ??= await personRepo.FindByNameAsync(entry.Name, ct);
+
+            credits.Add(new CastCreditDto
+            {
+                PersonId = person?.Id,
+                Name = person?.Name ?? entry.Name,
+                WikidataQid = entry.Qid ?? person?.WikidataQid,
+                HeadshotUrl = BuildHeadshotUrl(person?.Id, person?.LocalHeadshotPath, person?.HeadshotUrl),
+            });
+        }
+
+        return credits;
+    }
+
+    private static List<CastClaimEntry> BuildCastEntriesFromClaims(IReadOnlyList<CastClaimRow> rows)
+    {
+        var nameClaims = rows
+            .Where(row => row.ClaimKey.Equals("cast_member", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var qidClaims = rows
+            .Where(row => row.ClaimKey.Equals("cast_member_qid", StringComparison.OrdinalIgnoreCase))
+            .Select(row => ParseQidLabel(row.ClaimValue))
+            .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Qid) || !string.IsNullOrWhiteSpace(parsed.Label))
+            .ToList();
+
+        var qidByName = qidClaims
+            .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Label) && !string.IsNullOrWhiteSpace(parsed.Qid))
+            .GroupBy(parsed => parsed.Label!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Qid, StringComparer.OrdinalIgnoreCase);
+
+        var entries = new List<CastClaimEntry>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < nameClaims.Count; i++)
+        {
+            var name = nameClaims[i].ClaimValue.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            qidByName.TryGetValue(name, out var qid);
+            qid ??= i < qidClaims.Count ? qidClaims[i].Qid : null;
+            var key = qid ?? name;
+            if (seen.Add(key))
+                entries.Add(new CastClaimEntry(name, qid));
+        }
+
+        foreach (var parsed in qidClaims)
+        {
+            var name = FirstNonBlank(parsed.Label, parsed.Qid);
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            var key = parsed.Qid ?? name;
+            if (seen.Add(key))
+                entries.Add(new CastClaimEntry(name, parsed.Qid));
+        }
+
+        return entries;
+    }
+
+    private static (string? Qid, string? Label) ParseQidLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return (null, null);
+
+        var trimmed = value.Trim();
+        var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
+        if (delimiter > 0)
+            return (ExtractQid(trimmed[..delimiter]), FirstNonBlank(trimmed[(delimiter + 2)..], null));
+
+        return (ExtractQid(trimmed), null);
+    }
+
+    private static string? ExtractQid(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
+        if (delimiter > 0)
+            trimmed = trimmed[..delimiter].Trim();
+
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string? BuildHeadshotUrl(Guid? personId, string? localHeadshotPath, string? remoteHeadshotUrl)
         => personId.HasValue
@@ -267,6 +401,15 @@ internal static class CastCreditQueries
         public string? ActorHeadshotUrl { get; init; }
         public string? ActorLocalHeadshotPath { get; init; }
     }
+
+    private sealed class CastClaimRow
+    {
+        public long RowNumber { get; init; }
+        public string ClaimKey { get; init; } = string.Empty;
+        public string ClaimValue { get; init; } = string.Empty;
+    }
+
+    private sealed record CastClaimEntry(string Name, string? Qid);
 }
 
 internal static class PersonCreditQueries

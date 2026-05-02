@@ -148,6 +148,7 @@ public static class ScoringHelper
         // Decompose multi-valued fields into proper array rows.
         // Instead of splitting a single winning value on |||, collect ALL claims
         // from the winning provider for each multi-valued key.
+        var multiValueCanonicalChanged = false;
         if (arrayRepo is not null)
         {
             foreach (var fieldScore in scored.FieldScores)
@@ -180,16 +181,9 @@ public static class ScoringHelper
                                  && c.ClaimKey.Equals(qidKey, StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
-                    var entries = new List<CanonicalArrayEntry>(winningClaims.Count);
-                    for (int i = 0; i < winningClaims.Count; i++)
-                    {
-                        entries.Add(new CanonicalArrayEntry
-                        {
-                            Ordinal  = i,
-                            Value    = winningClaims[i].ClaimValue,
-                            ValueQid = i < qidClaims.Count ? qidClaims[i].ClaimValue : null,
-                        });
-                    }
+                    var entries = BuildCanonicalArrayEntries(winningClaims, qidClaims);
+                    if (entries.Count == 0)
+                        continue;
 
                     await arrayRepo.SetValuesAsync(entityId, fieldScore.Key, entries, ct)
                         .ConfigureAwait(false);
@@ -198,8 +192,13 @@ public static class ScoringHelper
                     // so that display fields (e.g. author) show all values (e.g. "Neil Gaiman; Terry Pratchett").
                     var canonical = canonicals.FirstOrDefault(c =>
                         c.Key.Equals(fieldScore.Key, StringComparison.OrdinalIgnoreCase));
-                    if (canonical is not null && winningClaims.Count > 1)
-                        canonical.Value = string.Join("; ", winningClaims.Select(c => c.ClaimValue));
+                    var joinedValue = string.Join("; ", entries.Select(entry => entry.Value));
+                    if (canonical is not null
+                        && !string.Equals(canonical.Value, joinedValue, StringComparison.Ordinal))
+                    {
+                        canonical.Value = joinedValue;
+                        multiValueCanonicalChanged = true;
+                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -208,9 +207,130 @@ public static class ScoringHelper
                         fieldScore.Key, entityId);
                 }
             }
+
+            if (multiValueCanonicalChanged)
+            {
+                await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
+                if (searchIndex is not null)
+                    await searchIndex.UpsertByEntityIdAsync(entityId, ct).ConfigureAwait(false);
+            }
         }
 
         return scored;
+    }
+
+    private static List<CanonicalArrayEntry> BuildCanonicalArrayEntries(
+        IReadOnlyList<MetadataClaim> winningClaims,
+        IReadOnlyList<MetadataClaim> qidClaims)
+    {
+        var qidEntries = qidClaims
+            .Select(claim => ParseQidLabel(claim.ClaimValue))
+            .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Qid) || !string.IsNullOrWhiteSpace(parsed.Label))
+            .ToList();
+
+        if (qidEntries.Count > 0)
+        {
+            var entries = new List<CanonicalArrayEntry>();
+            var qidLabels = qidEntries
+                .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Label))
+                .Select(parsed => parsed.Label!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var parsed in qidEntries)
+            {
+                var value = FirstNonBlank(parsed.Label, parsed.Qid);
+                if (string.IsNullOrWhiteSpace(value))
+                    continue;
+
+                entries.Add(new CanonicalArrayEntry
+                {
+                    Ordinal = entries.Count,
+                    Value = value,
+                    ValueQid = parsed.Qid,
+                });
+            }
+
+            foreach (var claim in winningClaims)
+            {
+                var value = claim.ClaimValue.Trim();
+                if (string.IsNullOrWhiteSpace(value)
+                    || LooksLikeAggregateContributorName(value)
+                    || qidLabels.Contains(value))
+                    continue;
+
+                entries.Add(new CanonicalArrayEntry
+                {
+                    Ordinal = entries.Count,
+                    Value = value,
+                });
+            }
+
+            return DeduplicateArrayEntries(entries);
+        }
+
+        return DeduplicateArrayEntries(winningClaims
+            .Where(claim => !string.IsNullOrWhiteSpace(claim.ClaimValue))
+            .Select((claim, index) => new CanonicalArrayEntry
+            {
+                Ordinal = index,
+                Value = claim.ClaimValue.Trim(),
+            })
+            .ToList());
+    }
+
+    private static List<CanonicalArrayEntry> DeduplicateArrayEntries(IReadOnlyList<CanonicalArrayEntry> entries)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<CanonicalArrayEntry>();
+        foreach (var entry in entries.OrderBy(entry => entry.Ordinal))
+        {
+            var key = entry.ValueQid ?? entry.Value;
+            if (string.IsNullOrWhiteSpace(entry.Value) || !seen.Add(key))
+                continue;
+
+            result.Add(new CanonicalArrayEntry
+            {
+                Ordinal = result.Count,
+                Value = entry.Value,
+                ValueQid = entry.ValueQid,
+            });
+        }
+
+        return result;
+    }
+
+    private static (string? Qid, string? Label) ParseQidLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return (null, null);
+
+        var trimmed = value.Trim();
+        var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
+        if (delimiter > 0)
+            return (ExtractQid(trimmed[..delimiter]), FirstNonBlank(trimmed[(delimiter + 2)..], null));
+
+        return (ExtractQid(trimmed), null);
+    }
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static bool LooksLikeAggregateContributorName(string value)
+        => value.Contains(" & ", StringComparison.Ordinal)
+            || value.Contains(" and ", StringComparison.OrdinalIgnoreCase)
+            || value.Contains(" + ", StringComparison.Ordinal);
+
+    private static string? ExtractQid(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
+        if (delimiter > 0)
+            trimmed = trimmed[..delimiter].Trim();
+
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 
     /// <summary>

@@ -299,7 +299,7 @@ public sealed class DetailComposerService
             Id = collectionId.ToString("D"),
             EntityType = entityType,
             PresentationContext = context,
-            Title = FirstNonBlank(row.DisplayName, "Collection"),
+            Title = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values),
             Subtitle = BuildCollectionSubtitle(entityType, works),
             Tagline = heroSummary,
             Description = longDescription,
@@ -563,13 +563,15 @@ public sealed class DetailComposerService
         var groups = new List<CreditGroupViewModel>();
         async Task AddTextCreditAsync(string title, CreditGroupType type, string? value, string role, string canonicalArrayKey)
         {
-            if (string.IsNullOrWhiteSpace(value)) return;
-            var keyedEntries = await _canonicalArrays.GetValuesAsync(workId, canonicalArrayKey, ct);
+            var entries = await LoadContributorEntriesAsync(workId, canonicalArrayKey, value, canonicalValues, ct);
+            if (entries.Count == 0)
+                return;
+
             var credits = new List<EntityCreditViewModel>();
-            foreach (var (name, index) in SplitNames(value).Select((name, index) => (name, index)))
+            foreach (var entry in entries.Take(24))
             {
-                var qid = keyedEntries.FirstOrDefault(entry => entry.Value.Equals(name, StringComparison.OrdinalIgnoreCase))?.ValueQid;
-                qid ??= GetValue(canonicalValues, $"{canonicalArrayKey}_qid");
+                var name = entry.Name;
+                var qid = NormalizeQid(entry.Qid);
                 var person = string.IsNullOrWhiteSpace(qid) ? null : await _persons.FindByQidAsync(qid, ct);
                 person ??= await _persons.FindByNameAsync(name, ct);
                 var imageUrl = person is null
@@ -577,19 +579,19 @@ public sealed class DetailComposerService
                         GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_photo_url"),
-                        SplitNames(value).Count == 1 ? GetValue(canonicalValues, "headshot_url") : null)
+                        entries.Count == 1 ? GetValue(canonicalValues, "headshot_url") : null)
                     : ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
                 credits.Add(new EntityCreditViewModel
                 {
-                    EntityId = person?.Id.ToString("D") ?? name,
+                    EntityId = BuildPersonCreditEntityId(person?.Id, qid ?? person?.WikidataQid, name),
                     EntityType = RelatedEntityType.Person,
                     DisplayName = person?.Name ?? name,
                     ImageUrl = imageUrl,
                     FallbackInitials = Initials(person?.Name ?? name),
                     PrimaryRole = role,
-                    SortOrder = index,
-                    IsPrimary = index == 0,
-                    IsCanonical = !string.IsNullOrWhiteSpace(person?.WikidataQid),
+                    SortOrder = entry.SortOrder,
+                    IsPrimary = entry.SortOrder == 0,
+                    IsCanonical = !string.IsNullOrWhiteSpace(qid ?? person?.WikidataQid),
                 });
             }
 
@@ -603,8 +605,12 @@ public sealed class DetailComposerService
 
         await AddTextCreditAsync("Authors", CreditGroupType.Authors, detail.Author, "Author", "author");
         await AddTextCreditAsync("Narrators", CreditGroupType.Narrators, detail.Narrator, "Narrator", "narrator");
+        if (detail.MediaType.Equals("Music", StringComparison.OrdinalIgnoreCase))
+            await AddTextCreditAsync("Artists", CreditGroupType.PrimaryArtists, detail.Artist, "Artist", "artist");
         await AddTextCreditAsync("Directors", CreditGroupType.Directors, detail.Director, "Director", "director");
-        await AddTextCreditAsync("Writers", CreditGroupType.Writers, detail.Writer, "Writer", "writer");
+        await AddTextCreditAsync("Writers", CreditGroupType.Writers, detail.Writer, "Writer", "screenwriter");
+        await AddTextCreditAsync("Composers", CreditGroupType.MusicCredits, detail.Composer, "Composer", "composer");
+        await AddTextCreditAsync("Illustrators", CreditGroupType.Illustrators, detail.Illustrator, "Illustrator", "illustrator");
 
         if (cast.Count > 0)
         {
@@ -614,7 +620,7 @@ public sealed class DetailComposerService
                 GroupType = CreditGroupType.Cast,
                 Credits = cast.Select((credit, index) => new EntityCreditViewModel
                 {
-                    EntityId = (credit.PersonId ?? Guid.Empty).ToString("D"),
+                    EntityId = BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name),
                     EntityType = RelatedEntityType.Person,
                     DisplayName = credit.Name,
                     ImageUrl = credit.HeadshotUrl,
@@ -631,6 +637,167 @@ public sealed class DetailComposerService
         }
 
         return groups;
+    }
+
+    private async Task<IReadOnlyList<ContributorEntry>> LoadContributorEntriesAsync(
+        Guid workId,
+        string canonicalArrayKey,
+        string? fallbackValue,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        CancellationToken ct)
+    {
+        var targetIds = await LoadContributorTargetIdsAsync(workId, ct);
+
+        foreach (var targetId in targetIds)
+        {
+            var arrayEntries = await _canonicalArrays.GetValuesAsync(targetId, canonicalArrayKey, ct);
+            var entries = DeduplicateContributorEntries(arrayEntries
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Value))
+                .OrderBy(entry => entry.Ordinal)
+                .Select(entry => new ContributorEntry(
+                    entry.Value.Trim(),
+                    NormalizeQid(entry.ValueQid),
+                    entry.Ordinal))
+                .ToList());
+            if (entries.Count > 0)
+                return entries;
+        }
+
+        foreach (var targetId in targetIds)
+        {
+            var claimEntries = await LoadContributorEntriesFromClaimsAsync(targetId, canonicalArrayKey, ct);
+            if (claimEntries.Count > 0)
+                return claimEntries;
+        }
+
+        if (string.IsNullOrWhiteSpace(fallbackValue))
+            return [];
+
+        var fallbackEntries = SplitNames(fallbackValue)
+            .Select((name, index) => new ContributorEntry(
+                name,
+                ResolveCompanionQidFromCanonical(canonicalValues, canonicalArrayKey, name, index),
+                index))
+            .ToList();
+
+        return DeduplicateContributorEntries(fallbackEntries);
+    }
+
+    private async Task<IReadOnlyList<Guid>> LoadContributorTargetIdsAsync(Guid workId, CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        var row = await conn.QueryFirstOrDefaultAsync<ContributorTargetRow>(new CommandDefinition(
+            """
+            SELECT w.id AS WorkId,
+                   COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                   MIN(ma.id) AS AssetId
+            FROM works w
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            LEFT JOIN editions e ON e.work_id = w.id
+            LEFT JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.id = @workId
+            GROUP BY w.id, gp.id, p.id;
+            """,
+            new { workId = workId.ToString("D") },
+            cancellationToken: ct));
+
+        if (row is null)
+            return [workId];
+
+        var ids = new List<Guid>();
+        AddId(row.RootWorkId);
+        AddId(row.WorkId);
+        AddId(row.AssetId);
+        return ids;
+
+        void AddId(Guid? id)
+        {
+            if (id.HasValue && !ids.Contains(id.Value))
+                ids.Add(id.Value);
+        }
+    }
+
+    private async Task<IReadOnlyList<ContributorEntry>> LoadContributorEntriesFromClaimsAsync(
+        Guid entityId,
+        string canonicalArrayKey,
+        CancellationToken ct)
+    {
+        var qidKey = canonicalArrayKey + MetadataFieldConstants.CompanionQidSuffix;
+        using var conn = _db.CreateConnection();
+        var rows = (await conn.QueryAsync<ContributorClaimRow>(new CommandDefinition(
+            """
+            SELECT mc.rowid       AS RowNumber,
+                   mc.claim_key   AS ClaimKey,
+                   mc.claim_value AS ClaimValue
+            FROM metadata_claims mc
+            WHERE mc.entity_id = @entityId
+              AND mc.claim_key IN @claimKeys
+              AND NULLIF(mc.claim_value, '') IS NOT NULL
+            ORDER BY mc.rowid;
+            """,
+            new { entityId = entityId.ToString("D"), claimKeys = new[] { canonicalArrayKey, qidKey } },
+            cancellationToken: ct))).ToList();
+
+        if (rows.Count == 0)
+            return [];
+
+        var nameClaims = rows
+            .Where(row => row.ClaimKey.Equals(canonicalArrayKey, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var qidClaims = rows
+            .Where(row => row.ClaimKey.Equals(qidKey, StringComparison.OrdinalIgnoreCase))
+            .Select(row => ParseQidLabel(row.ClaimValue))
+            .ToList();
+
+        var qidByName = qidClaims
+            .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Label) && !string.IsNullOrWhiteSpace(parsed.Qid))
+            .GroupBy(parsed => parsed.Label!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Qid, StringComparer.OrdinalIgnoreCase);
+
+        var entries = new List<ContributorEntry>();
+        if (qidByName.Count > 0)
+        {
+            foreach (var parsed in qidClaims)
+            {
+                var name = FirstNonBlank(parsed.Label, parsed.Qid);
+                if (!string.IsNullOrWhiteSpace(name))
+                    entries.Add(new ContributorEntry(name, parsed.Qid, entries.Count));
+            }
+
+            foreach (var claim in nameClaims)
+            {
+                var name = claim.ClaimValue.Trim();
+                if (string.IsNullOrWhiteSpace(name)
+                    || LooksLikeAggregateContributorName(name)
+                    || qidByName.ContainsKey(name))
+                    continue;
+
+                entries.Add(new ContributorEntry(name, null, entries.Count));
+            }
+
+            return DeduplicateContributorEntries(entries);
+        }
+
+        for (var i = 0; i < nameClaims.Count; i++)
+        {
+            var name = nameClaims[i].ClaimValue.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            qidByName.TryGetValue(name, out var qid);
+            qid ??= i < qidClaims.Count ? qidClaims[i].Qid : null;
+            entries.Add(new ContributorEntry(name, qid, i));
+        }
+
+        foreach (var parsed in qidClaims)
+        {
+            var name = FirstNonBlank(parsed.Label, parsed.Qid);
+            if (!string.IsNullOrWhiteSpace(name))
+                entries.Add(new ContributorEntry(name, parsed.Qid, entries.Count));
+        }
+
+        return DeduplicateContributorEntries(entries);
     }
 
     private static IReadOnlyList<CharacterGroupViewModel> BuildCharacterGroupsFromCast(IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> cast)
@@ -1639,7 +1806,7 @@ public sealed class DetailComposerService
                 GroupType = CreditGroupType.Cast,
                 Credits = cast.Select((credit, index) => new EntityCreditViewModel
                 {
-                    EntityId = (credit.PersonId ?? Guid.Empty).ToString("D"),
+                    EntityId = BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name),
                     EntityType = RelatedEntityType.Person,
                     DisplayName = credit.Name,
                     ImageUrl = credit.HeadshotUrl,
@@ -2123,6 +2290,122 @@ public sealed class DetailComposerService
     private static IReadOnlyList<MetadataPill> MaybePill(string? value)
         => string.IsNullOrWhiteSpace(value) ? [] : [new MetadataPill { Label = value }];
 
+    private static string BuildPersonCreditEntityId(Guid? personId, string? qid, string name)
+        => personId?.ToString("D")
+            ?? NormalizeQid(qid)
+            ?? name;
+
+    private static string ResolveCollectionTitle(
+        DetailEntityType entityType,
+        string? displayName,
+        IReadOnlyDictionary<string, string> rootValues,
+        IReadOnlyDictionary<string, string> values)
+    {
+        if (entityType == DetailEntityType.TvShow)
+        {
+            return FirstNonBlank(
+                GetValue(rootValues, MetadataFieldConstants.Title),
+                GetValue(rootValues, MetadataFieldConstants.ShowName),
+                GetValue(values, MetadataFieldConstants.Title),
+                GetValue(values, MetadataFieldConstants.ShowName),
+                StripUniverseSuffix(displayName),
+                displayName,
+                "TV Show");
+        }
+
+        return FirstNonBlank(displayName, GetValue(values, MetadataFieldConstants.Title), "Collection");
+    }
+
+    private static string? StripUniverseSuffix(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        const string suffix = " universe";
+        var trimmed = value.Trim();
+        return trimmed.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+            ? trimmed[..^suffix.Length].Trim()
+            : trimmed;
+    }
+
+    private static bool LooksLikeAggregateContributorName(string value)
+        => value.Contains(" & ", StringComparison.Ordinal)
+            || value.Contains(" and ", StringComparison.OrdinalIgnoreCase)
+            || value.Contains(" + ", StringComparison.Ordinal);
+
+    private static IReadOnlyList<ContributorEntry> DeduplicateContributorEntries(IReadOnlyList<ContributorEntry> entries)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<ContributorEntry>();
+        foreach (var entry in entries.OrderBy(e => e.SortOrder))
+        {
+            if (string.IsNullOrWhiteSpace(entry.Name))
+                continue;
+
+            var key = NormalizeQid(entry.Qid) ?? entry.Name.Trim();
+            if (seen.Add(key))
+                result.Add(entry with { Name = entry.Name.Trim(), Qid = NormalizeQid(entry.Qid), SortOrder = result.Count });
+        }
+
+        return result;
+    }
+
+    private static string? ResolveCompanionQidFromCanonical(
+        IReadOnlyDictionary<string, string> canonicalValues,
+        string canonicalArrayKey,
+        string name,
+        int index)
+    {
+        var raw = GetValue(canonicalValues, canonicalArrayKey + MetadataFieldConstants.CompanionQidSuffix);
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var parsed = SplitCanonicalSegments(raw)
+            .Select(ParseQidLabel)
+            .Where(value => !string.IsNullOrWhiteSpace(value.Qid))
+            .ToList();
+
+        var byName = parsed.FirstOrDefault(value =>
+            !string.IsNullOrWhiteSpace(value.Label)
+            && value.Label.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(byName.Qid))
+            return byName.Qid;
+
+        return index >= 0 && index < parsed.Count ? parsed[index].Qid : null;
+    }
+
+    private static IReadOnlyList<string> SplitCanonicalSegments(string value)
+    {
+        var separator = value.Contains("|||", StringComparison.Ordinal) ? "|||" : ";";
+        return value.Split(separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    private static (string? Qid, string? Label) ParseQidLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return (null, null);
+
+        var trimmed = value.Trim();
+        var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
+        if (delimiter > 0)
+            return (NormalizeQid(trimmed[..delimiter]), FirstNonBlank(trimmed[(delimiter + 2)..], null));
+
+        return (NormalizeQid(trimmed), null);
+    }
+
+    private static string? NormalizeQid(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
+        if (delimiter > 0)
+            trimmed = trimmed[..delimiter].Trim();
+
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
     private static IReadOnlyList<string> SplitNames(string value)
         => value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
@@ -2226,6 +2509,22 @@ public sealed class DetailComposerService
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
     private sealed record SeriesRow(string WorkId, string Title, string? MediaType, string? PositionLabel, string? ArtworkUrl);
     private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? ArtworkUrl, string? BackgroundUrl);
+    private sealed record ContributorEntry(string Name, string? Qid, int SortOrder);
+
+    private sealed class ContributorTargetRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid? RootWorkId { get; init; }
+        public Guid? AssetId { get; init; }
+    }
+
+    private sealed class ContributorClaimRow
+    {
+        public long RowNumber { get; init; }
+        public string ClaimKey { get; init; } = string.Empty;
+        public string ClaimValue { get; init; } = string.Empty;
+    }
+
     private sealed record CharacterDetailRow(Guid Id, string Label, string? WikidataQid, string? UniverseQid, string? UniverseLabel, string? ImageUrl, string? EntitySubType);
     private sealed class CollectionCharacterRow
     {

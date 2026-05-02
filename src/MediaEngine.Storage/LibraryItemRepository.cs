@@ -234,6 +234,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                 fd.match_source          AS MatchSource,
                 fd.author                AS Author,
                 fd.director              AS Director,
+                fd.artist                AS Artist,
                 fd.genre                 AS Genre,
                 fd.runtime               AS Runtime,
                 fd.description           AS Description,
@@ -523,7 +524,10 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             MatchMethod = projection?.PipelineStep,
             Author = projection?.Author ?? Canonical("author"),
             Director = projection?.Director ?? Canonical("director"),
-            Writer = Canonical("writer"),
+            Artist = projection?.Artist ?? Canonical("artist"),
+            Composer = Canonical("composer"),
+            Illustrator = Canonical("illustrator"),
+            Writer = Canonical("writer") ?? Canonical("screenwriter"),
             Cast = Canonical("cast"),
             Language = Canonical("language"),
             Genre = projection?.Genre ?? Canonical("genre"),
@@ -1484,6 +1488,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         public string? MatchSource { get; set; }
         public string? Author { get; set; }
         public string? Director { get; set; }
+        public string? Artist { get; set; }
         public string? Genre { get; set; }
         public string? Runtime { get; set; }
         public string? Description { get; set; }

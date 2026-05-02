@@ -37,6 +37,7 @@ public sealed class WikidataBridgeWorker
     private readonly IBridgeIdRepository _bridgeIdRepo;
     private readonly IMetadataClaimRepository _claimRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ICanonicalValueArrayRepository? _arrayRepo;
     private readonly IScoringEngine _scoringEngine;
     private readonly IConfigurationLoader _configLoader;
     private readonly IWorkRepository _workRepo;
@@ -79,7 +80,8 @@ public sealed class WikidataBridgeWorker
         CoverArtWorker coverArt,
         ILogger<WikidataBridgeWorker> logger,
         BatchProgressService? batchProgress = null,
-        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null)
+        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null,
+        ICanonicalValueArrayRepository? arrayRepo = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -90,6 +92,7 @@ public sealed class WikidataBridgeWorker
         _bridgeIdRepo = bridgeIdRepo;
         _claimRepo = claimRepo;
         _canonicalRepo = canonicalRepo;
+        _arrayRepo = arrayRepo;
         _scoringEngine = scoringEngine;
         _configLoader = configLoader;
         _workRepo = workRepo;
@@ -532,7 +535,7 @@ public sealed class WikidataBridgeWorker
                 await ScoringHelper.PersistAndScoreWithLineageAsync(
                     job.EntityId, ctx.AdditionalClaims, reconAdapter.ProviderId, lineage,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                    logger: _logger);
+                    arrayRepo: _arrayRepo, logger: _logger);
 
                 // Phase 3b: route any container-level structural data (the album
                 // QID, child entity manifests) onto the parent Work.
@@ -625,7 +628,7 @@ public sealed class WikidataBridgeWorker
                             await ScoringHelper.PersistAndScoreWithLineageAsync(
                                 job.EntityId, parentScopedAlbumClaims, reconAdapter.ProviderId, lineage,
                                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                                logger: _logger);
+                                arrayRepo: _arrayRepo, logger: _logger);
 
                             await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                                 parentScopedAlbumClaims, ct);
@@ -681,7 +684,7 @@ public sealed class WikidataBridgeWorker
                 await ScoringHelper.PersistAndScoreWithLineageAsync(
                     job.EntityId, fullClaims, reconAdapter.ProviderId, lineage,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                    logger: _logger);
+                    arrayRepo: _arrayRepo, logger: _logger);
 
                 // Phase 3b: route the QID and container fields onto the
                 // correct Work, then upsert any catalog children.
@@ -749,7 +752,7 @@ public sealed class WikidataBridgeWorker
                             await ScoringHelper.PersistAndScoreWithLineageAsync(
                                 job.EntityId, fallbackClaimsWithMethod, reconAdapter.ProviderId, lineage,
                                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                                logger: _logger);
+                                arrayRepo: _arrayRepo, logger: _logger);
 
                             await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                                 fallbackClaims, ct);
@@ -1091,7 +1094,7 @@ public sealed class WikidataBridgeWorker
                 await ScoringHelper.PersistAndScoreWithLineageAsync(
                     entityId, fullClaims, reconAdapter.ProviderId, lineage,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                    logger: _logger);
+                    arrayRepo: _arrayRepo, logger: _logger);
             }
 
             _logger.LogInformation(

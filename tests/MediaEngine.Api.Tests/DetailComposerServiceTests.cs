@@ -222,8 +222,36 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("FormatRating(detail.Rating)", source);
         Assert.Contains("ToString(\"0.0\"", source);
-        Assert.Contains("canonicalArrayKey}_qid", source);
+        Assert.Contains("canonicalArrayKey + MetadataFieldConstants.CompanionQidSuffix", source);
         Assert.Contains("headshot_url", source);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesRootShowTitlesAndClaimFallbacksForPeople()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs"));
+        var scoringSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/ScoringHelper.cs"));
+        var retailWorker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/RetailMatchWorker.cs"));
+        var bridgeWorker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/WikidataBridgeWorker.cs"));
+
+        Assert.Contains("ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values)", source);
+        Assert.Contains("GetValue(rootValues, MetadataFieldConstants.Title)", source);
+        Assert.Contains("StripUniverseSuffix(displayName)", source);
+        Assert.Contains("LoadContributorEntriesFromClaimsAsync", source);
+        Assert.Contains("CreditGroupType.PrimaryArtists", source);
+        Assert.Contains("CreditGroupType.MusicCredits", source);
+        Assert.Contains("CreditGroupType.Illustrators", source);
+        Assert.Contains("BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name)", source);
+
+        Assert.Contains("BuildFallbackCreditsFromMetadataClaimsAsync", creditSource);
+        Assert.Contains("mc.claim_key IN ('cast_member', 'cast_member_qid')", creditSource);
+        Assert.Contains("ExtractQid(entry.ValueQid)", creditSource);
+
+        Assert.Contains("BuildCanonicalArrayEntries(winningClaims, qidClaims)", scoringSource);
+        Assert.Contains("ValueQid = parsed.Qid", scoringSource);
+        Assert.Contains("arrayRepo: _arrayRepo", retailWorker);
+        Assert.Contains("arrayRepo: _arrayRepo", bridgeWorker);
     }
 
     [Fact]
