@@ -196,6 +196,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("BuildUniverseCastGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl(row.PortraitId", source);
+        Assert.Contains("private sealed class CollectionCharacterRow", source);
+        Assert.Contains("private sealed class UniversePerformerRow", source);
         Assert.Contains("DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode or DetailEntityType.Universe => [CreditGroupType.Cast]", source);
         Assert.Contains("root.wikidata_qid AS RootWorkQid", creditSource);
         Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, db, ct)", creditSource);

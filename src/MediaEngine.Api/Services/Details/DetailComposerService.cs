@@ -1671,7 +1671,7 @@ public sealed class DetailComposerService
                    cp.id AS PortraitId,
                    cp.image_url AS PortraitImageUrl,
                    cp.local_image_path AS PortraitLocalImagePath,
-                   COALESCE(cp.is_default, 0) AS PortraitIsDefault
+                   CASE WHEN cp.is_default = 1 THEN 1 ELSE 0 END AS PortraitIsDefault
             FROM fictional_entities fe
             LEFT JOIN character_portraits cp
                 ON cp.fictional_entity_id = fe.id
@@ -1725,7 +1725,7 @@ public sealed class DetailComposerService
                    cp.id AS PortraitId,
                    cp.image_url AS PortraitImageUrl,
                    cp.local_image_path AS PortraitLocalImagePath,
-                   COALESCE(cp.is_default, 0) AS PortraitIsDefault
+                   CASE WHEN cp.is_default = 1 THEN 1 ELSE 0 END AS PortraitIsDefault
             FROM fictional_entities fe
             INNER JOIN character_performer_links cpl
                 ON cpl.fictional_entity_id = fe.id
@@ -2227,8 +2227,45 @@ public sealed class DetailComposerService
     private sealed record SeriesRow(string WorkId, string Title, string? MediaType, string? PositionLabel, string? ArtworkUrl);
     private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? ArtworkUrl, string? BackgroundUrl);
     private sealed record CharacterDetailRow(Guid Id, string Label, string? WikidataQid, string? UniverseQid, string? UniverseLabel, string? ImageUrl, string? EntitySubType);
-    private sealed record CollectionCharacterRow(Guid Id, string Label, string? WikidataQid, string? UniverseQid, string? UniverseLabel, string? ImageUrl, string? EntitySubType, Guid? PortraitId, string? PortraitImageUrl, string? PortraitLocalImagePath, bool PortraitIsDefault);
+    private sealed class CollectionCharacterRow
+    {
+        public Guid Id { get; init; }
+        public string Label { get; init; } = "";
+        public string? WikidataQid { get; init; }
+        public string? UniverseQid { get; init; }
+        public string? UniverseLabel { get; init; }
+        public string? ImageUrl { get; init; }
+        public string? EntitySubType { get; init; }
+        public Guid? PortraitId { get; init; }
+        public string? PortraitImageUrl { get; init; }
+        public string? PortraitLocalImagePath { get; init; }
+        public bool PortraitIsDefault { get; init; }
+    }
+
     private sealed record CharacterPortraitRow(Guid Id, string? ImageUrl, string? LocalImagePath, bool IsDefault);
-    private sealed record UniversePerformerRow(Guid? PersonId, string? PersonName, string? PersonQid, string? HeadshotUrl, string? LocalHeadshotPath, Guid CharacterId, string? CharacterName, Guid? PortraitId, string? PortraitImageUrl, string? PortraitLocalImagePath, bool PortraitIsDefault);
-    private sealed record UniverseRelationshipRow(string RelationshipType, string SubjectQid, string ObjectQid, string SubjectLabel, string ObjectLabel, string? SubjectType, string? ObjectType);
+    private sealed class UniversePerformerRow
+    {
+        public Guid? PersonId { get; init; }
+        public string? PersonName { get; init; }
+        public string? PersonQid { get; init; }
+        public string? HeadshotUrl { get; init; }
+        public string? LocalHeadshotPath { get; init; }
+        public Guid CharacterId { get; init; }
+        public string? CharacterName { get; init; }
+        public Guid? PortraitId { get; init; }
+        public string? PortraitImageUrl { get; init; }
+        public string? PortraitLocalImagePath { get; init; }
+        public bool PortraitIsDefault { get; init; }
+    }
+
+    private sealed class UniverseRelationshipRow
+    {
+        public string RelationshipType { get; init; } = "";
+        public string SubjectQid { get; init; } = "";
+        public string ObjectQid { get; init; } = "";
+        public string SubjectLabel { get; init; } = "";
+        public string ObjectLabel { get; init; } = "";
+        public string? SubjectType { get; init; }
+        public string? ObjectType { get; init; }
+    }
 }

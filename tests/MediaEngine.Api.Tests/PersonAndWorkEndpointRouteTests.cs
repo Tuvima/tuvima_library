@@ -50,6 +50,16 @@ public sealed class PersonAndWorkEndpointRouteTests
     }
 
     [Fact]
+    public void CastCreditQuery_QualifiesWorkIdentityColumns()
+    {
+        var querySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonCreditQueries.cs"));
+
+        Assert.Contains("SELECT w.id AS WorkId", querySource, StringComparison.Ordinal);
+        Assert.Contains("w.wikidata_qid AS WorkQid", querySource, StringComparison.Ordinal);
+        Assert.DoesNotContain("SELECT id AS WorkId", querySource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void WorkEndpoints_ExposeReadOnlyWorkAndEditionIdentitySurfaces()
     {
         var workEndpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\WorkEndpoints.cs"));

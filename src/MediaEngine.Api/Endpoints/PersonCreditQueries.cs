@@ -18,8 +18,8 @@ internal static class CastCreditQueries
         using var conn = db.CreateConnection();
         var work = await conn.QueryFirstOrDefaultAsync<WorkIdentityRow>(
             """
-            SELECT id AS WorkId,
-                   wikidata_qid AS WorkQid,
+            SELECT w.id AS WorkId,
+                   w.wikidata_qid AS WorkQid,
                    COALESCE(gp.id, p.id, w.id) AS RootWorkId,
                    root.wikidata_qid AS RootWorkQid
             FROM works w
