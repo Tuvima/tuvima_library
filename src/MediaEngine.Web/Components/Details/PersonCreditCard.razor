@@ -3,30 +3,28 @@
 
 @if (!string.IsNullOrWhiteSpace(Route))
 {
-    <a class="tl-credit-card tl-credit-card--link" href="@Route">
+    <a class="@CardClass" href="@Route">
         @CreditContent
     </a>
 }
 else
 {
-    <article class="tl-credit-card">
+    <article class="@CardClass">
         @CreditContent
     </article>
 }
 
 @code {
     [Parameter, EditorRequired] public EntityCreditViewModel Credit { get; set; } = default!;
+    [Parameter] public bool Compact { get; set; }
 
     private RenderFragment CreditContent => @<text>
         <div class="tl-credit-card__image">
-            @if (!string.IsNullOrWhiteSpace(Credit.ImageUrl))
-            {
-                <img src="@Credit.ImageUrl" alt="@Credit.DisplayName" />
-            }
-            else
-            {
-                <GeneratedIdentity Name="@Credit.DisplayName" />
-            }
+            <PersonAvatar Name="@Credit.DisplayName"
+                          ImageUrl="@Credit.ImageUrl"
+                          Initials="@Credit.FallbackInitials"
+                          Role="@Credit.PrimaryRole"
+                          Size="@AvatarSize" />
         </div>
         <div class="tl-credit-card__body">
             <div class="tl-credit-card__name">@Credit.DisplayName</div>
@@ -37,6 +35,21 @@ else
             }
         </div>
     </text>;
+
+    private string CardClass
+    {
+        get
+        {
+            var classes = "tl-credit-card";
+            if (!string.IsNullOrWhiteSpace(Route))
+                classes += " tl-credit-card--link";
+            if (Compact)
+                classes += " tl-credit-card--compact";
+            return classes;
+        }
+    }
+
+    private string AvatarSize => Compact ? "sm" : "md";
 
     private string? Route
     {

@@ -75,9 +75,12 @@ public sealed class PersonEnrichmentWorker
             .ToList();
 
         // Extract person refs — prefer raw claims (QID-first), fall back to canonicals
-        var personRefs = providerClaims.Count > 0
-            ? PersonReferenceExtractor.FromRawClaims(providerClaims, mediaType)
-            : PersonReferenceExtractor.FromCanonicals(canonicals, mediaType);
+        var personRefs = PersonReferenceExtractor.FromRawClaims(providerClaims, mediaType)
+            .Concat(PersonReferenceExtractor.FromCanonicals(canonicals, mediaType))
+            .Where(reference => !string.IsNullOrWhiteSpace(reference.WikidataQid))
+            .GroupBy(reference => reference.WikidataQid!, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
 
         _logger.LogInformation(
             "Person extraction for entity {EntityId}: {Count} person ref(s)",

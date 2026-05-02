@@ -343,6 +343,9 @@ public sealed class CreditGroupViewModel
     public string Title { get; init; } = string.Empty;
     public CreditGroupType GroupType { get; init; }
     public IReadOnlyList<EntityCreditViewModel> Credits { get; init; } = [];
+    public int DisplayPriority { get; init; }
+    public bool IsInitiallyExpanded { get; init; } = true;
+    public int InitialVisibleCount { get; init; } = 8;
 }
 
 public enum CreditGroupType

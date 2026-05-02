@@ -1,10 +1,13 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<section class="tl-detail-panel">
-    <div class="tl-section-heading"><h2>@Group.Title</h2></div>
+<section class="@SectionClass">
+    <div class="tl-section-heading tl-credit-group__heading">
+        <h2>@Group.Title</h2>
+        <span class="tl-credit-group__count">@Group.Credits.Count</span>
+    </div>
     <div class="tl-credit-strip">
-        @foreach (var credit in Group.Credits)
+        @foreach (var credit in VisibleCredits)
         {
             @if (credit.EntityType == RelatedEntityType.MusicArtist)
             {
@@ -20,8 +23,46 @@
             }
         }
     </div>
+    @if (CanToggle)
+    {
+        <button type="button" class="tl-credit-group__toggle" @onclick="ToggleExpanded">
+            @ToggleLabel
+        </button>
+    }
 </section>
 
 @code {
     [Parameter, EditorRequired] public CreditGroupViewModel Group { get; set; } = default!;
+
+    private bool _expanded;
+    private string? _groupKey;
+
+    protected override void OnParametersSet()
+    {
+        var key = $"{Group.Title}:{Group.GroupType}:{Group.Credits.Count}";
+        if (!string.Equals(key, _groupKey, StringComparison.Ordinal))
+        {
+            _expanded = Group.IsInitiallyExpanded;
+            _groupKey = key;
+        }
+    }
+
+    private int InitialVisibleCount => Math.Max(1, Group.InitialVisibleCount);
+
+    private IReadOnlyList<EntityCreditViewModel> VisibleCredits
+        => _expanded ? Group.Credits : Group.Credits.Take(InitialVisibleCount).ToList();
+
+    private bool CanToggle => Group.Credits.Count > InitialVisibleCount;
+
+    private string ToggleLabel
+        => _expanded
+            ? "Show fewer"
+            : $"Show all {Group.Credits.Count}";
+
+    private string SectionClass
+        => Group.IsInitiallyExpanded
+            ? "tl-detail-panel tl-credit-group tl-credit-group--primary"
+            : "tl-detail-panel tl-credit-group tl-credit-group--secondary";
+
+    private void ToggleExpanded() => _expanded = !_expanded;
 }

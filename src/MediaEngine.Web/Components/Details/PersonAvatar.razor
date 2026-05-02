@@ -1,0 +1,72 @@
+@namespace MediaEngine.Web.Components.Details
+
+<div class="@AvatarClass"
+     style="@AvatarStyle"
+     title="@Name"
+     aria-label="@Name">
+    @if (!string.IsNullOrWhiteSpace(ImageUrl) && !_imageFailed)
+    {
+        <img src="@ImageUrl" alt="@Name" @onerror="HandleImageError" />
+    }
+    else
+    {
+        <span>@ResolvedInitials</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string? ImageUrl { get; set; }
+    [Parameter] public string? Initials { get; set; }
+    [Parameter] public string? Role { get; set; }
+    [Parameter] public string Size { get; set; } = "md";
+
+    private bool _imageFailed;
+    private string? _lastImageUrl;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(_lastImageUrl, ImageUrl, StringComparison.Ordinal))
+        {
+            _imageFailed = false;
+            _lastImageUrl = ImageUrl;
+        }
+    }
+
+    private string AvatarClass => $"tl-person-avatar tl-person-avatar--{Size}";
+    private string AvatarStyle => $"--person-avatar-hue:{Hue};";
+
+    private int Hue
+    {
+        get
+        {
+            var seed = string.IsNullOrWhiteSpace(Name) ? Role ?? "person" : Name!;
+            unchecked
+            {
+                var hash = 17;
+                foreach (var ch in seed)
+                    hash = (hash * 31) + char.ToUpperInvariant(ch);
+                return Math.Abs(hash % 360);
+            }
+        }
+    }
+
+    private string ResolvedInitials
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Initials))
+                return Initials.Trim().ToUpperInvariant();
+
+            var parts = (Name ?? "?").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length switch
+            {
+                0 => "?",
+                1 => parts[0][..1].ToUpperInvariant(),
+                _ => $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant(),
+            };
+        }
+    }
+
+    private void HandleImageError() => _imageFailed = true;
+}

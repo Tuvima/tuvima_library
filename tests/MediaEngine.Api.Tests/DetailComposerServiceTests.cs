@@ -191,17 +191,21 @@ public sealed class DetailComposerServiceTests
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
         var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs"));
 
-        Assert.Contains("BuildCollectionCreditsAsync(collectionId, works, entityType, ct)", source);
+        Assert.Contains("BuildCollectionCreditsAsync(collectionId, works, entityType, values, ct)", source);
         Assert.Contains("BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseCastGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl(row.PortraitId", source);
         Assert.Contains("private sealed class CollectionCharacterRow", source);
         Assert.Contains("private sealed class UniversePerformerRow", source);
-        Assert.Contains("DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode or DetailEntityType.Universe => [CreditGroupType.Cast]", source);
+        Assert.Contains("DetailEntityType.Movie => directors.Take(1).Concat(cast.Take(4))", source);
+        Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => cast.Take(5)", source);
+        Assert.Contains("Title = \"Primary Cast\"", source);
         Assert.Contains("root.wikidata_qid AS RootWorkQid", creditSource);
-        Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, db, ct)", creditSource);
+        Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, db, ct)", creditSource);
         Assert.Contains("BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value", creditSource);
+        Assert.Contains("CastRankMap.BuildAsync", creditSource);
+        Assert.Contains("ORDER BY cpl.rowid", creditSource);
     }
 
     [Fact]

@@ -279,7 +279,7 @@ public sealed class DetailComposerService
             GetValue(values, "poster"),
             fallbackCover);
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
-        var contributorGroups = await BuildCollectionCreditsAsync(collectionId, works, entityType, ct);
+        var contributorGroups = await BuildCollectionCreditsAsync(collectionId, works, entityType, values, ct);
         var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
         var artwork = BuildArtwork(
             entityType,
@@ -614,25 +614,156 @@ public sealed class DetailComposerService
 
         if (cast.Count > 0)
         {
+            var castCredits = cast.Select((credit, index) => new EntityCreditViewModel
+            {
+                EntityId = BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name),
+                EntityType = RelatedEntityType.Person,
+                DisplayName = credit.Name,
+                ImageUrl = credit.HeadshotUrl,
+                FallbackInitials = Initials(credit.Name),
+                PrimaryRole = "Actor",
+                CharacterName = credit.Characters.FirstOrDefault()?.CharacterName,
+                CharacterEntityId = credit.Characters.FirstOrDefault()?.FictionalEntityId.ToString("D"),
+                CharacterImageUrl = credit.Characters.FirstOrDefault()?.PortraitUrl,
+                SortOrder = index,
+                IsPrimary = index < 8,
+                IsCanonical = !string.IsNullOrWhiteSpace(credit.WikidataQid),
+            }).ToList();
+
+            var primaryCast = castCredits.Take(8).ToList();
+            if (primaryCast.Count > 0)
+            {
+                groups.Add(new CreditGroupViewModel
+                {
+                    Title = "Primary Cast",
+                    GroupType = CreditGroupType.Cast,
+                    Credits = primaryCast,
+                });
+            }
+
+            var supportingCast = castCredits.Skip(8).ToList();
+            if (supportingCast.Count > 0)
+            {
+                groups.Add(new CreditGroupViewModel
+                {
+                    Title = "Supporting Cast",
+                    GroupType = CreditGroupType.Cast,
+                    Credits = supportingCast,
+                });
+            }
+        }
+
+        return ApplyContributorGroupPresentation(entityType, groups);
+    }
+
+    private static IReadOnlyList<CreditGroupViewModel> ApplyContributorGroupPresentation(
+        DetailEntityType entityType,
+        IReadOnlyList<CreditGroupViewModel> groups)
+    {
+        return groups
+            .Select(group =>
+            {
+                var presentation = ResolveGroupPresentation(entityType, group);
+                return new CreditGroupViewModel
+                {
+                    Title = presentation.Title,
+                    GroupType = group.GroupType,
+                    Credits = group.Credits,
+                    DisplayPriority = presentation.Priority,
+                    IsInitiallyExpanded = presentation.IsInitiallyExpanded,
+                    InitialVisibleCount = presentation.InitialVisibleCount,
+                };
+            })
+            .OrderBy(group => group.DisplayPriority)
+            .ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static (string Title, int Priority, bool IsInitiallyExpanded, int InitialVisibleCount) ResolveGroupPresentation(
+        DetailEntityType entityType,
+        CreditGroupViewModel group)
+    {
+        var isVideo = entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode or DetailEntityType.Universe;
+        if (isVideo)
+        {
+            if (group.GroupType == CreditGroupType.Cast && group.Title.Contains("Primary", StringComparison.OrdinalIgnoreCase))
+                return (group.Title, 0, true, 8);
+            if (group.GroupType == CreditGroupType.Cast)
+                return (group.Title, 1, false, 4);
+            if (group.GroupType == CreditGroupType.Directors)
+                return ("Directors", 2, true, 4);
+            if (group.GroupType == CreditGroupType.Writers)
+                return ("Writers", 3, false, 4);
+            if (group.GroupType == CreditGroupType.MusicCredits)
+                return ("Music", 4, false, 3);
+            return (group.Title, 8, false, 4);
+        }
+
+        if (entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work)
+        {
+            return group.GroupType switch
+            {
+                CreditGroupType.Authors => (group.Title, 0, true, 8),
+                CreditGroupType.Narrators => (group.Title, 1, true, 6),
+                CreditGroupType.Illustrators => ("Contributors", 3, false, 4),
+                CreditGroupType.Writers => ("Contributors", 3, false, 4),
+                CreditGroupType.MusicCredits => ("Contributors", 4, false, 3),
+                _ => (group.Title, 8, false, 4),
+            };
+        }
+
+        if (entityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries)
+        {
+            return group.GroupType switch
+            {
+                CreditGroupType.Writers => (group.Title, 0, true, 6),
+                CreditGroupType.Illustrators => ("Artists", 1, true, 8),
+                CreditGroupType.CreativeTeam => (group.Title, 2, false, 4),
+                _ => (group.Title, 8, false, 4),
+            };
+        }
+
+        if (entityType is DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.MusicArtist)
+        {
+            return group.GroupType switch
+            {
+                CreditGroupType.PrimaryArtists => (group.Title, 0, true, 8),
+                CreditGroupType.FeaturedArtists => (group.Title, 1, true, 6),
+                CreditGroupType.MusicCredits => ("Composers/Producers", 3, false, 4),
+                _ => (group.Title, 8, false, 4),
+            };
+        }
+
+        return group.GroupType == CreditGroupType.RelatedPeople
+            ? (group.Title, 0, true, 8)
+            : (group.Title, 8, false, 4);
+    }
+
+    private static IReadOnlyList<CreditGroupViewModel> SplitCastGroups(IReadOnlyList<EntityCreditViewModel> credits)
+    {
+        if (credits.Count == 0)
+            return [];
+
+        var groups = new List<CreditGroupViewModel>();
+        var primaryCast = credits.Take(8).ToList();
+        if (primaryCast.Count > 0)
+        {
             groups.Add(new CreditGroupViewModel
             {
-                Title = "Cast",
+                Title = "Primary Cast",
                 GroupType = CreditGroupType.Cast,
-                Credits = cast.Select((credit, index) => new EntityCreditViewModel
-                {
-                    EntityId = BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name),
-                    EntityType = RelatedEntityType.Person,
-                    DisplayName = credit.Name,
-                    ImageUrl = credit.HeadshotUrl,
-                    FallbackInitials = Initials(credit.Name),
-                    PrimaryRole = "Actor",
-                    CharacterName = credit.Characters.FirstOrDefault()?.CharacterName,
-                    CharacterEntityId = credit.Characters.FirstOrDefault()?.FictionalEntityId.ToString("D"),
-                    CharacterImageUrl = credit.Characters.FirstOrDefault()?.PortraitUrl,
-                    SortOrder = index,
-                    IsPrimary = index < 5,
-                    IsCanonical = !string.IsNullOrWhiteSpace(credit.WikidataQid),
-                }).ToList(),
+                Credits = primaryCast,
+            });
+        }
+
+        var supportingCast = credits.Skip(8).ToList();
+        if (supportingCast.Count > 0)
+        {
+            groups.Add(new CreditGroupViewModel
+            {
+                Title = "Supporting Cast",
+                GroupType = CreditGroupType.Cast,
+                Credits = supportingCast,
             });
         }
 
@@ -1788,36 +1919,153 @@ public sealed class DetailComposerService
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
 
-    private async Task<IReadOnlyList<CreditGroupViewModel>> BuildCollectionCreditsAsync(Guid collectionId, IReadOnlyList<CollectionWorkSummary> works, DetailEntityType entityType, CancellationToken ct)
+    private async Task<IReadOnlyList<CreditGroupViewModel>> BuildCollectionCreditsAsync(
+        Guid collectionId,
+        IReadOnlyList<CollectionWorkSummary> works,
+        DetailEntityType entityType,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        CancellationToken ct)
     {
         if (entityType != DetailEntityType.TvShow)
-            return [];
+            return await BuildCollectionTextCreditsAsync(collectionId, entityType, canonicalValues, ct);
 
         var root = works.FirstOrDefault()?.Id;
         if (!Guid.TryParse(root, out var rootWorkId))
             return [];
 
         var cast = await CastCreditQueries.BuildForWorkAsync(rootWorkId, _canonicalArrays, _persons, _db, ct);
-        return cast.Count == 0
-            ? []
-            : [new CreditGroupViewModel
+        if (cast.Count == 0)
+            return [];
+
+        var credits = cast.Select((credit, index) => new EntityCreditViewModel
+        {
+            EntityId = BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name),
+            EntityType = RelatedEntityType.Person,
+            DisplayName = credit.Name,
+            ImageUrl = credit.HeadshotUrl,
+            FallbackInitials = Initials(credit.Name),
+            PrimaryRole = "Actor",
+            CharacterName = credit.Characters.FirstOrDefault()?.CharacterName,
+            CharacterEntityId = credit.Characters.FirstOrDefault()?.FictionalEntityId.ToString("D"),
+            CharacterImageUrl = credit.Characters.FirstOrDefault()?.PortraitUrl,
+            SortOrder = index,
+            IsPrimary = index < 8,
+            IsCanonical = !string.IsNullOrWhiteSpace(credit.WikidataQid),
+        }).ToList();
+
+        return ApplyContributorGroupPresentation(entityType, SplitCastGroups(credits));
+    }
+
+    private async Task<IReadOnlyList<CreditGroupViewModel>> BuildCollectionTextCreditsAsync(
+        Guid collectionId,
+        DetailEntityType entityType,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        CancellationToken ct)
+    {
+        var groups = new List<CreditGroupViewModel>();
+
+        async Task AddTextCreditAsync(string title, CreditGroupType type, string role, string canonicalArrayKey)
+        {
+            var entries = await LoadCollectionContributorEntriesAsync(
+                collectionId,
+                canonicalArrayKey,
+                GetValue(canonicalValues, canonicalArrayKey),
+                canonicalValues,
+                ct);
+            if (entries.Count == 0)
+                return;
+
+            var credits = new List<EntityCreditViewModel>();
+            foreach (var entry in entries.Take(24))
             {
-                Title = "Cast",
-                GroupType = CreditGroupType.Cast,
-                Credits = cast.Select((credit, index) => new EntityCreditViewModel
+                var qid = NormalizeQid(entry.Qid);
+                var person = string.IsNullOrWhiteSpace(qid) ? null : await _persons.FindByQidAsync(qid, ct);
+                person ??= await _persons.FindByNameAsync(entry.Name, ct);
+                var imageUrl = person is null
+                    ? FirstNonBlank(
+                        GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
+                        GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
+                        GetValue(canonicalValues, $"{canonicalArrayKey}_photo_url"),
+                        entries.Count == 1 ? GetValue(canonicalValues, "headshot_url") : null)
+                    : ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
+
+                credits.Add(new EntityCreditViewModel
                 {
-                    EntityId = BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name),
+                    EntityId = BuildPersonCreditEntityId(person?.Id, qid ?? person?.WikidataQid, entry.Name),
                     EntityType = RelatedEntityType.Person,
-                    DisplayName = credit.Name,
-                    ImageUrl = credit.HeadshotUrl,
-                    FallbackInitials = Initials(credit.Name),
-                    PrimaryRole = "Actor",
-                    CharacterName = credit.Characters.FirstOrDefault()?.CharacterName,
-                    CharacterEntityId = credit.Characters.FirstOrDefault()?.FictionalEntityId.ToString("D"),
-                    CharacterImageUrl = credit.Characters.FirstOrDefault()?.PortraitUrl,
-                    SortOrder = index,
-                }).ToList(),
-            }];
+                    DisplayName = person?.Name ?? entry.Name,
+                    ImageUrl = imageUrl,
+                    FallbackInitials = Initials(person?.Name ?? entry.Name),
+                    PrimaryRole = role,
+                    SortOrder = entry.SortOrder,
+                    IsPrimary = entry.SortOrder == 0,
+                    IsCanonical = !string.IsNullOrWhiteSpace(qid ?? person?.WikidataQid),
+                });
+            }
+
+            groups.Add(new CreditGroupViewModel
+            {
+                Title = title,
+                GroupType = type,
+                Credits = credits,
+            });
+        }
+
+        switch (entityType)
+        {
+            case DetailEntityType.MusicAlbum:
+                await AddTextCreditAsync("Artists", CreditGroupType.PrimaryArtists, "Artist", "artist");
+                await AddTextCreditAsync("Performers", CreditGroupType.FeaturedArtists, "Performer", "performer");
+                await AddTextCreditAsync("Composers", CreditGroupType.MusicCredits, "Composer", "composer");
+                break;
+            case DetailEntityType.BookSeries:
+                await AddTextCreditAsync("Authors", CreditGroupType.Authors, "Author", "author");
+                break;
+            case DetailEntityType.MovieSeries:
+                await AddTextCreditAsync("Directors", CreditGroupType.Directors, "Director", "director");
+                await AddTextCreditAsync("Writers", CreditGroupType.Writers, "Writer", "screenwriter");
+                break;
+            case DetailEntityType.ComicSeries:
+                await AddTextCreditAsync("Writers", CreditGroupType.Writers, "Writer", "screenwriter");
+                await AddTextCreditAsync("Artists", CreditGroupType.Illustrators, "Artist", "illustrator");
+                break;
+        }
+
+        return ApplyContributorGroupPresentation(entityType, groups);
+    }
+
+    private async Task<IReadOnlyList<ContributorEntry>> LoadCollectionContributorEntriesAsync(
+        Guid collectionId,
+        string canonicalArrayKey,
+        string? fallbackValue,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        CancellationToken ct)
+    {
+        var arrayEntries = await _canonicalArrays.GetValuesAsync(collectionId, canonicalArrayKey, ct);
+        var entries = DeduplicateContributorEntries(arrayEntries
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Value))
+            .OrderBy(entry => entry.Ordinal)
+            .Select(entry => new ContributorEntry(
+                entry.Value.Trim(),
+                NormalizeQid(entry.ValueQid),
+                entry.Ordinal))
+            .ToList());
+        if (entries.Count > 0)
+            return entries;
+
+        entries = await LoadContributorEntriesFromClaimsAsync(collectionId, canonicalArrayKey, ct);
+        if (entries.Count > 0)
+            return entries;
+
+        if (string.IsNullOrWhiteSpace(fallbackValue))
+            return [];
+
+        return DeduplicateContributorEntries(SplitNames(fallbackValue)
+            .Select((name, index) => new ContributorEntry(
+                name,
+                ResolveCompanionQidFromCanonical(canonicalValues, canonicalArrayKey, name, index),
+                index))
+            .ToList());
     }
 
     private async Task<IReadOnlyList<CharacterGroupViewModel>> BuildCollectionCharactersAsync(Guid collectionId, string? qid, CancellationToken ct)
@@ -1882,7 +2130,8 @@ public sealed class DetailComposerService
         using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<UniversePerformerRow>(new CommandDefinition(
             """
-            SELECT p.id AS PersonId,
+            SELECT cpl.rowid AS LinkOrder,
+                   p.id AS PersonId,
                    p.name AS PersonName,
                    p.wikidata_qid AS PersonQid,
                    p.headshot_url AS HeadshotUrl,
@@ -1902,7 +2151,7 @@ public sealed class DetailComposerService
                 ON cp.fictional_entity_id = fe.id
                AND cp.person_id = p.id
             WHERE fe.fictional_universe_qid = @qid
-            ORDER BY p.name, fe.label, cp.is_default DESC;
+            ORDER BY cpl.rowid, fe.label, cp.is_default DESC;
             """,
             new { qid },
             cancellationToken: ct))).ToList();
@@ -1917,10 +2166,12 @@ public sealed class DetailComposerService
                 row.HeadshotUrl,
                 row.LocalHeadshotPath,
             })
-            .Select((group, index) =>
+            .Select(group =>
             {
+                var sourceOrder = group.Min(row => row.LinkOrder);
                 var preferredCharacter = group
-                    .OrderByDescending(row => row.PortraitIsDefault)
+                    .OrderBy(row => row.LinkOrder)
+                    .ThenByDescending(row => row.PortraitIsDefault)
                     .ThenByDescending(row => !string.IsNullOrWhiteSpace(row.PortraitImageUrl))
                     .FirstOrDefault();
 
@@ -1940,16 +2191,36 @@ public sealed class DetailComposerService
                             preferredCharacter.PortraitId,
                             preferredCharacter.PortraitLocalImagePath,
                             preferredCharacter.PortraitImageUrl),
-                    SortOrder = index,
+                    SortOrder = (int)Math.Min(sourceOrder, int.MaxValue),
                     IsCanonical = !string.IsNullOrWhiteSpace(group.Key.PersonQid),
                 };
+            })
+            .OrderBy(credit => credit.SortOrder)
+            .ThenBy(credit => credit.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select((credit, index) => new EntityCreditViewModel
+            {
+                EntityId = credit.EntityId,
+                EntityType = credit.EntityType,
+                DisplayName = credit.DisplayName,
+                ImageUrl = credit.ImageUrl,
+                FallbackInitials = credit.FallbackInitials,
+                PrimaryRole = credit.PrimaryRole,
+                SecondaryRole = credit.SecondaryRole,
+                CharacterName = credit.CharacterName,
+                CharacterEntityId = credit.CharacterEntityId,
+                CharacterImageUrl = credit.CharacterImageUrl,
+                SortOrder = index,
+                IsPrimary = index < 8,
+                IsCanonical = credit.IsCanonical,
+                SourceName = credit.SourceName,
+                SourceId = credit.SourceId,
             })
             .Take(24)
             .ToList();
 
         return credits.Count == 0
             ? []
-            : [new CreditGroupViewModel { Title = "Cast", GroupType = CreditGroupType.Cast, Credits = credits }];
+            : ApplyContributorGroupPresentation(DetailEntityType.Universe, SplitCastGroups(credits));
     }
 
     private async Task<IReadOnlyList<RelationshipGroup>> BuildUniverseRelationshipGroupsAsync(string? qid, CancellationToken ct)
@@ -2005,26 +2276,56 @@ public sealed class DetailComposerService
         DetailEntityType entityType,
         IReadOnlyList<CreditGroupViewModel> groups)
     {
-        CreditGroupType[] preferredGroupTypes = entityType switch
+        var cast = CreditsFor(groups, CreditGroupType.Cast);
+        var directors = CreditsFor(groups, CreditGroupType.Directors);
+        var authors = CreditsFor(groups, CreditGroupType.Authors);
+        var narrators = CreditsFor(groups, CreditGroupType.Narrators);
+        var writers = CreditsFor(groups, CreditGroupType.Writers);
+        var illustrators = CreditsFor(groups, CreditGroupType.Illustrators);
+        var artists = CreditsFor(groups, CreditGroupType.PrimaryArtists);
+        var featuredArtists = CreditsFor(groups, CreditGroupType.FeaturedArtists);
+        var musicCredits = CreditsFor(groups, CreditGroupType.MusicCredits);
+
+        var preview = entityType switch
         {
-            DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode or DetailEntityType.Universe => [CreditGroupType.Cast],
-            DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work => [CreditGroupType.Authors, CreditGroupType.Narrators],
-            DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => [CreditGroupType.Writers, CreditGroupType.Illustrators, CreditGroupType.CreativeTeam],
-            _ => Array.Empty<CreditGroupType>(),
+            DetailEntityType.Movie => directors.Take(1).Concat(cast.Take(4)).ToList(),
+            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => cast.Take(5).ToList(),
+            DetailEntityType.Book => authors.Take(2).ToList(),
+            DetailEntityType.Audiobook => authors.Take(2).Concat(narrators.Take(2)).ToList(),
+            DetailEntityType.Work => authors.Take(2).Concat(narrators.Take(2)).ToList(),
+            DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => writers.Take(2).Concat(illustrators.Take(2)).ToList(),
+            DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => artists.Take(2).Concat(featuredArtists.Take(2)).Concat(musicCredits.Take(1)).ToList(),
+            DetailEntityType.MusicArtist => artists.Take(2).Concat(featuredArtists.Take(2)).Concat(musicCredits.Take(2)).ToList(),
+            DetailEntityType.Universe or DetailEntityType.MovieSeries or DetailEntityType.BookSeries => cast.Take(6).ToList(),
+            _ => [],
         };
 
-        var preferredCredits = preferredGroupTypes.Length == 0
-            ? []
-            : groups
-                .Where(group => preferredGroupTypes.Contains(group.GroupType))
-                .SelectMany(group => group.Credits)
-                .OrderBy(credit => credit.SortOrder)
-                .Take(12)
-                .ToList();
+        preview = DeduplicatePreviewCredits(preview).ToList();
+        return preview.Count > 0
+            ? preview
+            : DeduplicatePreviewCredits(groups.SelectMany(g => g.Credits).OrderBy(c => c.SortOrder)).Take(6).ToList();
+    }
 
-        return preferredCredits.Count > 0
-            ? preferredCredits
-            : groups.SelectMany(g => g.Credits).OrderBy(c => c.SortOrder).Take(12).ToList();
+    private static IReadOnlyList<EntityCreditViewModel> CreditsFor(
+        IReadOnlyList<CreditGroupViewModel> groups,
+        CreditGroupType groupType)
+        => groups
+            .Where(group => group.GroupType == groupType)
+            .SelectMany(group => group.Credits)
+            .OrderBy(credit => credit.SortOrder)
+            .ToList();
+
+    private static IEnumerable<EntityCreditViewModel> DeduplicatePreviewCredits(IEnumerable<EntityCreditViewModel> credits)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var credit in credits)
+        {
+            var key = !string.IsNullOrWhiteSpace(credit.EntityId)
+                ? credit.EntityId
+                : $"{credit.EntityType}:{credit.DisplayName}";
+            if (seen.Add(key))
+                yield return credit;
+        }
     }
 
     private static string ToRelationshipGroupTitle(string relationshipType)
@@ -2544,6 +2845,7 @@ public sealed class DetailComposerService
     private sealed record CharacterPortraitRow(Guid Id, string? ImageUrl, string? LocalImagePath, bool IsDefault);
     private sealed class UniversePerformerRow
     {
+        public long LinkOrder { get; init; }
         public Guid? PersonId { get; init; }
         public string? PersonName { get; init; }
         public string? PersonQid { get; init; }

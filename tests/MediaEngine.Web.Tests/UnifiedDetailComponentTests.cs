@@ -122,6 +122,25 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
+    public void PeopleStrip_StaysBelowHeroAndUsesSharedAvatarFallback()
+    {
+        var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var strip = ReadSource("src/MediaEngine.Web/Components/Details/PeoplePreviewStrip.razor");
+        var card = ReadSource("src/MediaEngine.Web/Components/Details/PersonCreditCard.razor");
+        var avatar = ReadSource("src/MediaEngine.Web/Components/Details/PersonAvatar.razor");
+        var group = ReadSource("src/MediaEngine.Web/Components/Details/CreditGroupSection.razor");
+
+        Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
+        Assert.Contains("<PeoplePreviewStrip Title=\"@CreditPreviewTitle(Model)\"", detailPage);
+        Assert.DoesNotContain("PreviewContributors", hero);
+        Assert.Contains("Compact=\"true\"", strip);
+        Assert.Contains("PersonAvatar", card);
+        Assert.Contains("@onerror=\"HandleImageError\"", avatar);
+        Assert.Contains("tl-credit-group__toggle", group);
+    }
+
+    [Fact]
     public void EngineClient_NormalizesSeriesAndCreditImageUrls()
     {
         var source = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");

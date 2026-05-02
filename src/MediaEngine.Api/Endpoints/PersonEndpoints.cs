@@ -148,8 +148,10 @@ public static class PersonEndpoints
             IHttpClientFactory httpFactory,
             AssetPathService assetPaths,
             ImagePathService? imagePaths,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
+            var logger = loggerFactory.CreateLogger("MediaEngine.Api.PersonHeadshots");
             var person = await personRepo.FindByIdAsync(id, ct);
             if (person is null)
                 return Results.NotFound($"Person '{id}' not found.");
@@ -226,6 +228,16 @@ public static class PersonEndpoints
                             await personRepo.UpdateLocalHeadshotPathAsync(id, localPath, ct);
                             return Results.File(bytes, contentType ?? GetImageMimeType(localPath), Path.GetFileName(localPath));
                         }
+
+                        logger.LogDebug(
+                            "Rejected person headshot for {PersonId} ({Name}) because response was not an image. ContentType={ContentType}, Bytes={ByteCount}",
+                            id, person.Name, contentType, bytes.Length);
+                    }
+                    else
+                    {
+                        logger.LogDebug(
+                            "Remote person headshot request failed for {PersonId} ({Name}) with HTTP {StatusCode}",
+                            id, person.Name, (int)response.StatusCode);
                     }
                 }
                 catch
@@ -240,6 +252,14 @@ public static class PersonEndpoints
             {
                 return Results.Redirect(remoteUri.ToString());
             }
+
+            logger.LogDebug(
+                "No person headshot available for {PersonId} ({Name}). HasQid={HasQid}, HasRemoteUrl={HasRemoteUrl}, LocalPath={LocalPath}",
+                id,
+                person.Name,
+                !string.IsNullOrWhiteSpace(person.WikidataQid),
+                !string.IsNullOrWhiteSpace(person.HeadshotUrl),
+                person.LocalHeadshotPath);
 
             return Results.NotFound("Headshot not available.");
         });

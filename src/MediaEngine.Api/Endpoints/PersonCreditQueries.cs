@@ -8,6 +8,8 @@ namespace MediaEngine.Api.Endpoints;
 
 internal static class CastCreditQueries
 {
+    private const int MaxCastCredits = 24;
+
     public static async Task<List<CastCreditDto>> BuildForWorkAsync(
         Guid workId,
         ICanonicalValueArrayRepository canonicalArrayRepo,
@@ -37,20 +39,24 @@ internal static class CastCreditQueries
         if (work is null)
             return [];
 
+        var workRankMap = await CastRankMap.BuildAsync(work.WorkId, canonicalArrayRepo, db, ct);
         var explicitCredits = string.IsNullOrWhiteSpace(work.WorkQid)
             ? []
-            : await BuildExplicitCastAsync(work.WorkQid, db, ct);
+            : await BuildExplicitCastAsync(work.WorkQid, workRankMap, db, ct);
         if (explicitCredits.Count > 0)
             return explicitCredits;
 
+        var rootRankMap = work.RootWorkId.HasValue
+            ? await CastRankMap.BuildAsync(work.RootWorkId.Value, canonicalArrayRepo, db, ct)
+            : CastRankMap.Empty;
         var rootExplicitCredits = string.IsNullOrWhiteSpace(work.RootWorkQid)
             || string.Equals(work.RootWorkQid, work.WorkQid, StringComparison.OrdinalIgnoreCase)
             ? []
-            : await BuildExplicitCastAsync(work.RootWorkQid, db, ct);
+            : await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, db, ct);
         if (rootExplicitCredits.Count > 0)
             return rootExplicitCredits;
 
-        var linkedActors = await BuildActorOnlyCreditsFromMediaLinksAsync(workId, db, ct);
+        var linkedActors = await BuildActorOnlyCreditsFromMediaLinksAsync(workId, workRankMap, db, ct);
         if (linkedActors.Count > 0)
             return linkedActors;
 
@@ -82,9 +88,10 @@ internal static class CastCreditQueries
         IDatabaseConnection db,
         CancellationToken ct)
     {
+        var rankMap = await CastRankMap.BuildAsync(rootWorkId, canonicalArrayRepo, db, ct);
         var explicitCredits = string.IsNullOrWhiteSpace(rootWorkQid)
             ? []
-            : await BuildExplicitCastAsync(rootWorkQid, db, ct);
+            : await BuildExplicitCastAsync(rootWorkQid, rankMap, db, ct);
         if (explicitCredits.Count > 0)
             return explicitCredits;
 
@@ -96,13 +103,15 @@ internal static class CastCreditQueries
 
     private static async Task<List<CastCreditDto>> BuildExplicitCastAsync(
         string workQid,
+        CastRankMap rankMap,
         IDatabaseConnection db,
         CancellationToken ct)
     {
         using var conn = db.CreateConnection();
         var rows = (await conn.QueryAsync<ExplicitCastRow>(
             """
-            SELECT p.id                  AS ActorPersonId,
+            SELECT cpl.rowid             AS LinkOrder,
+                   p.id                  AS ActorPersonId,
                    p.name                AS ActorName,
                    p.wikidata_qid        AS ActorQid,
                    p.headshot_url        AS ActorHeadshotUrl,
@@ -124,7 +133,7 @@ internal static class CastCreditQueries
                 ON cp.fictional_entity_id = fe.id
                AND cp.person_id = p.id
             WHERE cpl.work_qid = @workQid
-            ORDER BY p.name, fe.label, cp.is_default DESC;
+            ORDER BY cpl.rowid, fe.label, cp.is_default DESC;
             """,
             new { workQid })).ToList();
 
@@ -137,51 +146,66 @@ internal static class CastCreditQueries
                 row.ActorQid,
                 HeadshotUrl = BuildHeadshotUrl(row.ActorPersonId, row.ActorLocalHeadshotPath, row.ActorHeadshotUrl),
             })
-            .Select(group => new CastCreditDto
+            .Select(group =>
             {
-                PersonId = group.Key.ActorPersonId,
-                Name = group.Key.ActorName ?? "Unknown",
-                WikidataQid = group.Key.ActorQid,
-                HeadshotUrl = group.Key.HeadshotUrl,
-                Characters = group
-                    .Where(row => row.CharacterId != Guid.Empty)
-                    .GroupBy(row => new { row.CharacterId, row.CharacterName, row.CharacterQid })
-                    .Select(characterGroup =>
-                    {
-                        var preferred = characterGroup
-                            .OrderByDescending(row => row.PortraitIsDefault)
-                            .ThenByDescending(row => !string.IsNullOrWhiteSpace(row.PortraitImageUrl))
-                            .First();
-
-                        return new CharacterPortrayalDto
+                var sourceOrder = group.Min(row => row.LinkOrder);
+                var credit = new CastCreditDto
+                {
+                    PersonId = group.Key.ActorPersonId,
+                    Name = group.Key.ActorName ?? "Unknown",
+                    WikidataQid = group.Key.ActorQid,
+                    HeadshotUrl = group.Key.HeadshotUrl,
+                    Characters = group
+                        .Where(row => row.CharacterId != Guid.Empty)
+                        .GroupBy(row => new { row.CharacterId, row.CharacterName, row.CharacterQid })
+                        .Select(characterGroup =>
                         {
-                            FictionalEntityId = characterGroup.Key.CharacterId,
-                            CharacterName = characterGroup.Key.CharacterName,
-                            CharacterQid = characterGroup.Key.CharacterQid,
-                            PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
-                                preferred.PortraitId,
-                                preferred.PortraitLocalImagePath,
-                                preferred.PortraitImageUrl)
-                                ?? preferred.CharacterImageUrl,
-                        };
-                    })
-                    .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
+                            var preferred = characterGroup
+                                .OrderBy(row => row.LinkOrder)
+                                .ThenByDescending(row => row.PortraitIsDefault)
+                                .ThenByDescending(row => !string.IsNullOrWhiteSpace(row.PortraitImageUrl))
+                                .First();
+
+                            return new CharacterPortrayalDto
+                            {
+                                FictionalEntityId = characterGroup.Key.CharacterId,
+                                CharacterName = characterGroup.Key.CharacterName,
+                                CharacterQid = characterGroup.Key.CharacterQid,
+                                PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
+                                    preferred.PortraitId,
+                                    preferred.PortraitLocalImagePath,
+                                    preferred.PortraitImageUrl)
+                                    ?? preferred.CharacterImageUrl,
+                            };
+                        })
+                        .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
+                        .ToList(),
+                };
+
+                return new RankedCastCredit(
+                    credit,
+                    rankMap.RankFor(group.Key.ActorQid, group.Key.ActorName) ?? sourceOrder,
+                    sourceOrder);
             })
-            .OrderBy(cast => cast.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(12)
+            .OrderBy(item => item.Rank)
+            .ThenBy(item => item.SourceOrder)
+            .ThenBy(item => item.Credit.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxCastCredits)
+            .Select(item => item.Credit)
             .ToList();
     }
 
     private static async Task<List<CastCreditDto>> BuildActorOnlyCreditsFromMediaLinksAsync(
         Guid workId,
+        CastRankMap rankMap,
         IDatabaseConnection db,
         CancellationToken ct)
     {
         using var conn = db.CreateConnection();
         var rows = (await conn.QueryAsync<ActorOnlyRow>(
             """
-            SELECT p.id                  AS ActorPersonId,
+            SELECT MIN(pml.rowid)        AS LinkOrder,
+                   p.id                  AS ActorPersonId,
                    p.name                AS ActorName,
                    p.wikidata_qid        AS ActorQid,
                    p.headshot_url        AS ActorHeadshotUrl,
@@ -196,20 +220,32 @@ internal static class CastCreditQueries
             WHERE e.work_id = @workId
               AND pml.role IN ('Actor', 'Voice Actor')
             GROUP BY p.id, p.name, p.wikidata_qid, p.headshot_url, p.local_headshot_path
-            ORDER BY p.name;
+            ORDER BY MIN(pml.rowid);
             """,
             new { workId = workId.ToString() })).ToList();
 
         return rows
             .Where(row => row.ActorPersonId.HasValue && !string.IsNullOrWhiteSpace(row.ActorName))
-            .Select(row => new CastCreditDto
+            .Select(row =>
             {
-                PersonId = row.ActorPersonId,
-                Name = row.ActorName ?? "Unknown",
-                WikidataQid = row.ActorQid,
-                HeadshotUrl = BuildHeadshotUrl(row.ActorPersonId, row.ActorLocalHeadshotPath, row.ActorHeadshotUrl),
+                var credit = new CastCreditDto
+                {
+                    PersonId = row.ActorPersonId,
+                    Name = row.ActorName ?? "Unknown",
+                    WikidataQid = row.ActorQid,
+                    HeadshotUrl = BuildHeadshotUrl(row.ActorPersonId, row.ActorLocalHeadshotPath, row.ActorHeadshotUrl),
+                };
+
+                return new RankedCastCredit(
+                    credit,
+                    rankMap.RankFor(row.ActorQid, row.ActorName) ?? row.LinkOrder,
+                    row.LinkOrder);
             })
-            .Take(12)
+            .OrderBy(item => item.Rank)
+            .ThenBy(item => item.SourceOrder)
+            .ThenBy(item => item.Credit.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxCastCredits)
+            .Select(item => item.Credit)
             .ToList();
     }
 
@@ -221,7 +257,7 @@ internal static class CastCreditQueries
     {
         var credits = new List<CastCreditDto>();
         var castEntries = await canonicalArrayRepo.GetValuesAsync(workId, "cast_member", ct);
-        foreach (var entry in castEntries.OrderBy(value => value.Ordinal).Take(12))
+        foreach (var entry in castEntries.OrderBy(value => value.Ordinal).Take(MaxCastCredits))
         {
             if (string.IsNullOrWhiteSpace(entry.Value))
                 continue;
@@ -266,7 +302,7 @@ internal static class CastCreditQueries
             cancellationToken: ct))).ToList();
 
         var entries = BuildCastEntriesFromClaims(rows)
-            .Take(12)
+            .Take(MaxCastCredits)
             .ToList();
 
         var credits = new List<CastCreditDto>(entries.Count);
@@ -368,6 +404,101 @@ internal static class CastCreditQueries
             ? ApiImageUrls.BuildPersonHeadshotUrl(personId.Value, localHeadshotPath, remoteHeadshotUrl)
             : remoteHeadshotUrl;
 
+    private sealed record RankedCastCredit(CastCreditDto Credit, long Rank, long SourceOrder);
+
+    private sealed class CastRankMap
+    {
+        public static readonly CastRankMap Empty = new();
+
+        private readonly Dictionary<string, int> _qidRanks = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, int> _nameRanks = new(StringComparer.OrdinalIgnoreCase);
+
+        public static async Task<CastRankMap> BuildAsync(
+            Guid workId,
+            ICanonicalValueArrayRepository canonicalArrayRepo,
+            IDatabaseConnection db,
+            CancellationToken ct)
+        {
+            var map = new CastRankMap();
+            var nextRank = 0;
+
+            var castEntries = await canonicalArrayRepo.GetValuesAsync(workId, "cast_member", ct);
+            foreach (var entry in castEntries.OrderBy(value => value.Ordinal))
+            {
+                if (map.Add(entry.ValueQid, entry.Value, nextRank))
+                    nextRank++;
+            }
+
+            using var conn = db.CreateConnection();
+            var rows = (await conn.QueryAsync<CastClaimRow>(new CommandDefinition(
+                """
+                SELECT mc.rowid       AS RowNumber,
+                       mc.claim_key   AS ClaimKey,
+                       mc.claim_value AS ClaimValue
+                FROM metadata_claims mc
+                WHERE mc.entity_id = @workId
+                  AND mc.claim_key IN ('cast_member', 'cast_member_qid')
+                  AND NULLIF(mc.claim_value, '') IS NOT NULL
+                ORDER BY mc.rowid;
+                """,
+                new { workId = workId.ToString("D") },
+                cancellationToken: ct))).ToList();
+
+            foreach (var entry in BuildCastEntriesFromClaims(rows))
+            {
+                if (map.Add(entry.Qid, entry.Name, nextRank))
+                    nextRank++;
+            }
+
+            return map;
+        }
+
+        public int? RankFor(string? qid, string? name)
+        {
+            var normalizedQid = NormalizeRankKey(ExtractQid(qid));
+            if (!string.IsNullOrWhiteSpace(normalizedQid)
+                && _qidRanks.TryGetValue(normalizedQid, out var qidRank))
+            {
+                return qidRank;
+            }
+
+            var normalizedName = NormalizeRankKey(name);
+            return !string.IsNullOrWhiteSpace(normalizedName)
+                && _nameRanks.TryGetValue(normalizedName, out var nameRank)
+                ? nameRank
+                : null;
+        }
+
+        private bool Add(string? qid, string? name, int rank)
+        {
+            var added = false;
+            var normalizedQid = NormalizeRankKey(ExtractQid(qid));
+            if (!string.IsNullOrWhiteSpace(normalizedQid) && !_qidRanks.ContainsKey(normalizedQid))
+            {
+                _qidRanks[normalizedQid] = rank;
+                added = true;
+            }
+
+            var normalizedName = NormalizeRankKey(name);
+            if (!string.IsNullOrWhiteSpace(normalizedName) && !_nameRanks.ContainsKey(normalizedName))
+            {
+                _nameRanks[normalizedName] = rank;
+                added = true;
+            }
+
+            return added;
+        }
+
+        private static string? NormalizeRankKey(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            return string.Join(' ', value.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                .ToUpperInvariant();
+        }
+    }
+
     private sealed class WorkIdentityRow
     {
         public Guid WorkId { get; init; }
@@ -378,6 +509,7 @@ internal static class CastCreditQueries
 
     private sealed class ExplicitCastRow
     {
+        public long LinkOrder { get; init; }
         public Guid? ActorPersonId { get; init; }
         public string? ActorName { get; init; }
         public string? ActorQid { get; init; }
@@ -395,6 +527,7 @@ internal static class CastCreditQueries
 
     private sealed class ActorOnlyRow
     {
+        public long LinkOrder { get; init; }
         public Guid? ActorPersonId { get; init; }
         public string? ActorName { get; init; }
         public string? ActorQid { get; init; }
