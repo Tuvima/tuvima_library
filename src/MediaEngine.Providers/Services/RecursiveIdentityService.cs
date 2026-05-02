@@ -73,8 +73,11 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         {
             ct.ThrowIfCancellationRequested();
 
-            if (string.IsNullOrWhiteSpace(reference.Name))
+            if (string.IsNullOrWhiteSpace(reference.Name) &&
+                string.IsNullOrWhiteSpace(reference.WikidataQid))
+            {
                 continue;
+            }
 
             // QID-first: only create Person records for references with a confirmed
             // Wikidata QID.  Name-only references (from file metadata before Wikidata
@@ -116,7 +119,9 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         CancellationToken ct)
     {
         // Normalize "Last, First" → "First Last" for consistent storage and search.
-        var normalizedName = NormalizePersonName(reference.Name);
+        var normalizedName = string.IsNullOrWhiteSpace(reference.Name)
+            ? reference.WikidataQid!
+            : NormalizePersonName(reference.Name);
 
         // QID is guaranteed non-null by EnrichAsync's guard above.
         // Serialize on QID to prevent concurrent threads from both missing

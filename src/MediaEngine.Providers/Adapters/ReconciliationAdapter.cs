@@ -3408,18 +3408,16 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         ProviderLookupRequest request,
         CancellationToken ct)
     {
-        var name = request.PersonName ?? request.Author ?? request.Narrator;
-        if (string.IsNullOrWhiteSpace(name))
-            return [];
-
-        // Use PreResolvedQid if provided.
         var qid = request.PreResolvedQid;
+        var name = request.PersonName ?? request.Author ?? request.Narrator;
+        if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(qid))
+            return [];
 
         if (string.IsNullOrWhiteSpace(qid))
         {
             // Build constraints from person role hints.
             var constraints = BuildPersonConstraints(request);
-            var candidates  = await ReconcileAsync(name, constraints, ct).ConfigureAwait(false);
+            var candidates  = await ReconcileAsync(name!, constraints, ct).ConfigureAwait(false);
 
             if (candidates.Count == 0)
                 return [];

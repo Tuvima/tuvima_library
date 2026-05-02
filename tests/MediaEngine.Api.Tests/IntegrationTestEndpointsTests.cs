@@ -48,6 +48,23 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void DevHarnessReset_DefaultsToGeneratedStateScope()
+    {
+        Assert.Equal(DevHarnessWipeScope.GeneratedState, DevHarnessResetService.ParseScope(null));
+        Assert.Equal(DevHarnessWipeScope.GeneratedState, DevHarnessResetService.ParseScope("generated-state"));
+        Assert.Equal(DevHarnessWipeScope.Full, DevHarnessResetService.ParseScope("full"));
+    }
+
+    [Fact]
+    public void RunFullIntegration_RequestsGeneratedStateWipe()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"tools\Run-FullIntegration.ps1"));
+
+        Assert.Contains("wipeScope=generated-state", source, StringComparison.Ordinal);
+        Assert.Contains("stages=$Stages", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HasCentralPreferredArtwork_AcceptsCentralAssetStorePaths()
     {
         var ownerEntityId = Guid.NewGuid();

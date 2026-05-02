@@ -413,7 +413,7 @@ CREATE TABLE IF NOT EXISTS person_roles (
     role      TEXT NOT NULL CHECK (role IN (
                   'Author','Narrator','Director',
                   'Actor','Voice Actor','Composer',
-                  'Artist','Performer')),
+                  'Artist','Performer','Screenwriter')),
     PRIMARY KEY (person_id, role)
 );
 

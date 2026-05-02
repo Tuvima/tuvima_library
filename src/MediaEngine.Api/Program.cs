@@ -10,6 +10,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion;
 using MediaEngine.Ingestion.Contracts;
+using MediaEngine.Ingestion.DependencyInjection;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Intelligence;
 using MediaEngine.Intelligence.Contracts;
@@ -231,19 +232,18 @@ builder.Services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>
 // data_directory override is wired in a later slice of the side-by-side-with-Plex plan.
 builder.Services.AddSingleton<MediaEngine.Domain.Services.TuvimaDataPaths>(
     _ => new MediaEngine.Domain.Services.TuvimaDataPaths(configuredPath: null));
-// Multi-path library resolver — longest-prefix match across all configured
-// SourcePaths so a file arriving from any drive in a multi-path library
-// is attributed to the same logical library. Plan §F.
-builder.Services.AddSingleton<
-    MediaEngine.Ingestion.Contracts.ILibraryFolderResolver,
-    MediaEngine.Ingestion.Services.LibraryFolderResolver>();
-
-// InitialSweepService — hashes every media file under every configured source
-// path and persists the result in file_hash_cache. On-demand (not started at
-// boot) so the user can trigger it from the Libraries settings tab. Plan §M.
-builder.Services.AddSingleton<
-    MediaEngine.Ingestion.Services.IInitialSweepService,
-    MediaEngine.Ingestion.Services.InitialSweepService>();
+builder.Services.AddSingleton(sp =>
+{
+    var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
+    return new AssetPathService(core.LibraryRoot, core.StoragePolicy);
+});
+builder.Services.AddSingleton(sp =>
+{
+    var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
+    return new ImagePathService(core.LibraryRoot);
+});
+builder.Services.AddSingleton<IAssetExportService, AssetExportService>();
+builder.Services.AddHostedService<AssetStorageStartupService>();
 builder.Services.AddSingleton<ICollectionRepository, CollectionRepository>();
 builder.Services.AddSingleton<ICollectionPlacementRepository, CollectionPlacementRepository>();
 builder.Services.AddSingleton<IAudioFingerprintRepository, MediaEngine.Storage.AudioFingerprintRepository>();
@@ -266,16 +266,8 @@ builder.Services.AddHostedService<EncodeQueueService>();
 // -- Processors ----------------------------------------------------------------
 builder.Services.AddSingleton<IVideoMetadataExtractor, FFmpegVideoMetadataExtractor>();
 
-builder.Services.AddSingleton<IProcessorRouter>(sp =>
-{
-    var libraryItem = new MediaProcessorRouter();
-    libraryItem.Register(new EpubProcessor());
-    libraryItem.Register(new AudioProcessor());
-    libraryItem.Register(new VideoProcessor(sp.GetRequiredService<IVideoMetadataExtractor>()));
-    libraryItem.Register(new ComicProcessor());
-    libraryItem.Register(new GenericFileProcessor());
-    return libraryItem;
-});
+builder.Services.AddMediaEngineIngestion(config, configLoader);
+builder.Services.AddSingleton<DevHarnessResetService>();
 
 builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.IDisplayProjectionRepository, MediaEngine.Api.Services.Display.DisplayProjectionRepository>();
@@ -339,216 +331,6 @@ builder.Services.AddSingleton<IParentCollectionResolver>(sp =>
     new ParentCollectionResolver(
         sp.GetRequiredService<ICollectionRepository>(),
         sp.GetRequiredService<ILogger<ParentCollectionResolver>>()));
-
-// -- Ingestion (for POST /ingestion/scan) -------------------------------------
-builder.Services.Configure<IngestionOptions>(config.GetSection(IngestionOptions.SectionName));
-
-// PostConfigure reads saved folder paths from the core configuration and
-// overrides the IngestionOptions values bound from appsettings.json.  This means
-// a path saved via PUT /settings/folders survives an Engine restart without
-// touching appsettings.json — the config directory is the persistent source of truth.
-builder.Services.PostConfigure<IngestionOptions>(opts =>
-{
-    // -- Environment variable overrides (highest priority) ---------------------
-    // These allow Docker / Unraid users to set paths via container environment
-    // variables without ever editing a config file.
-    //   TUVIMA_WATCH_FOLDER   ? where to pick up new files
-    //   TUVIMA_LIBRARY_ROOT   ? where organised files are stored
-    //   Note: staging area is always {LibraryRoot}/.data/staging/ — not independently configurable
-    {
-        string? envWatch   = Environment.GetEnvironmentVariable("TUVIMA_WATCH_FOLDER");
-        string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
-        if (!string.IsNullOrWhiteSpace(envWatch))   { opts.WatchDirectory  = envWatch; }
-        if (!string.IsNullOrWhiteSpace(envLibrary)) { opts.LibraryRoot     = envLibrary; }
-    }
-
-    try
-    {
-        CoreConfiguration core = configLoader.LoadCore();
-        if (!string.IsNullOrWhiteSpace(core.WatchDirectory))       { opts.WatchDirectory       = core.WatchDirectory; }
-        if (!string.IsNullOrWhiteSpace(core.LibraryRoot))          { opts.LibraryRoot          = core.LibraryRoot; opts.AutoOrganize = true; }
-        if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
-        if (core.OrganizationTemplates.Count > 0) { opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase); }
-        opts.ConfiguredLanguage = core.Language.Metadata;
-
-    }
-    catch (Exception ex)
-    {
-        Console.Error.WriteLine($"[WARN] Failed to load core configuration for ingestion options — using defaults: {ex.Message}");
-    }
-
-    // Overlay disambiguation thresholds from config/disambiguation.json.
-    try
-    {
-        var disambiguation = configLoader.LoadDisambiguation();
-        opts.MediaTypeAutoAssignThreshold = disambiguation.MediaTypeAutoAssignThreshold;
-        opts.MediaTypeReviewThreshold     = disambiguation.MediaTypeReviewThreshold;
-    }
-    catch
-    {
-        // First run — defaults from IngestionOptions stand.
-    }
-
-    // Load library folder priors from config/libraries.json.
-    // These give the ingestion engine a strong media type prior when a file arrives
-    // from a folder whose content category is already known (e.g. Books folder ? Audiobook).
-    try
-    {
-        var libraries = configLoader.LoadLibraries();
-        opts.LibraryFolders = libraries.Libraries
-            .Select(l =>
-            {
-                // Build effective source path list: prefer the new `source_paths`
-                // array; fall back to legacy `source_path` for backward compat.
-                // Side-by-side-with-Plex plan §F — multi-path libraries.
-                var paths = (l.SourcePaths is { Count: > 0 } ? l.SourcePaths : new List<string>())
-                    .Concat(string.IsNullOrWhiteSpace(l.SourcePath) ? Array.Empty<string>() : new[] { l.SourcePath })
-                    .Where(p => !string.IsNullOrWhiteSpace(p))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                return new MediaEngine.Ingestion.Models.LibraryFolderEntry
-                {
-                    SourcePath  = paths.FirstOrDefault() ?? string.Empty,
-                    SourcePaths = paths,
-                    MediaTypes  = l.MediaTypes
-                        .Select(s => ParseMediaTypeFromConfig(s))
-                        .Where(mt => mt != MediaEngine.Domain.Enums.MediaType.Unknown)
-                        .ToList(),
-                    ReadOnly          = l.ReadOnly,
-                    WritebackOverride = l.WritebackOverride,
-                };
-            })
-            .Where(e => e.EffectiveSourcePaths.Count > 0 && e.MediaTypes.Count > 0)
-            .ToList();
-
-        // Reject overlapping source paths between distinct libraries — loud at
-        // startup is better than silent at first file. Plan §F.
-        try
-        {
-            MediaEngine.Ingestion.Services.LibraryFolderResolver.ValidateNoOverlap(opts.LibraryFolders);
-        }
-        catch (InvalidOperationException ex)
-        {
-            Console.Error.WriteLine($"[ERROR] config/libraries.json: {ex.Message}");
-            throw;
-        }
-    }
-    catch
-    {
-        // No libraries.json or parse failure — library folder priors will not be applied.
-    }
-});
-
-// Auto-create media type subfolders in each configured watch directory.
-// Called after DI is configured but before the host starts so the directories
-// exist before the FileSystemWatcher attaches.
-try
-{
-    var libsForSubfolders = configLoader.LoadLibraries();
-    var mediaTypeSubfolders = new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" };
-    foreach (var lib in libsForSubfolders.Libraries)
-    {
-        // Walk both the new source_paths array and the legacy source_path field
-        // so multi-path libraries get subfolders auto-created on every drive.
-        var allPaths = (lib.SourcePaths is { Count: > 0 } ? lib.SourcePaths : new List<string>())
-            .Concat(string.IsNullOrWhiteSpace(lib.SourcePath) ? Array.Empty<string>() : new[] { lib.SourcePath })
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var path in allPaths)
-        {
-            if (Directory.Exists(path))
-            {
-                foreach (var sub in mediaTypeSubfolders)
-                    Directory.CreateDirectory(Path.Combine(path, sub));
-            }
-        }
-    }
-}
-catch
-{
-    // No libraries.json or directory creation failed — non-fatal; directories will be created on demand.
-}
-
-// Auto-create the .data/ subdirectories under LibraryRoot at startup.
-// Managed artwork lives under .data/assets.
-try
-{
-    var coreForDataDir = configLoader.LoadCore();
-    if (!string.IsNullOrWhiteSpace(coreForDataDir.LibraryRoot))
-    {
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "staging"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "artwork"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "derived"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "metadata"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "transcripts"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "subtitle-cache"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "text-tracks"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "people"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "database"));
-    }
-}
-catch
-{
-    // LibraryRoot not yet configured or directory creation failed — non-fatal.
-}
-
-// -- Asset Path Service --------------------------------------------------------
-// Policy-driven storage authority for managed assets. The default Hybrid policy
-// keeps manager-owned artwork under {libraryRoot}/.data/assets and leaves
-// playback-facing sidecars local only when explicitly exported.
-builder.Services.AddSingleton(sp =>
-{
-    var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
-    var libraryRoot = core.LibraryRoot;
-    if (string.IsNullOrWhiteSpace(libraryRoot))
-        libraryRoot = Path.Combine(Path.GetTempPath(), "tuvima_assets_unset");
-
-    return new MediaEngine.Domain.Services.AssetPathService(libraryRoot, core.StoragePolicy);
-});
-
-// -- Image Path Service -------------------------------------------------------
-// Still used for co-located sidecar/export path helpers and non-work imagery.
-builder.Services.AddSingleton(sp =>
-{
-    var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
-    var libraryRoot = core.LibraryRoot;
-    if (string.IsNullOrWhiteSpace(libraryRoot))
-    {
-        // LibraryRoot not yet configured (first run) — use a temp sentinel path.
-        // Services that write images guard against this with their own checks.
-        libraryRoot = Path.Combine(Path.GetTempPath(), "tuvima_images_unset");
-    }
-    return new MediaEngine.Domain.Services.ImagePathService(libraryRoot);
-});
-
-builder.Services.AddSingleton<IAssetExportService, AssetExportService>();
-builder.Services.AddHostedService<AssetStorageStartupService>();
-
-builder.Services.AddSingleton<IAssetHasher, AssetHasher>();
-builder.Services.AddSingleton<IFileWatcher, FileWatcher>();
-builder.Services.AddSingleton<DebounceQueue>();
-builder.Services.AddSingleton<IFileOrganizer, FileOrganizer>();
-builder.Services.AddSingleton<IMetadataTagger, EpubMetadataTagger>();
-builder.Services.AddSingleton<IMetadataTagger, AudioMetadataTagger>();
-builder.Services.AddSingleton<IMetadataTagger, VideoMetadataTagger>();
-builder.Services.AddSingleton<IMetadataTagger, ComicMetadataTagger>();
-builder.Services.AddSingleton<MediaEngine.Ingestion.Services.WritebackConfigState>();
-builder.Services.AddSingleton<IWriteBackService, MediaEngine.Ingestion.Services.WriteBackService>();
-builder.Services.AddSingleton<IEnrichmentConcurrencyLimiter>(sp =>
-    new EnrichmentConcurrencyLimiter(
-        sp.GetRequiredService<IConfigurationLoader>().LoadHydration(),
-        sp.GetRequiredService<ILogger<EnrichmentConcurrencyLimiter>>()));
-builder.Services.AddSingleton<IBackgroundWorker, BackgroundWorker>();
-
-// IngestionEngine registered as a singleton, IIngestionEngine interface, AND a
-// hosted service.  When WatchDirectory is configured, the background watcher loop
-// starts automatically.  When WatchDirectory is empty at startup, the engine
-// idles until the user sets a Watch Folder via PUT /settings/folders.
-builder.Services.AddSingleton<IngestionEngine>();
-builder.Services.AddSingleton<IIngestionEngine>(sp => sp.GetRequiredService<IngestionEngine>());
-builder.Services.AddHostedService(sp => sp.GetRequiredService<IngestionEngine>());
 
 // -- Folder Health Monitor (Phase 10 — Settings & Management) -----------------
 // Periodic background check on Watch Folder + Library Root accessibility.
@@ -835,8 +617,6 @@ builder.Services.AddSingleton<IEraActorResolverService,         EraActorResolver
 builder.Services.AddSingleton<IImageEnrichmentService,           MediaEngine.Providers.Services.ImageEnrichmentService>();
 
 // -- Hydration pipeline (three-stage orchestrator) + review queue -------------
-builder.Services.AddSingleton<IOrganizationGate,             OrganizationGate>();
-builder.Services.AddSingleton<IAutoOrganizeService,          AutoOrganizeService>();
 builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentRepository>();
 builder.Services.AddSingleton<IHydrationPipelineService,     SynchronousIdentityPipelineService>();
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
@@ -1106,28 +886,3 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
-
-// -- Local helpers ------------------------------------------------------------
-
-/// <summary>
-/// Maps config/libraries.json media type strings to the <see cref="MediaType"/> enum.
-/// Config uses short names ("Epub", "Audiobook") that differ from enum values
-/// ("Books", "Audiobooks"). This mapping bridges them.
-/// </summary>
-static MediaEngine.Domain.Enums.MediaType ParseMediaTypeFromConfig(string configValue)
-{
-    // First try direct enum parse (handles "Books", "Movies", "TV", "Music", "Comic").
-    if (Enum.TryParse<MediaEngine.Domain.Enums.MediaType>(configValue, ignoreCase: true, out var mt))
-        return mt;
-
-    // Map config aliases to enum values.
-    return configValue.ToLowerInvariant() switch
-    {
-        "epub"      => MediaEngine.Domain.Enums.MediaType.Books,
-        "ebook"     => MediaEngine.Domain.Enums.MediaType.Books,
-        "audiobook" => MediaEngine.Domain.Enums.MediaType.Audiobooks,
-        "comics"    => MediaEngine.Domain.Enums.MediaType.Comics,
-        "movie"     => MediaEngine.Domain.Enums.MediaType.Movies,
-        _           => MediaEngine.Domain.Enums.MediaType.Unknown,
-    };
-}

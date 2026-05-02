@@ -7,6 +7,7 @@ using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
 
@@ -28,8 +29,9 @@ public sealed class PersonEnrichmentWorker
     private readonly IMetadataHarvestingService _harvesting;
     private readonly IPersonRepository _personRepo;
     private readonly IFictionalEntityRepository _fictionalEntityRepo;
+    private readonly ICollectionRepository _collectionRepo;
     private readonly ReconciliationAdapter? _reconciliationAdapter;
-    private readonly PersonReconciliationService? _personReconciliation;
+    private readonly IPersonReconciliationService? _personReconciliation;
     private readonly ILogger<PersonEnrichmentWorker> _logger;
 
     public PersonEnrichmentWorker(
@@ -39,9 +41,10 @@ public sealed class PersonEnrichmentWorker
         IMetadataHarvestingService harvesting,
         IPersonRepository personRepo,
         IFictionalEntityRepository fictionalEntityRepo,
+        ICollectionRepository collectionRepo,
         ILogger<PersonEnrichmentWorker> logger,
         ReconciliationAdapter? reconciliationAdapter = null,
-        PersonReconciliationService? personReconciliation = null)
+        IPersonReconciliationService? personReconciliation = null)
     {
         _claimRepo = claimRepo;
         _canonicalRepo = canonicalRepo;
@@ -49,6 +52,7 @@ public sealed class PersonEnrichmentWorker
         _harvesting = harvesting;
         _personRepo = personRepo;
         _fictionalEntityRepo = fictionalEntityRepo;
+        _collectionRepo = collectionRepo;
         _reconciliationAdapter = reconciliationAdapter;
         _logger = logger;
         _personReconciliation = personReconciliation;
@@ -60,8 +64,19 @@ public sealed class PersonEnrichmentWorker
     /// </summary>
     public async Task EnrichFromClaimsAsync(Guid entityId, CancellationToken ct)
     {
-        var claims = await _claimRepo.GetByEntityAsync(entityId, ct);
-        var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+        var claims = (await _claimRepo.GetByEntityAsync(entityId, ct)).ToList();
+        var canonicals = (await _canonicalRepo.GetByEntityAsync(entityId, ct)).ToList();
+
+        // Lineage-aware scoring stores movie/TV people on the parent Work row.
+        // Person extraction is still invoked with the media asset id so links
+        // point to the owned file. Read both rows before extracting credits.
+        var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct)
+            .ConfigureAwait(false);
+        if (workId.HasValue && workId.Value != entityId)
+        {
+            claims.AddRange(await _claimRepo.GetByEntityAsync(workId.Value, ct).ConfigureAwait(false));
+            canonicals.AddRange(await _canonicalRepo.GetByEntityAsync(workId.Value, ct).ConfigureAwait(false));
+        }
 
         // Determine media type from canonicals
         var mediaTypeStr = canonicals
@@ -134,9 +149,23 @@ public sealed class PersonEnrichmentWorker
                             "Person enrichment writeback: {OldName} -> {NewName} ({Qid}) (role: {Role})",
                             unlinked.Name, searchResult.Name, searchResult.WikidataQid, unlinked.Role);
 
-                        await PersistReconciledPersonAsync(
+                        var harvestRequest = await PersistReconciledPersonAsync(
                             entityId, unlinked.Name, unlinked.Role,
                             searchResult.WikidataQid, searchResult.Name, ct);
+
+                        if (harvestRequest is not null)
+                        {
+                            try
+                            {
+                                await _harvesting.ProcessSynchronousAsync(harvestRequest, ct);
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                _logger.LogWarning(ex,
+                                    "Synchronous person enrichment failed for reconciled person {Id}",
+                                    harvestRequest.EntityId);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -156,7 +185,7 @@ public sealed class PersonEnrichmentWorker
     ///
     /// Idempotent: uses INSERT OR IGNORE semantics via <see cref="IPersonRepository.LinkToMediaAssetAsync"/>.
     /// </summary>
-    private async Task PersistReconciledPersonAsync(
+    private async Task<HarvestRequest?> PersistReconciledPersonAsync(
         Guid mediaAssetId,
         string rawName,
         string role,
@@ -167,9 +196,11 @@ public sealed class PersonEnrichmentWorker
         var existing = await _personRepo.FindByQidAsync(resolvedQid, ct).ConfigureAwait(false);
 
         Guid personId;
+        bool needsHarvest;
         if (existing is not null)
         {
             personId = existing.Id;
+            needsHarvest = existing.EnrichedAt is null;
             if (!string.Equals(existing.Name, resolvedName, StringComparison.OrdinalIgnoreCase))
             {
                 await _personRepo.UpdateEnrichmentAsync(existing.Id, resolvedQid,
@@ -188,6 +219,7 @@ public sealed class PersonEnrichmentWorker
             }, ct).ConfigureAwait(false);
 
             personId = newPerson.Id;
+            needsHarvest = true;
 
             _logger.LogDebug(
                 "Created person record for reconciled '{RawName}' -> '{ResolvedName}' ({Qid}), id={Id}",
@@ -200,6 +232,22 @@ public sealed class PersonEnrichmentWorker
         _logger.LogInformation(
             "Persisted reconciled person '{Name}' ({Qid}) linked to asset {AssetId} as {Role}",
             resolvedName, resolvedQid, mediaAssetId, role);
+
+        if (!needsHarvest)
+            return null;
+
+        return new HarvestRequest
+        {
+            EntityId = personId,
+            EntityType = EntityType.Person,
+            MediaType = MediaType.Unknown,
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["name"] = resolvedName,
+                ["role"] = role,
+                [BridgeIdKeys.WikidataQid] = resolvedQid,
+            },
+        };
     }
 
     /// <summary>

@@ -22,7 +22,7 @@ if (-not $OutputPath) {
 }
 
 $requestedTypes = @($Types | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToLowerInvariant() })
-$query = @("stages=$Stages")
+$query = @("stages=$Stages", "wipeScope=generated-state")
 if ($requestedTypes.Count -gt 0) {
     $query += "types=$([uri]::EscapeDataString(($requestedTypes -join ',')))"
 }
@@ -44,7 +44,7 @@ Invoke-WebRequest -Uri "$EngineUrl/system/status" -UseBasicParsing | Out-Null
 Write-Host "Engine reachable." -ForegroundColor Green
 
 Write-Host ""
-Write-Host "Running full integration test. This will wipe the active runtime's database, watch folders, and organized library." -ForegroundColor Yellow
+Write-Host "Running full integration test. This will wipe generated runtime state and known harness fixtures, preserving unrelated watch-folder files." -ForegroundColor Yellow
 Write-Host "Saving report to: $OutputPath" -ForegroundColor DarkGray
 
 Invoke-WebRequest -Method Post -Uri $uri -OutFile $OutputPath -UseBasicParsing | Out-Null

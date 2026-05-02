@@ -213,6 +213,24 @@ public sealed class ReconciliationAdapterFallbackTests
         Assert.Null(preferred);
     }
 
+    [Fact]
+    public async Task FetchAsync_PersonWithPreResolvedQid_DoesNotRequireName()
+    {
+        var adapter = CreateAdapter();
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.Person,
+            MediaType = MediaType.Unknown,
+            PreResolvedQid = "Q548823",
+        });
+
+        Assert.Contains(claims, claim =>
+            claim.Key == BridgeIdKeys.WikidataQid &&
+            claim.Value == "Q548823");
+    }
+
     private static ReconciliationAdapter CreateAdapter()
     {
         var config = new ReconciliationProviderConfig

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Worker">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <RootNamespace>MediaEngine.Ingestion</RootNamespace>
@@ -14,6 +14,7 @@
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
     <ProjectReference Include="..\MediaEngine.Intelligence\MediaEngine.Intelligence.csproj" />
     <ProjectReference Include="..\MediaEngine.Processors\MediaEngine.Processors.csproj" />
+    <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
     <!--
       Phase B (B-06): External metadata providers (AppleBooks, Audnexus, Wikidata)
       and services (MetadataHarvestingService, RecursiveIdentityService) are required
@@ -29,18 +30,6 @@
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
     <PackageReference Include="TagLibSharp" />
-  </ItemGroup>
-
-  <!--
-    When referenced by MediaEngine.Api, both projects own an appsettings.json.
-    The Worker SDK auto-sets CopyToPublishDirectory=PreserveNewest, causing NETSDK1152
-    (duplicate publish output files). Exclude from publish; the host application
-    (MediaEngine.Api) owns the live appsettings.json.
-  -->
-  <ItemGroup>
-    <Content Update="appsettings.json">
-      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
-    </Content>
   </ItemGroup>
 
 </Project>

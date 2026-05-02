@@ -1795,7 +1795,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 role              TEXT NOT NULL CHECK (role IN (
                     'Author','Narrator','Director',
                     'Actor','Voice Actor','Composer',
-                    'Artist','Performer')),
+                    'Artist','Performer','Screenwriter')),
                 wikidata_qid      TEXT,
                 headshot_url      TEXT,
                 biography         TEXT,
@@ -1873,7 +1873,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     role      TEXT NOT NULL CHECK (role IN (
                                   'Author','Narrator','Director',
                                   'Actor','Voice Actor','Composer',
-                                  'Artist','Performer')),
+                                  'Artist','Performer','Screenwriter')),
                     PRIMARY KEY (person_id, role)
                 );
 
@@ -2451,7 +2451,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     role      TEXT NOT NULL CHECK (role IN (
                                   'Author','Narrator','Director',
                                   'Actor','Voice Actor','Composer',
-                                  'Artist','Performer')),
+                                  'Artist','Performer','Screenwriter')),
                     PRIMARY KEY (person_id, role)
                 );
 
