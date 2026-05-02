@@ -51,10 +51,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     // Parsed once at construction.
     private readonly Guid _providerId;
 
-    // Source-language Wikidata labels should beat metadata-language matched labels
-    // for foreign-language files while still staying below user locks.
-    private const double SourceLanguageTitleConfidence = 0.99;
-
     // Lazy cache for the edition pivot config. Built from _config on first use.
     private EditionPivotConfiguration? _editionPivotCache;
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -2611,9 +2607,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (audiobookEditionQid is not null)
             claims.Add(new ProviderClaim("audiobook_edition_qid", audiobookEditionQid, 1.0));
 
-        // Emit the reconciliation match label as a title claim. Source-language
-        // labels can add a stronger title claim later when the file language
-        // differs from the configured metadata language.
+        // Emit the reconciliation match label as the display title claim. Source-language
+        // labels are retained separately as original_title when they differ from the
+        // configured metadata language.
         if (!string.IsNullOrWhiteSpace(reconciliationLabel))
             claims.Add(new ProviderClaim(MetadataFieldConstants.Title, reconciliationLabel, ClaimConfidence.ReconciliationTitle));
 
@@ -3076,9 +3072,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // Original title for foreign-language files.
         // When the file's detected language differs from the configured metadata
         // language, fetch the Wikidata entity label in the file's language and
-        // emit it as both "original_title" and the source-language title winner.
-        // This keeps English/search aliases available while aligning the displayed
-        // title with the content language.
+        // emit it as "original_title" only. The display title should continue to
+        // use the configured metadata language.
         if (!string.IsNullOrEmpty(request.FileLanguage) && _reconciler is not null)
         {
             var fileLang = NormalizeOptionalLang(request.FileLanguage);
@@ -3102,7 +3097,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     if (!string.IsNullOrWhiteSpace(fileLangLabel))
                     {
                         claims.Add(new ProviderClaim(MetadataFieldConstants.OriginalTitle, fileLangLabel, ClaimConfidence.OriginalTitle));
-                        claims.Add(new ProviderClaim(MetadataFieldConstants.Title, fileLangLabel, SourceLanguageTitleConfidence));
                         if (!string.IsNullOrWhiteSpace(reconciliationLabel)
                             && !string.Equals(reconciliationLabel, fileLangLabel, StringComparison.OrdinalIgnoreCase))
                         {

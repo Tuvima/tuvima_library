@@ -40,7 +40,7 @@
 
     private string PanelClass => Placement.CurrentItem.EntityType switch
     {
-        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
+        DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
         DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-series-panel--square",
         _ => "tl-series-panel--portrait",
     };

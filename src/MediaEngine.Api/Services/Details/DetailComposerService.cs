@@ -179,7 +179,7 @@ public sealed class DetailComposerService
             SecondaryActions = BuildSecondaryActions(workId, entityType, ownedFormats),
             OverflowActions = BuildOverflowActions(workId, entityType, isAdminView),
             ContributorGroups = contributorGroups,
-            PreviewContributors = contributorGroups.SelectMany(g => g.Credits).OrderBy(c => c.SortOrder).Take(12).ToList(),
+            PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
             CharacterGroups = characters,
             PreviewCharacters = characters.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = BuildRelationshipStrip(detail, seriesPlacement),
@@ -260,18 +260,39 @@ public sealed class DetailComposerService
         var heroSummary = await BuildHeroSummaryAsync(row.Tagline, longDescription, row.WikidataQid, values, ct);
         var fallbackBackdrop = works.Select(w => w.BackgroundUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
         var fallbackCover = works.Select(w => w.ArtworkUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+        var collectionBackdrop = FirstNonBlank(
+            row.BackgroundUrl,
+            GetValue(values, "background_url"),
+            GetValue(values, "background"),
+            GetValue(values, "hero_url"),
+            GetValue(values, "hero"),
+            fallbackBackdrop);
+        var collectionBanner = FirstNonBlank(
+            row.BannerUrl,
+            GetValue(values, "banner_url"),
+            GetValue(values, "banner"));
+        var collectionCover = FirstNonBlank(
+            row.CoverUrl,
+            GetValue(values, "cover_url"),
+            GetValue(values, "cover"),
+            GetValue(values, "poster_url"),
+            GetValue(values, "poster"),
+            fallbackCover);
+        var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
+        var contributorGroups = await BuildCollectionCreditsAsync(collectionId, works, entityType, ct);
+        var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
         var artwork = BuildArtwork(
             entityType,
-            FirstNonBlank(row.BackgroundUrl, fallbackBackdrop),
-            row.BannerUrl,
-            FirstNonBlank(row.CoverUrl, fallbackCover),
-            FirstNonBlank(row.CoverUrl, fallbackCover),
+            collectionBackdrop,
+            collectionBanner,
+            collectionCover,
+            collectionCover,
             null,
             values,
             relatedArt,
             0,
             null,
-            row.LogoUrl);
+            collectionLogo);
 
         return new DetailPageViewModel
         {
@@ -288,8 +309,10 @@ public sealed class DetailComposerService
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context),
             SecondaryActions = BuildSecondaryActions(collectionId, entityType),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
-            ContributorGroups = await BuildCollectionCreditsAsync(collectionId, works, entityType, ct),
-            CharacterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct),
+            ContributorGroups = contributorGroups,
+            PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
+            CharacterGroups = characterGroups,
+            PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = BuildCollectionRelationships(row, entityType),
             Tabs = BuildTabs(entityType, context, isAdminView),
             MediaGroups = BuildCollectionMediaGroups(entityType, works),
@@ -433,6 +456,10 @@ public sealed class DetailComposerService
 
         var works = await LoadCollectionWorksAsync(id, ct);
         var relatedArt = works.Select(w => w.ArtworkUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(10).ToList();
+        var characterGroups = await BuildCollectionCharactersAsync(id, row.WikidataQid, ct);
+        var contributorGroups = await BuildUniverseCastGroupsAsync(row.WikidataQid, ct);
+        var relationships = await BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct);
+
         return new DetailPageViewModel
         {
             Id = id.ToString("D"),
@@ -445,6 +472,11 @@ public sealed class DetailComposerService
             Metadata = [new MetadataPill { Label = "Universe" }, new MetadataPill { Label = $"{works.Count} items" }],
             PrimaryActions = [new DetailAction { Key = "timeline", Label = "Explore Timeline", Icon = "account_tree", Route = string.IsNullOrWhiteSpace(row.WikidataQid) ? null : $"/universe/{row.WikidataQid}/explore", IsPrimary = true }],
             OverflowActions = BuildOverflowActions(id, DetailEntityType.Universe, isAdminView),
+            ContributorGroups = contributorGroups,
+            PreviewContributors = BuildPreviewContributors(DetailEntityType.Universe, contributorGroups),
+            CharacterGroups = characterGroups,
+            PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),
+            RelationshipStrip = relationships,
             Tabs = BuildTabs(DetailEntityType.Universe, context, isAdminView),
             MediaGroups = BuildCollectionMediaGroups(DetailEntityType.Universe, works),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
@@ -1627,19 +1659,32 @@ public sealed class DetailComposerService
             return [];
 
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<CharacterDetailRow>(new CommandDefinition(
+        var rows = await conn.QueryAsync<CollectionCharacterRow>(new CommandDefinition(
             """
-            SELECT id AS Id,
-                   label AS Label,
-                   wikidata_qid AS WikidataQid,
-                   fictional_universe_qid AS UniverseQid,
-                   fictional_universe_label AS UniverseLabel,
-                   image_url AS ImageUrl,
-                   entity_sub_type AS EntitySubType
-            FROM fictional_entities
-            WHERE fictional_universe_qid = @qid
-              AND entity_sub_type = 'Character'
-            ORDER BY label
+            SELECT fe.id AS Id,
+                   fe.label AS Label,
+                   fe.wikidata_qid AS WikidataQid,
+                   fe.fictional_universe_qid AS UniverseQid,
+                   fe.fictional_universe_label AS UniverseLabel,
+                   fe.image_url AS ImageUrl,
+                   fe.entity_sub_type AS EntitySubType,
+                   cp.id AS PortraitId,
+                   cp.image_url AS PortraitImageUrl,
+                   cp.local_image_path AS PortraitLocalImagePath,
+                   COALESCE(cp.is_default, 0) AS PortraitIsDefault
+            FROM fictional_entities fe
+            LEFT JOIN character_portraits cp
+                ON cp.fictional_entity_id = fe.id
+               AND cp.id = (
+                   SELECT cp2.id
+                   FROM character_portraits cp2
+                   WHERE cp2.fictional_entity_id = fe.id
+                   ORDER BY cp2.is_default DESC, cp2.updated_at DESC, cp2.created_at DESC
+                   LIMIT 1
+               )
+            WHERE fe.fictional_universe_qid = @qid
+              AND fe.entity_sub_type = 'Character'
+            ORDER BY fe.label
             LIMIT 24;
             """,
             new { qid },
@@ -1650,7 +1695,8 @@ public sealed class DetailComposerService
             EntityId = row.Id.ToString("D"),
             EntityType = RelatedEntityType.Character,
             DisplayName = row.Label,
-            ImageUrl = row.ImageUrl,
+            ImageUrl = ApiImageUrls.BuildCharacterPortraitUrl(row.PortraitId, row.PortraitLocalImagePath, row.PortraitImageUrl)
+                ?? row.ImageUrl,
             FallbackInitials = Initials(row.Label),
             PrimaryRole = "Character",
             IsCanonical = !string.IsNullOrWhiteSpace(row.WikidataQid),
@@ -1661,10 +1707,189 @@ public sealed class DetailComposerService
             : [new CharacterGroupViewModel { Title = "Characters", GroupType = CharacterGroupType.MainCharacters, Characters = characters }];
     }
 
+    private async Task<IReadOnlyList<CreditGroupViewModel>> BuildUniverseCastGroupsAsync(string? qid, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(qid))
+            return [];
+
+        using var conn = _db.CreateConnection();
+        var rows = (await conn.QueryAsync<UniversePerformerRow>(new CommandDefinition(
+            """
+            SELECT p.id AS PersonId,
+                   p.name AS PersonName,
+                   p.wikidata_qid AS PersonQid,
+                   p.headshot_url AS HeadshotUrl,
+                   p.local_headshot_path AS LocalHeadshotPath,
+                   fe.id AS CharacterId,
+                   fe.label AS CharacterName,
+                   cp.id AS PortraitId,
+                   cp.image_url AS PortraitImageUrl,
+                   cp.local_image_path AS PortraitLocalImagePath,
+                   COALESCE(cp.is_default, 0) AS PortraitIsDefault
+            FROM fictional_entities fe
+            INNER JOIN character_performer_links cpl
+                ON cpl.fictional_entity_id = fe.id
+            INNER JOIN persons p
+                ON p.id = cpl.person_id
+            LEFT JOIN character_portraits cp
+                ON cp.fictional_entity_id = fe.id
+               AND cp.person_id = p.id
+            WHERE fe.fictional_universe_qid = @qid
+            ORDER BY p.name, fe.label, cp.is_default DESC;
+            """,
+            new { qid },
+            cancellationToken: ct))).ToList();
+
+        var credits = rows
+            .Where(row => row.PersonId.HasValue && !string.IsNullOrWhiteSpace(row.PersonName))
+            .GroupBy(row => new
+            {
+                row.PersonId,
+                row.PersonName,
+                row.PersonQid,
+                row.HeadshotUrl,
+                row.LocalHeadshotPath,
+            })
+            .Select((group, index) =>
+            {
+                var preferredCharacter = group
+                    .OrderByDescending(row => row.PortraitIsDefault)
+                    .ThenByDescending(row => !string.IsNullOrWhiteSpace(row.PortraitImageUrl))
+                    .FirstOrDefault();
+
+                return new EntityCreditViewModel
+                {
+                    EntityId = group.Key.PersonId!.Value.ToString("D"),
+                    EntityType = RelatedEntityType.Person,
+                    DisplayName = group.Key.PersonName ?? "Unknown",
+                    ImageUrl = ApiImageUrls.BuildPersonHeadshotUrl(group.Key.PersonId.Value, group.Key.LocalHeadshotPath, group.Key.HeadshotUrl),
+                    FallbackInitials = Initials(group.Key.PersonName ?? "Unknown"),
+                    PrimaryRole = "Actor",
+                    CharacterName = preferredCharacter?.CharacterName,
+                    CharacterEntityId = preferredCharacter?.CharacterId.ToString("D"),
+                    CharacterImageUrl = preferredCharacter is null
+                        ? null
+                        : ApiImageUrls.BuildCharacterPortraitUrl(
+                            preferredCharacter.PortraitId,
+                            preferredCharacter.PortraitLocalImagePath,
+                            preferredCharacter.PortraitImageUrl),
+                    SortOrder = index,
+                    IsCanonical = !string.IsNullOrWhiteSpace(group.Key.PersonQid),
+                };
+            })
+            .Take(24)
+            .ToList();
+
+        return credits.Count == 0
+            ? []
+            : [new CreditGroupViewModel { Title = "Cast", GroupType = CreditGroupType.Cast, Credits = credits }];
+    }
+
+    private async Task<IReadOnlyList<RelationshipGroup>> BuildUniverseRelationshipGroupsAsync(string? qid, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(qid))
+            return [];
+
+        using var conn = _db.CreateConnection();
+        var rows = (await conn.QueryAsync<UniverseRelationshipRow>(new CommandDefinition(
+            """
+            SELECT er.relationship_type AS RelationshipType,
+                   er.subject_qid AS SubjectQid,
+                   er.object_qid AS ObjectQid,
+                   COALESCE(subject.label, er.subject_qid) AS SubjectLabel,
+                   COALESCE(object.label, er.object_qid) AS ObjectLabel,
+                   subject.entity_sub_type AS SubjectType,
+                   object.entity_sub_type AS ObjectType
+            FROM entity_relationships er
+            INNER JOIN fictional_entities subject
+                ON subject.wikidata_qid = er.subject_qid
+               AND subject.fictional_universe_qid = @qid
+            INNER JOIN fictional_entities object
+                ON object.wikidata_qid = er.object_qid
+               AND object.fictional_universe_qid = @qid
+            ORDER BY er.relationship_type, SubjectLabel, ObjectLabel
+            LIMIT 60;
+            """,
+            new { qid },
+            cancellationToken: ct))).ToList();
+
+        return rows
+            .GroupBy(row => row.RelationshipType, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new RelationshipGroup
+            {
+                Title = ToRelationshipGroupTitle(group.Key),
+                Items = group.Take(12).Select(row => new RelatedEntityChip
+                {
+                    Id = row.SubjectQid,
+                    EntityType = RelatedEntityType.Character,
+                    Label = $"{row.SubjectLabel} {FormatRelationshipLabel(row.RelationshipType)} {row.ObjectLabel}",
+                }).ToList(),
+            })
+            .ToList();
+    }
+
     private static IReadOnlyList<RelationshipGroup> BuildCollectionRelationships(CollectionDetailRow row, DetailEntityType entityType)
         => string.IsNullOrWhiteSpace(row.WikidataQid)
             ? []
             : [new RelationshipGroup { Title = "Canonical Identity", Items = [new RelatedEntityChip { Id = row.WikidataQid!, EntityType = RelatedEntityType.Universe, Label = row.WikidataQid! }] }];
+
+    private static IReadOnlyList<EntityCreditViewModel> BuildPreviewContributors(
+        DetailEntityType entityType,
+        IReadOnlyList<CreditGroupViewModel> groups)
+    {
+        CreditGroupType[] preferredGroupTypes = entityType switch
+        {
+            DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode or DetailEntityType.Universe => [CreditGroupType.Cast],
+            DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work => [CreditGroupType.Authors, CreditGroupType.Narrators],
+            DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => [CreditGroupType.Writers, CreditGroupType.Illustrators, CreditGroupType.CreativeTeam],
+            _ => Array.Empty<CreditGroupType>(),
+        };
+
+        var preferredCredits = preferredGroupTypes.Length == 0
+            ? []
+            : groups
+                .Where(group => preferredGroupTypes.Contains(group.GroupType))
+                .SelectMany(group => group.Credits)
+                .OrderBy(credit => credit.SortOrder)
+                .Take(12)
+                .ToList();
+
+        return preferredCredits.Count > 0
+            ? preferredCredits
+            : groups.SelectMany(g => g.Credits).OrderBy(c => c.SortOrder).Take(12).ToList();
+    }
+
+    private static string ToRelationshipGroupTitle(string relationshipType)
+        => string.Join(' ', relationshipType.Split('_', StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => char.ToUpperInvariant(word[0]) + word[1..]));
+
+    private static string FormatRelationshipLabel(string relationshipType) => relationshipType switch
+    {
+        "father" => "is father of",
+        "mother" => "is mother of",
+        "spouse" => "is spouse of",
+        "sibling" => "is sibling of",
+        "child" => "is child of",
+        "opponent" => "opposes",
+        "student_of" => "is student of",
+        "member_of" => "is member of",
+        "residence" => "resides in",
+        "located_in" => "is located in",
+        "part_of" => "is part of",
+        "head_of" => "leads",
+        "parent_organization" => "is parent organization of",
+        "has_parts" => "has part",
+        "creator" => "created",
+        "performer" => "performed by",
+        "same_as" => "is same as",
+        "significant_person" => "is significant to",
+        "affiliation" => "is affiliated with",
+        "based_on" => "is based on",
+        "derivative_work" => "is derivative of",
+        "inspired_by" => "is inspired by",
+        _ => relationshipType.Replace('_', ' '),
+    };
 
     private static string BuildCollectionSubtitle(DetailEntityType entityType, IReadOnlyList<CollectionWorkSummary> works)
     {
@@ -2002,5 +2227,8 @@ public sealed class DetailComposerService
     private sealed record SeriesRow(string WorkId, string Title, string? MediaType, string? PositionLabel, string? ArtworkUrl);
     private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? ArtworkUrl, string? BackgroundUrl);
     private sealed record CharacterDetailRow(Guid Id, string Label, string? WikidataQid, string? UniverseQid, string? UniverseLabel, string? ImageUrl, string? EntitySubType);
+    private sealed record CollectionCharacterRow(Guid Id, string Label, string? WikidataQid, string? UniverseQid, string? UniverseLabel, string? ImageUrl, string? EntitySubType, Guid? PortraitId, string? PortraitImageUrl, string? PortraitLocalImagePath, bool PortraitIsDefault);
     private sealed record CharacterPortraitRow(Guid Id, string? ImageUrl, string? LocalImagePath, bool IsDefault);
+    private sealed record UniversePerformerRow(Guid? PersonId, string? PersonName, string? PersonQid, string? HeadshotUrl, string? LocalHeadshotPath, Guid CharacterId, string? CharacterName, Guid? PortraitId, string? PortraitImageUrl, string? PortraitLocalImagePath, bool PortraitIsDefault);
+    private sealed record UniverseRelationshipRow(string RelationshipType, string SubjectQid, string ObjectQid, string SubjectLabel, string ObjectLabel, string? SubjectType, string? ObjectType);
 }

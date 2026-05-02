@@ -19,9 +19,17 @@ internal static class CastCreditQueries
         var work = await conn.QueryFirstOrDefaultAsync<WorkIdentityRow>(
             """
             SELECT id AS WorkId,
-                   wikidata_qid AS WorkQid
-            FROM works
-            WHERE id = @workId
+                   wikidata_qid AS WorkQid,
+                   COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                   root.wikidata_qid AS RootWorkQid
+            FROM works w
+            LEFT JOIN works p
+                ON p.id = w.parent_work_id
+            LEFT JOIN works gp
+                ON gp.id = p.parent_work_id
+            LEFT JOIN works root
+                ON root.id = COALESCE(gp.id, p.id, w.id)
+            WHERE w.id = @workId
             LIMIT 1;
             """,
             new { workId = workId.ToString() });
@@ -35,11 +43,24 @@ internal static class CastCreditQueries
         if (explicitCredits.Count > 0)
             return explicitCredits;
 
+        var rootExplicitCredits = string.IsNullOrWhiteSpace(work.RootWorkQid)
+            || string.Equals(work.RootWorkQid, work.WorkQid, StringComparison.OrdinalIgnoreCase)
+            ? []
+            : await BuildExplicitCastAsync(work.RootWorkQid, db, ct);
+        if (rootExplicitCredits.Count > 0)
+            return rootExplicitCredits;
+
         var linkedActors = await BuildActorOnlyCreditsFromMediaLinksAsync(workId, db, ct);
         if (linkedActors.Count > 0)
             return linkedActors;
 
-        return await BuildFallbackCreditsFromCanonicalArrayAsync(workId, canonicalArrayRepo, personRepo, ct);
+        var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(workId, canonicalArrayRepo, personRepo, ct);
+        if (fallbackCredits.Count > 0)
+            return fallbackCredits;
+
+        return work.RootWorkId.HasValue && work.RootWorkId.Value != workId
+            ? await BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, canonicalArrayRepo, personRepo, ct)
+            : [];
     }
 
     public static async Task<List<CastCreditDto>> BuildForCollectionRootAsync(
@@ -217,6 +238,8 @@ internal static class CastCreditQueries
     {
         public Guid WorkId { get; init; }
         public string? WorkQid { get; init; }
+        public Guid? RootWorkId { get; init; }
+        public string? RootWorkQid { get; init; }
     }
 
     private sealed class ExplicitCastRow

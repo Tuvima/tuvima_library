@@ -104,7 +104,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("ContributorsSection", source);
         Assert.DoesNotContain("CharactersSection", source);
         Assert.DoesNotContain("RelatedEntityChip", source);
+        Assert.Contains("OverviewParagraphs(Model.Description)", source);
+        Assert.Contains("Split([\"\\n\\n\"]", source);
+        Assert.Contains("Replace(\"\\\\n\", \"\\n\", StringComparison.Ordinal)", source);
         Assert.Contains("white-space: pre-line", styles);
+        Assert.Contains(".tl-detail-copy p", styles);
     }
 
     [Fact]
@@ -132,10 +136,14 @@ public sealed class UnifiedDetailComponentTests
     public void SeriesPlacementPanel_DoesNotRenderViewAllLink()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/SeriesPlacementPanel.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("Part of @Placement.SeriesTitle", source);
         Assert.DoesNotContain("View all", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("tl-series-view-all", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DetailEntityType.Movie or DetailEntityType.MovieSeries", source);
+        Assert.Contains("left: 0.45rem", styles);
+        Assert.Contains("background: rgba(5,8,12,0.88)", styles);
     }
 
     [Fact]
@@ -169,8 +177,9 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
 
         Assert.Contains("BuildHeroSummaryAsync", source);
-        Assert.Contains("qid_labels", source);
+        Assert.Contains("MetadataFieldConstants.ShortDescription", source);
         Assert.Contains("wikidata_description", source);
+        Assert.Contains("wikidata_summary", source);
     }
 
     [Fact]

@@ -556,6 +556,15 @@
     white-space: pre-line;
 }
 
+::deep .tl-detail-copy p {
+    margin: 0 0 0.8rem;
+    white-space: pre-line;
+}
+
+::deep .tl-detail-copy p:last-child {
+    margin-bottom: 0;
+}
+
 ::deep .tl-detail-tabs {
     display: flex;
     gap: 1.25rem;
@@ -1329,20 +1338,20 @@
 ::deep .tl-series-item__badge {
     position: absolute;
     z-index: 2;
-    left: 50%;
-    bottom: 0.42rem;
-    min-width: 1.5rem;
-    height: 1.35rem;
-    padding-inline: 0.25rem;
-    transform: translateX(-50%);
+    left: 0.45rem;
+    top: 0.45rem;
+    min-width: 1.85rem;
+    height: 1.55rem;
+    padding-inline: 0.42rem;
     display: grid;
     place-items: center;
-    border: 0;
-    border-radius: 0;
-    background: rgba(5,8,12,0.44);
+    border: 1px solid rgba(255,255,255,0.72);
+    border-radius: 999px;
+    background: rgba(5,8,12,0.88);
     color: #fff;
-    font-size: 0.9rem;
-    font-weight: 760;
+    font-size: 0.82rem;
+    font-weight: 900;
+    box-shadow: 0 0.25rem 0.8rem rgba(0,0,0,0.54);
 }
 
 ::deep .tl-series-item__missing-art {

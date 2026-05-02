@@ -72,6 +72,32 @@ public sealed class ScoringEngineTests
         Assert.Equal(WikidataProviderId, titleScore.WinningProviderId);
     }
 
+    [Fact]
+    public async Task WikidataTitle_EnglishLibraryPrefersLatinTitleOverStaleSourceLanguageClaim()
+    {
+        var engine = CreateEngine();
+        var context = new ScoringContext
+        {
+            EntityId = EntityId,
+            Claims =
+            [
+                MakeClaim("title", "\u30ce\u30eb\u30a6\u30a7\u30a4\u306e\u68ee", WikidataProviderId, 0.99),
+                MakeClaim("title", "Norwegian Wood", WikidataProviderId, 0.98),
+            ],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [WikidataProviderId] = 1.0,
+            },
+            Configuration = DefaultConfig,
+        };
+
+        var result = await engine.ScoreEntityAsync(context);
+
+        var titleScore = result.FieldScores.First(f => f.Key == "title");
+        Assert.Equal("Norwegian Wood", titleScore.WinningValue);
+        Assert.Equal(WikidataProviderId, titleScore.WinningProviderId);
+    }
+
     // ── Wikidata wins even over user-locked claims ───────────────────────────
 
     [Fact]

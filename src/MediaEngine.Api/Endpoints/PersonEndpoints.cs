@@ -156,26 +156,27 @@ public static class PersonEndpoints
 
             // Try local headshot path first.
             if (!string.IsNullOrEmpty(person.LocalHeadshotPath)
-                && File.Exists(person.LocalHeadshotPath))
+                && File.Exists(person.LocalHeadshotPath)
+                && IsLikelyImageFile(person.LocalHeadshotPath))
             {
-                return Results.File(person.LocalHeadshotPath, "image/jpeg");
+                return Results.File(person.LocalHeadshotPath, GetImageMimeType(person.LocalHeadshotPath));
             }
 
             var canonicalPath = assetPaths.GetPersonHeadshotPath(id);
-            if (File.Exists(canonicalPath))
+            if (File.Exists(canonicalPath) && IsLikelyImageFile(canonicalPath))
             {
                 await personRepo.UpdateLocalHeadshotPathAsync(id, canonicalPath, ct);
-                return Results.File(canonicalPath, "image/jpeg");
+                return Results.File(canonicalPath, GetImageMimeType(canonicalPath));
             }
 
             // Check the legacy centralized .data/images/people/{QID}/ path first.
             if (imagePaths is not null && !string.IsNullOrWhiteSpace(person.WikidataQid))
             {
                 var newStylePath = Path.Combine(imagePaths.GetPersonImageDir(person.WikidataQid), "headshot.jpg");
-                if (File.Exists(newStylePath))
+                if (File.Exists(newStylePath) && IsLikelyImageFile(newStylePath))
                 {
                     await personRepo.UpdateLocalHeadshotPathAsync(id, newStylePath, ct);
-                    return Results.File(newStylePath, "image/jpeg");
+                    return Results.File(newStylePath, GetImageMimeType(newStylePath));
                 }
             }
 
@@ -190,19 +191,19 @@ public static class PersonEndpoints
                     var namedFolder = Path.Combine(core.LibraryRoot, ".people",
                         $"{sanitizedName} ({person.WikidataQid})");
                     var namedPath = Path.Combine(namedFolder, "headshot.jpg");
-                    if (File.Exists(namedPath))
+                    if (File.Exists(namedPath) && IsLikelyImageFile(namedPath))
                     {
                         await personRepo.UpdateLocalHeadshotPathAsync(id, namedPath, ct);
-                        return Results.File(namedPath, "image/jpeg");
+                        return Results.File(namedPath, GetImageMimeType(namedPath));
                     }
                 }
 
                 // Try bare GUID folder (legacy)
                 var guidPath = Path.Combine(core.LibraryRoot, ".people", id.ToString(), "headshot.jpg");
-                if (File.Exists(guidPath))
+                if (File.Exists(guidPath) && IsLikelyImageFile(guidPath))
                 {
                     await personRepo.UpdateLocalHeadshotPathAsync(id, guidPath, ct);
-                    return Results.File(guidPath, "image/jpeg");
+                    return Results.File(guidPath, GetImageMimeType(guidPath));
                 }
             }
 
@@ -212,20 +213,32 @@ public static class PersonEndpoints
                 try
                 {
                     using var client = httpFactory.CreateClient("headshot_download");
-                    var bytes = await client.GetByteArrayAsync(person.HeadshotUrl, ct);
-                    if (bytes.Length > 0)
+                    using var response = await client.GetAsync(person.HeadshotUrl, ct);
+                    if (response.IsSuccessStatusCode)
                     {
-                        var localPath = assetPaths.GetPersonHeadshotPath(id);
-                        AssetPathService.EnsureDirectory(localPath);
-                        await File.WriteAllBytesAsync(localPath, bytes, ct);
-                        await personRepo.UpdateLocalHeadshotPathAsync(id, localPath, ct);
-                        return Results.File(localPath, "image/jpeg");
+                        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                        var contentType = response.Content.Headers.ContentType?.MediaType;
+                        if (bytes.Length > 0 && IsLikelyImageBytes(bytes, contentType))
+                        {
+                            var localPath = assetPaths.GetPersonHeadshotPath(id, InferImageExtension(person.HeadshotUrl, contentType));
+                            AssetPathService.EnsureDirectory(localPath);
+                            await File.WriteAllBytesAsync(localPath, bytes, ct);
+                            await personRepo.UpdateLocalHeadshotPathAsync(id, localPath, ct);
+                            return Results.File(bytes, contentType ?? GetImageMimeType(localPath), Path.GetFileName(localPath));
+                        }
                     }
                 }
                 catch
                 {
                     // Download failed — fall through to 404
                 }
+            }
+
+            if (!string.IsNullOrEmpty(person.HeadshotUrl)
+                && Uri.TryCreate(person.HeadshotUrl, UriKind.Absolute, out var remoteUri)
+                && (remoteUri.Scheme == Uri.UriSchemeHttp || remoteUri.Scheme == Uri.UriSchemeHttps))
+            {
+                return Results.Redirect(remoteUri.ToString());
             }
 
             return Results.NotFound("Headshot not available.");
@@ -546,5 +559,98 @@ public static class PersonEndpoints
         .WithSummary("List persons, optionally filtered by role.");
 
         return app;
+    }
+
+    private static string GetImageMimeType(string fileName)
+        => Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".svg" => "image/svg+xml",
+            _ => "image/jpeg",
+        };
+
+    private static string InferImageExtension(string imageUrl, string? contentType)
+    {
+        var extension = contentType?.ToLowerInvariant() switch
+        {
+            "image/png" => ".png",
+            "image/gif" => ".gif",
+            "image/webp" => ".webp",
+            "image/svg+xml" => ".svg",
+            "image/jpeg" or "image/jpg" => ".jpg",
+            _ => null,
+        };
+
+        if (!string.IsNullOrWhiteSpace(extension))
+            return extension;
+
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
+        {
+            extension = Path.GetExtension(uri.AbsolutePath);
+            if (!string.IsNullOrWhiteSpace(extension))
+                return extension.ToLowerInvariant();
+        }
+
+        return ".jpg";
+    }
+
+    private static bool IsLikelyImageFile(string path)
+    {
+        try
+        {
+            var header = new byte[32];
+            using var stream = File.OpenRead(path);
+            var read = stream.Read(header, 0, header.Length);
+            return IsLikelyImageBytes(header[..read], null);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsLikelyImageBytes(byte[] bytes, string? contentType)
+    {
+        if (bytes.Length == 0)
+            return false;
+
+        if (contentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+
+        if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
+            return true;
+
+        if (bytes.Length >= 8
+            && bytes[0] == 0x89
+            && bytes[1] == 0x50
+            && bytes[2] == 0x4E
+            && bytes[3] == 0x47
+            && bytes[4] == 0x0D
+            && bytes[5] == 0x0A
+            && bytes[6] == 0x1A
+            && bytes[7] == 0x0A)
+        {
+            return true;
+        }
+
+        if (bytes.Length >= 6
+            && bytes[0] == 0x47
+            && bytes[1] == 0x49
+            && bytes[2] == 0x46)
+        {
+            return true;
+        }
+
+        return bytes.Length >= 12
+            && bytes[0] == 0x52
+            && bytes[1] == 0x49
+            && bytes[2] == 0x46
+            && bytes[3] == 0x46
+            && bytes[8] == 0x57
+            && bytes[9] == 0x45
+            && bytes[10] == 0x42
+            && bytes[11] == 0x50;
     }
 }

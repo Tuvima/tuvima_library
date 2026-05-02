@@ -175,12 +175,31 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("fallbackBackdrop", source);
         Assert.Contains("fallbackCover", source);
+        Assert.Contains("collectionBackdrop = FirstNonBlank", source);
+        Assert.Contains("collectionCover = FirstNonBlank", source);
         Assert.Contains("'hero_url', 'hero'", source);
         Assert.Contains("SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })", source);
         Assert.Contains("NULLIF(cover_asset.value, '')", source);
         Assert.Contains("COALESCE(gp.id, p.id, w.id)", source);
         Assert.Contains("ResolveCollectionArtworkUrl", source);
         Assert.Contains("DisplayArtworkUrlResolver.Resolve(value, assetId, kind, state)", source);
+    }
+
+    [Fact]
+    public void DetailComposer_PopulatesCastCharactersAndRelationshipsForCollectionSurfaces()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs"));
+
+        Assert.Contains("BuildCollectionCreditsAsync(collectionId, works, entityType, ct)", source);
+        Assert.Contains("BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct)", source);
+        Assert.Contains("BuildUniverseCastGroupsAsync(row.WikidataQid, ct)", source);
+        Assert.Contains("BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct)", source);
+        Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl(row.PortraitId", source);
+        Assert.Contains("DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode or DetailEntityType.Universe => [CreditGroupType.Cast]", source);
+        Assert.Contains("root.wikidata_qid AS RootWorkQid", creditSource);
+        Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, db, ct)", creditSource);
+        Assert.Contains("BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value", creditSource);
     }
 
     [Fact]
@@ -203,6 +222,17 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("ToString(\"0.0\"", source);
         Assert.Contains("canonicalArrayKey}_qid", source);
         Assert.Contains("headshot_url", source);
+    }
+
+    [Fact]
+    public void PersonEndpoints_FallsBackToRemotePortraitsWhenCacheMisses()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonEndpoints.cs"));
+
+        Assert.Contains("IsLikelyImageFile", source);
+        Assert.Contains("IsLikelyImageBytes", source);
+        Assert.Contains("InferImageExtension(person.HeadshotUrl, contentType)", source);
+        Assert.Contains("Results.Redirect(remoteUri.ToString())", source);
     }
 
     private static string FindRepoRoot()

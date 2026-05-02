@@ -185,11 +185,7 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             // When multiple Wikidata claims exist for the same field (e.g. a
             // display-language title at 0.98 and a reconciliation match label at
             // 0.90), pick by highest confidence first, then newest as tiebreaker.
-            var wikidataClaim = claimsForField
-                .Where(c => c.ProviderId == WikidataProviderId)
-                .OrderByDescending(c => c.Confidence)
-                .ThenByDescending(c => c.ClaimedAt)
-                .FirstOrDefault();
+            var wikidataClaim = ResolveWikidataClaim(group.Key, claimsForField);
 
             if (wikidataClaim is not null)
             {
@@ -317,6 +313,65 @@ public sealed class PriorityCascadeEngine : IScoringEngine
 
         return null;
     }
+
+    private Domain.Entities.MetadataClaim? ResolveWikidataClaim(
+        string fieldKey,
+        List<Domain.Entities.MetadataClaim> claimsForField)
+    {
+        var orderedClaims = claimsForField
+            .Where(c => c.ProviderId == WikidataProviderId)
+            .OrderByDescending(c => c.Confidence)
+            .ThenByDescending(c => c.ClaimedAt)
+            .ToList();
+
+        var bestClaim = orderedClaims.FirstOrDefault();
+        if (bestClaim is null
+            || !string.Equals(fieldKey, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase)
+            || !UsesEnglishMetadataLanguage()
+            || !LooksMostlyNonLatin(bestClaim.ClaimValue))
+        {
+            return bestClaim;
+        }
+
+        return orderedClaims.FirstOrDefault(c => HasLatinLetter(c.ClaimValue) && !LooksMostlyNonLatin(c.ClaimValue))
+            ?? bestClaim;
+    }
+
+    private bool UsesEnglishMetadataLanguage()
+    {
+        var core = _configLoader.LoadCore();
+        var metadataLanguage = core.Language.Metadata.Split('-', '_')[0].Trim();
+        var displayLanguage = core.Language.Display.Split('-', '_')[0].Trim();
+
+        return metadataLanguage.Equals("en", StringComparison.OrdinalIgnoreCase)
+            || displayLanguage.Equals("en", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool LooksMostlyNonLatin(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var letterCount = 0;
+        var latinCount = 0;
+        foreach (var c in value)
+        {
+            if (!char.IsLetter(c))
+                continue;
+
+            letterCount++;
+            if (IsBasicLatinLetter(c))
+                latinCount++;
+        }
+
+        return letterCount > 0 && latinCount * 2 < letterCount;
+    }
+
+    private static bool HasLatinLetter(string? value)
+        => !string.IsNullOrWhiteSpace(value) && value.Any(IsBasicLatinLetter);
+
+    private static bool IsBasicLatinLetter(char c)
+        => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 
     private static double ApplyConfidenceFloor(
         double overallConfidence,
