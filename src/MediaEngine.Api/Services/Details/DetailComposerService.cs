@@ -162,7 +162,7 @@ public sealed class DetailComposerService
             Title = entityType == DetailEntityType.TvEpisode
                 ? FirstNonBlank(detail.EpisodeTitle, GetValue(values, MetadataFieldConstants.EpisodeTitle), detail.Title, detail.FileName, "Untitled")
                 : FirstNonBlank(detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled"),
-            Subtitle = BuildSubtitle(detail, entityType, multiFormatState),
+            Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
             Tagline = heroSummary,
             Description = longDescription,
             Artwork = artwork,
@@ -174,7 +174,7 @@ public sealed class DetailComposerService
             MultiFormatState = multiFormatState,
             SyncCapability = BuildSyncCapability(workId, ownedFormats, multiFormatState),
             SeriesPlacement = seriesPlacement,
-            Metadata = BuildMetadataPills(detail, entityType),
+            Metadata = BuildMetadataPills(detail, entityType, values, ownedFormats),
             PrimaryActions = BuildPrimaryActions(workId, entityType, context, ownedFormats),
             SecondaryActions = BuildSecondaryActions(workId, entityType, ownedFormats),
             OverflowActions = BuildOverflowActions(workId, entityType, isAdminView),
@@ -300,12 +300,12 @@ public sealed class DetailComposerService
             EntityType = entityType,
             PresentationContext = context,
             Title = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values),
-            Subtitle = BuildCollectionSubtitle(entityType, works),
+            Subtitle = BuildCollectionSubtitle(entityType, works, values),
             Tagline = heroSummary,
             Description = longDescription,
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(entityType, row.HeroBrandLabel, row.HeroBrandImageUrl),
-            Metadata = BuildCollectionMetadata(entityType, works),
+            Metadata = BuildCollectionMetadata(entityType, works, values),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context),
             SecondaryActions = BuildSecondaryActions(collectionId, entityType),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
@@ -1227,6 +1227,9 @@ public sealed class DetailComposerService
                    CAST(COALESCE(NULLIF(track.value, ''), '') AS TEXT) AS TrackNumber,
                    CAST(COALESCE(NULLIF(runtime.value, ''), NULLIF(duration.value, '')) AS TEXT) AS Duration,
                    CAST(COALESCE(NULLIF(year_asset.value, ''), NULLIF(year_work.value, '')) AS TEXT) AS Year,
+                   CAST(COALESCE(NULLIF(artist_asset.value, ''), NULLIF(artist_work.value, ''), NULLIF(artist_root.value, '')) AS TEXT) AS Artist,
+                   CAST(COALESCE(NULLIF(explicit_asset.value, ''), NULLIF(explicit_work.value, '')) AS TEXT) AS Explicit,
+                   CAST(COALESCE(NULLIF(quality_asset.value, ''), NULLIF(quality_work.value, ''), NULLIF(quality_root.value, '')) AS TEXT) AS Quality,
                    CAST(COALESCE(NULLIF(cover_asset.value, ''), NULLIF(poster_asset.value, ''), NULLIF(cover_work.value, ''), NULLIF(poster_work.value, ''), NULLIF(cover_root.value, ''), NULLIF(poster_root.value, '')) AS TEXT) AS ArtworkUrl,
                    CAST(COALESCE(NULLIF(still_asset.value, ''), NULLIF(still_work.value, ''), NULLIF(bg_asset.value, ''), NULLIF(bg_work.value, ''), NULLIF(hero_asset.value, ''), NULLIF(hero_work.value, ''), NULLIF(banner_asset.value, ''), NULLIF(banner_work.value, ''), NULLIF(bg_root.value, ''), NULLIF(hero_root.value, ''), NULLIF(banner_root.value, '')) AS TEXT) AS BackgroundUrl,
                    CAST(COALESCE(NULLIF(cover_state_asset.value, ''), NULLIF(cover_state_work.value, ''), NULLIF(cover_state_root.value, '')) AS TEXT) AS CoverState,
@@ -1253,6 +1256,14 @@ public sealed class DetailComposerService
             LEFT JOIN canonical_values duration ON duration.entity_id = ma.id AND duration.key = 'duration'
             LEFT JOIN canonical_values year_asset ON year_asset.entity_id = ma.id AND year_asset.key IN ('year', 'release_year')
             LEFT JOIN canonical_values year_work ON year_work.entity_id = w.id AND year_work.key IN ('year', 'release_year')
+            LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ma.id AND artist_asset.key IN ('artist', 'album_artist')
+            LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist')
+            LEFT JOIN canonical_values artist_root ON artist_root.entity_id = COALESCE(gp.id, p.id, w.id) AND artist_root.key IN ('artist', 'album_artist')
+            LEFT JOIN canonical_values explicit_asset ON explicit_asset.entity_id = ma.id AND explicit_asset.key IN ('explicit', 'is_explicit')
+            LEFT JOIN canonical_values explicit_work ON explicit_work.entity_id = w.id AND explicit_work.key IN ('explicit', 'is_explicit')
+            LEFT JOIN canonical_values quality_asset ON quality_asset.entity_id = ma.id AND quality_asset.key IN ('quality', 'audio_quality')
+            LEFT JOIN canonical_values quality_work ON quality_work.entity_id = w.id AND quality_work.key IN ('quality', 'audio_quality')
+            LEFT JOIN canonical_values quality_root ON quality_root.entity_id = COALESCE(gp.id, p.id, w.id) AND quality_root.key IN ('quality', 'audio_quality')
             LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ma.id AND cover_asset.key IN ('cover_url', 'cover')
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover')
             LEFT JOIN canonical_values poster_asset ON poster_asset.entity_id = ma.id AND poster_asset.key IN ('poster_url', 'poster')
@@ -1299,6 +1310,9 @@ public sealed class DetailComposerService
             StringValue(row.TrackNumber),
             StringValue(row.Duration),
             StringValue(row.Year),
+            StringValue(row.Artist),
+            IsTruthy(StringValue(row.Explicit)),
+            StringValue(row.Quality),
             ResolveCollectionArtworkUrl(StringValue(row.ArtworkUrl), StringValue(row.AssetId), "cover", StringValue(row.CoverState)),
             ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)))).ToList();
     }
@@ -1480,7 +1494,8 @@ public sealed class DetailComposerService
         var accent = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkAccentHex), GetValue(values, "accent_color"), "#4F7DBA");
         var mode = ResolveArtworkPresentationMode(entityType, backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl, relatedArtwork.Count, ownedFormatCount);
         var characterImageUrl = entityType == DetailEntityType.Character ? portraitUrl : null;
-        var heroArtwork = HeroArtworkResolver.Resolve(entityType, backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl, characterImageUrl, relatedArtwork);
+        var resolvedLogoUrl = FirstNonBlank(logoUrl, GetValue(values, "clear_logo_url"), GetValue(values, "clear_logo"), GetValue(values, "logo_url"), GetValue(values, "logo"));
+        var heroArtwork = HeroArtworkResolver.Resolve(entityType, backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl, characterImageUrl, relatedArtwork, resolvedLogoUrl);
 
         return new ArtworkSet
         {
@@ -1488,7 +1503,7 @@ public sealed class DetailComposerService
             BannerUrl = bannerUrl,
             PosterUrl = posterUrl,
             CoverUrl = coverUrl,
-            LogoUrl = logoUrl ?? GetValue(values, "logo_url") ?? GetValue(values, "logo"),
+            LogoUrl = resolvedLogoUrl,
             PortraitUrl = portraitUrl,
             CharacterImageUrl = characterImageUrl,
             RelatedArtworkUrls = relatedArtwork,
@@ -1502,14 +1517,18 @@ public sealed class DetailComposerService
         };
     }
 
-    private static IReadOnlyList<MetadataPill> BuildMetadataPills(LibraryItemDetail detail, DetailEntityType entityType)
+    private static IReadOnlyList<MetadataPill> BuildMetadataPills(
+        LibraryItemDetail detail,
+        DetailEntityType entityType,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        IReadOnlyList<OwnedFormatViewModel> formats)
     {
-        var values = new List<MetadataPill>();
-        AddPlain(values, FormatRating(detail.Rating), "rating");
+        var pills = new List<MetadataPill>();
+        AddPlain(pills, FormatRating(detail.Rating), "rating");
 
         foreach (var genre in SplitMetadataValues(detail.Genre).Take(3))
         {
-            values.Add(new MetadataPill
+            pills.Add(new MetadataPill
             {
                 Label = genre,
                 Kind = "genre",
@@ -1518,12 +1537,19 @@ public sealed class DetailComposerService
             });
         }
 
-        AddPlain(values, FormatEntityType(entityType), "type");
-        AddPlain(values, detail.Year, "year");
-        AddPlain(values, FormatRuntime(detail.Runtime), "duration");
-        AddPlain(values, detail.Language, "audio");
+        AddPlain(pills, FormatEntityType(entityType), "type");
+        AddPlain(pills, detail.Year, "year");
+        AddPlain(pills, FormatRuntime(detail.Runtime), "duration");
+        AddPlain(pills, FormatCountLabel(GetValue(canonicalValues, "page_count"), "page"), "page_count");
+        AddPlain(pills, FormatCountLabel(GetValue(canonicalValues, "track_count"), "track"), "track_count");
+        AddPlain(pills, FormatCountLabel(GetValue(canonicalValues, "season_count"), "season"), "season_count");
+        AddPlain(pills, FormatCountLabel(GetValue(canonicalValues, "episode_count"), "episode"), "episode_count");
+        AddPlain(pills, FirstNonBlank(GetValue(canonicalValues, "quality"), GetValue(canonicalValues, "audio_quality")), "quality");
+        AddPlain(pills, detail.Language, "audio");
+        if (HasReadListenCompanion(entityType, formats))
+            AddPlain(pills, BuildReadListenAvailabilityLabel(entityType, formats), "sync");
 
-        return values
+        return pills
             .Where(value => !string.IsNullOrWhiteSpace(value.Label))
             .DistinctBy(value => value.Label, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -1531,23 +1557,16 @@ public sealed class DetailComposerService
 
     private static IReadOnlyList<DetailAction> BuildPrimaryActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, IReadOnlyList<OwnedFormatViewModel> formats)
     {
-        if (formats.Count > 1 && formats.Any(f => f.FormatType == MediaFormatType.Ebook) && formats.Any(f => f.FormatType == MediaFormatType.Audiobook))
-        {
-            return
-            [
-                new DetailAction { Key = "continue-reading", Label = "Continue Reading", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true },
-                new DetailAction { Key = "continue-listening", Label = "Continue Listening", Icon = "headphones", Route = $"/listen/audiobook/{id}", IsPrimary = true },
-            ];
-        }
-
         return entityType switch
         {
-            DetailEntityType.Movie => [new DetailAction { Key = "play", Label = "Play", Icon = "play_arrow", Route = $"/watch/player/resolve?workId={id}", IsPrimary = true }],
-            DetailEntityType.TvShow => [new DetailAction { Key = "watch-latest", Label = "Watch Latest", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.Movie => [new DetailAction { Key = "watch", Label = "Watch", Icon = "play_arrow", Route = $"/watch/player/resolve?workId={id}", IsPrimary = true }],
+            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => [new DetailAction { Key = "watch", Label = "Watch", Icon = "play_arrow", IsPrimary = true }],
             DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = "Listen", Icon = "headphones", Route = $"/listen/audiobook/{id}", IsPrimary = true }],
-            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play Album", Icon = "play_arrow", IsPrimary = true }],
-            DetailEntityType.MusicArtist => [new DetailAction { Key = "play-artist", Label = "Play Artist", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
+            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = "Listen", Icon = "headphones", Route = $"/listen/audiobook/{id}", IsPrimary = true }],
+            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.MusicArtist => [new DetailAction { Key = "play-artist", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
     }
@@ -1556,24 +1575,66 @@ public sealed class DetailComposerService
     {
         var actions = new List<DetailAction>();
 
-        if (entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode)
+        if (HasReadListenCompanion(entityType, formats ?? []))
+        {
+            actions.Add(new DetailAction
+            {
+                Key = "read-listen",
+                Label = "Read + Listen",
+                Subtitle = "Continue seamlessly between reading and listening",
+                Icon = "read_listen",
+                Tooltip = "Unified Read + Listen is waiting on sync enablement",
+                IsDisabled = true,
+                IsStub = true,
+                DisplayStyle = "premium",
+            });
+        }
+
+        if (entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode
+            && SupportsWatchParty(entityType))
         {
             actions.Add(new DetailAction
             {
                 Key = "watch-party",
                 Label = "Watch Party",
+                Subtitle = "Watch together",
                 Icon = "groups",
-                Tooltip = "Watch Party is coming soon",
-                IsDisabled = true,
-                IsStub = true,
+                Tooltip = "Watch together",
                 DisplayStyle = "icon",
             });
+        }
+
+        if (entityType == DetailEntityType.MusicAlbum)
+        {
+            actions.Add(new DetailAction
+            {
+                Key = "shuffle",
+                Label = "Shuffle",
+                Icon = "shuffle",
+                Tooltip = "Shuffle album",
+                DisplayStyle = "icon",
+            });
+            actions.Add(new DetailAction
+            {
+                Key = "save",
+                Label = "Save",
+                Icon = "playlist_add",
+                Tooltip = "Save album",
+                DisplayStyle = "icon",
+            });
+            return actions;
         }
 
         actions.Add(new DetailAction
         {
             Key = "add-to-collection",
-            Label = "Add to collection",
+            Label = entityType switch
+            {
+                DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Want to Watch",
+                DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
+                DetailEntityType.Audiobook => "Want to Listen",
+                _ => "Add to collection",
+            },
             Icon = "add",
             Tooltip = "Add to collection",
             DisplayStyle = "icon",
@@ -1593,27 +1654,31 @@ public sealed class DetailComposerService
             ],
         });
 
-        if (formats?.Any(f => f.FormatType == MediaFormatType.Ebook) == true &&
-            formats.Any(f => f.FormatType == MediaFormatType.Audiobook))
-        {
-            actions.Add(new DetailAction
-            {
-                Key = "format-tools",
-                Label = "Read/listen tools",
-                Icon = "headphones",
-                Tooltip = "Read/listen tools",
-                DisplayStyle = "hover-menu",
-                Children =
-                [
-                    new DetailAction { Key = "sync-progress", Label = "Sync Progress", Icon = "sync", Tooltip = "Sync Progress (coming soon)", IsDisabled = true, IsStub = true },
-                    new DetailAction { Key = "read-along", Label = "Read Along", Icon = "auto_stories", Tooltip = "Read Along (coming soon)", IsDisabled = true, IsStub = true },
-                    new DetailAction { Key = "keep-separate", Label = "Keep Separate", Icon = "link", Tooltip = "Keep reading and listening progress separate", IsDisabled = true },
-                    new DetailAction { Key = "format-settings", Label = "Format Settings", Icon = "settings", Tooltip = "Format Settings (coming soon)", IsDisabled = true, IsStub = true },
-                ],
-            });
-        }
-
         return actions;
+    }
+
+    private static bool HasReadListenCompanion(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
+        => entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work
+           && formats.Any(f => f.FormatType == MediaFormatType.Ebook)
+           && formats.Any(f => f.FormatType == MediaFormatType.Audiobook);
+
+    private static string BuildReadListenAvailabilityLabel(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
+    {
+        if (entityType == DetailEntityType.Audiobook)
+            return "Ebook available";
+
+        var audiobook = formats.FirstOrDefault(f => f.FormatType == MediaFormatType.Audiobook);
+        var runtime = FormatRuntime(audiobook?.Runtime);
+        return string.IsNullOrWhiteSpace(runtime)
+            ? "Audiobook available"
+            : $"Audiobook available · {runtime}";
+    }
+
+    private static bool SupportsWatchParty(DetailEntityType entityType)
+    {
+        _ = entityType;
+        // TODO: Read from a real playback capability flag when group watch is added.
+        return false;
     }
 
     private static IReadOnlyList<DetailAction> BuildOverflowActions(Guid id, DetailEntityType entityType, bool isAdminView)
@@ -1672,6 +1737,19 @@ public sealed class DetailComposerService
             values.Add(new MetadataPill { Label = label, Kind = kind });
     }
 
+    private static string? FormatCountLabel(string? value, string singular)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        if (!int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count))
+            return trimmed;
+
+        var label = count == 1 ? singular : singular + "s";
+        return $"{count.ToString(CultureInfo.InvariantCulture)} {label}";
+    }
+
     private static string? FormatRating(string? rating)
     {
         if (string.IsNullOrWhiteSpace(rating))
@@ -1703,6 +1781,63 @@ public sealed class DetailComposerService
             ? remainingMinutes > 0 ? $"{hours}h {remainingMinutes}m" : $"{hours}h"
             : $"{totalMinutes}m";
     }
+
+    private static string? FormatTrackDuration(string? duration)
+    {
+        if (string.IsNullOrWhiteSpace(duration))
+            return null;
+
+        var trimmed = duration.Trim();
+        if (trimmed.Contains(':', StringComparison.Ordinal))
+            return trimmed;
+
+        return FormatRuntime(trimmed);
+    }
+
+    private static string? FormatAlbumDuration(IReadOnlyList<CollectionWorkSummary> works)
+    {
+        var seconds = works
+            .Select(work => TryParseClockDurationSeconds(work.Duration))
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .ToList();
+
+        if (seconds.Count == 0)
+            return null;
+
+        var totalSeconds = seconds.Sum();
+        var totalMinutes = (int)Math.Round(totalSeconds / 60d, MidpointRounding.AwayFromZero);
+        var hours = totalMinutes / 60;
+        var minutes = totalMinutes % 60;
+
+        return hours > 0
+            ? minutes > 0 ? $"{hours}h {minutes}m" : $"{hours}h"
+            : $"{totalMinutes}m";
+    }
+
+    private static int? TryParseClockDurationSeconds(string? duration)
+    {
+        if (string.IsNullOrWhiteSpace(duration) || !duration.Contains(':', StringComparison.Ordinal))
+            return null;
+
+        var parts = duration.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length is < 2 or > 3)
+            return null;
+
+        var total = 0;
+        foreach (var part in parts)
+        {
+            if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+                return null;
+
+            total = (total * 60) + value;
+        }
+
+        return total;
+    }
+
+    private static bool IsTruthy(string? value)
+        => value?.Trim().ToLowerInvariant() is "1" or "true" or "yes" or "explicit";
 
     private static IEnumerable<string> SplitMetadataValues(string? value)
     {
@@ -1808,16 +1943,22 @@ public sealed class DetailComposerService
         };
     }
 
-    private static string? BuildSubtitle(LibraryItemDetail detail, DetailEntityType entityType, MultiFormatState state)
+    private static string? BuildSubtitle(
+        LibraryItemDetail detail,
+        DetailEntityType entityType,
+        IReadOnlyDictionary<string, string> values,
+        MultiFormatState state)
     {
-        if (state != MultiFormatState.SingleFormat)
+        if (state == (MultiFormatState)(-1))
             return "Book + Audiobook • Separate Progress";
 
         return entityType switch
         {
             DetailEntityType.Book => detail.Author,
             DetailEntityType.Audiobook => FirstNonBlank(detail.Narrator, detail.Author),
-            DetailEntityType.Movie => FirstNonBlank(detail.Year, "Movie"),
+            DetailEntityType.Movie => FirstNonBlank(detail.Director, GetValue(values, "studio"), detail.Year, "Movie"),
+            DetailEntityType.MusicTrack => string.Join(" â€¢ ", new[] { detail.Artist, GetValue(values, "album") }.Where(s => !string.IsNullOrWhiteSpace(s))),
+            DetailEntityType.ComicIssue => FirstNonBlank(detail.Writer, detail.Illustrator, detail.Author),
             DetailEntityType.TvEpisode => string.Join(" • ", new[] { detail.ShowName, FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber) }.Where(s => !string.IsNullOrWhiteSpace(s))),
             _ => FormatEntityType(entityType),
         };
@@ -1893,10 +2034,17 @@ public sealed class DetailComposerService
             Id = work.Id,
             EntityType = InferMediaItemEntityType(work),
             Title = work.Title,
-            Subtitle = FirstNonBlank(FormatSeasonEpisode(work.Season, work.Episode), work.Year, work.Duration),
+            Subtitle = InferMediaItemEntityType(work) == DetailEntityType.MusicTrack
+                ? FirstNonBlank(work.Artist, work.Year, FormatTrackDuration(work.Duration))
+                : FirstNonBlank(FormatSeasonEpisode(work.Season, work.Episode), work.Year, FormatTrackDuration(work.Duration)),
             Description = work.Description,
             ArtworkUrl = FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl),
-            Metadata = BuildEpisodeMetadata(work.Duration, work.Year),
+            TrackNumber = work.TrackNumber,
+            Duration = FormatTrackDuration(work.Duration),
+            Artist = work.Artist,
+            IsExplicit = work.IsExplicit,
+            Quality = work.Quality,
+            Metadata = BuildEpisodeMetadata(FormatTrackDuration(work.Duration), work.Year),
             Actions = [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", Route = BuildWorkRoute(work) }],
             IsOwned = true,
         };
@@ -1926,17 +2074,38 @@ public sealed class DetailComposerService
         DetailEntityType.Movie => $"/watch/movie/{work.Id}",
         DetailEntityType.TvEpisode => $"/details/tvepisode/{work.Id}?context=watch",
         DetailEntityType.Audiobook => $"/listen/audiobook/{work.Id}",
+        DetailEntityType.MusicTrack => $"/details/musictrack/{work.Id}?context=listen",
         _ => $"/book/{work.Id}",
     };
 
-    private static IReadOnlyList<MetadataPill> BuildCollectionMetadata(DetailEntityType entityType, IReadOnlyList<CollectionWorkSummary> works)
-        => [new MetadataPill { Label = FormatEntityType(entityType) }, new MetadataPill { Label = $"{works.Count} item{(works.Count == 1 ? "" : "s")}" }];
+    private static IReadOnlyList<MetadataPill> BuildCollectionMetadata(
+        DetailEntityType entityType,
+        IReadOnlyList<CollectionWorkSummary> works,
+        IReadOnlyDictionary<string, string> values)
+    {
+        if (entityType == DetailEntityType.MusicAlbum)
+        {
+            var pills = new List<MetadataPill>();
+            AddPlain(pills, FormatEntityType(entityType), "type");
+            AddPlain(pills, FirstNonBlank(GetValue(values, "year"), GetValue(values, "release_year"), works.Select(w => w.Year).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y))), "year");
+            AddPlain(pills, FormatCountLabel(GetValue(values, "track_count") ?? works.Count.ToString(CultureInfo.InvariantCulture), "track"), "track_count");
+            AddPlain(pills, FormatAlbumDuration(works), "duration");
+            AddPlain(pills, GetValue(values, "genre"), "genre");
+            AddPlain(pills, FirstNonBlank(GetValue(values, "quality"), GetValue(values, "audio_quality"), works.Select(w => w.Quality).FirstOrDefault(q => !string.IsNullOrWhiteSpace(q))), "quality");
+            return pills
+                .Where(value => !string.IsNullOrWhiteSpace(value.Label))
+                .DistinctBy(value => $"{value.Kind}:{value.Label}", StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        return [new MetadataPill { Label = FormatEntityType(entityType), Kind = "type" }, new MetadataPill { Label = $"{works.Count} item{(works.Count == 1 ? "" : "s")}", Kind = "count" }];
+    }
 
     private static IReadOnlyList<DetailAction> BuildCollectionActions(Guid id, DetailEntityType entityType, DetailPresentationContext context)
         => entityType switch
         {
-            DetailEntityType.TvShow => [new DetailAction { Key = "watch-latest", Label = "Watch Latest", Icon = "play_arrow", IsPrimary = true }],
-            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play Album", Icon = "play_arrow", IsPrimary = true }, new DetailAction { Key = "shuffle", Label = "Shuffle", Icon = "shuffle" }],
+            DetailEntityType.TvShow => [new DetailAction { Key = "watch", Label = "Watch", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
 
@@ -2380,8 +2549,14 @@ public sealed class DetailComposerService
         _ => relationshipType.Replace('_', ' '),
     };
 
-    private static string BuildCollectionSubtitle(DetailEntityType entityType, IReadOnlyList<CollectionWorkSummary> works)
+    private static string BuildCollectionSubtitle(
+        DetailEntityType entityType,
+        IReadOnlyList<CollectionWorkSummary> works,
+        IReadOnlyDictionary<string, string> values)
     {
+        if (entityType == DetailEntityType.MusicAlbum)
+            return FirstNonBlank(GetValue(values, "album_artist"), GetValue(values, "artist"), works.Select(w => w.Artist).FirstOrDefault(a => !string.IsNullOrWhiteSpace(a)), "Album")!;
+
         var types = works.Select(w => FormatEntityType(InferMediaItemEntityType(w))).Distinct(StringComparer.OrdinalIgnoreCase).Take(3);
         return $"{FormatEntityType(entityType)} • {works.Count} item{(works.Count == 1 ? "" : "s")} • {string.Join(", ", types)}";
     }
@@ -2830,7 +3005,7 @@ public sealed class DetailComposerService
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
     private sealed record SeriesRow(string WorkId, string Title, string? MediaType, string? PositionLabel, string? ArtworkUrl);
-    private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? ArtworkUrl, string? BackgroundUrl);
+    private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? Artist, bool IsExplicit, string? Quality, string? ArtworkUrl, string? BackgroundUrl);
     private sealed record ContributorEntry(string Name, string? Qid, int SortOrder);
 
     private sealed class ContributorTargetRow

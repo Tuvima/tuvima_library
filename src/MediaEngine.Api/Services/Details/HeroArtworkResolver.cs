@@ -12,7 +12,8 @@ public static class HeroArtworkResolver
         string? posterUrl,
         string? portraitUrl,
         string? characterImageUrl,
-        IReadOnlyList<string> relatedArtworkUrls)
+        IReadOnlyList<string> relatedArtworkUrls,
+        string? logoUrl = null)
     {
         var background = FirstNonBlank(backdropUrl, bannerUrl);
         if (!string.IsNullOrWhiteSpace(background))
@@ -20,7 +21,9 @@ public static class HeroArtworkResolver
             return new HeroArtworkViewModel
             {
                 Url = background,
-                Mode = HeroArtworkMode.Background,
+                Mode = string.IsNullOrWhiteSpace(logoUrl)
+                    ? HeroArtworkMode.BackdropWithRenderedTitle
+                    : HeroArtworkMode.BackdropWithLogo,
                 HasImage = true,
                 AspectRatio = 16d / 9d,
                 BackgroundPosition = "center right",
@@ -40,7 +43,7 @@ public static class HeroArtworkResolver
             return new HeroArtworkViewModel
             {
                 Url = cover,
-                Mode = HeroArtworkMode.CoverFallback,
+                Mode = HeroArtworkMode.ArtworkFallback,
                 HasImage = true,
                 AspectRatio = ResolveCoverAspectRatio(entityType),
                 BackgroundPosition = "center",

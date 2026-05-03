@@ -1,12 +1,14 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Services.Playback
+@inject ListenPlaybackService Playback
 
 @if (Model is not null)
 {
     <article class="tl-detail-page">
-        <DetailHero Model="Model" OnActionSelected="OnActionSelected" />
+        <DetailHero Model="Model" OnActionSelected="HandleDetailActionAsync" />
 
-        @if (Model.PreviewContributors.Count > 0)
+        @if (Model.PreviewContributors.Count > 0 && Model.EntityType != DetailEntityType.MusicAlbum)
         {
             <PeoplePreviewStrip Title="@CreditPreviewTitle(Model)"
                                 Credits="Model.PreviewContributors" />
@@ -36,7 +38,16 @@
             }
             else if (_activeTab is "tracks" or "items" or "media" or "works" or "albums")
             {
-                <ChildrenListTab Groups="Model.MediaGroups" />
+                @if (Model.EntityType == DetailEntityType.MusicAlbum && _activeTab == "tracks")
+                {
+                    <MusicTrackList Groups="Model.MediaGroups"
+                                    AlbumTitle="@Model.Title"
+                                    AlbumArtworkUrl="@(Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl)" />
+                }
+                else
+                {
+                    <ChildrenListTab Groups="Model.MediaGroups" />
+                }
             }
             else if (_activeTab is "contributors" or "people" or "credits" or "cast")
             {
@@ -99,6 +110,49 @@
     }
 
     private void SetActiveTab(string key) => _activeTab = key;
+
+    private async Task HandleDetailActionAsync(DetailAction action)
+    {
+        if (Model?.EntityType == DetailEntityType.MusicAlbum && action.Key is "play-album" or "shuffle")
+        {
+            await PlayAlbumAsync(shuffle: action.Key == "shuffle");
+            return;
+        }
+
+        await OnActionSelected.InvokeAsync(action);
+    }
+
+    private async Task PlayAlbumAsync(bool shuffle)
+    {
+        if (Model is null)
+            return;
+
+        var tracks = Model.MediaGroups
+            .SelectMany(group => group.Items)
+            .Where(item => item.EntityType == DetailEntityType.MusicTrack)
+            .OrderBy(TrackSortKey)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .Select(ToQueueItem)
+            .Where(item => item.WorkId != Guid.Empty)
+            .ToList();
+
+        await Playback.ReplaceQueueItemsAsync(tracks, 0, Model.Title, shuffle);
+    }
+
+    private ListenQueueItem ToQueueItem(MediaGroupingItemViewModel item)
+        => new()
+        {
+            WorkId = Guid.TryParse(item.Id, out var workId) ? workId : Guid.Empty,
+            MediaType = "Music",
+            Title = item.Title,
+            Subtitle = item.Artist,
+            Album = Model?.Title,
+            CoverUrl = item.ArtworkUrl ?? Model?.Artwork.CoverUrl ?? Model?.Artwork.PosterUrl,
+            Duration = item.Duration,
+        };
+
+    private static int TrackSortKey(MediaGroupingItemViewModel item)
+        => int.TryParse(item.TrackNumber, out var parsed) ? parsed : int.MaxValue;
 
     private static string CreditPreviewTitle(DetailPageViewModel model) => model.EntityType switch
     {

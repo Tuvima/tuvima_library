@@ -82,6 +82,113 @@ public sealed class EngineApiClientLibraryWorksTests
     }
 
     [Fact]
+    public async Task GetDetailPageAsync_FillsStreamingServiceHeroBrandWhenEngineHasNoLogo()
+    {
+        const string json = """
+            {
+              "id": "11111111-1111-1111-1111-111111111111",
+              "entityType": 3,
+              "presentationContext": 1,
+              "title": "Shogun",
+              "artwork": {
+                "logoUrl": "/stream/show-logo",
+                "heroArtwork": {
+                  "url": "/stream/backdrop",
+                  "mode": 0,
+                  "hasImage": true
+                }
+              },
+              "heroBrand": {
+                "label": "FX on Hulu"
+              },
+              "ownedFormats": [],
+              "multiFormatState": 0,
+              "metadata": [],
+              "primaryActions": [],
+              "secondaryActions": [],
+              "overflowActions": [],
+              "contributorGroups": [],
+              "previewContributors": [],
+              "characterGroups": [],
+              "previewCharacters": [],
+              "relationshipStrip": [],
+              "tabs": [],
+              "mediaGroups": [],
+              "identityStatus": 0,
+              "libraryStatus": 1,
+              "isAdminView": false
+            }
+            """;
+
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            });
+
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        var detail = await client.GetDetailPageAsync(
+            DetailEntityType.TvShow,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DetailPresentationContext.Watch);
+
+        Assert.NotNull(detail);
+        Assert.Equal("/images/streaming-services/hulu.png", detail!.HeroBrand?.ImageUrl);
+        Assert.Equal("http://localhost:61495/stream/show-logo", detail.Artwork.LogoUrl);
+    }
+
+    [Fact]
+    public async Task GetDetailPageAsync_KeepsEngineHeroBrandLogoWhenProvided()
+    {
+        const string json = """
+            {
+              "id": "11111111-1111-1111-1111-111111111111",
+              "entityType": 3,
+              "presentationContext": 1,
+              "title": "The Last of Us",
+              "artwork": {},
+              "heroBrand": {
+                "label": "Max",
+                "imageUrl": "/stream/network-logo/max"
+              },
+              "ownedFormats": [],
+              "multiFormatState": 0,
+              "metadata": [],
+              "primaryActions": [],
+              "secondaryActions": [],
+              "overflowActions": [],
+              "contributorGroups": [],
+              "previewContributors": [],
+              "characterGroups": [],
+              "previewCharacters": [],
+              "relationshipStrip": [],
+              "tabs": [],
+              "mediaGroups": [],
+              "identityStatus": 0,
+              "libraryStatus": 1,
+              "isAdminView": false
+            }
+            """;
+
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            });
+
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        var detail = await client.GetDetailPageAsync(
+            DetailEntityType.TvShow,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DetailPresentationContext.Watch);
+
+        Assert.NotNull(detail);
+        Assert.Equal("http://localhost:61495/stream/network-logo/max", detail!.HeroBrand?.ImageUrl);
+    }
+
+    [Fact]
     public async Task GetLibraryWorksAsync_MapsReturnedItemsForHomePage()
     {
         const string json = """

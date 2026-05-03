@@ -1,0 +1,398 @@
+[
+  {
+    "serviceId": "netflix",
+    "displayName": "Netflix",
+    "aliases": [
+      "Netflix"
+    ],
+    "logoPath": "/images/streaming-services/netflix.png",
+    "sourceUrl": "https://brand.netflix.com/en/assets/logos/",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Official Netflix brand portal is JavaScript-driven; normalized from a Wikimedia Commons vector sourced from Netflix.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "disney-plus",
+    "displayName": "Disney+",
+    "aliases": [
+      "Disney+",
+      "Disney Plus"
+    ],
+    "logoPath": "/images/streaming-services/disney-plus.png",
+    "sourceUrl": "https://press.disneyplus.com/about/logos",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Official Disney+ press page exposes manual high-res downloads; normalized from a Wikimedia Commons vector sourced from Disney+.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/77/Disney_Plus_logo.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "hulu",
+    "displayName": "Hulu",
+    "aliases": [
+      "Hulu",
+      "FX on Hulu",
+      "Hulu on Disney+",
+      "Hulu Original"
+    ],
+    "logoPath": "/images/streaming-services/hulu.png",
+    "sourceUrl": "https://press.hulu.com/branding/",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Hulu press links to thisishulu.com for brand downloads; normalized from a Wikimedia Commons vector sourced from Hulu brand assets.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f9/Hulu_logo_%282018%29.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "max",
+    "displayName": "Max",
+    "aliases": [
+      "Max",
+      "HBO Max",
+      "HBO",
+      "HBO Max Original"
+    ],
+    "logoPath": "/images/streaming-services/max.png",
+    "sourceUrl": "https://brand.hbomax.com/",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Official HBO Max portal uses manual quick downloads; normalized from a Wikimedia Commons vector for the current HBO Max service branding.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b3/HBO_Max_%282025%29.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "prime-video",
+    "displayName": "Prime Video",
+    "aliases": [
+      "Prime Video",
+      "Amazon Prime Video",
+      "Prime"
+    ],
+    "logoPath": "/images/streaming-services/prime-video.png",
+    "sourceUrl": "https://m.media-amazon.com/images/G/01/CooperWebsite/dvp/downloads/Prime_Video_Logo_Guidelines_Q1_2020.pdf",
+    "retrievedAt": "2026-05-03T08:01:50.216Z",
+    "usageNotes": "Supplied Amazon PDF documents the Prime Video lockup; normalized from a Wikimedia Commons vector sourced from Amazon.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/90/Prime_Video_logo_%282024%29.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "apple-tv-plus",
+    "displayName": "Apple TV+",
+    "aliases": [
+      "Apple TV+",
+      "Apple TV Plus",
+      "Apple TV",
+      "Apple"
+    ],
+    "logoPath": "/images/streaming-services/apple-tv-plus.png",
+    "sourceUrl": "https://marketing.services.apple/apple-tv-identity-guidelines",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Apple guidelines require provided badge artwork and expose manual downloads; normalized from the Simple Icons Apple TV vector as a local service badge fallback.",
+    "retrievalUrl": "simple-icons:appletv"
+  },
+  {
+    "serviceId": "paramount-plus",
+    "displayName": "Paramount+",
+    "aliases": [
+      "Paramount+",
+      "Paramount Plus",
+      "Paramount"
+    ],
+    "logoPath": "/images/streaming-services/paramount-plus.png",
+    "sourceUrl": "https://weareparamountplus.com/",
+    "retrievedAt": "2026-05-03T08:01:50.216Z",
+    "usageNotes": "Supplied Paramount+ site is a public brand portal; normalized from a Wikimedia Commons vector sourced from Paramount+.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Paramount%2B_logo.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "peacock",
+    "displayName": "Peacock",
+    "aliases": [
+      "Peacock",
+      "Peacock TV"
+    ],
+    "logoPath": "/images/streaming-services/peacock.png",
+    "sourceUrl": "https://brandfetch.com/peacocktv.com",
+    "retrievedAt": "2026-05-03T08:01:50.216Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons vector sourced from Peacock/NBCUniversal.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d3/NBCUniversal_Peacock_Logo.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "tubi",
+    "displayName": "Tubi",
+    "aliases": [
+      "Tubi",
+      "Tubi TV"
+    ],
+    "logoPath": "/images/streaming-services/tubi.png",
+    "sourceUrl": "https://brandfetch.com/tubi.tv",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from the Simple Icons Tubi vector.",
+    "retrievalUrl": "simple-icons:tubi"
+  },
+  {
+    "serviceId": "pluto-tv",
+    "displayName": "Pluto TV",
+    "aliases": [
+      "Pluto TV",
+      "Pluto"
+    ],
+    "logoPath": "/images/streaming-services/pluto-tv.png",
+    "sourceUrl": "https://www.paramountpressexpress.com/pluto-tv/photos/",
+    "retrievedAt": "2026-05-03T08:03:43.504Z",
+    "usageNotes": "Supplied Paramount press photos page is browsable but not a direct logo download; no direct scripted primary mark was available during asset preparation. Scripted retrieval failed (No source configured); this local normalized wordmark placeholder is traceable to the listed source and should be replaced if an official direct-download asset becomes available.",
+    "retrievalUrl": "fallback-generated-wordmark"
+  },
+  {
+    "serviceId": "roku-channel",
+    "displayName": "The Roku Channel",
+    "aliases": [
+      "The Roku Channel",
+      "Roku Channel",
+      "Roku"
+    ],
+    "logoPath": "/images/streaming-services/roku-channel.png",
+    "sourceUrl": "https://www.ilovemyroku.com/",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Roku reference is not a direct logo asset page; normalized from the Simple Icons Roku vector as a service-family fallback.",
+    "retrievalUrl": "simple-icons:roku"
+  },
+  {
+    "serviceId": "crunchyroll",
+    "displayName": "Crunchyroll",
+    "aliases": [
+      "Crunchyroll"
+    ],
+    "logoPath": "/images/streaming-services/crunchyroll.png",
+    "sourceUrl": "https://brandfetch.com/crunchyroll.com",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons vector sourced from Crunchyroll.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d9/Crunchyroll_2024.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "youtube",
+    "displayName": "YouTube",
+    "aliases": [
+      "YouTube"
+    ],
+    "logoPath": "/images/streaming-services/youtube.png",
+    "sourceUrl": "https://www.youtube.com/howyoutubeworks/resources/brand-resources/",
+    "retrievedAt": "2026-05-03T08:03:43.504Z",
+    "usageNotes": "Official YouTube brand resources redirect to brand.youtube; normalized from the Simple Icons YouTube vector after direct brand-resource download was not scriptable.",
+    "retrievalUrl": "simple-icons:youtube"
+  },
+  {
+    "serviceId": "youtube-tv",
+    "displayName": "YouTube TV",
+    "aliases": [
+      "YouTube TV"
+    ],
+    "logoPath": "/images/streaming-services/youtube-tv.png",
+    "sourceUrl": "https://www.youtube.com/howyoutubeworks/resources/brand-resources/",
+    "retrievedAt": "2026-05-03T08:03:11.388Z",
+    "usageNotes": "Official YouTube brand resources redirect to brand.youtube; normalized from a Wikimedia Commons vector sourced from YouTube TV web.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f7/YouTube_TV_logo.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "starz",
+    "displayName": "STARZ",
+    "aliases": [
+      "STARZ"
+    ],
+    "logoPath": "/images/streaming-services/starz.png",
+    "sourceUrl": "https://brandfetch.com/starz.com",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from the Simple Icons STARZ vector in a light one-color treatment for dark heroes.",
+    "retrievalUrl": "simple-icons:starz"
+  },
+  {
+    "serviceId": "showtime",
+    "displayName": "Showtime",
+    "aliases": [
+      "Showtime"
+    ],
+    "logoPath": "/images/streaming-services/showtime.png",
+    "sourceUrl": "https://brandfetch.com/showtime.com",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from the Simple Icons Showtime vector.",
+    "retrievalUrl": "simple-icons:showtime"
+  },
+  {
+    "serviceId": "amc-plus",
+    "displayName": "AMC+",
+    "aliases": [
+      "AMC+",
+      "AMC Plus",
+      "AMC"
+    ],
+    "logoPath": "/images/streaming-services/amc-plus.png",
+    "sourceUrl": "https://brandfetch.com/amcplus.com",
+    "retrievedAt": "2026-05-03T08:03:11.388Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons PNG for AMC+.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4a/AMC%2B_logo.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "britbox",
+    "displayName": "BritBox",
+    "aliases": [
+      "BritBox"
+    ],
+    "logoPath": "/images/streaming-services/britbox.png",
+    "sourceUrl": "https://brandfetch.com/britbox.com",
+    "retrievedAt": "2026-05-03T08:01:50.216Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons vector for BritBox.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Britbox_2022_%28UK%29.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "acorn-tv",
+    "displayName": "Acorn TV",
+    "aliases": [
+      "Acorn TV",
+      "Acorn"
+    ],
+    "logoPath": "/images/streaming-services/acorn-tv.png",
+    "sourceUrl": "https://brandfetch.com/acorn.tv",
+    "retrievedAt": "2026-05-03T08:01:50.216Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons vector for Acorn TV.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Acorn_TV_logo_2024.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "shudder",
+    "displayName": "Shudder",
+    "aliases": [
+      "Shudder"
+    ],
+    "logoPath": "/images/streaming-services/shudder.png",
+    "sourceUrl": "https://brandfetch.com/shudder.com",
+    "retrievedAt": "2026-05-03T08:03:11.388Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons asset for Shudder.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/5/51/Shudder_2017.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "mubi",
+    "displayName": "MUBI",
+    "aliases": [
+      "MUBI"
+    ],
+    "logoPath": "/images/streaming-services/mubi.png",
+    "sourceUrl": "https://brandfetch.com/mubi.com",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from the Simple Icons MUBI vector in a light one-color treatment for dark heroes.",
+    "retrievalUrl": "simple-icons:mubi"
+  },
+  {
+    "serviceId": "criterion-channel",
+    "displayName": "Criterion Channel",
+    "aliases": [
+      "Criterion Channel",
+      "The Criterion Channel",
+      "Criterion",
+      "The Criterion Collection"
+    ],
+    "logoPath": "/images/streaming-services/criterion-channel.png",
+    "sourceUrl": "https://brandfetch.com/criterion.com",
+    "retrievedAt": "2026-05-03T08:03:11.388Z",
+    "usageNotes": "Supplied Brandfetch page is for criterion.com; normalized from the available Wikimedia Commons Criterion wordmark because a separate Criterion Channel vector was not exposed.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1a/The_Criterion_Collection_logo_and_wordmark.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "fandango-at-home",
+    "displayName": "Fandango at Home",
+    "aliases": [
+      "Fandango at Home",
+      "Vudu",
+      "Fandango",
+      "FandangoNow"
+    ],
+    "logoPath": "/images/streaming-services/fandango-at-home.png",
+    "sourceUrl": "https://brandfetch.com/fandango.com",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Brandfetch page is for Fandango; normalized from the Simple Icons Fandango vector and mapped to Fandango at Home/Vudu aliases.",
+    "retrievalUrl": "simple-icons:fandango"
+  },
+  {
+    "serviceId": "plex",
+    "displayName": "Plex",
+    "aliases": [
+      "Plex"
+    ],
+    "logoPath": "/images/streaming-services/plex.png",
+    "sourceUrl": "https://brandfetch.com/plex.tv",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from the Simple Icons Plex vector.",
+    "retrievalUrl": "simple-icons:plex"
+  },
+  {
+    "serviceId": "kanopy",
+    "displayName": "Kanopy",
+    "aliases": [
+      "Kanopy"
+    ],
+    "logoPath": "/images/streaming-services/kanopy.png",
+    "sourceUrl": "https://brandfetch.com/kanopy.com",
+    "retrievedAt": "2026-05-03T08:03:43.504Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons Kanopy PNG. Scripted retrieval failed (Commons API 429 for File:Logo-Red.png); this local normalized wordmark placeholder is traceable to the listed source and should be replaced if an official direct-download asset becomes available.",
+    "retrievalUrl": "fallback-generated-wordmark"
+  },
+  {
+    "serviceId": "hoopla",
+    "displayName": "Hoopla",
+    "aliases": [
+      "Hoopla",
+      "Hoopla Digital"
+    ],
+    "logoPath": "/images/streaming-services/hoopla.png",
+    "sourceUrl": "https://brandfetch.com/hoopladigital.com",
+    "retrievedAt": "2026-05-03T08:03:11.388Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons vector sourced from Hoopla Digital.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4a/Hoopla_logo.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "discovery-plus",
+    "displayName": "Discovery+",
+    "aliases": [
+      "Discovery+",
+      "Discovery Plus",
+      "Discovery"
+    ],
+    "logoPath": "/images/streaming-services/discovery-plus.png",
+    "sourceUrl": "https://brandfetch.com/discoveryplus.com",
+    "retrievedAt": "2026-05-03T08:03:43.504Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons vector sourced from Discovery+ press assets. Scripted retrieval failed (Commons API 429 for File:Discovery Plus logo.svg); this local normalized wordmark placeholder is traceable to the listed source and should be replaced if an official direct-download asset becomes available.",
+    "retrievalUrl": "fallback-generated-wordmark"
+  },
+  {
+    "serviceId": "mgm-plus",
+    "displayName": "MGM+",
+    "aliases": [
+      "MGM+",
+      "MGM Plus",
+      "Epix",
+      "MGM"
+    ],
+    "logoPath": "/images/streaming-services/mgm-plus.png",
+    "sourceUrl": "https://brandfetch.com/mgmplus.com",
+    "retrievedAt": "2026-05-03T08:03:11.388Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons vector sourced from MGM+.",
+    "retrievalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/49/MGM%2B_logo.svg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+  },
+  {
+    "serviceId": "dazn",
+    "displayName": "DAZN",
+    "aliases": [
+      "DAZN"
+    ],
+    "logoPath": "/images/streaming-services/dazn.png",
+    "sourceUrl": "https://brandfetch.com/dazn.com",
+    "retrievedAt": "2026-05-03T07:58:56.534Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from the Simple Icons DAZN vector.",
+    "retrievalUrl": "simple-icons:dazn"
+  },
+  {
+    "serviceId": "espn",
+    "displayName": "ESPN",
+    "aliases": [
+      "ESPN",
+      "ESPN+",
+      "ESPN Plus"
+    ],
+    "logoPath": "/images/streaming-services/espn.png",
+    "sourceUrl": "https://brandfetch.com/espn.com",
+    "retrievedAt": "2026-05-03T08:03:43.504Z",
+    "usageNotes": "Supplied Brandfetch page blocks direct scripted downloads; normalized from a Wikimedia Commons ESPN wordmark/logo asset. Scripted retrieval failed (Commons API 429 for File:ESPN logo.png); this local normalized wordmark placeholder is traceable to the listed source and should be replaced if an official direct-download asset becomes available.",
+    "retrievalUrl": "fallback-generated-wordmark"
+  }
+]

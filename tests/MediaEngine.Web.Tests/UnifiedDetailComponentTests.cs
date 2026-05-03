@@ -9,16 +9,18 @@ public sealed class UnifiedDetailComponentTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("Artwork.HeroArtwork", source);
-        Assert.Contains("HeroArtworkMode.Background", source);
-        Assert.Contains("HeroArtworkMode.CoverFallback", source);
+        Assert.Contains("HeroArtworkMode.BackdropWithLogo", source);
+        Assert.Contains("HeroArtworkMode.BackdropWithRenderedTitle", source);
+        Assert.Contains("HeroArtworkMode.ArtworkFallback", source);
         Assert.Contains("tl-detail-media-stage--background", source);
-        Assert.Contains("tl-detail-media-stage--cover-fallback", source);
+        Assert.Contains("tl-detail-media-stage--artwork-fallback", source);
         Assert.Contains("tl-detail-media-stage__cover-atmosphere", source);
         Assert.Contains("tl-detail-media-stage__cover-wrap", source);
+        Assert.Contains("tl-detail-media-stage__foreground", source);
         Assert.Contains("@onerror=\"HandleImageError\"", source);
 
         Assert.Contains("tl-detail-media-stage--background .tl-detail-media-stage__overlay", styles);
-        Assert.Contains("tl-detail-media-stage--cover-fallback .tl-detail-media-stage__overlay", styles);
+        Assert.Contains("tl-detail-media-stage--artwork-fallback .tl-detail-media-stage__overlay", styles);
         Assert.Contains("filter: blur(64px) saturate(1.15)", styles);
         Assert.Contains("opacity: 0.28", styles);
         Assert.Contains("transform: scale(1.35)", styles);
@@ -59,6 +61,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("DetailEntityType.TvShow", source);
         Assert.Contains("tl-detail-hero-brand img", styles);
         Assert.Contains("NormalizeHeroBrand", client);
+        Assert.Contains("StreamingServiceLogoResolver", client);
+        Assert.Contains("ResolveLogoPath(heroBrand.Label)", client);
     }
 
     [Fact]
@@ -73,15 +77,17 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void HeroActions_ExposeHoverMenusAndWatchPartyStub()
+    public void HeroActions_ExposeHoverMenusAndCapabilityAwareActions()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroActionRow.razor");
         var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
 
         Assert.Contains("tl-reaction-menu", source);
-        Assert.Contains("tl-format-menu", source);
+        Assert.Contains("tl-detail-premium-action", source);
+        Assert.Contains("read-listen", composer);
+        Assert.Contains("SupportsWatchParty", composer);
         Assert.Contains("watch-party", composer);
-        Assert.Contains("IsStub = true", composer);
+        Assert.DoesNotContain("Watch Party is coming soon", composer);
     }
 
     [Fact]
@@ -202,12 +208,15 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void ExistingMusicAlbumExperience_RemainsOnListenPage()
+    public void MusicAlbumDetailsUseSharedTrackList()
     {
-        var listenPage = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor");
+        var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var trackList = ReadSource("src/MediaEngine.Web/Components/Details/MusicTrackList.razor");
         var albumRoute = ReadSource("src/MediaEngine.Web/Components/Pages/UnifiedDetailPage.razor");
 
-        Assert.Contains("album", listenPage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("MusicTrackList", detailPage);
+        Assert.Contains("ReplaceQueueItemsAsync", trackList);
+        Assert.Contains("tl-detail-track-list", trackList);
         Assert.DoesNotContain("@page \"/listen/album", albumRoute, StringComparison.OrdinalIgnoreCase);
     }
 

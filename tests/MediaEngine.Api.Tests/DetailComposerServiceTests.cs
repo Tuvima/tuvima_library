@@ -106,7 +106,7 @@ public sealed class DetailComposerServiceTests
             characterImageUrl: null,
             relatedArtworkUrls: []);
 
-        Assert.Equal(HeroArtworkMode.Background, artwork.Mode);
+        Assert.Equal(HeroArtworkMode.BackdropWithRenderedTitle, artwork.Mode);
         Assert.True(artwork.HasImage);
         Assert.Equal("/backdrop.jpg", artwork.Url);
     }
@@ -124,7 +124,7 @@ public sealed class DetailComposerServiceTests
             characterImageUrl: null,
             relatedArtworkUrls: []);
 
-        Assert.Equal(HeroArtworkMode.CoverFallback, artwork.Mode);
+        Assert.Equal(HeroArtworkMode.ArtworkFallback, artwork.Mode);
         Assert.True(artwork.HasImage);
         Assert.Equal("/cover.jpg", artwork.Url);
     }

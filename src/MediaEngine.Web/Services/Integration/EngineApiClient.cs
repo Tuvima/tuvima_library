@@ -9,6 +9,7 @@ using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Models;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Branding;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -21,11 +22,21 @@ public sealed class EngineApiClient : IEngineApiClient
 {
     private readonly HttpClient                      _http;
     private readonly ILogger<EngineApiClient>        _logger;
+    private readonly StreamingServiceLogoResolver    _streamingServiceLogos;
 
     public EngineApiClient(HttpClient http, ILogger<EngineApiClient> logger)
+        : this(http, logger, new StreamingServiceLogoResolver())
     {
-        _http   = http;
-        _logger = logger;
+    }
+
+    public EngineApiClient(
+        HttpClient http,
+        ILogger<EngineApiClient> logger,
+        StreamingServiceLogoResolver streamingServiceLogos)
+    {
+        _http                  = http;
+        _logger                = logger;
+        _streamingServiceLogos = streamingServiceLogos;
     }
 
     public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
@@ -3776,6 +3787,12 @@ public sealed class EngineApiClient : IEngineApiClient
                     Subtitle = item.Subtitle,
                     Description = item.Description,
                     ArtworkUrl = NormalizeOptionalUrl(item.ArtworkUrl),
+                    TrackNumber = item.TrackNumber,
+                    Duration = item.Duration,
+                    Artist = item.Artist,
+                    IsExplicit = item.IsExplicit,
+                    Quality = item.Quality,
+                    ProgressPercent = item.ProgressPercent,
                     Metadata = item.Metadata,
                     Actions = item.Actions,
                     IsOwned = item.IsOwned,
@@ -3805,13 +3822,19 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     private HeroBrandViewModel? NormalizeHeroBrand(HeroBrandViewModel? heroBrand)
-        => heroBrand is null
-            ? null
-            : new HeroBrandViewModel
-            {
-                Label = heroBrand.Label,
-                ImageUrl = NormalizeOptionalUrl(heroBrand.ImageUrl),
-            };
+    {
+        if (heroBrand is null)
+            return null;
+
+        var imageUrl = NormalizeOptionalUrl(heroBrand.ImageUrl)
+            ?? _streamingServiceLogos.ResolveLogoPath(heroBrand.Label);
+
+        return new HeroBrandViewModel
+        {
+            Label = heroBrand.Label,
+            ImageUrl = imageUrl,
+        };
+    }
 
     private CreditGroupViewModel NormalizeCreditGroup(CreditGroupViewModel group) => new()
     {

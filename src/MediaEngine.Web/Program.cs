@@ -1,5 +1,6 @@
 using MudBlazor.Services;
 using MediaEngine.Web.Components;
+using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Theming;
@@ -112,6 +113,7 @@ PaletteProvider.Initialize(configLoader.LoadPalette());
 // ── Narration ─────────────────────────────────────────────────────────────────
 // Singleton: config-driven phrase templates for hero subtitles and section headings.
 builder.Services.AddSingleton<IPhraseTemplateService, PhraseTemplateService>();
+builder.Services.AddSingleton<StreamingServiceLogoResolver>();
 
 // ── Engine API HTTP Client ────────────────────────────────────────────────────
 // TUVIMA_ENGINE_URL: override the Engine address — essential for Docker where

@@ -1,0 +1,114 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Services.Playback
+@inject ListenPlaybackService Playback
+
+@if (Tracks.Count > 0)
+{
+    <section class="tl-detail-track-section" aria-label="@($"{AlbumTitle} tracks")">
+        <div class="tl-detail-track-list" role="table" aria-label="@($"{AlbumTitle} tracks")">
+            <div class="tl-detail-track-list__head" role="row">
+                <span role="columnheader">#</span>
+                <span role="columnheader">Title</span>
+                @if (ShowArtistColumn)
+                {
+                    <span role="columnheader">Artist</span>
+                }
+                <span role="columnheader">Time</span>
+                <span role="columnheader" class="tl-detail-track-list__status-head">Status</span>
+            </div>
+
+            @for (var index = 0; index < Tracks.Count; index++)
+            {
+                var track = Tracks[index];
+                var isPlaying = IsCurrentTrack(track);
+                <button type="button"
+                        class="tl-detail-track-row @(isPlaying ? "is-playing" : null)"
+                        role="row"
+                        aria-label="@($"Play {track.Title}")"
+                        @onclick="@(() => PlayTrackAsync(track, index))">
+                    <span class="tl-detail-track-row__number" role="cell">
+                        <span class="tl-detail-track-row__ordinal">@DisplayTrackNumber(track, index)</span>
+                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                    </span>
+                    <span class="tl-detail-track-row__title" role="cell">
+                        <span class="tl-detail-track-row__name">@track.Title</span>
+                        @if (track.IsExplicit)
+                        {
+                            <span class="tl-detail-track-row__badge">E</span>
+                        }
+                    </span>
+                    @if (ShowArtistColumn)
+                    {
+                        <span class="tl-detail-track-row__artist" role="cell">@DisplayOrDash(track.Artist)</span>
+                    }
+                    <span class="tl-detail-track-row__duration" role="cell">@DisplayOrDash(track.Duration)</span>
+                    <span class="tl-detail-track-row__status" role="cell">
+                        @if (isPlaying)
+                        {
+                            <span class="tl-detail-track-row__playing" aria-label="Currently playing"></span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(track.Quality))
+                        {
+                            <span class="tl-detail-track-row__quality">@track.Quality</span>
+                        }
+                    </span>
+                </button>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
+    [Parameter] public string AlbumTitle { get; set; } = "Album";
+    [Parameter] public string? AlbumArtworkUrl { get; set; }
+
+    private IReadOnlyList<MediaGroupingItemViewModel> Tracks =>
+        Groups.SelectMany(group => group.Items)
+            .Where(item => item.EntityType == DetailEntityType.MusicTrack)
+            .OrderBy(TrackSortKey)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private bool ShowArtistColumn =>
+        Tracks.Select(track => track.Artist)
+            .Where(artist => !string.IsNullOrWhiteSpace(artist))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .Count() > 1;
+
+    private async Task PlayTrackAsync(MediaGroupingItemViewModel track, int index)
+    {
+        var queue = Tracks.Select(ToQueueItem).ToList();
+        if (queue.Count == 0)
+            return;
+
+        await Playback.ReplaceQueueItemsAsync(queue, index, AlbumTitle, shuffle: false);
+    }
+
+    private ListenQueueItem ToQueueItem(MediaGroupingItemViewModel track)
+        => new()
+        {
+            WorkId = Guid.TryParse(track.Id, out var workId) ? workId : Guid.Empty,
+            MediaType = "Music",
+            Title = track.Title,
+            Subtitle = track.Artist,
+            Album = AlbumTitle,
+            CoverUrl = track.ArtworkUrl ?? AlbumArtworkUrl,
+            Duration = track.Duration,
+        };
+
+    private bool IsCurrentTrack(MediaGroupingItemViewModel track)
+        => Guid.TryParse(track.Id, out var workId)
+           && Playback.CurrentItem?.WorkId == workId;
+
+    private static int TrackSortKey(MediaGroupingItemViewModel track)
+        => int.TryParse(track.TrackNumber, out var parsed) ? parsed : int.MaxValue;
+
+    private static string DisplayTrackNumber(MediaGroupingItemViewModel track, int index)
+        => string.IsNullOrWhiteSpace(track.TrackNumber) ? (index + 1).ToString() : track.TrackNumber;
+
+    private static string DisplayOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value;
+}

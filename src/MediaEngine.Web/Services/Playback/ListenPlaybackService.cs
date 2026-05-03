@@ -79,6 +79,19 @@ public sealed class ListenPlaybackService
         CancellationToken ct = default)
     {
         var items = works.Select(CreateQueueItem).ToList();
+        await ReplaceQueueItemsAsync(items, startIndex, sourceLabel, shuffle, ct);
+    }
+
+    public async Task ReplaceQueueItemsAsync(
+        IEnumerable<ListenQueueItem> queueItems,
+        int startIndex,
+        string? sourceLabel,
+        bool shuffle,
+        CancellationToken ct = default)
+    {
+        var items = queueItems
+            .Where(item => item.WorkId != Guid.Empty)
+            .ToList();
         if (items.Count == 0)
         {
             ClosePlayer();

@@ -19,7 +19,31 @@
     <div class="tl-detail-secondary-actions">
         @foreach (var action in SecondaryActions)
         {
-            @if (action.Key == "reaction-menu")
+            @if (action.DisplayStyle == "premium")
+            {
+                <div class="tl-detail-secondary-action tl-detail-secondary-action--premium">
+                    <button type="button"
+                            class="tl-detail-premium-action @(action.IsStub ? "tl-detail-premium-action--stub" : null)"
+                            aria-label="@action.Label"
+                            disabled="@action.IsDisabled"
+                            title="@TooltipFor(action)"
+                            @onclick="@(() => Select(action))">
+                        <span class="tl-detail-premium-action__icons" aria-hidden="true">
+                            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Sync" Size="Size.Small" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Headphones" Size="Size.Small" />
+                        </span>
+                        <span class="tl-detail-premium-action__copy">
+                            <span class="tl-detail-premium-action__label">@action.Label</span>
+                            @if (!string.IsNullOrWhiteSpace(action.Subtitle))
+                            {
+                                <span class="tl-detail-premium-action__subtitle">@action.Subtitle</span>
+                            }
+                        </span>
+                    </button>
+                </div>
+            }
+            else if (action.Key == "reaction-menu")
             {
                 <div class="tl-detail-secondary-action">
                     <div class="tl-hover-action-menu tl-reaction-menu" tabindex="0" aria-label="@action.Label">
@@ -109,11 +133,11 @@
         => action.Tooltip ?? (action.IsStub ? $"{action.Label} (coming soon)" : action.Label);
 
     private static string PrimaryLabel(DetailAction action)
-        => action.Key is "play" or "watch-latest" ? "Watch Now" : action.Label;
+        => action.Label;
 
     private static string SecondaryLabel(DetailAction action) => action.Key switch
     {
-        "add-to-collection" => "My List",
+        "add-to-collection" => action.Label,
         "reaction-menu" => "Rate",
         "watch-party" => "Party",
         "format-tools" => "Tools",
@@ -142,6 +166,7 @@
         "info" => Icons.Material.Outlined.Info,
         "account_tree" => Icons.Material.Outlined.AccountTree,
         "auto_stories" => Icons.Material.Outlined.AutoStories,
+        "read_listen" => Icons.Material.Outlined.Sync,
         "settings" => Icons.Material.Outlined.Settings,
         _ => Icons.Material.Outlined.OpenInNew,
     };

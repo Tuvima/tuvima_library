@@ -4,27 +4,23 @@
 <div class="tl-detail-metadata-stack">
     @if (StatItems.Count > 0)
     {
-        <div class="tl-detail-stat-panel" aria-label="Media details">
+        <div class="tl-detail-metadata-row" aria-label="Media details">
             @foreach (var item in StatItems)
             {
                 @if (!string.IsNullOrWhiteSpace(item.Route))
                 {
                     <a class="@StatClass(item)" href="@item.Route" title="@item.Tooltip">
                         <MudIcon Icon="@IconFor(item)" Size="Size.Small" />
-                        <span class="tl-detail-stat__text">
-                            <span class="tl-detail-stat__value">@item.Label</span>
-                            <span class="tl-detail-stat__label">@LabelFor(item)</span>
-                        </span>
+                        <span class="tl-detail-metadata-item__value">@item.Label</span>
+                        <span class="tl-detail-metadata-item__label">@LabelFor(item)</span>
                     </a>
                 }
                 else
                 {
                     <span class="@StatClass(item)" title="@item.Tooltip">
                         <MudIcon Icon="@IconFor(item)" Size="Size.Small" />
-                        <span class="tl-detail-stat__text">
-                            <span class="tl-detail-stat__value">@item.Label</span>
-                            <span class="tl-detail-stat__label">@LabelFor(item)</span>
-                        </span>
+                        <span class="tl-detail-metadata-item__value">@item.Label</span>
+                        <span class="tl-detail-metadata-item__label">@LabelFor(item)</span>
                     </span>
                 }
             }
@@ -47,7 +43,7 @@
         Metadata
             .Where(IsHeroStat)
             .OrderBy(StatSort)
-            .Take(4)
+            .Take(EntityType == DetailEntityType.MusicAlbum ? 6 : 5)
             .ToList();
 
     private string IdentityStatusLabel => IdentityStatus switch
@@ -65,26 +61,40 @@
     private static bool IsHeroStat(MetadataPill item)
     {
         var kind = item.Kind?.ToLowerInvariant();
-        return kind is "certification" or "content_rating" or "rating" or "duration" or "year";
+        return kind is "type" or "certification" or "content_rating" or "rating" or "duration" or "year"
+            or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality";
     }
 
     private static int StatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
-        "certification" or "content_rating" => 0,
-        "rating" => 1,
-        "duration" => 2,
-        "year" => 3,
+        "type" => 0,
+        "certification" or "content_rating" => 1,
+        "year" => 2,
+        "duration" => 3,
+        "page_count" or "track_count" or "season_count" or "episode_count" => 4,
+        "genre" => 5,
+        "quality" => 6,
+        "rating" => 7,
         _ => 8,
     };
 
     private static string StatClass(MetadataPill item)
         => KindEquals(item, "rating")
-            ? "tl-detail-stat tl-detail-stat--rating"
-            : "tl-detail-stat";
+            ? "tl-detail-metadata-item tl-detail-metadata-item--rating"
+            : "tl-detail-metadata-item";
 
     private static string IconFor(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
         "rating" => Icons.Material.Filled.Star,
+        "type" => Icons.Material.Outlined.Category,
+        "year" => Icons.Material.Outlined.CalendarMonth,
+        "duration" => Icons.Material.Outlined.Schedule,
+        "page_count" => Icons.Material.Outlined.Article,
+        "track_count" => Icons.Material.Outlined.QueueMusic,
+        "season_count" => Icons.Material.Outlined.LiveTv,
+        "episode_count" => Icons.Material.Outlined.VideoLibrary,
+        "genre" => Icons.Material.Outlined.LocalOffer,
+        "quality" => Icons.Material.Outlined.GraphicEq,
         _ => Icons.Material.Outlined.Info,
     };
 
@@ -106,6 +116,12 @@
         },
         "audio" => "Language",
         "type" => "Type",
+        "page_count" => "Length",
+        "track_count" => "Tracks",
+        "season_count" => "Seasons",
+        "episode_count" => "Episodes",
+        "genre" => "Genre",
+        "quality" => "Quality",
         _ => item.Kind ?? "Detail",
     };
 }

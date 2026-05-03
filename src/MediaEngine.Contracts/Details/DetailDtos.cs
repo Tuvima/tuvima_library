@@ -106,9 +106,16 @@ public sealed class HeroArtworkViewModel
 
 public enum HeroArtworkMode
 {
-    Background,
-    CoverFallback,
-    Placeholder
+    BackdropWithLogo = 0,
+    BackdropWithRenderedTitle = 1,
+    ArtworkFallback = 2,
+    Placeholder = 3,
+
+    [System.Obsolete("Use BackdropWithLogo or BackdropWithRenderedTitle.")]
+    Background = BackdropWithRenderedTitle,
+
+    [System.Obsolete("Use ArtworkFallback.")]
+    CoverFallback = ArtworkFallback
 }
 
 public sealed class HeroBrandViewModel
@@ -148,6 +155,7 @@ public sealed class DetailAction
 {
     public string Key { get; init; } = string.Empty;
     public string Label { get; init; } = string.Empty;
+    public string? Subtitle { get; init; }
     public string? Icon { get; init; }
     public string? Route { get; init; }
     public string? Tooltip { get; init; }
@@ -419,6 +427,12 @@ public sealed class MediaGroupingItemViewModel
     public string? Subtitle { get; init; }
     public string? Description { get; init; }
     public string? ArtworkUrl { get; init; }
+    public string? TrackNumber { get; init; }
+    public string? Duration { get; init; }
+    public string? Artist { get; init; }
+    public bool IsExplicit { get; init; }
+    public string? Quality { get; init; }
+    public double? ProgressPercent { get; init; }
     public IReadOnlyList<MetadataPill> Metadata { get; init; } = [];
     public IReadOnlyList<DetailAction> Actions { get; init; } = [];
     public bool IsOwned { get; init; } = true;
