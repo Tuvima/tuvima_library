@@ -24,19 +24,14 @@ public sealed class EngineApiClient : IEngineApiClient
     private readonly ILogger<EngineApiClient>        _logger;
     private readonly StreamingServiceLogoResolver    _streamingServiceLogos;
 
-    public EngineApiClient(HttpClient http, ILogger<EngineApiClient> logger)
-        : this(http, logger, new StreamingServiceLogoResolver())
-    {
-    }
-
     public EngineApiClient(
         HttpClient http,
         ILogger<EngineApiClient> logger,
-        StreamingServiceLogoResolver streamingServiceLogos)
+        StreamingServiceLogoResolver? streamingServiceLogos = null)
     {
         _http                  = http;
         _logger                = logger;
-        _streamingServiceLogos = streamingServiceLogos;
+        _streamingServiceLogos = streamingServiceLogos ?? new StreamingServiceLogoResolver();
     }
 
     public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
