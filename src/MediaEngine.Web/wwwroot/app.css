@@ -2306,6 +2306,53 @@ textarea.tl-textarea,
     align-items: center !important;
 }
 
+.main-content-with-topbar--detail,
+body:has(.tl-detail-page) .main-content-with-topbar {
+    padding-top: 0 !important;
+}
+
+body:has(.tl-detail-page) .mud-container,
+.main-content-with-topbar--detail .mud-container {
+    padding-top: 0 !important;
+}
+
+.layout-shell__appbar--detail,
+.layout-shell__appbar--detail.mud-appbar,
+body:has(.tl-detail-page) .layout-shell__appbar,
+body:has(.tl-detail-page) .layout-shell__appbar.mud-appbar {
+    background:
+        linear-gradient(
+            to bottom,
+            rgba(0, 3, 5, 0.72) 0%,
+            rgba(0, 3, 5, 0.44) 62%,
+            rgba(0, 3, 5, 0.00) 100%
+        ) !important;
+    border-bottom-color: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+.layout-shell__appbar--detail .mud-toolbar,
+body:has(.tl-detail-page) .layout-shell__appbar .mud-toolbar {
+    background: transparent !important;
+}
+
+.layout-shell__appbar--detail .layout-shell__nav-link,
+.layout-shell__appbar--detail .layout-shell__nav-link:hover,
+.layout-shell__appbar--detail .layout-shell__nav-link--active,
+body:has(.tl-detail-page) .layout-shell__nav-link,
+body:has(.tl-detail-page) .layout-shell__nav-link:hover,
+body:has(.tl-detail-page) .layout-shell__nav-link--active {
+    background: transparent !important;
+    border-color: transparent !important;
+}
+
+.layout-shell__appbar--detail .layout-shell__nav-link::after,
+body:has(.tl-detail-page) .layout-shell__nav-link::after {
+    background: var(--tl-accent-primary) !important;
+    box-shadow: 0 0.35rem 1.1rem color-mix(in srgb, var(--tl-accent-primary) 72%, transparent);
+}
+
 .layout-shell__review-badge,
 .layout-shell__review-badge .mud-badge-root {
     overflow: visible !important;

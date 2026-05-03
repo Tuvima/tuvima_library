@@ -14,15 +14,18 @@
 }
 
 ::deep .tl-detail-hero {
-    --hero-bg-rgb: 8, 10, 15;
-    --hero-accent-rgb: 44, 180, 190;
+    --hero-bg-rgb: 8, 12, 18;
+    --hero-shadow-rgb: 4, 7, 12;
+    --hero-accent-rgb: 220, 165, 62;
+    --hero-surface-rgb: 14, 18, 24;
+    --hero-text-rgb: 245, 247, 250;
     --hero-focus-x: 68%;
     --hero-focus-y: 42%;
     position: relative;
-    min-height: clamp(42rem, 84vh, 64rem);
+    min-height: clamp(680px, 86vh, 920px);
     overflow: hidden;
     isolation: isolate;
-    background: rgb(var(--hero-bg-rgb));
+    background-color: rgb(var(--hero-shadow-rgb));
 }
 
 ::deep .tl-detail-hero::after {
@@ -33,28 +36,13 @@
     position: absolute;
     inset: 0;
     width: 100%;
-    z-index: -3;
+    z-index: 0;
     overflow: hidden;
-    background: rgb(var(--hero-bg-rgb));
+    background: rgb(var(--hero-shadow-rgb));
 }
 
 ::deep .tl-detail-media-stage--background {
-    background:
-        radial-gradient(
-            ellipse at 76% 48%,
-            rgba(var(--hero-accent-rgb), 0.18) 0%,
-            rgba(var(--hero-accent-rgb), 0.10) 34%,
-            rgba(var(--hero-bg-rgb), 0.62) 72%,
-            rgba(var(--hero-bg-rgb), 1.00) 100%
-        ),
-        linear-gradient(
-            90deg,
-            rgba(var(--hero-bg-rgb), 1.00) 0%,
-            rgba(var(--hero-bg-rgb), 0.98) 38%,
-            rgba(var(--hero-bg-rgb), 0.80) 58%,
-            rgba(var(--hero-bg-rgb), 0.46) 78%,
-            rgba(var(--hero-bg-rgb), 0.70) 100%
-        );
+    background: rgb(var(--hero-shadow-rgb));
 }
 
 ::deep .tl-detail-media-stage__background,
@@ -64,142 +52,172 @@
     filter: none;
 }
 
+::deep .tl-detail-hero__artwork,
 ::deep .tl-detail-media-stage__background {
     position: absolute;
-    inset: 0 0 0 34%;
-    width: 66%;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
     height: 100%;
-    object-fit: contain;
-    object-position: var(--hero-image-position, center right);
-    -webkit-mask-image:
-        linear-gradient(
-            90deg,
-            transparent 0%,
-            rgba(0, 0, 0, 0.00) 4%,
-            rgba(0, 0, 0, 0.22) 12%,
-            rgba(0, 0, 0, 0.68) 22%,
-            #000 34%
-        ),
-        radial-gradient(
-            ellipse at 68% 47%,
-            #000 0%,
-            #000 64%,
-            rgba(0, 0, 0, 0.78) 80%,
-            rgba(0, 0, 0, 0.38) 94%,
-            transparent 100%
-        );
-    -webkit-mask-composite: source-in;
-    mask-image:
-        linear-gradient(
-            90deg,
-            transparent 0%,
-            rgba(0, 0, 0, 0.00) 4%,
-            rgba(0, 0, 0, 0.22) 12%,
-            rgba(0, 0, 0, 0.68) 22%,
-            #000 34%
-        ),
-        radial-gradient(
-            ellipse at 68% 47%,
-            #000 0%,
-            #000 64%,
-            rgba(0, 0, 0, 0.78) 80%,
-            rgba(0, 0, 0, 0.38) 94%,
-            transparent 100%
-        );
-    mask-composite: intersect;
+    background-image: var(--hero-image);
+    background-size: auto 100%;
+    background-position: var(--hero-image-position, center right);
+    background-repeat: no-repeat;
 }
 
+::deep .tl-detail-hero__overlays,
 ::deep .tl-detail-media-stage__overlay {
     position: absolute;
     inset: 0;
-    z-index: 2;
+    z-index: 1;
     pointer-events: none;
 }
 
+::deep .tl-detail-hero__overlays,
+::deep .tl-detail-media-stage__overlay,
 ::deep .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
     background:
         linear-gradient(
-            180deg,
-            rgba(var(--hero-bg-rgb), 0.00) 42%,
-            rgba(var(--hero-bg-rgb), 0.34) 70%,
-            rgba(var(--hero-bg-rgb), 0.88) 100%
+            to right,
+            rgba(var(--hero-shadow-rgb), 0.96) 0%,
+            rgba(var(--hero-shadow-rgb), 0.88) 22%,
+            rgba(var(--hero-shadow-rgb), 0.62) 42%,
+            rgba(var(--hero-shadow-rgb), 0.28) 62%,
+            rgba(var(--hero-shadow-rgb), 0.08) 78%,
+            transparent 100%
         ),
         radial-gradient(
-            ellipse at var(--hero-focus-x) var(--hero-focus-y),
-            rgba(var(--hero-bg-rgb), 0.00) 0%,
-            rgba(var(--hero-bg-rgb), 0.00) 54%,
-            rgba(var(--hero-bg-rgb), 0.08) 70%,
-            rgba(var(--hero-bg-rgb), 0.30) 88%,
-            rgba(var(--hero-bg-rgb), 0.66) 100%
+            ellipse at 72% 42%,
+            rgba(var(--hero-accent-rgb), 0.28) 0%,
+            rgba(var(--hero-accent-rgb), 0.14) 24%,
+            rgba(var(--hero-accent-rgb), 0.04) 48%,
+            transparent 72%
         ),
         linear-gradient(
-            90deg,
-            rgba(var(--hero-bg-rgb), 0.98) 0%,
-            rgba(var(--hero-bg-rgb), 0.94) 24%,
-            rgba(var(--hero-bg-rgb), 0.78) 38%,
-            rgba(var(--hero-bg-rgb), 0.48) 52%,
-            rgba(var(--hero-bg-rgb), 0.16) 66%,
-            rgba(var(--hero-bg-rgb), 0.00) 80%
+            to bottom,
+            transparent 45%,
+            rgba(var(--hero-shadow-rgb), 0.52) 76%,
+            rgba(var(--hero-shadow-rgb), 0.95) 100%
+        ),
+        radial-gradient(
+            ellipse at center,
+            transparent 42%,
+            rgba(var(--hero-shadow-rgb), 0.28) 100%
         );
 }
 
 ::deep .tl-detail-media-stage--cover-fallback {
-    background:
-        radial-gradient(
-            ellipse at 72% 50%,
-            rgba(var(--hero-accent-rgb), 0.42) 0%,
-            rgba(var(--hero-accent-rgb), 0.20) 34%,
-            rgba(var(--hero-bg-rgb), 0.92) 78%,
-            rgba(var(--hero-bg-rgb), 1.00) 100%
-        ),
-        linear-gradient(
-            90deg,
-            rgba(var(--hero-bg-rgb), 1.00) 0%,
-            rgba(var(--hero-bg-rgb), 0.96) 32%,
-            rgba(var(--hero-bg-rgb), 0.74) 54%,
-            rgba(var(--hero-bg-rgb), 0.42) 72%,
-            rgba(var(--hero-bg-rgb), 0.88) 100%
-        );
+    background: rgb(var(--hero-shadow-rgb));
 }
 
+::deep .tl-detail-hero__cover-atmosphere,
 ::deep .tl-detail-media-stage__cover-atmosphere {
     position: absolute;
-    inset: -20%;
+    inset: -8%;
     z-index: 0;
     background-image: var(--hero-image);
     background-size: cover;
     background-position: var(--hero-image-position, center);
-    filter: blur(64px) saturate(1.15);
-    opacity: 0.28;
-    transform: scale(1.35);
+    filter: blur(42px) saturate(1.18) brightness(0.72);
+    opacity: 0.78;
+    transform: scale(1.08);
 }
 
 ::deep .tl-detail-media-stage--cover-fallback .tl-detail-media-stage__overlay {
     background:
         linear-gradient(
-            90deg,
-            rgba(var(--hero-bg-rgb), 1.00) 0%,
-            rgba(var(--hero-bg-rgb), 0.96) 32%,
-            rgba(var(--hero-bg-rgb), 0.62) 58%,
-            rgba(var(--hero-bg-rgb), 0.22) 76%
+            to right,
+            rgba(var(--hero-shadow-rgb), 0.96) 0%,
+            rgba(var(--hero-shadow-rgb), 0.88) 22%,
+            rgba(var(--hero-shadow-rgb), 0.62) 42%,
+            rgba(var(--hero-shadow-rgb), 0.28) 62%,
+            rgba(var(--hero-shadow-rgb), 0.08) 78%,
+            transparent 100%
         ),
         radial-gradient(
-            ellipse at 72% 50%,
-            rgba(var(--hero-accent-rgb), 0.38) 0%,
-            rgba(var(--hero-accent-rgb), 0.16) 36%,
-            rgba(var(--hero-bg-rgb), 0.72) 82%,
-            rgba(var(--hero-bg-rgb), 1.00) 100%
+            ellipse at 72% 42%,
+            rgba(var(--hero-accent-rgb), 0.28) 0%,
+            rgba(var(--hero-accent-rgb), 0.14) 24%,
+            rgba(var(--hero-accent-rgb), 0.04) 48%,
+            transparent 72%
         ),
         linear-gradient(
-            180deg,
-            rgba(var(--hero-bg-rgb), 0.00) 40%,
-            rgba(var(--hero-bg-rgb), 0.85) 100%
+            to bottom,
+            transparent 45%,
+            rgba(var(--hero-shadow-rgb), 0.52) 76%,
+            rgba(var(--hero-shadow-rgb), 0.95) 100%
+        ),
+        radial-gradient(
+            ellipse at center,
+            transparent 42%,
+            rgba(var(--hero-shadow-rgb), 0.28) 100%
         );
 }
 
+::deep .tl-detail-hero--watch .tl-detail-titlebar {
+    display: none;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
+::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
+    background-size: min(67vw, 153vh) auto;
+    background-position: right center;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-hero__overlays,
+::deep .tl-detail-hero--watch .tl-detail-media-stage__overlay,
+::deep .tl-detail-hero--watch .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
+    background:
+        linear-gradient(
+            to right,
+            rgba(0, 3, 5, 1) 0%,
+            rgba(0, 3, 5, 1) 34%,
+            rgba(0, 3, 5, 0.96) 42%,
+            rgba(0, 3, 5, 0.82) 52%,
+            rgba(0, 3, 5, 0.58) 64%,
+            rgba(0, 3, 5, 0.30) 76%,
+            rgba(0, 3, 5, 0.10) 90%,
+            transparent 100%
+        ),
+        radial-gradient(
+            ellipse at 72% 42%,
+            rgba(220, 165, 62, 0.10) 0%,
+            rgba(220, 165, 62, 0.05) 26%,
+            rgba(220, 165, 62, 0.02) 48%,
+            transparent 72%
+        ),
+        linear-gradient(
+            to bottom,
+            rgba(0, 3, 5, 0.26) 0%,
+            transparent 42%,
+            rgba(0, 3, 5, 0.58) 78%,
+            rgba(0, 3, 5, 0.98) 100%
+        ),
+        radial-gradient(
+            ellipse at center,
+            transparent 38%,
+            rgba(0, 3, 5, 0.38) 100%
+        );
+}
+
+@media (max-width: 1240px) {
+    ::deep .tl-detail-hero--backdrop .tl-detail-hero__artwork,
+    ::deep .tl-detail-hero--backdrop .tl-detail-media-stage__background {
+        background-size: cover;
+        background-position: var(--hero-image-position, center right);
+    }
+
+    ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
+    ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
+        background-size: min(76vw, 153vh) auto;
+        background-position: right center;
+    }
+}
+
+::deep .tl-detail-hero__foreground-art,
 ::deep .tl-detail-media-stage__cover-wrap {
     position: absolute;
-    z-index: 3;
+    z-index: 2;
     right: clamp(3.5rem, 8vw, 8.75rem);
     top: 50%;
     width: fit-content;
@@ -208,7 +226,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transform: translateY(-50%);
+    transform: translateY(-46%);
 }
 
 ::deep .tl-detail-media-stage__cover {
@@ -231,17 +249,18 @@
 }
 
 ::deep .tl-detail-media-stage--placeholder,
+::deep .tl-detail-hero__placeholder,
 ::deep .tl-detail-media-stage__placeholder {
     position: absolute;
     inset: 0;
     background:
         radial-gradient(
             ellipse at 72% 44%,
-            rgba(80, 120, 180, 0.20) 0%,
-            rgba(20, 28, 40, 0.72) 52%,
-            rgba(8, 10, 15, 1.00) 100%
+            rgba(var(--hero-accent-rgb), 0.20) 0%,
+            rgba(var(--hero-surface-rgb), 0.72) 52%,
+            rgba(var(--hero-shadow-rgb), 1.00) 100%
         ),
-        linear-gradient(135deg, rgb(8, 10, 15), rgb(18, 24, 34));
+        linear-gradient(135deg, rgb(var(--hero-shadow-rgb)), rgb(var(--hero-surface-rgb)));
 }
 
 ::deep .tl-detail-hero-brand {
@@ -268,7 +287,7 @@
 
 ::deep .tl-detail-hero__inner {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     display: grid;
     grid-template-columns: minmax(16rem, 30vw) minmax(0, 48rem) auto;
     align-items: end;
@@ -1087,13 +1106,28 @@
     gap: 0.9rem;
 }
 
+::deep .tl-detail-hero--watch .tl-detail-hero__inner {
+    padding: clamp(7.5rem, 14vh, 9.7rem) clamp(2rem, 3.5vw, 4rem) clamp(2.3rem, 5.4vh, 3.6rem);
+}
+
+::deep .tl-detail-hero--watch .tl-detail-hero__copy {
+    max-width: min(47.5rem, 52vw);
+    gap: 1.05rem;
+}
+
 ::deep .tl-detail-hero__copy h1 {
     font-size: clamp(3rem, 7vw, 6.6rem);
     font-weight: 900;
 }
 
+::deep .tl-detail-hero--watch .tl-detail-hero__copy h1 {
+    font-size: clamp(4.8rem, 8.1vw, 9rem);
+    line-height: 0.86;
+    text-transform: uppercase;
+}
+
 ::deep .tl-detail-hero__tagline {
-    order: 4;
+    order: 5;
     margin: 0;
     color: #fff;
     font-size: clamp(0.94rem, 1.1vw, 1.05rem);
@@ -1176,7 +1210,7 @@
 }
 
 ::deep .tl-detail-genre-row {
-    order: 5;
+    order: 6;
     display: flex;
     flex-wrap: wrap;
     gap: 0.6rem;
@@ -1189,7 +1223,7 @@
     justify-content: center;
     padding: 0 1.15rem;
     border: 1px solid color-mix(in srgb, var(--tl-detail-primary, #c9922e) 44%, rgba(255,255,255,0.18));
-    border-radius: 999px;
+    border-radius: 0.5rem;
     background: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 18%, rgba(0,0,0,0.30));
     color: #ffe1af;
     font-size: 0.88rem;
@@ -1221,6 +1255,39 @@
     align-items: start;
     justify-items: start;
     margin-top: 0.8rem;
+}
+
+::deep .tl-detail-hero-progress {
+    order: 4;
+    width: min(520px, 100%);
+    display: grid;
+    gap: 0.72rem;
+    margin-top: -0.35rem;
+}
+
+::deep .tl-detail-hero-progress__label {
+    color: rgba(var(--hero-text-rgb), 0.86);
+    font-size: 0.92rem;
+    font-weight: 650;
+}
+
+::deep .tl-detail-hero-progress__track {
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    overflow: hidden;
+}
+
+::deep .tl-detail-hero-progress__fill {
+    display: block;
+    height: 100%;
+    width: var(--hero-progress, 0%);
+    border-radius: inherit;
+    background: linear-gradient(
+        to right,
+        rgba(var(--hero-accent-rgb), 0.92),
+        rgba(255, 224, 150, 0.96)
+    );
 }
 
 ::deep .tl-detail-primary-actions,
@@ -1267,6 +1334,83 @@
 
 ::deep .tl-detail-action--primary:hover {
     background: rgba(255,255,255,0.84);
+}
+
+::deep .tl-detail-actions--watch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(0.9rem, 1.4vw, 1.2rem);
+    margin-top: 0.85rem;
+}
+
+::deep .tl-detail-actions--watch .tl-detail-primary-actions,
+::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
+    width: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(0.9rem, 1.4vw, 1.2rem);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-action--primary {
+    width: auto;
+    min-height: clamp(3.9rem, 5vw, 4.25rem);
+    padding-inline: clamp(2rem, 3vw, 2.85rem);
+    border: 1px solid rgba(255, 225, 155, 0.78);
+    border-radius: 0.52rem;
+    background: linear-gradient(180deg, #ffd76a 0%, #f1b53f 58%, #d99829 100%);
+    color: #07080b;
+    font-size: clamp(1.08rem, 1.45vw, 1.28rem);
+    font-weight: 900;
+    box-shadow: 0 0.85rem 2rem rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-action--primary .mud-icon-root {
+    font-size: clamp(1.75rem, 2.2vw, 2.1rem);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-action--primary:hover,
+::deep .tl-detail-actions--watch .tl-detail-action--primary:focus-visible {
+    background: linear-gradient(180deg, #ffe07d 0%, #f6be4a 58%, #e0a22d 100%);
+}
+
+::deep .tl-detail-secondary-action--watch {
+    min-width: 0;
+    display: flex;
+}
+
+::deep .tl-detail-watch-secondary {
+    min-height: clamp(3.9rem, 5vw, 4.25rem);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.62rem;
+    padding: 0 clamp(1.2rem, 2vw, 1.7rem);
+    border: 1px solid rgba(255, 255, 255, 0.19);
+    border-radius: 0.52rem;
+    background: rgba(13, 15, 20, 0.58);
+    color: rgba(var(--hero-text-rgb), 0.95);
+    font-size: clamp(1.02rem, 1.35vw, 1.2rem);
+    font-weight: 820;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0.8rem 1.8rem rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(14px);
+    cursor: pointer;
+}
+
+::deep .tl-detail-watch-secondary--icon {
+    width: clamp(3.9rem, 5vw, 4.25rem);
+    padding-inline: 0;
+}
+
+::deep .tl-detail-watch-secondary .mud-icon-root {
+    font-size: clamp(1.65rem, 2vw, 1.95rem);
+}
+
+::deep .tl-detail-watch-secondary:hover,
+::deep .tl-detail-watch-secondary:focus-visible {
+    border-color: rgba(255, 255, 255, 0.34);
+    background: rgba(22, 25, 32, 0.72);
 }
 
 ::deep .tl-detail-icon-action,
@@ -1722,6 +1866,37 @@
     text-transform: uppercase;
 }
 
+::deep .tl-detail-hero--watch .tl-detail-hero__eyebrow {
+    padding-bottom: 0;
+    border-bottom: 0;
+    color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 92%, #ffe7a7);
+    font-size: clamp(0.86rem, 1vw, 1.02rem);
+    letter-spacing: 0.02em;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-hero__logo {
+    width: min(43rem, 45vw);
+    max-height: clamp(8.5rem, 18vh, 14rem);
+    object-fit: contain;
+    object-position: left center;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-capability-pill,
+::deep .tl-detail-hero--watch .tl-detail-genre-chip {
+    border-color: rgba(255, 255, 255, 0.11);
+    background: rgba(20, 23, 28, 0.78);
+    color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.92);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0.7rem 1.45rem rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(10px);
+}
+
+::deep .tl-detail-hero--watch .tl-detail-capability-pill:hover,
+::deep .tl-detail-hero--watch .tl-detail-genre-chip:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(28, 31, 37, 0.82);
+    color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.98);
+}
+
 ::deep .tl-detail-hero__subtitle {
     margin: -0.2rem 0 0;
     color: color-mix(in srgb, rgb(var(--hero-text-rgb, 246, 240, 232)) 76%, var(--tl-detail-primary, #c9922e));
@@ -1741,7 +1916,7 @@
     align-items: center;
     padding: 0.32rem 0.72rem;
     border: 1px solid color-mix(in srgb, var(--tl-detail-primary, #c9922e) 46%, rgba(255,255,255,0.26));
-    border-radius: 999px;
+    border-radius: 0.5rem;
     background: rgba(var(--hero-surface-rgb, 18, 22, 28), 0.48);
     color: rgba(var(--hero-text-rgb, 246, 240, 232), 0.88);
     font-size: 0.82rem;
@@ -1762,6 +1937,40 @@
     background: rgba(var(--hero-surface-rgb, 18, 22, 28), 0.42);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
     backdrop-filter: blur(12px);
+}
+
+::deep .tl-detail-watch-metadata-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+    width: fit-content;
+    max-width: min(100%, 52rem);
+    color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.88);
+    font-size: clamp(1rem, 1.3vw, 1.18rem);
+    font-weight: 620;
+}
+
+::deep .tl-detail-watch-metadata-item {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+::deep .tl-detail-watch-metadata-separator {
+    color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.54);
+}
+
+::deep .tl-detail-watch-metadata-item--badge {
+    min-height: 1.75rem;
+    padding: 0.16rem 0.45rem;
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    border-radius: 0.36rem;
+    background: rgba(22, 24, 29, 0.78);
+    color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.94);
+    font-size: 0.9em;
+    font-weight: 730;
 }
 
 ::deep .tl-detail-metadata-item,
@@ -1810,23 +2019,31 @@
 ::deep .tl-detail-media-stage--artwork-fallback .tl-detail-media-stage__overlay {
     background:
         linear-gradient(
-            90deg,
-            rgba(var(--hero-bg-rgb), 1.00) 0%,
-            rgba(var(--hero-bg-rgb), 0.96) 30%,
-            rgba(var(--hero-bg-rgb), 0.68) 54%,
-            rgba(var(--hero-bg-rgb), 0.24) 76%
+            to right,
+            rgba(var(--hero-shadow-rgb), 0.96) 0%,
+            rgba(var(--hero-shadow-rgb), 0.88) 22%,
+            rgba(var(--hero-shadow-rgb), 0.62) 42%,
+            rgba(var(--hero-shadow-rgb), 0.28) 62%,
+            rgba(var(--hero-shadow-rgb), 0.08) 78%,
+            transparent 100%
         ),
         radial-gradient(
-            ellipse at 73% 50%,
-            rgba(var(--hero-accent-rgb), 0.42) 0%,
-            rgba(var(--hero-accent-rgb), 0.18) 36%,
-            rgba(var(--hero-bg-rgb), 0.72) 82%,
-            rgba(var(--hero-bg-rgb), 1.00) 100%
+            ellipse at 72% 42%,
+            rgba(var(--hero-accent-rgb), 0.28) 0%,
+            rgba(var(--hero-accent-rgb), 0.14) 24%,
+            rgba(var(--hero-accent-rgb), 0.04) 48%,
+            transparent 72%
         ),
         linear-gradient(
-            180deg,
-            rgba(var(--hero-bg-rgb), 0.00) 38%,
-            rgba(var(--hero-bg-rgb), 0.90) 100%
+            to bottom,
+            transparent 45%,
+            rgba(var(--hero-shadow-rgb), 0.52) 76%,
+            rgba(var(--hero-shadow-rgb), 0.95) 100%
+        ),
+        radial-gradient(
+            ellipse at center,
+            transparent 42%,
+            rgba(var(--hero-shadow-rgb), 0.28) 100%
         );
 }
 
@@ -2261,20 +2478,17 @@
         inset: 0;
         width: 100%;
         height: 100%;
-        object-fit: contain;
-        object-position: var(--mobile-image-position, 62% top);
-        -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0, 0, 0, 0.62) 68%, transparent 100%);
-        mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0, 0, 0, 0.62) 68%, transparent 100%);
+        background-position: var(--mobile-image-position, 62% top);
     }
 
+    ::deep .tl-detail-hero__overlays,
     ::deep .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
         background:
             linear-gradient(
-                180deg,
-                rgba(var(--hero-bg-rgb), 0.08) 0%,
-                rgba(var(--hero-bg-rgb), 0.36) 38%,
-                rgba(var(--hero-bg-rgb), 0.86) 62%,
-                rgba(var(--hero-bg-rgb), 1.00) 100%
+                to bottom,
+                rgba(var(--hero-shadow-rgb), 0.92) 0%,
+                rgba(var(--hero-shadow-rgb), 0.78) 42%,
+                rgba(var(--hero-shadow-rgb), 0.96) 100%
             );
     }
 
@@ -2300,10 +2514,10 @@
     ::deep .tl-detail-media-stage--cover-fallback .tl-detail-media-stage__overlay {
         background:
             linear-gradient(
-                180deg,
-                rgba(var(--hero-bg-rgb), 0.08) 0%,
-                rgba(var(--hero-bg-rgb), 0.26) 38%,
-                rgba(var(--hero-bg-rgb), 0.92) 100%
+                to bottom,
+                rgba(var(--hero-shadow-rgb), 0.92) 0%,
+                rgba(var(--hero-shadow-rgb), 0.78) 42%,
+                rgba(var(--hero-shadow-rgb), 0.96) 100%
             );
     }
 
@@ -2399,5 +2613,60 @@
     ::deep .tl-detail-track-row__duration {
         text-align: right;
         font-size: 0.86rem;
+    }
+}
+
+@media (max-width: 760px) {
+    ::deep .tl-detail-hero--watch .tl-detail-hero__inner {
+        padding: 6.25rem 1.25rem 2.35rem;
+    }
+
+    ::deep .tl-detail-hero--watch .tl-detail-hero__copy {
+        max-width: 100%;
+        gap: 0.9rem;
+    }
+
+    ::deep .tl-detail-hero--watch .tl-detail-hero__copy h1 {
+        font-size: clamp(3rem, 17vw, 5.6rem);
+    }
+
+    ::deep .tl-detail-hero--watch .tl-detail-hero__logo {
+        width: min(90vw, 30rem);
+        max-height: 9rem;
+    }
+
+    ::deep .tl-detail-hero--watch .tl-detail-hero__overlays,
+    ::deep .tl-detail-hero--watch .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
+        background:
+            linear-gradient(
+                to bottom,
+                rgba(0, 3, 5, 0.95) 0%,
+                rgba(0, 3, 5, 0.86) 43%,
+                rgba(0, 3, 5, 0.98) 100%
+            );
+    }
+
+    ::deep .tl-detail-watch-metadata-row {
+        gap: 0.52rem;
+        font-size: 0.96rem;
+    }
+
+    ::deep .tl-detail-actions--watch,
+    ::deep .tl-detail-actions--watch .tl-detail-primary-actions,
+    ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
+        width: 100%;
+    }
+
+    ::deep .tl-detail-actions--watch .tl-detail-action--primary {
+        flex: 1 1 12rem;
+        min-height: 3.75rem;
+    }
+
+    ::deep .tl-detail-watch-secondary {
+        min-height: 3.75rem;
+    }
+
+    ::deep .tl-detail-watch-secondary--icon {
+        width: 3.75rem;
     }
 }

@@ -23,8 +23,8 @@
     <CommandPalette @ref="_palette" />
 }
 
-<MudLayout Class="app-bg">
-    <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="layout-shell__appbar">
+<MudLayout Class="@LayoutShellClass">
+    <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="@AppBarClass">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="layout-shell__left-rail">
             <MudLink Href="/" Underline="Underline.None" Class="layout-shell__brand-link" aria-label="Tuvima Library">
                 <span class="layout-shell__brand-lockup-shell" aria-hidden="true">
@@ -141,8 +141,8 @@
         </MudStack>
     </MudAppBar>
 
-    <MudMainContent Class="main-content-with-topbar">
-        <MudContainer MaxWidth="MaxWidth.False" Class="py-6 px-0">
+    <MudMainContent Class="@MainContentClass">
+        <MudContainer MaxWidth="MaxWidth.False" Class="@MainContainerClass">
             @Body
         </MudContainer>
     </MudMainContent>
@@ -174,6 +174,12 @@
         new("/watch", "Nav_Watch"),
         new("/listen", "Nav_Listen"),
     ];
+
+    private bool IsDetailShell => IsDetailPath(_currentPath);
+    private string LayoutShellClass => IsDetailShell ? "app-bg app-bg--detail" : "app-bg";
+    private string AppBarClass => IsDetailShell ? "layout-shell__appbar layout-shell__appbar--detail" : "layout-shell__appbar";
+    private string MainContentClass => IsDetailShell ? "main-content-with-topbar main-content-with-topbar--detail" : "main-content-with-topbar";
+    private string MainContainerClass => IsDetailShell ? "px-0 py-0" : "py-6 px-0";
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -411,6 +417,14 @@
     private bool IsNavActive(string path) =>
         _currentPath.Equals(path, StringComparison.OrdinalIgnoreCase)
         || _currentPath.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDetailPath(string path)
+        => path.StartsWith("/watch/movie/", StringComparison.OrdinalIgnoreCase)
+           || path.StartsWith("/watch/tv/", StringComparison.OrdinalIgnoreCase)
+           || path.StartsWith("/details/", StringComparison.OrdinalIgnoreCase)
+           || path.StartsWith("/book/", StringComparison.OrdinalIgnoreCase)
+           || path.StartsWith("/collection/", StringComparison.OrdinalIgnoreCase)
+           || path.StartsWith("/person/", StringComparison.OrdinalIgnoreCase);
 
     private static string GetAvatarInitial(string displayName)
     {

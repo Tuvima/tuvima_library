@@ -27,6 +27,7 @@
             <HeroMetadataPills Metadata="Model.Metadata"
                                EntityType="Model.EntityType"
                                IdentityStatus="Model.IdentityStatus"
+                               IsWatchHero="Presentation.IsWatchHero"
                                IsAdminView="Model.IsAdminView" />
 
             @if (Presentation.CapabilityPills.Count > 0)
@@ -43,6 +44,8 @@
                            SecondaryActions="Model.SecondaryActions"
                            OverflowActions="Model.OverflowActions"
                            OnActionSelected="OnActionSelected" />
+
+            <HeroProgressBlock Progress="Presentation.Progress" />
 
             @if (!string.IsNullOrWhiteSpace(Presentation.HeroCopy))
             {

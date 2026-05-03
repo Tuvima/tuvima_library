@@ -14,6 +14,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("HeroArtworkMode.ArtworkFallback", source);
         Assert.Contains("tl-detail-media-stage--background", source);
         Assert.Contains("tl-detail-media-stage--artwork-fallback", source);
+        Assert.Contains("tl-detail-hero__artwork", source);
+        Assert.Contains("tl-detail-hero__overlays", source);
+        Assert.Contains("tl-detail-hero__foreground-art", source);
         Assert.Contains("tl-detail-media-stage__cover-atmosphere", source);
         Assert.Contains("tl-detail-media-stage__cover-wrap", source);
         Assert.Contains("tl-detail-media-stage__foreground", source);
@@ -21,9 +24,15 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("tl-detail-media-stage--background .tl-detail-media-stage__overlay", styles);
         Assert.Contains("tl-detail-media-stage--artwork-fallback .tl-detail-media-stage__overlay", styles);
-        Assert.Contains("filter: blur(64px) saturate(1.15)", styles);
-        Assert.Contains("opacity: 0.28", styles);
-        Assert.Contains("transform: scale(1.35)", styles);
+        Assert.Contains("to right", styles);
+        Assert.Contains("rgba(var(--hero-shadow-rgb), 0.96) 0%", styles);
+        Assert.Contains("ellipse at 72% 42%", styles);
+        Assert.Contains("to bottom", styles);
+        Assert.Contains("transparent 45%", styles);
+        Assert.Contains("rgba(var(--hero-shadow-rgb), 0.95) 100%", styles);
+        Assert.Contains("filter: blur(42px) saturate(1.18) brightness(0.72)", styles);
+        Assert.Contains("opacity: 0.78", styles);
+        Assert.Contains("transform: scale(1.08)", styles);
         Assert.Contains("object-fit: contain", styles);
         Assert.Contains("opacity: 1", styles);
         Assert.DoesNotContain("opacity: 0.58", styles);
@@ -32,21 +41,61 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("0 0 0 1px rgba(255, 255, 255, 0.10)", styles);
         Assert.Contains("content: none", styles);
         Assert.Contains("filter: none", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0.98) 0%", styles);
-        Assert.Contains("inset: 0 0 0 34%", styles);
-        Assert.Contains("width: 66%", styles);
-        Assert.Contains("height: 100%", styles);
-        Assert.Contains("object-position: var(--hero-image-position, center right)", styles);
-        Assert.Contains("object-fit: contain", styles);
-        Assert.Contains("mask-image:", styles);
-        Assert.Contains("transparent 0%", styles);
+        Assert.Contains("background-size: auto 100%", styles);
+        Assert.Contains("background-size: min(67vw, 153vh) auto", styles);
+        Assert.Contains("background-size: cover", styles);
+        Assert.Contains("background-position: var(--hero-image-position, center right)", styles);
+        Assert.Contains("background-position: right center", styles);
         Assert.DoesNotContain("background-size: contain", styles);
-        Assert.DoesNotContain("tl-detail-media-stage__background {\r\n    position: absolute;\r\n    inset: 0;\r\n    width: 100%;\r\n    height: 100%;\r\n    object-fit: cover", styles);
-        Assert.Contains("min-height: clamp(42rem, 84vh, 64rem)", styles);
+        Assert.Contains("tl-detail-hero--watch .tl-detail-hero__artwork", styles);
+        Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork::after", styles);
+        Assert.Contains("min-height: clamp(680px, 86vh, 920px)", styles);
         Assert.DoesNotContain("tl-detail-backdrop", styles);
         Assert.DoesNotContain("tl-hero-art", styles);
         Assert.DoesNotContain("var(--tl-detail-accent) 30%", styles);
         Assert.DoesNotContain("linear-gradient(135deg, color-mix(in srgb, var(--tl-detail-primary) 36%, #101115)", styles);
+    }
+
+    [Fact]
+    public void DetailHero_UsesCentralizedGradientVariablesAndProgress()
+    {
+        var presentation = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroPresentation.cs");
+        var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var progress = ReadSource("src/MediaEngine.Web/Components/Details/HeroProgressBlock.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+        var client = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+        var appStyles = ReadSource("src/MediaEngine.Web/wwwroot/app.css");
+        var layout = ReadSource("src/MediaEngine.Web/Shared/MainLayout.razor");
+        var layoutStyles = ReadSource("src/MediaEngine.Web/Shared/MainLayout.razor.css");
+
+        Assert.Contains("tl-detail-hero--backdrop tl-detail-hero--backdrop-logo", presentation);
+        Assert.Contains("tl-detail-hero--backdrop tl-detail-hero--backdrop-title", presentation);
+        Assert.Contains("tl-detail-hero--watch", presentation);
+        Assert.Contains("(R: 8, G: 12, B: 18)", presentation);
+        Assert.Contains("(R: 4, G: 7, B: 12)", presentation);
+        Assert.Contains("(R: 220, G: 165, B: 62)", presentation);
+        Assert.Contains("--hero-shadow-rgb:0, 3, 5", presentation);
+        Assert.Contains("isWatchHero ? null : model.Subtitle", presentation);
+        Assert.Contains("<HeroProgressBlock Progress=\"Presentation.Progress\" />", hero);
+        Assert.Contains("IsWatchHero=\"Presentation.IsWatchHero\"", hero);
+        Assert.Contains("tl-detail-hero-progress", progress);
+        Assert.Contains("--hero-progress", progress);
+        Assert.Contains("Progress = detail.Progress", client);
+        Assert.Contains(".tl-detail-hero-progress__fill", styles);
+        Assert.Contains("rgba(0, 3, 5, 1) 0%", styles);
+        Assert.Contains("rgba(0, 3, 5, 1) 34%", styles);
+        Assert.Contains("rgba(0, 3, 5, 0.10) 90%", styles);
+        Assert.DoesNotContain("rgba(0, 0, 0, 0.10) 36%", styles);
+        Assert.Contains("tl-detail-hero--watch .tl-detail-genre-chip", styles);
+        Assert.Contains("background: rgba(20, 23, 28, 0.78)", styles);
+        Assert.Contains("IsDetailShell", layout);
+        Assert.Contains("layout-shell__appbar--detail", layout);
+        Assert.Contains("MainContainerClass", layout);
+        Assert.Contains("py-0", layout);
+        Assert.Contains(".main-content-with-topbar--detail", layoutStyles);
+        Assert.Contains(".layout-shell__appbar--detail", layoutStyles);
+        Assert.Contains("body:has(.tl-detail-page) .main-content-with-topbar", appStyles);
+        Assert.Contains(".layout-shell__appbar--detail", appStyles);
     }
 
     [Fact]
@@ -70,6 +119,9 @@ public sealed class UnifiedDetailComponentTests
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroMetadataPills.razor");
 
+        Assert.Contains("IsWatchHero", source);
+        Assert.Contains("tl-detail-watch-metadata-row", source);
+        Assert.Contains("IsWatchHeroStat", source);
         Assert.Contains("tl-detail-metadata-row", source);
         Assert.Contains("tl-detail-metadata-item", source);
         Assert.Contains("tl-detail-metadata-item--rating", source);
@@ -81,13 +133,20 @@ public sealed class UnifiedDetailComponentTests
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroActionRow.razor");
         var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("tl-reaction-menu", source);
         Assert.Contains("tl-detail-premium-action", source);
+        Assert.Contains("tl-detail-actions--watch", source);
+        Assert.Contains("tl-detail-watch-secondary", source);
         Assert.Contains("read-listen", composer);
         Assert.Contains("SupportsWatchParty", composer);
         Assert.Contains("watch-party", composer);
-        Assert.DoesNotContain("Watch Party is coming soon", composer);
+        Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", composer);
+        Assert.Contains("IsStub = true", composer);
+        Assert.Contains("Label = \"Watchlist\"", composer);
+        Assert.Contains("border-radius: 0.5rem", styles);
+        Assert.DoesNotContain("&& SupportsWatchParty(entityType)", composer);
     }
 
     [Fact]

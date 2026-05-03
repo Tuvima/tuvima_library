@@ -4,14 +4,14 @@
 <div class="@StageClass" style="@StageStyle">
     @if (IsBackdropMode && !string.IsNullOrWhiteSpace(HeroImageUrl))
     {
-        <img class="tl-detail-media-stage__background" src="@HeroImageUrl" alt="" @onerror="HandleImageError" />
-        <div class="tl-detail-media-stage__overlay" aria-hidden="true"></div>
+        <div class="tl-detail-hero__artwork tl-detail-media-stage__background" aria-hidden="true"></div>
+        <div class="tl-detail-hero__overlays tl-detail-media-stage__overlay" aria-hidden="true"></div>
     }
     else if (IsArtworkFallbackMode && !string.IsNullOrWhiteSpace(HeroImageUrl))
     {
-        <div class="tl-detail-media-stage__cover-atmosphere" aria-hidden="true"></div>
-        <div class="tl-detail-media-stage__overlay" aria-hidden="true"></div>
-        <div class="tl-detail-media-stage__cover-wrap">
+        <div class="tl-detail-hero__cover-atmosphere tl-detail-media-stage__cover-atmosphere" aria-hidden="true"></div>
+        <div class="tl-detail-hero__overlays tl-detail-media-stage__overlay" aria-hidden="true"></div>
+        <div class="tl-detail-hero__foreground-art tl-detail-media-stage__cover-wrap">
             <div class="@ForegroundClass">
                 @if (ForegroundTreatment == HeroForegroundTreatment.Book)
                 {
@@ -29,7 +29,8 @@
     }
     else
     {
-        <div class="tl-detail-media-stage__placeholder" aria-hidden="true"></div>
+        <div class="tl-detail-hero__placeholder tl-detail-media-stage__placeholder" aria-hidden="true"></div>
+        <div class="tl-detail-hero__overlays tl-detail-media-stage__overlay" aria-hidden="true"></div>
     }
 
     @if (ShouldRenderHeroBrand)
@@ -96,7 +97,7 @@
                 _ => "tl-detail-media-stage--poster",
             };
 
-            return $"tl-detail-media-stage {imageClass} {entityClass}";
+            return $"tl-detail-media-stage tl-detail-hero__stage {imageClass} {entityClass}";
         }
     }
 

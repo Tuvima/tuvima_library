@@ -3734,6 +3734,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Source = artwork.Source,
             },
             HeroBrand = NormalizeHeroBrand(detail.HeroBrand),
+            Progress = detail.Progress,
             OwnedFormats = detail.OwnedFormats.Select(format => new OwnedFormatViewModel
             {
                 Id = format.Id,

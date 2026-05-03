@@ -13,6 +13,7 @@ public sealed class DetailPageViewModel
 
     public ArtworkSet Artwork { get; init; } = new();
     public HeroBrandViewModel? HeroBrand { get; init; }
+    public ProgressViewModel? Progress { get; init; }
 
     public IReadOnlyList<OwnedFormatViewModel> OwnedFormats { get; init; } = [];
     public MultiFormatState MultiFormatState { get; init; } = MultiFormatState.SingleFormat;

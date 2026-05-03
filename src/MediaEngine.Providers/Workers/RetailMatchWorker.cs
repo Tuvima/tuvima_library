@@ -1673,6 +1673,7 @@ public sealed class RetailMatchWorker
         Add(MetadataFieldConstants.ShowName, showDetails?["name"]?.GetValue<string>() ?? fallbackShowName, 0.90);
         Add(MetadataFieldConstants.Title, showDetails?["name"]?.GetValue<string>() ?? fallbackShowName, 0.86);
         Add(MetadataFieldConstants.Description, showDetails?["overview"]?.GetValue<string>(), 0.86);
+        Add(MetadataFieldConstants.ShortDescription, showDetails?["overview"]?.GetValue<string>(), 0.84);
         Add(MetadataFieldConstants.Tagline, showDetails?["tagline"]?.GetValue<string>(), 0.78);
         Add(MetadataFieldConstants.Network, showDetails?["networks"]?[0]?["name"]?.GetValue<string>(), 0.85);
         Add(MetadataFieldConstants.Cover, BuildTmdbImageUrl(showDetails?["poster_path"]?.GetValue<string>()) ?? fallbackPosterUrl, 0.90);

@@ -46,6 +46,7 @@ public static class MetadataFieldConstants
     public const string PublisherField  = "publisher";
     public const string PageCount       = "page_count";
     public const string Language        = "language";
+    public const string OriginalLanguage = "original_language";
     public const string DurationField   = "duration";
     public const string Franchise       = "franchise";
     public const string CustomTags      = "custom_tags";

@@ -1,11 +1,29 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
+@{
+    var watchStatItems = WatchStatItems;
+    var statItems = StatItems;
+}
+
 <div class="tl-detail-metadata-stack">
-    @if (StatItems.Count > 0)
+    @if (IsWatchHero && watchStatItems.Count > 0)
+    {
+        <div class="tl-detail-watch-metadata-row" aria-label="Media details">
+            @foreach (var entry in watchStatItems.Select((item, index) => new { item, index }))
+            {
+                <span class="@WatchStatClass(entry.item)" title="@entry.item.Tooltip">@entry.item.Label</span>
+                @if (entry.index < watchStatItems.Count - 1)
+                {
+                    <span class="tl-detail-watch-metadata-separator" aria-hidden="true">·</span>
+                }
+            }
+        </div>
+    }
+    else if (statItems.Count > 0)
     {
         <div class="tl-detail-metadata-row" aria-label="Media details">
-            @foreach (var item in StatItems)
+            @foreach (var item in statItems)
             {
                 @if (!string.IsNullOrWhiteSpace(item.Route))
                 {
@@ -38,12 +56,23 @@
     [Parameter] public DetailEntityType EntityType { get; set; }
     [Parameter] public CanonicalIdentityStatus IdentityStatus { get; set; }
     [Parameter] public bool IsAdminView { get; set; }
+    [Parameter] public bool IsWatchHero { get; set; }
 
     private IReadOnlyList<MetadataPill> StatItems =>
         Metadata
             .Where(IsHeroStat)
             .OrderBy(StatSort)
             .Take(EntityType == DetailEntityType.MusicAlbum ? 6 : 5)
+            .ToList();
+
+    private IReadOnlyList<MetadataPill> WatchStatItems =>
+        Metadata
+            .Where(IsWatchHeroStat)
+            .Where(item => !string.IsNullOrWhiteSpace(item.Label))
+            .OrderBy(WatchStatSort)
+            .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Take(5)
             .ToList();
 
     private string IdentityStatusLabel => IdentityStatus switch
@@ -65,6 +94,12 @@
             or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality";
     }
 
+    private static bool IsWatchHeroStat(MetadataPill item)
+    {
+        var kind = item.Kind?.ToLowerInvariant();
+        return kind is "certification" or "content_rating" or "duration" or "year" or "genre" or "quality";
+    }
+
     private static int StatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
         "type" => 0,
@@ -78,10 +113,30 @@
         _ => 8,
     };
 
+    private static int WatchStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
+    {
+        "certification" or "content_rating" => 0,
+        "year" => 1,
+        "duration" => 2,
+        "genre" => 3,
+        "quality" => 4,
+        _ => 5,
+    };
+
     private static string StatClass(MetadataPill item)
         => KindEquals(item, "rating")
             ? "tl-detail-metadata-item tl-detail-metadata-item--rating"
             : "tl-detail-metadata-item";
+
+    private static string WatchStatClass(MetadataPill item)
+        => item.Kind?.ToLowerInvariant() is "certification" or "content_rating" or "quality"
+            ? "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--badge"
+            : "tl-detail-watch-metadata-item";
+
+    private static string WatchStatGroupKey(MetadataPill item)
+        => item.Kind?.ToLowerInvariant() is "certification" or "content_rating"
+            ? "content-rating"
+            : item.Kind ?? item.Label;
 
     private static string IconFor(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {

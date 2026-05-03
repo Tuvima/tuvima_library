@@ -7,6 +7,10 @@
     padding-top: calc(var(--app-topbar-height, 65px) + 1rem) !important;
 }
 
+.main-content-with-topbar--detail {
+    padding-top: 0 !important;
+}
+
 .layout-shell__appbar {
     min-height: var(--app-topbar-height, 65px);
     height: var(--app-topbar-height, 65px);
@@ -16,6 +20,19 @@
     border-bottom: 1px solid var(--app-border, #293036);
     box-shadow: var(--app-shadow, 0 1px 4px rgba(130, 143, 163, 0.15));
     overflow: visible;
+}
+
+.layout-shell__appbar--detail {
+    background:
+        linear-gradient(
+            to bottom,
+            rgba(0, 3, 5, 0.72) 0%,
+            rgba(0, 3, 5, 0.44) 62%,
+            rgba(0, 3, 5, 0.00) 100%
+        ) !important;
+    border-bottom-color: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
 }
 
 ::deep .layout-shell__appbar .mud-toolbar {

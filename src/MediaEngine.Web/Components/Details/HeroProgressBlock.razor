@@ -1,0 +1,31 @@
+@namespace MediaEngine.Web.Components.Details
+@using System.Globalization
+@using MediaEngine.Contracts.Details
+
+@if (Progress is not null)
+{
+    <div class="tl-detail-hero-progress" style="@ProgressStyle" aria-label="@ProgressLabel">
+        <div class="tl-detail-hero-progress__label">@ProgressLabel</div>
+        <div class="tl-detail-hero-progress__track" role="progressbar"
+             aria-valuemin="0"
+             aria-valuemax="100"
+             aria-valuenow="@ProgressPercent">
+            <span class="tl-detail-hero-progress__fill"></span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public ProgressViewModel? Progress { get; set; }
+
+    private int ProgressPercent => Progress is null
+        ? 0
+        : Math.Clamp((int)Math.Round(Progress.Percent, MidpointRounding.AwayFromZero), 0, 100);
+
+    private string ProgressStyle
+        => $"--hero-progress:{ProgressPercent.ToString(CultureInfo.InvariantCulture)}%;";
+
+    private string ProgressLabel => string.IsNullOrWhiteSpace(Progress?.Label)
+        ? $"{ProgressPercent}% watched"
+        : Progress.Label;
+}

@@ -13,6 +13,8 @@ public sealed class DetailHeroPresentation
         string title,
         string? subtitle,
         string? heroCopy,
+        ProgressViewModel? progress,
+        bool isWatchHero,
         IReadOnlyList<MetadataPill> capabilityPills)
     {
         HeroClass = heroClass;
@@ -23,6 +25,8 @@ public sealed class DetailHeroPresentation
         Title = title;
         Subtitle = subtitle;
         HeroCopy = heroCopy;
+        Progress = progress;
+        IsWatchHero = isWatchHero;
         CapabilityPills = capabilityPills;
     }
 
@@ -34,11 +38,14 @@ public sealed class DetailHeroPresentation
     public string Title { get; }
     public string? Subtitle { get; }
     public string? HeroCopy { get; }
+    public ProgressViewModel? Progress { get; }
+    public bool IsWatchHero { get; }
     public IReadOnlyList<MetadataPill> CapabilityPills { get; }
 
     public static DetailHeroPresentation From(DetailPageViewModel model)
     {
         var mode = NormalizeMode(model.Artwork.HeroArtwork.Mode);
+        var isWatchHero = IsWatchEntity(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
         var copy = model.EntityType == DetailEntityType.MusicAlbum
             ? null
@@ -49,15 +56,30 @@ public sealed class DetailHeroPresentation
                     : null;
 
         return new DetailHeroPresentation(
-            $"tl-detail-hero--{ToKebabCase(mode.ToString())}",
-            BuildGradientStyle(model.Artwork),
-            FormatEntityType(model.EntityType),
+            BuildHeroClass(mode, isWatchHero),
+            BuildGradientStyle(model.Artwork, isWatchHero),
+            isWatchHero ? FormatEntityType(model.EntityType).ToUpperInvariant() : FormatEntityType(model.EntityType),
             useLogo,
             useLogo ? model.Artwork.LogoUrl : null,
             model.Title,
-            model.Subtitle,
+            isWatchHero ? null : model.Subtitle,
             copy,
+            model.Progress,
+            isWatchHero,
             BuildCapabilityPills(model));
+    }
+
+    private static string BuildHeroClass(HeroArtworkMode mode, bool isWatchHero)
+    {
+        var modeClass = mode switch
+        {
+            HeroArtworkMode.BackdropWithLogo => "tl-detail-hero--backdrop tl-detail-hero--backdrop-logo tl-detail-hero--backdrop-with-logo",
+            HeroArtworkMode.BackdropWithRenderedTitle => "tl-detail-hero--backdrop tl-detail-hero--backdrop-title tl-detail-hero--backdrop-with-rendered-title",
+            HeroArtworkMode.ArtworkFallback => "tl-detail-hero--artwork-fallback tl-detail-hero--cover-fallback",
+            _ => "tl-detail-hero--placeholder",
+        };
+
+        return isWatchHero ? $"{modeClass} tl-detail-hero--watch" : modeClass;
     }
 
     private static HeroArtworkMode NormalizeMode(HeroArtworkMode mode) => mode switch
@@ -81,24 +103,47 @@ public sealed class DetailHeroPresentation
         => string.Equals(kind, "sync", StringComparison.OrdinalIgnoreCase)
            || string.Equals(kind, "quality", StringComparison.OrdinalIgnoreCase);
 
-    private static string BuildGradientStyle(ArtworkSet artwork)
+    private static bool IsWatchEntity(DetailEntityType entityType)
+        => entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+
+    private static string BuildGradientStyle(ArtworkSet artwork, bool isWatchHero)
     {
-        var primary = artwork.PrimaryColor ?? "#C9922E";
-        var secondary = artwork.SecondaryColor ?? "#271A3A";
-        var accent = artwork.AccentColor ?? "#4F7DBA";
-        var parsedColors = new[] { primary, secondary, accent }
+        if (isWatchHero)
+        {
+            return string.Join(
+                ';',
+                "--tl-detail-primary:#DCA53E",
+                "--tl-detail-secondary:#0E1218",
+                "--tl-detail-accent:#DCA53E",
+                "--hero-bg-rgb:8, 10, 14",
+                "--hero-accent-rgb:220, 165, 62",
+                "--hero-shadow-rgb:0, 3, 5",
+                "--hero-surface-rgb:16, 18, 23",
+                "--hero-text-rgb:245, 247, 250") + ';';
+        }
+
+        var primary = artwork.PrimaryColor ?? "#DCA53E";
+        var secondary = artwork.SecondaryColor ?? "#0E1218";
+        var accent = artwork.AccentColor ?? "#DCA53E";
+        var parsedColors = new[] { artwork.PrimaryColor, artwork.SecondaryColor, artwork.AccentColor }
             .Select(TryParseHexColor)
             .Where(color => color is not null)
             .Select(color => color!.Value)
             .ToList();
-        var background = parsedColors.Count == 0
-            ? (R: 8, G: 10, B: 15)
-            : parsedColors.OrderBy(RelativeLuminance).First();
-        var accentColor = parsedColors.Count == 0
-            ? (R: 44, G: 180, B: 190)
-            : parsedColors.OrderByDescending(Saturation).ThenByDescending(RelativeLuminance).First();
-        var surface = Mix(background, (255, 255, 255), 0.08);
-        var shadow = Mix(background, (0, 0, 0), 0.72);
+        var hasPalette = parsedColors.Count > 0
+            && new[] { artwork.PrimaryColor, artwork.SecondaryColor, artwork.AccentColor }.Any(color => !IsKnownFallbackColor(color));
+        var background = hasPalette
+            ? parsedColors.OrderBy(RelativeLuminance).First()
+            : (R: 8, G: 12, B: 18);
+        var accentColor = hasPalette
+            ? parsedColors.OrderByDescending(Saturation).ThenByDescending(RelativeLuminance).First()
+            : (R: 220, G: 165, B: 62);
+        var surface = hasPalette
+            ? Mix(background, (255, 255, 255), 0.08)
+            : (R: 14, G: 18, B: 24);
+        var shadow = hasPalette
+            ? Mix(background, (0, 0, 0), 0.72)
+            : (R: 4, G: 7, B: 12);
 
         return string.Join(
             ';',
@@ -109,7 +154,7 @@ public sealed class DetailHeroPresentation
             $"--hero-accent-rgb:{ToRgb(accentColor)}",
             $"--hero-shadow-rgb:{ToRgb(shadow)}",
             $"--hero-surface-rgb:{ToRgb(surface)}",
-            "--hero-text-rgb:246, 240, 232") + ';';
+            "--hero-text-rgb:245, 247, 250") + ';';
     }
 
     private static string FormatEntityType(DetailEntityType entityType) => entityType switch
@@ -129,20 +174,6 @@ public sealed class DetailHeroPresentation
 
     private static string Truncate(string value, int max)
         => value.Length <= max ? value : value[..max].TrimEnd() + "...";
-
-    private static string ToKebabCase(string value)
-    {
-        var chars = new List<char>(value.Length + 4);
-        foreach (var ch in value)
-        {
-            if (char.IsUpper(ch) && chars.Count > 0)
-                chars.Add('-');
-
-            chars.Add(char.ToLowerInvariant(ch));
-        }
-
-        return new string(chars.ToArray());
-    }
 
     private static (int R, int G, int B)? TryParseHexColor(string? value)
     {
@@ -176,4 +207,13 @@ public sealed class DetailHeroPresentation
     }
 
     private static string ToRgb((int R, int G, int B) color) => $"{color.R}, {color.G}, {color.B}";
+
+    private static bool IsKnownFallbackColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return true;
+
+        var normalized = value.Trim().ToUpperInvariant();
+        return normalized is "#C9922E" or "#271A3A" or "#4F7DBA";
+    }
 }

@@ -945,6 +945,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             var enriched = claims.ToList();
             AddIfMissing(enriched, MetadataFieldConstants.Description, details["overview"]?.GetValue<string>(), 0.85);
+            AddIfMissing(enriched, MetadataFieldConstants.ShortDescription, details["overview"]?.GetValue<string>(), 0.84);
             AddIfMissing(enriched, MetadataFieldConstants.Tagline, details["tagline"]?.GetValue<string>(), 0.70);
             AddIfMissing(enriched, MetadataFieldConstants.Runtime, details["runtime"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.90);
             AddTmdbCastClaims(enriched, details, mediaType);
@@ -1077,7 +1078,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         url = ReplacePlaceholder(url, "{genre}", request.Genre, encode: true);
         url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
         url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
-        url = ReplacePlaceholder(url, "{country}", request.Country.ToLowerInvariant(),  encode: true);
+        url = ReplacePlaceholder(url, "{country}", request.Country.ToUpperInvariant(),  encode: true);
         url = ReplacePlaceholder(url, "{year}",    yearFromTitle ?? string.Empty, encode: true);
         url = ReplacePlaceholder(url, "{tvdb_id}", ResolveRequestField(request, BridgeIdKeys.TvdbId), encode: true);
         url = ReplacePlaceholder(url, "{musicbrainz_id}", ResolveRequestField(request, BridgeIdKeys.MusicBrainzId), encode: true);

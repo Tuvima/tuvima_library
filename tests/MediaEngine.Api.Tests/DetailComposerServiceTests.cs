@@ -169,6 +169,35 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_DrivesHeroProgressFromPlaybackState()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
+
+        Assert.Contains("Progress = heroProgress", source);
+        Assert.Contains("BuildHeroProgress", source);
+        Assert.Contains("BuildCollectionHeroProgress", source);
+        Assert.Contains("LEFT JOIN user_states us ON us.asset_id = ma.id", source);
+        Assert.Contains("Label = heroProgress is null ? \"Watch\" : \"Continue Watching\"", source);
+        Assert.Contains("Continue watching", source);
+        Assert.Contains("public ProgressViewModel? Progress { get; init; }", contracts);
+    }
+
+    [Fact]
+    public void DetailComposer_BuildsWatchHeroActionsInMockupOrder()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("if (IsWatchEntity(entityType))", source);
+        Assert.Contains("Key = \"watch-party\"", source);
+        Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", source);
+        Assert.Contains("IsStub = true", source);
+        Assert.Contains("Label = \"Watchlist\"", source);
+        Assert.Contains("return actions;", source);
+        Assert.DoesNotContain("&& SupportsWatchParty(entityType)", source);
+    }
+
+    [Fact]
     public void DetailComposer_UsesChildArtworkFallbackForCollectionDetails()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));

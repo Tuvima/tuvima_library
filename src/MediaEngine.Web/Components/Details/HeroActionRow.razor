@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-actions">
+<div class="tl-detail-actions @(IsWatchActionRow ? "tl-detail-actions--watch" : null)">
     <div class="tl-detail-primary-actions">
         @foreach (var action in PrimaryActions)
         {
@@ -93,6 +93,35 @@
                     <span>@SecondaryLabel(action)</span>
                 </div>
             }
+            else if (IsWatchActionRow && action.Key == "watch-party")
+            {
+                <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
+                    <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
+                        <button type="button"
+                                class="tl-detail-watch-secondary tl-detail-watch-secondary--icon @(action.IsStub ? "tl-detail-watch-secondary--stub" : null)"
+                                aria-label="@action.Label"
+                                disabled="@action.IsDisabled"
+                                @onclick="@(() => Select(action))">
+                            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                        </button>
+                    </MudTooltip>
+                </div>
+            }
+            else if (IsWatchActionRow && action.Key == "add-to-collection")
+            {
+                <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
+                    <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
+                        <button type="button"
+                                class="tl-detail-watch-secondary"
+                                aria-label="@action.Label"
+                                disabled="@action.IsDisabled"
+                                @onclick="@(() => Select(action))">
+                            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                            <span>@action.Label</span>
+                        </button>
+                    </MudTooltip>
+                </div>
+            }
             else
             {
                 <div class="tl-detail-secondary-action">
@@ -110,7 +139,7 @@
             }
         }
 
-        @if (OverflowActions.Count > 0)
+        @if (!IsWatchActionRow && OverflowActions.Count > 0)
         {
             <div class="tl-detail-secondary-action">
                 <OverflowActionMenu Actions="OverflowActions" OnActionSelected="OnActionSelected" />
@@ -125,6 +154,8 @@
     [Parameter] public IReadOnlyList<DetailAction> SecondaryActions { get; set; } = [];
     [Parameter] public IReadOnlyList<DetailAction> OverflowActions { get; set; } = [];
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+
+    private bool IsWatchActionRow => PrimaryActions.Any(action => action.Key == "watch");
 
     private Task Select(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);

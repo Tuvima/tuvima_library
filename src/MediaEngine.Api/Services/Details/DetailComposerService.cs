@@ -14,6 +14,8 @@ namespace MediaEngine.Api.Services.Details;
 
 public sealed class DetailComposerService
 {
+    private static readonly Guid DefaultOwnerUserId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
     private readonly IDatabaseConnection _db;
     private readonly ILibraryItemRepository _libraryItems;
     private readonly IPersonRepository _persons;
@@ -110,6 +112,7 @@ public sealed class DetailComposerService
         var values = detail.CanonicalValues.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
         var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
         var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct);
+        var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats);
         var artworkFallback = await LoadWorkArtworkFallbackAsync(workId, ct);
         var multiFormatState = ownedFormats.Count > 1
             ? MultiFormatState.MultipleFormatsSeparateProgress
@@ -170,12 +173,13 @@ public sealed class DetailComposerService
                 entityType,
                 FirstNonBlank(GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
                 FirstNonBlank(GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
+            Progress = heroProgress,
             OwnedFormats = ownedFormats,
             MultiFormatState = multiFormatState,
             SyncCapability = BuildSyncCapability(workId, ownedFormats, multiFormatState),
             SeriesPlacement = seriesPlacement,
             Metadata = BuildMetadataPills(detail, entityType, values, ownedFormats),
-            PrimaryActions = BuildPrimaryActions(workId, entityType, context, ownedFormats),
+            PrimaryActions = BuildPrimaryActions(workId, entityType, context, ownedFormats, heroProgress),
             SecondaryActions = BuildSecondaryActions(workId, entityType, ownedFormats),
             OverflowActions = BuildOverflowActions(workId, entityType, isAdminView),
             ContributorGroups = contributorGroups,
@@ -281,6 +285,7 @@ public sealed class DetailComposerService
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
         var contributorGroups = await BuildCollectionCreditsAsync(collectionId, works, entityType, values, ct);
         var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
+        var heroProgress = BuildCollectionHeroProgress(entityType, works);
         var artwork = BuildArtwork(
             entityType,
             collectionBackdrop,
@@ -305,8 +310,9 @@ public sealed class DetailComposerService
             Description = longDescription,
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(entityType, row.HeroBrandLabel, row.HeroBrandImageUrl),
+            Progress = heroProgress,
             Metadata = BuildCollectionMetadata(entityType, works, values),
-            PrimaryActions = BuildCollectionActions(collectionId, entityType, context),
+            PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress),
             SecondaryActions = BuildSecondaryActions(collectionId, entityType),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
             ContributorGroups = contributorGroups,
@@ -498,14 +504,17 @@ public sealed class DetailComposerService
                    (SELECT value FROM canonical_values WHERE entity_id = e.id AND key IN ('cover_url', 'cover') LIMIT 1) AS EditionCoverUrl,
                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'runtime' LIMIT 1) AS Runtime,
                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'page_count' LIMIT 1) AS PageCount,
-                   (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'narrator' LIMIT 1) AS Narrator
+                   (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'narrator' LIMIT 1) AS Narrator,
+                   us.progress_pct AS ProgressPct
             FROM editions e
             INNER JOIN media_assets ma ON ma.edition_id = e.id
+            LEFT JOIN user_states us ON us.asset_id = ma.id
+                                    AND us.user_id = @defaultOwnerUserId
             WHERE e.work_id = @workId
               AND ma.status = 'Normal'
             ORDER BY COALESCE(e.format_label, ''), ma.file_path_root;
             """,
-            new { workId = workId.ToString() },
+            new { workId = workId.ToString(), defaultOwnerUserId = DefaultOwnerUserId.ToString("D") },
             cancellationToken: ct))).ToList();
 
         if (rows.Count == 0)
@@ -519,6 +528,7 @@ public sealed class DetailComposerService
                     DisplayName = ToFormatDisplay(detail.MediaType, null),
                     CoverUrl = detail.CoverUrl,
                     Runtime = detail.Runtime,
+                    Progress = null,
                     PrimaryContributor = detail.Narrator ?? detail.Author ?? detail.Director,
                     Actions = BuildFormatActions(workId, ToFormatType(detail.MediaType, null)),
                 }
@@ -538,6 +548,7 @@ public sealed class DetailComposerService
                 FileFormat = Path.GetExtension(row.FilePathRoot)?.TrimStart('.').ToUpperInvariant(),
                 Runtime = row.Runtime ?? detail.Runtime,
                 PageCount = int.TryParse(row.PageCount, out var pages) ? pages : null,
+                Progress = BuildFormatProgress(row.ProgressPct),
                 Actions = BuildFormatActions(workId, format),
             };
         }).ToList();
@@ -1233,12 +1244,15 @@ public sealed class DetailComposerService
                    CAST(COALESCE(NULLIF(cover_asset.value, ''), NULLIF(poster_asset.value, ''), NULLIF(cover_work.value, ''), NULLIF(poster_work.value, ''), NULLIF(cover_root.value, ''), NULLIF(poster_root.value, '')) AS TEXT) AS ArtworkUrl,
                    CAST(COALESCE(NULLIF(still_asset.value, ''), NULLIF(still_work.value, ''), NULLIF(bg_asset.value, ''), NULLIF(bg_work.value, ''), NULLIF(hero_asset.value, ''), NULLIF(hero_work.value, ''), NULLIF(banner_asset.value, ''), NULLIF(banner_work.value, ''), NULLIF(bg_root.value, ''), NULLIF(hero_root.value, ''), NULLIF(banner_root.value, '')) AS TEXT) AS BackgroundUrl,
                    CAST(COALESCE(NULLIF(cover_state_asset.value, ''), NULLIF(cover_state_work.value, ''), NULLIF(cover_state_root.value, '')) AS TEXT) AS CoverState,
-                   CAST(COALESCE(NULLIF(bg_state_asset.value, ''), NULLIF(bg_state_work.value, ''), NULLIF(hero_state_asset.value, ''), NULLIF(hero_state_work.value, ''), NULLIF(banner_state_asset.value, ''), NULLIF(banner_state_work.value, ''), NULLIF(bg_state_root.value, ''), NULLIF(hero_state_root.value, ''), NULLIF(banner_state_root.value, '')) AS TEXT) AS BackgroundState
+                   CAST(COALESCE(NULLIF(bg_state_asset.value, ''), NULLIF(bg_state_work.value, ''), NULLIF(hero_state_asset.value, ''), NULLIF(hero_state_work.value, ''), NULLIF(banner_state_asset.value, ''), NULLIF(banner_state_work.value, ''), NULLIF(bg_state_root.value, ''), NULLIF(hero_state_root.value, ''), NULLIF(banner_state_root.value, '')) AS TEXT) AS BackgroundState,
+                   MAX(us.progress_pct) AS ProgressPercent
             FROM works w
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             LEFT JOIN editions e ON e.work_id = w.id
             LEFT JOIN media_assets ma ON ma.edition_id = e.id
+            LEFT JOIN user_states us ON us.asset_id = ma.id
+                                    AND us.user_id = @defaultOwnerUserId
             LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ma.id AND title_asset.key = 'title'
             LEFT JOIN canonical_values episode_title ON episode_title.entity_id = ma.id AND episode_title.key = 'episode_title'
             LEFT JOIN canonical_values episode_title_work ON episode_title_work.entity_id = w.id AND episode_title_work.key = 'episode_title'
@@ -1297,7 +1311,7 @@ public sealed class DetailComposerService
             GROUP BY w.id
             ORDER BY CAST(NULLIF(Season, '') AS INTEGER), CAST(NULLIF(Episode, '') AS INTEGER), CAST(NULLIF(TrackNumber, '') AS INTEGER), COALESCE(w.ordinal, 9999), Title;
             """,
-            new { collectionId = collectionId.ToString() },
+            new { collectionId = collectionId.ToString(), defaultOwnerUserId = DefaultOwnerUserId.ToString("D") },
             cancellationToken: ct));
         return rawRows.Select(row => new CollectionWorkSummary(
             StringValue(row.Id) ?? string.Empty,
@@ -1313,6 +1327,7 @@ public sealed class DetailComposerService
             StringValue(row.Artist),
             IsTruthy(StringValue(row.Explicit)),
             StringValue(row.Quality),
+            DoubleValue(row.ProgressPercent),
             ResolveCollectionArtworkUrl(StringValue(row.ArtworkUrl), StringValue(row.AssetId), "cover", StringValue(row.CoverState)),
             ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)))).ToList();
     }
@@ -1555,12 +1570,84 @@ public sealed class DetailComposerService
             .ToList();
     }
 
-    private static IReadOnlyList<DetailAction> BuildPrimaryActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, IReadOnlyList<OwnedFormatViewModel> formats)
+    private static ProgressViewModel? BuildFormatProgress(double? progressPct)
+    {
+        if (progressPct is not > 0)
+            return null;
+
+        var percent = Math.Clamp(progressPct.Value, 0, 100);
+        return new ProgressViewModel
+        {
+            Percent = percent,
+            Label = $"{Math.Max(1, percent):F0}%",
+        };
+    }
+
+    private static ProgressViewModel? BuildHeroProgress(
+        DetailEntityType entityType,
+        string? runtime,
+        IReadOnlyList<OwnedFormatViewModel> formats)
+    {
+        if (!IsWatchEntity(entityType))
+            return null;
+
+        var progress = formats
+            .Select(format => format.Progress)
+            .Where(value => value?.Percent is > 0 and < 99.5)
+            .OrderByDescending(value => value!.Percent)
+            .FirstOrDefault();
+        if (progress is null)
+            return null;
+
+        var percent = Math.Clamp(progress.Percent, 0, 100);
+        var runtimeSource = FirstNonBlank(formats.Select(format => format.Runtime).Prepend(runtime).ToArray());
+        return new ProgressViewModel
+        {
+            Percent = percent,
+            Label = BuildHeroProgressLabel(percent, runtimeSource),
+        };
+    }
+
+    private static ProgressViewModel? BuildCollectionHeroProgress(
+        DetailEntityType entityType,
+        IReadOnlyList<CollectionWorkSummary> works)
+    {
+        if (!IsWatchEntity(entityType))
+            return null;
+
+        var item = works
+            .Where(work => work.ProgressPercent is > 0 and < 99.5)
+            .OrderByDescending(work => work.ProgressPercent)
+            .FirstOrDefault();
+        if (item is null || item.ProgressPercent is null)
+            return null;
+
+        var percent = Math.Clamp(item.ProgressPercent.Value, 0, 100);
+        return new ProgressViewModel
+        {
+            Percent = percent,
+            Label = BuildHeroProgressLabel(percent, item.Duration),
+        };
+    }
+
+    private static string BuildHeroProgressLabel(double percent, string? runtime)
+    {
+        var rounded = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 1, 99);
+        var timeLeft = FormatTimeLeft(runtime, percent);
+        return string.IsNullOrWhiteSpace(timeLeft)
+            ? $"Continue watching · {rounded}% watched"
+            : $"Continue watching · {rounded}% watched · {timeLeft} left";
+    }
+
+    private static bool IsWatchEntity(DetailEntityType entityType)
+        => entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+
+    private static IReadOnlyList<DetailAction> BuildPrimaryActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, IReadOnlyList<OwnedFormatViewModel> formats, ProgressViewModel? heroProgress)
     {
         return entityType switch
         {
-            DetailEntityType.Movie => [new DetailAction { Key = "watch", Label = "Watch", Icon = "play_arrow", Route = $"/watch/player/resolve?workId={id}", IsPrimary = true }],
-            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => [new DetailAction { Key = "watch", Label = "Watch", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.Movie => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", Route = $"/watch/player/resolve?workId={id}", IsPrimary = true }],
+            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", IsPrimary = true }],
             DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = "Listen", Icon = "headphones", Route = $"/listen/audiobook/{id}", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
@@ -1590,8 +1677,7 @@ public sealed class DetailComposerService
             });
         }
 
-        if (entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode
-            && SupportsWatchParty(entityType))
+        if (IsWatchEntity(entityType))
         {
             actions.Add(new DetailAction
             {
@@ -1599,9 +1685,20 @@ public sealed class DetailComposerService
                 Label = "Watch Party",
                 Subtitle = "Watch together",
                 Icon = "groups",
-                Tooltip = "Watch together",
+                Tooltip = "Watch Party setup is coming soon",
+                IsStub = true,
                 DisplayStyle = "icon",
             });
+            actions.Add(new DetailAction
+            {
+                Key = "add-to-collection",
+                Label = "Watchlist",
+                Icon = "add",
+                Tooltip = "Add to watchlist",
+                DisplayStyle = "icon",
+            });
+
+            return actions;
         }
 
         if (entityType == DetailEntityType.MusicAlbum)
@@ -1630,7 +1727,6 @@ public sealed class DetailComposerService
             Key = "add-to-collection",
             Label = entityType switch
             {
-                DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Want to Watch",
                 DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
                 DetailEntityType.Audiobook => "Want to Listen",
                 _ => "Add to collection",
@@ -1677,7 +1773,7 @@ public sealed class DetailComposerService
     private static bool SupportsWatchParty(DetailEntityType entityType)
     {
         _ = entityType;
-        // TODO: Read from a real playback capability flag when group watch is added.
+        // TODO: Replace the safe Movie/TV hero stub with a real playback capability flag when group watch is added.
         return false;
     }
 
@@ -1780,6 +1876,39 @@ public sealed class DetailComposerService
         return hours > 0
             ? remainingMinutes > 0 ? $"{hours}h {remainingMinutes}m" : $"{hours}h"
             : $"{totalMinutes}m";
+    }
+
+    private static string? FormatTimeLeft(string? runtime, double progressPercent)
+    {
+        var totalSeconds = TryParseDurationSeconds(runtime);
+        if (totalSeconds is null or <= 0)
+            return null;
+
+        var remainingSeconds = totalSeconds.Value * (100d - Math.Clamp(progressPercent, 0, 100)) / 100d;
+        if (remainingSeconds <= 60)
+            return null;
+
+        var remainingMinutes = (int)Math.Ceiling(remainingSeconds / 60d);
+        var hours = remainingMinutes / 60;
+        var minutes = remainingMinutes % 60;
+        return hours > 0
+            ? minutes > 0 ? $"{hours}h {minutes:D2}m" : $"{hours}h"
+            : $"{remainingMinutes}m";
+    }
+
+    private static int? TryParseDurationSeconds(string? duration)
+    {
+        if (string.IsNullOrWhiteSpace(duration))
+            return null;
+
+        var trimmed = duration.Trim();
+        if (trimmed.Contains(':', StringComparison.Ordinal))
+            return TryParseClockDurationSeconds(trimmed);
+
+        if (!double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes) || minutes <= 0)
+            return null;
+
+        return (int)Math.Round(minutes * 60d, MidpointRounding.AwayFromZero);
     }
 
     private static string? FormatTrackDuration(string? duration)
@@ -2044,6 +2173,7 @@ public sealed class DetailComposerService
             Artist = work.Artist,
             IsExplicit = work.IsExplicit,
             Quality = work.Quality,
+            ProgressPercent = work.ProgressPercent,
             Metadata = BuildEpisodeMetadata(FormatTrackDuration(work.Duration), work.Year),
             Actions = [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", Route = BuildWorkRoute(work) }],
             IsOwned = true,
@@ -2101,10 +2231,10 @@ public sealed class DetailComposerService
         return [new MetadataPill { Label = FormatEntityType(entityType), Kind = "type" }, new MetadataPill { Label = $"{works.Count} item{(works.Count == 1 ? "" : "s")}", Kind = "count" }];
     }
 
-    private static IReadOnlyList<DetailAction> BuildCollectionActions(Guid id, DetailEntityType entityType, DetailPresentationContext context)
+    private static IReadOnlyList<DetailAction> BuildCollectionActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, ProgressViewModel? heroProgress)
         => entityType switch
         {
-            DetailEntityType.TvShow => [new DetailAction { Key = "watch", Label = "Watch", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.TvShow => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", IsPrimary = true }],
             DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
@@ -2993,6 +3123,22 @@ public sealed class DetailComposerService
         };
     }
 
+    private static double? DoubleValue(object? value)
+    {
+        if (value is null or DBNull)
+            return null;
+
+        return value switch
+        {
+            double d => d,
+            float f => f,
+            decimal m => (double)m,
+            int i => i,
+            long l => l,
+            _ => double.TryParse(Convert.ToString(value), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : null,
+        };
+    }
+
     private sealed record WorkContributorResult(IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> CastCredits);
     private sealed record CanonicalPair(string Key, string Value);
     private sealed record WorkArtworkFallback
@@ -3002,10 +3148,10 @@ public sealed class DetailComposerService
         public string? BackgroundUrl { get; init; }
         public string? BannerUrl { get; init; }
     }
-    private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator);
+    private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator, double? ProgressPct);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
     private sealed record SeriesRow(string WorkId, string Title, string? MediaType, string? PositionLabel, string? ArtworkUrl);
-    private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? Artist, bool IsExplicit, string? Quality, string? ArtworkUrl, string? BackgroundUrl);
+    private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? Artist, bool IsExplicit, string? Quality, double? ProgressPercent, string? ArtworkUrl, string? BackgroundUrl);
     private sealed record ContributorEntry(string Name, string? Qid, int SortOrder);
 
     private sealed class ContributorTargetRow

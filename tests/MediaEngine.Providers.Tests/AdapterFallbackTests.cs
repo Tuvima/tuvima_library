@@ -134,6 +134,76 @@ public sealed class AdapterFallbackTests
 
     // ── Config loading ───────────────────────────────────────────────────────
 
+    [Fact]
+    public async Task Tmdb_MovieSearch_StoresShortDescriptionButDoesNotSetGenericLanguage()
+    {
+        var config = LoadExampleConfig("tmdb");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+
+                if (url.Contains("/search/movie?", StringComparison.OrdinalIgnoreCase))
+                {
+                    return JsonResponse("""
+                        {
+                          "results": [
+                            {
+                              "id": 129,
+                              "title": "Spirited Away",
+                              "overview": "An English TMDB overview.",
+                              "release_date": "2001-07-20",
+                              "poster_path": "/poster.jpg",
+                              "vote_average": 8.5,
+                              "original_language": "ja"
+                            }
+                          ]
+                        }
+                        """);
+                }
+
+                if (url.Contains("/movie/129?", StringComparison.OrdinalIgnoreCase))
+                {
+                    return JsonResponse("""
+                        {
+                          "id": 129,
+                          "overview": "An English TMDB detail overview.",
+                          "tagline": "The tunnel led somewhere unexpected.",
+                          "runtime": 125
+                        }
+                        """);
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Movies,
+            Title = "Spirited Away",
+            Language = "en",
+            Country = "US",
+        });
+
+        Assert.Contains(requestedUrls, url => url.Contains("language=en-US", StringComparison.Ordinal));
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.ShortDescription
+            && c.Value == "An English TMDB overview.");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.OriginalLanguage
+            && c.Value == "ja");
+        Assert.DoesNotContain(claims, c => c.Key == MetadataFieldConstants.Language);
+    }
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         AllowTrailingCommas = true,
@@ -186,6 +256,12 @@ public sealed class AdapterFallbackTests
         var sp = services.BuildServiceProvider();
         return sp.GetRequiredService<IHttpClientFactory>();
     }
+
+    private static HttpResponseMessage JsonResponse(string body)
+        => new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        };
 
     /// <summary>
     /// Builds an <see cref="IHttpClientFactory"/> whose named client throws
