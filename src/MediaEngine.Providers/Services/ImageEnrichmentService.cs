@@ -248,7 +248,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         // ── Steps 5–6: Character art matching ──
         if (CharacterArtFields.TryGetValue(resolvedMediaType, out var charField))
         {
-            await MatchCharacterArtAsync(json, charField, assetId, workQid, ct);
+            await MatchVerifiedCharacterArtAsync(json, charField, workQid, ct);
         }
 
         _logger.LogInformation("[IMAGE-ENRICH] Image enrichment complete for asset {AssetId} ({WorkQid})", assetId, workQid);
@@ -682,6 +682,14 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var asset = await _mediaAssetRepo.FindByIdAsync(entityId, ct);
         var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
+
+        if (asset is null)
+        {
+            asset = await _mediaAssetRepo.FindFirstByWorkIdAsync(entityId, ct);
+            if (asset is not null)
+                lineage = await _workRepo.GetLineageByAssetAsync(asset.Id, ct);
+        }
+
         var mediaFilePath = asset?.FilePathRoot;
 
         return lineage is null
@@ -728,11 +736,79 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     /// linked to this work, using fuzzy name matching, then creates
     /// CharacterPortrait records for matched pairs.
     /// </summary>
+    private async Task MatchVerifiedCharacterArtAsync(
+        JsonNode json,
+        string charField,
+        string workQid,
+        CancellationToken ct)
+    {
+        var entities = await _entityRepo.GetByWorkQidAsync(workQid, ct);
+        if (entities.Count == 0)
+        {
+            _logger.LogDebug("[IMAGE-ENRICH] No fictional entities for {WorkQid} - skipping character art", workQid);
+            return;
+        }
+
+        var performerLinks = await _personRepo.GetCharacterLinksByWorkAsync(workQid, ct);
+        var linkLookup = performerLinks
+            .GroupBy(l => l.FictionalEntityId)
+            .ToDictionary(group => group.Key, group => group.First().PersonId);
+        var matchedEntityIds = new HashSet<Guid>();
+        var matched = 0;
+
+        var charArts = json[charField]?.AsArray()
+            .Where(n => n is not null)
+            .Select(n => new
+            {
+                Name = n!["name"]?.GetValue<string>() ?? string.Empty,
+                Url = n!["url"]?.GetValue<string>() ?? string.Empty,
+            })
+            .Where(a => !string.IsNullOrEmpty(a.Name) && !string.IsNullOrEmpty(a.Url))
+            .ToList() ?? [];
+
+        foreach (var entity in entities)
+        {
+            if (string.IsNullOrEmpty(entity.Label))
+                continue;
+
+            var bestMatch = charArts
+                .Select(art => new
+                {
+                    Art = art,
+                    Score = _fuzzy.ComputeTokenSetRatio(entity.Label, art.Name),
+                })
+                .Where(m => m.Score >= CharacterMatchThreshold)
+                .OrderByDescending(m => m.Score)
+                .FirstOrDefault();
+
+            if (bestMatch is null)
+                continue;
+            if (!linkLookup.TryGetValue(entity.Id, out var personId))
+                continue;
+
+            await UpsertDownloadedCharacterPortraitAsync(personId, entity.Id, bestMatch.Art.Url, "fanart_tv", ct);
+            matchedEntityIds.Add(entity.Id);
+            matched++;
+        }
+
+        if (matched > 0)
+        {
+            _logger.LogInformation(
+                "[IMAGE-ENRICH] Matched {Count} character art images for {WorkQid}",
+                matched, workQid);
+        }
+    }
+
     private async Task MatchCharacterArtAsync(
-        JsonNode json, string charField, Guid workId, string workQid, CancellationToken ct)
+        JsonNode json,
+        string charField,
+        Guid workId,
+        string workQid,
+        string? tmdbMovieId,
+        string resolvedMediaType,
+        CancellationToken ct)
     {
         var charArray = json[charField]?.AsArray();
-        if (charArray is null || charArray.Count == 0) return;
 
         // Step 6a: Get fictional entities linked to this work
         var entities = await _entityRepo.GetByWorkQidAsync(workQid, ct);
@@ -744,10 +820,13 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
         // Step 6b: Get character-performer links for this work
         var performerLinks = await _personRepo.GetCharacterLinksByWorkAsync(workQid, ct);
-        var linkLookup = performerLinks.ToDictionary(l => l.FictionalEntityId, l => l.PersonId);
+        var linkLookup = performerLinks
+            .GroupBy(l => l.FictionalEntityId)
+            .ToDictionary(group => group.Key, group => group.First().PersonId);
+        var matchedEntityIds = new HashSet<Guid>();
 
         // Step 6c: Parse character art entries
-        var charArts = charArray
+        var charArts = charArray?
             .Where(n => n is not null)
             .Select(n => new
             {
@@ -755,9 +834,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 Url  = n!["url"]?.GetValue<string>() ?? string.Empty,
             })
             .Where(a => !string.IsNullOrEmpty(a.Name) && !string.IsNullOrEmpty(a.Url))
-            .ToList();
-
-        if (charArts.Count == 0) return;
+            .ToList() ?? [];
 
         // Step 6d: Fuzzy-match character art names against entity labels
         var matched = 0;
@@ -823,6 +900,38 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     // ─────────────────────────────────────────────────────────────────────────
     //  Image download utilities
     // ─────────────────────────────────────────────────────────────────────────
+
+    private async Task UpsertDownloadedCharacterPortraitAsync(
+        Guid personId,
+        Guid fictionalEntityId,
+        string imageUrl,
+        string sourceProvider,
+        CancellationToken ct)
+    {
+        var portrait = new CharacterPortrait
+        {
+            Id = Guid.NewGuid(),
+            PersonId = personId,
+            FictionalEntityId = fictionalEntityId,
+            ImageUrl = imageUrl,
+            SourceProvider = sourceProvider,
+            IsDefault = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        var bytes = await DownloadImageBytesAsync(imageUrl, ct);
+        if (bytes is not null && bytes.Length > 0)
+        {
+            var portraitPath = _assetPaths.GetCharacterPortraitPath(
+                personId,
+                fictionalEntityId,
+                InferPortraitExtension(imageUrl));
+            await PersistImageAsync(bytes, portraitPath, imageUrl, ct);
+            portrait.LocalImagePath = portraitPath;
+        }
+
+        await _portraitRepo.UpsertAsync(portrait, ct);
+    }
 
     /// <summary>Downloads image bytes from a URL, returning null on failure.</summary>
     private async Task<byte[]?> DownloadImageBytesAsync(string imageUrl, CancellationToken ct)

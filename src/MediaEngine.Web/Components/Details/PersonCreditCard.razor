@@ -21,17 +21,20 @@ else
     private RenderFragment CreditContent => @<text>
         <div class="tl-credit-card__image">
             <PersonAvatar Name="@Credit.DisplayName"
-                          ImageUrl="@Credit.ImageUrl"
+                          ImageUrl="@PreferredImageUrl"
                           Initials="@Credit.FallbackInitials"
                           Role="@Credit.PrimaryRole"
                           Size="@AvatarSize" />
         </div>
         <div class="tl-credit-card__body">
             <div class="tl-credit-card__name">@Credit.DisplayName</div>
-            <div class="tl-credit-card__role">@Credit.PrimaryRole</div>
             @if (!string.IsNullOrWhiteSpace(Credit.CharacterName))
             {
-                <div class="tl-credit-card__role">as @Credit.CharacterName</div>
+                <div class="tl-credit-card__role">@Credit.CharacterName</div>
+            }
+            else
+            {
+                <div class="tl-credit-card__role">@Credit.PrimaryRole</div>
             }
         </div>
     </text>;
@@ -50,6 +53,11 @@ else
     }
 
     private string AvatarSize => Compact ? "sm" : "md";
+
+    private string? PreferredImageUrl
+        => !string.IsNullOrWhiteSpace(Credit.CharacterName) && !string.IsNullOrWhiteSpace(Credit.CharacterImageUrl)
+            ? Credit.CharacterImageUrl
+            : Credit.ImageUrl;
 
     private string? Route
     {

@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using Dapper;
+using MediaEngine.Api.Endpoints;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -53,6 +54,7 @@ public static class IntegrationTestEndpoints
         public List<WatchFolderCheckResult> WatchFolderChecks { get; set; } = [];
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
         public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
+        public List<CharacterArtworkCheckResult> CharacterArtworkChecks { get; set; } = [];
         public List<DescriptionSourceCheckResult> DescriptionSourceChecks { get; set; } = [];
         public List<string> IssuesFound { get; set; } = [];
         public List<string> FixesApplied { get; set; } = [];
@@ -465,6 +467,8 @@ public static class IntegrationTestEndpoints
         IIdentityJobRepository identityJobRepo,
         ILibraryItemRepository libraryItemRepo,
         IReviewQueueRepository reviewRepo,
+        ICanonicalValueArrayRepository canonicalArrayRepo,
+        IPersonRepository personRepo,
         IEnumerable<IExternalMetadataProvider> providers,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
@@ -653,6 +657,7 @@ public static class IntegrationTestEndpoints
             report.WatchFolderChecks.Clear();
             await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
             ValidateStage3FanartAsync(report, logger);
+            await ValidateCharacterArtworkAsync(db, canonicalArrayRepo, personRepo, report, logger, ct);
         }
 
         sw.Stop();
@@ -730,6 +735,35 @@ public static class IntegrationTestEndpoints
             "comic" or "comics" => "comics",
             var other => other,
         };
+    }
+
+    /// <summary>Known-fixture validation for movie-scoped actor-character display and verified portrait handling.</summary>
+    private sealed class CharacterArtworkCheckResult
+    {
+        public string Title { get; set; } = "";
+        public string WorkQid { get; set; } = "";
+        public string ActorName { get; set; } = "";
+        public string CharacterName { get; set; } = "";
+        public bool WorkFound { get; set; }
+        public bool HasMovieScopedActorCharacterLink { get; set; }
+        public bool HasPortraitRow { get; set; }
+        public string? PortraitSourceProvider { get; set; }
+        public bool HasUnverifiedPortrait { get; set; }
+        public bool HasDownloadedPortraitFile { get; set; }
+        public bool HasDisplayCharacterName { get; set; }
+        public bool HasDisplayCharacterImage { get; set; }
+        public int? CastPosition { get; set; }
+        public bool IsInPrimaryCastPreview { get; set; }
+        public string? PortraitImageUrl { get; set; }
+        public string? PortraitLocalImagePath { get; set; }
+        public string? DisplayImageUrl { get; set; }
+        public string? Detail { get; set; }
+        public bool Pass =>
+            WorkFound
+            && HasMovieScopedActorCharacterLink
+            && HasDisplayCharacterName
+            && IsInPrimaryCastPreview
+            && !HasUnverifiedPortrait;
     }
 
     private static TimeSpan ResolveIngestionTimeout(IConfigurationLoader configLoader, ILogger logger)
@@ -1555,28 +1589,241 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
-        var lastAssetCount = -1;
+        var lastEvidenceCount = -1;
         var stableCount = 0;
 
         while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
         {
             await Task.Delay(TimeSpan.FromSeconds(3), ct);
 
-            int assetCount;
+            int evidenceCount;
             using (var conn = db.CreateConnection())
-                assetCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM entity_assets;");
+                evidenceCount = await conn.ExecuteScalarAsync<int>("""
+                    SELECT
+                        (SELECT COUNT(*) FROM entity_assets)
+                        + (SELECT COUNT(*) FROM character_portraits
+                           WHERE local_image_path IS NOT NULL
+                             AND TRIM(local_image_path) <> '')
+                    """);
 
-            if (assetCount == lastAssetCount)
+            if (evidenceCount == lastEvidenceCount)
                 stableCount++;
             else
                 stableCount = 0;
 
-            lastAssetCount = assetCount;
+            lastEvidenceCount = evidenceCount;
             if (stableCount >= 2)
                 break;
         }
 
-        logger.LogInformation("  Stage 3 artwork assets settled at {Count}", Math.Max(lastAssetCount, 0));
+        logger.LogInformation("  Stage 3 artwork evidence settled at {Count}", Math.Max(lastEvidenceCount, 0));
+    }
+
+    private static async Task ValidateCharacterArtworkAsync(
+        IDatabaseConnection db,
+        ICanonicalValueArrayRepository canonicalArrayRepo,
+        IPersonRepository personRepo,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        report.CharacterArtworkChecks.Clear();
+
+        if (!report.ActiveTypes.Contains("Movies"))
+            return;
+
+        var cases = new[]
+        {
+            new CharacterArtworkExpectation("The Shawshank Redemption", "Q172241", "Tim Robbins", "Andy Dufresne", "%Dufresne%"),
+            new CharacterArtworkExpectation("The Matrix", "Q83495", "Keanu Reeves", "Neo", "%Neo%"),
+        };
+
+        foreach (var expected in cases)
+            await ValidateCharacterArtworkCaseAsync(db, canonicalArrayRepo, personRepo, report, logger, expected, ct);
+    }
+
+    private static async Task ValidateCharacterArtworkCaseAsync(
+        IDatabaseConnection db,
+        ICanonicalValueArrayRepository canonicalArrayRepo,
+        IPersonRepository personRepo,
+        TestReport report,
+        ILogger logger,
+        CharacterArtworkExpectation expected,
+        CancellationToken ct)
+    {
+        var check = new CharacterArtworkCheckResult
+        {
+            Title = expected.Title,
+            WorkQid = expected.WorkQid,
+            ActorName = expected.ActorName,
+            CharacterName = expected.CharacterName,
+        };
+
+        using var conn = db.CreateConnection();
+        var workIdText = await conn.ExecuteScalarAsync<string?>(
+            """
+            WITH work_assets AS (
+                SELECT w.id AS work_id,
+                       COALESCE(gp.id, p.id, w.id) AS root_work_id,
+                       ma.id AS asset_id
+                FROM works w
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+            ),
+            work_qids AS (
+                SELECT wa.work_id,
+                       COALESCE(
+                           (SELECT w.wikidata_qid FROM works w
+                            WHERE w.id = wa.work_id
+                              AND w.wikidata_qid IS NOT NULL
+                              AND TRIM(w.wikidata_qid) <> ''
+                            LIMIT 1),
+                           (SELECT cv.value FROM canonical_values cv
+                            WHERE cv.entity_id = wa.asset_id AND cv.key = 'wikidata_qid' LIMIT 1),
+                           (SELECT cv.value FROM canonical_values cv
+                            WHERE cv.entity_id = wa.work_id AND cv.key = 'wikidata_qid' LIMIT 1),
+                           (SELECT cv.value FROM canonical_values cv
+                            WHERE cv.entity_id = wa.root_work_id AND cv.key = 'wikidata_qid' LIMIT 1),
+                           (SELECT ij.resolved_qid FROM identity_jobs ij
+                            WHERE ij.entity_id = wa.asset_id
+                              AND ij.resolved_qid IS NOT NULL
+                              AND TRIM(ij.resolved_qid) <> ''
+                            ORDER BY ij.updated_at DESC, ij.created_at DESC
+                            LIMIT 1)
+                       ) AS qid
+                FROM work_assets wa
+            )
+            SELECT work_id
+            FROM work_qids
+            WHERE qid = @workQid
+            LIMIT 1;
+            """,
+            new { workQid = expected.WorkQid });
+
+        check.WorkFound = Guid.TryParse(workIdText, out var workId);
+        if (!check.WorkFound)
+        {
+            check.Detail = $"{expected.Title} work row was not found by Wikidata QID.";
+            report.CharacterArtworkChecks.Add(check);
+            report.IssuesFound.Add($"Character art: {expected.Title} was not found by QID {expected.WorkQid}");
+            logger.LogWarning("[Phase 7c] Character art validation could not find {Title} ({Qid})", expected.Title, expected.WorkQid);
+            return;
+        }
+
+        var row = await conn.QueryFirstOrDefaultAsync<CharacterArtworkRow>(
+            """
+            SELECT p.name                  AS ActorName,
+                   fe.label                AS CharacterName,
+                   fe.wikidata_qid         AS CharacterQid,
+                   cp.id                   AS PortraitId,
+                   cp.image_url            AS PortraitImageUrl,
+                   cp.local_image_path     AS PortraitLocalImagePath,
+                   cp.source_provider      AS PortraitSourceProvider,
+                   cpl.work_qid            AS WorkQid
+            FROM character_performer_links cpl
+            INNER JOIN persons p
+                ON p.id = cpl.person_id
+            INNER JOIN fictional_entities fe
+                ON fe.id = cpl.fictional_entity_id
+            LEFT JOIN character_portraits cp
+                ON cp.person_id = p.id
+               AND cp.fictional_entity_id = fe.id
+            WHERE cpl.work_qid = @workQid
+              AND p.name = @actorName
+              AND fe.label LIKE @characterPattern
+            LIMIT 1;
+            """,
+            new
+            {
+                workQid = expected.WorkQid,
+                actorName = expected.ActorName,
+                characterPattern = expected.CharacterPattern,
+            });
+
+        check.HasMovieScopedActorCharacterLink = row is not null
+            && string.Equals(row.WorkQid, expected.WorkQid, StringComparison.OrdinalIgnoreCase);
+        check.HasPortraitRow = !string.IsNullOrWhiteSpace(row?.PortraitId);
+        check.PortraitSourceProvider = row?.PortraitSourceProvider;
+        check.HasUnverifiedPortrait = string.Equals(row?.PortraitSourceProvider, "tmdb_tagged_images", StringComparison.OrdinalIgnoreCase);
+        check.PortraitImageUrl = row?.PortraitImageUrl;
+        check.PortraitLocalImagePath = row?.PortraitLocalImagePath;
+        check.HasDownloadedPortraitFile = !string.IsNullOrWhiteSpace(row?.PortraitLocalImagePath)
+            && File.Exists(row.PortraitLocalImagePath);
+
+        var cast = await CastCreditQueries.BuildForWorkAsync(workId, canonicalArrayRepo, personRepo, db, ct);
+        var castEntry = cast
+            .Select((credit, index) => new { Credit = credit, Position = index + 1 })
+            .FirstOrDefault(entry =>
+                string.Equals(entry.Credit.Name, expected.ActorName, StringComparison.OrdinalIgnoreCase));
+        var timCredit = castEntry?.Credit;
+        var portrayal = timCredit?.Characters.FirstOrDefault(character =>
+            character.CharacterName?.Contains(expected.CharacterName, StringComparison.OrdinalIgnoreCase) == true);
+
+        check.CastPosition = castEntry?.Position;
+        check.IsInPrimaryCastPreview = check.CastPosition is > 0 and <= 5;
+        check.HasDisplayCharacterName = portrayal is not null
+            && string.Equals(timCredit?.Name, expected.ActorName, StringComparison.OrdinalIgnoreCase);
+        check.DisplayImageUrl = portrayal?.PortraitUrl;
+        check.HasDisplayCharacterImage = !string.IsNullOrWhiteSpace(portrayal?.PortraitUrl);
+
+        check.Detail = check.Pass
+            ? "Actor, character name, preview placement, and verified portrait handling are correct."
+            : BuildCharacterArtworkFailureDetail(check);
+
+        report.CharacterArtworkChecks.Add(check);
+
+        logger.LogInformation(
+            "  Character art: {Title} / {Actor} as {Character}: link={Link}, portrait={Portrait}, downloaded={Downloaded}, display={Display}",
+            expected.Title,
+            expected.ActorName,
+            expected.CharacterName,
+            check.HasMovieScopedActorCharacterLink,
+            check.HasPortraitRow,
+            check.HasDownloadedPortraitFile,
+            check.HasDisplayCharacterImage);
+
+        if (!check.Pass)
+            report.IssuesFound.Add($"Character display: {expected.Title} does not safely display {expected.ActorName} as {expected.CharacterName} ({check.Detail})");
+    }
+
+    private sealed record CharacterArtworkExpectation(
+        string Title,
+        string WorkQid,
+        string ActorName,
+        string CharacterName,
+        string CharacterPattern);
+
+    private sealed class CharacterArtworkRow
+    {
+        public string? ActorName { get; init; }
+        public string? CharacterName { get; init; }
+        public string? CharacterQid { get; init; }
+        public string? PortraitId { get; init; }
+        public string? PortraitImageUrl { get; init; }
+        public string? PortraitLocalImagePath { get; init; }
+        public string? PortraitSourceProvider { get; init; }
+        public string? WorkQid { get; init; }
+    }
+
+    private static string BuildCharacterArtworkFailureDetail(CharacterArtworkCheckResult check)
+    {
+        var missing = new List<string>();
+        if (!check.WorkFound)
+            missing.Add("work row");
+        if (!check.HasMovieScopedActorCharacterLink)
+            missing.Add("movie-scoped actor-character link");
+        if (!check.HasDisplayCharacterName)
+            missing.Add("detail cast character name");
+        if (!check.IsInPrimaryCastPreview)
+            missing.Add("top cast preview position");
+        if (check.HasUnverifiedPortrait)
+            missing.Add("unverified TMDB tagged character portrait");
+
+        return missing.Count == 0
+            ? "No missing checks were recorded."
+            : "Missing: " + string.Join(", ", missing) + ".";
     }
 
     private static async Task CheckUniversesAsync(
@@ -2170,6 +2417,8 @@ public static class IntegrationTestEndpoints
             SummaryCard(sb, report.DescriptionSourceChecks.Count(d => d.Pass) + "/" + report.DescriptionSourceChecks.Count, "Descriptions", "#34D399");
         if (report.Stage3FanartSummaries.Count > 0)
             SummaryCard(sb, report.Stage3FanartSummaries.Sum(s => s.WithAnyFanart) + "/" + report.Stage3FanartSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
+        if (report.CharacterArtworkChecks.Count > 0)
+            SummaryCard(sb, report.CharacterArtworkChecks.Count(c => c.Pass) + "/" + report.CharacterArtworkChecks.Count, "Character Art", "#F59E0B");
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
         if (report.Reconciliation is not null)
             SummaryCard(sb, report.Reconciliation.Matched + "/" + report.Reconciliation.ExpectedTotal, "Reconciliation", "#F472B6");
@@ -2420,6 +2669,30 @@ public static class IntegrationTestEndpoints
                     ? "<span class=\"badge badge-pass\">PASS</span>"
                     : "<span class=\"badge badge-fail\">FAIL</span>";
                 sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackground}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{summary.WithDiscArt}</td><td>{summary.WithClearArt}</td><td>{summary.WithSeasonPoster}</td><td>{summary.WithSeasonThumb}</td><td>{summary.WithEpisodeStill}</td><td>{badge}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
+
+        if (report.CharacterArtworkChecks.Count > 0)
+        {
+            int characterArtPass = report.CharacterArtworkChecks.Count(c => c.Pass);
+            string characterArtBadge = characterArtPass == report.CharacterArtworkChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.CharacterArtworkChecks.Count - characterArtPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Character Display Validation {characterArtBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Movie</th><th>Actor</th><th>Character</th><th>Movie Link</th><th>Portrait Row</th><th>Source</th><th>Unverified</th><th>Displayed Name</th><th>Displayed Image</th><th>Top Cast</th><th>Portrait Path</th><th>Status</th><th>Detail</th></tr>");
+            foreach (var check in report.CharacterArtworkChecks.OrderBy(c => c.Title).ThenBy(c => c.ActorName))
+            {
+                string badge = check.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(check.Title)} <span class=\"mono\">{Esc(check.WorkQid)}</span></td>" +
+                    $"<td>{Esc(check.ActorName)}</td><td>{Esc(check.CharacterName)}</td>" +
+                    $"<td>{BoolMark(check.HasMovieScopedActorCharacterLink)}</td><td>{BoolMark(check.HasPortraitRow)}</td>" +
+                    $"<td class=\"mono\">{Esc(check.PortraitSourceProvider ?? "none")}</td><td>{BoolMark(check.HasUnverifiedPortrait)}</td><td>{BoolMark(check.HasDisplayCharacterName)}</td>" +
+                    $"<td>{BoolMark(check.HasDisplayCharacterImage)}</td><td>{BoolMark(check.IsInPrimaryCastPreview)} <span class=\"mono\">{Esc(check.CastPosition?.ToString() ?? "n/a")}</span></td><td class=\"mono\">{Esc(check.PortraitLocalImagePath ?? check.PortraitImageUrl ?? check.DisplayImageUrl ?? "none")}</td>" +
+                    $"<td>{badge}</td><td>{Esc(check.Detail ?? "")}</td></tr>");
             }
             sb.AppendLine("</table>");
         }

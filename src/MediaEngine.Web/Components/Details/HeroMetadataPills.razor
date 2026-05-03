@@ -1,30 +1,54 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-metadata-row">
-    @foreach (var pill in Metadata.Take(8))
+<div class="tl-detail-metadata-stack">
+    @if (StatItems.Count > 0)
     {
-        @if (!string.IsNullOrWhiteSpace(pill.Route))
-        {
-            <a class="@MetadataClass(pill)"
-               href="@pill.Route"
-               title="@pill.Tooltip">@pill.Label</a>
-        }
-        else
-        {
-            <span class="@MetadataClass(pill)" title="@pill.Tooltip">@pill.Label</span>
-        }
+        <div class="tl-detail-stat-panel" aria-label="Media details">
+            @foreach (var item in StatItems)
+            {
+                @if (!string.IsNullOrWhiteSpace(item.Route))
+                {
+                    <a class="@StatClass(item)" href="@item.Route" title="@item.Tooltip">
+                        <MudIcon Icon="@IconFor(item)" Size="Size.Small" />
+                        <span class="tl-detail-stat__text">
+                            <span class="tl-detail-stat__value">@item.Label</span>
+                            <span class="tl-detail-stat__label">@LabelFor(item)</span>
+                        </span>
+                    </a>
+                }
+                else
+                {
+                    <span class="@StatClass(item)" title="@item.Tooltip">
+                        <MudIcon Icon="@IconFor(item)" Size="Size.Small" />
+                        <span class="tl-detail-stat__text">
+                            <span class="tl-detail-stat__value">@item.Label</span>
+                            <span class="tl-detail-stat__label">@LabelFor(item)</span>
+                        </span>
+                    </span>
+                }
+            }
+            @if (IsAdminView)
+            {
+                <span class="tl-detail-admin-health">@IdentityStatusLabel</span>
+            }
+        </div>
     }
-    @if (IsAdminView)
-    {
-        <span class="tl-detail-admin-health">@IdentityStatusLabel</span>
-    }
+
 </div>
 
 @code {
     [Parameter] public IReadOnlyList<MetadataPill> Metadata { get; set; } = [];
+    [Parameter] public DetailEntityType EntityType { get; set; }
     [Parameter] public CanonicalIdentityStatus IdentityStatus { get; set; }
     [Parameter] public bool IsAdminView { get; set; }
+
+    private IReadOnlyList<MetadataPill> StatItems =>
+        Metadata
+            .Where(IsHeroStat)
+            .OrderBy(StatSort)
+            .Take(4)
+            .ToList();
 
     private string IdentityStatusLabel => IdentityStatus switch
     {
@@ -35,8 +59,53 @@
         _ => "Identity unknown",
     };
 
-    private static string MetadataClass(MetadataPill item)
-        => item.Kind?.Equals("rating", StringComparison.OrdinalIgnoreCase) == true
-            ? "tl-detail-metadata-item tl-detail-metadata-item--rating"
-            : "tl-detail-metadata-item";
+    private static bool KindEquals(MetadataPill item, string kind)
+        => string.Equals(item.Kind, kind, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsHeroStat(MetadataPill item)
+    {
+        var kind = item.Kind?.ToLowerInvariant();
+        return kind is "certification" or "content_rating" or "rating" or "duration" or "year";
+    }
+
+    private static int StatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
+    {
+        "certification" or "content_rating" => 0,
+        "rating" => 1,
+        "duration" => 2,
+        "year" => 3,
+        _ => 8,
+    };
+
+    private static string StatClass(MetadataPill item)
+        => KindEquals(item, "rating")
+            ? "tl-detail-stat tl-detail-stat--rating"
+            : "tl-detail-stat";
+
+    private static string IconFor(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
+    {
+        "rating" => Icons.Material.Filled.Star,
+        _ => Icons.Material.Outlined.Info,
+    };
+
+    private string LabelFor(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
+    {
+        "rating" => "Rating",
+        "year" => EntityType switch
+        {
+            DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.ComicIssue => "Published",
+            DetailEntityType.MusicAlbum => "Released",
+            _ => "Release Year",
+        },
+        "duration" => EntityType switch
+        {
+            DetailEntityType.Movie or DetailEntityType.TvEpisode => "Runtime",
+            DetailEntityType.TvShow or DetailEntityType.TvSeason => "Total Runtime",
+            DetailEntityType.Audiobook or DetailEntityType.MusicAlbum => "Length",
+            _ => "Duration",
+        },
+        "audio" => "Language",
+        "type" => "Type",
+        _ => item.Kind ?? "Detail",
+    };
 }

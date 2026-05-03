@@ -270,8 +270,7 @@ public sealed class PersonEnrichmentWorker
             .FirstOrDefault(c => string.Equals(c.Key, "media_type", StringComparison.OrdinalIgnoreCase))
             ?.Value;
 
-        if (!string.Equals(mediaType, nameof(MediaType.Movies), StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(mediaType, nameof(MediaType.TV), StringComparison.OrdinalIgnoreCase))
+        if (!IsVideoMediaType(mediaType))
         {
             return;
         }
@@ -308,7 +307,28 @@ public sealed class PersonEnrichmentWorker
 
                 var fictionalEntity = await _fictionalEntityRepo.FindByQidAsync(characterValue.EntityId, ct).ConfigureAwait(false);
                 if (fictionalEntity is null)
-                    continue;
+                {
+                    fictionalEntity = new FictionalEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        WikidataQid = characterValue.EntityId,
+                        Label = ResolveCharacterLabel(characterValue),
+                        EntitySubType = FictionalEntityType.Character,
+                        FictionalUniverseQid = ResolveCanonicalQid(canonicals, "fictional_universe_qid")
+                            ?? ResolveCanonicalQid(canonicals, "franchise_qid")
+                            ?? ResolveCanonicalQid(canonicals, "series_qid")
+                            ?? workQid,
+                        FictionalUniverseLabel = ResolveCanonicalLabel(canonicals, "fictional_universe")
+                            ?? ResolveCanonicalLabel(canonicals, "franchise")
+                            ?? ResolveCanonicalLabel(canonicals, "series"),
+                        CreatedAt = DateTimeOffset.UtcNow,
+                    };
+
+                    await _fictionalEntityRepo.CreateAsync(fictionalEntity, ct).ConfigureAwait(false);
+                }
+
+                await _fictionalEntityRepo.LinkToWorkAsync(fictionalEntity.Id, workQid, null, "portrayed_in", ct)
+                    .ConfigureAwait(false);
 
                 await _personRepo.LinkToCharacterAsync(person.Id, fictionalEntity.Id, workQid, ct).ConfigureAwait(false);
                 linkCount++;
@@ -321,4 +341,53 @@ public sealed class PersonEnrichmentWorker
             entityId,
             workQid);
     }
+
+    private static string ResolveCharacterLabel(WikidataValue value)
+        => FirstNonBlank(value.EntityLabel, value.RawValue, value.EntityId) ?? "Character";
+
+    private static bool IsVideoMediaType(string? mediaType)
+        => mediaType is not null
+           && (mediaType.Equals(nameof(MediaType.Movies), StringComparison.OrdinalIgnoreCase)
+               || mediaType.Equals("Movie", StringComparison.OrdinalIgnoreCase)
+               || mediaType.Equals(nameof(MediaType.TV), StringComparison.OrdinalIgnoreCase)
+               || mediaType.Equals("TvShow", StringComparison.OrdinalIgnoreCase)
+               || mediaType.Equals("TvEpisode", StringComparison.OrdinalIgnoreCase)
+               || mediaType.Equals("Television", StringComparison.OrdinalIgnoreCase));
+
+    private static string? ResolveCanonicalQid(
+        IReadOnlyList<CanonicalValue> canonicals,
+        string key)
+    {
+        var raw = canonicals.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var first = raw.Split(["|||", "; "], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+        if (string.IsNullOrWhiteSpace(first))
+            return null;
+
+        var qid = first.Split("::", 2)[0].Trim();
+        return qid.StartsWith('Q') ? qid : null;
+    }
+
+    private static string? ResolveCanonicalLabel(
+        IReadOnlyList<CanonicalValue> canonicals,
+        string key)
+    {
+        var raw = canonicals.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var first = raw.Split(["|||", "; "], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+        if (string.IsNullOrWhiteSpace(first))
+            return null;
+
+        var segments = first.Split("::", 2);
+        return segments.Length == 2 && !string.IsNullOrWhiteSpace(segments[1])
+            ? segments[1].Trim()
+            : first;
+    }
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
 }

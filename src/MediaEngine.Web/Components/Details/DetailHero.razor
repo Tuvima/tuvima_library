@@ -17,21 +17,22 @@
                 <h1>@Model.Title</h1>
             }
 
-            @if (!string.IsNullOrWhiteSpace(Model.Tagline))
-            {
-                <p class="tl-detail-hero__tagline">@Model.Tagline</p>
-            }
-            else if (!string.IsNullOrWhiteSpace(Model.Description))
-            {
-                <p class="tl-detail-hero__tagline">@Truncate(Model.Description, 260)</p>
-            }
-
-            <HeroMetadataPills Metadata="Model.Metadata" IdentityStatus="Model.IdentityStatus" IsAdminView="Model.IsAdminView" />
+            <HeroMetadataPills Metadata="Model.Metadata"
+                               EntityType="Model.EntityType"
+                               IdentityStatus="Model.IdentityStatus"
+                               IsAdminView="Model.IsAdminView" />
 
             <HeroActionRow PrimaryActions="Model.PrimaryActions"
                            SecondaryActions="Model.SecondaryActions"
                            OverflowActions="Model.OverflowActions"
                            OnActionSelected="OnActionSelected" />
+
+            @if (!string.IsNullOrWhiteSpace(HeroCopy))
+            {
+                <p class="tl-detail-hero__tagline">@HeroCopy</p>
+            }
+
+            <HeroGenreChips Metadata="Model.Metadata" />
         </div>
     </div>
 </section>
@@ -41,6 +42,12 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private string HeroClass => $"tl-detail-hero--{ToKebabCase(Model.Artwork.HeroArtwork.Mode.ToString())}";
+
+    private string? HeroCopy => !string.IsNullOrWhiteSpace(Model.Tagline)
+        ? Model.Tagline
+        : !string.IsNullOrWhiteSpace(Model.Description)
+            ? Truncate(Model.Description, 260)
+            : null;
 
     private string GradientStyle
     {

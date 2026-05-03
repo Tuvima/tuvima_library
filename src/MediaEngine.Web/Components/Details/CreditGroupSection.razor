@@ -6,7 +6,7 @@
         <h2>@Group.Title</h2>
         <span class="tl-credit-group__count">@Group.Credits.Count</span>
     </div>
-    <div class="tl-credit-strip">
+    <div class="tl-credit-grid">
         @foreach (var credit in VisibleCredits)
         {
             @if (credit.EntityType == RelatedEntityType.MusicArtist)

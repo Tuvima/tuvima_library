@@ -2,77 +2,98 @@
 @using MediaEngine.Contracts.Details
 
 <div class="tl-detail-actions">
-    @foreach (var action in PrimaryActions)
-    {
-        <button type="button"
-                class="tl-detail-action tl-detail-action--primary"
-                disabled="@action.IsDisabled"
-                title="@TooltipFor(action)"
-                @onclick="@(() => Select(action))">
-            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
-            <span>@action.Label</span>
-        </button>
-    }
-    @foreach (var action in SecondaryActions)
-    {
-        @if (action.Key == "reaction-menu")
+    <div class="tl-detail-primary-actions">
+        @foreach (var action in PrimaryActions)
         {
-            <div class="tl-hover-action-menu tl-reaction-menu" tabindex="0" aria-label="@action.Label">
-                <button type="button" class="tl-detail-icon-action" aria-label="@action.Label">
-                    <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
-                </button>
-                <div class="tl-hover-action-menu__tray">
-                    @foreach (var child in action.Children)
-                    {
-                        <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
-                            <button type="button"
-                                    class="tl-detail-icon-action"
-                                    aria-label="@child.Label"
-                                    disabled="@child.IsDisabled"
-                                    @onclick="@(() => Select(child))">
-                                <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
-                            </button>
-                        </MudTooltip>
-                    }
+            <button type="button"
+                    class="tl-detail-action tl-detail-action--primary"
+                    disabled="@action.IsDisabled"
+                    title="@TooltipFor(action)"
+                    @onclick="@(() => Select(action))">
+                <MudIcon Icon="@IconFor(action)" Size="Size.Medium" />
+                <span>@PrimaryLabel(action)</span>
+            </button>
+        }
+    </div>
+
+    <div class="tl-detail-secondary-actions">
+        @foreach (var action in SecondaryActions)
+        {
+            @if (action.Key == "reaction-menu")
+            {
+                <div class="tl-detail-secondary-action">
+                    <div class="tl-hover-action-menu tl-reaction-menu" tabindex="0" aria-label="@action.Label">
+                        <button type="button" class="tl-detail-icon-action" aria-label="@action.Label">
+                            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                        </button>
+                        <div class="tl-hover-action-menu__tray">
+                            @foreach (var child in action.Children)
+                            {
+                                <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
+                                    <button type="button"
+                                            class="tl-detail-icon-action"
+                                            aria-label="@child.Label"
+                                            disabled="@child.IsDisabled"
+                                            @onclick="@(() => Select(child))">
+                                        <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
+                                    </button>
+                                </MudTooltip>
+                            }
+                        </div>
+                    </div>
+                    <span>@SecondaryLabel(action)</span>
                 </div>
+            }
+            else if (action.Key == "format-tools")
+            {
+                <div class="tl-detail-secondary-action">
+                    <div class="tl-hover-action-menu tl-format-menu" tabindex="0" aria-label="@action.Label">
+                        <button type="button" class="tl-detail-icon-action" aria-label="@action.Label">
+                            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                        </button>
+                        <div class="tl-hover-action-menu__tray">
+                            @foreach (var child in action.Children)
+                            {
+                                <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
+                                    <button type="button"
+                                            class="tl-detail-icon-action"
+                                            aria-label="@child.Label"
+                                            disabled="@child.IsDisabled"
+                                            @onclick="@(() => Select(child))">
+                                        <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
+                                    </button>
+                                </MudTooltip>
+                            }
+                        </div>
+                    </div>
+                    <span>@SecondaryLabel(action)</span>
+                </div>
+            }
+            else
+            {
+                <div class="tl-detail-secondary-action">
+                    <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
+                        <button type="button"
+                                class="tl-detail-icon-action @(action.IsStub ? "tl-detail-icon-action--stub" : null)"
+                                aria-label="@action.Label"
+                                disabled="@action.IsDisabled"
+                                @onclick="@(() => Select(action))">
+                            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                        </button>
+                    </MudTooltip>
+                    <span>@SecondaryLabel(action)</span>
+                </div>
+            }
+        }
+
+        @if (OverflowActions.Count > 0)
+        {
+            <div class="tl-detail-secondary-action">
+                <OverflowActionMenu Actions="OverflowActions" OnActionSelected="OnActionSelected" />
+                <span>More</span>
             </div>
         }
-        else if (action.Key == "format-tools")
-        {
-            <div class="tl-hover-action-menu tl-format-menu" tabindex="0" aria-label="@action.Label">
-                <button type="button" class="tl-detail-icon-action" aria-label="@action.Label">
-                    <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
-                </button>
-                <div class="tl-hover-action-menu__tray">
-                    @foreach (var child in action.Children)
-                    {
-                        <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
-                            <button type="button"
-                                    class="tl-detail-icon-action"
-                                    aria-label="@child.Label"
-                                    disabled="@child.IsDisabled"
-                                    @onclick="@(() => Select(child))">
-                                <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
-                            </button>
-                        </MudTooltip>
-                    }
-                </div>
-            </div>
-        }
-        else
-        {
-            <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                <button type="button"
-                        class="tl-detail-icon-action @(action.IsStub ? "tl-detail-icon-action--stub" : null)"
-                        aria-label="@action.Label"
-                        disabled="@action.IsDisabled"
-                        @onclick="@(() => Select(action))">
-                    <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
-                </button>
-            </MudTooltip>
-        }
-    }
-    <OverflowActionMenu Actions="OverflowActions" OnActionSelected="OnActionSelected" />
+    </div>
 </div>
 
 @code {
@@ -86,6 +107,18 @@
 
     private static string TooltipFor(DetailAction action)
         => action.Tooltip ?? (action.IsStub ? $"{action.Label} (coming soon)" : action.Label);
+
+    private static string PrimaryLabel(DetailAction action)
+        => action.Key is "play" or "watch-latest" ? "Watch Now" : action.Label;
+
+    private static string SecondaryLabel(DetailAction action) => action.Key switch
+    {
+        "add-to-collection" => "My List",
+        "reaction-menu" => "Rate",
+        "watch-party" => "Party",
+        "format-tools" => "Tools",
+        _ => action.Label,
+    };
 
     public static string IconFor(DetailAction action) => action.Icon switch
     {

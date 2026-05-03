@@ -899,7 +899,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         var endpoint = mediaType == MediaType.TV ? "tv" : "movie";
         var baseUrl = _config.Endpoints.GetValueOrDefault("api") ?? "https://api.themoviedb.org/3";
-        var url = $"{baseUrl.TrimEnd('/')}/{endpoint}/{Uri.EscapeDataString(tmdbId)}?language=en-US&api_key={Uri.EscapeDataString(_config.HttpClient.ApiKey)}";
+        var appendToResponse = mediaType == MediaType.TV ? "aggregate_credits" : "credits";
+        var url = $"{baseUrl.TrimEnd('/')}/{endpoint}/{Uri.EscapeDataString(tmdbId)}?language=en-US&append_to_response={appendToResponse}&api_key={Uri.EscapeDataString(_config.HttpClient.ApiKey)}";
 
         try
         {
@@ -946,6 +947,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             AddIfMissing(enriched, MetadataFieldConstants.Description, details["overview"]?.GetValue<string>(), 0.85);
             AddIfMissing(enriched, MetadataFieldConstants.Tagline, details["tagline"]?.GetValue<string>(), 0.70);
             AddIfMissing(enriched, MetadataFieldConstants.Runtime, details["runtime"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.90);
+            AddTmdbCastClaims(enriched, details, mediaType);
 
             return enriched;
         }
@@ -968,6 +970,29 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         }
 
         claims.Add(new ProviderClaim(key, value, confidence));
+    }
+
+    private static void AddTmdbCastClaims(List<ProviderClaim> claims, JsonNode details, MediaType mediaType)
+    {
+        var castArray = mediaType == MediaType.TV
+            ? details["aggregate_credits"]?["cast"]?.AsArray()
+            : details["credits"]?["cast"]?.AsArray();
+
+        if (castArray is null)
+            return;
+
+        foreach (var castNode in castArray
+            .Where(node => node is not null)
+            .OrderBy(node => node?["order"]?.GetValue<int?>() ?? int.MaxValue)
+            .ThenBy(node => node?["name"]?.GetValue<string>() ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .Take(30))
+        {
+            AddIfMissing(
+                claims,
+                MetadataFieldConstants.CastMember,
+                castNode?["name"]?.GetValue<string>(),
+                0.90);
+        }
     }
 
     /// <summary>

@@ -688,14 +688,14 @@ public sealed class DetailComposerService
         {
             if (group.GroupType == CreditGroupType.Cast && group.Title.Contains("Primary", StringComparison.OrdinalIgnoreCase))
                 return (group.Title, 0, true, 8);
-            if (group.GroupType == CreditGroupType.Cast)
-                return (group.Title, 1, false, 4);
             if (group.GroupType == CreditGroupType.Directors)
-                return ("Directors", 2, true, 4);
+                return ("Directors", 1, true, 4);
             if (group.GroupType == CreditGroupType.Writers)
-                return ("Writers", 3, false, 4);
+                return ("Writers", 2, false, 4);
             if (group.GroupType == CreditGroupType.MusicCredits)
-                return ("Music", 4, false, 3);
+                return ("Music", 3, false, 3);
+            if (group.GroupType == CreditGroupType.Cast)
+                return (group.Title, 4, false, 4);
             return (group.Title, 8, false, 4);
         }
 
@@ -1520,7 +1520,7 @@ public sealed class DetailComposerService
 
         AddPlain(values, FormatEntityType(entityType), "type");
         AddPlain(values, detail.Year, "year");
-        AddPlain(values, detail.Runtime, "duration");
+        AddPlain(values, FormatRuntime(detail.Runtime), "duration");
         AddPlain(values, detail.Language, "audio");
 
         return values
@@ -1681,6 +1681,27 @@ public sealed class DetailComposerService
         return double.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
             ? parsed.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
             : trimmed;
+    }
+
+    private static string? FormatRuntime(string? runtime)
+    {
+        if (string.IsNullOrWhiteSpace(runtime))
+            return null;
+
+        var trimmed = runtime.Trim();
+        if (!double.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var minutes))
+            return trimmed;
+
+        if (minutes <= 0)
+            return null;
+
+        var totalMinutes = (int)Math.Round(minutes, MidpointRounding.AwayFromZero);
+        var hours = totalMinutes / 60;
+        var remainingMinutes = totalMinutes % 60;
+
+        return hours > 0
+            ? remainingMinutes > 0 ? $"{hours}h {remainingMinutes}m" : $"{hours}h"
+            : $"{totalMinutes}m";
     }
 
     private static IEnumerable<string> SplitMetadataValues(string? value)
@@ -2288,7 +2309,7 @@ public sealed class DetailComposerService
 
         var preview = entityType switch
         {
-            DetailEntityType.Movie => directors.Take(1).Concat(cast.Take(4)).ToList(),
+            DetailEntityType.Movie => directors.Take(1).Concat(cast.Take(5)).ToList(),
             DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => cast.Take(5).ToList(),
             DetailEntityType.Book => authors.Take(2).ToList(),
             DetailEntityType.Audiobook => authors.Take(2).Concat(narrators.Take(2)).ToList(),

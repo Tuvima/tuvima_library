@@ -1,0 +1,29 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@if (GenreItems.Count > 0)
+{
+    <div class="tl-detail-genre-row" aria-label="Genres">
+        @foreach (var genre in GenreItems)
+        {
+            @if (!string.IsNullOrWhiteSpace(genre.Route))
+            {
+                <a class="tl-detail-genre-chip" href="@genre.Route" title="@genre.Tooltip">@genre.Label</a>
+            }
+            else
+            {
+                <span class="tl-detail-genre-chip" title="@genre.Tooltip">@genre.Label</span>
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<MetadataPill> Metadata { get; set; } = [];
+
+    private IReadOnlyList<MetadataPill> GenreItems =>
+        Metadata
+            .Where(item => string.Equals(item.Kind, "genre", StringComparison.OrdinalIgnoreCase))
+            .Take(4)
+            .ToList();
+}

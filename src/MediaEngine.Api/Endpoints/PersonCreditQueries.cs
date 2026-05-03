@@ -21,9 +21,42 @@ internal static class CastCreditQueries
         var work = await conn.QueryFirstOrDefaultAsync<WorkIdentityRow>(
             """
             SELECT w.id AS WorkId,
-                   w.wikidata_qid AS WorkQid,
+                   COALESCE(
+                       NULLIF(TRIM(w.wikidata_qid), ''),
+                       (SELECT cv.value
+                        FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                        WHERE e.work_id = w.id AND cv.key = 'wikidata_qid'
+                        LIMIT 1),
+                       (SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = w.id AND cv.key = 'wikidata_qid'
+                        LIMIT 1),
+                       (SELECT ij.resolved_qid
+                        FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        INNER JOIN identity_jobs ij ON ij.entity_id = ma.id
+                        WHERE e.work_id = w.id
+                          AND ij.resolved_qid IS NOT NULL
+                          AND TRIM(ij.resolved_qid) <> ''
+                        ORDER BY ij.updated_at DESC, ij.created_at DESC
+                        LIMIT 1)
+                   ) AS WorkQid,
                    COALESCE(gp.id, p.id, w.id) AS RootWorkId,
-                   root.wikidata_qid AS RootWorkQid
+                   COALESCE(
+                       NULLIF(TRIM(root.wikidata_qid), ''),
+                       (SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = root.id AND cv.key = 'wikidata_qid'
+                        LIMIT 1),
+                       (SELECT cv.value
+                        FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                        WHERE e.work_id = root.id AND cv.key = 'wikidata_qid'
+                        LIMIT 1)
+                   ) AS RootWorkQid
             FROM works w
             LEFT JOIN works p
                 ON p.id = w.parent_work_id
@@ -174,8 +207,7 @@ internal static class CastCreditQueries
                                 PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
                                     preferred.PortraitId,
                                     preferred.PortraitLocalImagePath,
-                                    preferred.PortraitImageUrl)
-                                    ?? preferred.CharacterImageUrl,
+                                    preferred.PortraitImageUrl),
                             };
                         })
                         .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
@@ -422,6 +454,30 @@ internal static class CastCreditQueries
             var map = new CastRankMap();
             var nextRank = 0;
 
+            using var conn = db.CreateConnection();
+            var assetCastEntries = (await conn.QueryAsync<CanonicalArrayEntryRow>(new CommandDefinition(
+                """
+                SELECT cva.ordinal   AS Ordinal,
+                       cva.value     AS Value,
+                       cva.value_qid AS ValueQid
+                FROM editions e
+                INNER JOIN media_assets ma
+                    ON ma.edition_id = e.id
+                INNER JOIN canonical_value_arrays cva
+                    ON cva.entity_id = ma.id
+                   AND cva.key = 'cast_member'
+                WHERE e.work_id = @workId
+                ORDER BY cva.ordinal ASC;
+                """,
+                new { workId = workId.ToString("D") },
+                cancellationToken: ct))).ToList();
+
+            foreach (var entry in assetCastEntries)
+            {
+                if (map.Add(entry.ValueQid, entry.Value, nextRank))
+                    nextRank++;
+            }
+
             var castEntries = await canonicalArrayRepo.GetValuesAsync(workId, "cast_member", ct);
             foreach (var entry in castEntries.OrderBy(value => value.Ordinal))
             {
@@ -429,7 +485,30 @@ internal static class CastCreditQueries
                     nextRank++;
             }
 
-            using var conn = db.CreateConnection();
+            var assetRows = (await conn.QueryAsync<CastClaimRow>(new CommandDefinition(
+                """
+                SELECT mc.rowid       AS RowNumber,
+                       mc.claim_key   AS ClaimKey,
+                       mc.claim_value AS ClaimValue
+                FROM editions e
+                INNER JOIN media_assets ma
+                    ON ma.edition_id = e.id
+                INNER JOIN metadata_claims mc
+                    ON mc.entity_id = ma.id
+                WHERE e.work_id = @workId
+                  AND mc.claim_key IN ('cast_member', 'cast_member_qid')
+                  AND NULLIF(mc.claim_value, '') IS NOT NULL
+                ORDER BY mc.rowid;
+                """,
+                new { workId = workId.ToString("D") },
+                cancellationToken: ct))).ToList();
+
+            foreach (var entry in BuildCastEntriesFromClaims(assetRows))
+            {
+                if (map.Add(entry.Qid, entry.Name, nextRank))
+                    nextRank++;
+            }
+
             var rows = (await conn.QueryAsync<CastClaimRow>(new CommandDefinition(
                 """
                 SELECT mc.rowid       AS RowNumber,
@@ -542,6 +621,13 @@ internal static class CastCreditQueries
         public string ClaimValue { get; init; } = string.Empty;
     }
 
+    private sealed class CanonicalArrayEntryRow
+    {
+        public int Ordinal { get; init; }
+        public string Value { get; init; } = string.Empty;
+        public string? ValueQid { get; init; }
+    }
+
     private sealed record CastClaimEntry(string Name, string? Qid);
 }
 
@@ -594,7 +680,24 @@ internal static class PersonCreditQueries
             SELECT w.id                                   AS WorkId,
                    w.collection_id                        AS CollectionId,
                    w.media_type                           AS MediaType,
-                   w.wikidata_qid                         AS WorkQid,
+                   COALESCE(
+                       NULLIF(TRIM(w.wikidata_qid), ''),
+                       (SELECT cvq.value
+                        FROM canonical_values cvq
+                        WHERE cvq.entity_id = ma.id AND cvq.key = 'wikidata_qid'
+                        LIMIT 1),
+                       (SELECT cvq.value
+                        FROM canonical_values cvq
+                        WHERE cvq.entity_id = w.id AND cvq.key = 'wikidata_qid'
+                        LIMIT 1),
+                       (SELECT ij.resolved_qid
+                        FROM identity_jobs ij
+                        WHERE ij.entity_id = ma.id
+                          AND ij.resolved_qid IS NOT NULL
+                          AND TRIM(ij.resolved_qid) <> ''
+                        ORDER BY ij.updated_at DESC, ij.created_at DESC
+                        LIMIT 1)
+                   )                                      AS WorkQid,
                    COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), c.display_name, 'Untitled') AS Title,
                    MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS Year,
                    pml.role                               AS Role,
@@ -670,8 +773,7 @@ internal static class PersonCreditQueries
                                 PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
                                     preferred.PortraitId,
                                     preferred.PortraitLocalImagePath,
-                                    preferred.PortraitImageUrl)
-                                    ?? preferred.CharacterImageUrl,
+                                    preferred.PortraitImageUrl),
                             };
                         })
                         .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
@@ -719,7 +821,7 @@ internal static class PersonCreditQueries
                    cp.local_image_path      AS PortraitLocalImagePath,
                    cp.is_default            AS PortraitIsDefault,
                    w.id                     AS WorkId,
-                   w.wikidata_qid           AS WorkQid,
+                   cpl.work_qid             AS WorkQid,
                    w.collection_id          AS CollectionId,
                    w.media_type             AS MediaType,
                    COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), 'Untitled') AS WorkTitle,
@@ -729,7 +831,28 @@ internal static class PersonCreditQueries
             INNER JOIN fictional_entities fe
                 ON fe.id = cpl.fictional_entity_id
             INNER JOIN works w
-                ON w.wikidata_qid = cpl.work_qid
+                ON cpl.work_qid = COALESCE(
+                    NULLIF(TRIM(w.wikidata_qid), ''),
+                    (SELECT cvq.value
+                     FROM canonical_values cvq
+                     WHERE cvq.entity_id = w.id AND cvq.key = 'wikidata_qid'
+                     LIMIT 1),
+                    (SELECT cvq.value
+                     FROM editions e
+                     INNER JOIN media_assets ma ON ma.edition_id = e.id
+                     INNER JOIN canonical_values cvq ON cvq.entity_id = ma.id
+                     WHERE e.work_id = w.id AND cvq.key = 'wikidata_qid'
+                     LIMIT 1),
+                    (SELECT ij.resolved_qid
+                     FROM editions e
+                     INNER JOIN media_assets ma ON ma.edition_id = e.id
+                     INNER JOIN identity_jobs ij ON ij.entity_id = ma.id
+                     WHERE e.work_id = w.id
+                       AND ij.resolved_qid IS NOT NULL
+                       AND TRIM(ij.resolved_qid) <> ''
+                     ORDER BY ij.updated_at DESC, ij.created_at DESC
+                     LIMIT 1)
+                )
             LEFT JOIN canonical_values cv
                 ON cv.entity_id = w.id
                AND cv.key = 'title'
@@ -739,7 +862,7 @@ internal static class PersonCreditQueries
             WHERE cpl.person_id = @personId
               AND cpl.work_qid IS NOT NULL
             GROUP BY cpl.fictional_entity_id, fe.label, fe.image_url, cp.id, cp.image_url, cp.local_image_path, cp.is_default,
-                     w.id, w.wikidata_qid, w.collection_id, w.media_type, fe.fictional_universe_qid, fe.fictional_universe_label
+                     w.id, cpl.work_qid, w.collection_id, w.media_type, fe.fictional_universe_qid, fe.fictional_universe_label
             ORDER BY UniverseLabel, WorkTitle, CharacterName, cp.is_default DESC;
             """,
             new { personId = personId.ToString() })).ToList();
@@ -760,8 +883,7 @@ internal static class PersonCreditQueries
                     PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
                         preferred.PortraitId,
                         preferred.PortraitLocalImagePath,
-                        preferred.PortraitImageUrl)
-                        ?? preferred.CharacterImageUrl,
+                        preferred.PortraitImageUrl),
                     WorkId = preferred.WorkId,
                     WorkQid = preferred.WorkQid,
                     WorkTitle = preferred.WorkTitle,

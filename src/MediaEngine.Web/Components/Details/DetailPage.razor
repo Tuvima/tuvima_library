@@ -102,7 +102,7 @@
 
     private static string CreditPreviewTitle(DetailPageViewModel model) => model.EntityType switch
     {
-        DetailEntityType.Movie => "Starring",
+        DetailEntityType.Movie => "Cast & Crew",
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Cast & Crew",
         DetailEntityType.Book => "Authors",
         DetailEntityType.Audiobook => "Author & Narrator",
