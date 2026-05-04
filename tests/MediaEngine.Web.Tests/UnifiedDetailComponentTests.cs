@@ -42,7 +42,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("content: none", styles);
         Assert.Contains("filter: none", styles);
         Assert.Contains("background-size: auto 100%", styles);
-        Assert.Contains("background-size: min(67vw, 153vh) auto", styles);
+        Assert.Contains("tl-detail-hero--fallback-generated:not(.tl-detail-hero--watch)", styles);
         Assert.Contains("background-size: cover", styles);
         Assert.Contains("background-position: var(--hero-image-position, center right)", styles);
         Assert.Contains("background-position: right center", styles);
@@ -71,6 +71,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-hero--backdrop tl-detail-hero--backdrop-logo", presentation);
         Assert.Contains("tl-detail-hero--backdrop tl-detail-hero--backdrop-title", presentation);
         Assert.Contains("tl-detail-hero--watch", presentation);
+        Assert.Contains("tl-detail-hero--read", presentation);
+        Assert.Contains("tl-detail-hero--listen", presentation);
+        Assert.Contains("tl-detail-hero--music", presentation);
+        Assert.Contains("tl-detail-hero--fallback-generated", presentation);
         Assert.Contains("(R: 8, G: 12, B: 18)", presentation);
         Assert.Contains("(R: 4, G: 7, B: 12)", presentation);
         Assert.Contains("(R: 220, G: 165, B: 62)", presentation);
@@ -78,13 +82,16 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("isWatchHero ? null : model.Subtitle", presentation);
         Assert.Contains("<HeroProgressBlock Progress=\"Presentation.Progress\" />", hero);
         Assert.Contains("IsWatchHero=\"Presentation.IsWatchHero\"", hero);
+        Assert.Contains("UsePrimaryHeroChrome=\"Presentation.UsePrimaryHeroChrome\"", hero);
+        Assert.Contains("usePrimaryHeroChrome ? string.Empty : FormatEntityType", presentation);
+        Assert.Contains("UsesPrimaryHeroChrome", presentation);
         Assert.Contains("tl-detail-hero-progress", progress);
         Assert.Contains("--hero-progress", progress);
         Assert.Contains("Progress = detail.Progress", client);
         Assert.Contains(".tl-detail-hero-progress__fill", styles);
-        Assert.Contains("rgba(0, 3, 5, 1) 0%", styles);
-        Assert.Contains("rgba(0, 3, 5, 1) 34%", styles);
-        Assert.Contains("rgba(0, 3, 5, 0.10) 90%", styles);
+        Assert.Contains("rgba(0, 3, 5, 0.34) 0%", styles);
+        Assert.Contains("rgba(0, 3, 5, 0.10) 42%", styles);
+        Assert.Contains("rgba(0, 3, 5, 0.98) 100%", styles);
         Assert.DoesNotContain("rgba(0, 0, 0, 0.10) 36%", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-genre-chip", styles);
         Assert.Contains("background: rgba(20, 23, 28, 0.78)", styles);
@@ -120,8 +127,13 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroMetadataPills.razor");
 
         Assert.Contains("IsWatchHero", source);
+        Assert.Contains("UsePrimaryHeroChrome", source);
         Assert.Contains("tl-detail-watch-metadata-row", source);
         Assert.Contains("IsWatchHeroStat", source);
+        Assert.Contains("IsPrimaryChromeHeroStat", source);
+        Assert.DoesNotContain("or \"type\" or \"genre\"", source);
+        Assert.Contains("Icons.Material.Filled.Star", source);
+        Assert.Contains("tl-detail-watch-metadata-item--rating", source);
         Assert.Contains("tl-detail-metadata-row", source);
         Assert.Contains("tl-detail-metadata-item", source);
         Assert.Contains("tl-detail-metadata-item--rating", source);
@@ -137,16 +149,41 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("tl-reaction-menu", source);
         Assert.Contains("tl-detail-premium-action", source);
+        Assert.Contains("tl-detail-action--secondary-button", source);
         Assert.Contains("tl-detail-actions--watch", source);
         Assert.Contains("tl-detail-watch-secondary", source);
+        Assert.Contains("UsePrimaryHeroChrome && action.Key == \"read-listen\"", source);
+        Assert.Contains("UsePrimaryHeroChrome && action.Key == \"add-to-collection\"", source);
         Assert.Contains("read-listen", composer);
+        Assert.DoesNotContain("Key = \"preview\",", composer);
+        Assert.Contains("IsReadableEntity", composer);
         Assert.Contains("SupportsWatchParty", composer);
         Assert.Contains("watch-party", composer);
         Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", composer);
         Assert.Contains("IsStub = true", composer);
         Assert.Contains("Label = \"Watchlist\"", composer);
+        Assert.Contains("=> \"Want to Read\"", composer);
+        Assert.Contains("=> \"Want to Listen\"", composer);
+        Assert.Contains("BuildReactionAction", composer);
         Assert.Contains("border-radius: 0.5rem", styles);
+        Assert.Contains(".tl-detail-actions--watch .tl-detail-action--primary", styles);
+        Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary", styles);
+        Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch)", styles);
+        Assert.Contains("tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback", styles);
+        Assert.Contains("overflow: visible", styles);
+        Assert.Contains("max-height: min(47rem, 78vh)", styles);
         Assert.DoesNotContain("&& SupportsWatchParty(entityType)", composer);
+    }
+
+    [Fact]
+    public void DetailPage_WiresReadAndReactionHeroActions()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+
+        Assert.Contains("ResolveWorkToAssetAsync", source);
+        Assert.Contains("Nav.NavigateTo($\"/read/{assetId.Value:D}\")", source);
+        Assert.Contains("MediaReactionService Reactions", source);
+        Assert.Contains("SetReactionAsync(action.Key == \"like\" ? MediaReaction.Like : MediaReaction.Dislike)", source);
     }
 
     [Fact]
@@ -187,7 +224,7 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void PeopleStrip_StaysBelowHeroAndUsesSharedAvatarFallback()
+    public void PeopleStrip_RemainsOutOfHeroAndSharedAvatarFallbackStaysAvailable()
     {
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
         var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
@@ -197,7 +234,7 @@ public sealed class UnifiedDetailComponentTests
         var group = ReadSource("src/MediaEngine.Web/Components/Details/CreditGroupSection.razor");
 
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
-        Assert.Contains("<PeoplePreviewStrip Title=\"@CreditPreviewTitle(Model)\"", detailPage);
+        Assert.DoesNotContain("<PeoplePreviewStrip", detailPage);
         Assert.DoesNotContain("PreviewContributors", hero);
         Assert.Contains("Compact=\"true\"", strip);
         Assert.Contains("PersonAvatar", card);

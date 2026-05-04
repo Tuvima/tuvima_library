@@ -15,6 +15,7 @@ public sealed class DetailHeroPresentation
         string? heroCopy,
         ProgressViewModel? progress,
         bool isWatchHero,
+        bool usePrimaryHeroChrome,
         IReadOnlyList<MetadataPill> capabilityPills)
     {
         HeroClass = heroClass;
@@ -27,6 +28,7 @@ public sealed class DetailHeroPresentation
         HeroCopy = heroCopy;
         Progress = progress;
         IsWatchHero = isWatchHero;
+        UsePrimaryHeroChrome = usePrimaryHeroChrome;
         CapabilityPills = capabilityPills;
     }
 
@@ -40,12 +42,14 @@ public sealed class DetailHeroPresentation
     public string? HeroCopy { get; }
     public ProgressViewModel? Progress { get; }
     public bool IsWatchHero { get; }
+    public bool UsePrimaryHeroChrome { get; }
     public IReadOnlyList<MetadataPill> CapabilityPills { get; }
 
     public static DetailHeroPresentation From(DetailPageViewModel model)
     {
         var mode = NormalizeMode(model.Artwork.HeroArtwork.Mode);
         var isWatchHero = IsWatchEntity(model.EntityType);
+        var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
         var copy = model.EntityType == DetailEntityType.MusicAlbum
             ? null
@@ -56,9 +60,9 @@ public sealed class DetailHeroPresentation
                     : null;
 
         return new DetailHeroPresentation(
-            BuildHeroClass(mode, isWatchHero),
+            BuildHeroClass(mode, model.EntityType, isWatchHero),
             BuildGradientStyle(model.Artwork, isWatchHero),
-            isWatchHero ? string.Empty : FormatEntityType(model.EntityType),
+            usePrimaryHeroChrome ? string.Empty : FormatEntityType(model.EntityType),
             useLogo,
             useLogo ? model.Artwork.LogoUrl : null,
             model.Title,
@@ -66,10 +70,11 @@ public sealed class DetailHeroPresentation
             copy,
             model.Progress,
             isWatchHero,
-            BuildCapabilityPills(model));
+            usePrimaryHeroChrome,
+            BuildCapabilityPills(model, usePrimaryHeroChrome));
     }
 
-    private static string BuildHeroClass(HeroArtworkMode mode, bool isWatchHero)
+    private static string BuildHeroClass(HeroArtworkMode mode, DetailEntityType entityType, bool isWatchHero)
     {
         var modeClass = mode switch
         {
@@ -79,7 +84,22 @@ public sealed class DetailHeroPresentation
             _ => "tl-detail-hero--placeholder",
         };
 
-        return isWatchHero ? $"{modeClass} tl-detail-hero--watch" : modeClass;
+        if (isWatchHero)
+            return $"{modeClass} tl-detail-hero--watch";
+
+        var surfaceClass = entityType switch
+        {
+            DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work => "tl-detail-hero--read",
+            DetailEntityType.Audiobook => "tl-detail-hero--listen",
+            DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-detail-hero--music",
+            _ => "tl-detail-hero--fallback-surface",
+        };
+
+        var fallbackClass = mode == HeroArtworkMode.ArtworkFallback
+            ? " tl-detail-hero--fallback-generated"
+            : string.Empty;
+
+        return $"{modeClass} {surfaceClass}{fallbackClass}";
     }
 
     private static HeroArtworkMode NormalizeMode(HeroArtworkMode mode) => mode switch
@@ -91,17 +111,28 @@ public sealed class DetailHeroPresentation
         _ => mode,
     };
 
-    private static IReadOnlyList<MetadataPill> BuildCapabilityPills(DetailPageViewModel model)
-        => model.Metadata
-            .Where(item => IsCapabilityKind(item.Kind))
-            .Where(item => !string.IsNullOrWhiteSpace(item.Label))
-            .DistinctBy(item => $"{item.Kind}:{item.Label}", StringComparer.OrdinalIgnoreCase)
-            .Take(2)
-            .ToList();
+    private static IReadOnlyList<MetadataPill> BuildCapabilityPills(DetailPageViewModel model, bool usePrimaryHeroChrome)
+        => usePrimaryHeroChrome
+            ? []
+            : model.Metadata
+                .Where(item => IsCapabilityKind(item.Kind))
+                .Where(item => !string.IsNullOrWhiteSpace(item.Label))
+                .DistinctBy(item => $"{item.Kind}:{item.Label}", StringComparer.OrdinalIgnoreCase)
+                .Take(2)
+                .ToList();
 
     private static bool IsCapabilityKind(string? kind)
         => string.Equals(kind, "sync", StringComparison.OrdinalIgnoreCase)
            || string.Equals(kind, "quality", StringComparison.OrdinalIgnoreCase);
+
+    private static bool UsesPrimaryHeroChrome(DetailEntityType entityType)
+        => entityType is DetailEntityType.Book
+            or DetailEntityType.ComicIssue
+            or DetailEntityType.Audiobook
+            or DetailEntityType.Work
+            or DetailEntityType.MusicAlbum
+            or DetailEntityType.MusicArtist
+            or DetailEntityType.MusicTrack;
 
     private static bool IsWatchEntity(DetailEntityType entityType)
         => entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;

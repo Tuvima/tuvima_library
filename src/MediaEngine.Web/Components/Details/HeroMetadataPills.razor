@@ -2,18 +2,24 @@
 @using MediaEngine.Contracts.Details
 
 @{
-    var watchStatItems = WatchStatItems;
+    var inlineStatItems = InlineStatItems;
     var statItems = StatItems;
 }
 
 <div class="tl-detail-metadata-stack">
-    @if (IsWatchHero && watchStatItems.Count > 0)
+    @if (UsePrimaryHeroChrome && inlineStatItems.Count > 0)
     {
         <div class="tl-detail-watch-metadata-row" aria-label="Media details">
-            @foreach (var entry in watchStatItems.Select((item, index) => new { item, index }))
+            @foreach (var entry in inlineStatItems.Select((item, index) => new { item, index }))
             {
-                <span class="@WatchStatClass(entry.item)" title="@entry.item.Tooltip">@entry.item.Label</span>
-                @if (entry.index < watchStatItems.Count - 1)
+                <span class="@WatchStatClass(entry.item)" title="@entry.item.Tooltip">
+                    @if (KindEquals(entry.item, "rating"))
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" />
+                    }
+                    <span>@entry.item.Label</span>
+                </span>
+                @if (entry.index < inlineStatItems.Count - 1)
                 {
                     <span class="tl-detail-watch-metadata-separator" aria-hidden="true">·</span>
                 }
@@ -57,6 +63,7 @@
     [Parameter] public CanonicalIdentityStatus IdentityStatus { get; set; }
     [Parameter] public bool IsAdminView { get; set; }
     [Parameter] public bool IsWatchHero { get; set; }
+    [Parameter] public bool UsePrimaryHeroChrome { get; set; }
 
     private IReadOnlyList<MetadataPill> StatItems =>
         Metadata
@@ -65,31 +72,33 @@
             .Take(EntityType == DetailEntityType.MusicAlbum ? 6 : 5)
             .ToList();
 
+    private IReadOnlyList<MetadataPill> InlineStatItems
+        => IsWatchHero ? WatchStatItems : PrimaryChromeStatItems;
+
     private IReadOnlyList<MetadataPill> WatchStatItems
     {
         get
         {
-            var items = Metadata
+            return Metadata
                 .Where(IsWatchHeroStat)
                 .Where(item => !string.IsNullOrWhiteSpace(item.Label))
-                .OrderBy(WatchStatSort)
-                .ToList();
-            var genreLabel = string.Join(" ", items
-                .Where(item => KindEquals(item, "genre"))
-                .Select(item => item.Label)
-                .Distinct(StringComparer.OrdinalIgnoreCase));
-
-            return items
-                .Where(item => !KindEquals(item, "genre"))
                 .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
-                .Append(new MetadataPill { Label = genreLabel, Kind = "genre" })
-                .Where(item => !string.IsNullOrWhiteSpace(item.Label))
                 .OrderBy(WatchStatSort)
                 .Take(6)
                 .ToList();
         }
     }
+
+    private IReadOnlyList<MetadataPill> PrimaryChromeStatItems =>
+        Metadata
+            .Where(IsPrimaryChromeHeroStat)
+            .Where(item => !string.IsNullOrWhiteSpace(item.Label))
+            .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(PrimaryChromeStatSort)
+            .Take(5)
+            .ToList();
 
     private string IdentityStatusLabel => IdentityStatus switch
     {
@@ -106,25 +115,33 @@
     private static bool IsHeroStat(MetadataPill item)
     {
         var kind = item.Kind?.ToLowerInvariant();
-        return kind is "certification" or "content_rating" or "rating" or "duration" or "year"
+        return kind is "certification" or "content_rating" or "rating" or "type" or "duration" or "year"
             or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality";
     }
 
     private static bool IsWatchHeroStat(MetadataPill item)
     {
         var kind = item.Kind?.ToLowerInvariant();
-        return kind is "certification" or "content_rating" or "duration" or "year" or "genre" or "quality" or "subtitles";
+        return kind is "certification" or "content_rating" or "rating" or "duration" or "year" or "quality" or "subtitles";
+    }
+
+    private static bool IsPrimaryChromeHeroStat(MetadataPill item)
+    {
+        var kind = item.Kind?.ToLowerInvariant();
+        return kind is "certification" or "content_rating" or "rating" or "duration" or "year"
+            or "page_count" or "track_count" or "season_count" or "episode_count" or "quality" or "subtitles";
     }
 
     private static int StatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
         "certification" or "content_rating" => 1,
-        "year" => 2,
-        "duration" => 3,
-        "page_count" or "track_count" or "season_count" or "episode_count" => 4,
-        "genre" => 5,
-        "quality" => 6,
-        "rating" => 7,
+        "type" => 2,
+        "year" => 3,
+        "duration" => 4,
+        "page_count" or "track_count" or "season_count" or "episode_count" => 5,
+        "genre" => 6,
+        "quality" => 7,
+        "rating" => 8,
         _ => 8,
     };
 
@@ -133,10 +150,22 @@
         "certification" or "content_rating" => 0,
         "year" => 1,
         "duration" => 2,
-        "genre" => 3,
+        "quality" => 3,
+        "subtitles" => 4,
+        "rating" => 5,
+        _ => 6,
+    };
+
+    private static int PrimaryChromeStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
+    {
+        "certification" or "content_rating" => 0,
+        "year" => 1,
+        "duration" => 2,
+        "page_count" or "track_count" or "season_count" or "episode_count" => 3,
         "quality" => 4,
         "subtitles" => 5,
-        _ => 6,
+        "rating" => 6,
+        _ => 7,
     };
 
     private static string StatClass(MetadataPill item)
@@ -147,6 +176,8 @@
     private static string WatchStatClass(MetadataPill item)
         => item.Kind?.ToLowerInvariant() is "certification" or "content_rating" or "quality" or "subtitles"
             ? "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--badge"
+            : item.Kind?.ToLowerInvariant() == "rating"
+                ? "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--rating"
             : "tl-detail-watch-metadata-item";
 
     private static string WatchStatGroupKey(MetadataPill item)

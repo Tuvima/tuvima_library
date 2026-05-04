@@ -31,6 +31,7 @@
                                EntityType="Model.EntityType"
                                IdentityStatus="Model.IdentityStatus"
                                IsWatchHero="Presentation.IsWatchHero"
+                               UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
                                IsAdminView="Model.IsAdminView" />
 
             @if (Presentation.CapabilityPills.Count > 0)
@@ -46,6 +47,7 @@
             <HeroActionRow PrimaryActions="Model.PrimaryActions"
                            SecondaryActions="Model.SecondaryActions"
                            OverflowActions="Model.OverflowActions"
+                           UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
                            OnActionSelected="OnActionSelected" />
 
             <HeroProgressBlock Progress="Presentation.Progress" />

@@ -1,7 +1,12 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Playback
+@inject IEngineApiClient ApiClient
+@inject MediaReactionService Reactions
 @inject ListenPlaybackService Playback
+@inject UIOrchestratorService Orchestrator
+@inject NavigationManager Nav
 
 @if (Model is not null)
 {
@@ -107,6 +112,18 @@
 
     private async Task HandleDetailActionAsync(DetailAction action)
     {
+        if (action.Key == "read")
+        {
+            await OpenReaderAsync(action);
+            return;
+        }
+
+        if (action.Key is "like" or "dislike")
+        {
+            await SetReactionAsync(action.Key == "like" ? MediaReaction.Like : MediaReaction.Dislike);
+            return;
+        }
+
         if (Model?.EntityType == DetailEntityType.MusicAlbum && action.Key is "play-album" or "shuffle")
         {
             await PlayAlbumAsync(shuffle: action.Key == "shuffle");
@@ -114,6 +131,39 @@
         }
 
         await OnActionSelected.InvokeAsync(action);
+    }
+
+    private async Task OpenReaderAsync(DetailAction action)
+    {
+        if (!string.IsNullOrWhiteSpace(action.Route) && action.Route.StartsWith("/read/", StringComparison.OrdinalIgnoreCase))
+        {
+            Nav.NavigateTo(action.Route);
+            return;
+        }
+
+        if (Model is null || !Guid.TryParse(Model.Id, out var workId))
+        {
+            await OnActionSelected.InvokeAsync(action);
+            return;
+        }
+
+        var assetId = await ApiClient.ResolveWorkToAssetAsync(workId);
+        if (assetId.HasValue)
+        {
+            Nav.NavigateTo($"/read/{assetId.Value:D}");
+            return;
+        }
+
+        await OnActionSelected.InvokeAsync(action);
+    }
+
+    private async Task SetReactionAsync(MediaReaction reaction)
+    {
+        if (Model is null || !Guid.TryParse(Model.Id, out var workId))
+            return;
+
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        await Reactions.SetReactionAsync(workId, reaction, profile?.Id);
     }
 
     private async Task PlayAlbumAsync(bool shuffle)

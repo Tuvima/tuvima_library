@@ -1670,7 +1670,10 @@ public sealed class DetailComposerService
     {
         var actions = new List<DetailAction>();
 
-        if (HasReadListenCompanion(entityType, formats ?? []))
+        var hasReadListenCompanion = HasReadListenCompanion(entityType, formats ?? []);
+        var isReadableEntity = IsReadableEntity(entityType);
+
+        if (hasReadListenCompanion)
         {
             actions.Add(new DetailAction
             {
@@ -1697,6 +1700,7 @@ public sealed class DetailComposerService
                 IsStub = true,
                 DisplayStyle = "icon",
             });
+            actions.Add(BuildReactionAction());
             actions.Add(new DetailAction
             {
                 Key = "add-to-collection",
@@ -1740,11 +1744,28 @@ public sealed class DetailComposerService
                 _ => "Add to collection",
             },
             Icon = "add",
-            Tooltip = "Add to collection",
-            DisplayStyle = "icon",
+            Tooltip = entityType switch
+            {
+                DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
+                DetailEntityType.Audiobook => "Want to Listen",
+                _ => "Add to collection",
+            },
+            DisplayStyle = isReadableEntity ? "button" : "icon",
         });
 
-        actions.Add(new DetailAction
+        if (isReadableEntity)
+        {
+            actions.Add(BuildReactionAction());
+            return actions;
+        }
+
+        actions.Add(BuildReactionAction());
+
+        return actions;
+    }
+
+    private static DetailAction BuildReactionAction()
+        => new()
         {
             Key = "reaction-menu",
             Label = "Rate",
@@ -1756,15 +1777,15 @@ public sealed class DetailComposerService
                 new DetailAction { Key = "like", Label = "Thumbs up", Icon = "thumb_up", Tooltip = "Thumbs up" },
                 new DetailAction { Key = "dislike", Label = "Thumbs down", Icon = "thumb_down", Tooltip = "Thumbs down" },
             ],
-        });
-
-        return actions;
-    }
+        };
 
     private static bool HasReadListenCompanion(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
         => entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work
            && formats.Any(f => f.FormatType == MediaFormatType.Ebook)
            && formats.Any(f => f.FormatType == MediaFormatType.Audiobook);
+
+    private static bool IsReadableEntity(DetailEntityType entityType)
+        => entityType is DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Audiobook or DetailEntityType.Work;
 
     private static string BuildReadListenAvailabilityLabel(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
     {
