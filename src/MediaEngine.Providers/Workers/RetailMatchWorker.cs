@@ -1249,7 +1249,7 @@ public sealed class RetailMatchWorker
     private async Task<JsonNode?> FetchTmdbShowDetailsAsync(
         string tvId, string apiKey, string lang, string country, CancellationToken ct)
     {
-        var url = $"https://api.themoviedb.org/3/tv/{tvId}?language={lang}-{country}&api_key={apiKey}";
+        var url = $"https://api.themoviedb.org/3/tv/{tvId}?language={lang}-{country}&append_to_response=content_ratings&api_key={apiKey}";
 
         await ThrottleTmdbAsync(ct);
 
@@ -1678,12 +1678,33 @@ public sealed class RetailMatchWorker
         Add(MetadataFieldConstants.Network, showDetails?["networks"]?[0]?["name"]?.GetValue<string>(), 0.85);
         Add(MetadataFieldConstants.Cover, BuildTmdbImageUrl(showDetails?["poster_path"]?.GetValue<string>()) ?? fallbackPosterUrl, 0.90);
         Add(BridgeIdKeys.TmdbId, showTvId, 1.0);
+        Add(MetadataFieldConstants.Rating, showDetails?["vote_average"]?.GetValue<double?>()?.ToString("F1"), 0.80);
+        Add("content_rating", ExtractTmdbTvContentRating(showDetails), 0.88);
+        Add(MetadataFieldConstants.OriginalLanguage, showDetails?["original_language"]?.GetValue<string>(), 0.85);
 
         var firstAirDate = showDetails?["first_air_date"]?.GetValue<string>();
         if (!string.IsNullOrWhiteSpace(firstAirDate) && firstAirDate.Length >= 4)
             Add(MetadataFieldConstants.Year, firstAirDate[..4], 0.85);
 
         return claims;
+    }
+
+    private static string? ExtractTmdbTvContentRating(JsonNode? showDetails)
+    {
+        var results = showDetails?["content_ratings"]?["results"]?.AsArray();
+        if (results is null)
+            return null;
+
+        foreach (var country in new[] { "US", "GB", "CA", "AU" })
+        {
+            var rating = results.FirstOrDefault(node =>
+                string.Equals(node?["iso_3166_1"]?.GetValue<string>(), country, StringComparison.OrdinalIgnoreCase))
+                ?["rating"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(rating))
+                return rating;
+        }
+
+        return null;
     }
 
     /// <summary>

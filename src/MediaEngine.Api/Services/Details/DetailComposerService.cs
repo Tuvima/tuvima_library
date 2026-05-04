@@ -155,7 +155,7 @@ public sealed class DetailComposerService
         var seriesPlacement = await BuildSeriesPlacementAsync(workId, detail, entityType, ct);
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, ct);
         var longDescription = ResolveLongDescription(detail.Description, values, entityType);
-        var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, ct);
+        var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, entityType, ct);
 
         return new DetailPageViewModel
         {
@@ -261,7 +261,7 @@ public sealed class DetailComposerService
             GetValue(values, "overview"),
             GetValue(values, "plot_summary"),
             row.Description);
-        var heroSummary = await BuildHeroSummaryAsync(row.Tagline, longDescription, row.WikidataQid, values, ct);
+        var heroSummary = await BuildHeroSummaryAsync(row.Tagline, longDescription, row.WikidataQid, values, entityType, ct);
         var fallbackBackdrop = works.Select(w => w.BackgroundUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
         var fallbackCover = works.Select(w => w.ArtworkUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
         var collectionBackdrop = FirstNonBlank(
@@ -1416,12 +1416,17 @@ public sealed class DetailComposerService
         string? description,
         string? wikidataQid,
         IReadOnlyDictionary<string, string> canonicalValues,
+        DetailEntityType entityType,
         CancellationToken ct)
     {
-        // Current detail pages use the Wikipedia-backed description as display copy.
-        // Retail taglines are still stored as claims but are not promoted into hero text.
-        var canonicalSummary = FirstText(
+        var shortDescription = FirstText(
             GetValue(canonicalValues, MetadataFieldConstants.ShortDescription),
+            IsWatchEntity(entityType) ? tagline : null);
+
+        if (!string.IsNullOrWhiteSpace(shortDescription))
+            return Task.FromResult(NormalizeHeroSummary(shortDescription));
+
+        var canonicalSummary = FirstText(
             GetValue(canonicalValues, "wikidata_description"),
             GetValue(canonicalValues, "wikidata_summary"),
             GetValue(canonicalValues, "summary"));
@@ -1539,6 +1544,7 @@ public sealed class DetailComposerService
         IReadOnlyList<OwnedFormatViewModel> formats)
     {
         var pills = new List<MetadataPill>();
+        AddPlain(pills, FirstNonBlank(GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")), "content_rating");
         AddPlain(pills, FormatRating(detail.Rating), "rating");
 
         foreach (var genre in SplitMetadataValues(detail.Genre).Take(3))
@@ -1559,7 +1565,9 @@ public sealed class DetailComposerService
         AddPlain(pills, FormatCountLabel(GetValue(canonicalValues, "track_count"), "track"), "track_count");
         AddPlain(pills, FormatCountLabel(GetValue(canonicalValues, "season_count"), "season"), "season_count");
         AddPlain(pills, FormatCountLabel(GetValue(canonicalValues, "episode_count"), "episode"), "episode_count");
-        AddPlain(pills, FirstNonBlank(GetValue(canonicalValues, "quality"), GetValue(canonicalValues, "audio_quality")), "quality");
+        AddPlain(pills, ResolveWatchQualityLabel(canonicalValues, detail.PlaybackSummary), "quality");
+        if (HasSubtitles(canonicalValues, detail.PlaybackSummary))
+            AddPlain(pills, "CC", "subtitles");
         AddPlain(pills, detail.Language, "audio");
         if (HasReadListenCompanion(entityType, formats))
             AddPlain(pills, BuildReadListenAvailabilityLabel(entityType, formats), "sync");
@@ -1856,6 +1864,38 @@ public sealed class DetailComposerService
             ? parsed.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
             : trimmed;
     }
+
+    private static string? ResolveWatchQualityLabel(
+        IReadOnlyDictionary<string, string> canonicalValues,
+        PlaybackTechnicalSummary? playbackSummary)
+    {
+        var explicitQuality = FirstNonBlank(GetValue(canonicalValues, "quality"), GetValue(canonicalValues, "video_quality"));
+        if (!string.IsNullOrWhiteSpace(explicitQuality))
+            return NormalizeWatchQualityLabel(explicitQuality);
+
+        return NormalizeWatchQualityLabel(playbackSummary?.VideoResolutionLabel);
+    }
+
+    private static string? NormalizeWatchQualityLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim();
+        return normalized.Equals("2160p", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("UHD", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Ultra HD", StringComparison.OrdinalIgnoreCase)
+            ? "4K"
+            : normalized;
+    }
+
+    private static bool HasSubtitles(
+        IReadOnlyDictionary<string, string> canonicalValues,
+        PlaybackTechnicalSummary? playbackSummary)
+        => !string.IsNullOrWhiteSpace(GetValue(canonicalValues, "subtitle_languages"))
+            || !string.IsNullOrWhiteSpace(GetValue(canonicalValues, "subtitles"))
+            || !string.IsNullOrWhiteSpace(playbackSummary?.SubtitleSummary)
+            || playbackSummary?.SubtitleLanguages.Count > 0;
 
     private static string? FormatRuntime(string? runtime)
     {

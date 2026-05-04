@@ -58,7 +58,7 @@ public sealed class DetailHeroPresentation
         return new DetailHeroPresentation(
             BuildHeroClass(mode, isWatchHero),
             BuildGradientStyle(model.Artwork, isWatchHero),
-            isWatchHero ? FormatEntityType(model.EntityType).ToUpperInvariant() : FormatEntityType(model.EntityType),
+            isWatchHero ? string.Empty : FormatEntityType(model.EntityType),
             useLogo,
             useLogo ? model.Artwork.LogoUrl : null,
             model.Title,

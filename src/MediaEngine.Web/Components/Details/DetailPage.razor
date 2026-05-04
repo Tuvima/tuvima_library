@@ -8,12 +8,6 @@
     <article class="tl-detail-page">
         <DetailHero Model="Model" OnActionSelected="HandleDetailActionAsync" />
 
-        @if (Model.PreviewContributors.Count > 0 && Model.EntityType != DetailEntityType.MusicAlbum)
-        {
-            <PeoplePreviewStrip Title="@CreditPreviewTitle(Model)"
-                                Credits="Model.PreviewContributors" />
-        }
-
         <DetailTabs Tabs="Model.Tabs" ActiveTab="@_activeTab" ActiveTabChanged="SetActiveTab" />
 
         <section class="tl-detail-body">
@@ -154,26 +148,4 @@
     private static int TrackSortKey(MediaGroupingItemViewModel item)
         => int.TryParse(item.TrackNumber, out var parsed) ? parsed : int.MaxValue;
 
-    private static string CreditPreviewTitle(DetailPageViewModel model) => model.EntityType switch
-    {
-        DetailEntityType.Movie => "Cast & Crew",
-        DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Cast & Crew",
-        DetailEntityType.Book => "Authors",
-        DetailEntityType.Audiobook => "Author & Narrator",
-        DetailEntityType.Work when model.OwnedFormats.Any(f => f.FormatType == MediaFormatType.Audiobook) => "Author & Narrator",
-        DetailEntityType.Work => "Authors",
-        DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "Creative Team",
-        DetailEntityType.MusicAlbum => "Artists & Credits",
-        DetailEntityType.MusicArtist => model.PresentationContext == DetailPresentationContext.Listen ? "Artists & Credits" : "Related People",
-        DetailEntityType.Person => model.PresentationContext switch
-        {
-            DetailPresentationContext.Listen => "Music Credits",
-            DetailPresentationContext.Watch => "Movies & TV",
-            DetailPresentationContext.Read => "Books & Audiobooks",
-            _ => "Related Works",
-        },
-        DetailEntityType.Character => "Portrayals",
-        DetailEntityType.Universe => "People",
-        _ => "Credits",
-    };
 }

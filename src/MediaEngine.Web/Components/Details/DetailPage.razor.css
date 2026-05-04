@@ -159,8 +159,8 @@
 }
 
 ::deep .tl-detail-hero--watch {
-    min-height: 100vh;
-    min-height: 100dvh;
+    min-height: calc(100vh - 5.75rem);
+    min-height: calc(100dvh - 5.75rem);
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
@@ -1101,12 +1101,13 @@
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__inner {
-    padding: clamp(7.5rem, 14vh, 9.7rem) clamp(2rem, 3.5vw, 4rem) clamp(2.3rem, 5.4vh, 3.6rem);
+    padding: clamp(10rem, 23vh, 15rem) clamp(2rem, 3.5vw, 4rem) clamp(1.7rem, 4vh, 2.6rem);
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__copy {
     max-width: min(47.5rem, 52vw);
-    gap: 1.05rem;
+    gap: 0.62rem;
+    transform: translateY(clamp(2.5rem, 8vh, 6rem));
 }
 
 ::deep .tl-detail-hero__copy h1 {
@@ -1335,7 +1336,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: clamp(0.9rem, 1.4vw, 1.2rem);
-    margin-top: 0.85rem;
+    margin-top: 0.2rem;
 }
 
 ::deep .tl-detail-actions--watch .tl-detail-primary-actions,
@@ -2617,7 +2618,8 @@
 
     ::deep .tl-detail-hero--watch .tl-detail-hero__copy {
         max-width: 100%;
-        gap: 0.9rem;
+        gap: 0.58rem;
+        transform: translateY(2rem);
     }
 
     ::deep .tl-detail-hero--watch .tl-detail-hero__copy h1 {

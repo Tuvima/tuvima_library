@@ -15,6 +15,10 @@
     "rating": {
       "priority": ["apple_api", "tmdb"],
       "note": "Wikidata does not carry ratings"
+    },
+    "content_rating": {
+      "priority": ["tmdb"],
+      "note": "Use TMDB release/content certifications for movie and TV parental ratings"
     }
   }
 }

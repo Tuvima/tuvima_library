@@ -5,8 +5,8 @@
   "weight": 0.8,
   "domain": "Video",
   "icon": "images/providers/tmdb.svg",
-  "capability_tags": ["title", "director", "cast_member", "year", "genre", "description", "short_description", "cover", "tmdb_id", "imdb_id", "rating"],
-  "available_fields": ["title", "director", "cast_member", "year", "genre", "description", "short_description", "cover", "tmdb_id", "imdb_id", "rating", "runtime", "original_language", "tagline"],
+  "capability_tags": ["title", "director", "cast_member", "year", "genre", "description", "short_description", "cover", "tmdb_id", "imdb_id", "rating", "content_rating"],
+  "available_fields": ["title", "director", "cast_member", "year", "genre", "description", "short_description", "cover", "tmdb_id", "imdb_id", "rating", "content_rating", "runtime", "original_language", "tagline"],
   "field_weights": {
     "title": 0.85,
     "director": 0.9,
@@ -19,6 +19,7 @@
     "tmdb_id": 1.0,
     "imdb_id": 0.95,
     "rating": 0.8,
+    "content_rating": 0.88,
     "runtime": 0.9,
     "original_language": 0.85,
     "tagline": 0.7

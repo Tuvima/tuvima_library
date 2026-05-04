@@ -8,7 +8,10 @@
     </div>
     <div class="tl-detail-hero__inner">
         <div class="tl-detail-hero__copy">
-            <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
+            @if (!string.IsNullOrWhiteSpace(Presentation.Eyebrow))
+            {
+                <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
+            }
 
             @if (Presentation.UseLogo)
             {
