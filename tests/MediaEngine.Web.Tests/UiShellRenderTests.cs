@@ -76,7 +76,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void SettingsPage_RendersSharedSidebarAndSystemContent()
+    public void SettingsPage_RendersSharedSidebarAndAdminOverviewContent()
     {
         var cut = Render(builder =>
         {
@@ -87,7 +87,7 @@ public sealed class UiShellRenderTests : TestContext
             builder.OpenComponent<MudSnackbarProvider>(2);
             builder.CloseComponent();
             builder.OpenComponent<Settings>(3);
-            builder.AddAttribute(4, nameof(Settings.Section), "system");
+            builder.AddAttribute(4, nameof(Settings.Section), "admin");
             builder.CloseComponent();
         });
 
@@ -96,8 +96,10 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Single(cut.FindAll(".sidebar-page"));
             Assert.Single(cut.FindAll(".sidebar-rail"));
             Assert.Empty(cut.FindAll(".mud-tabs"));
-            Assert.Contains("Runtime status", cut.Markup);
-            Assert.Contains("Server identity and regional defaults", cut.Markup);
+            Assert.Contains("Heartbeat", cut.Markup);
+            Assert.Contains("Stage 3 coverage", cut.Markup);
+            Assert.Contains("Ingestion idle", cut.Markup);
+            Assert.Contains("View ingestion details", cut.Markup);
         });
     }
 

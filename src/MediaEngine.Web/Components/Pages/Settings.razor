@@ -62,65 +62,47 @@
                 case SettingsSection.AdminOverview:
                     <OverviewTab ReviewCount="_reviewCount" />
                     break;
-                case SettingsSection.Review:
-                    <SettingsReviewQueueTab />
-                    break;
                 case SettingsSection.Playback:
                     <PlaybackTab />
                     break;
-                case SettingsSection.Folders:
+                case SettingsSection.Display:
+                    <DisplayPersonalizationTab />
+                    break;
+                case SettingsSection.Privacy:
+                    <PrivacyHistoryTab />
+                    break;
+                case SettingsSection.Libraries:
                     <LibrariesTab />
                     break;
+                case SettingsSection.Ingestion:
+                    <IngestionTasksTab />
+                    break;
                 case SettingsSection.Metadata:
-                    <SettingsCatalogTab />
+                    <MetadataMatchingTab />
                     break;
                 case SettingsSection.Providers:
                     <ProviderPriorityTab />
                     break;
-                case SettingsSection.Wikidata:
-                    <WikidataConfigTab />
+                case SettingsSection.LocalAi:
+                    <LocalAiSettingsTab />
                     break;
-                case SettingsSection.Models:
-                    <ModelsTab />
+                case SettingsSection.Delivery:
+                    <PlaybackDeliverySettingsTab />
                     break;
-                case SettingsSection.Features:
-                    <AiFeaturesTab />
+                case SettingsSection.Access:
+                    <UsersAccessSettingsTab />
                     break;
-                case SettingsSection.Vocabulary:
-                    <VibeVocabularyTab />
+                case SettingsSection.Review:
+                    <SettingsReviewQueueTab />
                     break;
-                case SettingsSection.Schedule:
-                    <AiScheduleTab />
-                    break;
-                case SettingsSection.System:
-                    <SystemTab />
-                    break;
-                case SettingsSection.Security:
-                    <SecurityTab />
-                    break;
-                case SettingsSection.Users:
-                    <UsersTab />
-                    break;
-                case SettingsSection.Activity:
-                    <ActivityTab />
+                case SettingsSection.Setup:
+                    <SetupTab />
                     break;
                 case SettingsSection.ProviderTester:
                     <ProviderTesterToolTab />
                     break;
                 case SettingsSection.EnrichmentTester:
                     <EnrichmentTesterToolTab />
-                    break;
-                case SettingsSection.Encode:
-                    <EncodeSettingsTab />
-                    break;
-                case SettingsSection.OfflineDownloads:
-                    <OfflineDownloadsTab />
-                    break;
-                case SettingsSection.Maintenance:
-                    <MaintenanceTab />
-                    break;
-                case SettingsSection.Setup:
-                    <SetupTab />
                     break;
             }
         </MudPaper>
@@ -339,27 +321,21 @@
     private static string GetSectionDescription(SettingsSection section) => section switch
     {
         SettingsSection.Overview => "Your profile, personal history, library habits, and playback activity.",
-        SettingsSection.AdminOverview => "Monitor system health, library status, provider coverage, and review work.",
-        SettingsSection.Review => "Resolve uncertain matches and keep the ingestion queue moving.",
-        SettingsSection.Playback => "Default behavior for built-in readers and players where persistence exists.",
-        SettingsSection.Folders => "Watch paths, library roots, source libraries, and organization templates.",
-        SettingsSection.Metadata => "Configuration catalog for media types, scoring, hydration, field priorities, and pipelines.",
-        SettingsSection.Providers => "Provider priority, credentials, and enrichment coverage.",
-        SettingsSection.Wikidata => "Wikidata provider and universe enrichment controls.",
-        SettingsSection.Models => "Installed AI models and runtime choices.",
-        SettingsSection.Features => "Feature flags and AI workflow controls.",
-        SettingsSection.Vocabulary => "Vocabulary tuning for vibe and recommendation features.",
-        SettingsSection.Schedule => "Background timing for enrichment and AI jobs.",
-        SettingsSection.System => "Live server health and core runtime settings.",
-        SettingsSection.Security => "Connection rules, API keys, and access controls.",
-        SettingsSection.Users => "Profiles, roles, and user management.",
-        SettingsSection.Activity => "Recent operational history and retention.",
-        SettingsSection.ProviderTester => "Temporary internal tool for testing retail providers and Wikidata searches.",
-        SettingsSection.EnrichmentTester => "Temporary internal tool for testing debug enrichment data before this workflow is removed.",
-        SettingsSection.Encode => "Transcoding, scheduled encode, and generated variant controls.",
-        SettingsSection.OfflineDownloads => "Prepared mobile downloads, queue status, and variant cleanup.",
-        SettingsSection.Maintenance => "Repair, cleanup, and recovery tools.",
+        SettingsSection.Playback => "Personal defaults for watching, reading, listening, subtitles, resume, and progress behavior.",
+        SettingsSection.Display => "Personal layout, density, home page, spoiler, and recommendation preferences.",
+        SettingsSection.Privacy => "Control personal history, tracking, personalization, and reset/export options.",
+        SettingsSection.AdminOverview => "Monitor system health, library status, provider coverage, ingestion progress, and review work.",
+        SettingsSection.Libraries => "Manage library roots, watch folders, source paths, scan behavior, and organization templates.",
+        SettingsSection.Ingestion => "Track active ingestion runs, queued jobs, running logs, failures, retries, and operational tasks.",
+        SettingsSection.Metadata => "Configure media type rules, matching confidence, canonical identity, Wikidata, universe enrichment, and review thresholds.",
+        SettingsSection.Providers => "Configure provider priority, credentials, language strategy, timeouts, retries, health, and coverage.",
+        SettingsSection.LocalAi => "Manage local models, AI feature toggles, vocabulary, hardware profile, and scheduled enrichment jobs.",
+        SettingsSection.Delivery => "Configure direct play, transcoding, generated variants, offline downloads, and delivery defaults.",
+        SettingsSection.Access => "Manage profiles, roles, sign-in, API keys, HTTPS, local access, and rate limits.",
+        SettingsSection.Review => "Resolve uncertain matches and keep ingestion moving.",
         SettingsSection.Setup => "Guided configuration and readiness checks.",
+        SettingsSection.ProviderTester => "Internal provider testing tool.",
+        SettingsSection.EnrichmentTester => "Internal enrichment debugging tool.",
         _ => "Settings",
     };
 }

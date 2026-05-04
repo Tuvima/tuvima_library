@@ -97,23 +97,91 @@
                                    Class="settings-overview-action">
                             Providers
                         </MudButton>
-                        <MudButton Href="/settings/system"
+                        <MudButton Href="/settings/ingestion"
                                    Variant="Variant.Outlined"
                                    Color="Color.Inherit"
-                                   StartIcon="@Icons.Material.Outlined.Dns"
+                                   StartIcon="@Icons.Material.Outlined.PendingActions"
                                    Class="settings-overview-action">
-                            System
+                            Ingestion
                         </MudButton>
-                        <MudButton Href="/settings/folders"
+                        <MudButton Href="/settings/libraries"
                                    Variant="Variant.Outlined"
                                    Color="Color.Inherit"
                                    StartIcon="@Icons.Material.Outlined.FolderOpen"
                                    Class="settings-overview-action">
-                            Folders
+                            Libraries
                         </MudButton>
                     </div>
                 </MudPaper>
             </div>
+        </div>
+
+        <div class="settings-overview-cell settings-overview-cell--full">
+            <MudPaper Elevation="0" Class="settings-overview-card tl-card-hover--quiet">
+                <div class="settings-overview-card-header">
+                    <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">Ingestion</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.h6">@(_ingestionSummary.IsActive ? "Ingestion in progress" : "Ingestion idle")</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="@(_ingestionSummary.IsActive ? Color.Info : Color.Default)">
+                            @(_ingestionSummary.IsActive ? "Active" : "Idle")
+                        </MudChip>
+                    </MudStack>
+                    <MudText Typo="Typo.body2" Class="settings-overview-description">
+                        @(_ingestionSummary.IsActive
+                            ? "A compact summary of the current library run."
+                            : $"No active ingestion. Last completed run: {_ingestionSummary.LastCompletedRun}.")
+                    </MudText>
+                </div>
+
+                <MudProgressLinear Value="@_ingestionSummary.Progress"
+                                   Color="@(_ingestionSummary.IsActive ? Color.Primary : Color.Default)"
+                                   Rounded="false"
+                                   Class="mb-4" />
+
+                <div class="settings-overview-metrics">
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Processed</span>
+                        <span class="settings-overview-metric-value">@($"{_ingestionSummary.Processed:N0} / {_ingestionSummary.Total:N0}")</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Stage</span>
+                        <span class="settings-overview-metric-value">@_ingestionSummary.Stage</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Current item</span>
+                        <span class="settings-overview-metric-value">@_ingestionSummary.CurrentItem</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Active tasks</span>
+                        <span class="settings-overview-metric-value">@_ingestionSummary.ActiveTasks</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Queued tasks</span>
+                        <span class="settings-overview-metric-value">@_ingestionSummary.QueuedTasks</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Needs review</span>
+                        <span class="settings-overview-metric-value">@ReviewCount</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Failed tasks</span>
+                        <span class="settings-overview-metric-value">@_ingestionSummary.FailedTasks</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Elapsed</span>
+                        <span class="settings-overview-metric-value">@_ingestionSummary.Elapsed</span>
+                    </div>
+                </div>
+
+                <MudButton Href="/settings/ingestion"
+                           Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.PendingActions"
+                           Class="mt-4">
+                    View ingestion details
+                </MudButton>
+                @* TODO: Replace placeholder ingestion summary with live ingestion/background task API data when available. *@
+            </MudPaper>
         </div>
 
         <div class="settings-overview-cell settings-overview-cell--full">
@@ -137,6 +205,22 @@
     private SystemStatusViewModel? _systemStatus;
     private ServerGeneralSettingsDto? _serverGeneral;
     private LibraryOverviewViewModel? _overview;
+    private readonly IngestionSummary _ingestionSummary = new();
+
+    private sealed class IngestionSummary
+    {
+        public bool IsActive { get; init; }
+        public double Progress { get; init; }
+        public int Processed { get; init; }
+        public int Total { get; init; }
+        public string Stage { get; init; } = "Idle";
+        public string CurrentItem { get; init; } = "None";
+        public int ActiveTasks { get; init; }
+        public int QueuedTasks { get; init; }
+        public int FailedTasks { get; init; }
+        public string Elapsed { get; init; } = "0:00";
+        public string LastCompletedRun { get; init; } = "not available";
+    }
 
     protected override async Task OnInitializedAsync()
     {

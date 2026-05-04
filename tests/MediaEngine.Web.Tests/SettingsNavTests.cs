@@ -45,24 +45,20 @@ public sealed class SettingsNavTests
 
     [Theory]
     [InlineData(SettingsSection.AdminOverview, "/settings/admin")]
-    [InlineData(SettingsSection.Review, "/settings/review")]
     [InlineData(SettingsSection.Playback, "/settings/playback")]
-    [InlineData(SettingsSection.Folders, "/settings/folders")]
+    [InlineData(SettingsSection.Display, "/settings/display")]
+    [InlineData(SettingsSection.Privacy, "/settings/privacy")]
+    [InlineData(SettingsSection.Libraries, "/settings/libraries")]
+    [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData(SettingsSection.Metadata, "/settings/metadata")]
     [InlineData(SettingsSection.Providers, "/settings/providers")]
-    [InlineData(SettingsSection.Wikidata, "/settings/wikidata")]
-    [InlineData(SettingsSection.Models, "/settings/models")]
-    [InlineData(SettingsSection.Features, "/settings/features")]
-    [InlineData(SettingsSection.Vocabulary, "/settings/vocabulary")]
-    [InlineData(SettingsSection.Schedule, "/settings/schedule")]
-    [InlineData(SettingsSection.System, "/settings/system")]
-    [InlineData(SettingsSection.Security, "/settings/security")]
-    [InlineData(SettingsSection.Users, "/settings/users")]
-    [InlineData(SettingsSection.Activity, "/settings/activity")]
+    [InlineData(SettingsSection.LocalAi, "/settings/ai")]
+    [InlineData(SettingsSection.Delivery, "/settings/delivery")]
+    [InlineData(SettingsSection.Access, "/settings/access")]
+    [InlineData(SettingsSection.Review, "/settings/review")]
+    [InlineData(SettingsSection.Setup, "/settings/setup")]
     [InlineData(SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData(SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
-    [InlineData(SettingsSection.Maintenance, "/settings/maintenance")]
-    [InlineData(SettingsSection.Setup, "/settings/setup")]
     public void ResolveRoute_CanonicalSegments_AreStable(SettingsSection section, string expectedRoute)
     {
         var segment = expectedRoute.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
@@ -115,25 +111,31 @@ public sealed class SettingsNavTests
     }
 
     [Theory]
-    [InlineData("general")]
-    [InlineData("library")]
-    [InlineData("mediatypes")]
-    [InlineData("connections")]
-    [InlineData("provider-priority")]
-    [InlineData("universe")]
-    [InlineData("ai")]
-    [InlineData("servergeneral")]
-    [InlineData("apikeys")]
-    [InlineData("needsreview")]
-    public void ResolveRoute_LegacyAliases_AreUnknown(string alias)
+    [InlineData("folders", SettingsSection.Libraries, "/settings/libraries")]
+    [InlineData("activity", SettingsSection.Ingestion, "/settings/ingestion")]
+    [InlineData("registry", SettingsSection.Ingestion, "/settings/ingestion")]
+    [InlineData("tasks", SettingsSection.Ingestion, "/settings/ingestion")]
+    [InlineData("maintenance", SettingsSection.Ingestion, "/settings/ingestion")]
+    [InlineData("wikidata", SettingsSection.Metadata, "/settings/metadata")]
+    [InlineData("models", SettingsSection.LocalAi, "/settings/ai")]
+    [InlineData("features", SettingsSection.LocalAi, "/settings/ai")]
+    [InlineData("vocabulary", SettingsSection.LocalAi, "/settings/ai")]
+    [InlineData("schedule", SettingsSection.LocalAi, "/settings/ai")]
+    [InlineData("encode", SettingsSection.Delivery, "/settings/delivery")]
+    [InlineData("offline-downloads", SettingsSection.Delivery, "/settings/delivery")]
+    [InlineData("users", SettingsSection.Access, "/settings/access")]
+    [InlineData("security", SettingsSection.Access, "/settings/access")]
+    [InlineData("apikeys", SettingsSection.Access, "/settings/access")]
+    [InlineData("api-keys", SettingsSection.Access, "/settings/access")]
+    public void ResolveRoute_LegacyAliases_RedirectToCanonicalRoutes(string alias, SettingsSection expectedSection, string expectedRoute)
     {
         var resolution = SettingsNav.ResolveRoute(alias, "Administrator");
 
-        Assert.Equal(SettingsSection.Overview, resolution.Section);
-        Assert.Equal("/settings", resolution.CanonicalRoute);
+        Assert.Equal(expectedSection, resolution.Section);
+        Assert.Equal(expectedRoute, resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
-        Assert.False(resolution.IsKnownRoute);
-        Assert.False(resolution.RequestedSectionAllowed);
+        Assert.True(resolution.IsKnownRoute);
+        Assert.True(resolution.RequestedSectionAllowed);
         Assert.True(resolution.ShouldRedirect);
     }
 
@@ -165,21 +167,57 @@ public sealed class SettingsNavTests
 
         Assert.Equal(["user", "admin"], groups);
 
-        var adminItems = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "admin"), "Administrator")
-            .Select(item => item.Value)
+        var userLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "user"), "Administrator")
+            .Select(item => item.Label)
             .ToArray();
 
-        Assert.Contains(SettingsSection.AdminOverview, adminItems);
-        Assert.Contains(SettingsSection.Folders, adminItems);
-        Assert.Contains(SettingsSection.Metadata, adminItems);
-        Assert.Contains(SettingsSection.Providers, adminItems);
-        Assert.Contains(SettingsSection.Models, adminItems);
-        Assert.Contains(SettingsSection.System, adminItems);
-        Assert.Contains(SettingsSection.ProviderTester, adminItems);
-        Assert.Contains(SettingsSection.EnrichmentTester, adminItems);
-        Assert.DoesNotContain(SettingsSection.Overview, adminItems);
-        var removedSectionName = "Reg" + "istry";
-        Assert.DoesNotContain(adminItems, section => section.ToString().Equals(removedSectionName, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(["User Overview", "Playback & Reading", "Display & Personalization", "Privacy & History"], userLabels);
+
+        var adminLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "admin"), "Administrator")
+            .Select(item => item.Label)
+            .ToArray();
+
+        Assert.Equal([
+            "Admin Overview",
+            "Libraries",
+            "Ingestion & Tasks",
+            "Metadata & Matching",
+            "Providers",
+            "Local AI",
+            "Playback & Delivery",
+            "Users & Access",
+        ], adminLabels);
+
+        Assert.DoesNotContain("Registry", adminLabels);
+        Assert.DoesNotContain("Activity", adminLabels);
+        Assert.DoesNotContain("Maintenance", adminLabels);
+        Assert.DoesNotContain("Provider Tester", adminLabels);
+        Assert.DoesNotContain("Enrichment Tester", adminLabels);
+        Assert.DoesNotContain("Setup", adminLabels);
+        Assert.DoesNotContain("Wikidata", adminLabels);
+        Assert.DoesNotContain("AI Models", adminLabels);
+        Assert.DoesNotContain("AI Features", adminLabels);
+        Assert.DoesNotContain("AI Vocabulary", adminLabels);
+        Assert.DoesNotContain("AI Schedule", adminLabels);
+        Assert.DoesNotContain("Encode", adminLabels);
+        Assert.DoesNotContain("Offline Variants", adminLabels);
+        Assert.DoesNotContain("Security", adminLabels);
+        Assert.DoesNotContain("Users", adminLabels);
+    }
+
+    [Theory]
+    [InlineData("review", SettingsSection.Review, "/settings/review")]
+    [InlineData("setup", SettingsSection.Setup, "/settings/setup")]
+    [InlineData("provider-tester", SettingsSection.ProviderTester, "/settings/provider-tester")]
+    [InlineData("enrichment-tester", SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
+    public void ResolveRoute_HiddenRoutes_StillResolveForAdmins(string segment, SettingsSection expectedSection, string expectedRoute)
+    {
+        var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
+
+        Assert.Equal(expectedSection, resolution.Section);
+        Assert.Equal(expectedRoute, resolution.CanonicalRoute);
+        Assert.True(resolution.IsKnownRoute);
+        Assert.True(resolution.RequestedSectionAllowed);
     }
 
     [Theory]

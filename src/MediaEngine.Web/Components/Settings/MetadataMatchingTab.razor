@@ -1,0 +1,83 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<div class="tl-page">
+    <MudTabs Rounded="false" Elevation="0">
+        <MudTabPanel Text="Catalog & Media Rules" Icon="@Icons.Material.Outlined.Category">
+            <SettingsCatalogTab />
+        </MudTabPanel>
+        <MudTabPanel Text="Canonical Identity & Wikidata" Icon="@Icons.Material.Outlined.Public">
+            <WikidataConfigTab />
+        </MudTabPanel>
+        <MudTabPanel Text="Matching Rules" Icon="@Icons.Material.Outlined.Rule">
+            <MudGrid Spacing="4">
+                <MudItem xs="12" md="4"><MudNumericField T="int" @bind-Value="_autoAcceptThreshold" Label="Auto-accept threshold" Variant="Variant.Outlined" Min="0" Max="100" HelperText="TODO: Wire to scoring configuration persistence." /></MudItem>
+                <MudItem xs="12" md="4"><MudNumericField T="int" @bind-Value="_needsReviewThreshold" Label="Needs-review threshold" Variant="Variant.Outlined" Min="0" Max="100" HelperText="TODO: Wire to scoring configuration persistence." /></MudItem>
+                <MudItem xs="12" md="4"><MudNumericField T="int" @bind-Value="_duplicateThreshold" Label="Duplicate detection threshold" Variant="Variant.Outlined" Min="0" Max="100" /></MudItem>
+                <MudItem xs="12" md="6"><MudSelect T="string" @bind-Value="_titleStrictness" Label="Title fuzzy matching strictness" Variant="Variant.Outlined"><MudSelectItem T="string" Value="@("balanced")">Balanced</MudSelectItem><MudSelectItem T="string" Value="@("strict")">Strict</MudSelectItem><MudSelectItem T="string" Value="@("loose")">Loose</MudSelectItem></MudSelect></MudItem>
+                <MudItem xs="12" md="6"><MudSelect T="string" @bind-Value="_editionPreference" Label="Edition/work matching preference" Variant="Variant.Outlined"><MudSelectItem T="string" Value="@("edition-first")">Edition first</MudSelectItem><MudSelectItem T="string" Value="@("work-first")">Work first</MudSelectItem></MudSelect></MudItem>
+                <MudItem xs="12" md="6"><MudSelect T="string" @bind-Value="_languageBehavior" Label="Language matching behavior" Variant="Variant.Outlined"><MudSelectItem T="string" Value="@("prefer-profile")">Prefer profile language</MudSelectItem><MudSelectItem T="string" Value="@("original")">Prefer original language</MudSelectItem></MudSelect></MudItem>
+                <MudItem xs="12" md="6"><MudSwitch T="bool" @bind-Value="_disambiguateAudiobookBook" Color="Color.Primary" Label="Disambiguate audiobook vs book editions" /></MudItem>
+                <MudItem xs="12" md="6"><MudSwitch T="bool" @bind-Value="_strictPersonIdentity" Color="Color.Primary" Label="Use stricter person identity matching" /></MudItem>
+            </MudGrid>
+        </MudTabPanel>
+        <MudTabPanel Text="Pipeline Rules" Icon="@Icons.Material.Outlined.AccountTree">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudSwitch T="bool" @bind-Value="_stage1RetailLookup" Color="Color.Primary" Label="Stage 1 retail lookup priority" />
+                <MudSwitch T="bool" @bind-Value="_stage2Wikidata" Color="Color.Primary" Label="Stage 2 Wikidata reconciliation" />
+                <MudSwitch T="bool" @bind-Value="_stage3Universe" Color="Color.Primary" Label="Stage 3 universe enrichment" />
+                <MudSelect T="string" @bind-Value="_artworkFallback" Label="Artwork fallback strategy" Variant="Variant.Outlined" Class="mt-3"><MudSelectItem T="string" Value="@("provider-then-generated")">Provider, then generated</MudSelectItem><MudSelectItem T="string" Value="@("embedded-first")">Embedded first</MudSelectItem></MudSelect>
+                <MudSelect T="string" @bind-Value="_providerFailureFallback" Label="Provider failure fallback behavior" Variant="Variant.Outlined" Class="mt-3"><MudSelectItem T="string" Value="@("retry-later")">Retry later</MudSelectItem><MudSelectItem T="string" Value="@("review")">Send to review</MudSelectItem></MudSelect>
+                @* TODO: Persist pipeline rules through config APIs when available. *@
+            </MudPaper>
+        </MudTabPanel>
+        <MudTabPanel Text="Universe Rules" Icon="@Icons.Material.Outlined.Hub">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudSwitch T="bool" @bind-Value="_enableUniverseGrouping" Color="Color.Primary" Label="Enable universe/franchise grouping" />
+                <MudSwitch T="bool" @bind-Value="_useWikidataUniverse" Color="Color.Primary" Label="Use Wikidata universe/franchise relationships" />
+                <MudSwitch T="bool" @bind-Value="_useSeriesRelationships" Color="Color.Primary" Label="Use series relationships" />
+                <MudSwitch T="bool" @bind-Value="_linkAdaptations" Color="Color.Primary" Label="Link adaptations across media types" />
+                <MudSwitch T="bool" @bind-Value="_showCharactersSeparately" Color="Color.Primary" Label="Show characters separately from cast/creators" />
+                <MudNumericField T="int" @bind-Value="_maxRelationshipDepth" Label="Maximum relationship depth" Variant="Variant.Outlined" Min="1" Max="5" Class="mt-3" />
+                @* TODO: Persist universe rules through metadata configuration APIs when available. *@
+            </MudPaper>
+        </MudTabPanel>
+        <MudTabPanel Text="Review Thresholds" Icon="@Icons.Material.Outlined.RateReview">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudSwitch T="bool" @bind-Value="_missingArtReview" Color="Color.Primary" Label="Missing art goes to review" />
+                <MudSwitch T="bool" @bind-Value="_lowConfidenceReview" Color="Color.Primary" Label="Low confidence match goes to review" />
+                <MudSwitch T="bool" @bind-Value="_conflictingProvidersReview" Color="Color.Primary" Label="Conflicting provider results go to review" />
+                <MudSwitch T="bool" @bind-Value="_duplicatesReview" Color="Color.Primary" Label="Duplicate candidate goes to review" />
+                <MudSwitch T="bool" @bind-Value="_retryProvisionalItems" Color="Color.Primary" Label="Newly provisional items retry matching later" />
+                <MudButton Href="/settings/review" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.RateReview" Class="mt-4">Open review queue</MudButton>
+                @* TODO: Persist review thresholds through scoring/review configuration APIs when available. *@
+            </MudPaper>
+        </MudTabPanel>
+    </MudTabs>
+</div>
+
+@code {
+    private int _autoAcceptThreshold = 92;
+    private int _needsReviewThreshold = 72;
+    private int _duplicateThreshold = 88;
+    private string _titleStrictness = "balanced";
+    private string _editionPreference = "edition-first";
+    private string _languageBehavior = "prefer-profile";
+    private bool _disambiguateAudiobookBook = true;
+    private bool _strictPersonIdentity = true;
+    private bool _stage1RetailLookup = true;
+    private bool _stage2Wikidata = true;
+    private bool _stage3Universe = true;
+    private string _artworkFallback = "provider-then-generated";
+    private string _providerFailureFallback = "retry-later";
+    private bool _enableUniverseGrouping = true;
+    private bool _useWikidataUniverse = true;
+    private bool _useSeriesRelationships = true;
+    private bool _linkAdaptations = true;
+    private bool _showCharactersSeparately = true;
+    private int _maxRelationshipDepth = 2;
+    private bool _missingArtReview = true;
+    private bool _lowConfidenceReview = true;
+    private bool _conflictingProvidersReview = true;
+    private bool _duplicatesReview = true;
+    private bool _retryProvisionalItems = true;
+}

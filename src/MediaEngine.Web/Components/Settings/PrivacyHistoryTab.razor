@@ -1,0 +1,99 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<div class="tl-page">
+    <MudGrid Spacing="4">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Personal History</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Clear personal activity without changing library files or shared metadata.
+                </MudText>
+                <MudStack Row="true" Spacing="2" Class="flex-wrap">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => ConfirmActionAsync("clear watch history"))">Clear watch history</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => ConfirmActionAsync("clear reading history"))">Clear reading history</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => ConfirmActionAsync("clear listening history"))">Clear listening history</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => ConfirmActionAsync("clear all personal history"))">Clear all personal history</MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Tracking</MudText>
+                <MudSwitch T="bool" @bind-Value="_pauseProgressTracking" Color="Color.Primary" Label="Pause progress tracking" />
+                <MudSwitch T="bool" @bind-Value="_pauseHistoryTracking" Color="Color.Primary" Label="Pause history tracking" />
+                <MudSwitch T="bool" @bind-Value="_trackCompletionStatus" Color="Color.Primary" Label="Track completion status" />
+                <MudSwitch T="bool" @bind-Value="_trackPartialItems" Color="Color.Primary" Label="Track partially played/read items" />
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Personalization</MudText>
+                <MudSwitch T="bool" @bind-Value="_allowHistoryRecommendations" Color="Color.Primary" Label="Allow history to influence recommendations" />
+                <MudSwitch T="bool" @bind-Value="_allowLocalAiTasteProfile" Color="Color.Primary" Label="Allow local AI taste profiling" />
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.RestartAlt" OnClick="@(() => ConfirmActionAsync("reset personalization profile"))" Class="mt-3">
+                    Reset personalization profile
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Export & Reset</MudText>
+                <MudStack Row="true" Spacing="2" Class="flex-wrap mt-3">
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FileDownload" OnClick="@(() => PlaceholderAsync("export personal preferences"))">Export personal preferences</MudButton>
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FileDownload" OnClick="@(() => PlaceholderAsync("export personal history"))">Export personal history</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteSweep" OnClick="@(() => ConfirmActionAsync("reset all user preferences to default"))">
+                        Reset all user preferences
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Save" OnClick="@SaveAsync">
+                    Save Privacy Settings
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</div>
+
+@code {
+    private bool _pauseProgressTracking;
+    private bool _pauseHistoryTracking;
+    private bool _trackCompletionStatus = true;
+    private bool _trackPartialItems = true;
+    private bool _allowHistoryRecommendations = true;
+    private bool _allowLocalAiTasteProfile = true;
+
+    private async Task SaveAsync()
+    {
+        // TODO: Persist privacy and tracking preferences when profile preference APIs exist.
+        await Task.CompletedTask;
+        Snackbar.Add("Privacy settings are staged locally until preference persistence is wired.", Severity.Info);
+    }
+
+    private async Task ConfirmActionAsync(string action)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to {action}?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        // TODO: Call profile history/reset APIs when available.
+        Snackbar.Add($"{action} is not wired to the server yet.", Severity.Info);
+    }
+
+    private async Task PlaceholderAsync(string action)
+    {
+        // TODO: Call export APIs when available.
+        await Task.CompletedTask;
+        Snackbar.Add($"{action} is not wired to the server yet.", Severity.Info);
+    }
+}

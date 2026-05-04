@@ -8,25 +8,21 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public enum SettingsSection
 {
     Overview,
-    AdminOverview,
-    Review,
     Playback,
-    Folders,
-    Providers,
-    Wikidata,
-    Models,
-    Features,
-    Vocabulary,
-    Schedule,
-    System,
-    Security,
-    Users,
-    Activity,
-    Maintenance,
-    Setup,
-    Encode,
-    OfflineDownloads,
+    Display,
+    Privacy,
+
+    AdminOverview,
+    Libraries,
+    Ingestion,
     Metadata,
+    Providers,
+    LocalAi,
+    Delivery,
+    Access,
+
+    Review,
+    Setup,
     ProviderTester,
     EnrichmentTester,
 }
@@ -91,55 +87,39 @@ public static class SettingsNav
     public static readonly SettingsItemDef[] AllItems =
     [
         new(SettingsSection.Overview, "user", null, Icons.Material.Outlined.Person, "User Overview", false, null, [], "sqlite"),
+        new(SettingsSection.Playback, "user", "playback", Icons.Material.Outlined.MenuBook, "Playback & Reading", false, null, [], "sqlite"),
+        new(SettingsSection.Display, "user", "display", Icons.Material.Outlined.DashboardCustomize, "Display & Personalization", false, null, [], "sqlite"),
+        new(SettingsSection.Privacy, "user", "privacy", Icons.Material.Outlined.PrivacyTip, "Privacy & History", false, null, [], "sqlite"),
+
         new(SettingsSection.AdminOverview, "admin", "admin", Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, [], "json+sqlite"),
-        new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", []),
-        new(SettingsSection.Playback, "user", "playback", Icons.Material.Outlined.PlayArrow, "Playback", false, null, [], "sqlite", Placeholder: true),
-        new(SettingsSection.Folders, "admin", "folders", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, []),
-        new(SettingsSection.Metadata, "admin", "metadata", Icons.Material.Outlined.Schema, "Metadata", true, null, [], "json"),
+        new(SettingsSection.Libraries, "admin", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"]),
+        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Ingestion & Tasks", true, null, ["activity", "registry", "tasks", "maintenance"]),
+        new(SettingsSection.Metadata, "admin", "metadata", Icons.Material.Outlined.Schema, "Metadata & Matching", true, null, ["wikidata"], "json"),
         new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, []),
-        new(SettingsSection.Wikidata, "admin", "wikidata", Icons.Material.Outlined.Public, "Wikidata", true, null, []),
-        new(SettingsSection.Models, "admin", "models", Icons.Material.Outlined.Memory, "AI Models", true, null, []),
-        new(SettingsSection.Features, "admin", "features", Icons.Material.Outlined.ToggleOn, "AI Features", true, null, []),
-        new(SettingsSection.Vocabulary, "admin", "vocabulary", Icons.Material.Outlined.Style, "AI Vocabulary", true, null, []),
-        new(SettingsSection.Schedule, "admin", "schedule", Icons.Material.Outlined.Schedule, "AI Schedule", true, null, []),
-        new(SettingsSection.System, "admin", "system", Icons.Material.Outlined.Dns, "Server", true, null, []),
-        new(SettingsSection.Encode, "admin", "encode", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, []),
-        new(SettingsSection.OfflineDownloads, "admin", "offline-downloads", Icons.Material.Outlined.DownloadForOffline, "Offline Variants", true, null, []),
-        new(SettingsSection.Security, "admin", "security", Icons.Material.Outlined.VpnKey, "Security", true, null, []),
-        new(SettingsSection.Users, "admin", "users", Icons.Material.Outlined.Group, "Users", true, null, []),
-        new(SettingsSection.Activity, "admin", "activity", Icons.Material.Outlined.Timeline, "Activity", true, null, []),
+        new(SettingsSection.LocalAi, "admin", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "vocabulary", "schedule"]),
+        new(SettingsSection.Delivery, "admin", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"]),
+        new(SettingsSection.Access, "admin", "access", Icons.Material.Outlined.AdminPanelSettings, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"]),
+
+        new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
+        new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, [], Placeholder: true),
         new(SettingsSection.ProviderTester, "admin", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal", Deprecated: true),
         new(SettingsSection.EnrichmentTester, "admin", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal", Deprecated: true),
-        new(SettingsSection.Maintenance, "admin", "maintenance", Icons.Material.Outlined.Build, "Maintenance", true, null, []),
-        new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, [], Placeholder: true),
     ];
 
     public static readonly SettingsTreeGroupDef[] TreeGroups =
     [
         new("user", "User Settings", Icons.Material.Outlined.Person, false, true, SettingsSection.Overview,
-            [SettingsSection.Overview, SettingsSection.Playback]),
+            [SettingsSection.Overview, SettingsSection.Playback, SettingsSection.Display, SettingsSection.Privacy]),
         new("admin", "Admin Settings", Icons.Material.Outlined.AdminPanelSettings, true, true, SettingsSection.AdminOverview,
             [
                 SettingsSection.AdminOverview,
-                SettingsSection.Review,
-                SettingsSection.Folders,
+                SettingsSection.Libraries,
+                SettingsSection.Ingestion,
                 SettingsSection.Metadata,
                 SettingsSection.Providers,
-                SettingsSection.Wikidata,
-                SettingsSection.Models,
-                SettingsSection.Features,
-                SettingsSection.Vocabulary,
-                SettingsSection.Schedule,
-                SettingsSection.System,
-                SettingsSection.Encode,
-                SettingsSection.OfflineDownloads,
-                SettingsSection.Security,
-                SettingsSection.Users,
-                SettingsSection.Activity,
-                SettingsSection.ProviderTester,
-                SettingsSection.EnrichmentTester,
-                SettingsSection.Maintenance,
-                SettingsSection.Setup,
+                SettingsSection.LocalAi,
+                SettingsSection.Delivery,
+                SettingsSection.Access,
             ]),
     ];
 
@@ -154,6 +134,8 @@ public static class SettingsNav
     private static readonly Dictionary<string, SettingsItemDef> _itemsByAlias =
         AllItems
             .SelectMany(item => item.Aliases.Select(alias => new KeyValuePair<string, SettingsItemDef>(NormalizeKey(alias), item)))
+            .GroupBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
 
     private static readonly Dictionary<string, SettingsGroupDef> _groupsByKey =

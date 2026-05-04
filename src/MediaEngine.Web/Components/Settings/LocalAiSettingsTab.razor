@@ -1,0 +1,46 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<div class="tl-page">
+    <MudTabs Rounded="false" Elevation="0">
+        <MudTabPanel Text="Hardware & Runtime" Icon="@Icons.Material.Outlined.Memory">
+            <ModelsTab />
+        </MudTabPanel>
+        <MudTabPanel Text="Models" Icon="@Icons.Material.Outlined.Storage">
+            <ModelsTab />
+        </MudTabPanel>
+        <MudTabPanel Text="Features" Icon="@Icons.Material.Outlined.ToggleOn">
+            <AiFeaturesTab />
+        </MudTabPanel>
+        <MudTabPanel Text="Vocabulary" Icon="@Icons.Material.Outlined.Style">
+            <VibeVocabularyTab />
+        </MudTabPanel>
+        <MudTabPanel Text="Schedule" Icon="@Icons.Material.Outlined.Schedule">
+            <AiScheduleTab />
+        </MudTabPanel>
+        <MudTabPanel Text="Limits" Icon="@Icons.Material.Outlined.Speed">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudGrid Spacing="4">
+                    <MudItem xs="12" md="4"><MudNumericField T="int" @bind-Value="_maxConcurrentJobs" Label="Max concurrent AI jobs" Variant="Variant.Outlined" Min="1" Max="8" /></MudItem>
+                    <MudItem xs="12" md="4"><MudSwitch T="bool" @bind-Value="_pauseDuringPlayback" Color="Color.Primary" Label="Pause AI during playback" /></MudItem>
+                    <MudItem xs="12" md="4"><MudSwitch T="bool" @bind-Value="_pauseDuringTranscode" Color="Color.Primary" Label="Pause AI during transcode" /></MudItem>
+                    <MudItem xs="12" md="4"><MudSwitch T="bool" @bind-Value="_quietHours" Color="Color.Primary" Label="Quiet hours" /></MudItem>
+                    <MudItem xs="12" md="4"><MudSwitch T="bool" @bind-Value="_lowResourceMode" Color="Color.Primary" Label="Low resource mode" /></MudItem>
+                    <MudItem xs="12" md="12">
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                            Local AI work runs on this server and is intended to stay local unless a provider feature explicitly says otherwise.
+                        </MudAlert>
+                    </MudItem>
+                </MudGrid>
+                @* TODO: Persist AI limits when local AI runtime settings APIs exist. *@
+            </MudPaper>
+        </MudTabPanel>
+    </MudTabs>
+</div>
+
+@code {
+    private int _maxConcurrentJobs = 2;
+    private bool _pauseDuringPlayback = true;
+    private bool _pauseDuringTranscode = true;
+    private bool _quietHours;
+    private bool _lowResourceMode;
+}

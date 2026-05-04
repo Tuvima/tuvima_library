@@ -1,0 +1,185 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<div class="tl-page">
+    <MudPaper Elevation="0" Class="tl-card pa-4 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <div>
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Current Run</MudText>
+                <MudText Typo="Typo.h6">@_currentRun.Status</MudText>
+            </div>
+            <MudChip T="string" Color="@(_currentRun.IsActive ? Color.Info : Color.Default)" Size="Size.Small">@(_currentRun.IsActive ? "Active" : "Idle")</MudChip>
+        </MudStack>
+
+        <MudProgressLinear Value="@_currentRun.Progress" Color="Color.Primary" Rounded="false" Class="mb-3" />
+        <MudGrid Spacing="3">
+            <MudItem xs="6" md="3">@Metric("Processed", $"{_currentRun.Processed:N0} / {_currentRun.Total:N0}")</MudItem>
+            <MudItem xs="6" md="3">@Metric("Library", _currentRun.Library)</MudItem>
+            <MudItem xs="12" md="6">@Metric("Current item", _currentRun.CurrentItem)</MudItem>
+            <MudItem xs="6" md="3">@Metric("Media type", _currentRun.MediaType)</MudItem>
+            <MudItem xs="6" md="3">@Metric("Stage", _currentRun.Stage)</MudItem>
+            <MudItem xs="6" md="3">@Metric("Elapsed", _currentRun.Elapsed)</MudItem>
+            <MudItem xs="6" md="3">@Metric("Remaining", _currentRun.Remaining)</MudItem>
+            <MudItem xs="6" md="3">@Metric("Started by", _currentRun.Trigger)</MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Spacing="2" Class="mt-4 flex-wrap">
+            <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.Pause" Disabled="@(!_currentRun.IsActive)">Pause</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.PlayArrow" Disabled="@_currentRun.IsActive">Resume</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Cancel" Disabled="@(!_currentRun.IsActive)">Cancel</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.ReportProblem">View failed</MudButton>
+            <MudButton Href="/settings/review" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.RateReview">Open review queue</MudButton>
+        </MudStack>
+        @* TODO: Replace sample monitor state with live ingestion/task APIs when available. *@
+    </MudPaper>
+
+    <MudGrid Spacing="4">
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Pipeline Stages</MudText>
+                <MudGrid Spacing="2" Class="mt-2">
+                    @foreach (var stage in _stages)
+                    {
+                        <MudItem xs="12" sm="6" lg="3">
+                            <MudPaper Elevation="0" Class="pa-3 app-section-card">
+                                <MudText Typo="Typo.subtitle2">@stage.Name</MudText>
+                                <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap">
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">@stage.Completed complete</MudChip>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Info">@stage.Active active</MudChip>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Error">@stage.Failed failed</MudChip>
+                                    @if (stage.NeedsReview > 0)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning">@stage.NeedsReview review</MudChip>
+                                    }
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Running Log</MudText>
+                <div style="max-height: 320px; overflow: auto;">
+                    <MudTable Items="_logEntries" Dense="true" Hover="true">
+                        <HeaderContent><MudTh>Time</MudTh><MudTh>Item/file</MudTh><MudTh>Stage</MudTh><MudTh>Action</MudTh><MudTh>Provider</MudTh><MudTh>Result</MudTh><MudTh>Confidence</MudTh><MudTh>Failure reason</MudTh></HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Time">@context.Time</MudTd>
+                            <MudTd DataLabel="Item">@context.Item</MudTd>
+                            <MudTd DataLabel="Stage">@context.Stage</MudTd>
+                            <MudTd DataLabel="Action">@context.Action</MudTd>
+                            <MudTd DataLabel="Provider">@context.Provider</MudTd>
+                            <MudTd DataLabel="Result">@context.Result</MudTd>
+                            <MudTd DataLabel="Confidence">@context.Confidence</MudTd>
+                            <MudTd DataLabel="Failure reason">@context.FailureReason</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="6">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Active Tasks</MudText>
+                <MudTable Items="_activeTasks" Dense="true" Hover="true">
+                    <HeaderContent><MudTh>Task type</MudTh><MudTh>Item/file</MudTh><MudTh>Action</MudTh><MudTh>Progress</MudTh><MudTh>Started</MudTh><MudTh>Worker</MudTh><MudTh></MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Type">@context.Type</MudTd>
+                        <MudTd DataLabel="Item">@context.Item</MudTd>
+                        <MudTd DataLabel="Action">@context.Action</MudTd>
+                        <MudTd DataLabel="Progress"><MudProgressLinear Value="@context.Progress" Rounded="false" /></MudTd>
+                        <MudTd DataLabel="Started">@context.Started</MudTd>
+                        <MudTd DataLabel="Worker">@context.Worker</MudTd>
+                        <MudTd><MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(!context.CanCancel)">Cancel</MudButton></MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="6">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Queue</MudText>
+                <MudTable Items="_queueGroups" Dense="true" Hover="true">
+                    <HeaderContent><MudTh>Group</MudTh><MudTh>Count</MudTh><MudTh>Highest priority</MudTh><MudTh>Next task</MudTh></HeaderContent>
+                    <RowTemplate><MudTd>@context.Group</MudTd><MudTd>@context.Count</MudTd><MudTd>@context.Priority</MudTd><MudTd>@context.NextTask</MudTd></RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Needs Attention</MudText>
+                <MudGrid Spacing="2" Class="mt-2">
+                    @foreach (var item in _attentionItems)
+                    {
+                        <MudItem xs="12" md="4">
+                            <MudPaper Elevation="0" Class="pa-3 app-section-card">
+                                <MudText Typo="Typo.subtitle2">@item.Label</MudText>
+                                <MudText Typo="Typo.h6">@item.Count</MudText>
+                                <MudStack Row="true" Spacing="1" Class="mt-2">
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined">Retry</MudButton>
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Href="/settings/review">Open review</MudButton>
+                                    <MudButton Size="Size.Small" Variant="Variant.Text">Dismiss</MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Class="tl-card pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Compact Maintenance Actions</MudText>
+                <MudStack Row="true" Spacing="2" Class="mt-3 flex-wrap">
+                    @foreach (var action in _maintenanceActions)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Default">@action</MudButton>
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</div>
+
+@code {
+    private static RenderFragment Metric(string label, string value) => @<div>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
+        <MudText Typo="Typo.body2">@value</MudText>
+    </div>;
+
+    private sealed record CurrentRun(string Status, bool IsActive, double Progress, int Processed, int Total, string Library, string CurrentItem, string MediaType, string Stage, string Elapsed, string Remaining, string Trigger);
+    private sealed record StageRow(string Name, int Completed, int Active, int Failed, int NeedsReview);
+    private sealed record LogRow(string Time, string Item, string Stage, string Action, string Provider, string Result, string Confidence, string FailureReason);
+    private sealed record TaskRow(string Type, string Item, string Action, double Progress, string Started, string Worker, bool CanCancel);
+    private sealed record QueueRow(string Group, int Count, string Priority, string NextTask);
+    private sealed record AttentionRow(string Label, int Count);
+
+    private readonly CurrentRun _currentRun = new("Processing", true, 62, 124, 200, "Books", "Dune Messiah.epub", "Book", "Retail provider match", "00:18:42", "00:11:00", "manual scan");
+    private readonly StageRow[] _stages =
+    [
+        new("Discovery", 200, 0, 0, 0),
+        new("File metadata", 165, 2, 1, 0),
+        new("Retail provider match", 124, 1, 3, 8),
+        new("Wikidata reconciliation", 82, 0, 2, 3),
+        new("Artwork", 78, 1, 4, 5),
+        new("Universe enrichment", 44, 0, 0, 2),
+        new("Complete", 72, 0, 0, 0),
+        new("Needs review", 0, 0, 0, 8),
+    ];
+    private readonly LogRow[] _logEntries =
+    [
+        new("10:41", "Dune Messiah.epub", "Discovery", "Found file in Books folder", "", "Queued", "", ""),
+        new("10:42", "Dune Messiah.epub", "File metadata", "Extracted ISBN and embedded title", "", "Complete", "", ""),
+        new("10:43", "Dune Messiah.epub", "Retail provider match", "Matched Apple Books edition", "Apple Books", "Matched", "96%", ""),
+        new("10:43", "Dune Messiah.epub", "Wikidata reconciliation", "Linked Wikidata QID", "Wikidata", "Linked", "94%", ""),
+        new("10:44", "Dune Messiah.epub", "Artwork", "Downloaded cover art", "Apple Books", "Complete", "", ""),
+        new("10:45", "Dune Messiah.epub", "Universe enrichment", "Added item to Dune universe", "Wikidata", "Complete", "", ""),
+        new("10:46", "Dune Messiah audiobook.m4b", "Retail provider match", "Conflicting audiobook narrator match", "Audible", "Needs review", "61%", "Conflicting narrator"),
+    ];
+    private readonly TaskRow[] _activeTasks = [new("provider lookup", "Dune Messiah.epub", "Matching editions", 62, "10:41", "worker-2", true), new("artwork download", "Foundation.epub", "Fetching cover", 38, "10:44", "worker-4", true)];
+    private readonly QueueRow[] _queueGroups = [new("scans", 1, "Normal", "Movies root"), new("provider lookups", 12, "High", "Foundation.epub"), new("artwork downloads", 7, "Normal", "Children of Dune.epub"), new("AI enrichment", 3, "Low", "The Expanse"), new("transcodes", 0, "None", "None"), new("cleanup jobs", 2, "Low", "Temp files")];
+    private readonly AttentionRow[] _attentionItems = [new("Failed tasks", 4), new("Unmatched items", 8), new("Low-confidence matches", 6), new("Duplicate candidates", 2), new("Missing artwork", 5), new("Provider timeouts", 3)];
+    private readonly string[] _maintenanceActions = ["Retry failed tasks", "Rescan library", "Recheck missing files", "Cleanup temp files", "Prune orphan artwork", "Rebuild search/index"];
+}
