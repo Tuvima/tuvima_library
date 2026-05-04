@@ -27,6 +27,7 @@ public interface IIngestionLogRepository
         string? detectedTitle = null,
         string? normalizedTitle = null,
         string? wikidataQid = null,
+        Guid? mediaAssetId = null,
         string? errorDetail = null,
         CancellationToken ct = default);
 

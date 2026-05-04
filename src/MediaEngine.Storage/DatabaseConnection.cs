@@ -786,6 +786,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             CREATE TABLE IF NOT EXISTS ingestion_log (
                 id                TEXT NOT NULL PRIMARY KEY,
                 file_path         TEXT NOT NULL,
+                media_asset_id    TEXT,
                 content_hash      TEXT,
                 status            TEXT NOT NULL DEFAULT 'detected',
                 media_type        TEXT,
@@ -804,6 +805,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 ON ingestion_log(ingestion_run_id);
             """;
         m038.ExecuteNonQuery();
+        MigrateAddColumnIfMissing(conn, "ingestion_log", "media_asset_id",
+            "ALTER TABLE ingestion_log ADD COLUMN media_asset_id TEXT;");
+        using (var m038Index = conn.CreateCommand())
+        {
+            m038Index.CommandText = "CREATE INDEX IF NOT EXISTS idx_ingestion_log_media_asset ON ingestion_log(media_asset_id);";
+            m038Index.ExecuteNonQuery();
+        }
 
         // -- M-039: Identity resolution cache ---------------------------------
         // Caches normalized_title + media_type ? QID + confidence decisions.

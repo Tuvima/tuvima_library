@@ -148,6 +148,11 @@ public sealed class UnifiedDetailComponentTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("tl-reaction-menu", source);
+        Assert.Contains("tl-detail-reaction-button", source);
+        Assert.Contains("tl-detail-watch-secondary tl-detail-watch-secondary--icon tl-detail-reaction-button", source);
+        Assert.Contains("OrderedReactionChildren", source);
+        Assert.Contains("\"reaction-dislike\" => 0", source);
+        Assert.Contains("\"reaction-like\" => 1", source);
         Assert.Contains("tl-detail-premium-action", source);
         Assert.Contains("tl-detail-action--secondary-button", source);
         Assert.Contains("tl-detail-actions--watch", source);
@@ -166,11 +171,17 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("=> \"Want to Listen\"", composer);
         Assert.Contains("BuildReactionAction", composer);
         Assert.Contains("border-radius: 0.5rem", styles);
+        Assert.Contains("tl-detail-reaction-button", styles);
+        Assert.Contains("border-radius: 0.75rem", styles);
+        Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-genre-chip", styles);
+        Assert.Contains("tl-detail-hero--fallback-surface:not(.tl-detail-hero--watch) .tl-detail-genre-chip", styles);
         Assert.Contains(".tl-detail-actions--watch .tl-detail-action--primary", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch)", styles);
         Assert.Contains("tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback", styles);
         Assert.Contains("overflow: visible", styles);
+        Assert.Contains("height: min(47rem, 78vh)", styles);
+        Assert.Contains("height: 100%", styles);
         Assert.Contains("max-height: min(47rem, 78vh)", styles);
         Assert.DoesNotContain("&& SupportsWatchParty(entityType)", composer);
     }
@@ -259,12 +270,30 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Web/Components/Details/SeriesPlacementPanel.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.Contains("Part of @Placement.SeriesTitle", source);
+        Assert.Contains("<h2>@SeriesTitleDisplay</h2>", source);
+        Assert.DoesNotContain("Part of", source);
+        Assert.Contains("ToTitleCase", source);
+        Assert.Contains("MudChart T=\"double\"", source);
+        Assert.Contains("ChartType=\"ChartType.Donut\"", source);
+        Assert.Contains("ChartSeries=\"@SeriesDonutSeries\"", source);
+        Assert.Contains("ChartLabels=\"@SeriesDonutLabels\"", source);
         Assert.DoesNotContain("View all", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("View Full Series", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("tl-series-view-all", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("DetailEntityType.Movie or DetailEntityType.MovieSeries", source);
-        Assert.Contains("left: 0.45rem", styles);
-        Assert.Contains("background: rgba(5,8,12,0.88)", styles);
+        Assert.Contains("tl-series-position-summary", source);
+        Assert.Contains("tl-series-position-summary__donut", source);
+        Assert.Contains("tl-series-position-summary__center", source);
+        Assert.Contains("tl-series-current-label", source);
+        Assert.Contains("tl-series-item__node", source);
+        Assert.Contains("tl-series-item__owned-badge", source);
+        Assert.Contains("ItemNoun", source);
+        Assert.Contains("grid-template-columns: repeat(var(--series-count, 6), minmax(5.8rem, 7.3rem))", styles);
+        Assert.Contains("min-width: clamp(5.8rem, 7.2vw, 7.3rem)", styles);
+        Assert.Contains("tl-series-item.is-current .tl-series-item__art", styles);
+        Assert.Contains("tl-series-current-label", styles);
+        Assert.Contains("tl-series-owned-summary", styles);
+        Assert.Contains("minmax(2.45rem, auto)", styles);
+        Assert.Contains("-webkit-line-clamp: 2", styles);
     }
 
     [Fact]

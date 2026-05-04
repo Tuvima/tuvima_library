@@ -494,6 +494,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 Status         = "detected",
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
+            await PublishItemProgressAsync(candidate, logEntryId, "detected", 5, false, ct).ConfigureAwait(false);
         }
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log insert failed — continuing"); }
 
@@ -526,7 +527,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }, ct).ConfigureAwait(false);
 
         // Lifecycle log: hashing complete.
-        try { await _ingestionLog.UpdateStatusAsync(logEntryId, "hashing", contentHash: hash.Hex, ct: ct).ConfigureAwait(false); }
+        try
+        {
+            await _ingestionLog.UpdateStatusAsync(logEntryId, "hashing", contentHash: hash.Hex, ct: ct).ConfigureAwait(false);
+            await PublishItemProgressAsync(candidate, logEntryId, "hashing", 15, false, ct).ConfigureAwait(false);
+        }
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
 
         // Step 5: duplicate check.
@@ -679,6 +684,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
+        try
+        {
+            await _ingestionLog.UpdateStatusAsync(
+                logEntryId,
+                "processed",
+                mediaType: result.DetectedType.ToString(),
+                ct: ct).ConfigureAwait(false);
+            await PublishItemProgressAsync(candidate, logEntryId, "processed", 35, false, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         // Step 6b: AI Smart Labeling — enhance title claim using LLM.
         // The SmartLabeler understands context that regex cannot:
         // "2001 A Space Odyssey" keeps the year, "Frank Herbert - Dune" extracts the author.
@@ -807,6 +822,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 candidate.Path,
                 $"Corrupt: {result.CorruptReason}",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
+            try
+            {
+                await _ingestionLog.UpdateStatusAsync(
+                    logEntryId,
+                    "failed",
+                    errorDetail: $"Corrupt: {result.CorruptReason}",
+                    ct: ct).ConfigureAwait(false);
+                await PublishItemProgressAsync(candidate, logEntryId, "failed", 100, true, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
             if (candidate.BatchId.HasValue)
             {
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
@@ -917,6 +942,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             detectedTitle: detectedTitle,
             ct: ct).ConfigureAwait(false); }
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+
+        await PublishItemProgressAsync(candidate, logEntryId, "scored", 55, false, ct).ConfigureAwait(false);
 
         // Phase 9: persist canonical values (current winning metadata for this asset).
         // Phase B: also persist the IsConflicted flag from the scoring engine so
@@ -1330,6 +1357,27 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var resolvedTitle  = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title,  "Unknown") ?? "Unknown";
         var resolvedAuthor = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Author, string.Empty) ?? string.Empty;
 
+        try
+        {
+            await _ingestionLog.UpdateStatusAsync(
+                logEntryId,
+                "registered",
+                mediaType: resolvedMediaType.ToString(),
+                detectedTitle: resolvedTitle,
+                mediaAssetId: assetId,
+                ct: ct).ConfigureAwait(false);
+            await PublishItemProgressAsync(
+                candidate,
+                logEntryId,
+                "registered",
+                70,
+                false,
+                ct,
+                assetId,
+                resolvedTitle,
+                resolvedMediaType.ToString()).ConfigureAwait(false);
+        }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         _logger.LogInformation(
             "Ingested [{Type}] '{Title}' (confidence={Confidence:P0}, hash={Hash})",
             resolvedMediaType, resolvedTitle, scored.OverallConfidence, hash.Hex[..12]);
@@ -1443,7 +1491,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Lifecycle log: needs review.
             try { await _ingestionLog.UpdateStatusAsync(logEntryId, "needs_review",
                 mediaType: resolvedMediaType.ToString(),
-                ct: ct).ConfigureAwait(false); }
+                mediaAssetId: assetId,
+                ct: ct).ConfigureAwait(false);
+                await PublishItemProgressAsync(
+                    candidate,
+                    logEntryId,
+                    "needs_review",
+                    100,
+                    true,
+                    ct,
+                    assetId,
+                    resolvedTitle,
+                    resolvedMediaType.ToString()).ConfigureAwait(false); }
             catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         }
 
@@ -1469,6 +1528,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}",
             assetId.ToString("N")[..12]);
 
+        try
+        {
+            await _ingestionLog.UpdateStatusAsync(
+                logEntryId,
+                "queued_identity",
+                mediaType: resolvedMediaType.ToString(),
+                mediaAssetId: assetId,
+                ct: ct).ConfigureAwait(false);
+            await PublishItemProgressAsync(
+                candidate,
+                logEntryId,
+                "queued_identity",
+                80,
+                false,
+                ct,
+                assetId,
+                resolvedTitle,
+                resolvedMediaType.ToString()).ConfigureAwait(false);
+        }
+        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         // Batch counter: file has been fully processed through the ingestion pipeline.
         if (candidate.BatchId.HasValue)
             await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
@@ -2872,6 +2951,51 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// Writes a <see cref="Domain.Entities.SystemActivityEntry"/> to the activity ledger
     /// without propagating exceptions.  Activity logging must never abort the pipeline.
     /// </summary>
+    private Task PublishItemProgressAsync(
+        IngestionCandidate candidate,
+        Guid logEntryId,
+        string stage,
+        int progressPercent,
+        bool isTerminal,
+        CancellationToken ct,
+        Guid? mediaAssetId = null,
+        string? title = null,
+        string? mediaType = null)
+    {
+        if (!candidate.BatchId.HasValue)
+            return Task.CompletedTask;
+
+        return SafePublishAsync(
+            SignalREvents.IngestionItemProgress,
+            new IngestionItemProgressEvent(
+                candidate.BatchId.Value,
+                logEntryId,
+                mediaAssetId,
+                candidate.Path,
+                Path.GetFileName(candidate.Path),
+                stage,
+                ResolveItemStageOrder(stage),
+                Math.Clamp(progressPercent, 0, 100),
+                isTerminal,
+                title,
+                mediaType),
+            ct);
+    }
+
+    private static int ResolveItemStageOrder(string stage) => stage switch
+    {
+        "detected" => 0,
+        "hashing" => 1,
+        "processed" => 2,
+        "scored" => 3,
+        "registered" => 4,
+        "queued_identity" => 5,
+        "hydrating" => 6,
+        "complete" => 7,
+        "needs_review" => 7,
+        "failed" => 7,
+        _ => 0,
+    };
     private async Task SafeActivityLogAsync(
         Domain.Entities.SystemActivityEntry entry,
         CancellationToken ct)

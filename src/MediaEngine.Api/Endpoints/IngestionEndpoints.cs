@@ -225,6 +225,90 @@ public static class IngestionEndpoints
         .RequireAdminOrCurator();
 
         // ── GET /ingestion/batches/{id} ───────────────────────────────────────
+        group.MapGet("/batches/{id:guid}/items", (
+            Guid id,
+            IDatabaseConnection db,
+            int? limit,
+            CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            using var conn = db.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                WITH latest_jobs AS (
+                    SELECT
+                        entity_id,
+                        state,
+                        updated_at,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY entity_id
+                            ORDER BY updated_at DESC, created_at DESC
+                        ) AS rn
+                    FROM identity_jobs
+                    WHERE ingestion_run_id = @batchId
+                )
+                SELECT
+                    il.id,
+                    il.file_path,
+                    il.media_asset_id,
+                    il.content_hash,
+                    il.status,
+                    il.media_type,
+                    il.confidence_score,
+                    il.detected_title,
+                    il.error_detail,
+                    il.created_at,
+                    il.updated_at,
+                    lj.state AS identity_state
+                FROM ingestion_log il
+                LEFT JOIN latest_jobs lj
+                    ON lj.entity_id = COALESCE(il.media_asset_id, il.id)
+                   AND lj.rn = 1
+                WHERE il.ingestion_run_id = @batchId
+                ORDER BY il.created_at ASC
+                LIMIT @limit;
+                """;
+            cmd.Parameters.AddWithValue("@batchId", id.ToString());
+            cmd.Parameters.AddWithValue("@limit", Math.Clamp(limit ?? 500, 1, 5000));
+
+            using var reader = cmd.ExecuteReader();
+            var items = new List<IngestionBatchItemResponse>();
+            while (reader.Read())
+            {
+                var filePath = reader.GetString(1);
+                var status = reader.IsDBNull(4) ? "detected" : reader.GetString(4);
+                var identityState = reader.IsDBNull(11) ? null : reader.GetString(11);
+                var stage = ResolveItemStage(status, identityState);
+                var progressPercent = ResolveItemProgressPercent(stage);
+
+                items.Add(new IngestionBatchItemResponse
+                {
+                    Id = Guid.Parse(reader.GetString(0)),
+                    FilePath = filePath,
+                    FileName = Path.GetFileName(filePath),
+                    MediaAssetId = reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2)),
+                    ContentHash = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    Status = status,
+                    MediaType = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    ConfidenceScore = reader.IsDBNull(6) ? null : reader.GetDouble(6),
+                    DetectedTitle = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    ErrorDetail = reader.IsDBNull(8) ? null : reader.GetString(8),
+                    CreatedAt = DateTimeOffset.Parse(reader.GetString(9)),
+                    UpdatedAt = DateTimeOffset.Parse(reader.GetString(10)),
+                    IdentityState = identityState,
+                    Stage = stage,
+                    StageOrder = ResolveItemStageOrder(stage),
+                    ProgressPercent = progressPercent,
+                    IsTerminal = progressPercent >= 100,
+                });
+            }
+
+            return Results.Ok(items);
+        })
+        .WithName("GetBatchItems")
+        .WithSummary("List item-level ingestion progress for a batch.")
+        .Produces<List<IngestionBatchItemResponse>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
         group.MapGet("/batches/{id:guid}", async (
             Guid id,
             IIngestionBatchRepository batchRepo) =>
@@ -309,6 +393,56 @@ public static class IngestionEndpoints
 
         return app;
     }
+
+    private static string ResolveItemStage(string status, string? identityState)
+    {
+        if (string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase))
+            return "failed";
+        if (string.Equals(status, "needs_review", StringComparison.OrdinalIgnoreCase))
+            return "needs_review";
+
+        return identityState switch
+        {
+            "Queued" => "queued_identity",
+            "RetailSearching" or "RetailMatched" or "RetailMatchedNeedsReview" => "identifying",
+            "BridgeSearching" or "QidResolved" or "Hydrating" => "hydrating",
+            "UniverseEnriching" => "universe_enriching",
+            "Ready" or "ReadyWithoutUniverse" or "Completed" => "complete",
+            "RetailNoMatch" or "QidNoMatch" or "QidNeedsReview" => "needs_review",
+            "Failed" => "failed",
+            _ => status,
+        };
+    }
+
+    private static int ResolveItemStageOrder(string stage) => stage switch
+    {
+        "detected" => 0,
+        "hashing" => 1,
+        "processed" => 2,
+        "scored" => 3,
+        "registered" => 4,
+        "queued_identity" => 5,
+        "identifying" => 6,
+        "hydrating" => 7,
+        "universe_enriching" => 8,
+        "complete" or "needs_review" or "failed" => 9,
+        _ => 0,
+    };
+
+    private static int ResolveItemProgressPercent(string stage) => stage switch
+    {
+        "detected" => 5,
+        "hashing" => 15,
+        "processed" => 35,
+        "scored" => 55,
+        "registered" => 70,
+        "queued_identity" => 80,
+        "identifying" => 85,
+        "hydrating" => 92,
+        "universe_enriching" => 97,
+        "complete" or "needs_review" or "failed" => 100,
+        _ => 0,
+    };
 }
 
 /// <summary>API response shape for an ingestion batch.</summary>
@@ -352,4 +486,59 @@ public sealed class IngestionBatchResponse
 
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
+}
+
+/// <summary>API response shape for one media item inside an ingestion batch.</summary>
+public sealed class IngestionBatchItemResponse
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("file_path")]
+    public string FilePath { get; init; } = "";
+
+    [JsonPropertyName("file_name")]
+    public string FileName { get; init; } = "";
+
+    [JsonPropertyName("media_asset_id")]
+    public Guid? MediaAssetId { get; init; }
+
+    [JsonPropertyName("content_hash")]
+    public string? ContentHash { get; init; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; init; } = "";
+
+    [JsonPropertyName("identity_state")]
+    public string? IdentityState { get; init; }
+
+    [JsonPropertyName("stage")]
+    public string Stage { get; init; } = "";
+
+    [JsonPropertyName("stage_order")]
+    public int StageOrder { get; init; }
+
+    [JsonPropertyName("progress_percent")]
+    public int ProgressPercent { get; init; }
+
+    [JsonPropertyName("is_terminal")]
+    public bool IsTerminal { get; init; }
+
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; init; }
+
+    [JsonPropertyName("confidence_score")]
+    public double? ConfidenceScore { get; init; }
+
+    [JsonPropertyName("detected_title")]
+    public string? DetectedTitle { get; init; }
+
+    [JsonPropertyName("error_detail")]
+    public string? ErrorDetail { get; init; }
+
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; init; }
+
+    [JsonPropertyName("updated_at")]
+    public DateTimeOffset UpdatedAt { get; init; }
 }

@@ -227,12 +227,12 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl(row.PortraitId", source);
         Assert.Contains("private sealed class CollectionCharacterRow", source);
         Assert.Contains("private sealed class UniversePerformerRow", source);
-        Assert.Contains("DetailEntityType.Movie => directors.Take(1).Concat(cast.Take(4))", source);
-        Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => cast.Take(5)", source);
+        Assert.Contains("DetailEntityType.Movie => directors.Take(1).Concat(cast.Take(5)).ToList()", source);
+        Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => cast.Take(5).ToList()", source);
         Assert.Contains("Title = \"Primary Cast\"", source);
-        Assert.Contains("root.wikidata_qid AS RootWorkQid", creditSource);
+        Assert.Contains(") AS RootWorkQid", creditSource);
         Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, db, ct)", creditSource);
-        Assert.Contains("BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value", creditSource);
+        Assert.Contains("BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, canonicalArrayRepo, personRepo, ct)", creditSource);
         Assert.Contains("CastRankMap.BuildAsync", creditSource);
         Assert.Contains("ORDER BY cpl.rowid", creditSource);
     }
@@ -246,6 +246,18 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("WellKnownProviders.Wikidata.ToString()", source);
         Assert.Contains("PositionNumber = positionNumber", source);
         Assert.DoesNotContain("PositionNumber = positionNumber ?? index + 1", source);
+    }
+
+    [Fact]
+    public void DetailComposer_SeriesPlacementUsesKnownSeriesMembersForMissingSlots()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("series_qid", source);
+        Assert.Contains("FROM series_members", source);
+        Assert.Contains("MergeSeriesMemberPlaceholdersAsync(items, seriesQid, entityType, ct)", source);
+        Assert.Contains("TotalKnownItems = items.Count", source);
+        Assert.Contains("Missing from library", source);
     }
 
     [Fact]

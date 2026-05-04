@@ -62,16 +62,16 @@
                 <div class="tl-detail-secondary-action @(IsPrimaryHeroActionRow ? "tl-detail-secondary-action--watch" : null)">
                     <div class="tl-hover-action-menu tl-reaction-menu" tabindex="0" aria-label="@action.Label">
                         <button type="button"
-                                class="@(IsPrimaryHeroActionRow ? "tl-detail-watch-secondary tl-detail-watch-secondary--icon" : "tl-detail-icon-action")"
+                                class="tl-detail-watch-secondary tl-detail-watch-secondary--icon tl-detail-reaction-button"
                                 aria-label="@action.Label">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                         </button>
                         <div class="tl-hover-action-menu__tray">
-                            @foreach (var child in action.Children)
+                            @foreach (var child in OrderedReactionChildren(action))
                             {
                                 <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
                                     <button type="button"
-                                            class="tl-detail-icon-action"
+                                            class="tl-detail-watch-secondary tl-detail-watch-secondary--icon tl-detail-reaction-button"
                                             aria-label="@child.Label"
                                             disabled="@child.IsDisabled"
                                             @onclick="@(() => Select(child))">
@@ -222,6 +222,14 @@
         "format-tools" => "Tools",
         _ => action.Label,
     };
+
+    private static IEnumerable<DetailAction> OrderedReactionChildren(DetailAction action)
+        => action.Children.OrderBy(child => child.Key switch
+        {
+            "reaction-dislike" => 0,
+            "reaction-like" => 1,
+            _ => 2,
+        });
 
     public static string IconFor(DetailAction action) => action.Icon switch
     {

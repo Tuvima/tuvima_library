@@ -51,6 +51,24 @@ public sealed record IngestionProgressEvent(
     string Stage);
 
 /// <summary>
+/// Published whenever one media item advances to a new ingestion stage.
+///
+/// SignalR method name: <c>"IngestionItemProgress"</c>
+/// </summary>
+public sealed record IngestionItemProgressEvent(
+    Guid   BatchId,
+    Guid   LogEntryId,
+    Guid?  MediaAssetId,
+    string FilePath,
+    string FileName,
+    string Stage,
+    int    StageOrder,
+    int    ProgressPercent,
+    bool   IsTerminal,
+    string? Title = null,
+    string? MediaType = null);
+
+/// <summary>
 /// Published each time a file in an ingestion batch reaches a terminal state.
 /// Carries running counters and an estimated time remaining based on elapsed throughput.
 ///

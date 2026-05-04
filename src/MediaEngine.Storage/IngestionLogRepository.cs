@@ -18,6 +18,7 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
     private const string SelectColumns = """
         id               AS Id,
         file_path        AS FilePath,
+        media_asset_id   AS MediaAssetId,
         content_hash     AS ContentHash,
         status           AS Status,
         media_type       AS MediaType,
@@ -45,11 +46,11 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
         using var conn = _db.CreateConnection();
         conn.Execute("""
             INSERT OR IGNORE INTO ingestion_log
-                (id, file_path, content_hash, status, media_type, confidence_score,
+                (id, file_path, media_asset_id, content_hash, status, media_type, confidence_score,
                  detected_title, normalized_title, wikidata_qid, error_detail,
                  ingestion_run_id, created_at, updated_at)
             VALUES
-                (@id, @path, @hash, @status, @mediaType, @confidence,
+                (@id, @path, @mediaAssetId, @hash, @status, @mediaType, @confidence,
                  @title, @normalized, @qid, @error,
                  @runId, @created, @updated);
             """,
@@ -57,6 +58,7 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
             {
                 id         = entry.Id.ToString(),
                 path       = entry.FilePath,
+                mediaAssetId = entry.MediaAssetId?.ToString(),
                 hash       = entry.ContentHash,
                 status     = entry.Status,
                 mediaType  = entry.MediaType,
@@ -83,6 +85,7 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
         string? detectedTitle = null,
         string? normalizedTitle = null,
         string? wikidataQid = null,
+        Guid? mediaAssetId = null,
         string? errorDetail = null,
         CancellationToken ct = default)
     {
@@ -122,6 +125,11 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
         {
             setClauses.Add("wikidata_qid = @qid");
             dp.Add("qid", wikidataQid);
+        }
+        if (mediaAssetId.HasValue)
+        {
+            setClauses.Add("media_asset_id = @mediaAssetId");
+            dp.Add("mediaAssetId", mediaAssetId.Value.ToString());
         }
         if (errorDetail is not null)
         {

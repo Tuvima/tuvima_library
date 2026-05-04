@@ -16,6 +16,7 @@ public static class SignalREvents
     public const string IngestionCompleted = "IngestionCompleted";
     public const string IngestionFailed    = "IngestionFailed";
     public const string IngestionProgress  = "IngestionProgress";
+    public const string IngestionItemProgress = "IngestionItemProgress";
     public const string BatchProgress      = "BatchProgress";
 
     // ── Media management ─────────────────────────────────────────────

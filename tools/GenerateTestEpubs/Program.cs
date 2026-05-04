@@ -398,6 +398,57 @@ for (int i = 0; i < epubs.Length; i++)
     }
 }
 
+// ── Extra linked book-series fixtures ───────────────────────────────────────
+// Scenarios 31-32 expand the Dune book series so collection ordering can be
+// tested across several books, while scenario 11 remains the matching audiobook
+// for scenario 1.
+var extraBookSeries = new (int Scenario, EpubSpec Spec)[]
+{
+    new(31, new EpubSpec("dune-messiah.epub",
+        "Dune Messiah",
+        Author: "Frank Herbert", SecondAuthor: null,
+        Isbn: "9780593098233", Year: "1969",
+        Publisher: "Ace Books",
+        Description: "The second novel in the Dune Chronicles.",
+        Series: "Dune Chronicles", SeriesPosition: "2",
+        Language: "en", IncludeCover: true,
+        CoverHex: "#7A4A24")),
+
+    new(32, new EpubSpec("children-of-dune.epub",
+        "Children of Dune",
+        Author: "Frank Herbert", SecondAuthor: null,
+        Isbn: "9780441104024", Year: "1976",
+        Publisher: "Ace Books",
+        Description: "The third novel in the Dune Chronicles.",
+        Series: "Dune Chronicles", SeriesPosition: "3",
+        Language: "en", IncludeCover: true,
+        CoverHex: "#8A6F2A")),
+};
+
+Console.WriteLine();
+Console.WriteLine($"━━━ Extra EPUB series fixtures (scenarios 31-32) ━━━━━━━━━━━━━━━━━━━━━━━━━");
+foreach (var (num, spec) in extraBookSeries)
+{
+    var outPath = Path.Combine(tempDir, spec.FileName);
+    var finalPath = Path.Combine(outputDir, spec.FileName);
+    try
+    {
+        byte[]? cover = null;
+        if (spec.IncludeCover && ffmpegPath is not null)
+            cover = GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 600);
+
+        CreateEpub(outPath, spec, cover);
+        generatedFiles.Add((outPath, finalPath));
+        Console.WriteLine($"  ✓  [{num,2}] {spec.FileName,-46} {(cover is not null ? "[cover]" : "[no cover]")}");
+        manifest.Add(new(num, spec.FileName, "epub", $"Scenario {num} — Dune book series"));
+        total++;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  ✗  [{num,2}] {spec.FileName}: {ex.Message}");
+        failed++;
+    }
+}
 // ── M4B definitions ──────────────────────────────────────────────────────────
 //
 // Scenarios 11–16 output to root of outputDir.
@@ -636,6 +687,51 @@ else
     }
 }
 
+// ── Movie-series fixtures ──────────────────────────────────────────────────
+// Scenarios 33-37 add real movie-series shapes with IMDb bridge IDs in the
+// path. The video processor reads filename/year, and OrganizationHintParser
+// seeds the bridge identifiers for provider matching.
+var movieSeries = new VideoSpec[]
+{
+    new(33, Path.Combine("movies", "dune-films"), "Dune Part One (2021) {imdb-tt1160419}.mp4", "Dune: Part One", "2021", "Science Fiction", "#6D4C41"),
+    new(34, Path.Combine("movies", "dune-films"), "Dune Part Two (2024) {imdb-tt15239678}.mp4", "Dune: Part Two", "2024", "Science Fiction", "#A66A2E"),
+    new(35, Path.Combine("movies", "middle-earth"), "The Lord of the Rings The Fellowship of the Ring (2001) {imdb-tt0120737}.mp4", "The Lord of the Rings: The Fellowship of the Ring", "2001", "Fantasy", "#2E5E3F"),
+    new(36, Path.Combine("movies", "middle-earth"), "The Lord of the Rings The Two Towers (2002) {imdb-tt0167261}.mp4", "The Lord of the Rings: The Two Towers", "2002", "Fantasy", "#455A64"),
+    new(37, Path.Combine("movies", "middle-earth"), "The Lord of the Rings The Return of the King (2003) {imdb-tt0167260}.mp4", "The Lord of the Rings: The Return of the King", "2003", "Fantasy", "#795548"),
+};
+
+Console.WriteLine();
+Console.WriteLine($"━━━ MP4 movie-series fixtures (scenarios 33-37) ━━━━━━━━━━━━━━━━━━━━━━━━━━");
+if (ffmpegPath is null)
+{
+    Console.WriteLine("  ✗  FFmpeg not found — cannot create MP4 files.");
+    failed += movieSeries.Length;
+}
+else
+{
+    foreach (var spec in movieSeries)
+    {
+        var tempMovieDir = Path.Combine(tempDir, spec.Subdir);
+        var finalMovieDir = Path.Combine(outputDir, spec.Subdir);
+        Directory.CreateDirectory(tempMovieDir);
+        var outPath = Path.Combine(tempMovieDir, spec.FileName);
+        var finalPath = Path.Combine(finalMovieDir, spec.FileName);
+        try
+        {
+            CreateMp4(ffmpegPath, outPath, spec);
+            generatedFiles.Add((outPath, finalPath));
+            var displayPath = Path.Combine(spec.Subdir, spec.FileName).Replace('\\', '/');
+            Console.WriteLine($"  ✓  [{spec.Scenario,2}] {displayPath}");
+            manifest.Add(new(spec.Scenario, displayPath, "mp4", $"Scenario {spec.Scenario} — movie series"));
+            total++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
+            failed++;
+        }
+    }
+}
 // ── Batch copy to output ───────────────────────────────────────────────
 Console.WriteLine();
 Console.WriteLine($"━━━ Copying {generatedFiles.Count} files to watch folder ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -667,7 +763,7 @@ File.WriteAllText(manifestPath, manifestJson);
 // ── Summary ───────────────────────────────────────────────────────────────────
 Console.WriteLine();
 Console.WriteLine($"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-Console.WriteLine($"  Generated : {total} / 30");
+Console.WriteLine($"  Generated : {total} / 37");
 if (failed > 0) Console.WriteLine($"  Failed    : {failed}");
 Console.WriteLine($"  Manifest  : {manifestPath}");
 Console.WriteLine();
@@ -688,7 +784,7 @@ Console.WriteLine($"  Title disambiguation : 4 scenarios (3, 22, 23, 28)");
 Console.WriteLine($"  Foreign language     : 3 scenarios (24, 25, 26)");
 Console.WriteLine($"  Multi-author         : 2 scenarios (29, 30)");
 Console.WriteLine($"  Same-author diff-work: 1 scenario  (27)");
-Console.WriteLine($"  Total: 30 files covering 11 test categories");
+Console.WriteLine($"  Total: 37 files covering 13 test categories");
 Console.WriteLine();
 
 return failed > 0 ? 1 : 0;
@@ -804,6 +900,17 @@ static void TryDelete(string path) { try { File.Delete(path); } catch { } }
 
 static string Q(string value) => $"\"{value.Replace("\"", "\\\"")}\"";
 
+static void CreateMp4(string ffmpegPath, string outPath, VideoSpec spec)
+{
+    var args =
+        $"-y -f lavfi -i \"color=c={spec.ColorHex}:s=1280x720:r=24\" -f lavfi -i \"anullsrc=r=48000:cl=stereo\" -t 8 " +
+        "-c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 96k " +
+        $"-metadata title={Q(spec.Title)} " +
+        $"-metadata date={Q(spec.Year)} " +
+        $"-metadata genre={Q(spec.Genre)} " +
+        $"\"{outPath}\"";
+    RunFfmpeg(ffmpegPath, args);
+}
 static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
 {
     if (File.Exists(outputPath)) File.Delete(outputPath);
@@ -974,5 +1081,14 @@ record M4bSpec(
     string? SeriesPos,
     bool IncludeCover,
     string CoverHex);
+
+record VideoSpec(
+    int Scenario,
+    string Subdir,
+    string FileName,
+    string Title,
+    string Year,
+    string Genre,
+    string ColorHex);
 
 record ManifestEntry(int Scenario, string Path, string Type, string Note);

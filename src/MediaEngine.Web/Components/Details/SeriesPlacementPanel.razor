@@ -1,15 +1,51 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
+@using System.Globalization
 
 <section class="tl-series-placement @PanelClass">
     <div class="tl-series-header">
-        <h2>Part of @Placement.SeriesTitle</h2>
+        <div>
+            <div class="tl-series-eyebrow">
+                <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
+                <span>Series</span>
+            </div>
+            <h2>@SeriesTitleDisplay</h2>
+        </div>
+
+        <div class="tl-series-position-summary" aria-label="@PositionSummary">
+            <div class="tl-series-position-summary__donut">
+                <MudChart T="double"
+                          ChartType="ChartType.Donut"
+                          ChartSeries="@SeriesDonutSeries"
+                          ChartLabels="@SeriesDonutLabels"
+                          ChartOptions="@SeriesDonutOptions"
+                          Width="8.8rem"
+                          Height="8.8rem" />
+                <div class="tl-series-position-summary__center">
+                    <span class="tl-series-position-summary__number">@CurrentPositionText</span>
+                    <span class="tl-series-position-summary__total">of @TotalItems</span>
+                </div>
+            </div>
+            <div class="tl-series-position-summary__label">In series</div>
+            <div class="tl-series-owned-chip">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                <span>@OwnedCount owned</span>
+            </div>
+        </div>
     </div>
 
-    <div class="tl-series-strip" aria-label="@Placement.SeriesTitle series order">
+    <div class="tl-series-strip" style="@SeriesGridStyle" aria-label="@Placement.SeriesTitle series order">
         @foreach (var item in Placement.OrderedItems)
         {
-            <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(!item.IsOwned ? "is-missing" : null)">
+            <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(item.IsOwned ? "is-owned" : "is-missing")">
+                <div class="tl-series-item__position">
+                    @if (item.IsCurrent)
+                    {
+                        <span class="tl-series-current-label">Current position</span>
+                    }
+                    <span class="tl-series-item__node">@SeriesNumber(item)</span>
+                </div>
+
                 <div class="tl-series-item__art">
                     @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
                     {
@@ -18,21 +54,29 @@
                     else
                     {
                         <div class="tl-series-item__missing-art" aria-label="Missing from library">
-                            <span>@SeriesNumber(item)</span>
+                            <MudIcon Icon="@MissingIcon" Size="Size.Large" />
+                            <span>Not in library</span>
                         </div>
                     }
-                    <div class="tl-series-item__badge">@SeriesNumber(item)</div>
+                    @if (item.IsOwned)
+                    {
+                        <div class="tl-series-item__owned-badge" aria-label="Owned">
+                            <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                        </div>
+                    }
                 </div>
-                <div class="tl-series-item__title">@(item.IsOwned ? item.Title : $"Book {SeriesNumber(item)}")</div>
-                @if (!item.IsOwned)
-                {
-                    <div class="tl-series-item__meta">Missing from library</div>
-                }
+                <div class="tl-series-item__title">@(item.IsOwned ? item.Title : $"{ItemNoun} {SeriesNumber(item)}")</div>
+                <div class="tl-series-item__meta">@($"{ItemNoun} {SeriesNumber(item)}")</div>
             </article>
         }
     </div>
 
-    <div class="tl-series-owned-summary">@OwnedCount of @Placement.OrderedItems.Count @MediaNoun in library</div>
+    <div class="tl-series-owned-summary">
+        <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
+        <span>@OwnedCount owned</span>
+        <span class="tl-series-owned-summary__dot" aria-hidden="true"></span>
+        <span>@MissingCount missing</span>
+    </div>
 </section>
 
 @code {
@@ -46,14 +90,39 @@
     };
 
     private int OwnedCount => Placement.OrderedItems.Count(item => item.IsOwned);
-
-    private string MediaNoun => Placement.CurrentItem.EntityType switch
+    private int MissingCount => Math.Max(0, Placement.OrderedItems.Count - OwnedCount);
+    private int TotalItems => Placement.TotalKnownItems ?? Placement.OrderedItems.Count;
+    private string CurrentPositionText => (Placement.PositionNumber ?? Placement.CurrentItem.PositionNumber)?.ToString() ?? SeriesNumber(Placement.CurrentItem);
+    private string PositionSummary => $"{CurrentPositionText} of {TotalItems} in series";
+    private string SeriesTitleDisplay => ToTitleCase(Placement.SeriesTitle);
+    private string SeriesGridStyle => $"--series-count:{Math.Max(1, Placement.OrderedItems.Count)};";
+    private List<ChartSeries<double>> SeriesDonutSeries =>
+    [
+        new() { Name = "Series", Data = new ChartData<double>([Math.Max(OwnedCount, 0), Math.Max(MissingCount, 0)]) },
+    ];
+    private string[] SeriesDonutLabels => ["Owned", "Missing"];
+    private DonutChartOptions SeriesDonutOptions { get; } = new()
     {
-        DetailEntityType.Movie => Placement.OrderedItems.Count == 1 ? "movie" : "movies",
-        DetailEntityType.TvEpisode => Placement.OrderedItems.Count == 1 ? "episode" : "episodes",
-        DetailEntityType.MusicAlbum => Placement.OrderedItems.Count == 1 ? "album" : "albums",
-        DetailEntityType.ComicIssue => Placement.OrderedItems.Count == 1 ? "issue" : "issues",
-        _ => Placement.OrderedItems.Count == 1 ? "book" : "books",
+        ShowLegend = false,
+        ShowToolTips = false,
+        DonutRingRatio = 0.42,
+        ChartPalette = ["#3F94F6", "#5E43D6"],
+    };
+    private string MissingIcon => Placement.CurrentItem.EntityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => Icons.Material.Outlined.Movie,
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => Icons.Material.Outlined.Album,
+        _ => Icons.Material.Outlined.MenuBook,
+    };
+
+    private string ItemNoun => Placement.CurrentItem.EntityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.MovieSeries => "Movie",
+        DetailEntityType.TvShow or DetailEntityType.TvSeason => "Season",
+        DetailEntityType.TvEpisode => "Episode",
+        DetailEntityType.MusicAlbum => "Album",
+        DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "Issue",
+        _ => "Book",
     };
 
     private static string SeriesNumber(SeriesItemViewModel item)
@@ -61,4 +130,12 @@
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+    private static string ToTitleCase(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Series";
+
+        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Trim().ToLower(CultureInfo.CurrentCulture));
+    }
 }

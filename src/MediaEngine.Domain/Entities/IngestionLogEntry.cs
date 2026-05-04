@@ -15,12 +15,15 @@ public sealed class IngestionLogEntry
     /// <summary>Full absolute path of the ingested file.</summary>
     public required string FilePath { get; set; }
 
+    /// <summary>Media asset ID once the file has been registered; null before asset creation.</summary>
+    public Guid? MediaAssetId { get; set; }
+
     /// <summary>SHA-256 content hash; populated after hashing step.</summary>
     public string? ContentHash { get; set; }
 
     /// <summary>
     /// Current pipeline status. One of: detected, hashing, processed, scored,
-    /// staged, organized, hydrating, complete, failed, needs_review.
+    /// registered, queued_identity, hydrating, complete, failed, needs_review.
     /// </summary>
     public string Status { get; set; } = "detected";
 
