@@ -158,9 +158,14 @@
     display: none;
 }
 
+::deep .tl-detail-hero--watch {
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
 ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
-    background-size: min(75vw, 153vh) auto;
+    background-size: cover;
     background-position: right center;
 }
 
@@ -168,17 +173,6 @@
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__overlay,
 ::deep .tl-detail-hero--watch .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
     background:
-        linear-gradient(
-            to right,
-            rgba(0, 3, 5, 1) 0%,
-            rgba(0, 3, 5, 1) 34%,
-            rgba(0, 3, 5, 0.96) 42%,
-            rgba(0, 3, 5, 0.82) 52%,
-            rgba(0, 3, 5, 0.58) 64%,
-            rgba(0, 3, 5, 0.30) 76%,
-            rgba(0, 3, 5, 0.10) 90%,
-            transparent 100%
-        ),
         radial-gradient(
             ellipse at 72% 42%,
             rgba(220, 165, 62, 0.10) 0%,
@@ -188,9 +182,9 @@
         ),
         linear-gradient(
             to bottom,
-            rgba(0, 3, 5, 0.26) 0%,
-            transparent 42%,
-            rgba(0, 3, 5, 0.58) 78%,
+            rgba(0, 3, 5, 0.34) 0%,
+            rgba(0, 3, 5, 0.10) 42%,
+            rgba(0, 3, 5, 0.64) 78%,
             rgba(0, 3, 5, 0.98) 100%
         ),
         radial-gradient(
@@ -209,7 +203,7 @@
 
     ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
     ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
-        background-size: min(76vw, 153vh) auto;
+        background-size: cover;
         background-position: right center;
     }
 }
