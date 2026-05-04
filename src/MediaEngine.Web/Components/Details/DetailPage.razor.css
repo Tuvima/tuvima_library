@@ -160,7 +160,7 @@
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
-    background-size: min(67vw, 153vh) auto;
+    background-size: min(75vw, 153vh) auto;
     background-position: right center;
 }
 
