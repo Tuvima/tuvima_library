@@ -98,6 +98,67 @@ CREATE INDEX IF NOT EXISTS idx_collection_placements_collection_id
 CREATE INDEX IF NOT EXISTS idx_collection_placements_location
     ON collection_placements(location);
 
+-- Wikidata series manifest cache. These rows represent factual known entries
+-- in a series, including entries the local library does not own.
+CREATE TABLE IF NOT EXISTS series_manifest_hydrations (
+    series_qid            TEXT PRIMARY KEY,
+    collection_id         TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    series_label          TEXT,
+    manifest_source       TEXT NOT NULL DEFAULT 'Tuvima.Wikidata',
+    manifest_version      TEXT,
+    manifest_hash         TEXT,
+    known_item_qids_hash  TEXT,
+    warnings_json         TEXT NOT NULL DEFAULT '[]',
+    api_metadata_json     TEXT NOT NULL DEFAULT '{}',
+    last_hydrated_at      TEXT NOT NULL,
+    created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_series_manifest_hydrations_collection
+    ON series_manifest_hydrations(collection_id);
+
+CREATE TABLE IF NOT EXISTS series_manifest_items (
+    id                          TEXT PRIMARY KEY,
+    collection_id               TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    series_qid                  TEXT NOT NULL,
+    item_qid                    TEXT NOT NULL,
+    item_label                  TEXT,
+    item_description            TEXT,
+    media_type                  TEXT,
+    raw_ordinal                 TEXT,
+    parsed_ordinal              REAL,
+    sort_order                  REAL,
+    publication_date            TEXT,
+    previous_qid                TEXT,
+    next_qid                    TEXT,
+    parent_collection_qid       TEXT,
+    parent_collection_label     TEXT,
+    is_collection               INTEGER NOT NULL DEFAULT 0,
+    is_expanded_from_collection INTEGER NOT NULL DEFAULT 0,
+    source_properties_json      TEXT NOT NULL DEFAULT '[]',
+    relationships_json          TEXT NOT NULL DEFAULT '[]',
+    order_source                TEXT NOT NULL,
+    ownership_state             TEXT NOT NULL DEFAULT 'Missing'
+        CHECK (ownership_state IN ('Owned','Missing','Provisional','Ambiguous')),
+    linked_work_id              TEXT REFERENCES works(id) ON DELETE SET NULL,
+    last_hydrated_at            TEXT NOT NULL,
+    created_at                  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at                  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(collection_id, item_qid)
+);
+
+CREATE INDEX IF NOT EXISTS idx_series_manifest_items_series_qid
+    ON series_manifest_items(series_qid);
+CREATE INDEX IF NOT EXISTS idx_series_manifest_items_collection
+    ON series_manifest_items(collection_id);
+CREATE INDEX IF NOT EXISTS idx_series_manifest_items_item_qid
+    ON series_manifest_items(item_qid);
+CREATE INDEX IF NOT EXISTS idx_series_manifest_items_linked_work
+    ON series_manifest_items(linked_work_id);
+CREATE INDEX IF NOT EXISTS idx_series_manifest_items_ownership
+    ON series_manifest_items(ownership_state);
+
 -- External universe/franchise relationships attached to collections.
 CREATE TABLE IF NOT EXISTS collection_relationships (
     id            TEXT NOT NULL PRIMARY KEY,

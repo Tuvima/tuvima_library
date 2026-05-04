@@ -14,7 +14,7 @@ tags:
 
 SQLite database located at `.data/database/library.db` (path set in `config/core.json`).
 
-Latest migration: **M-085**. All migrations are idempotent (`IF NOT EXISTS` guards). Schema changes are applied automatically on Engine startup.
+Latest migration: **M-090**. All migrations are idempotent (`IF NOT EXISTS` guards). Schema changes are applied automatically on Engine startup.
 
 **Conventions:**
 - UUIDs stored as `TEXT`
@@ -667,3 +667,44 @@ Ordered log of all database writes, used for debugging and rollback analysis.
 - [Engine API Reference](api-endpoints.md)
 - [Priority Cascade Engine](../architecture/scoring-and-cascade.md)
 - [Settings Architecture and Library Vault](../architecture/settings-and-vault.md)
+
+### series_manifest_hydrations
+
+Series-level cache and provenance for Wikidata series manifests. One row is stored per canonical series QID so later sibling imports can link against the cached named checklist before deciding whether a Wikidata refresh is needed.
+
+| Column | Type | Notes |
+|---|---|---|
+| `series_qid` | TEXT | Wikidata QID for the series. Primary key. |
+| `collection_id` | TEXT | FK to `collections.id` for the local ContentGroup/series collection. |
+| `series_label` | TEXT | Localized display name returned by Wikidata. |
+| `manifest_source` | TEXT | Source library, normally `Tuvima.Wikidata`. |
+| `manifest_version` | TEXT | Source package/version metadata. |
+| `manifest_hash` | TEXT | Hash of the fetched manifest payload. |
+| `known_item_qids_hash` | TEXT | Hash of the ordered known item QID set. |
+| `warnings_json` | TEXT | Manifest-level warnings from Wikidata modeling. |
+| `api_metadata_json` | TEXT | Request options used for the fetch. |
+| `last_hydrated_at` | TEXT | Last successful manifest hydration timestamp. |
+
+### series_manifest_items
+
+Named factual entries in a Wikidata series manifest, including works the local library does not own. Missing entries are represented here, not as fake media files.
+
+| Column | Type | Notes |
+|---|---|---|
+| `collection_id` | TEXT | FK to `collections.id`. |
+| `series_qid` | TEXT | Wikidata QID for the parent series. |
+| `item_qid` | TEXT | Wikidata QID for the series entry. Unique with `collection_id`. |
+| `item_label` | TEXT | Localized item name used for owned/missing lists. |
+| `item_description` | TEXT | Optional short description when fetched. |
+| `media_type` | TEXT | Tuvima media type context that triggered hydration. |
+| `raw_ordinal` | TEXT | Raw Wikidata ordinal qualifier. |
+| `parsed_ordinal` | REAL | Parsed numeric ordinal when available. |
+| `sort_order` | REAL | Display order for the manifest list. |
+| `publication_date` | TEXT | Publication date from Wikidata when available. |
+| `previous_qid`, `next_qid` | TEXT | Previous/next chain links when modeled. |
+| `parent_collection_qid`, `parent_collection_label` | TEXT | Parent collection for expanded collection entries such as short fiction. |
+| `source_properties_json` | TEXT | Wikidata properties that included this row. |
+| `relationships_json` | TEXT | Relationship evidence from Tuvima.Wikidata. |
+| `order_source` | TEXT | How ordering was determined. |
+| `ownership_state` | TEXT | `Owned`, `Missing`, `Provisional`, or `Ambiguous`. |
+| `linked_work_id` | TEXT | FK to `works.id` when exactly one local work matches. |

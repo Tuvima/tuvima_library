@@ -22,6 +22,19 @@ public static class CollectionEndpoints
         var group = app.MapGroup("/collections")
                        .WithTags("Collections");
 
+        group.MapGet("/{collectionId:guid}/series-manifest", async (
+            Guid collectionId,
+            ISeriesManifestRepository manifestRepo,
+            CancellationToken ct) =>
+        {
+            var manifest = await manifestRepo.GetViewByCollectionIdAsync(collectionId, ct);
+            return manifest is null ? Results.NotFound() : Results.Ok(manifest);
+        })
+        .WithName("GetCollectionSeriesManifest")
+        .WithSummary("Returns a Wikidata-backed ordered series manifest with owned and missing item states.")
+        .Produces<SeriesManifestViewDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
         group.MapGet("/", async (
             ICollectionRepository collectionRepo,
             IDatabaseConnection db,

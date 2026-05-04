@@ -54,6 +54,7 @@
   "stage3_rate_limit_ms": 2000,
   "stage3_max_items_per_sweep": 50,
   "stage3_refresh_days": 30,
+  "series_manifest_refresh_days": 30,
   "stage3_media_types_for_images": ["Movies", "TV", "Music"],
   "stage3_max_depth": 2
 }

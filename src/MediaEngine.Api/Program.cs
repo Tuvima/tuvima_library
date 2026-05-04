@@ -453,6 +453,7 @@ builder.Services.AddSingleton<IMetadataClaimRepository,  MetadataClaimRepository
 builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();
 builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
 builder.Services.AddSingleton<IWorkRepository,           WorkRepository>();
+builder.Services.AddSingleton<ISeriesManifestRepository, SeriesManifestRepository>();
 builder.Services.AddSingleton<HierarchyResolver>();
 builder.Services.AddSingleton<WorkClaimRouter>();
 builder.Services.AddSingleton<CatalogUpsertService>();
@@ -656,6 +657,7 @@ builder.Services.AddSingleton<TextTrackEnrichmentWorker>();
 builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
 builder.Services.AddSingleton<IUniverseEnrichmentScheduler>(sp => sp.GetRequiredService<MediaEngine.Api.Services.UniverseEnrichmentService>());
 builder.Services.AddSingleton<MediaEngine.Providers.Services.CollectionAssignmentService>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.WikidataSeriesManifestHydrationService>();
 
 // Pipeline workers
 builder.Services.AddSingleton<RetailMatchWorker>();

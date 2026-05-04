@@ -584,3 +584,9 @@ Thin dispatcher (`IEnrichmentService`) routing to modular enrichment workers:
 | `TimelineRecorder` | Entity timeline event recording |
 | `BatchProgressService` | Batch counter adjustment + SignalR progress |
 | `PersonReferenceExtractor` | Person reference extraction from claims |
+
+## Wikidata Series Manifest Hydration
+
+After full Stage 2 claims are persisted and routed to Works, Tuvima Library checks for a canonical series QID from bridge/claim data. For books, audiobooks, comics, and TV, it calls `Tuvima.Wikidata.Series.GetManifestAsync` and stores a named ordered manifest locally. Wikidata supplies factual series data; Tuvima stores local ownership state (`Owned`, `Missing`, `Provisional`, `Ambiguous`), warnings, and UI-ready counts.
+
+`series_manifest_refresh_days` in `config/hydration.json` controls how long a fetched manifest is considered fresh. While fresh, later sibling imports relink against the cached named manifest before any refetch. If a newly resolved QID is not present in the cached manifest and no package-level delta API is available, the service falls back to an idempotent full manifest refresh.

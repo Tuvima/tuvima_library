@@ -362,3 +362,9 @@ The Vault Action Center surfaces `WritebackFailed` review items alongside other 
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
 - [Supported Media Types and Formats](../reference/media-types.md)
 - [How to Write a New File Format Processor](../guides/writing-a-processor.md)
+
+## Series Manifest Hydration
+
+After Stage 2 resolves a Wikidata QID and full property claims have been persisted, `WikidataBridgeWorker` asks `WikidataSeriesManifestHydrationService` whether the item belongs to a canonical series. The service only uses QID-backed relationship facts such as P179/`series_qid`, never fuzzy title matching.
+
+For books, audiobooks, comics, and TV, a canonical series QID triggers a Tuvima.Wikidata manifest fetch. Tuvima stores every named item in `series_manifest_items`, including missing works the user does not own. Later imports from the same series first link against the cached named manifest, so adding another Dune ebook or audiobook usually does not require downloading the whole series again while the cache is fresh.

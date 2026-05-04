@@ -374,6 +374,14 @@ public sealed class HydrationSettings
     public int Stage3RefreshDays { get; set; } = 30;
 
     /// <summary>
+    /// Minimum age, in days, before a persisted Wikidata series manifest is
+    /// refreshed. Newly ingested sibling files first link against the cached
+    /// named manifest to avoid repeated full series downloads.
+    /// </summary>
+    [JsonPropertyName("series_manifest_refresh_days")]
+    public int SeriesManifestRefreshDays { get; set; } = 30;
+
+    /// <summary>
     /// Maximum depth for recursive fictional entity discovery during Stage 3.
     /// Overrides <see cref="FictionalEntityEnrichmentDepth"/> within the
     /// background service context.

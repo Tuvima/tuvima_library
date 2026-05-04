@@ -45,6 +45,7 @@ public sealed class WikidataBridgeWorker
     private readonly CatalogUpsertService _catalogUpsert;
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly PostPipelineService _postPipeline;
+    private readonly WikidataSeriesManifestHydrationService? _seriesManifestHydration;
     private readonly CoverArtWorker _coverArt;
     private readonly BatchProgressService? _batchProgress;
     private readonly IEnrichmentConcurrencyLimiter _concurrency;
@@ -81,7 +82,8 @@ public sealed class WikidataBridgeWorker
         ILogger<WikidataBridgeWorker> logger,
         BatchProgressService? batchProgress = null,
         IEnrichmentConcurrencyLimiter? concurrencyLimiter = null,
-        ICanonicalValueArrayRepository? arrayRepo = null)
+        ICanonicalValueArrayRepository? arrayRepo = null,
+        WikidataSeriesManifestHydrationService? seriesManifestHydration = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -100,6 +102,7 @@ public sealed class WikidataBridgeWorker
         _catalogUpsert = catalogUpsert;
         _batchRepo = batchRepo;
         _postPipeline = postPipeline;
+        _seriesManifestHydration = seriesManifestHydration;
         _coverArt = coverArt;
         _logger = logger;
         _batchProgress = batchProgress;
@@ -692,6 +695,8 @@ public sealed class WikidataBridgeWorker
                     fullClaims, ct);
             }
 
+            await TryHydrateSeriesManifestAsync(job, ctx, lineage, ctx.ResolvedQid, fullClaims, ct);
+
             await _postPipeline.EvaluateAndOrganizeAsync(
                 job.EntityId, job.Id, ctx.ResolvedQid, job.IngestionRunId, ct);
         }
@@ -757,6 +762,9 @@ public sealed class WikidataBridgeWorker
                             await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                                 fallbackClaims, ct);
 
+                            await TryHydrateSeriesManifestAsync(
+                                job, ctx, lineage, ctx.ResolvedQid, fallbackClaims, ct);
+
                             await _timeline.RecordTitleFallbackResolvedAsync(
                                 job.EntityId, ctx.ResolvedQid, job.IngestionRunId, ct);
 
@@ -787,6 +795,39 @@ public sealed class WikidataBridgeWorker
             _logger.LogInformation(
                 "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried; retaining retail identity without review [entity {EntityId}]",
                 ctx.TitleHint ?? "(unknown)", ctx.MediaType, ctx.BridgeIds.Count, job.EntityId);
+        }
+    }
+
+    private async Task TryHydrateSeriesManifestAsync(
+        IdentityJob job,
+        JobContext ctx,
+        WorkLineage? lineage,
+        string? resolvedQid,
+        IReadOnlyList<ProviderClaim> fullClaims,
+        CancellationToken ct)
+    {
+        if (_seriesManifestHydration is null || string.IsNullOrWhiteSpace(resolvedQid))
+            return;
+
+        try
+        {
+            await _seriesManifestHydration.HydrateAsync(new SeriesManifestHydrationContext(
+                AssetId: job.EntityId,
+                WorkId: lineage?.TargetForSelfScope,
+                ResolvedWorkQid: resolvedQid,
+                MediaType: ctx.MediaType,
+                Title: ctx.TitleHint ?? ctx.AlbumHint,
+                SeriesHint: ctx.SeriesHint,
+                IngestionRunId: job.IngestionRunId,
+                Lineage: lineage,
+                FullClaims: fullClaims), ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Series manifest hydration failed for job {JobId}; ingestion will continue",
+                job.Id);
         }
     }
 

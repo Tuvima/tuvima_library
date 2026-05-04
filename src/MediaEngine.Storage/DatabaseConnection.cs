@@ -1481,6 +1481,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Migration M-089: timed lyrics and subtitle track records.
         MigrateTextTracks(conn);
 
+        // Migration M-090: Wikidata series manifest cache.
+        MigrateSeriesManifestTables(conn);
+
         // Seed S-001: metadata_providers entries for all known providers.
         // metadata_claims.provider_id has a FK to metadata_providers(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -3385,6 +3388,72 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 ON text_tracks(asset_id, kind);
             CREATE INDEX IF NOT EXISTS idx_text_tracks_preferred
                 ON text_tracks(asset_id, kind, language, is_preferred);
+            """;
+        cmd.ExecuteNonQuery();
+    }
+
+    private static void MigrateSeriesManifestTables(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS series_manifest_hydrations (
+                series_qid            TEXT PRIMARY KEY,
+                collection_id         TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+                series_label          TEXT,
+                manifest_source       TEXT NOT NULL DEFAULT 'Tuvima.Wikidata',
+                manifest_version      TEXT,
+                manifest_hash         TEXT,
+                known_item_qids_hash  TEXT,
+                warnings_json         TEXT NOT NULL DEFAULT '[]',
+                api_metadata_json     TEXT NOT NULL DEFAULT '{}',
+                last_hydrated_at      TEXT NOT NULL,
+                created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_series_manifest_hydrations_collection
+                ON series_manifest_hydrations(collection_id);
+
+            CREATE TABLE IF NOT EXISTS series_manifest_items (
+                id                          TEXT PRIMARY KEY,
+                collection_id               TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+                series_qid                  TEXT NOT NULL,
+                item_qid                    TEXT NOT NULL,
+                item_label                  TEXT,
+                item_description            TEXT,
+                media_type                  TEXT,
+                raw_ordinal                 TEXT,
+                parsed_ordinal              REAL,
+                sort_order                  REAL,
+                publication_date            TEXT,
+                previous_qid                TEXT,
+                next_qid                    TEXT,
+                parent_collection_qid       TEXT,
+                parent_collection_label     TEXT,
+                is_collection               INTEGER NOT NULL DEFAULT 0,
+                is_expanded_from_collection INTEGER NOT NULL DEFAULT 0,
+                source_properties_json      TEXT NOT NULL DEFAULT '[]',
+                relationships_json          TEXT NOT NULL DEFAULT '[]',
+                order_source                TEXT NOT NULL,
+                ownership_state             TEXT NOT NULL DEFAULT 'Missing'
+                    CHECK (ownership_state IN ('Owned','Missing','Provisional','Ambiguous')),
+                linked_work_id              TEXT REFERENCES works(id) ON DELETE SET NULL,
+                last_hydrated_at            TEXT NOT NULL,
+                created_at                  TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at                  TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(collection_id, item_qid)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_series_manifest_items_series_qid
+                ON series_manifest_items(series_qid);
+            CREATE INDEX IF NOT EXISTS idx_series_manifest_items_collection
+                ON series_manifest_items(collection_id);
+            CREATE INDEX IF NOT EXISTS idx_series_manifest_items_item_qid
+                ON series_manifest_items(item_qid);
+            CREATE INDEX IF NOT EXISTS idx_series_manifest_items_linked_work
+                ON series_manifest_items(linked_work_id);
+            CREATE INDEX IF NOT EXISTS idx_series_manifest_items_ownership
+                ON series_manifest_items(ownership_state);
             """;
         cmd.ExecuteNonQuery();
     }

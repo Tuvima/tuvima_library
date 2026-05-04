@@ -561,3 +561,9 @@ Backfill migration converts existing collections to the new schema, generating `
 - [Universe Graph](universe-graph.md)
 - [Settings and Vault](settings-and-vault.md)
 - [Target State](target-state.md)
+
+## Wikidata Series Manifests
+
+When a ContentGroup collection has a canonical Wikidata series QID, hydration can attach a factual manifest from Tuvima.Wikidata. The manifest is stored separately from owned Works: owned entries link to local `works`, while missing entries remain lightweight `series_manifest_items` rows with names, QIDs, ordering, parent collection labels, and provenance.
+
+This lets the UI show views such as "owned 2 of 18" for a series without creating fake media assets. For example, an Expanse collection can show owned novels plus missing novels, novellas, and short fiction when Wikidata models them. Manifest warnings indicate Wikidata modeling gaps or local ambiguity; user display overrides may affect presentation, but QID-based manifest facts remain canonical.
