@@ -102,7 +102,14 @@
                         <MudAvatar Size="Size.Medium"
                                    Style="@GetAvatarStyle()"
                                    Class="layout-shell__avatar">
-                            @_avatarInitial
+                            @if (!string.IsNullOrWhiteSpace(_avatarImageUrl))
+                            {
+                                <img src="@_avatarImageUrl" alt="" style="width:100%;height:100%;object-fit:cover;" />
+                            }
+                            else
+                            {
+                                @_avatarInitial
+                            }
                         </MudAvatar>
                         <span class="layout-shell__profile-copy">
                             <span class="layout-shell__profile-name">@_displayName</span>
@@ -155,6 +162,7 @@
 @code {
     private CommandPalette? _palette;
     private string _avatarColor = "var(--tl-accent-primary)";
+    private string? _avatarImageUrl;
     private string _avatarInitial = "?";
     private string _currentPath = "/";
     private string _displayName = "User";
@@ -315,6 +323,7 @@
             _profiles = await Orchestrator.GetProfilesAsync();
             _activeProfileId = profile.Id;
             _avatarColor = profile.AvatarColor;
+            _avatarImageUrl = profile.AvatarImageUrl;
             _displayName = string.IsNullOrWhiteSpace(profile.DisplayName)
                 ? "User"
                 : profile.DisplayName.Trim();

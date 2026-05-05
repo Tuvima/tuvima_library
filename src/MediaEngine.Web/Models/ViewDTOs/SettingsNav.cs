@@ -9,7 +9,6 @@ public enum SettingsSection
 {
     Overview,
     Playback,
-    Display,
     Privacy,
 
     AdminOverview,
@@ -46,7 +45,6 @@ public sealed record SettingsItemDef(
     string? BadgeKey,
     IReadOnlyList<string> Aliases,
     string Source = "mixed",
-    bool Deprecated = false,
     bool Placeholder = false);
 
 /// <summary>A grouped sidebar node with expandable child settings routes.</summary>
@@ -88,7 +86,6 @@ public static class SettingsNav
     [
         new(SettingsSection.Overview, "user", null, Icons.Material.Outlined.Person, "User Overview", false, null, [], "sqlite"),
         new(SettingsSection.Playback, "user", "playback", Icons.Material.Outlined.MenuBook, "Playback & Reading", false, null, [], "sqlite"),
-        new(SettingsSection.Display, "user", "display", Icons.Material.Outlined.DashboardCustomize, "Display & Personalization", false, null, [], "sqlite"),
         new(SettingsSection.Privacy, "user", "privacy", Icons.Material.Outlined.PrivacyTip, "Privacy & History", false, null, [], "sqlite"),
 
         new(SettingsSection.AdminOverview, "admin", "admin", Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, [], "json+sqlite"),
@@ -102,14 +99,14 @@ public static class SettingsNav
 
         new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
         new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, [], Placeholder: true),
-        new(SettingsSection.ProviderTester, "admin", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal", Deprecated: true),
-        new(SettingsSection.EnrichmentTester, "admin", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal", Deprecated: true),
+        new(SettingsSection.ProviderTester, "admin", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal"),
+        new(SettingsSection.EnrichmentTester, "admin", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal"),
     ];
 
     public static readonly SettingsTreeGroupDef[] TreeGroups =
     [
         new("user", "User Settings", Icons.Material.Outlined.Person, false, true, SettingsSection.Overview,
-            [SettingsSection.Overview, SettingsSection.Playback, SettingsSection.Display, SettingsSection.Privacy]),
+            [SettingsSection.Overview, SettingsSection.Playback, SettingsSection.Privacy]),
         new("admin", "Admin Settings", Icons.Material.Outlined.AdminPanelSettings, true, true, SettingsSection.AdminOverview,
             [
                 SettingsSection.AdminOverview,

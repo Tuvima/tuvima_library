@@ -156,6 +156,7 @@ builder.Services.AddScoped<DiscoveryComposerService>();
 builder.Services.AddScoped<WatchlistService>();
 builder.Services.AddScoped<MediaReactionService>();
 builder.Services.AddScoped<ListenPlaybackService>();
+builder.Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
 
 // ── Provider Catalogue (singleton = loaded once, shared across all circuits) ──
 // Caches provider UI metadata from GET /providers/catalogue. Replaces hardcoded

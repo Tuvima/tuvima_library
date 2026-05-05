@@ -30,9 +30,15 @@
                     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
                         <MudStack Spacing="1" AlignItems="AlignItems.Center">
                             <MudAvatar Size="Size.Large"
-                                       Color="Color.Primary"
-                                       Image="@profile.AvatarImageUrl">
-                                @GetInitials(profile.DisplayName)
+                                       Color="Color.Primary">
+                                @if (!string.IsNullOrWhiteSpace(profile.AvatarImageUrl))
+                                {
+                                    <img src="@profile.AvatarImageUrl" alt="" style="width:100%;height:100%;object-fit:cover;" />
+                                }
+                                else
+                                {
+                                    @GetInitials(profile.DisplayName)
+                                }
                             </MudAvatar>
                             <MudFileUpload T="IBrowserFile"
                                            Accept=".jpg,.jpeg,.png,.webp"

@@ -319,6 +319,12 @@ CREATE TABLE IF NOT EXISTS user_states (
     PRIMARY KEY (user_id, asset_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_playback_settings (
+    profile_id    TEXT NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+    settings_json TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+
 -- Cached media inspection used by the Engine playback manifest layer.
 -- Results are keyed by asset and source fingerprint so stale codec/track
 -- decisions are ignored after a source file changes.

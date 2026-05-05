@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Storage.Models;
 using Microsoft.AspNetCore.SignalR.Client;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -223,6 +224,24 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         if (profile is not null)
             OnProfileChanged?.Invoke();
         return profile;
+    }
+
+    public async Task<UserPlaybackSettingsDto?> GetPlaybackSettingsAsync(CancellationToken ct = default)
+    {
+        var profile = await GetActiveProfileAsync(ct);
+        return profile is null
+            ? null
+            : await _api.GetPlaybackSettingsAsync(profile.Id, ct);
+    }
+
+    public async Task<UserPlaybackSettingsDto?> SavePlaybackSettingsAsync(
+        UserPlaybackSettingsDto settings,
+        CancellationToken ct = default)
+    {
+        var profile = await GetActiveProfileAsync(ct);
+        return profile is null
+            ? null
+            : await _api.UpdatePlaybackSettingsAsync(profile.Id, settings, ct);
     }
     /// <summary>Deletes a user profile. Cannot delete the seed Owner profile or the last Administrator.</summary>
     public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)

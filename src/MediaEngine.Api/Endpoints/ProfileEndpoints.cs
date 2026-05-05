@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.Playback;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
@@ -146,6 +148,54 @@ public static class ProfileEndpoints
         .WithName("GetProfileOverview")
         .WithSummary("Get user-facing profile details, history, statistics, and taste signals.")
         .Produces<ProfileOverviewResponseDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{id:guid}/settings/playback", async (
+            Guid id,
+            IUserPlaybackSettingsService settingsService,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var settings = await settingsService.GetOrCreateDefaultsAsync(id, ct);
+                return Results.Ok(settings);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        })
+        .WithName("GetProfilePlaybackSettings")
+        .WithSummary("Get user playback and reading settings for a profile.")
+        .Produces<UserPlaybackSettingsDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapPut("/{id:guid}/settings/playback", async (
+            Guid id,
+            UserPlaybackSettingsDto request,
+            IUserPlaybackSettingsService settingsService,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var saved = await settingsService.UpdateAsync(id, request, ct);
+                return Results.Ok(saved);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("UpdateProfilePlaybackSettings")
+        .WithSummary("Save user playback and reading settings for a profile.")
+        .Produces<UserPlaybackSettingsDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 

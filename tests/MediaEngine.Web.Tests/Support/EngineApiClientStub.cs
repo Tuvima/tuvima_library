@@ -1,5 +1,6 @@
 using System.Reflection;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
@@ -71,6 +72,13 @@ internal class EngineApiClientStub : DispatchProxy
                 },
                 LastUpdatedAt = DateTimeOffset.UtcNow,
             });
+
+        _handlers[nameof(IEngineApiClient.GetPlaybackSettingsAsync)] =
+            args => Task.FromResult<UserPlaybackSettingsDto?>(
+                UserPlaybackSettingsDto.CreateDefaults((Guid)(args?[0] ?? Guid.Parse("00000000-0000-0000-0000-000000000001"))));
+
+        _handlers[nameof(IEngineApiClient.UpdatePlaybackSettingsAsync)] =
+            args => Task.FromResult<UserPlaybackSettingsDto?>((UserPlaybackSettingsDto?)args?[1]);
 
         _handlers[nameof(IEngineApiClient.GetProfileOverviewAsync)] =
             _ => Task.FromResult<ProfileOverviewViewModel?>(new ProfileOverviewViewModel

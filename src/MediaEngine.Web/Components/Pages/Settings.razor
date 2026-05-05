@@ -65,9 +65,6 @@
                 case SettingsSection.Playback:
                     <PlaybackTab />
                     break;
-                case SettingsSection.Display:
-                    <DisplayPersonalizationTab />
-                    break;
                 case SettingsSection.Privacy:
                     <PrivacyHistoryTab />
                     break;
@@ -298,11 +295,6 @@
 
     private static string? GetItemMeta(SettingsItemDef item)
     {
-        if (item.Deprecated)
-        {
-            return "Deprecated";
-        }
-
         return item.Placeholder ? "Planned" : null;
     }
 
@@ -322,7 +314,6 @@
     {
         SettingsSection.Overview => "Your profile, personal history, library habits, and playback activity.",
         SettingsSection.Playback => "Personal defaults for watching, reading, listening, subtitles, resume, and progress behavior.",
-        SettingsSection.Display => "Personal layout, density, home page, spoiler, and recommendation preferences.",
         SettingsSection.Privacy => "Control personal history, tracking, personalization, and reset/export options.",
         SettingsSection.AdminOverview => "Monitor system health, library status, provider coverage, ingestion progress, and review work.",
         SettingsSection.Libraries => "Manage library roots, watch folders, source paths, scan behavior, and organization templates.",

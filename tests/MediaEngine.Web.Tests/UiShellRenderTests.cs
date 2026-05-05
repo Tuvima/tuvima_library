@@ -51,6 +51,7 @@ public sealed class UiShellRenderTests : TestContext
         Services.AddScoped<CollectionEditorLauncherService>();
         Services.AddScoped<DiscoveryComposerService>();
         Services.AddScoped<ListenPlaybackService>();
+        Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
         Services.AddScoped<MediaReactionService>();
         Services.AddScoped<MediaEditorLauncherService>();
     }
@@ -120,7 +121,7 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Edit profile", cut.Markup);
+            Assert.Contains("Edit photo", cut.Markup);
             Assert.Contains("Continue Your Activity", cut.Markup);
             Assert.Contains("Recent History", cut.Markup);
             Assert.Contains("Your Taste / Top Genres", cut.Markup);
@@ -159,6 +160,57 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Unmatched Album", cut.Markup);
             Assert.Contains("Skip Universe", cut.Markup);
         });
+    }
+
+    [Fact]
+    public void PlaybackSettingsPage_RendersTabbedUserPlaybackPreferences()
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2);
+            builder.CloseComponent();
+            builder.OpenComponent<Settings>(3);
+            builder.AddAttribute(4, nameof(Settings.Section), "playback");
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(cut.FindAll(".mud-tabs"));
+            Assert.Contains("General", cut.Markup);
+            Assert.Contains("Watching", cut.Markup);
+            Assert.Contains("Listening", cut.Markup);
+            Assert.Contains("Reading", cut.Markup);
+            Assert.Contains("Subtitles", cut.Markup);
+            Assert.Contains("Saved locally", cut.Markup);
+            Assert.DoesNotContain("Web delivery", cut.Markup);
+            Assert.DoesNotContain("TV delivery", cut.Markup);
+            Assert.DoesNotContain("Mobile download profile", cut.Markup);
+            Assert.DoesNotContain("Direct play", cut.Markup);
+            Assert.DoesNotContain("HLS", cut.Markup);
+            Assert.DoesNotContain("Transcoding", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void PlaybackTab_UsesMudSlidersAndRealApiSavePath()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "PlaybackTab.razor"));
+
+        Assert.Contains("<MudTabs", source);
+        Assert.Contains("Video Speed", source);
+        Assert.Contains("Audiobook Speed", source);
+        Assert.Contains("<MudSlider T=\"double\"", source);
+        Assert.Contains("Orchestrator.SavePlaybackSettingsAsync", source);
+        Assert.DoesNotContain("Task.Delay", source);
+        Assert.DoesNotContain("MudToggleGroup", source);
+        Assert.DoesNotContain("Web delivery", source);
+        Assert.DoesNotContain("TV delivery", source);
+        Assert.DoesNotContain("Mobile download profile", source);
     }
 
     [Fact]

@@ -1,243 +1,401 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
+@using System.Text.Json
+@using MediaEngine.Contracts.Playback
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Playback
+@inject UIOrchestratorService Orchestrator
+@inject IUserPlaybackPreferencesAccessor PreferencesAccessor
 @inject ISnackbar Snackbar
-<div class="tl-page">
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">Playback</MudText>
+@if (_loading)
+{
+    <MudStack Spacing="3">
+        <MudSkeleton Height="72px" />
+        <MudSkeleton Height="56px" />
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="6"><MudSkeleton Height="220px" /></MudItem>
+            <MudItem xs="12" md="6"><MudSkeleton Height="220px" /></MudItem>
+        </MudGrid>
     </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Default playback settings applied to all built-in media players.
-    </MudText>
-<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
-             Style="letter-spacing: 0.08em;">
-        Client Profiles
-    </MudText>
-
-    <MudGrid Spacing="4" Class="mb-6">
-        <MudItem xs="12" sm="6" lg="4">
-            <MudSelect T="string" @bind-Value="_webDelivery" Label="Web delivery" Variant="Variant.Outlined" FullWidth="true">
-                <MudSelectItem T="string" Value="@("direct")">Prefer direct play</MudSelectItem>
-                <MudSelectItem T="string" Value="@("hls")">Prefer HLS fallback</MudSelectItem>
-            </MudSelect>
-        </MudItem>
-        <MudItem xs="12" sm="6" lg="4">
-            <MudSelect T="string" @bind-Value="_tvDelivery" Label="TV delivery" Variant="Variant.Outlined" FullWidth="true">
-                <MudSelectItem T="string" Value="@("hls")">Prefer HLS fallback</MudSelectItem>
-                <MudSelectItem T="string" Value="@("direct")">Prefer direct play</MudSelectItem>
-            </MudSelect>
-        </MudItem>
-        <MudItem xs="12" sm="6" lg="4">
-            <MudSelect T="string" @bind-Value="_mobileDownloadProfile" Label="Mobile download profile" Variant="Variant.Outlined" FullWidth="true">
-                <MudSelectItem T="string" Value="@("mobile-small")">Mobile small</MudSelectItem>
-                <MudSelectItem T="string" Value="@("mobile-standard")">Mobile standard</MudSelectItem>
-            </MudSelect>
-        </MudItem>
-        <MudItem xs="12" sm="6" lg="4">
-            <MudSelect T="string" @bind-Value="_defaultAudioLanguage" Label="Default audio language" Variant="Variant.Outlined" FullWidth="true">
-                <MudSelectItem T="string" Value="@("auto")">Auto</MudSelectItem>
-                <MudSelectItem T="string" Value="@("en")">English</MudSelectItem>
-                <MudSelectItem T="string" Value="@("original")">Original language</MudSelectItem>
-            </MudSelect>
-        </MudItem>
-        <MudItem xs="12" sm="6" lg="4">
-            <MudSelect T="string" @bind-Value="_defaultSubtitleLanguage" Label="Subtitle language" Variant="Variant.Outlined" FullWidth="true">
-                <MudSelectItem T="string" Value="@("off")">Off</MudSelectItem>
-                <MudSelectItem T="string" Value="@("en")">English</MudSelectItem>
-                <MudSelectItem T="string" Value="@("forced")">Forced only</MudSelectItem>
-            </MudSelect>
-        </MudItem>
-        <MudItem xs="12" sm="6" lg="4">
-            <MudSwitch T="bool" @bind-Value="_forcedSubtitles" Color="Color.Primary" Label="Show forced subtitles automatically" />
-        </MudItem>
-    </MudGrid>
-
-    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
-             Style="letter-spacing: 0.08em;">
-        General
-    </MudText>
-
-    @* Playback speed *@
-    <MudText Typo="Typo.subtitle2" Class="mb-1">Playback Speed</MudText>
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Default speed for audio and video players. &nbsp;Current: <strong>@_playbackSpeed.ToString("0.##")x</strong>
-    </MudText>
-    <MudSlider @bind-Value="_playbackSpeed"
-               Min="0.5" Max="3.0" Step="0.25"
-               Color="Color.Primary"
-               Class="mb-6">
-        <MudStack Row="true" Justify="Justify.SpaceBetween">
-            <MudText Typo="Typo.caption">0.5x</MudText>
-            <MudText Typo="Typo.caption">1x</MudText>
-            <MudText Typo="Typo.caption">1.5x</MudText>
-            <MudText Typo="Typo.caption">2x</MudText>
-            <MudText Typo="Typo.caption">3x</MudText>
+}
+else if (!string.IsNullOrWhiteSpace(_loadError))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_loadError</MudAlert>
+}
+else if (_settings is not null)
+{
+    <MudStack Spacing="4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudChip T="string" Color="@StatusColor" Variant="Variant.Outlined" Icon="@StatusIcon">@StatusLabel</MudChip>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Outlined.Restore"
+                           Disabled="@(!_dirty || _saving)"
+                           OnClick="ResetChanges">
+                    Reset
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Save"
+                           Disabled="@(!_dirty || _saving)"
+                           OnClick="SaveAsync">
+                    @(_saving ? "Saving..." : "Save changes")
+                </MudButton>
+            </MudStack>
         </MudStack>
-    </MudSlider>
 
-    @* Resume behaviour *@
-    <MudText Typo="Typo.subtitle2" Class="mb-2">When Resuming</MudText>
-    <MudRadioGroup @bind-Value="_resumeBehaviour" Class="mb-6">
-        <MudStack Spacing="1">
-            <MudRadio T="string" Value="@("resume")" Color="Color.Primary">
-                Resume from last position
-            </MudRadio>
-            <MudRadio T="string" Value="@("ask")" Color="Color.Primary">
-                Ask each time
-            </MudRadio>
-            <MudRadio T="string" Value="@("start")" Color="Color.Primary">
-                Always start from beginning
-            </MudRadio>
-        </MudStack>
-    </MudRadioGroup>
+        @if (!string.IsNullOrWhiteSpace(_saveError))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_saveError</MudAlert>
+        }
 
-    <MudDivider Class="my-6" />
-<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
-             Style="letter-spacing: 0.08em;">
-        Skip Intervals
-    </MudText>
+        <MudTabs Rounded="true"
+                 Elevation="0"
+                 Color="Color.Primary"
+                 @bind-ActivePanelIndex="_activeTab">
+            <MudTabPanel Text="General" Icon="@Icons.Material.Outlined.Settings">
+                <MudStack Spacing="3" Class="pt-4">
+                <MudPaper Elevation="0" Class="tl-card">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                        <MudAvatar Size="Size.Large" Color="Color.Primary">@Initials</MudAvatar>
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.overline" Color="Color.Primary">Default Experience</MudText>
+                            <MudText Typo="Typo.h6">@ProfileName</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@ProfileRole personal playback and reading defaults.</MudText>
+                        </MudStack>
+                    </MudStack>
+                    <MudDivider Class="my-4" />
+                    <MudGrid Spacing="3">
+                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Resume</MudText><MudText Typo="Typo.subtitle1">@OnOff(_settings.General.ResumePlayback)</MudText></MudItem>
+                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Video Speed</MudText><MudText Typo="Typo.subtitle1">@FormatSpeed(_settings.Watching.DefaultPlaybackSpeed)</MudText></MudItem>
+                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Audiobook Speed</MudText><MudText Typo="Typo.subtitle1">@FormatSpeed(_settings.Listening.AudiobookDefaultSpeed)</MudText></MudItem>
+                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Subtitles</MudText><MudText Typo="Typo.subtitle1">@_settings.Subtitles.DefaultSubtitleLanguage</MudText></MudItem>
+                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Reading Theme</MudText><MudText Typo="Typo.subtitle1">@Display(_settings.Reading.Theme)</MudText></MudItem>
+                    </MudGrid>
+                </MudPaper>
 
-    <MudGrid Spacing="4" Class="mb-6">
-        <MudItem xs="12" sm="6">
-            <MudText Typo="Typo.subtitle2" Class="mb-2">Skip Forward</MudText>
-            <MudToggleGroup T="int" @bind-Value="_skipForwardSeconds"
-                            SelectionMode="SelectionMode.SingleSelection"
-                            Color="Color.Primary"
-                            Outlined="true">
-                <MudToggleItem T="int" Value="15">15 s</MudToggleItem>
-                <MudToggleItem T="int" Value="30">30 s</MudToggleItem>
-                <MudToggleItem T="int" Value="60">60 s</MudToggleItem>
-            </MudToggleGroup>
-        </MudItem>
-        <MudItem xs="12" sm="6">
-            <MudText Typo="Typo.subtitle2" Class="mb-2">Skip Backward</MudText>
-            <MudToggleGroup T="int" @bind-Value="_skipBackwardSeconds"
-                            SelectionMode="SelectionMode.SingleSelection"
-                            Color="Color.Primary"
-                            Outlined="true">
-                <MudToggleItem T="int" Value="15">15 s</MudToggleItem>
-                <MudToggleItem T="int" Value="30">30 s</MudToggleItem>
-                <MudToggleItem T="int" Value="60">60 s</MudToggleItem>
-            </MudToggleGroup>
-        </MudItem>
-    </MudGrid>
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Resume & Progress" Icon="@Icons.Material.Outlined.Update">
+                            @BoolRow("Resume playback", "Automatically continue where you left off.", _settings.General.ResumePlayback, v => Update(() => _settings.General.ResumePlayback = v))
+                            @BoolRow("Ask before resuming", "Confirm before resuming playback.", _settings.General.AskBeforeResuming, v => Update(() => _settings.General.AskBeforeResuming = v))
+                            @IntSelect("Mark complete threshold", _settings.General.MarkCompleteThresholdPercent, ThresholdOptions, v => Update(() => _settings.General.MarkCompleteThresholdPercent = v), "%")
+                            @BoolRow("Track partially played items", "Show in-progress items across library surfaces.", _settings.General.TrackPartiallyPlayedItems, v => Update(() => _settings.General.TrackPartiallyPlayedItems = v))
+                            @BoolRow("Sync book and audiobook progress", "Keep progress in sync across formats.", _settings.General.SyncProgressBetweenBookAndAudiobook, v => Update(() => _settings.General.SyncProgressBetweenBookAndAudiobook = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Quick Preferences" Icon="@Icons.Material.Outlined.FlashOn">
+                            @BoolRow("Resume playback", "Continue where you left off.", _settings.General.ResumePlayback, v => Update(() => _settings.General.ResumePlayback = v))
+                            @BoolRow("Spoiler-safe progress", "Hide future details and progress.", _settings.General.SpoilerSafeProgress, v => Update(() => _settings.General.SpoilerSafeProgress = v))
+                            @BoolRow("Sync book / audiobook progress", "Keep progress aligned across formats.", _settings.General.SyncProgressBetweenBookAndAudiobook, v => Update(() => _settings.General.SyncProgressBetweenBookAndAudiobook = v))
+                            @BoolRow("Use banner art when available", "Show large banners on detail pages.", _settings.General.UseBannerArtWhenAvailable, v => Update(() => _settings.General.UseBannerArtWhenAvailable = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <SettingsSectionPanel Title="Defaults at a Glance" Icon="@Icons.Material.Outlined.Visibility">
+                            @Glance("Watching", Icons.Material.Outlined.LiveTv, $"Video speed {FormatSpeed(_settings.Watching.DefaultPlaybackSpeed)}")
+                            @Glance("Listening", Icons.Material.Outlined.Headphones, $"Audiobook speed {FormatSpeed(_settings.Listening.AudiobookDefaultSpeed)}")
+                            @Glance("Reading", Icons.Material.Outlined.MenuBook, $"Theme {Display(_settings.Reading.Theme)}")
+                            @Glance("Subtitles", Icons.Material.Outlined.ClosedCaption, _settings.Subtitles.DefaultSubtitleLanguage)
+                        </SettingsSectionPanel>
+                    </MudItem>
+                </MudGrid>
+                </MudStack>
+            </MudTabPanel>
 
-    <MudDivider Class="my-6" />
-<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
-             Style="letter-spacing: 0.08em;">
-        Sleep Timer
-    </MudText>
+            <MudTabPanel Text="Watching" Icon="@Icons.Material.Outlined.LiveTv">
+                <MudGrid Spacing="3" Class="pt-4">
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Video Speed" Icon="@Icons.Material.Outlined.Speed">
+                            <MudText Typo="Typo.body2">Current: <strong>@FormatSpeed(_settings.Watching.DefaultPlaybackSpeed)</strong></MudText>
+                            <MudSlider T="double" Value="@((double)_settings.Watching.DefaultPlaybackSpeed)" ValueChanged="@(v => Update(() => _settings.Watching.DefaultPlaybackSpeed = (decimal)v))" Min="0.5" Max="2.0" Step="0.05" Color="Color.Primary" />
+                            @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x"])
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Skip Controls" Icon="@Icons.Material.Outlined.Replay10">
+                            @IntSelect("Skip back", _settings.Watching.SkipBackSeconds, WatchingSkipBackOptions, v => Update(() => _settings.Watching.SkipBackSeconds = v), " seconds")
+                            @IntSelect("Skip forward", _settings.Watching.SkipForwardSeconds, WatchingSkipForwardOptions, v => Update(() => _settings.Watching.SkipForwardSeconds = v), " seconds")
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Episode Behavior" Icon="@Icons.Material.Outlined.PlaylistPlay">
+                            @BoolRow("Autoplay next episode", "Start the next episode automatically.", _settings.Watching.AutoplayNextEpisode, v => Update(() => _settings.Watching.AutoplayNextEpisode = v))
+                            @BoolRow("Continue from credits", "Resume near the credit point when available.", _settings.Watching.ContinueFromCredits, v => Update(() => _settings.Watching.ContinueFromCredits = v))
+                            @BoolRow("Remember per-title playback speed", "Keep custom speeds for individual titles.", _settings.Watching.RememberPerTitlePlaybackSpeed, v => Update(() => _settings.Watching.RememberPerTitlePlaybackSpeed = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Quality" Icon="@Icons.Material.Outlined.HighQuality">
+                            @StringSelect("Preferred video quality", _settings.Watching.PreferredVideoQuality, VideoQualityOptions, v => Update(() => _settings.Watching.PreferredVideoQuality = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
 
-    <MudSelect T="string"
-               @bind-Value="_sleepTimer"
-               Label="Default Sleep Timer"
-               Variant="Variant.Outlined"
-               FullWidth="true"
-               AnchorOrigin="Origin.BottomLeft"
-               Class="mb-6">
-        <MudSelectItem T="string" Value="@("off")">Off</MudSelectItem>
-        <MudSelectItem T="string" Value="@("15")">15 minutes</MudSelectItem>
-        <MudSelectItem T="string" Value="@("30")">30 minutes</MudSelectItem>
-        <MudSelectItem T="string" Value="@("45")">45 minutes</MudSelectItem>
-        <MudSelectItem T="string" Value="@("60")">60 minutes</MudSelectItem>
-    </MudSelect>
+            <MudTabPanel Text="Listening" Icon="@Icons.Material.Outlined.Headphones">
+                <MudGrid Spacing="3" Class="pt-4">
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Audiobook Speed" Icon="@Icons.Material.Outlined.Speed">
+                            <MudText Typo="Typo.body2">Current: <strong>@FormatSpeed(_settings.Listening.AudiobookDefaultSpeed)</strong></MudText>
+                            <MudSlider T="double" Value="@((double)_settings.Listening.AudiobookDefaultSpeed)" ValueChanged="@(v => Update(() => _settings.Listening.AudiobookDefaultSpeed = (decimal)v))" Min="0.5" Max="3.0" Step="0.05" Color="Color.Primary" />
+                            @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x", "3.0x"])
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Skip & Silence" Icon="@Icons.Material.Outlined.Forward30">
+                            @IntSelect("Skip back", _settings.Listening.SkipBackSeconds, ListeningSkipBackOptions, v => Update(() => _settings.Listening.SkipBackSeconds = v), " seconds")
+                            @IntSelect("Skip forward", _settings.Listening.SkipForwardSeconds, ListeningSkipForwardOptions, v => Update(() => _settings.Listening.SkipForwardSeconds = v), " seconds")
+                            @BoolRow("Skip silence", "Reduce long silent gaps when supported.", _settings.Listening.SkipSilence, v => Update(() => _settings.Listening.SkipSilence = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Music Behavior" Icon="@Icons.Material.Outlined.GraphicEq">
+                            @BoolRow("Music crossfade", "Blend between tracks.", _settings.Listening.MusicCrossfade, v => Update(() => _settings.Listening.MusicCrossfade = v))
+                            <MudSlider T="int" Value="_settings.Listening.CrossfadeSeconds" ValueChanged="@(v => Update(() => _settings.Listening.CrossfadeSeconds = v))" Min="1" Max="15" Step="1" Disabled="@(!_settings.Listening.MusicCrossfade)" Color="Color.Primary" />
+                            @BoolRow("Remember per-title playback speed", "Keep custom speeds for individual titles.", _settings.Listening.RememberPerTitlePlaybackSpeed, v => Update(() => _settings.Listening.RememberPerTitlePlaybackSpeed = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Sleep & Output" Icon="@Icons.Material.Outlined.Bedtime">
+                            @StringSelect("Sleep timer", _settings.Listening.DefaultSleepTimer, SleepTimerOptions, v => Update(() => _settings.Listening.DefaultSleepTimer = v), SleepLabel)
+                            @StringSelect("Output preference", _settings.Listening.OutputPreference, OutputOptions, v => Update(() => _settings.Listening.OutputPreference = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
 
-    <MudDivider Class="my-6" />
-<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
-             Style="letter-spacing: 0.08em;">
-        Video
-    </MudText>
+            <MudTabPanel Text="Reading" Icon="@Icons.Material.Outlined.MenuBook">
+                <MudGrid Spacing="3" Class="pt-4">
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Reading Mode" Icon="@Icons.Material.Outlined.ChromeReaderMode">
+                            @StringSelect("Reading mode", _settings.Reading.ReadingMode, ReadingModeOptions, v => Update(() => _settings.Reading.ReadingMode = v))
+                            @StringSelect("Comic mode", _settings.Reading.DefaultComicMode, ComicOptions, v => Update(() => _settings.Reading.DefaultComicMode = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Typography" Icon="@Icons.Material.Outlined.FormatSize">
+                            <MudText Typo="Typo.body2">Font size: <strong>@_settings.Reading.FontSizePercent%</strong></MudText>
+                            <MudSlider T="int" Value="_settings.Reading.FontSizePercent" ValueChanged="@(v => Update(() => _settings.Reading.FontSizePercent = v))" Min="80" Max="160" Step="5" Color="Color.Primary" />
+                            @StringSelect("Theme", _settings.Reading.Theme, ThemeOptions, v => Update(() => _settings.Reading.Theme = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Page Layout" Icon="@Icons.Material.Outlined.ViewAgenda">
+                            @StringSelect("Line spacing", _settings.Reading.LineSpacing, SpacingOptions, v => Update(() => _settings.Reading.LineSpacing = v))
+                            @StringSelect("Margins", _settings.Reading.Margins, MarginOptions, v => Update(() => _settings.Reading.Margins = v))
+                            @BoolRow("Keep screen awake", "Prevent dimming while reading.", _settings.Reading.KeepScreenAwake, v => Update(() => _settings.Reading.KeepScreenAwake = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
 
-    @* Auto-watched threshold *@
-    <MudText Typo="Typo.subtitle2" Class="mb-1">Mark as Watched After</MudText>
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Mark a video as watched when you reach this point. &nbsp;Current: <strong>@_watchedThreshold %</strong>
-    </MudText>
-    <MudSlider @bind-Value="_watchedThreshold"
-               Min="50" Max="100" Step="5"
-               Color="Color.Primary"
-               Class="mb-6">
-        <MudStack Row="true" Justify="Justify.SpaceBetween">
-            <MudText Typo="Typo.caption">50%</MudText>
-            <MudText Typo="Typo.caption">75%</MudText>
-            <MudText Typo="Typo.caption">100%</MudText>
-        </MudStack>
-    </MudSlider>
-
-    <MudDivider Class="my-6" />
-<MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
-             Style="letter-spacing: 0.08em;">
-        Subtitles
-    </MudText>
-
-    @* Font size *@
-    <MudText Typo="Typo.subtitle2" Class="mb-1">Subtitle Size</MudText>
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-        Relative subtitle font size. &nbsp;Current: <strong>@_subtitleSize %</strong>
-    </MudText>
-    <MudSlider @bind-Value="_subtitleSize"
-               Min="75" Max="200" Step="25"
-               Color="Color.Primary"
-               Class="mb-6">
-        <MudStack Row="true" Justify="Justify.SpaceBetween">
-            <MudText Typo="Typo.caption">75%</MudText>
-            <MudText Typo="Typo.caption">100%</MudText>
-            <MudText Typo="Typo.caption">150%</MudText>
-            <MudText Typo="Typo.caption">200%</MudText>
-        </MudStack>
-    </MudSlider>
-
-    @* Subtitle position *@
-    <MudText Typo="Typo.subtitle2" Class="mb-2">Subtitle Position</MudText>
-    <MudToggleGroup T="string" @bind-Value="_subtitlePosition"
-                    SelectionMode="SelectionMode.SingleSelection"
-                    Color="Color.Primary"
-                    Outlined="true"
-                    Class="mb-6">
-        <MudToggleItem T="string" Value="@("bottom")">
-            <MudIcon Icon="@Icons.Material.Outlined.VerticalAlignBottom" Size="Size.Small" Class="mr-1" />
-            Bottom
-        </MudToggleItem>
-        <MudToggleItem T="string" Value="@("top")">
-            <MudIcon Icon="@Icons.Material.Outlined.VerticalAlignTop" Size="Size.Small" Class="mr-1" />
-            Top
-        </MudToggleItem>
-    </MudToggleGroup>
-
-    <MudDivider Class="my-6" />
-<MudButton Variant="Variant.Filled"
-               Color="Color.Primary"
-               FullWidth="true"
-               OnClick="@SaveAsync"
-               Disabled="@_saving">
-        @(_saving ? "Saving..." : "Save Playback Settings")
-    </MudButton>
-
-</div>
-
+            <MudTabPanel Text="Subtitles" Icon="@Icons.Material.Outlined.ClosedCaption">
+                <MudGrid Spacing="3" Class="pt-4">
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Language Defaults" Icon="@Icons.Material.Outlined.Translate">
+                            @StringSelect("Default subtitle language", _settings.Subtitles.DefaultSubtitleLanguage, LanguageOptions, v => Update(() => _settings.Subtitles.DefaultSubtitleLanguage = v))
+                            @StringSelect("Forced subtitles mode", _settings.Subtitles.ForcedSubtitlesMode, ForcedSubtitleOptions, v => Update(() => _settings.Subtitles.ForcedSubtitlesMode = v))
+                            @StringSelect("Audio language", _settings.Subtitles.AudioLanguage, LanguageOptions, v => Update(() => _settings.Subtitles.AudioLanguage = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Subtitle Appearance" Icon="@Icons.Material.Outlined.Subtitles">
+                            @StringSelect("Subtitle size", _settings.Subtitles.SubtitleSize, SubtitleSizeOptions, v => Update(() => _settings.Subtitles.SubtitleSize = v), Display)
+                            @BoolRow("Subtitle background", "Add a readable background behind subtitles.", _settings.Subtitles.SubtitleBackground, v => Update(() => _settings.Subtitles.SubtitleBackground = v))
+                            @StringSelect("Subtitle position", _settings.Subtitles.SubtitlePosition, SubtitlePositionOptions, v => Update(() => _settings.Subtitles.SubtitlePosition = v))
+                            @StringSelect("Subtitle style", _settings.Subtitles.SubtitleStyle, SubtitleStyleOptions, v => Update(() => _settings.Subtitles.SubtitleStyle = v), Display)
+                        </SettingsSectionPanel>
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
+        </MudTabs>
+    </MudStack>
+}
 @code {
+    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+    private UserPlaybackSettingsDto? _settings;
+    private UserPlaybackSettingsDto? _savedSettings;
+    private ProfileViewModel? _activeProfile;
+    private int _activeTab;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _dirty;
+    private string? _loadError;
+    private string? _saveError;
 
-    private bool   _saving;
-    private double _playbackSpeed    = 1.0;
-    private string _resumeBehaviour  = "resume";
-    private string _webDelivery = "direct";
-    private string _tvDelivery = "hls";
-    private string _mobileDownloadProfile = "mobile-small";
-    private string _defaultAudioLanguage = "auto";
-    private string _defaultSubtitleLanguage = "forced";
-    private bool _forcedSubtitles = true;
-    private int    _skipForwardSeconds  = 30;
-    private int    _skipBackwardSeconds = 15;
-    private string _sleepTimer = "off";
-    private int    _watchedThreshold = 90;   // percent
-    private int    _subtitleSize     = 100;  // percent
-    private string _subtitlePosition = "bottom";
+    private static readonly int[] WatchingSkipBackOptions = [5, 10, 15, 30];
+    private static readonly int[] WatchingSkipForwardOptions = [10, 30, 60, 90];
+    private static readonly int[] ListeningSkipBackOptions = [10, 15, 30];
+    private static readonly int[] ListeningSkipForwardOptions = [15, 30, 60];
+    private static readonly int[] ThresholdOptions = [50, 60, 70, 80, 90, 95, 100];
+    private static readonly string[] LanguageOptions = ["English", "Spanish", "French", "German", "Japanese", "Original"];
+    private static readonly string[] VideoQualityOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Original, PlaybackPreferenceValues.High, PlaybackPreferenceValues.Balanced, PlaybackPreferenceValues.DataSaver];
+    private static readonly string[] SleepTimerOptions = [PlaybackPreferenceValues.Off, "15", "30", "45", "60", PlaybackPreferenceValues.EndOfChapter, PlaybackPreferenceValues.EndOfEpisode];
+    private static readonly string[] OutputOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Headphones, PlaybackPreferenceValues.Speakers, PlaybackPreferenceValues.Bluetooth];
+    private static readonly string[] ReadingModeOptions = [PlaybackPreferenceValues.Paginated, PlaybackPreferenceValues.Scroll];
+    private static readonly string[] ThemeOptions = [PlaybackPreferenceValues.Dark, PlaybackPreferenceValues.Sepia, PlaybackPreferenceValues.Light, PlaybackPreferenceValues.System];
+    private static readonly string[] SpacingOptions = [PlaybackPreferenceValues.Compact, PlaybackPreferenceValues.Comfortable, PlaybackPreferenceValues.Spacious];
+    private static readonly string[] MarginOptions = [PlaybackPreferenceValues.Narrow, PlaybackPreferenceValues.Medium, PlaybackPreferenceValues.Wide];
+    private static readonly string[] ComicOptions = [PlaybackPreferenceValues.Page, PlaybackPreferenceValues.Webtoon, PlaybackPreferenceValues.DoublePage, PlaybackPreferenceValues.FitWidth];
+    private static readonly string[] ForcedSubtitleOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Always, PlaybackPreferenceValues.Never];
+    private static readonly string[] SubtitleSizeOptions = [PlaybackPreferenceValues.Small, PlaybackPreferenceValues.Medium, PlaybackPreferenceValues.Large, PlaybackPreferenceValues.ExtraLarge];
+    private static readonly string[] SubtitlePositionOptions = [PlaybackPreferenceValues.Bottom, PlaybackPreferenceValues.Top];
+    private static readonly string[] SubtitleStyleOptions = [PlaybackPreferenceValues.Clean, PlaybackPreferenceValues.HighContrast, PlaybackPreferenceValues.Shadowed];
+
+    private Color StatusColor => _saveError is not null ? Color.Error : _saving ? Color.Info : _dirty ? Color.Warning : Color.Success;
+    private string StatusIcon => _saveError is not null ? Icons.Material.Outlined.ErrorOutline : _saving ? Icons.Material.Outlined.Sync : _dirty ? Icons.Material.Outlined.Edit : Icons.Material.Outlined.CheckCircle;
+    private string StatusLabel => _saveError is not null ? "Could not save" : _saving ? "Saving..." : _dirty ? "Unsaved changes" : "Saved locally";
+    private string ProfileName => string.IsNullOrWhiteSpace(_activeProfile?.DisplayName) ? "Current profile" : _activeProfile.DisplayName;
+    private string ProfileRole => string.IsNullOrWhiteSpace(_activeProfile?.Role) ? "User" : _activeProfile.Role;
+    private string Initials => GetInitials(ProfileName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _activeProfile = await Orchestrator.GetActiveProfileAsync();
+            var loaded = await PreferencesAccessor.GetAsync();
+            _settings = Clone(loaded ?? UserPlaybackSettingsDto.CreateDefaults(_activeProfile?.Id ?? Guid.Empty));
+            _savedSettings = Clone(_settings);
+        }
+        catch
+        {
+            _loadError = "Playback and reading settings could not be loaded.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private RenderFragment BoolRow(string title, string description, bool value, Action<bool> changed) => @<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudStack Spacing="0">
+            <MudText Typo="Typo.body1">@title</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@description</MudText>
+        </MudStack>
+        <MudSwitch T="bool" Value="@value" ValueChanged="@changed" Color="Color.Primary" />
+    </MudStack>;
+
+    private RenderFragment IntSelect(string label, int value, IReadOnlyList<int> options, Action<int> changed, string suffix) => @<MudSelect T="int" Label="@label" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Dense="true" FullWidth="true">
+        @foreach (var option in options)
+        {
+            <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
+        }
+    </MudSelect>;
+
+    private RenderFragment StringSelect(string label, string value, IReadOnlyList<string> options, Action<string> changed, Func<string, string>? formatter = null) => @<MudSelect T="string" Label="@label" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Dense="true" FullWidth="true">
+        @foreach (var option in options)
+        {
+            <MudSelectItem T="string" Value="@option">@((formatter ?? Display)(option))</MudSelectItem>
+        }
+    </MudSelect>;
+
+    private RenderFragment Glance(string title, string icon, string value) => @<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@icon" Color="Color.Primary" />
+        <MudStack Spacing="0">
+            <MudText Typo="Typo.subtitle2">@title</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@value</MudText>
+        </MudStack>
+    </MudStack>;
+
+    private static RenderFragment SliderLabels(IReadOnlyList<string> labels) => @<MudStack Row="true" Justify="Justify.SpaceBetween">
+        @foreach (var label in labels)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
+        }
+    </MudStack>;
+
+    private void Update(Action action)
+    {
+        action();
+        _saveError = null;
+        _dirty = !SettingsEqual(_settings, _savedSettings);
+    }
 
     private async Task SaveAsync()
     {
+        if (_settings is null)
+            return;
+
         _saving = true;
-        await Task.Delay(400);   // simulate a brief save round-trip
-        Snackbar.Add("Playback settings saved", Severity.Success);
-        _saving = false;
+        _saveError = null;
+
+        try
+        {
+            var saved = await Orchestrator.SavePlaybackSettingsAsync(_settings);
+            if (saved is not null)
+            {
+                _settings = Clone(saved);
+                _savedSettings = Clone(saved);
+                PreferencesAccessor.UpdateCache(saved);
+            }
+
+            _dirty = false;
+            Snackbar.Add("Playback and reading settings saved.", Severity.Success);
+        }
+        catch
+        {
+            _saveError = "Playback and reading settings could not be saved.";
+            Snackbar.Add(_saveError, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void ResetChanges()
+    {
+        if (_savedSettings is null)
+            return;
+
+        _settings = Clone(_savedSettings);
+        _saveError = null;
+        _dirty = false;
+    }
+
+    private UserPlaybackSettingsDto Clone(UserPlaybackSettingsDto source) =>
+        JsonSerializer.Deserialize<UserPlaybackSettingsDto>(
+            JsonSerializer.Serialize(source, _jsonOptions),
+            _jsonOptions) ?? UserPlaybackSettingsDto.CreateDefaults(source.ProfileId);
+
+    private bool SettingsEqual(UserPlaybackSettingsDto? left, UserPlaybackSettingsDto? right) =>
+        JsonSerializer.Serialize(left, _jsonOptions) == JsonSerializer.Serialize(right, _jsonOptions);
+
+    private static string FormatSpeed(decimal value) => $"{value:0.##}x";
+    private static string OnOff(bool value) => value ? "On" : "Off";
+    private static string GetInitials(string value)
+    {
+        var words = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length switch
+        {
+            0 => "U",
+            1 => words[0][0].ToString().ToUpperInvariant(),
+            _ => string.Concat(words.Take(2).Select(word => char.ToUpperInvariant(word[0]))),
+        };
+    }
+
+    private static string SleepLabel(string value) => value switch
+    {
+        PlaybackPreferenceValues.Off => "Off",
+        PlaybackPreferenceValues.EndOfChapter => "End of chapter",
+        PlaybackPreferenceValues.EndOfEpisode => "End of episode",
+        _ => $"{value} minutes",
+    };
+
+    private static string Display(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Not set";
+
+        return string.Concat(value.Select((character, index) =>
+            index > 0 && char.IsUpper(character) && !char.IsUpper(value[index - 1])
+                ? $" {character}"
+                : character.ToString()));
     }
 }
+

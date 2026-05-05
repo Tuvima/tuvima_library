@@ -46,7 +46,6 @@ public sealed class SettingsNavTests
     [Theory]
     [InlineData(SettingsSection.AdminOverview, "/settings/admin")]
     [InlineData(SettingsSection.Playback, "/settings/playback")]
-    [InlineData(SettingsSection.Display, "/settings/display")]
     [InlineData(SettingsSection.Privacy, "/settings/privacy")]
     [InlineData(SettingsSection.Libraries, "/settings/libraries")]
     [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
@@ -101,6 +100,19 @@ public sealed class SettingsNavTests
     public void ResolveRoute_ProfileSegment_IsUnknownAndFallsBackToUserOverview()
     {
         var resolution = SettingsNav.ResolveRoute("profile", "Administrator");
+
+        Assert.Equal(SettingsSection.Overview, resolution.Section);
+        Assert.Equal("/settings", resolution.CanonicalRoute);
+        Assert.False(resolution.IsCanonicalRoute);
+        Assert.False(resolution.IsKnownRoute);
+        Assert.False(resolution.RequestedSectionAllowed);
+        Assert.True(resolution.ShouldRedirect);
+    }
+
+    [Fact]
+    public void ResolveRoute_DisplaySegment_IsUnknownAndFallsBackToUserOverview()
+    {
+        var resolution = SettingsNav.ResolveRoute("display", "Administrator");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/settings", resolution.CanonicalRoute);
@@ -171,7 +183,7 @@ public sealed class SettingsNavTests
             .Select(item => item.Label)
             .ToArray();
 
-        Assert.Equal(["User Overview", "Playback & Reading", "Display & Personalization", "Privacy & History"], userLabels);
+        Assert.Equal(["User Overview", "Playback & Reading", "Privacy & History"], userLabels);
 
         var adminLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "admin"), "Administrator")
             .Select(item => item.Label)

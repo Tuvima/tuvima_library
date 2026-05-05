@@ -21,6 +21,18 @@ public sealed class SettingsEndpointRouteTests
         Assert.DoesNotContain("SaveCore", source[previewStart..putStart], StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ProfileEndpoints_ExposePlaybackSettingsRoutes()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ProfileEndpoints.cs"));
+
+        Assert.Contains("MapGet(\"/{id:guid}/settings/playback\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapPut(\"/{id:guid}/settings/playback\"", source, StringComparison.Ordinal);
+        Assert.Contains("IUserPlaybackSettingsService", source, StringComparison.Ordinal);
+        Assert.Contains("GetOrCreateDefaultsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateAsync(id, request", source, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

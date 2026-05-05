@@ -203,6 +203,49 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<UserPlaybackSettingsDto?> GetPlaybackSettingsAsync(Guid profileId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<UserPlaybackSettingsDto>(
+                $"/profiles/{profileId:D}/settings/playback", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "GET /profiles/{ProfileId}/settings/playback failed", profileId);
+            return null;
+        }
+    }
+
+    public async Task<UserPlaybackSettingsDto?> UpdatePlaybackSettingsAsync(
+        Guid profileId,
+        UserPlaybackSettingsDto settings,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync(
+                $"/profiles/{profileId:D}/settings/playback", settings, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = await response.Content.ReadAsStringAsync(ct);
+                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<UserPlaybackSettingsDto>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "PUT /profiles/{ProfileId}/settings/playback failed", profileId);
+            return null;
+        }
+    }
+
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
     {
         try

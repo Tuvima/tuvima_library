@@ -141,6 +141,124 @@ public sealed record PlaybackDiagnosticsDto
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
+public sealed class UserPlaybackSettingsDto
+{
+    public Guid ProfileId { get; set; }
+    public PlaybackGeneralSettingsDto General { get; set; } = new();
+    public WatchingSettingsDto Watching { get; set; } = new();
+    public ListeningSettingsDto Listening { get; set; } = new();
+    public ReadingSettingsDto Reading { get; set; } = new();
+    public SubtitleLanguageSettingsDto Subtitles { get; set; } = new();
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public static UserPlaybackSettingsDto CreateDefaults(Guid profileId) => new()
+    {
+        ProfileId = profileId,
+        UpdatedAt = DateTimeOffset.UtcNow,
+    };
+}
+
+public sealed class PlaybackGeneralSettingsDto
+{
+    public bool ResumePlayback { get; set; } = true;
+    public bool AskBeforeResuming { get; set; }
+    public int MarkCompleteThresholdPercent { get; set; } = 90;
+    public bool TrackPartiallyPlayedItems { get; set; } = true;
+    public bool SyncProgressBetweenBookAndAudiobook { get; set; } = true;
+    public bool SpoilerSafeProgress { get; set; } = true;
+    public bool UseBannerArtWhenAvailable { get; set; } = true;
+}
+
+public sealed class WatchingSettingsDto
+{
+    public decimal DefaultPlaybackSpeed { get; set; } = 1.0m;
+    public int SkipBackSeconds { get; set; } = 10;
+    public int SkipForwardSeconds { get; set; } = 30;
+    public bool AutoplayNextEpisode { get; set; } = true;
+    public bool ContinueFromCredits { get; set; }
+    public bool PreferHeroBanners { get; set; } = true;
+    public bool RememberPerTitlePlaybackSpeed { get; set; } = true;
+    public string PreferredVideoQuality { get; set; } = PlaybackPreferenceValues.Auto;
+}
+
+public sealed class ListeningSettingsDto
+{
+    public decimal AudiobookDefaultSpeed { get; set; } = 1.25m;
+    public int SkipBackSeconds { get; set; } = 15;
+    public int SkipForwardSeconds { get; set; } = 30;
+    public bool MusicCrossfade { get; set; }
+    public int CrossfadeSeconds { get; set; } = 5;
+    public string DefaultSleepTimer { get; set; } = "30";
+    public bool SkipSilence { get; set; } = true;
+    public bool RememberPerTitlePlaybackSpeed { get; set; } = true;
+    public string OutputPreference { get; set; } = PlaybackPreferenceValues.Auto;
+}
+
+public sealed class ReadingSettingsDto
+{
+    public string ReadingMode { get; set; } = PlaybackPreferenceValues.Paginated;
+    public int FontSizePercent { get; set; } = 110;
+    public string Theme { get; set; } = PlaybackPreferenceValues.Sepia;
+    public string LineSpacing { get; set; } = PlaybackPreferenceValues.Comfortable;
+    public string Margins { get; set; } = PlaybackPreferenceValues.Medium;
+    public bool KeepScreenAwake { get; set; } = true;
+    public bool ShowChapterProgress { get; set; } = true;
+    public bool ShowPageNumbers { get; set; } = true;
+    public string DefaultComicMode { get; set; } = PlaybackPreferenceValues.Page;
+}
+
+public sealed class SubtitleLanguageSettingsDto
+{
+    public string DefaultSubtitleLanguage { get; set; } = "English";
+    public string ForcedSubtitlesMode { get; set; } = PlaybackPreferenceValues.Auto;
+    public string AudioLanguage { get; set; } = "English";
+    public string SubtitleSize { get; set; } = PlaybackPreferenceValues.Medium;
+    public bool SubtitleBackground { get; set; }
+    public string SubtitlePosition { get; set; } = PlaybackPreferenceValues.Bottom;
+    public string SubtitleStyle { get; set; } = PlaybackPreferenceValues.Clean;
+}
+
+public static class PlaybackPreferenceValues
+{
+    public const string Auto = "Auto";
+    public const string Original = "Original";
+    public const string High = "High";
+    public const string Balanced = "Balanced";
+    public const string DataSaver = "DataSaver";
+    public const string Headphones = "Headphones";
+    public const string Speakers = "Speakers";
+    public const string Bluetooth = "Bluetooth";
+    public const string Off = "Off";
+    public const string EndOfChapter = "EndOfChapter";
+    public const string EndOfEpisode = "EndOfEpisode";
+    public const string Paginated = "Paginated";
+    public const string Scroll = "Scroll";
+    public const string Dark = "Dark";
+    public const string Sepia = "Sepia";
+    public const string Light = "Light";
+    public const string System = "System";
+    public const string Compact = "Compact";
+    public const string Comfortable = "Comfortable";
+    public const string Spacious = "Spacious";
+    public const string Narrow = "Narrow";
+    public const string Medium = "Medium";
+    public const string Wide = "Wide";
+    public const string Page = "Page";
+    public const string Webtoon = "Webtoon";
+    public const string DoublePage = "DoublePage";
+    public const string FitWidth = "FitWidth";
+    public const string Always = "Always";
+    public const string Never = "Never";
+    public const string Small = "Small";
+    public const string Large = "Large";
+    public const string ExtraLarge = "ExtraLarge";
+    public const string Bottom = "Bottom";
+    public const string Top = "Top";
+    public const string Clean = "Clean";
+    public const string HighContrast = "HighContrast";
+    public const string Shadowed = "Shadowed";
+}
+
 public static class PlaybackDeliveryModes
 {
     public const string DirectStream = "direct-stream";
