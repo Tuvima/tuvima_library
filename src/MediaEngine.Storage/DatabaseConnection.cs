@@ -431,6 +431,30 @@ public sealed class DatabaseConnection : IDatabaseConnection
             table:  "user_states",
             column: "extended_properties",
             ddl:    "ALTER TABLE user_states ADD COLUMN extended_properties TEXT;");
+        // Migration M-091: Playback segment markers for plugin-generated skip intro,
+        // credits, recap, and commercial intervals.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable: "playback_segments",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS playback_segments (
+                    id            TEXT NOT NULL PRIMARY KEY,
+                    asset_id      TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                    kind          TEXT NOT NULL,
+                    start_seconds REAL NOT NULL,
+                    end_seconds   REAL,
+                    confidence    REAL NOT NULL DEFAULT 0.0,
+                    source        TEXT NOT NULL,
+                    plugin_id     TEXT,
+                    is_skippable  INTEGER NOT NULL DEFAULT 1,
+                    review_status TEXT NOT NULL DEFAULT 'detected',
+                    created_at    TEXT NOT NULL,
+                    updated_at    TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_playback_segments_asset
+                    ON playback_segments(asset_id, kind, start_seconds);
+                """);
 
         // Migration M-020: Add ingestion_run_id to system_activity for event grouping.
         MigrateAddColumnIfMissing(

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.Plugin.CommercialSkip</RootNamespace>
+    <AssemblyName>MediaEngine.Plugin.CommercialSkip</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MediaEngine.Plugins\MediaEngine.Plugins.csproj" />
+  </ItemGroup>
+
+</Project>

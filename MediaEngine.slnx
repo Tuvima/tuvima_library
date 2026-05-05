@@ -7,6 +7,8 @@
     <Project Path="src/MediaEngine.Ingestion/MediaEngine.Ingestion.csproj" />
     <Project Path="src/MediaEngine.Intelligence/MediaEngine.Intelligence.csproj" />
     <Project Path="src/MediaEngine.Processors/MediaEngine.Processors.csproj" />
+    <Project Path="src/MediaEngine.Plugin.CommercialSkip/MediaEngine.Plugin.CommercialSkip.csproj" />
+    <Project Path="src/MediaEngine.Plugins/MediaEngine.Plugins.csproj" />
     <Project Path="src/MediaEngine.Storage/MediaEngine.Storage.csproj" />
     <Project Path="src/MediaEngine.Providers/MediaEngine.Providers.csproj" />
     <Project Path="src/MediaEngine.Identity/MediaEngine.Identity.csproj" />

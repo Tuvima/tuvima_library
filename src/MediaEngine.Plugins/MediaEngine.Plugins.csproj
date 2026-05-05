@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.Plugins</RootNamespace>
+    <AssemblyName>MediaEngine.Plugins</AssemblyName>
+  </PropertyGroup>
+
+</Project>

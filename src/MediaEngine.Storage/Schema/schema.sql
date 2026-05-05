@@ -339,6 +339,24 @@ CREATE TABLE IF NOT EXISTS playback_inspection_cache (
     PRIMARY KEY (asset_id, source_hash)
 );
 
+CREATE TABLE IF NOT EXISTS playback_segments (
+    id            TEXT NOT NULL PRIMARY KEY,
+    asset_id      TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    kind          TEXT NOT NULL,
+    start_seconds REAL NOT NULL,
+    end_seconds   REAL,
+    confidence    REAL NOT NULL DEFAULT 0.0,
+    source        TEXT NOT NULL,
+    plugin_id     TEXT,
+    is_skippable  INTEGER NOT NULL DEFAULT 1,
+    review_status TEXT NOT NULL DEFAULT 'detected',
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_playback_segments_asset
+    ON playback_segments(asset_id, kind, start_seconds);
+
 CREATE TABLE IF NOT EXISTS offline_variants (
     id            TEXT NOT NULL PRIMARY KEY,
     asset_id      TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,

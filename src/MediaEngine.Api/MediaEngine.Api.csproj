@@ -30,6 +30,8 @@
     <ProjectReference Include="..\MediaEngine.Ingestion\MediaEngine.Ingestion.csproj" />
     <ProjectReference Include="..\MediaEngine.Intelligence\MediaEngine.Intelligence.csproj" />
     <ProjectReference Include="..\MediaEngine.Processors\MediaEngine.Processors.csproj" />
+    <ProjectReference Include="..\MediaEngine.Plugin.CommercialSkip\MediaEngine.Plugin.CommercialSkip.csproj" />
+    <ProjectReference Include="..\MediaEngine.Plugins\MediaEngine.Plugins.csproj" />
     <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
     <ProjectReference Include="..\MediaEngine.Providers\MediaEngine.Providers.csproj" />
     <ProjectReference Include="..\MediaEngine.Identity\MediaEngine.Identity.csproj" />

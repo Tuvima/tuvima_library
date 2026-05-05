@@ -36,6 +36,7 @@ public sealed class PlaybackCapabilitiesService
     private readonly IFFmpegService _ffmpeg;
     private readonly IDatabaseConnection _db;
     private readonly PlaybackStateRepository _playbackState;
+    private readonly IPlaybackSegmentRepository _segments;
     private readonly ILogger<PlaybackCapabilitiesService> _logger;
 
     public PlaybackCapabilitiesService(
@@ -43,12 +44,14 @@ public sealed class PlaybackCapabilitiesService
         IFFmpegService ffmpeg,
         IDatabaseConnection db,
         PlaybackStateRepository playbackState,
+        IPlaybackSegmentRepository segments,
         ILogger<PlaybackCapabilitiesService> logger)
     {
         _assets = assets;
         _ffmpeg = ffmpeg;
         _db = db;
         _playbackState = playbackState;
+        _segments = segments;
         _logger = logger;
     }
 
@@ -148,6 +151,7 @@ public sealed class PlaybackCapabilitiesService
             Chapters = BuildChapters(mediaInfo, probe),
             OfflineVariants = variants,
             Resume = await LoadResumeAsync(assetId, ct),
+            Segments = (await _segments.ListByAssetAsync(assetId, ct)).Select(ToSegmentDto).ToList(),
             Warnings = warnings,
             ConversionReason = conversionReason,
         };
@@ -483,6 +487,20 @@ public sealed class PlaybackCapabilitiesService
 
     private static string NormalizeClient(string? client) =>
         string.IsNullOrWhiteSpace(client) ? "web" : client.Trim().ToLowerInvariant();
+
+    private static PlaybackSegmentDto ToSegmentDto(MediaEngine.Domain.Entities.PlaybackSegment segment) => new()
+    {
+        Id = segment.Id,
+        AssetId = segment.AssetId,
+        Kind = segment.Kind,
+        StartSeconds = segment.StartSeconds,
+        EndSeconds = segment.EndSeconds,
+        Confidence = segment.Confidence,
+        Source = segment.Source,
+        PluginId = segment.PluginId,
+        IsSkippable = segment.IsSkippable,
+        ReviewStatus = segment.ReviewStatus,
+    };
 
     private static PlaybackProfileDto ProfileFor(string client) => client switch
     {

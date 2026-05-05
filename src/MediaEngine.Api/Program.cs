@@ -5,6 +5,7 @@ using MediaEngine.Api.Realtime;
 using MediaEngine.Api.Middleware;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
@@ -35,6 +36,8 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Identity;
 using MediaEngine.Identity.Contracts;
+using MediaEngine.Plugin.CommercialSkip;
+using MediaEngine.Plugins;
 using Microsoft.Extensions.Http.Resilience;
 using Serilog;
 using MediaEngine.Api.DevSupport;
@@ -375,6 +378,10 @@ builder.Services.AddHttpClient("headshot_download", c =>
         "Tuvima Library/1.0 (https://gitcollection.com/Tuvima/tuvima_library)");
 })
 .AddStandardResilienceHandler();
+builder.Services.AddHttpClient("plugin_tools", c =>
+{
+    c.Timeout = TimeSpan.FromMinutes(10);
+});
 
 // Config-driven providers: scan config/providers/ and register each one.
 // Named HttpClients + ConfigDrivenAdapter instances are created from config.
@@ -629,6 +636,7 @@ builder.Services.AddSingleton<IIngestionBatchRepository,     IngestionBatchRepos
 builder.Services.AddSingleton<IPendingPersonSignalRepository, PendingPersonSignalRepository>();
 builder.Services.AddSingleton<ILibraryItemRepository,           LibraryItemRepository>();
 builder.Services.AddSingleton<ISearchIndexRepository,        SearchIndexRepository>();
+builder.Services.AddSingleton<IPlaybackSegmentRepository,    PlaybackSegmentRepository>();
 builder.Services.AddSingleton<ISearchService,                SearchService>();
 builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepository>();
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
@@ -784,6 +792,13 @@ builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.ResourceMonitorServi
 // Sprint 2: Hardware auto-profiling.
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.HardwareBenchmarkService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.HardwareBenchmarkBackgroundService>();
+// -- Plugin host --------------------------------------------------------------
+builder.Services.AddSingleton<ITuvimaPlugin, CommercialSkipPlugin>();
+builder.Services.AddSingleton<PluginSettingsStore>();
+builder.Services.AddSingleton<PluginCatalog>();
+builder.Services.AddSingleton<IPluginToolRuntime, PluginToolRuntime>();
+builder.Services.AddSingleton<IPluginAiClient, PluginAiClient>();
+builder.Services.AddSingleton<PluginSegmentDetectionService>();
 
 // -- Health Checks ------------------------------------------------------------
 // Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.
@@ -846,6 +861,7 @@ app.MapCollectionEndpoints();
 app.MapLibraryEndpoints();
 app.MapStreamEndpoints();
 app.MapPlaybackEndpoints();
+app.MapPlaybackSegmentEndpoints();
 app.MapReadEndpoints();
 app.MapReaderEndpoints();
 app.MapIngestionEndpoints();
@@ -873,6 +889,7 @@ app.MapReportEndpoints();
 app.MapDebugEndpoints();
 app.MapAiEndpoints();
 app.MapAiEnrichmentEndpoints();
+app.MapPluginEndpoints();
 
 // -- Development-only seed endpoints ------------------------------------------
 if (app.Environment.IsDevelopment())

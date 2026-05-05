@@ -16,6 +16,7 @@ public sealed record PlaybackManifestDto
     public IReadOnlyList<PlaybackChapterDto> Chapters { get; init; } = [];
     public IReadOnlyList<OfflineVariantDto> OfflineVariants { get; init; } = [];
     public PlaybackResumeDto? Resume { get; init; }
+    public IReadOnlyList<PlaybackSegmentDto> Segments { get; init; } = [];
     public IReadOnlyList<string> Warnings { get; init; } = [];
     public string? ConversionReason { get; init; }
 }
