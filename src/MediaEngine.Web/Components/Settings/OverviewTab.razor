@@ -1,258 +1,1285 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
+@using System.Globalization
+@using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
+@inject UniverseStateContainer StateContainer
+@implements IDisposable
 
-<div class="tl-page settings-overview-page">
-    <div class="settings-overview-summary">
-        <LibraryOverviewPanel ReadOnly="true" />
+<div class="tl-page admin-overview-page">
+    <div class="admin-overview-toolbar">
+        <div>
+            <MudText Typo="Typo.caption" Class="admin-overview-muted">Last updated @FormatClock(_lastUpdated)</MudText>
+        </div>
+        <div class="admin-overview-actions">
+            <MudButton Variant="Variant.Outlined"
+                       Size="Size.Small"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Outlined.Refresh"
+                       Disabled="@_loading"
+                       OnClick="LoadAsync">
+                Refresh
+            </MudButton>
+            <MudButton Href="/settings/review"
+                       Variant="Variant.Outlined"
+                       Size="Size.Small"
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Outlined.RateReview">
+                Review @_pendingReviewCount
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Size="Size.Small"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.PlayArrow"
+                       Disabled="@(_startingIngestion || _currentRun.IsActive)"
+                       OnClick="StartIngestionAsync">
+                New ingestion
+            </MudButton>
+        </div>
     </div>
 
     @if (_loading)
     {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-4" />
+        <MudPaper Elevation="0" Class="tl-card admin-overview-loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+            <MudText Typo="Typo.body2">Loading overview...</MudText>
+        </MudPaper>
     }
-    else
+    else if (!string.IsNullOrWhiteSpace(_error))
     {
-        <div class="settings-overview-grid">
-            <div class="settings-overview-cell">
-                <MudPaper Elevation="0" Class="settings-overview-card tl-card-hover--quiet">
-                    <div class="settings-overview-card-header">
-                        <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">System</MudText>
-                        <MudText Typo="Typo.h6">Heartbeat</MudText>
-                        <MudText Typo="Typo.body2" Class="settings-overview-description">
-                            Live status from the engine, grounded in the same health checks the dashboard uses.
-                        </MudText>
-                    </div>
-
-                    <div class="settings-overview-metrics">
-                        <div class="settings-overview-metric">
-                            <span class="settings-overview-metric-label">Status</span>
-                            <span class="settings-overview-metric-value @(_systemStatus?.IsHealthy == true ? "settings-overview-metric-value--healthy" : "settings-overview-metric-value--warning")">
-                                @(_systemStatus?.IsHealthy == true ? "Online" : "Unavailable")
-                            </span>
-                        </div>
-                        <div class="settings-overview-metric">
-                            <span class="settings-overview-metric-label">Version</span>
-                            <span class="settings-overview-metric-value">@(_systemStatus?.Version ?? "Unknown")</span>
-                        </div>
-                        <div class="settings-overview-metric">
-                            <span class="settings-overview-metric-label">Language</span>
-                            <span class="settings-overview-metric-value">@(_serverGeneral?.DisplayLanguage ?? _systemStatus?.Language ?? "en")</span>
-                        </div>
-                    </div>
-                </MudPaper>
-            </div>
-
-            <div class="settings-overview-cell">
-                <MudPaper Elevation="0" Class="settings-overview-card tl-card-hover--quiet">
-                    <div class="settings-overview-card-header">
-                        <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">Deep Enrichment</MudText>
-                        <MudText Typo="Typo.h6">Stage 3 coverage</MudText>
-                        <MudText Typo="Typo.body2" Class="settings-overview-description">
-                            Universe assignment and deferred enrichment coverage across the current library.
-                        </MudText>
-                    </div>
-
-                    <div class="settings-overview-metrics">
-                        <div class="settings-overview-metric">
-                            <span class="settings-overview-metric-label">Stage 3 ready</span>
-                            <span class="settings-overview-metric-value">@(_overview is null ? "0" : _overview.EnrichedStage3.ToString("N0"))</span>
-                        </div>
-                        <div class="settings-overview-metric">
-                            <span class="settings-overview-metric-label">Universe assigned</span>
-                            <span class="settings-overview-metric-value">@(_overview is null ? "0" : _overview.UniverseAssigned.ToString("N0"))</span>
-                        </div>
-                        <div class="settings-overview-metric">
-                            <span class="settings-overview-metric-label">Art pending</span>
-                            <span class="settings-overview-metric-value">@(_overview is null ? "0" : _overview.ArtPending.ToString("N0"))</span>
-                        </div>
-                    </div>
-                </MudPaper>
-            </div>
-
-            <div class="settings-overview-cell">
-                <MudPaper Elevation="0" Class="settings-overview-card tl-card-hover--quiet">
-                    <div class="settings-overview-card-header">
-                        <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">Quick Links</MudText>
-                        <MudText Typo="Typo.h6">Continue work</MudText>
-                        <MudText Typo="Typo.body2" Class="settings-overview-description">
-                            Jump straight to the parts of settings that usually need attention first.
-                        </MudText>
-                    </div>
-
-                    <div class="settings-overview-actions">
-                        <MudButton Href="/settings/review"
-                                   Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   StartIcon="@Icons.Material.Outlined.RateReview"
-                                   Class="settings-overview-action settings-overview-action--primary">
-                            Review @ReviewCount
-                        </MudButton>
-                        <MudButton Href="/settings/providers"
-                                   Variant="Variant.Outlined"
-                                   Color="Color.Inherit"
-                                   StartIcon="@Icons.Material.Outlined.Collections"
-                                   Class="settings-overview-action">
-                            Providers
-                        </MudButton>
-                        <MudButton Href="/settings/ingestion"
-                                   Variant="Variant.Outlined"
-                                   Color="Color.Inherit"
-                                   StartIcon="@Icons.Material.Outlined.PendingActions"
-                                   Class="settings-overview-action">
-                            Ingestion
-                        </MudButton>
-                        <MudButton Href="/settings/libraries"
-                                   Variant="Variant.Outlined"
-                                   Color="Color.Inherit"
-                                   StartIcon="@Icons.Material.Outlined.FolderOpen"
-                                   Class="settings-overview-action">
-                            Libraries
-                        </MudButton>
-                    </div>
-                </MudPaper>
-            </div>
-        </div>
-
-        <div class="settings-overview-cell settings-overview-cell--full">
-            <MudPaper Elevation="0" Class="settings-overview-card tl-card-hover--quiet">
-                <div class="settings-overview-card-header">
-                    <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">Ingestion</MudText>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.h6">@(_ingestionSummary.IsActive ? "Ingestion in progress" : "Ingestion idle")</MudText>
-                        <MudChip T="string" Size="Size.Small" Color="@(_ingestionSummary.IsActive ? Color.Info : Color.Default)">
-                            @(_ingestionSummary.IsActive ? "Active" : "Idle")
-                        </MudChip>
-                    </MudStack>
-                    <MudText Typo="Typo.body2" Class="settings-overview-description">
-                        @(_ingestionSummary.IsActive
-                            ? "A compact summary of the current library run."
-                            : $"No active ingestion. Last completed run: {_ingestionSummary.LastCompletedRun}.")
-                    </MudText>
-                </div>
-
-                <MudProgressLinear Value="@_ingestionSummary.Progress"
-                                   Color="@(_ingestionSummary.IsActive ? Color.Primary : Color.Default)"
-                                   Rounded="false"
-                                   Class="mb-4" />
-
-                <div class="settings-overview-metrics">
-                    <div class="settings-overview-metric">
-                        <span class="settings-overview-metric-label">Processed</span>
-                        <span class="settings-overview-metric-value">@($"{_ingestionSummary.Processed:N0} / {_ingestionSummary.Total:N0}")</span>
-                    </div>
-                    <div class="settings-overview-metric">
-                        <span class="settings-overview-metric-label">Stage</span>
-                        <span class="settings-overview-metric-value">@_ingestionSummary.Stage</span>
-                    </div>
-                    <div class="settings-overview-metric">
-                        <span class="settings-overview-metric-label">Current item</span>
-                        <span class="settings-overview-metric-value">@_ingestionSummary.CurrentItem</span>
-                    </div>
-                    <div class="settings-overview-metric">
-                        <span class="settings-overview-metric-label">Active tasks</span>
-                        <span class="settings-overview-metric-value">@_ingestionSummary.ActiveTasks</span>
-                    </div>
-                    <div class="settings-overview-metric">
-                        <span class="settings-overview-metric-label">Queued tasks</span>
-                        <span class="settings-overview-metric-value">@_ingestionSummary.QueuedTasks</span>
-                    </div>
-                    <div class="settings-overview-metric">
-                        <span class="settings-overview-metric-label">Needs review</span>
-                        <span class="settings-overview-metric-value">@ReviewCount</span>
-                    </div>
-                    <div class="settings-overview-metric">
-                        <span class="settings-overview-metric-label">Failed tasks</span>
-                        <span class="settings-overview-metric-value">@_ingestionSummary.FailedTasks</span>
-                    </div>
-                    <div class="settings-overview-metric">
-                        <span class="settings-overview-metric-label">Elapsed</span>
-                        <span class="settings-overview-metric-value">@_ingestionSummary.Elapsed</span>
-                    </div>
-                </div>
-
-                <MudButton Href="/settings/ingestion"
-                           Variant="Variant.Outlined"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Outlined.PendingActions"
-                           Class="mt-4">
-                    View ingestion details
-                </MudButton>
-                @* TODO: Replace placeholder ingestion summary with live ingestion/background task API data when available. *@
-            </MudPaper>
-        </div>
-
-        <div class="settings-overview-cell settings-overview-cell--full">
-            <MudPaper Elevation="0" Class="settings-overview-card tl-card-hover--quiet">
-                <div class="settings-overview-card-header">
-                    <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">Coming Next</MudText>
-                    <MudText Typo="Typo.h6">Overview will keep growing</MudText>
-                    <MudText Typo="Typo.body2" Class="settings-overview-description">
-                        Additional statistics will land here as more trustworthy live metrics are wired through the engine. Until then, this page stays focused on the signals the app can verify today.
-                    </MudText>
-                </div>
-            </MudPaper>
-        </div>
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">@_error</MudAlert>
     }
+
+    <MudPaper Elevation="0" Class="tl-card admin-library-banner">
+        <div class="admin-library-banner__content">
+            <div class="admin-library-banner__main">
+                <div class="admin-library-banner__icon">
+                    <MudIcon Icon="@Icons.Material.Outlined.Inventory2" />
+                </div>
+                <div>
+                    <MudText Typo="Typo.h4" Class="admin-library-banner__title">
+                        @FormatCount(_libraryTotal) items in your library
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="admin-library-banner__subtitle">
+                        Books, movies, TV, music, audiobooks, comics, and podcasts
+                    </MudText>
+                </div>
+            </div>
+
+            <div class="admin-library-breakdown" aria-label="Library media type breakdown">
+                @foreach (var media in MediaBreakdown)
+                {
+                    <div class="admin-library-media">
+                        <MudIcon Icon="@media.Icon" />
+                        <span class="admin-library-media__label">@media.Label</span>
+                        <span class="admin-library-media__count">@FormatCount(media.Count)</span>
+                    </div>
+                }
+            </div>
+
+            <div class="admin-composition-bar" aria-label="Library composition by media type">
+                @if (MediaBreakdown.Any(item => item.Count > 0))
+                {
+                    @foreach (var media in MediaBreakdown.Where(item => item.Count > 0))
+                    {
+                        <span class="admin-composition-bar__segment"
+                              title="@($"{media.Label}: {media.Percent:0.#}%")"
+                              style="@SegmentStyle(media)"></span>
+                    }
+                }
+                else
+                {
+                    <span class="admin-composition-bar__empty"></span>
+                }
+            </div>
+        </div>
+    </MudPaper>
+
+    <div class="admin-overview-primary-grid">
+        <MudPaper Elevation="0" Class="tl-card admin-overview-card admin-overview-card--feature">
+            <div class="admin-overview-card__header">
+                <div>
+                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Ingestion</MudText>
+                    <MudText Typo="Typo.h6">Ingestion Progress</MudText>
+                </div>
+                <span class="@StatusBadgeClass(_currentRun.Status)">@_currentRun.Status</span>
+            </div>
+
+            @if (_currentRun.IsActive)
+            {
+                <div class="admin-run-progress">
+                    <div class="admin-run-progress__copy">
+                        <span>@FormatCount(_currentRun.Processed) / @FormatCount(_currentRun.Total) processed</span>
+                        <span>@_currentRun.Progress.ToString("0")%</span>
+                    </div>
+                    <div class="admin-progress-track">
+                        <span class="admin-progress-fill" style="@ProgressStyle(_currentRun.Progress)"></span>
+                    </div>
+                </div>
+
+                <div class="admin-detail-grid">
+                    @Detail("Library", _currentRun.Library)
+                    @Detail("Current item", _currentRun.CurrentItem)
+                    @Detail("Stage", _currentRun.Stage)
+                    @Detail("Started by", _currentRun.StartedBy)
+                    @Detail("Elapsed", _currentRun.Elapsed)
+                    @Detail("Remaining / ETA", _currentRun.Remaining)
+                </div>
+            }
+            else
+            {
+                <div class="admin-empty-state">
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">No ingestion currently running</MudText>
+                        <MudText Typo="Typo.body2" Class="admin-overview-muted">@_currentRun.IdleDetail</MudText>
+                    </div>
+                </div>
+            }
+
+            <div class="admin-chip-row">
+                <span class="admin-chip admin-chip--info">@FormatCount(_currentRun.Queued) queued</span>
+                <span class="admin-chip @(_currentRun.Failed > 0 ? "admin-chip--danger" : "")">@FormatCount(_currentRun.Failed) failed</span>
+                <span class="admin-chip @(_pendingReviewCount > 0 ? "admin-chip--warning" : "admin-chip--success")">@FormatCount(_pendingReviewCount) needs review</span>
+            </div>
+
+            <div class="admin-card-actions">
+                <MudButton Href="/settings/ingestion" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">View run</MudButton>
+                <MudButton Href="/settings/ingestion" Variant="Variant.Text" Size="Size.Small" Color="Color.Default">Open tasks</MudButton>
+            </div>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="tl-card admin-overview-card">
+            <div class="admin-overview-card__header">
+                <div>
+                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Curation</MudText>
+                    <MudText Typo="Typo.h6">Review Queue</MudText>
+                </div>
+                <span class="@(_pendingReviewCount > 0 ? "admin-status admin-status--warning" : "admin-status admin-status--success")">
+                    @(_pendingReviewCount > 0 ? $"{FormatCount(_pendingReviewCount)} pending" : "Clear")
+                </span>
+            </div>
+
+            <div class="admin-review-stats">
+                @Metric("High priority", FormatCount(_highPriorityReviewCount), Icons.Material.Outlined.PriorityHigh)
+                @Metric("Oldest", _oldestReviewAge, Icons.Material.Outlined.Schedule)
+                @Metric("New today", FormatCount(_newReviewTodayCount), Icons.Material.Outlined.Today)
+            </div>
+
+            @if (_reviewItems.Count == 0)
+            {
+                <div class="admin-empty-state admin-empty-state--success">
+                    <MudIcon Icon="@Icons.Material.Outlined.Verified" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">Review queue is clear</MudText>
+                        <MudText Typo="Typo.body2" Class="admin-overview-muted">No pending decisions need attention.</MudText>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="admin-compact-list">
+                    @foreach (var item in _reviewItems.Take(3))
+                    {
+                        <div class="admin-compact-row">
+                            <MudIcon Icon="@MediaIcon(item.MediaType ?? item.EntityType)" />
+                            <div class="admin-compact-row__body">
+                                <span>@ReviewTitle(item)</span>
+                                <small>@FirstNonBlank(item.MediaType, item.EntityType, "Unknown")</small>
+                            </div>
+                            <span class="admin-reason-badge">@FormatTrigger(item.Trigger)</span>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="admin-card-actions">
+                <MudButton Href="/settings/review" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning">Open review queue</MudButton>
+            </div>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="tl-card admin-overview-card">
+            <div class="admin-overview-card__header">
+                <div>
+                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Playback</MudText>
+                    <MudText Typo="Typo.h6">Active Streams</MudText>
+                </div>
+                <span class="@(_activeTranscodes > 0 ? "admin-status admin-status--info" : "admin-status")">
+                    @(_activeTranscodes > 0 ? "Transcoding" : "Idle")
+                </span>
+            </div>
+
+            <div class="admin-stream-stats">
+                @Metric("Active streams", FormatCount(_activeStreams), Icons.Material.Outlined.LiveTv)
+                @Metric("Transcodes", FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
+                @Metric("Direct play", FormatCount(_directPlayStreams), Icons.Material.Outlined.PlayCircle)
+            </div>
+
+            <div class="admin-split-bar" aria-label="Playback mode split">
+                <span class="admin-split-bar__transcode" style="@ProgressStyle(_transcodePercent)"></span>
+                <span class="admin-split-bar__direct" style="@ProgressStyle(_directPlayPercent)"></span>
+            </div>
+
+            @if (_activeEncodeJobs.Count == 0)
+            {
+                <div class="admin-empty-state">
+                    <MudIcon Icon="@Icons.Material.Outlined.PlayCircle" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">No active streams</MudText>
+                        <MudText Typo="Typo.body2" Class="admin-overview-muted">Playback session reporting is not available yet; active transcodes will appear here.</MudText>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="admin-compact-list">
+                    @foreach (var job in _activeEncodeJobs.Take(3))
+                    {
+                        <div class="admin-compact-row">
+                            <MudIcon Icon="@Icons.Material.Outlined.VideoSettings" />
+                            <div class="admin-compact-row__body">
+                                <span>@ShortId(job.AssetId)</span>
+                                <small>@FormatEncodeTiming(job)</small>
+                            </div>
+                            <span class="admin-reason-badge">Transcoding @FormatProfile(job.ProfileKey)</span>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="admin-card-actions">
+                <MudButton Href="/settings/delivery" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">Open playback</MudButton>
+            </div>
+        </MudPaper>
+    </div>
+
+    <div class="admin-overview-bottom-grid">
+        <MudPaper Elevation="0" Class="tl-card admin-overview-card">
+            <div class="admin-overview-card__header">
+                <div>
+                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Recent Work</MudText>
+                    <MudText Typo="Typo.h6">Recent Ingestion Runs</MudText>
+                </div>
+            </div>
+
+            @if (_recentRuns.Count == 0)
+            {
+                <div class="admin-empty-state">
+                    <MudIcon Icon="@Icons.Material.Outlined.PendingActions" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">No recent ingestion runs</MudText>
+                        <MudText Typo="Typo.body2" Class="admin-overview-muted">Runs will appear after scans are started.</MudText>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="admin-run-table">
+                    <div class="admin-run-table__head">
+                        <span>Run ID</span>
+                        <span>Library</span>
+                        <span>Stage</span>
+                        <span>Status</span>
+                        <span>Started</span>
+                    </div>
+                    @foreach (var run in _recentRuns.Take(3))
+                    {
+                        <a class="admin-run-table__row" href="/settings/ingestion" aria-label="@($"Open ingestion run {ShortId(run.Id)}")">
+                            <span>@ShortId(run.Id)</span>
+                            <span>@RunLibrary(run)</span>
+                            <span>@RunStage(run)</span>
+                            <span><span class="@StatusBadgeClass(run.Status)">@FormatStatus(run.Status)</span></span>
+                            <span>@FormatRelative(run.StartedAt)</span>
+                        </a>
+                    }
+                </div>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="tl-card admin-overview-card">
+            <div class="admin-overview-card__header">
+                <div>
+                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Today</MudText>
+                    <MudText Typo="Typo.h6">Operational Snapshot</MudText>
+                </div>
+            </div>
+
+            <div class="admin-snapshot-grid">
+                @Metric("Added today", FormatCount(_overview?.Added24h ?? 0), Icons.Material.Outlined.AddCircle)
+                @Metric("Processed today", FormatCount(_processedToday), Icons.Material.Outlined.TaskAlt)
+                @Metric("Needs review", FormatCount(_pendingReviewCount), Icons.Material.Outlined.RateReview)
+                @Metric("Active transcodes", FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
+                @Metric("Recent imports", FormatCount(_recentImportsToday), Icons.Material.Outlined.MoveToInbox)
+            </div>
+        </MudPaper>
+    </div>
 </div>
 
 @code {
     [Parameter] public int ReviewCount { get; set; }
 
     private bool _loading = true;
-    private SystemStatusViewModel? _systemStatus;
-    private ServerGeneralSettingsDto? _serverGeneral;
-    private LibraryOverviewViewModel? _overview;
-    private readonly IngestionSummary _ingestionSummary = new();
+    private bool _startingIngestion;
+    private string? _error;
+    private DateTimeOffset? _lastUpdated;
 
-    private sealed class IngestionSummary
+    private LibraryOverviewViewModel? _overview;
+    private List<ReviewItemViewModel> _reviewItems = [];
+    private IReadOnlyList<IngestionBatchViewModel> _recentRuns = [];
+    private List<ActivityEntryViewModel> _recentActivity = [];
+    private List<EncodeJobDto> _encodeJobs = [];
+    private OverviewRun _currentRun = OverviewRun.Empty;
+
+    private int _pendingReviewCount;
+    private int _highPriorityReviewCount;
+    private int _newReviewTodayCount;
+    private int _processedToday;
+    private int _recentImportsToday;
+    private int _activeStreams;
+    private int _activeTranscodes;
+    private int _directPlayStreams;
+    private double _transcodePercent;
+    private double _directPlayPercent;
+    private string _oldestReviewAge = "None";
+
+    private int _libraryTotal => _overview?.TotalItems
+        ?? (_overview?.MediaTypeCounts.Values.Sum() ?? 0);
+
+    private List<EncodeJobDto> _activeEncodeJobs =>
+        _encodeJobs
+            .Where(job => IsActiveEncodeStatus(job.Status))
+            .OrderByDescending(job => job.StartedAt ?? job.CreatedAt)
+            .ToList();
+
+    private IReadOnlyList<MediaBreakdownItem> MediaBreakdown
     {
-        public bool IsActive { get; init; }
-        public double Progress { get; init; }
-        public int Processed { get; init; }
-        public int Total { get; init; }
-        public string Stage { get; init; } = "Idle";
-        public string CurrentItem { get; init; } = "None";
-        public int ActiveTasks { get; init; }
-        public int QueuedTasks { get; init; }
-        public int FailedTasks { get; init; }
-        public string Elapsed { get; init; } = "0:00";
-        public string LastCompletedRun { get; init; } = "not available";
+        get
+        {
+            var counts = _overview?.MediaTypeCounts ?? [];
+            var items = new[]
+            {
+                MediaItem("Books", Icons.Material.Outlined.MenuBook, counts),
+                MediaItem("Audiobooks", Icons.Material.Outlined.Headphones, counts),
+                MediaItem("Movies", Icons.Material.Outlined.Movie, counts),
+                MediaItem("TV Episodes", Icons.Material.Outlined.LiveTv, counts),
+                MediaItem("Music", Icons.Material.Outlined.MusicNote, counts),
+                MediaItem("Comics", Icons.Material.Outlined.AutoStories, counts),
+                MediaItem("Podcasts", Icons.Material.Outlined.Podcasts, counts),
+            };
+
+            var total = Math.Max(1, items.Sum(item => item.Count));
+            return items
+                .Select(item => item with { Percent = item.Count * 100d / total })
+                .ToList();
+        }
     }
 
     protected override async Task OnInitializedAsync()
     {
+        StateContainer.OnStateChanged += OnRealtimeStateChanged;
+        await LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        StateContainer.OnStateChanged -= OnRealtimeStateChanged;
+    }
+
+    private async Task LoadAsync()
+    {
         _loading = true;
+        _error = null;
 
         try
         {
-            _systemStatus = await Orchestrator.GetSystemStatusAsync();
-        }
-        catch
-        {
-            _systemStatus = null;
-        }
+            var overviewTask = ApiClient.GetLibraryOverviewAsync();
+            var reviewsTask = Orchestrator.GetPendingReviewsAsync(3);
+            var runsTask = Orchestrator.GetIngestionBatchesAsync(6);
+            var activityTask = Orchestrator.GetRecentActivityAsync(25);
+            var encodeTask = ApiClient.GetEncodeJobsAsync();
 
+            await Task.WhenAll(overviewTask, reviewsTask, runsTask, activityTask, encodeTask);
+
+            _overview = await overviewTask;
+            _reviewItems = await reviewsTask;
+            _recentRuns = await runsTask;
+            _recentActivity = await activityTask;
+            _encodeJobs = await encodeTask;
+
+            Recompute();
+            _lastUpdated = DateTimeOffset.Now;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Overview data could not load: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task StartIngestionAsync()
+    {
+        _startingIngestion = true;
         try
         {
-            _serverGeneral = await Orchestrator.GetServerGeneralAsync();
+            await Orchestrator.TriggerRescanAsync();
+            await LoadAsync();
         }
-        catch
+        finally
         {
-            _serverGeneral = null;
+            _startingIngestion = false;
+        }
+    }
+
+    private void OnRealtimeStateChanged()
+    {
+        Recompute();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Recompute()
+    {
+        _pendingReviewCount = Math.Max(ReviewCount, Math.Max(_overview?.ReviewTotal ?? 0, _reviewItems.Count));
+        _highPriorityReviewCount = _reviewItems.Count(item =>
+            item.ConfidenceScore is <= 0.60
+            || item.Trigger.Contains("LowConfidence", StringComparison.OrdinalIgnoreCase)
+            || item.Trigger.Contains("Multiple", StringComparison.OrdinalIgnoreCase));
+        _newReviewTodayCount = _reviewItems.Count(item => IsToday(item.CreatedAt));
+        _oldestReviewAge = _reviewItems.Count == 0
+            ? "None"
+            : FormatRelative(_reviewItems.Min(item => item.CreatedAt));
+
+        _processedToday = _recentRuns
+            .Where(run => IsToday(run.StartedAt))
+            .Sum(run => run.FilesProcessed);
+
+        _recentImportsToday = _recentActivity.Count(entry =>
+            IsToday(entry.OccurredAt)
+            && (entry.ActionType.Contains("Ingest", StringComparison.OrdinalIgnoreCase)
+                || entry.ActionType.Contains("MediaAdded", StringComparison.OrdinalIgnoreCase)));
+
+        _activeTranscodes = _activeEncodeJobs.Count;
+        _activeStreams = _activeTranscodes;
+        _directPlayStreams = 0;
+        var playbackTotal = _activeTranscodes + _directPlayStreams;
+        _transcodePercent = playbackTotal > 0 ? _activeTranscodes * 100d / playbackTotal : 0;
+        _directPlayPercent = playbackTotal > 0 ? _directPlayStreams * 100d / playbackTotal : 0;
+
+        _currentRun = BuildCurrentRun();
+    }
+
+    private OverviewRun BuildCurrentRun()
+    {
+        var batchProgress = StateContainer.BatchProgress;
+        if (batchProgress is not null)
+        {
+            return new OverviewRun(
+                IsActive: true,
+                Status: "Processing",
+                Progress: batchProgress.ProgressPercent,
+                Processed: batchProgress.FilesProcessed,
+                Total: batchProgress.FilesTotal,
+                Library: "Current batch",
+                CurrentItem: FirstNonBlank(batchProgress.CurrentFileTitle, batchProgress.RecentTitles?.FirstOrDefault(), "Processing item"),
+                Stage: FirstNonBlank(batchProgress.CurrentStage, batchProgress.LifecycleStage, "Processing"),
+                StartedBy: "Engine",
+                Elapsed: "In progress",
+                Remaining: batchProgress.EstimatedSecondsRemaining.HasValue
+                    ? FormatDuration(TimeSpan.FromSeconds(batchProgress.EstimatedSecondsRemaining.Value))
+                    : "Calculating",
+                Queued: batchProgress.FilesQueued,
+                Failed: batchProgress.FilesFailed,
+                IdleDetail: "");
         }
 
-        try
+        var signalProgress = StateContainer.IngestionProgress;
+        if (signalProgress is not null)
         {
-            _overview = await ApiClient.GetLibraryOverviewAsync();
-        }
-        catch
-        {
-            _overview = null;
+            var percent = signalProgress.TotalCount > 0
+                ? signalProgress.ProcessedCount * 100d / signalProgress.TotalCount
+                : 0;
+
+            return new OverviewRun(
+                IsActive: true,
+                Status: signalProgress.Stage,
+                Progress: percent,
+                Processed: signalProgress.ProcessedCount,
+                Total: signalProgress.TotalCount,
+                Library: "Watch folder",
+                CurrentItem: FirstNonBlank(signalProgress.CurrentFile, "Scanning"),
+                Stage: signalProgress.Stage,
+                StartedBy: "Engine",
+                Elapsed: "In progress",
+                Remaining: signalProgress.TotalCount > 0 ? "Calculating" : "Discovering files",
+                Queued: Math.Max(0, signalProgress.TotalCount - signalProgress.ProcessedCount),
+                Failed: 0,
+                IdleDetail: "");
         }
 
-        _loading = false;
+        var activeRun = _recentRuns.FirstOrDefault(run => IsActiveRunStatus(run.Status));
+        if (activeRun is not null)
+        {
+            var progress = activeRun.FilesTotal > 0
+                ? activeRun.FilesProcessed * 100d / activeRun.FilesTotal
+                : 0;
+
+            return new OverviewRun(
+                IsActive: true,
+                Status: FormatStatus(activeRun.Status),
+                Progress: progress,
+                Processed: activeRun.FilesProcessed,
+                Total: activeRun.FilesTotal,
+                Library: RunLibrary(activeRun),
+                CurrentItem: "Current item unavailable",
+                Stage: RunStage(activeRun),
+                StartedBy: "Engine",
+                Elapsed: FormatDuration(DateTimeOffset.UtcNow - activeRun.StartedAt.ToUniversalTime()),
+                Remaining: "Calculating",
+                Queued: Math.Max(0, activeRun.FilesTotal - activeRun.FilesProcessed),
+                Failed: activeRun.FilesFailed,
+                IdleDetail: "");
+        }
+
+        var lastRun = _recentRuns.FirstOrDefault();
+        return OverviewRun.Empty with
+        {
+            Failed = _recentRuns.Sum(run => run.FilesFailed),
+            IdleDetail = lastRun is null
+                ? "No recent run data is available."
+                : $"Last run {FormatStatus(lastRun.Status).ToLowerInvariant()} {FormatRelative(lastRun.StartedAt)}."
+        };
+    }
+
+    private static RenderFragment Detail(string label, string value) => @<div class="admin-detail">
+        <span>@label</span>
+        <strong>@value</strong>
+    </div>;
+
+    private static RenderFragment Metric(string label, string value, string icon) => @<div class="admin-metric">
+        <MudIcon Icon="@icon" />
+        <div>
+            <span>@label</span>
+            <strong>@value</strong>
+        </div>
+    </div>;
+
+    private static MediaBreakdownItem MediaItem(string label, string icon, Dictionary<string, int> counts) =>
+        new(label, icon, CountFor(counts, label), 0);
+
+    private static int CountFor(Dictionary<string, int> counts, string label)
+    {
+        string[] aliases = label switch
+        {
+            "Books" => new[] { "book", "books", "epub" },
+            "Audiobooks" => new[] { "audiobook", "audiobooks", "m4b" },
+            "Movies" => new[] { "movie", "movies", "film", "video" },
+            "TV Episodes" => new[] { "tv", "tv episode", "tv episodes", "episode", "episodes" },
+            "Music" => new[] { "music", "track", "tracks", "song", "songs", "album" },
+            "Comics" => new[] { "comic", "comics", "cbz", "cbr" },
+            "Podcasts" => new[] { "podcast", "podcasts" },
+            _ => new[] { label },
+        };
+
+        return counts
+            .Where(kv => aliases.Any(alias => kv.Key.Equals(alias, StringComparison.OrdinalIgnoreCase)
+                || kv.Key.Contains(alias, StringComparison.OrdinalIgnoreCase)))
+            .Sum(kv => kv.Value);
+    }
+
+    private static string SegmentStyle(MediaBreakdownItem item) =>
+        $"width: {Math.Max(item.Percent, 1).ToString("0.###", CultureInfo.InvariantCulture)}%; background: {item.Color};";
+
+    private static string ProgressStyle(double percent) =>
+        $"width: {Math.Clamp(percent, 0, 100).ToString("0.###", CultureInfo.InvariantCulture)}%;";
+
+    private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
+
+    private static string FormatClock(DateTimeOffset? value) =>
+        value.HasValue ? value.Value.ToLocalTime().ToString("h:mm tt", CultureInfo.CurrentCulture) : "not yet";
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        duration = duration.Duration();
+        if (duration.TotalHours >= 1)
+        {
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        }
+
+        return $"{duration.Minutes}m {duration.Seconds}s";
+    }
+
+    private static string FormatRelative(string value) =>
+        DateTimeOffset.TryParse(value, out var parsed) ? FormatRelative(parsed) : "recently";
+
+    private static string FormatRelative(DateTimeOffset value)
+    {
+        var elapsed = DateTimeOffset.UtcNow - value.ToUniversalTime();
+        return elapsed.TotalMinutes switch
+        {
+            < 1 => "just now",
+            < 60 => $"{(int)elapsed.TotalMinutes}m ago",
+            < 1440 => $"{(int)elapsed.TotalHours}h ago",
+            _ => $"{(int)elapsed.TotalDays}d ago",
+        };
+    }
+
+    private static bool IsToday(DateTimeOffset value) => value.ToLocalTime().Date == DateTimeOffset.Now.Date;
+
+    private static bool IsToday(string value) =>
+        DateTimeOffset.TryParse(value, out var parsed) && IsToday(parsed);
+
+    private static string ReviewTitle(ReviewItemViewModel item) =>
+        FirstNonBlank(item.EntityTitle, item.Detail, item.EntityId.ToString());
+
+    private static string FormatTrigger(string trigger)
+    {
+        if (string.IsNullOrWhiteSpace(trigger))
+        {
+            return "Review";
+        }
+
+        var text = trigger.Replace("_", " ").Replace("-", " ");
+        var chars = text.SelectMany((c, i) =>
+            i > 0 && char.IsUpper(c) && !char.IsWhiteSpace(text[i - 1])
+                ? new[] { ' ', c }
+                : new[] { c });
+        return new string(chars.ToArray()).Trim();
+    }
+
+    private static string MediaIcon(string? mediaType)
+    {
+        if (string.IsNullOrWhiteSpace(mediaType))
+        {
+            return Icons.Material.Outlined.Inventory2;
+        }
+
+        return LibraryHelpers.GetMediaTypeIcon(mediaType);
+    }
+
+    private static string StatusBadgeClass(string status)
+    {
+        var normalized = status.ToLowerInvariant();
+        var tone = normalized switch
+        {
+            var s when s.Contains("fail") || s.Contains("error") => "danger",
+            var s when s.Contains("queue") => "info",
+            var s when s.Contains("process") || s.Contains("running") || s.Contains("active") => "primary",
+            var s when s.Contains("complete") || s.Contains("ready") => "success",
+            _ => "neutral",
+        };
+
+        return $"admin-status admin-status--{tone}";
+    }
+
+    private static string FormatStatus(string status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return "Unknown";
+        }
+
+        return FormatTrigger(status);
+    }
+
+    private static bool IsActiveRunStatus(string status) =>
+        status.Contains("processing", StringComparison.OrdinalIgnoreCase)
+        || status.Contains("running", StringComparison.OrdinalIgnoreCase)
+        || status.Contains("queued", StringComparison.OrdinalIgnoreCase)
+        || status.Contains("active", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsActiveEncodeStatus(string status) =>
+        status.Equals(EncodeJobStatuses.Running, StringComparison.OrdinalIgnoreCase)
+        || status.Equals(EncodeJobStatuses.Queued, StringComparison.OrdinalIgnoreCase)
+        || status.Equals(EncodeJobStatuses.Scheduled, StringComparison.OrdinalIgnoreCase);
+
+    private static string RunLibrary(IngestionBatchViewModel run) =>
+        FirstNonBlank(run.Category, ShortPath(run.SourcePath), "Library");
+
+    private static string RunStage(IngestionBatchViewModel run)
+    {
+        if (run.FilesFailed > 0)
+        {
+            return "Failed";
+        }
+
+        if (run.FilesReview > 0)
+        {
+            return "Review";
+        }
+
+        if (run.FilesProcessed < run.FilesTotal)
+        {
+            return "Processing";
+        }
+
+        return "Complete";
+    }
+
+    private static string ShortPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = path.TrimEnd('\\', '/');
+        var index = Math.Max(trimmed.LastIndexOf('\\'), trimmed.LastIndexOf('/'));
+        return index >= 0 ? trimmed[(index + 1)..] : trimmed;
+    }
+
+    private static string ShortId(Guid id) => id.ToString("N")[..8];
+
+    private static string FormatProfile(string profileKey) =>
+        string.IsNullOrWhiteSpace(profileKey) ? "media" : profileKey.Replace("-", " ");
+
+    private static string FormatEncodeTiming(EncodeJobDto job)
+    {
+        if (job.ProgressPct > 0)
+        {
+            return $"{job.ProgressPct:0}% complete";
+        }
+
+        return FormatStatus(job.Status);
+    }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+
+    private sealed record MediaBreakdownItem(string Label, string Icon, int Count, double Percent)
+    {
+        public string Color => Label switch
+        {
+            "Books" => "#9a6dff",
+            "Audiobooks" => "#4f9dff",
+            "Movies" => "#f5a400",
+            "TV Episodes" => "#35d179",
+            "Music" => "#ff6b9a",
+            "Comics" => "#7dd3fc",
+            "Podcasts" => "#f97316",
+            _ => "#94a3b8",
+        };
+    }
+
+    private sealed record OverviewRun(
+        bool IsActive,
+        string Status,
+        double Progress,
+        int Processed,
+        int Total,
+        string Library,
+        string CurrentItem,
+        string Stage,
+        string StartedBy,
+        string Elapsed,
+        string Remaining,
+        int Queued,
+        int Failed,
+        string IdleDetail)
+    {
+        public static OverviewRun Empty { get; } = new(
+            false,
+            "Idle",
+            0,
+            0,
+            0,
+            "None",
+            "None",
+            "Idle",
+            "None",
+            "0m",
+            "None",
+            0,
+            0,
+            "No recent run data is available.");
     }
 }
+
+<style>
+    .admin-overview-page {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-width: 0;
+    }
+
+    .admin-overview-toolbar,
+    .admin-overview-actions,
+    .admin-card-actions,
+    .admin-chip-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .admin-overview-toolbar {
+        justify-content: space-between;
+    }
+
+    .admin-overview-loading {
+        min-height: 140px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .admin-overview-muted {
+        color: var(--settings-muted, var(--app-text-muted)) !important;
+    }
+
+    .admin-library-banner {
+        position: relative;
+        overflow: hidden;
+        padding: 24px !important;
+        border-radius: 22px !important;
+        background:
+            radial-gradient(circle at 14% 0%, rgba(154, 109, 255, 0.34), transparent 34%),
+            radial-gradient(circle at 82% 8%, rgba(79, 157, 255, 0.24), transparent 30%),
+            radial-gradient(circle at 92% 82%, rgba(245, 164, 0, 0.18), transparent 28%),
+            linear-gradient(135deg, rgba(14, 20, 38, 0.95), rgba(7, 10, 20, 0.88)) !important;
+    }
+
+    .admin-library-banner__content {
+        position: relative;
+        display: grid;
+        gap: 20px;
+    }
+
+    .admin-library-banner__main {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+    }
+
+    .admin-library-banner__icon {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        flex: 0 0 auto;
+        border-radius: 16px;
+        color: #fff;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .admin-library-banner__icon .mud-icon-root {
+        font-size: 28px;
+    }
+
+    .admin-library-banner__title {
+        color: rgba(255, 255, 255, 0.96) !important;
+        font-weight: 850 !important;
+        line-height: 1.05 !important;
+    }
+
+    .admin-library-banner__subtitle {
+        color: rgba(230, 238, 255, 0.72) !important;
+        margin-top: 6px !important;
+    }
+
+    .admin-library-breakdown {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(100px, 1fr));
+        gap: 10px;
+    }
+
+    .admin-library-media,
+    .admin-metric,
+    .admin-detail {
+        min-width: 0;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.055);
+        border-radius: 14px;
+    }
+
+    .admin-library-media {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 2px 8px;
+        padding: 10px;
+        align-items: center;
+    }
+
+    .admin-library-media .mud-icon-root {
+        grid-row: span 2;
+        color: rgba(255, 255, 255, 0.76);
+    }
+
+    .admin-library-media__label {
+        color: rgba(225, 233, 255, 0.68);
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+
+    .admin-library-media__count {
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 850;
+    }
+
+    .admin-composition-bar,
+    .admin-split-bar,
+    .admin-progress-track {
+        display: flex;
+        width: 100%;
+        height: 7px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.10);
+    }
+
+    .admin-composition-bar__segment,
+    .admin-composition-bar__empty,
+    .admin-progress-fill,
+    .admin-split-bar__transcode,
+    .admin-split-bar__direct {
+        display: block;
+        height: 100%;
+    }
+
+    .admin-composition-bar__empty {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.14);
+    }
+
+    .admin-progress-fill {
+        background: linear-gradient(90deg, var(--settings-purple, #9a6dff), var(--settings-blue, #4f9dff));
+    }
+
+    .admin-split-bar__transcode {
+        background: var(--settings-amber, #f5a400);
+    }
+
+    .admin-split-bar__direct {
+        background: var(--settings-green, #35d179);
+    }
+
+    .admin-overview-primary-grid,
+    .admin-overview-bottom-grid {
+        display: grid;
+        gap: 16px;
+    }
+
+    .admin-overview-primary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .admin-overview-bottom-grid {
+        grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+    }
+
+    .admin-overview-card {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+        padding: 18px !important;
+    }
+
+    .admin-overview-card--feature {
+        background:
+            radial-gradient(circle at 18% 0%, rgba(79, 157, 255, 0.13), transparent 30%),
+            linear-gradient(145deg, rgba(17, 23, 39, 0.92), rgba(8, 12, 22, 0.78)) !important;
+    }
+
+    .admin-overview-card__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .admin-overview-eyebrow {
+        color: var(--settings-blue, #4f9dff) !important;
+        font-size: 0.72rem !important;
+        font-weight: 850 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.08em !important;
+    }
+
+    .admin-status,
+    .admin-chip,
+    .admin-reason-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        color: rgba(232, 238, 255, 0.86);
+        background: rgba(255, 255, 255, 0.055);
+        font-size: 0.74rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .admin-status--primary,
+    .admin-chip--info {
+        color: #8ec7ff;
+        background: rgba(79, 157, 255, 0.13);
+        border-color: rgba(79, 157, 255, 0.28);
+    }
+
+    .admin-status--info {
+        color: #7dd3fc;
+        background: rgba(125, 211, 252, 0.12);
+        border-color: rgba(125, 211, 252, 0.26);
+    }
+
+    .admin-status--warning,
+    .admin-chip--warning {
+        color: #ffd37a;
+        background: rgba(245, 164, 0, 0.13);
+        border-color: rgba(245, 164, 0, 0.32);
+    }
+
+    .admin-status--danger,
+    .admin-chip--danger {
+        color: #ff9ca8;
+        background: rgba(255, 92, 122, 0.12);
+        border-color: rgba(255, 92, 122, 0.28);
+    }
+
+    .admin-status--success,
+    .admin-chip--success {
+        color: #7df0ad;
+        background: rgba(53, 209, 121, 0.12);
+        border-color: rgba(53, 209, 121, 0.26);
+    }
+
+    .admin-run-progress {
+        display: grid;
+        gap: 8px;
+    }
+
+    .admin-run-progress__copy {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: rgba(232, 238, 255, 0.78);
+        font-size: 0.82rem;
+        font-weight: 750;
+    }
+
+    .admin-detail-grid,
+    .admin-review-stats,
+    .admin-stream-stats,
+    .admin-snapshot-grid {
+        display: grid;
+        gap: 10px;
+    }
+
+    .admin-detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-review-stats,
+    .admin-stream-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .admin-snapshot-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-detail,
+    .admin-metric {
+        padding: 11px 12px;
+    }
+
+    .admin-detail span,
+    .admin-metric span {
+        display: block;
+        color: var(--settings-muted, rgba(220, 229, 255, 0.64));
+        font-size: 0.74rem;
+        font-weight: 700;
+    }
+
+    .admin-detail strong,
+    .admin-metric strong {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        color: rgba(255, 255, 255, 0.94);
+        font-size: 0.9rem;
+        font-weight: 850;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .admin-metric {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .admin-metric .mud-icon-root {
+        color: rgba(154, 109, 255, 0.85);
+        font-size: 20px;
+    }
+
+    .admin-empty-state {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 88px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px dashed rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.035);
+    }
+
+    .admin-empty-state .mud-icon-root {
+        color: rgba(255, 255, 255, 0.34);
+        font-size: 30px;
+    }
+
+    .admin-empty-state--success .mud-icon-root {
+        color: var(--settings-green, #35d179);
+    }
+
+    .admin-card-actions {
+        margin-top: auto;
+    }
+
+    .admin-compact-list {
+        display: grid;
+        gap: 9px;
+    }
+
+    .admin-compact-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 10px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .admin-compact-row__body {
+        min-width: 0;
+    }
+
+    .admin-compact-row__body span,
+    .admin-compact-row__body small {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .admin-compact-row__body span {
+        color: rgba(255, 255, 255, 0.94);
+        font-size: 0.86rem;
+        font-weight: 800;
+    }
+
+    .admin-compact-row__body small {
+        color: var(--settings-muted, rgba(220, 229, 255, 0.64));
+        font-size: 0.74rem;
+    }
+
+    .admin-reason-badge {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .admin-run-table {
+        min-width: 0;
+        overflow-x: auto;
+    }
+
+    .admin-run-table__head,
+    .admin-run-table__row {
+        display: grid;
+        grid-template-columns: 0.7fr 1fr 0.8fr 0.8fr 0.8fr;
+        gap: 10px;
+        align-items: center;
+        min-width: 620px;
+    }
+
+    .admin-run-table__head {
+        padding: 0 10px 8px;
+        color: rgba(255, 255, 255, 0.46);
+        font-size: 0.72rem;
+        font-weight: 850;
+        text-transform: uppercase;
+    }
+
+    .admin-run-table__row {
+        padding: 10px;
+        color: rgba(255, 255, 255, 0.88);
+        border-radius: 12px;
+        text-decoration: none;
+        border: 1px solid transparent;
+    }
+
+    .admin-run-table__row:hover,
+    .admin-run-table__row:focus-visible {
+        color: #fff;
+        border-color: rgba(79, 157, 255, 0.24);
+        background: rgba(79, 157, 255, 0.08);
+    }
+
+    @@media (max-width: 1180px) {
+        .admin-library-breakdown,
+        .admin-overview-primary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .admin-overview-bottom-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 760px) {
+        .admin-overview-toolbar,
+        .admin-library-banner__main {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .admin-overview-actions {
+            width: 100%;
+        }
+
+        .admin-library-breakdown,
+        .admin-overview-primary-grid,
+        .admin-detail-grid,
+        .admin-review-stats,
+        .admin-stream-stats,
+        .admin-snapshot-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .admin-overview-card,
+        .admin-library-banner {
+            padding: 16px !important;
+        }
+
+        .admin-compact-row {
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .admin-reason-badge {
+            grid-column: 2;
+            justify-self: start;
+            max-width: 100%;
+        }
+    }
+</style>
