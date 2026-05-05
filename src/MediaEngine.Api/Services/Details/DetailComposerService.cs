@@ -6,6 +6,7 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
@@ -21,19 +22,22 @@ public sealed class DetailComposerService
     private readonly IPersonRepository _persons;
     private readonly IEntityAssetRepository _entityAssets;
     private readonly ICanonicalValueArrayRepository _canonicalArrays;
+    private readonly ISeriesManifestRepository _seriesManifests;
 
     public DetailComposerService(
         IDatabaseConnection db,
         ILibraryItemRepository libraryItems,
         IPersonRepository persons,
         IEntityAssetRepository entityAssets,
-        ICanonicalValueArrayRepository canonicalArrays)
+        ICanonicalValueArrayRepository canonicalArrays,
+        ISeriesManifestRepository seriesManifests)
     {
         _db = db;
         _libraryItems = libraryItems;
         _persons = persons;
         _entityAssets = entityAssets;
         _canonicalArrays = canonicalArrays;
+        _seriesManifests = seriesManifests;
     }
 
     public async Task<DetailPageViewModel?> BuildAsync(
@@ -1053,7 +1057,7 @@ public sealed class DetailComposerService
                 ProgressState = LibraryProgressState.Unknown,
             };
         }).ToList();
-        items = await MergeSeriesMemberPlaceholdersAsync(items, seriesQid, entityType, ct);
+        items = await MergeSeriesManifestPlaceholdersAsync(items, seriesQid, entityType, ct);
         items = AddMissingSeriesPlaceholders(items, entityType);
         items = SortSeriesItems(items);
 
@@ -1114,7 +1118,7 @@ public sealed class DetailComposerService
             _ => "Other",
         };
 
-    private async Task<List<SeriesItemViewModel>> MergeSeriesMemberPlaceholdersAsync(
+    private async Task<List<SeriesItemViewModel>> MergeSeriesManifestPlaceholdersAsync(
         IReadOnlyList<SeriesItemViewModel> items,
         string? seriesQid,
         DetailEntityType entityType,
@@ -1123,6 +1127,65 @@ public sealed class DetailComposerService
         if (string.IsNullOrWhiteSpace(seriesQid))
             return items.ToList();
 
+        var manifestItems = await _seriesManifests.GetItemsBySeriesQidAsync(seriesQid, ct);
+        if (manifestItems.Count > 0)
+            return MergeManifestItems(items, manifestItems, entityType);
+
+        return await MergeLegacySeriesMemberPlaceholdersAsync(items, seriesQid, entityType, ct);
+    }
+
+    private static List<SeriesItemViewModel> MergeManifestItems(
+        IReadOnlyList<SeriesItemViewModel> items,
+        IReadOnlyList<SeriesManifestItemRecord> manifestItems,
+        DetailEntityType entityType)
+    {
+        var merged = items.ToList();
+        var ownedPositions = merged
+            .Where(item => item.PositionNumber.HasValue)
+            .Select(item => item.PositionNumber!.Value)
+            .ToHashSet();
+        var ownedQids = merged
+            .Select(item => ExtractQid(item.Id))
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var manifestItem in manifestItems)
+        {
+            var position = manifestItem.ParsedOrdinal.HasValue
+                ? (int?)Convert.ToInt32(Math.Round(manifestItem.ParsedOrdinal.Value, MidpointRounding.AwayFromZero))
+                : TryParseSeriesPosition(FirstNonBlank(manifestItem.RawOrdinal, manifestItem.SortOrder?.ToString(CultureInfo.InvariantCulture)));
+            var isLinkedOwned = manifestItem.LinkedWorkId.HasValue;
+
+            if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))
+                continue;
+
+            if (position.HasValue && ownedPositions.Contains(position.Value))
+                continue;
+
+            merged.Add(new SeriesItemViewModel
+            {
+                Id = $"missing-{manifestItem.ItemQid}",
+                EntityType = entityType,
+                Title = FirstNonBlank(manifestItem.ItemLabel, manifestItem.ItemQid) ?? "Missing from library",
+                PositionNumber = position,
+                PositionLabel = position?.ToString(CultureInfo.InvariantCulture) ?? manifestItem.RawOrdinal,
+                IsOwned = false,
+                ProgressState = LibraryProgressState.Unknown,
+            });
+        }
+
+        return merged
+            .OrderBy(item => item.PositionNumber ?? int.MaxValue)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private async Task<List<SeriesItemViewModel>> MergeLegacySeriesMemberPlaceholdersAsync(
+        IReadOnlyList<SeriesItemViewModel> items,
+        string seriesQid,
+        DetailEntityType entityType,
+        CancellationToken ct)
+    {
         using var conn = _db.CreateConnection();
         var rawMembers = await conn.QueryAsync(new CommandDefinition(
             """

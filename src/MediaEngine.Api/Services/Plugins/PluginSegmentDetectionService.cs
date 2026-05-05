@@ -94,6 +94,9 @@ public sealed class PluginSegmentDetectionService
         return (await _segments.ListByAssetAsync(assetId, ct).ConfigureAwait(false)).Select(ToDto).ToList();
     }
 
+    public async Task<IReadOnlyList<PlaybackSegmentDto>> ListExistingAsync(Guid assetId, CancellationToken ct = default) =>
+        (await _segments.ListByAssetAsync(assetId, ct).ConfigureAwait(false)).Select(ToDto).ToList();
+
     public static PlaybackSegmentDto ToDto(PlaybackSegment segment) => new()
     {
         Id = segment.Id,

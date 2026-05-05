@@ -283,14 +283,15 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-position-summary", source);
         Assert.Contains("tl-series-position-summary__donut", source);
         Assert.Contains("tl-series-position-summary__center", source);
-        Assert.Contains("tl-series-current-label", source);
+        Assert.DoesNotContain("Current position", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("tl-series-item__current-badge", source);
         Assert.Contains("tl-series-item__node", source);
         Assert.Contains("tl-series-item__owned-badge", source);
         Assert.Contains("ItemNoun", source);
         Assert.Contains("grid-template-columns: repeat(var(--series-count, 6), minmax(5.8rem, 7.3rem))", styles);
         Assert.Contains("min-width: clamp(5.8rem, 7.2vw, 7.3rem)", styles);
         Assert.Contains("tl-series-item.is-current .tl-series-item__art", styles);
-        Assert.Contains("tl-series-current-label", styles);
+        Assert.Contains("tl-series-item__current-badge", styles);
         Assert.Contains("tl-series-owned-summary", styles);
         Assert.Contains("minmax(2.45rem, auto)", styles);
         Assert.Contains("-webkit-line-clamp: 2", styles);

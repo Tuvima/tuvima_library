@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
@@ -39,6 +40,18 @@ public interface IEngineApiClient
     Task<UserPlaybackSettingsDto?> GetPlaybackSettingsAsync(Guid profileId, CancellationToken ct = default);
 
     Task<UserPlaybackSettingsDto?> UpdatePlaybackSettingsAsync(Guid profileId, UserPlaybackSettingsDto settings, CancellationToken ct = default);
+
+    Task<IReadOnlyList<PluginViewModel>> GetPluginsAsync(CancellationToken ct = default);
+
+    Task<bool> SetPluginEnabledAsync(string pluginId, bool enabled, CancellationToken ct = default);
+
+    Task<bool> SavePluginSettingsAsync(string pluginId, Dictionary<string, JsonElement> settings, CancellationToken ct = default);
+
+    Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<PluginJobViewModel>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<PluginJobViewModel>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default);
 
     /// <summary>GET /system/status — lightweight connectivity probe.</summary>
     Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);

@@ -83,6 +83,9 @@
                 case SettingsSection.LocalAi:
                     <LocalAiSettingsTab />
                     break;
+                case SettingsSection.Plugins:
+                    <PluginSettingsTab />
+                    break;
                 case SettingsSection.Delivery:
                     <PlaybackDeliverySettingsTab />
                     break;
@@ -321,6 +324,7 @@
         SettingsSection.Metadata => "Configure media type rules, matching confidence, canonical identity, Wikidata, universe enrichment, and review thresholds.",
         SettingsSection.Providers => "Configure provider priority, credentials, language strategy, timeouts, retries, health, and coverage.",
         SettingsSection.LocalAi => "Manage local models, AI feature toggles, vocabulary, hardware profile, and scheduled enrichment jobs.",
+        SettingsSection.Plugins => "Manage optional extension features, tool health, background jobs, and guarded AI access.",
         SettingsSection.Delivery => "Configure direct play, transcoding, generated variants, offline downloads, and delivery defaults.",
         SettingsSection.Access => "Manage profiles, roles, sign-in, API keys, HTTPS, local access, and rate limits.",
         SettingsSection.Review => "Resolve uncertain matches and keep ingestion moving.",

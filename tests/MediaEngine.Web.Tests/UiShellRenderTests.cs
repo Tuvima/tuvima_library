@@ -125,9 +125,10 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Continue Your Activity", cut.Markup);
             Assert.Contains("Recent History", cut.Markup);
             Assert.Contains("Your Taste / Top Genres", cut.Markup);
-            Assert.Contains("Recently Completed", cut.Markup);
             Assert.DoesNotContain("At a Glance", cut.Markup);
             Assert.DoesNotContain("Your Statistics", cut.Markup);
+            Assert.DoesNotContain("Recently Added", cut.Markup);
+            Assert.DoesNotContain("Recently Completed", cut.Markup);
             Assert.DoesNotContain("Libraries Used", cut.Markup);
             Assert.DoesNotContain("Preferences at a Glance", cut.Markup);
             Assert.DoesNotContain("user-overview-name-field", cut.Markup);

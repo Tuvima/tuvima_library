@@ -17,6 +17,7 @@ public enum SettingsSection
     Metadata,
     Providers,
     LocalAi,
+    Plugins,
     Delivery,
     Access,
 
@@ -94,6 +95,7 @@ public static class SettingsNav
         new(SettingsSection.Metadata, "admin", "metadata", Icons.Material.Outlined.Schema, "Metadata & Matching", true, null, ["wikidata"], "json"),
         new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, []),
         new(SettingsSection.LocalAi, "admin", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "vocabulary", "schedule"]),
+        new(SettingsSection.Plugins, "admin", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, ["extensions", "commercial-skip", "intro-skip", "credits"], "sqlite"),
         new(SettingsSection.Delivery, "admin", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"]),
         new(SettingsSection.Access, "admin", "access", Icons.Material.Outlined.AdminPanelSettings, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"]),
 
@@ -115,6 +117,7 @@ public static class SettingsNav
                 SettingsSection.Metadata,
                 SettingsSection.Providers,
                 SettingsSection.LocalAi,
+                SettingsSection.Plugins,
                 SettingsSection.Delivery,
                 SettingsSection.Access,
             ]),

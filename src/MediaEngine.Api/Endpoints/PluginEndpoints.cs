@@ -80,10 +80,20 @@ internal static class PluginEndpoints
         .WithName("CheckPluginHealth")
         .RequireAdmin();
 
-        group.MapGet("/{pluginId}/jobs", (string pluginId) =>
-            Results.Ok(Array.Empty<object>()))
+        group.MapGet("/{pluginId}/jobs", (string pluginId, PluginJobStateService jobs) =>
+            Results.Ok(jobs.List(pluginId)))
             .WithName("GetPluginJobs")
             .RequireAdmin();
+
+        group.MapPost("/jobs/segment-detection/run", async (
+            PluginScheduledSegmentService scheduler,
+            CancellationToken ct) =>
+        {
+            var jobs = await scheduler.RunScheduledPassAsync(ct).ConfigureAwait(false);
+            return Results.Ok(jobs);
+        })
+        .WithName("RunPluginSegmentDetectionJobs")
+        .RequireAdmin();
 
         return group;
     }

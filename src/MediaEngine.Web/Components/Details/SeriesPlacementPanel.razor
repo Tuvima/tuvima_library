@@ -39,10 +39,6 @@
         {
             <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(item.IsOwned ? "is-owned" : "is-missing")">
                 <div class="tl-series-item__position">
-                    @if (item.IsCurrent)
-                    {
-                        <span class="tl-series-current-label">Current position</span>
-                    }
                     <span class="tl-series-item__node">@SeriesNumber(item)</span>
                 </div>
 
@@ -63,6 +59,10 @@
                         <div class="tl-series-item__owned-badge" aria-label="Owned">
                             <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
                         </div>
+                    }
+                    @if (item.IsCurrent)
+                    {
+                        <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
                     }
                 </div>
                 <div class="tl-series-item__title">@(item.IsOwned ? item.Title : $"{ItemNoun} {SeriesNumber(item)}")</div>
@@ -124,6 +124,7 @@
         DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "Issue",
         _ => "Book",
     };
+    private string CurrentItemBadge => $"This {ItemNoun.ToLowerInvariant()}";
 
     private static string SeriesNumber(SeriesItemViewModel item)
         => item.PositionNumber?.ToString() ?? FirstNonBlank(item.PositionLabel, "?")!;

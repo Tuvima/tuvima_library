@@ -3,9 +3,12 @@
 
 <section class="tl-detail-hero @Presentation.HeroClass" style="@Presentation.GradientStyle">
     <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
-    <div class="tl-detail-titlebar">
-        <div class="tl-detail-titlebar__title">@Model.Title</div>
-    </div>
+    @if (Presentation.ShowTitleBar)
+    {
+        <div class="tl-detail-titlebar">
+            <div class="tl-detail-titlebar__title">@Model.Title</div>
+        </div>
+    }
     <div class="tl-detail-hero__inner">
         <div class="tl-detail-hero__copy">
             @if (!string.IsNullOrWhiteSpace(Presentation.Eyebrow))

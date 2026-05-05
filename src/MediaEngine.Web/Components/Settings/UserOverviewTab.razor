@@ -5,7 +5,7 @@
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
-<div class="tl-page user-overview-page">
+<div class="tl-page user-overview-page user-overview-page--refined">
     @if (_loading)
     {
         <MudStack Spacing="2">
@@ -24,9 +24,8 @@
     {
         var profile = _overview.Profile;
 
-        <MudGrid Spacing="3" Class="user-overview-grid">
-            <MudItem xs="12" md="5">
-                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-profile-card">
+        <div class="user-overview-grid">
+            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-profile-card">
                     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="user-overview-profile-layout">
                         <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-avatar-wrap">
                             <MudFileUpload T="IBrowserFile"
@@ -112,139 +111,103 @@
                             </MudText>
                         </MudStack>
                     </MudStack>
-                </MudPaper>
-            </MudItem>
+            </MudPaper>
 
-            <MudItem xs="12" md="7">
-                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-stat-strip">
-                    <MudGrid Spacing="2" Class="user-overview-stats-grid">
+            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-stat-strip">
+                <div class="user-overview-stats-grid">
                         @foreach (var stat in StatItems())
                         {
-                            <MudItem xs="12" sm="6" lg="3">
-                                <MudStack Spacing="1" Class="user-overview-stat-card">
-                                    <MudAvatar Color="@stat.Color" Variant="Variant.Filled" Class="user-overview-stat-icon">
-                                        <MudIcon Icon="@stat.Icon" Size="Size.Small" />
-                                    </MudAvatar>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@stat.Label</MudText>
-                                    <MudText Typo="Typo.h4" Class="user-overview-stat-value">@stat.Value</MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@stat.Subtitle</MudText>
-                                </MudStack>
-                            </MudItem>
+                            <MudStack Spacing="1" Class="user-overview-stat-card">
+                                <MudAvatar Color="@stat.Color" Variant="Variant.Filled" Class="user-overview-stat-icon">
+                                    <MudIcon Icon="@stat.Icon" Size="Size.Small" />
+                                </MudAvatar>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="user-overview-stat-label">@stat.Label</MudText>
+                                <MudText Typo="Typo.h4" Class="user-overview-stat-value">@stat.Value</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="user-overview-stat-subtitle">@stat.Subtitle</MudText>
+                            </MudStack>
                         }
-                    </MudGrid>
-                </MudPaper>
-            </MudItem>
+                </div>
+            </MudPaper>
 
-            <MudItem xs="12" md="7">
-                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-continue-card">
-                    <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Continue Your Activity</MudText>
-                    <MediaRail Items="@_overview.ContinueItems" EmptyText="Nothing is currently in progress." ShowContinuation="true" />
-                </MudPaper>
-            </MudItem>
+            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-continue-card">
+                <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Continue Your Activity</MudText>
+                <MediaRail Items="@_overview.ContinueItems" EmptyText="Nothing is currently in progress." ShowContinuation="true" />
+            </MudPaper>
 
-            <MudItem xs="12" md="5">
-                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-history-card">
-                    <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Recent History</MudText>
-                    @if (_overview.RecentItems.Count == 0)
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Your recent history is empty.</MudText>
-                    }
-                    else
-                    {
-                        <MudList T="ProfileOverviewItemViewModel" Dense="true">
-                            @foreach (var item in _overview.RecentItems.Take(5))
-                            {
-                                <MudListItem Href="@item.Route" Class="user-overview-history-row">
-                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="2">
-                                        @ItemThumb(item)
-                                        <MudStack Spacing="0" Class="flex-grow-1 min-w-0">
-                                            <MudText Typo="Typo.body2">@item.Title</MudText>
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                @(item.Subtitle ?? item.CollectionName ?? FriendlyMediaType(item.MediaType))
-                                            </MudText>
-                                        </MudStack>
-                                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@RelativeTime(item.LastAccessed)</MudText>
-                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@FriendlyMediaType(item.MediaType)</MudChip>
-                                        </MudStack>
+            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-history-card">
+                <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Recent History</MudText>
+                @if (_overview.RecentItems.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="user-overview-empty-state">Your recent history is empty.</MudText>
+                }
+                else
+                {
+                    <MudList T="ProfileOverviewItemViewModel" Dense="true">
+                        @foreach (var item in _overview.RecentItems.Take(8))
+                        {
+                            <MudListItem Href="@item.Route" Class="user-overview-history-row">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="2">
+                                    @ItemThumb(item)
+                                    <MudStack Spacing="0" Class="flex-grow-1 min-w-0 user-overview-history-copy">
+                                        <MudText Typo="Typo.body2" Class="user-overview-row-title">@item.Title</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="user-overview-row-subtitle">
+                                            @(item.Subtitle ?? item.CollectionName ?? FriendlyMediaType(item.MediaType))
+                                        </MudText>
                                     </MudStack>
-                                </MudListItem>
-                            }
-                        </MudList>
-                    }
-                </MudPaper>
-            </MudItem>
-
-            <MudItem xs="12" md="7">
-                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-taste-card">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
-                        <MudText Typo="Typo.h6" Class="settings-card-title">Your Taste / Top Genres</MudText>
-                        <MudTooltip Text="Reset personalization is not available until the Engine exposes a reset endpoint.">
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Disabled="true">
-                                Reset personalization
-                            </MudButton>
-                        </MudTooltip>
-                    </MudStack>
-
-                    @{
-                        var genres = TopGenres().Take(6).ToList();
-                    }
-                    @if (genres.Count == 0)
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Taste signals will appear after you use the library more.</MudText>
-                    }
-                    else
-                    {
-                        <MudGrid Spacing="2">
-                            @foreach (var genre in genres)
-                            {
-                                var pct = NormalizeGenrePercent(genre.Value, genres);
-                                <MudItem xs="12" sm="6">
-                                    <MudStack Spacing="1" Class="user-overview-genre-row">
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                            <MudText Typo="Typo.body2">@genre.Key</MudText>
-                                            <MudText Typo="Typo.body2">@($"{Math.Round(pct):0}%")</MudText>
-                                        </MudStack>
-                                        <MudProgressLinear Value="@pct" Color="Color.Primary" Rounded="true" Class="user-overview-mini-bar" />
-                                    </MudStack>
-                                </MudItem>
-                            }
-                        </MudGrid>
-                        <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-3">
-                            Based on your activity from the last 90 days.
-                        </MudText>
-                    }
-                </MudPaper>
-            </MudItem>
-
-            <MudItem xs="12" md="5">
-                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-compact-list-card">
-                    <MudText Typo="Typo.h6" Class="settings-card-title mb-3">@CompactListTitle</MudText>
-                    @if (CompactListItems.Count == 0)
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Completed or recently added items will appear here.</MudText>
-                    }
-                    else
-                    {
-                        <MudList T="ProfileOverviewItemViewModel" Dense="true">
-                            @foreach (var item in CompactListItems.Take(4))
-                            {
-                                <MudListItem Href="@item.Route" Class="user-overview-history-row">
-                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="2">
-                                        @ItemThumb(item)
-                                        <MudStack Spacing="0" Class="flex-grow-1 min-w-0">
-                                            <MudText Typo="Typo.body2">@item.Title</MudText>
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@RelativeTime(CompactListDate(item))</MudText>
-                                        </MudStack>
+                                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-history-meta">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@RelativeTime(item.LastAccessed)</MudText>
                                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@FriendlyMediaType(item.MediaType)</MudChip>
+                                        <MudIconButton Icon="@Icons.Material.Outlined.MoreHoriz"
+                                                       Size="Size.Small"
+                                                       Color="Color.Default"
+                                                       Class="user-overview-overflow"
+                                                       aria-label="More item actions" />
                                     </MudStack>
-                                </MudListItem>
-                            }
-                        </MudList>
-                    }
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
+                                </MudStack>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-taste-card">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3 user-overview-card-header">
+                    <MudText Typo="Typo.h6" Class="settings-card-title">Your Taste / Top Genres</MudText>
+                    <MudTooltip Text="Reset personalization is not available until the Engine exposes a reset endpoint.">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Disabled="true">
+                            Reset personalization
+                        </MudButton>
+                    </MudTooltip>
+                </MudStack>
+
+                @{
+                    var genres = TopGenres().Take(6).ToList();
+                }
+                @if (genres.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="user-overview-empty-state">Taste signals will appear after you use the library more.</MudText>
+                }
+                else
+                {
+                    <div class="user-overview-genre-grid">
+                        @foreach (var genre in genres)
+                        {
+                            var pct = NormalizeGenrePercent(genre.Value, genres);
+                            <MudStack Spacing="1" Class="user-overview-genre-row">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="user-overview-genre-label-row">
+                                    <MudText Typo="Typo.body2" Class="user-overview-genre-name">@genre.Key</MudText>
+                                    <MudText Typo="Typo.body2" Class="user-overview-genre-percent">@($"{Math.Round(pct):0}%")</MudText>
+                                </MudStack>
+                                <MudProgressLinear Value="@pct" Color="Color.Primary" Rounded="true" Class="user-overview-mini-bar" />
+                            </MudStack>
+                        }
+                    </div>
+                    <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-3 user-overview-taste-note">
+                        Based on your activity from the last 90 days.
+                    </MudText>
+                }
+            </MudPaper>
+        </div>
     }
 </div>
 
@@ -259,14 +222,6 @@
 
     private bool ProfileDirty =>
         !string.Equals(_displayName.Trim(), _savedDisplayName, StringComparison.Ordinal);
-
-    private string CompactListTitle =>
-        _overview?.CompletedItems.Count > 0 ? "Recently Completed" : "Recently Added";
-
-    private IReadOnlyList<ProfileOverviewItemViewModel> CompactListItems =>
-        _overview?.CompletedItems.Count > 0
-            ? _overview.CompletedItems
-            : _overview?.RecentlyAddedItems ?? [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -421,9 +376,6 @@
 
         return Math.Clamp(value * 100d / max, 6d, 100d);
     }
-
-    private static DateTimeOffset CompactListDate(ProfileOverviewItemViewModel item) =>
-        item.AddedAt ?? item.LastAccessed;
 
     private static string FormatDuration(double seconds)
     {

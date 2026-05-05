@@ -16,6 +16,7 @@ public sealed class DetailHeroPresentation
         ProgressViewModel? progress,
         bool isWatchHero,
         bool usePrimaryHeroChrome,
+        bool showTitleBar,
         IReadOnlyList<MetadataPill> capabilityPills)
     {
         HeroClass = heroClass;
@@ -29,6 +30,7 @@ public sealed class DetailHeroPresentation
         Progress = progress;
         IsWatchHero = isWatchHero;
         UsePrimaryHeroChrome = usePrimaryHeroChrome;
+        ShowTitleBar = showTitleBar;
         CapabilityPills = capabilityPills;
     }
 
@@ -43,6 +45,7 @@ public sealed class DetailHeroPresentation
     public ProgressViewModel? Progress { get; }
     public bool IsWatchHero { get; }
     public bool UsePrimaryHeroChrome { get; }
+    public bool ShowTitleBar { get; }
     public IReadOnlyList<MetadataPill> CapabilityPills { get; }
 
     public static DetailHeroPresentation From(DetailPageViewModel model)
@@ -71,6 +74,7 @@ public sealed class DetailHeroPresentation
             model.Progress,
             isWatchHero,
             usePrimaryHeroChrome,
+            mode is not HeroArtworkMode.ArtworkFallback,
             BuildCapabilityPills(model, usePrimaryHeroChrome));
     }
 

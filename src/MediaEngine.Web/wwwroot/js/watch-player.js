@@ -77,6 +77,26 @@ export function restoreProgress(video, progressPct) {
     video.addEventListener("loadedmetadata", seek, { once: true });
 }
 
+export function seekTo(video, seconds) {
+    if (!video || typeof seconds !== "number" || Number.isNaN(seconds)) {
+        return;
+    }
+
+    const seek = () => {
+        video.currentTime = Math.max(0, seconds);
+        if (video.paused) {
+            video.play().catch(() => {});
+        }
+    };
+
+    if (video.readyState >= 1) {
+        seek();
+        return;
+    }
+
+    video.addEventListener("loadedmetadata", seek, { once: true });
+}
+
 export function detachPlayer(video) {
     if (!video) {
         return;

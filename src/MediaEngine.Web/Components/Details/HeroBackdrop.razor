@@ -56,8 +56,7 @@
     private bool _imageFailed;
     private string? _lastHeroImageUrl;
 
-    private bool IsTvEntity => EntityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
-    private bool ShouldRenderHeroBrand => IsTvEntity && (!string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl) || !string.IsNullOrWhiteSpace(HeroBrand?.Label));
+    private bool ShouldRenderHeroBrand => !string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl);
     private HeroArtworkViewModel HeroArtwork => Artwork.HeroArtwork;
     private string? HeroImageUrl => HeroArtwork.HasImage && !string.IsNullOrWhiteSpace(HeroArtwork.Url) && !_imageFailed
         ? HeroArtwork.Url

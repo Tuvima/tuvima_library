@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediaEngine.Domain;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Storage.Models;
@@ -243,6 +244,24 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             ? null
             : await _api.UpdatePlaybackSettingsAsync(profile.Id, settings, ct);
     }
+
+    public Task<IReadOnlyList<PluginViewModel>> GetPluginsAsync(CancellationToken ct = default) =>
+        _api.GetPluginsAsync(ct);
+
+    public Task<bool> SetPluginEnabledAsync(string pluginId, bool enabled, CancellationToken ct = default) =>
+        _api.SetPluginEnabledAsync(pluginId, enabled, ct);
+
+    public Task<bool> SavePluginSettingsAsync(string pluginId, Dictionary<string, JsonElement> settings, CancellationToken ct = default) =>
+        _api.SavePluginSettingsAsync(pluginId, settings, ct);
+
+    public Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default) =>
+        _api.CheckPluginHealthAsync(pluginId, ct);
+
+    public Task<IReadOnlyList<PluginJobViewModel>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default) =>
+        _api.GetPluginJobsAsync(pluginId, ct);
+
+    public Task<IReadOnlyList<PluginJobViewModel>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default) =>
+        _api.RunPluginSegmentDetectionJobsAsync(ct);
     /// <summary>Deletes a user profile. Cannot delete the seed Owner profile or the last Administrator.</summary>
     public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
         => _api.DeleteProfileAsync(id, ct);

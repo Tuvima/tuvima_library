@@ -331,6 +331,7 @@ public sealed class PersonEnrichmentWorker
                     .ConfigureAwait(false);
 
                 await _personRepo.LinkToCharacterAsync(person.Id, fictionalEntity.Id, workQid, ct).ConfigureAwait(false);
+                await EnqueueCharacterHarvestIfNeededAsync(fictionalEntity, ct).ConfigureAwait(false);
                 linkCount++;
             }
         }
@@ -344,6 +345,26 @@ public sealed class PersonEnrichmentWorker
 
     private static string ResolveCharacterLabel(WikidataValue value)
         => FirstNonBlank(value.EntityLabel, value.RawValue, value.EntityId) ?? "Character";
+
+    private async Task EnqueueCharacterHarvestIfNeededAsync(FictionalEntity entity, CancellationToken ct)
+    {
+        if (entity.EnrichedAt is not null || string.IsNullOrWhiteSpace(entity.WikidataQid))
+            return;
+
+        await _harvesting.EnqueueAsync(new HarvestRequest
+        {
+            EntityId = entity.Id,
+            EntityType = EntityType.Character,
+            MediaType = MediaType.Unknown,
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["wikidata_qid"] = entity.WikidataQid,
+                ["label"] = entity.Label,
+                ["entity_sub_type"] = entity.EntitySubType,
+                ["universe_qid"] = entity.FictionalUniverseQid ?? string.Empty,
+            },
+        }, ct).ConfigureAwait(false);
+    }
 
     private static bool IsVideoMediaType(string? mediaType)
         => mediaType is not null

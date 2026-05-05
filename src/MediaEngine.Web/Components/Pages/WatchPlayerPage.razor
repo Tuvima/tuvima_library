@@ -64,6 +64,21 @@ else
                                default="@track.IsPreferred" />
                     }
                 </video>
+                @if (VisibleSkipSegments.Count > 0)
+                {
+                    <div class="watch-player-page__skipbar">
+                        @foreach (var segment in VisibleSkipSegments)
+                        {
+                            <button type="button"
+                                    class="watch-player-skip-chip"
+                                    title="@SkipTitle(segment)"
+                                    @onclick="() => SkipSegmentAsync(segment)">
+                                <MudIcon Icon="@SkipIcon(segment.Kind)" Style="font-size: 16px;" />
+                                <span>@SkipLabel(segment.Kind)</span>
+                            </button>
+                        }
+                    </div>
+                }
             </div>
         }
         else
@@ -98,6 +113,15 @@ else
     private DateTimeOffset _lastSaveAt = DateTimeOffset.MinValue;
 
     private string? PosterUrl => _detail?.BackgroundUrl ?? _detail?.BannerUrl ?? _detail?.HeroUrl ?? _detail?.CoverUrl;
+    private IReadOnlyList<PlaybackSegmentDto> VisibleSkipSegments =>
+        (_manifest?.Segments ?? [])
+            .Where(s => s.IsSkippable
+                && !string.Equals(s.ReviewStatus, "hidden", StringComparison.OrdinalIgnoreCase)
+                && s.EndSeconds.HasValue
+                && s.EndSeconds.Value > s.StartSeconds)
+            .OrderBy(s => s.StartSeconds)
+            .Take(6)
+            .ToList();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -188,6 +212,37 @@ else
         Nav.NavigateTo("/watch/tv");
     }
 
+    private async Task SkipSegmentAsync(PlaybackSegmentDto segment)
+    {
+        if (_module is null)
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/watch-player.js");
+
+        var target = Math.Max(segment.StartSeconds, segment.EndSeconds ?? segment.StartSeconds);
+        await _module.InvokeVoidAsync("seekTo", _videoRef, target);
+    }
+
+    private static string SkipLabel(string kind) => kind.ToLowerInvariant() switch
+    {
+        "intro" => "Skip Intro",
+        "commercial" => "Skip Commercial",
+        "credits" => "Skip Credits",
+        "recap" => "Skip Recap",
+        "post_credits" => "Skip Post-Credits",
+        _ => "Skip Segment",
+    };
+
+    private static string SkipIcon(string kind) => kind.ToLowerInvariant() switch
+    {
+        "intro" => Icons.Material.Outlined.FastForward,
+        "commercial" => Icons.Material.Outlined.LiveTv,
+        "credits" => Icons.Material.Outlined.MovieFilter,
+        "recap" => Icons.Material.Outlined.Replay,
+        _ => Icons.Material.Outlined.SkipNext,
+    };
+
+    private static string SkipTitle(PlaybackSegmentDto segment) =>
+        $"{SkipLabel(segment.Kind)} ({segment.StartSeconds:0}s to {segment.EndSeconds:0}s, {segment.Confidence:P0} confidence)";
+
     private static string SubtitleLabel(TextTrackViewModel track)
     {
         var language = string.IsNullOrWhiteSpace(track.Language) ? "Subtitles" : track.Language.ToUpperInvariant();
@@ -243,11 +298,46 @@ else
     }
 
     .watch-player-page__surface {
+        position: relative;
         overflow: hidden;
         border-radius: 26px;
         border: 1px solid var(--tl-border-subtle);
         background: #020307;
         box-shadow: 0 26px 54px rgba(0, 0, 0, 0.32);
+    }
+
+    .watch-player-page__skipbar {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
+        pointer-events: none;
+    }
+
+    .watch-player-skip-chip {
+        pointer-events: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 36px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(5, 8, 16, 0.78);
+        color: rgba(255, 255, 255, 0.94);
+        font-size: 0.82rem;
+        font-weight: 800;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+        cursor: pointer;
+    }
+
+    .watch-player-skip-chip:hover {
+        border-color: rgba(255, 255, 255, 0.38);
+        background: rgba(14, 20, 34, 0.9);
     }
 
     .watch-player-page__video {

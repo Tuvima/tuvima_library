@@ -37,6 +37,7 @@ using MediaEngine.Providers.Workers;
 using MediaEngine.Identity;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Plugin.CommercialSkip;
+using MediaEngine.Plugin.MediaSegments;
 using MediaEngine.Plugins;
 using Microsoft.Extensions.Http.Resilience;
 using Serilog;
@@ -794,11 +795,18 @@ builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.HardwareBenchmarkSer
 builder.Services.AddHostedService<MediaEngine.Api.Services.HardwareBenchmarkBackgroundService>();
 // -- Plugin host --------------------------------------------------------------
 builder.Services.AddSingleton<ITuvimaPlugin, CommercialSkipPlugin>();
+builder.Services.AddSingleton<ITuvimaPlugin, IntroSkipPlugin>();
+builder.Services.AddSingleton<ITuvimaPlugin, CreditsDetectionPlugin>();
+builder.Services.AddSingleton<ITuvimaPlugin, RecapDetectionPlugin>();
+builder.Services.AddSingleton<ITuvimaPlugin, AiVisualVerifierPlugin>();
 builder.Services.AddSingleton<PluginSettingsStore>();
 builder.Services.AddSingleton<PluginCatalog>();
+builder.Services.AddSingleton<PluginJobStateService>();
+builder.Services.AddSingleton<PluginScheduledSegmentService>();
 builder.Services.AddSingleton<IPluginToolRuntime, PluginToolRuntime>();
 builder.Services.AddSingleton<IPluginAiClient, PluginAiClient>();
 builder.Services.AddSingleton<PluginSegmentDetectionService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PluginScheduledSegmentService>());
 
 // -- Health Checks ------------------------------------------------------------
 // Standard /health endpoint for Docker HEALTHCHECK, monitoring tools, etc.

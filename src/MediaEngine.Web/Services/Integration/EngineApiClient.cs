@@ -246,6 +246,100 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<IReadOnlyList<PluginViewModel>> GetPluginsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<PluginViewModel>>("/plugins", ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /plugins failed");
+            return [];
+        }
+    }
+
+    public async Task<bool> SetPluginEnabledAsync(string pluginId, bool enabled, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = Uri.EscapeDataString(pluginId);
+            using var response = await _http.PostAsJsonAsync($"/plugins/{encoded}/{(enabled ? "enable" : "disable")}", new { }, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /plugins/{PluginId}/enable|disable failed", pluginId);
+            return false;
+        }
+    }
+
+    public async Task<bool> SavePluginSettingsAsync(string pluginId, Dictionary<string, JsonElement> settings, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = Uri.EscapeDataString(pluginId);
+            using var response = await _http.PutAsJsonAsync($"/plugins/{encoded}/settings", settings, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /plugins/{PluginId}/settings failed", pluginId);
+            return false;
+        }
+    }
+
+    public async Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = Uri.EscapeDataString(pluginId);
+            using var response = await _http.PostAsJsonAsync($"/plugins/{encoded}/health", new { }, ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<PluginHealthViewModel>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /plugins/{PluginId}/health failed", pluginId);
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<PluginJobViewModel>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = Uri.EscapeDataString(pluginId);
+            return await _http.GetFromJsonAsync<List<PluginJobViewModel>>($"/plugins/{encoded}/jobs", ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /plugins/{PluginId}/jobs failed", pluginId);
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<PluginJobViewModel>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync("/plugins/jobs/segment-detection/run", new { }, ct);
+            if (!response.IsSuccessStatusCode) return [];
+            return await response.Content.ReadFromJsonAsync<List<PluginJobViewModel>>(cancellationToken: ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /plugins/jobs/segment-detection/run failed");
+            return [];
+        }
+    }
+
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
     {
         try

@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Formats.Tar;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -86,8 +88,10 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
                 return new PluginToolResolution { IsAvailable = false, Status = "checksum_failed", Message = "Downloaded tool checksum did not match manifest." };
             }
 
+            ExtractToolPayload(archivePath, installDir);
+
             var executable = Path.Combine(installDir, platform.RelativeExecutablePath ?? requirement.ExecutableName);
-            if (Path.GetExtension(archivePath).Equals(".exe", StringComparison.OrdinalIgnoreCase))
+            if (!File.Exists(executable) && IsDirectExecutable(archivePath))
                 File.Copy(archivePath, executable, overwrite: true);
 
             TryMakeExecutable(executable);
@@ -164,6 +168,12 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
         var candidate = Path.Combine(baseDir, requirement.ExecutableName);
         if (File.Exists(candidate)) return candidate;
         if (OperatingSystem.IsWindows() && File.Exists(candidate + ".exe")) return candidate + ".exe";
+        var discovered = Directory.Exists(baseDir)
+            ? Directory.EnumerateFiles(baseDir, requirement.ExecutableName, SearchOption.AllDirectories).FirstOrDefault()
+            : null;
+        if (discovered is not null) return discovered;
+        if (OperatingSystem.IsWindows() && Directory.Exists(baseDir))
+            return Directory.EnumerateFiles(baseDir, requirement.ExecutableName + ".exe", SearchOption.AllDirectories).FirstOrDefault();
         return null;
     }
 
@@ -217,6 +227,37 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
         await using var stream = File.OpenRead(path);
         var hash = await SHA256.HashDataAsync(stream, ct).ConfigureAwait(false);
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static void ExtractToolPayload(string payloadPath, string installDir)
+    {
+        var name = Path.GetFileName(payloadPath);
+        if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            ZipFile.ExtractToDirectory(payloadPath, installDir, overwriteFiles: true);
+            return;
+        }
+
+        if (name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase))
+        {
+            using var file = File.OpenRead(payloadPath);
+            using var gzip = new GZipStream(file, CompressionMode.Decompress);
+            TarFile.ExtractToDirectory(gzip, installDir, overwriteFiles: true);
+            return;
+        }
+
+        if (name.EndsWith(".tar", StringComparison.OrdinalIgnoreCase))
+        {
+            TarFile.ExtractToDirectory(payloadPath, installDir, overwriteFiles: true);
+        }
+    }
+
+    private static bool IsDirectExecutable(string path)
+    {
+        var name = Path.GetFileName(path);
+        return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            || !name.Contains('.', StringComparison.Ordinal);
     }
 
     private static void TryMakeExecutable(string path)

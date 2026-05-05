@@ -54,6 +54,7 @@ public static class IntegrationTestEndpoints
         public List<WatchFolderCheckResult> WatchFolderChecks { get; set; } = [];
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
         public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
+        public List<SeriesHarnessCheckResult> SeriesHarnessChecks { get; set; } = [];
         public List<CharacterArtworkCheckResult> CharacterArtworkChecks { get; set; } = [];
         public List<DescriptionSourceCheckResult> DescriptionSourceChecks { get; set; } = [];
         public List<string> IssuesFound { get; set; } = [];
@@ -339,6 +340,20 @@ public static class IntegrationTestEndpoints
         public int WorkCount { get; set; }
         public int SeriesCount { get; set; }
         public bool Found { get; set; }
+    }
+
+    private sealed class SeriesHarnessCheckResult
+    {
+        public string Series { get; set; } = "";
+        public string MediaType { get; set; } = "";
+        public int OwnedCount { get; set; }
+        public int KnownCount { get; set; }
+        public int ExpectedMinimumKnown { get; set; }
+        public bool HasManifest { get; set; }
+        public bool Pass => OwnedCount > 0 && KnownCount >= ExpectedMinimumKnown;
+        public string Detail => Pass
+            ? $"{OwnedCount} owned item(s), {KnownCount} known series item(s)."
+            : $"{OwnedCount} owned item(s), {KnownCount} known series item(s); expected at least {ExpectedMinimumKnown}.";
     }
 
     // â”€â”€ Dynamic type selection + provider health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -636,6 +651,9 @@ public static class IntegrationTestEndpoints
 
         logger.LogInformation("[Phase 4f] Validating description source priority and fallback storage...");
         await ValidateDescriptionSourcesAsync(db, libraryItemRepo, report, logger, ct);
+
+        logger.LogInformation("[Phase 4g] Validating cross-media series totals...");
+        await ValidateSeriesHarnessAsync(db, report, logger, ct);
 
         // â”€â”€ Phase 5: Test manual search for review items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         logger.LogInformation("[Phase 5] Testing manual search on review items...");
@@ -1619,6 +1637,109 @@ public static class IntegrationTestEndpoints
         logger.LogInformation("  Stage 3 artwork evidence settled at {Count}", Math.Max(lastEvidenceCount, 0));
     }
 
+    private static async Task ValidateSeriesHarnessAsync(
+        IDatabaseConnection db,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        report.SeriesHarnessChecks.Clear();
+
+        var expectations = new[]
+        {
+            new SeriesHarnessExpectation("The Expanse", "Books/Audiobooks", "books", 9),
+            new SeriesHarnessExpectation("Dune Chronicles", "Books/Audiobooks", "books", 3),
+            new SeriesHarnessExpectation("The Lord of the Rings", "Movies", "movies", 3),
+            new SeriesHarnessExpectation("Dune", "Movies", "movies", 2),
+            new SeriesHarnessExpectation("Breaking Bad", "TV", "tv", 2),
+            new SeriesHarnessExpectation("Shogun", "TV", "tv", 1),
+        };
+
+        foreach (var expected in expectations.Where(e => report.ActiveTypes.Contains(e.ActiveTypeKey)))
+        {
+            ct.ThrowIfCancellationRequested();
+            using var conn = db.CreateConnection();
+            var row = await conn.QueryFirstOrDefaultAsync<SeriesHarnessRow>(new CommandDefinition(
+                """
+                WITH owned AS (
+                    SELECT DISTINCT w.id AS WorkId,
+                           COALESCE(
+                               NULLIF(TRIM(w.wikidata_qid), ''),
+                               (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'wikidata_qid' LIMIT 1),
+                               (SELECT cv.value FROM canonical_values cv
+                                INNER JOIN editions e ON e.work_id = w.id
+                                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                                WHERE cv.entity_id = ma.id AND cv.key = 'wikidata_qid' LIMIT 1)
+                           ) AS WorkQid,
+                           COALESCE(
+                               (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'series' LIMIT 1),
+                               (SELECT cv.value FROM canonical_values cv
+                                INNER JOIN editions e ON e.work_id = w.id
+                                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                                WHERE cv.entity_id = ma.id AND cv.key = 'series' LIMIT 1),
+                               (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key = 'series' LIMIT 1),
+                               (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key = 'title' LIMIT 1)
+                           ) AS SeriesName,
+                           COALESCE(
+                               (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'series_qid' LIMIT 1),
+                               (SELECT cv.value FROM canonical_values cv
+                                INNER JOIN editions e ON e.work_id = w.id
+                                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                                WHERE cv.entity_id = ma.id AND cv.key = 'series_qid' LIMIT 1)
+                           ) AS SeriesQid
+                    FROM works w
+                    LEFT JOIN works p ON p.id = w.parent_work_id
+                    LEFT JOIN works gp ON gp.id = p.parent_work_id
+                    WHERE NOT EXISTS (SELECT 1 FROM works child WHERE child.parent_work_id = w.id)
+                ),
+                matched AS (
+                    SELECT *
+                    FROM owned
+                    WHERE SeriesName LIKE @seriesPattern
+                ),
+                manifest AS (
+                    SELECT COUNT(DISTINCT smi.item_qid) AS ManifestCount
+                    FROM series_manifest_items smi
+                    WHERE smi.series_qid IN (
+                        SELECT DISTINCT
+                               CASE
+                                   WHEN instr(SeriesQid, '::') > 0 THEN substr(SeriesQid, 1, instr(SeriesQid, '::') - 1)
+                                   ELSE SeriesQid
+                               END
+                        FROM matched
+                        WHERE SeriesQid IS NOT NULL AND TRIM(SeriesQid) <> ''
+                    )
+                )
+                SELECT
+                    (SELECT COUNT(*) FROM matched) AS OwnedCount,
+                    COALESCE((SELECT ManifestCount FROM manifest), 0) AS ManifestCount;
+                """,
+                new { seriesPattern = $"%{expected.Series}%" },
+                cancellationToken: ct));
+
+            var owned = row?.OwnedCount ?? 0;
+            var manifestCount = row?.ManifestCount ?? 0;
+            var known = Math.Max(owned, manifestCount);
+            var check = new SeriesHarnessCheckResult
+            {
+                Series = expected.Series,
+                MediaType = expected.MediaType,
+                OwnedCount = owned,
+                KnownCount = known,
+                ExpectedMinimumKnown = expected.MinimumKnownCount,
+                HasManifest = manifestCount > 0,
+            };
+
+            report.SeriesHarnessChecks.Add(check);
+            logger.LogInformation(
+                "  Series {Series} ({Type}): owned={Owned}, known={Known}, manifest={Manifest}",
+                check.Series, check.MediaType, check.OwnedCount, check.KnownCount, check.HasManifest);
+
+            if (!check.Pass)
+                report.IssuesFound.Add($"Series totals: {check.Series} ({check.MediaType}) did not meet harness expectations. {check.Detail}");
+        }
+    }
+
     private static async Task ValidateCharacterArtworkAsync(
         IDatabaseConnection db,
         ICanonicalValueArrayRepository canonicalArrayRepo,
@@ -1794,6 +1915,18 @@ public static class IntegrationTestEndpoints
         string ActorName,
         string CharacterName,
         string CharacterPattern);
+
+    private sealed record SeriesHarnessExpectation(
+        string Series,
+        string MediaType,
+        string ActiveTypeKey,
+        int MinimumKnownCount);
+
+    private sealed class SeriesHarnessRow
+    {
+        public int OwnedCount { get; init; }
+        public int ManifestCount { get; init; }
+    }
 
     private sealed class CharacterArtworkRow
     {
@@ -2415,6 +2548,8 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.FileSystemChecks.Count(f => f.Pass).ToString() + "/" + report.FileSystemChecks.Count, "Filesystem", "#38BDF8");
         if (report.DescriptionSourceChecks.Count > 0)
             SummaryCard(sb, report.DescriptionSourceChecks.Count(d => d.Pass) + "/" + report.DescriptionSourceChecks.Count, "Descriptions", "#34D399");
+        if (report.SeriesHarnessChecks.Count > 0)
+            SummaryCard(sb, report.SeriesHarnessChecks.Count(s => s.Pass) + "/" + report.SeriesHarnessChecks.Count, "Series Totals", "#818CF8");
         if (report.Stage3FanartSummaries.Count > 0)
             SummaryCard(sb, report.Stage3FanartSummaries.Sum(s => s.WithAnyFanart) + "/" + report.Stage3FanartSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
         if (report.CharacterArtworkChecks.Count > 0)
@@ -2532,6 +2667,26 @@ public static class IntegrationTestEndpoints
             sb.AppendLine($"<tr><td>{Esc(u.Name)}</td><td>{u.WorkCount}</td><td>{u.Found}</td><td class=\"mono\">{Esc(u.WikidataQid ?? "â€”")}</td><td>{badge}</td></tr>");
         }
         sb.AppendLine("</table>");
+
+        if (report.SeriesHarnessChecks.Count > 0)
+        {
+            int seriesPass = report.SeriesHarnessChecks.Count(s => s.Pass);
+            string seriesBadge = seriesPass == report.SeriesHarnessChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.SeriesHarnessChecks.Count - seriesPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Series Totals Validation {seriesBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Series</th><th>Media Type</th><th>Owned</th><th>Known Total</th><th>Manifest</th><th>Status</th><th>Detail</th></tr>");
+            foreach (var check in report.SeriesHarnessChecks.OrderBy(s => s.MediaType).ThenBy(s => s.Series))
+            {
+                string badge = check.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(check.Series)}</td><td>{Esc(check.MediaType)}</td><td>{check.OwnedCount}</td>" +
+                    $"<td>{check.KnownCount}</td><td>{BoolMark(check.HasManifest)}</td><td>{badge}</td><td>{Esc(check.Detail)}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
 
         // Library Display Validation
         if (report.LibraryChecks.Count > 0)

@@ -254,8 +254,10 @@ public sealed class DetailComposerServiceTests
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
         Assert.Contains("series_qid", source);
+        Assert.Contains("GetItemsBySeriesQidAsync(seriesQid, ct)", source);
+        Assert.Contains("MergeManifestItems(items, manifestItems, entityType)", source);
         Assert.Contains("FROM series_members", source);
-        Assert.Contains("MergeSeriesMemberPlaceholdersAsync(items, seriesQid, entityType, ct)", source);
+        Assert.Contains("MergeSeriesManifestPlaceholdersAsync(items, seriesQid, entityType, ct)", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
         Assert.Contains("Missing from library", source);
     }
