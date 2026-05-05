@@ -5,7 +5,7 @@
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
-<div class="tl-page">
+<div class="tl-page user-overview-page">
     @if (_loading)
     {
         <MudStack Spacing="2">
@@ -24,22 +24,11 @@
     {
         var profile = _overview.Profile;
 
-        <MudGrid Spacing="3">
+        <MudGrid Spacing="3" Class="user-overview-grid">
             <MudItem xs="12" md="5">
-                <MudPaper Elevation="0" Outlined="true" Class="pa-4 h-100 rounded-xl">
-                    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
-                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
-                            <MudAvatar Size="Size.Large"
-                                       Color="Color.Primary">
-                                @if (!string.IsNullOrWhiteSpace(profile.AvatarImageUrl))
-                                {
-                                    <img src="@profile.AvatarImageUrl" alt="" style="width:100%;height:100%;object-fit:cover;" />
-                                }
-                                else
-                                {
-                                    @GetInitials(profile.DisplayName)
-                                }
-                            </MudAvatar>
+                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-profile-card">
+                    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="user-overview-profile-layout">
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-avatar-wrap">
                             <MudFileUpload T="IBrowserFile"
                                            Accept=".jpg,.jpeg,.png,.webp"
                                            FilesChanged="@UploadAvatarAsync"
@@ -47,61 +36,79 @@
                                            Disabled="@_uploadingAvatar">
                                 <CustomContent>
                                     <MudButton Variant="Variant.Text"
-                                               Color="Color.Primary"
-                                               Size="Size.Small"
-                                               StartIcon="@Icons.Material.Outlined.PhotoCamera"
+                                               Color="Color.Inherit"
+                                               Class="user-overview-avatar-button"
                                                Disabled="@_uploadingAvatar"
-                                               OnClick="@context.OpenFilePickerAsync">
-                                        @(_uploadingAvatar ? "Uploading" : "Edit photo")
+                                               OnClick="@context.OpenFilePickerAsync"
+                                               aria-label="Edit profile photo">
+                                        <MudAvatar Size="Size.Large"
+                                                   Color="Color.Primary"
+                                                   Class="user-overview-avatar">
+                                @if (!string.IsNullOrWhiteSpace(profile.AvatarImageUrl))
+                                {
+                                                <img src="@profile.AvatarImageUrl" alt="" class="user-overview-avatar-image" />
+                                }
+                                else
+                                {
+                                    @GetInitials(profile.DisplayName)
+                                }
+                                        </MudAvatar>
+                                        <span class="user-overview-avatar-edit-badge">
+                                            <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Size="Size.Small" />
+                                        </span>
                                     </MudButton>
                                 </CustomContent>
                             </MudFileUpload>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @(_uploadingAvatar ? "Uploading" : "Edit photo")
+                            </MudText>
                         </MudStack>
 
-                        <MudStack Spacing="1" Class="flex-grow-1">
+                        <MudStack Spacing="2" Class="flex-grow-1 user-overview-profile-copy">
                             @if (_editingName)
                             {
-                                <MudTextField @bind-Value="_displayName"
-                                              Label="Display name"
-                                              Variant="Variant.Outlined"
-                                              Margin="Margin.Dense"
-                                              Immediate="true"
-                                              MaxLength="64"
-                                              Disabled="_savingProfile" />
-                                <MudStack Row="true" Spacing="1">
-                                    <MudButton Variant="Variant.Filled"
-                                               Color="Color.Primary"
-                                               Size="Size.Small"
-                                               Disabled="@(_savingProfile || string.IsNullOrWhiteSpace(_displayName) || !ProfileDirty)"
-                                               OnClick="@SaveProfileAsync">
-                                        Save
-                                    </MudButton>
-                                    <MudButton Variant="Variant.Text"
-                                               Color="Color.Inherit"
-                                               Size="Size.Small"
-                                               Disabled="_savingProfile"
-                                               OnClick="@CancelNameEdit">
-                                        Cancel
-                                    </MudButton>
+                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-name-edit">
+                                    <MudTextField @bind-Value="_displayName"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  Immediate="true"
+                                                  MaxLength="64"
+                                                  Disabled="_savingProfile"
+                                                  Class="user-overview-name-field"
+                                                  aria-label="Display name" />
+                                    <MudIconButton Icon="@Icons.Material.Outlined.Check"
+                                                   Color="Color.Success"
+                                                   Size="Size.Small"
+                                                   Disabled="@(_savingProfile || string.IsNullOrWhiteSpace(_displayName) || !ProfileDirty)"
+                                                   OnClick="@SaveProfileAsync"
+                                                   aria-label="Save display name" />
+                                    <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                                                   Color="Color.Default"
+                                                   Size="Size.Small"
+                                                   Disabled="_savingProfile"
+                                                   OnClick="@CancelNameEdit"
+                                                   aria-label="Cancel display name edit" />
                                 </MudStack>
                             }
                             else
                             {
-                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                                    <MudText Typo="Typo.h5">@profile.DisplayName</MudText>
+                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-name-row">
+                                    <MudText Typo="Typo.h5" Class="user-overview-profile-name">@profile.DisplayName</MudText>
                                     <MudIconButton Icon="@Icons.Material.Outlined.Edit"
                                                    Size="Size.Small"
-                                                   Color="Color.Primary"
+                                                   Color="Color.Default"
+                                                   Class="user-overview-inline-edit"
                                                    OnClick="@StartNameEdit"
                                                    aria-label="Edit display name" />
                                 </MudStack>
                             }
 
-                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" Icon="@Icons.Material.Outlined.Shield">
-                                @profile.Role
-                            </MudChip>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                Joined @profile.CreatedAt.ToLocalTime().ToString("MMM yyyy")
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-role-row">
+                                <MudIcon Icon="@Icons.Material.Outlined.Shield" Size="Size.Small" Color="Color.Primary" />
+                                <MudText Typo="Typo.body2">@profile.Role</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="user-overview-joined">
+                                Joined @profile.CreatedAt.ToLocalTime().ToString("MMMM yyyy")
                             </MudText>
                         </MudStack>
                     </MudStack>
@@ -109,17 +116,17 @@
             </MudItem>
 
             <MudItem xs="12" md="7">
-                <MudPaper Elevation="0" Outlined="true" Class="pa-4 h-100 rounded-xl">
-                    <MudGrid Spacing="2">
+                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-stat-strip">
+                    <MudGrid Spacing="2" Class="user-overview-stats-grid">
                         @foreach (var stat in StatItems())
                         {
                             <MudItem xs="12" sm="6" lg="3">
-                                <MudStack Spacing="1">
-                                    <MudAvatar Color="@stat.Color" Variant="Variant.Filled">
-                                        <MudIcon Icon="@stat.Icon" />
+                                <MudStack Spacing="1" Class="user-overview-stat-card">
+                                    <MudAvatar Color="@stat.Color" Variant="Variant.Filled" Class="user-overview-stat-icon">
+                                        <MudIcon Icon="@stat.Icon" Size="Size.Small" />
                                     </MudAvatar>
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">@stat.Label</MudText>
-                                    <MudText Typo="Typo.h5">@stat.Value</MudText>
+                                    <MudText Typo="Typo.h4" Class="user-overview-stat-value">@stat.Value</MudText>
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">@stat.Subtitle</MudText>
                                 </MudStack>
                             </MudItem>
@@ -129,15 +136,15 @@
             </MudItem>
 
             <MudItem xs="12" md="7">
-                <MudPaper Elevation="0" Outlined="true" Class="pa-4 h-100 rounded-xl">
-                    <MudText Typo="Typo.h6" Class="mb-3">Continue Your Activity</MudText>
+                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-continue-card">
+                    <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Continue Your Activity</MudText>
                     <MediaRail Items="@_overview.ContinueItems" EmptyText="Nothing is currently in progress." ShowContinuation="true" />
                 </MudPaper>
             </MudItem>
 
             <MudItem xs="12" md="5">
-                <MudPaper Elevation="0" Outlined="true" Class="pa-4 h-100 rounded-xl">
-                    <MudText Typo="Typo.h6" Class="mb-3">Recent History</MudText>
+                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-history-card">
+                    <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Recent History</MudText>
                     @if (_overview.RecentItems.Count == 0)
                     {
                         <MudText Typo="Typo.body2" Color="Color.Secondary">Your recent history is empty.</MudText>
@@ -147,9 +154,10 @@
                         <MudList T="ProfileOverviewItemViewModel" Dense="true">
                             @foreach (var item in _overview.RecentItems.Take(5))
                             {
-                                <MudListItem Href="@item.Route" Icon="@MediaIcon(item.MediaType)">
-                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                        <MudStack Spacing="0">
+                                <MudListItem Href="@item.Route" Class="user-overview-history-row">
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="2">
+                                        @ItemThumb(item)
+                                        <MudStack Spacing="0" Class="flex-grow-1 min-w-0">
                                             <MudText Typo="Typo.body2">@item.Title</MudText>
                                             <MudText Typo="Typo.caption" Color="Color.Secondary">
                                                 @(item.Subtitle ?? item.CollectionName ?? FriendlyMediaType(item.MediaType))
@@ -168,9 +176,9 @@
             </MudItem>
 
             <MudItem xs="12" md="7">
-                <MudPaper Elevation="0" Outlined="true" Class="pa-4 h-100 rounded-xl">
+                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-taste-card">
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
-                        <MudText Typo="Typo.h6">Your Taste / Top Genres</MudText>
+                        <MudText Typo="Typo.h6" Class="settings-card-title">Your Taste / Top Genres</MudText>
                         <MudTooltip Text="Reset personalization is not available until the Engine exposes a reset endpoint.">
                             <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Disabled="true">
                                 Reset personalization
@@ -192,12 +200,12 @@
                             {
                                 var pct = NormalizeGenrePercent(genre.Value, genres);
                                 <MudItem xs="12" sm="6">
-                                    <MudStack Spacing="1">
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudStack Spacing="1" Class="user-overview-genre-row">
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                                             <MudText Typo="Typo.body2">@genre.Key</MudText>
                                             <MudText Typo="Typo.body2">@($"{Math.Round(pct):0}%")</MudText>
                                         </MudStack>
-                                        <MudProgressLinear Value="@pct" Color="Color.Primary" Rounded="true" />
+                                        <MudProgressLinear Value="@pct" Color="Color.Primary" Rounded="true" Class="user-overview-mini-bar" />
                                     </MudStack>
                                 </MudItem>
                             }
@@ -210,8 +218,8 @@
             </MudItem>
 
             <MudItem xs="12" md="5">
-                <MudPaper Elevation="0" Outlined="true" Class="pa-4 h-100 rounded-xl">
-                    <MudText Typo="Typo.h6" Class="mb-3">@CompactListTitle</MudText>
+                <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-compact-list-card">
+                    <MudText Typo="Typo.h6" Class="settings-card-title mb-3">@CompactListTitle</MudText>
                     @if (CompactListItems.Count == 0)
                     {
                         <MudText Typo="Typo.body2" Color="Color.Secondary">Completed or recently added items will appear here.</MudText>
@@ -221,9 +229,10 @@
                         <MudList T="ProfileOverviewItemViewModel" Dense="true">
                             @foreach (var item in CompactListItems.Take(4))
                             {
-                                <MudListItem Href="@item.Route" Icon="@MediaIcon(item.MediaType)">
-                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                        <MudStack Spacing="0">
+                                <MudListItem Href="@item.Route" Class="user-overview-history-row">
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="2">
+                                        @ItemThumb(item)
+                                        <MudStack Spacing="0" Class="flex-grow-1 min-w-0">
                                             <MudText Typo="Typo.body2">@item.Title</MudText>
                                             <MudText Typo="Typo.caption" Color="Color.Secondary">@RelativeTime(CompactListDate(item))</MudText>
                                         </MudStack>
@@ -484,6 +493,17 @@
         "Comic" => Icons.Material.Outlined.AutoStories,
         _ => Icons.Material.Outlined.PlayCircle,
     };
+
+    private static RenderFragment ItemThumb(ProfileOverviewItemViewModel item) => @<MudAvatar Rounded="true" Class="user-overview-item-thumb">
+        @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+        {
+            <img src="@item.CoverUrl" alt="" />
+        }
+        else
+        {
+            <MudIcon Icon="@MediaIcon(item.MediaType)" Size="Size.Small" />
+        }
+    </MudAvatar>;
 
     private readonly record struct StatItem(string Label, string Value, string Subtitle, string Icon, Color Color);
 }

@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 
-<MudCard Outlined="true" Style="width: 156px; min-width: 156px;">
+<MudCard Outlined="true" Class="settings-media-rail-card">
     @if (!string.IsNullOrWhiteSpace(Item.Route))
     {
         <MudLink Href="@Item.Route" Underline="Underline.None" Color="Color.Inherit">
@@ -18,25 +18,25 @@
     [Parameter, EditorRequired] public ProfileOverviewItemViewModel Item { get; set; } = new();
     [Parameter] public bool ShowContinuation { get; set; }
 
-    private RenderFragment CardContent => @<MudStack Spacing="1" Class="pa-2">
+    private RenderFragment CardContent => @<MudStack Spacing="1" Class="settings-media-rail-card__content">
         @if (!string.IsNullOrWhiteSpace(Item.CoverUrl))
         {
             <MudImage Src="@Item.CoverUrl"
                       Alt=""
                       ObjectFit="ObjectFit.Cover"
-                      Height="190"
-                      Width="140"
+                      Height="176"
+                      Width="132"
                       Elevation="0"
-                      Class="rounded-lg" />
+                      Class="settings-media-rail-card__art" />
         }
         else
         {
-            <MudPaper Elevation="0" Outlined="true" Height="190px" Width="140px" Class="d-flex align-center justify-center rounded-lg">
+            <MudPaper Elevation="0" Outlined="true" Height="176px" Width="132px" Class="settings-media-rail-card__fallback d-flex align-center justify-center">
                 <MudIcon Icon="@MediaIcon(Item.MediaType)" Size="Size.Large" Color="Color.Primary" />
             </MudPaper>
         }
 
-        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@MediaIcon(Item.MediaType)">
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@MediaIcon(Item.MediaType)" Class="settings-media-type-chip">
             @FriendlyMediaType(Item.MediaType)
         </MudChip>
         @if (ShowContinuation)

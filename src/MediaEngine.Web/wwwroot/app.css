@@ -1069,6 +1069,28 @@ body {
     margin: 0 0 8px !important;
 }
 
+.settings-admin-panel .settings-select-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 42px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--tl-divider);
+}
+
+.settings-admin-panel .settings-select-row:last-child {
+    border-bottom: 0;
+}
+
+.settings-admin-panel .settings-select-row__label {
+    min-width: 0;
+    color: var(--app-text-secondary) !important;
+    font-size: 0.84rem !important;
+    font-weight: 650 !important;
+    line-height: 1.2 !important;
+}
+
 .settings-admin-panel .settings-field--compact.mud-input-control,
 .settings-admin-panel .settings-field--compact .mud-input-control {
     margin-top: 0 !important;
@@ -1110,13 +1132,51 @@ body {
     margin-bottom: 0 !important;
 }
 
+.settings-admin-panel .settings-field--menu-control {
+    justify-self: end !important;
+    margin-bottom: 0 !important;
+}
+
+.settings-admin-panel .settings-field--number-control {
+    width: 136px !important;
+    min-width: 136px !important;
+}
+
+.settings-admin-panel .settings-field--text-control {
+    width: 176px !important;
+    min-width: 176px !important;
+}
+
+.settings-admin-panel .settings-field--compact .mud-input-outlined-border {
+    border-color: transparent !important;
+}
+
+.settings-admin-panel .settings-field--compact:hover .mud-input-outlined-border,
+.settings-admin-panel .settings-field--compact .mud-input-focused .mud-input-outlined-border {
+    border-color: rgba(139, 92, 246, 0.42) !important;
+}
+
 .settings-select-menu.mud-popover,
 .settings-select-menu.mud-popover .mud-paper,
 .settings-select-menu .mud-paper,
-.settings-select-menu .mud-list {
+.settings-select-menu .mud-list,
+.mud-popover.settings-select-menu,
+.mud-popover.settings-select-menu .mud-paper,
+.mud-popover.settings-select-menu .mud-list {
     border: 0 !important;
     outline: 0 !important;
     box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32) !important;
+}
+
+.settings-select-menu .mud-list {
+    padding: 4px !important;
+}
+
+.settings-select-menu .mud-list-item {
+    min-height: 34px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-radius: var(--app-radius-sm) !important;
 }
 
 .settings-admin-panel .settings-slider-block {
@@ -3138,4 +3198,100 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .layout-shell__profile-popover .mud-menu-item:hover,
 .layout-shell__profile-popover .mud-menu-item:focus {
     background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035)) !important;
+}
+
+/* Settings selects intentionally use compact, borderless controls. Keep this
+   after the global MudBlazor popover/input rules because select menus render
+   outside the settings panel as app-level popovers. */
+.settings-admin-panel .settings-field--compact .mud-input-slot,
+.settings-admin-panel .settings-field--compact .mud-input-outlined,
+.settings-admin-panel .settings-field--compact .mud-select-input {
+    min-height: 34px !important;
+    height: 34px !important;
+    align-items: center !important;
+}
+
+.settings-admin-panel .settings-field--compact input.mud-input-root,
+.settings-admin-panel .settings-field--compact .mud-select-input {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    font-size: 0.9rem !important;
+    line-height: 34px !important;
+}
+
+.settings-admin-panel .settings-field--compact .mud-input-adornment,
+.settings-admin-panel .settings-field--compact .mud-input-control-input-container,
+.settings-admin-panel .settings-field--compact .mud-input {
+    min-height: 34px !important;
+    height: 34px !important;
+    align-items: center !important;
+}
+
+.settings-admin-panel .settings-field--compact .mud-input-outlined-border,
+.settings-admin-panel .settings-field--compact:hover .mud-input-outlined-border,
+.settings-admin-panel .settings-field--compact .mud-input-focused .mud-input-outlined-border,
+.settings-admin-panel .settings-field--compact .mud-input-outlined-border:focus-within {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.settings-admin-panel .settings-field--row-control {
+    width: 104px !important;
+    min-width: 104px !important;
+}
+
+.settings-admin-panel .settings-field--number-control {
+    width: 124px !important;
+    min-width: 124px !important;
+}
+
+.settings-admin-panel .settings-field--text-control {
+    width: 156px !important;
+    min-width: 156px !important;
+}
+
+.mud-popover.settings-select-menu,
+.mud-popover.settings-select-menu .mud-paper,
+.mud-popover.settings-select-menu .mud-list,
+.settings-select-menu.mud-popover,
+.settings-select-menu.mud-popover .mud-paper,
+.settings-select-menu .mud-paper,
+.settings-select-menu .mud-list {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32) !important;
+}
+
+.mud-popover.settings-select-menu,
+.settings-select-menu.mud-popover {
+    padding: 0 !important;
+}
+
+.mud-popover.settings-select-menu .mud-paper,
+.settings-select-menu.mud-popover .mud-paper,
+.settings-select-menu .mud-paper {
+    background: var(--app-surface-2) !important;
+    border-radius: var(--app-radius-md) !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+
+.settings-select-menu .mud-list {
+    padding: 4px !important;
+}
+
+.settings-select-menu .mud-list-item {
+    min-height: 32px !important;
+    height: 32px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-radius: var(--app-radius-sm) !important;
+}
+
+.settings-select-menu .mud-list-item .mud-list-item-text,
+.settings-select-menu .mud-list-item .mud-typography,
+.settings-select-menu .mud-list-item .mud-list-item-text p {
+    margin: 0 !important;
+    font-size: 0.88rem !important;
+    line-height: 32px !important;
 }

@@ -322,19 +322,25 @@ else if (_settings is not null)
         </MudSelect>
     </div>;
 
-    private RenderFragment IntSelect(string label, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<MudSelect T="int" Label="@label" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" FullWidth="true" Class="settings-field--compact" PopoverClass="settings-select-menu">
-        @foreach (var option in options)
-        {
-            <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
-        }
-    </MudSelect>;
+    private RenderFragment IntSelect(string label, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<div class="settings-select-row">
+        <MudText Typo="Typo.caption" Class="settings-select-row__label">@label</MudText>
+        <MudSelect T="int" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--menu-control settings-field--number-control" PopoverClass="settings-select-menu">
+            @foreach (var option in options)
+            {
+                <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
+            }
+        </MudSelect>
+    </div>;
 
-    private RenderFragment StringSelect(string label, string value, IReadOnlyList<string> options, Func<string, Task> changed, Func<string, string>? formatter = null) => @<MudSelect T="string" Label="@label" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" FullWidth="true" Class="settings-field--compact" PopoverClass="settings-select-menu">
-        @foreach (var option in options)
-        {
-            <MudSelectItem T="string" Value="@option">@((formatter ?? Display)(option))</MudSelectItem>
-        }
-    </MudSelect>;
+    private RenderFragment StringSelect(string label, string value, IReadOnlyList<string> options, Func<string, Task> changed, Func<string, string>? formatter = null) => @<div class="settings-select-row">
+        <MudText Typo="Typo.caption" Class="settings-select-row__label">@label</MudText>
+        <MudSelect T="string" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--menu-control settings-field--text-control" PopoverClass="settings-select-menu">
+            @foreach (var option in options)
+            {
+                <MudSelectItem T="string" Value="@option">@((formatter ?? Display)(option))</MudSelectItem>
+            }
+        </MudSelect>
+    </div>;
 
     private RenderFragment Glance(string title, string icon, string value) => @<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="settings-glance-item">
         <MudIcon Icon="@icon" Color="Color.Primary" />
