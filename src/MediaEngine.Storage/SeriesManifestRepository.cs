@@ -200,8 +200,13 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             using var conn = _db.CreateConnection();
             using var tx = conn.BeginTransaction();
 
-            foreach (var item in items.Where(i => i.OwnershipState == "Owned" && i.LinkedWorkId.HasValue))
+            foreach (var item in items.Where(i => i.OwnershipState == "Owned"))
             {
+                if (item.LinkedWorkId is not { } workId)
+                {
+                    continue;
+                }
+
                 var sortOrder = item.SortOrder.HasValue
                     ? (int)Math.Round(item.SortOrder.Value, MidpointRounding.AwayFromZero)
                     : 0;
@@ -229,7 +234,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     {
                         id = Guid.NewGuid().ToString(),
                         collectionId = collectionId.ToString(),
-                        workId = item.LinkedWorkId.Value.ToString(),
+                        workId = workId.ToString(),
                         sortOrder,
                         addedAt = DateTimeOffset.UtcNow.ToString("O"),
                     },

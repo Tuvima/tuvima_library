@@ -212,12 +212,12 @@ else
 
     private RenderFragment SettingText(PluginViewModel plugin, string key, string title, string description) => HasSetting(plugin, key) ? @<div class="settings-select-row">
         <MudText Typo="Typo.caption" Class="settings-select-row__label">@title</MudText>
-        <MudTextField T="string" Value="@ReadString(plugin, key)" ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v ?? string.Empty, _json)))" Placeholder="@description" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" />
+        <MudTextField T="string" Value="@ReadString(plugin, key)" ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v ?? string.Empty, _json)))" Placeholder="@description" Variant="Variant.Outlined" Margin="Margin.Dense" />
     </div> : @<span />;
 
     private RenderFragment SettingNumber(PluginViewModel plugin, string key, string title, string description) => HasSetting(plugin, key) ? @<div class="settings-select-row">
         <MudText Typo="Typo.caption" Class="settings-select-row__label">@title</MudText>
-        <MudNumericField T="int" Value="@ReadInt(plugin, key)" ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v, _json)))" HelperText="@description" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Min="1" Max="200" />
+        <MudNumericField T="int" Value="@ReadInt(plugin, key)" ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v, _json)))" HelperText="@description" Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="200" />
     </div> : @<span />;
 
     private static bool HasSetting(PluginViewModel plugin, string key) => plugin.Settings.ContainsKey(key);

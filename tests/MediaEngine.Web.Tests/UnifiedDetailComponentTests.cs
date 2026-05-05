@@ -106,16 +106,16 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void HeroBackdrop_RendersTvHeroBrand()
+    public void DetailHero_RendersTvHeroBrandBadge()
     {
-        var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroBackdrop.razor");
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
         var client = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
 
-        Assert.Contains("HeroBrandViewModel", source);
-        Assert.Contains("tl-detail-hero-brand", source);
-        Assert.Contains("DetailEntityType.TvShow", source);
-        Assert.Contains("tl-detail-hero-brand img", styles);
+        Assert.Contains("Model.HeroBrand is not null", source);
+        Assert.Contains("tl-detail-hero-brand-badge", source);
+        Assert.Contains("Presentation.IsWatchHero", source);
+        Assert.Contains("tl-detail-hero-brand-badge img", styles);
         Assert.Contains("NormalizeHeroBrand", client);
         Assert.Contains("StreamingServiceLogoResolver", client);
         Assert.Contains("ResolveLogoPath(heroBrand.Label)", client);

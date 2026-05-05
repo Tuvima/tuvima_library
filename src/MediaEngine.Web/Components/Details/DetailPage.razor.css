@@ -344,6 +344,43 @@
     filter: drop-shadow(0 0.3rem 1.2rem rgba(0, 0, 0, 0.72));
 }
 
+::deep .tl-detail-hero--watch .tl-detail-hero-brand {
+    display: none;
+}
+
+::deep .tl-detail-hero-brand-badge {
+    width: fit-content;
+    min-width: 6.9rem;
+    min-height: 3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 0.42rem;
+    background: rgba(36, 24, 18, 0.78);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0.8rem 1.6rem rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(12px);
+}
+
+::deep .tl-detail-hero-brand-badge img {
+    display: block;
+    width: auto;
+    max-width: 5.8rem;
+    max-height: 1.85rem;
+    object-fit: contain;
+    filter: drop-shadow(0 0.22rem 0.55rem rgba(0, 0, 0, 0.44));
+}
+
+::deep .tl-detail-hero-brand-badge span {
+    color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.95);
+    font-size: 0.86rem;
+    font-weight: 850;
+    letter-spacing: 0;
+    line-height: 1;
+    white-space: nowrap;
+}
+
 ::deep .tl-detail-hero__inner {
     position: relative;
     z-index: 2;
@@ -2968,6 +3005,17 @@
     ::deep .tl-detail-hero-brand {
         right: 1rem;
         bottom: 1.25rem;
+    }
+
+    ::deep .tl-detail-hero-brand-badge {
+        min-width: 5.8rem;
+        min-height: 2.65rem;
+        padding: 0.48rem 0.72rem;
+    }
+
+    ::deep .tl-detail-hero-brand-badge img {
+        max-width: 4.9rem;
+        max-height: 1.55rem;
     }
 
     ::deep .tl-credit-preview--bar,

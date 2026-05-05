@@ -15,6 +15,23 @@
             {
                 <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
             }
+            else if (Presentation.IsWatchHero
+                && Model.HeroBrand is not null
+                && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label)))
+            {
+                <div class="tl-detail-hero-brand-badge"
+                     title="@Model.HeroBrand.Label"
+                     aria-label="@Model.HeroBrand.Label">
+                    @if (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl))
+                    {
+                        <img src="@Model.HeroBrand.ImageUrl" alt="@Model.HeroBrand.Label" />
+                    }
+                    else
+                    {
+                        <span>@Model.HeroBrand.Label</span>
+                    }
+                </div>
+            }
 
             @if (Presentation.UseLogo)
             {

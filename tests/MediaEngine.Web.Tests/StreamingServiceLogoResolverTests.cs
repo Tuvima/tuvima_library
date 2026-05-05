@@ -145,6 +145,6 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         var cut = RenderComponent<DetailHero>(parameters => parameters.Add(component => component.Model, model));
 
         Assert.Equal("/images/show-title-logos/shogun.png", cut.Find(".tl-detail-hero__logo").GetAttribute("src"));
-        Assert.Equal("/images/streaming-services/hulu.png", cut.Find(".tl-detail-hero-brand img").GetAttribute("src"));
+        Assert.Equal("/images/streaming-services/hulu.png", cut.Find(".tl-detail-hero-brand-badge img").GetAttribute("src"));
     }
 }
