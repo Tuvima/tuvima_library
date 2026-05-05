@@ -181,12 +181,18 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.NotEmpty(cut.FindAll(".mud-tabs"));
+            Assert.NotEmpty(cut.FindAll(".settings-tab-strip"));
+            Assert.NotEmpty(cut.FindAll(".settings-summary-strip"));
+            Assert.NotEmpty(cut.FindAll(".settings-section-card--dense"));
+            Assert.NotEmpty(cut.FindAll(".settings-preference-row"));
             Assert.Contains("General", cut.Markup);
             Assert.Contains("Watching", cut.Markup);
             Assert.Contains("Listening", cut.Markup);
             Assert.Contains("Reading", cut.Markup);
             Assert.Contains("Subtitles", cut.Markup);
-            Assert.Contains("Saved locally", cut.Markup);
+            Assert.DoesNotContain("Saved locally", cut.Markup);
+            Assert.DoesNotContain("Save changes", cut.Markup);
+            Assert.DoesNotContain("Unsaved changes", cut.Markup);
             Assert.DoesNotContain("Web delivery", cut.Markup);
             Assert.DoesNotContain("TV delivery", cut.Markup);
             Assert.DoesNotContain("Mobile download profile", cut.Markup);
@@ -202,10 +208,19 @@ public sealed class UiShellRenderTests : TestContext
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "PlaybackTab.razor"));
 
         Assert.Contains("<MudTabs", source);
+        Assert.Contains("settings-tab-strip", source);
+        Assert.Contains("settings-summary-strip", source);
+        Assert.Contains("settings-field--compact", source);
+        Assert.Contains("settings-preference-row", source);
+        Assert.Contains("settings-slider-block", source);
+        Assert.Contains("UpdateAndSaveAsync", source);
         Assert.Contains("Video Speed", source);
         Assert.Contains("Audiobook Speed", source);
         Assert.Contains("<MudSlider T=\"double\"", source);
         Assert.Contains("Orchestrator.SavePlaybackSettingsAsync", source);
+        Assert.DoesNotContain("Saved locally", source);
+        Assert.DoesNotContain("Save changes", source);
+        Assert.DoesNotContain("Unsaved changes", source);
         Assert.DoesNotContain("Task.Delay", source);
         Assert.DoesNotContain("MudToggleGroup", source);
         Assert.DoesNotContain("Web delivery", source);

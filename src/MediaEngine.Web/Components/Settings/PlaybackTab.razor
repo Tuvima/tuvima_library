@@ -25,27 +25,7 @@ else if (!string.IsNullOrWhiteSpace(_loadError))
 }
 else if (_settings is not null)
 {
-    <MudStack Spacing="4">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-            <MudChip T="string" Color="@StatusColor" Variant="Variant.Outlined" Icon="@StatusIcon">@StatusLabel</MudChip>
-            <MudStack Row="true" Spacing="2">
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           StartIcon="@Icons.Material.Outlined.Restore"
-                           Disabled="@(!_dirty || _saving)"
-                           OnClick="ResetChanges">
-                    Reset
-                </MudButton>
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Outlined.Save"
-                           Disabled="@(!_dirty || _saving)"
-                           OnClick="SaveAsync">
-                    @(_saving ? "Saving..." : "Save changes")
-                </MudButton>
-            </MudStack>
-        </MudStack>
-
+    <MudStack Spacing="4" Class="settings-playback-page">
         @if (!string.IsNullOrWhiteSpace(_saveError))
         {
             <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_saveError</MudAlert>
@@ -54,52 +34,53 @@ else if (_settings is not null)
         <MudTabs Rounded="true"
                  Elevation="0"
                  Color="Color.Primary"
+                 Class="settings-tab-strip settings-playback-tabs"
                  @bind-ActivePanelIndex="_activeTab">
             <MudTabPanel Text="General" Icon="@Icons.Material.Outlined.Settings">
-                <MudStack Spacing="3" Class="pt-4">
-                <MudPaper Elevation="0" Class="tl-card">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                        <MudAvatar Size="Size.Large" Color="Color.Primary">@Initials</MudAvatar>
-                        <MudStack Spacing="1">
-                            <MudText Typo="Typo.overline" Color="Color.Primary">Default Experience</MudText>
-                            <MudText Typo="Typo.h6">@ProfileName</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">@ProfileRole personal playback and reading defaults.</MudText>
+                <MudStack Spacing="3" Class="settings-tab-panel">
+                <MudPaper Elevation="0" Class="tl-card settings-summary-strip settings-experience-card">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="settings-experience-grid">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="settings-experience-profile">
+                            <MudAvatar Size="Size.Large" Color="Color.Primary">@Initials</MudAvatar>
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.overline" Color="Color.Primary">Default Experience</MudText>
+                                <MudText Typo="Typo.h6">@ProfileName</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@ProfileRole personal playback and reading defaults.</MudText>
+                            </MudStack>
                         </MudStack>
+                        @SummaryMetric(Icons.Material.Outlined.History, "Resume", OnOff(_settings.General.ResumePlayback), Color.Success)
+                        @SummaryMetric(Icons.Material.Outlined.Speed, "Video Speed", FormatSpeed(_settings.Watching.DefaultPlaybackSpeed), Color.Secondary)
+                        @SummaryMetric(Icons.Material.Outlined.Headphones, "Audiobook Speed", FormatSpeed(_settings.Listening.AudiobookDefaultSpeed), Color.Secondary)
+                        @SummaryMetric(Icons.Material.Outlined.ClosedCaption, "Subtitle Language", _settings.Subtitles.DefaultSubtitleLanguage, Color.Warning)
+                        @SummaryMetric(Icons.Material.Outlined.MenuBook, "Reading Theme", Display(_settings.Reading.Theme), Color.Warning)
                     </MudStack>
-                    <MudDivider Class="my-4" />
-                    <MudGrid Spacing="3">
-                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Resume</MudText><MudText Typo="Typo.subtitle1">@OnOff(_settings.General.ResumePlayback)</MudText></MudItem>
-                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Video Speed</MudText><MudText Typo="Typo.subtitle1">@FormatSpeed(_settings.Watching.DefaultPlaybackSpeed)</MudText></MudItem>
-                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Audiobook Speed</MudText><MudText Typo="Typo.subtitle1">@FormatSpeed(_settings.Listening.AudiobookDefaultSpeed)</MudText></MudItem>
-                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Subtitles</MudText><MudText Typo="Typo.subtitle1">@_settings.Subtitles.DefaultSubtitleLanguage</MudText></MudItem>
-                        <MudItem xs="6" md="2"><MudText Typo="Typo.caption">Reading Theme</MudText><MudText Typo="Typo.subtitle1">@Display(_settings.Reading.Theme)</MudText></MudItem>
-                    </MudGrid>
                 </MudPaper>
 
                 <MudGrid Spacing="3">
                     <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Resume & Progress" Icon="@Icons.Material.Outlined.Update">
-                            @BoolRow("Resume playback", "Automatically continue where you left off.", _settings.General.ResumePlayback, v => Update(() => _settings.General.ResumePlayback = v))
-                            @BoolRow("Ask before resuming", "Confirm before resuming playback.", _settings.General.AskBeforeResuming, v => Update(() => _settings.General.AskBeforeResuming = v))
-                            @IntSelect("Mark complete threshold", _settings.General.MarkCompleteThresholdPercent, ThresholdOptions, v => Update(() => _settings.General.MarkCompleteThresholdPercent = v), "%")
-                            @BoolRow("Track partially played items", "Show in-progress items across library surfaces.", _settings.General.TrackPartiallyPlayedItems, v => Update(() => _settings.General.TrackPartiallyPlayedItems = v))
-                            @BoolRow("Sync book and audiobook progress", "Keep progress in sync across formats.", _settings.General.SyncProgressBetweenBookAndAudiobook, v => Update(() => _settings.General.SyncProgressBetweenBookAndAudiobook = v))
+                        <SettingsSectionPanel Title="Resume & Progress" Icon="@Icons.Material.Outlined.Update" Class="tl-card settings-section-card settings-section-card--dense settings-section-card--progress">
+                            @BoolRow(Icons.Material.Outlined.PlayCircle, "Resume playback", "Automatically continue where you left off.", _settings.General.ResumePlayback, v => UpdateAndSaveAsync(() => _settings.General.ResumePlayback = v))
+                            @BoolRow(Icons.Material.Outlined.LiveHelp, "Ask before resuming", "Confirm before resuming playback.", _settings.General.AskBeforeResuming, v => UpdateAndSaveAsync(() => _settings.General.AskBeforeResuming = v))
+                            @IntSelectRow(Icons.Material.Outlined.DoneAll, "Mark complete threshold", "Mark as complete after reaching.", _settings.General.MarkCompleteThresholdPercent, ThresholdOptions, v => UpdateAndSaveAsync(() => _settings.General.MarkCompleteThresholdPercent = v), "%")
+                            @BoolRow(Icons.Material.Outlined.Timeline, "Track partially played items", "Show in-progress items across library surfaces.", _settings.General.TrackPartiallyPlayedItems, v => UpdateAndSaveAsync(() => _settings.General.TrackPartiallyPlayedItems = v))
+                            @BoolRow(Icons.Material.Outlined.Sync, "Sync book and audiobook progress", "Keep progress in sync across formats.", _settings.General.SyncProgressBetweenBookAndAudiobook, v => UpdateAndSaveAsync(() => _settings.General.SyncProgressBetweenBookAndAudiobook = v))
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Quick Preferences" Icon="@Icons.Material.Outlined.FlashOn">
-                            @BoolRow("Resume playback", "Continue where you left off.", _settings.General.ResumePlayback, v => Update(() => _settings.General.ResumePlayback = v))
-                            @BoolRow("Spoiler-safe progress", "Hide future details and progress.", _settings.General.SpoilerSafeProgress, v => Update(() => _settings.General.SpoilerSafeProgress = v))
-                            @BoolRow("Sync book / audiobook progress", "Keep progress aligned across formats.", _settings.General.SyncProgressBetweenBookAndAudiobook, v => Update(() => _settings.General.SyncProgressBetweenBookAndAudiobook = v))
-                            @BoolRow("Use banner art when available", "Show large banners on detail pages.", _settings.General.UseBannerArtWhenAvailable, v => Update(() => _settings.General.UseBannerArtWhenAvailable = v))
+                        <SettingsSectionPanel Title="Quick Preferences" Icon="@Icons.Material.Outlined.FlashOn" Class="tl-card settings-section-card settings-section-card--dense settings-section-card--quick">
+                            @BoolRow(Icons.Material.Outlined.PlayArrow, "Resume playback", "Continue where you left off.", _settings.General.ResumePlayback, v => UpdateAndSaveAsync(() => _settings.General.ResumePlayback = v))
+                            @BoolRow(Icons.Material.Outlined.Security, "Spoiler-safe progress", "Hide future details and progress.", _settings.General.SpoilerSafeProgress, v => UpdateAndSaveAsync(() => _settings.General.SpoilerSafeProgress = v))
+                            @BoolRow(Icons.Material.Outlined.Sync, "Sync book / audiobook progress", "Keep progress aligned across formats.", _settings.General.SyncProgressBetweenBookAndAudiobook, v => UpdateAndSaveAsync(() => _settings.General.SyncProgressBetweenBookAndAudiobook = v))
+                            @BoolRow(Icons.Material.Outlined.Image, "Use banner art when available", "Show large banners on detail pages.", _settings.General.UseBannerArtWhenAvailable, v => UpdateAndSaveAsync(() => _settings.General.UseBannerArtWhenAvailable = v))
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12">
                         <SettingsSectionPanel Title="Defaults at a Glance" Icon="@Icons.Material.Outlined.Visibility">
-                            @Glance("Watching", Icons.Material.Outlined.LiveTv, $"Video speed {FormatSpeed(_settings.Watching.DefaultPlaybackSpeed)}")
-                            @Glance("Listening", Icons.Material.Outlined.Headphones, $"Audiobook speed {FormatSpeed(_settings.Listening.AudiobookDefaultSpeed)}")
-                            @Glance("Reading", Icons.Material.Outlined.MenuBook, $"Theme {Display(_settings.Reading.Theme)}")
-                            @Glance("Subtitles", Icons.Material.Outlined.ClosedCaption, _settings.Subtitles.DefaultSubtitleLanguage)
+                            <MudGrid Spacing="3">
+                                <MudItem xs="12" md="4">@Glance("Watching", Icons.Material.Outlined.LiveTv, $"Default speed {FormatSpeed(_settings.Watching.DefaultPlaybackSpeed)} - Skip forward {_settings.Watching.SkipForwardSeconds}s - Skip back {_settings.Watching.SkipBackSeconds}s")</MudItem>
+                                <MudItem xs="12" md="4">@Glance("Listening", Icons.Material.Outlined.Headphones, $"Default speed {FormatSpeed(_settings.Listening.AudiobookDefaultSpeed)} - Sleep timer {SleepLabel(_settings.Listening.DefaultSleepTimer)}")</MudItem>
+                                <MudItem xs="12" md="4">@Glance("Reading", Icons.Material.Outlined.MenuBook, $"Theme {Display(_settings.Reading.Theme)} - Font size {_settings.Reading.FontSizePercent}% - Margins {Display(_settings.Reading.Margins)}")</MudItem>
+                            </MudGrid>
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
@@ -107,107 +88,140 @@ else if (_settings is not null)
             </MudTabPanel>
 
             <MudTabPanel Text="Watching" Icon="@Icons.Material.Outlined.LiveTv">
-                <MudGrid Spacing="3" Class="pt-4">
+                <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Video Speed" Icon="@Icons.Material.Outlined.Speed">
-                            <MudText Typo="Typo.body2">Current: <strong>@FormatSpeed(_settings.Watching.DefaultPlaybackSpeed)</strong></MudText>
-                            <MudSlider T="double" Value="@((double)_settings.Watching.DefaultPlaybackSpeed)" ValueChanged="@(v => Update(() => _settings.Watching.DefaultPlaybackSpeed = (decimal)v))" Min="0.5" Max="2.0" Step="0.05" Color="Color.Primary" />
-                            @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x"])
+                            <div class="settings-slider-block">
+                                @SliderHeader("Default playback speed", FormatSpeed(_settings.Watching.DefaultPlaybackSpeed))
+                                <MudSlider T="double" Class="settings-slider" Value="@((double)_settings.Watching.DefaultPlaybackSpeed)" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = (decimal)v))" Min="0.5" Max="2.0" Step="0.05" Color="Color.Primary" />
+                                @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x"])
+                            </div>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = 1.0m))">Reset to 1.0x</MudButton>
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Skip Controls" Icon="@Icons.Material.Outlined.Replay10">
-                            @IntSelect("Skip back", _settings.Watching.SkipBackSeconds, WatchingSkipBackOptions, v => Update(() => _settings.Watching.SkipBackSeconds = v), " seconds")
-                            @IntSelect("Skip forward", _settings.Watching.SkipForwardSeconds, WatchingSkipForwardOptions, v => Update(() => _settings.Watching.SkipForwardSeconds = v), " seconds")
+                            @IntSelect("Skip back", _settings.Watching.SkipBackSeconds, WatchingSkipBackOptions, v => UpdateAndSaveAsync(() => _settings.Watching.SkipBackSeconds = v), " seconds")
+                            @IntSelect("Skip forward", _settings.Watching.SkipForwardSeconds, WatchingSkipForwardOptions, v => UpdateAndSaveAsync(() => _settings.Watching.SkipForwardSeconds = v), " seconds")
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Episode Behavior" Icon="@Icons.Material.Outlined.PlaylistPlay">
-                            @BoolRow("Autoplay next episode", "Start the next episode automatically.", _settings.Watching.AutoplayNextEpisode, v => Update(() => _settings.Watching.AutoplayNextEpisode = v))
-                            @BoolRow("Continue from credits", "Resume near the credit point when available.", _settings.Watching.ContinueFromCredits, v => Update(() => _settings.Watching.ContinueFromCredits = v))
-                            @BoolRow("Remember per-title playback speed", "Keep custom speeds for individual titles.", _settings.Watching.RememberPerTitlePlaybackSpeed, v => Update(() => _settings.Watching.RememberPerTitlePlaybackSpeed = v))
+                            @BoolRow(Icons.Material.Outlined.PlaylistPlay, "Autoplay next episode", "Start the next episode automatically.", _settings.Watching.AutoplayNextEpisode, v => UpdateAndSaveAsync(() => _settings.Watching.AutoplayNextEpisode = v))
+                            @BoolRow(Icons.Material.Outlined.FastForward, "Continue from credits", "Resume near the credit point when available.", _settings.Watching.ContinueFromCredits, v => UpdateAndSaveAsync(() => _settings.Watching.ContinueFromCredits = v))
+                            @BoolRow(Icons.Material.Outlined.Speed, "Remember per-title playback speed", "Keep custom speeds for individual titles.", _settings.Watching.RememberPerTitlePlaybackSpeed, v => UpdateAndSaveAsync(() => _settings.Watching.RememberPerTitlePlaybackSpeed = v))
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Quality" Icon="@Icons.Material.Outlined.HighQuality">
-                            @StringSelect("Preferred video quality", _settings.Watching.PreferredVideoQuality, VideoQualityOptions, v => Update(() => _settings.Watching.PreferredVideoQuality = v))
+                        <SettingsSectionPanel Title="Quality & Artwork" Icon="@Icons.Material.Outlined.HighQuality">
+                            @StringSelect("Preferred video quality", _settings.Watching.PreferredVideoQuality, VideoQualityOptions, v => UpdateAndSaveAsync(() => _settings.Watching.PreferredVideoQuality = v))
+                            @BoolRow(Icons.Material.Outlined.Panorama, "Prefer hero banners", "Use wide artwork when available.", _settings.Watching.PreferHeroBanners, v => UpdateAndSaveAsync(() => _settings.Watching.PreferHeroBanners = v))
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Server delivery and transcoding settings are managed by administrators under Playback & Delivery.</MudAlert>
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
             </MudTabPanel>
 
             <MudTabPanel Text="Listening" Icon="@Icons.Material.Outlined.Headphones">
-                <MudGrid Spacing="3" Class="pt-4">
+                <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Audiobook Speed" Icon="@Icons.Material.Outlined.Speed">
-                            <MudText Typo="Typo.body2">Current: <strong>@FormatSpeed(_settings.Listening.AudiobookDefaultSpeed)</strong></MudText>
-                            <MudSlider T="double" Value="@((double)_settings.Listening.AudiobookDefaultSpeed)" ValueChanged="@(v => Update(() => _settings.Listening.AudiobookDefaultSpeed = (decimal)v))" Min="0.5" Max="3.0" Step="0.05" Color="Color.Primary" />
-                            @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x", "3.0x"])
+                            <div class="settings-slider-block">
+                                @SliderHeader("Audiobook default speed", FormatSpeed(_settings.Listening.AudiobookDefaultSpeed))
+                                <MudSlider T="double" Class="settings-slider" Value="@((double)_settings.Listening.AudiobookDefaultSpeed)" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = (decimal)v))" Min="0.5" Max="3.0" Step="0.05" Color="Color.Primary" />
+                                @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x", "3.0x"])
+                            </div>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = 1.25m))">Reset to 1.25x</MudButton>
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Skip & Silence" Icon="@Icons.Material.Outlined.Forward30">
-                            @IntSelect("Skip back", _settings.Listening.SkipBackSeconds, ListeningSkipBackOptions, v => Update(() => _settings.Listening.SkipBackSeconds = v), " seconds")
-                            @IntSelect("Skip forward", _settings.Listening.SkipForwardSeconds, ListeningSkipForwardOptions, v => Update(() => _settings.Listening.SkipForwardSeconds = v), " seconds")
-                            @BoolRow("Skip silence", "Reduce long silent gaps when supported.", _settings.Listening.SkipSilence, v => Update(() => _settings.Listening.SkipSilence = v))
+                            @IntSelect("Skip back", _settings.Listening.SkipBackSeconds, ListeningSkipBackOptions, v => UpdateAndSaveAsync(() => _settings.Listening.SkipBackSeconds = v), " seconds")
+                            @IntSelect("Skip forward", _settings.Listening.SkipForwardSeconds, ListeningSkipForwardOptions, v => UpdateAndSaveAsync(() => _settings.Listening.SkipForwardSeconds = v), " seconds")
+                            @BoolRow(Icons.Material.Outlined.VolumeOff, "Skip silence", "Reduce long silent gaps when supported.", _settings.Listening.SkipSilence, v => UpdateAndSaveAsync(() => _settings.Listening.SkipSilence = v))
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Music Behavior" Icon="@Icons.Material.Outlined.GraphicEq">
-                            @BoolRow("Music crossfade", "Blend between tracks.", _settings.Listening.MusicCrossfade, v => Update(() => _settings.Listening.MusicCrossfade = v))
-                            <MudSlider T="int" Value="_settings.Listening.CrossfadeSeconds" ValueChanged="@(v => Update(() => _settings.Listening.CrossfadeSeconds = v))" Min="1" Max="15" Step="1" Disabled="@(!_settings.Listening.MusicCrossfade)" Color="Color.Primary" />
-                            @BoolRow("Remember per-title playback speed", "Keep custom speeds for individual titles.", _settings.Listening.RememberPerTitlePlaybackSpeed, v => Update(() => _settings.Listening.RememberPerTitlePlaybackSpeed = v))
+                            @BoolRow(Icons.Material.Outlined.GraphicEq, "Music crossfade", "Blend between tracks.", _settings.Listening.MusicCrossfade, v => UpdateAndSaveAsync(() => _settings.Listening.MusicCrossfade = v))
+                            <div class="settings-slider-block">
+                                @SliderHeader("Crossfade length", $"{_settings.Listening.CrossfadeSeconds}s")
+                                <MudSlider T="int" Class="settings-slider" Value="_settings.Listening.CrossfadeSeconds" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.CrossfadeSeconds = v))" Min="1" Max="15" Step="1" Disabled="@(!_settings.Listening.MusicCrossfade)" Color="Color.Primary" />
+                                @SliderLabels(["1s", "5s", "10s", "15s"])
+                            </div>
+                            @BoolRow(Icons.Material.Outlined.Speed, "Remember per-title playback speed", "Keep custom speeds for individual titles.", _settings.Listening.RememberPerTitlePlaybackSpeed, v => UpdateAndSaveAsync(() => _settings.Listening.RememberPerTitlePlaybackSpeed = v))
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Sleep & Output" Icon="@Icons.Material.Outlined.Bedtime">
-                            @StringSelect("Sleep timer", _settings.Listening.DefaultSleepTimer, SleepTimerOptions, v => Update(() => _settings.Listening.DefaultSleepTimer = v), SleepLabel)
-                            @StringSelect("Output preference", _settings.Listening.OutputPreference, OutputOptions, v => Update(() => _settings.Listening.OutputPreference = v))
+                            @StringSelect("Sleep timer", _settings.Listening.DefaultSleepTimer, SleepTimerOptions, v => UpdateAndSaveAsync(() => _settings.Listening.DefaultSleepTimer = v), SleepLabel)
+                            @StringSelect("Output preference", _settings.Listening.OutputPreference, OutputOptions, v => UpdateAndSaveAsync(() => _settings.Listening.OutputPreference = v))
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
             </MudTabPanel>
 
             <MudTabPanel Text="Reading" Icon="@Icons.Material.Outlined.MenuBook">
-                <MudGrid Spacing="3" Class="pt-4">
+                <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Reading Mode" Icon="@Icons.Material.Outlined.ChromeReaderMode">
-                            @StringSelect("Reading mode", _settings.Reading.ReadingMode, ReadingModeOptions, v => Update(() => _settings.Reading.ReadingMode = v))
-                            @StringSelect("Comic mode", _settings.Reading.DefaultComicMode, ComicOptions, v => Update(() => _settings.Reading.DefaultComicMode = v))
+                            @StringSelect("Reading mode", _settings.Reading.ReadingMode, ReadingModeOptions, v => UpdateAndSaveAsync(() => _settings.Reading.ReadingMode = v))
+                            @StringSelect("Comic mode", _settings.Reading.DefaultComicMode, ComicOptions, v => UpdateAndSaveAsync(() => _settings.Reading.DefaultComicMode = v))
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Typography" Icon="@Icons.Material.Outlined.FormatSize">
-                            <MudText Typo="Typo.body2">Font size: <strong>@_settings.Reading.FontSizePercent%</strong></MudText>
-                            <MudSlider T="int" Value="_settings.Reading.FontSizePercent" ValueChanged="@(v => Update(() => _settings.Reading.FontSizePercent = v))" Min="80" Max="160" Step="5" Color="Color.Primary" />
-                            @StringSelect("Theme", _settings.Reading.Theme, ThemeOptions, v => Update(() => _settings.Reading.Theme = v))
+                            <div class="settings-slider-block">
+                                @SliderHeader("Font size", $"{_settings.Reading.FontSizePercent}%")
+                                <MudSlider T="int" Class="settings-slider" Value="_settings.Reading.FontSizePercent" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Reading.FontSizePercent = v))" Min="80" Max="160" Step="5" Color="Color.Primary" />
+                                @SliderLabels(["80%", "100%", "120%", "140%", "160%"])
+                            </div>
+                            @StringSelect("Theme", _settings.Reading.Theme, ThemeOptions, v => UpdateAndSaveAsync(() => _settings.Reading.Theme = v))
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Page Layout" Icon="@Icons.Material.Outlined.ViewAgenda">
-                            @StringSelect("Line spacing", _settings.Reading.LineSpacing, SpacingOptions, v => Update(() => _settings.Reading.LineSpacing = v))
-                            @StringSelect("Margins", _settings.Reading.Margins, MarginOptions, v => Update(() => _settings.Reading.Margins = v))
-                            @BoolRow("Keep screen awake", "Prevent dimming while reading.", _settings.Reading.KeepScreenAwake, v => Update(() => _settings.Reading.KeepScreenAwake = v))
+                            @StringSelect("Line spacing", _settings.Reading.LineSpacing, SpacingOptions, v => UpdateAndSaveAsync(() => _settings.Reading.LineSpacing = v))
+                            @StringSelect("Margins", _settings.Reading.Margins, MarginOptions, v => UpdateAndSaveAsync(() => _settings.Reading.Margins = v))
+                            @BoolRow(Icons.Material.Outlined.WbSunny, "Keep screen awake", "Prevent dimming while reading.", _settings.Reading.KeepScreenAwake, v => UpdateAndSaveAsync(() => _settings.Reading.KeepScreenAwake = v))
+                            @BoolRow(Icons.Material.Outlined.Timeline, "Show chapter progress", "Show progress inside each chapter.", _settings.Reading.ShowChapterProgress, v => UpdateAndSaveAsync(() => _settings.Reading.ShowChapterProgress = v))
+                            @BoolRow(Icons.Material.Outlined.Numbers, "Show page numbers", "Show page numbers where available.", _settings.Reading.ShowPageNumbers, v => UpdateAndSaveAsync(() => _settings.Reading.ShowPageNumbers = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Preview" Icon="@Icons.Material.Outlined.Preview">
+                            <MudPaper Elevation="0" Class="tl-card tl-card--flush settings-reading-preview">
+                                <MudText Typo="Typo.subtitle1">@Display(_settings.Reading.Theme) reader preview</MudText>
+                                <MudText Typo="Typo.body2">A short passage shows the selected font scale, spacing, and page layout preferences without changing your actual reader.</MudText>
+                            </MudPaper>
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
             </MudTabPanel>
 
             <MudTabPanel Text="Subtitles" Icon="@Icons.Material.Outlined.ClosedCaption">
-                <MudGrid Spacing="3" Class="pt-4">
+                <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Language Defaults" Icon="@Icons.Material.Outlined.Translate">
-                            @StringSelect("Default subtitle language", _settings.Subtitles.DefaultSubtitleLanguage, LanguageOptions, v => Update(() => _settings.Subtitles.DefaultSubtitleLanguage = v))
-                            @StringSelect("Forced subtitles mode", _settings.Subtitles.ForcedSubtitlesMode, ForcedSubtitleOptions, v => Update(() => _settings.Subtitles.ForcedSubtitlesMode = v))
-                            @StringSelect("Audio language", _settings.Subtitles.AudioLanguage, LanguageOptions, v => Update(() => _settings.Subtitles.AudioLanguage = v))
+                            @StringSelect("Default subtitle language", _settings.Subtitles.DefaultSubtitleLanguage, LanguageOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.DefaultSubtitleLanguage = v))
+                            @StringSelect("Forced subtitles mode", _settings.Subtitles.ForcedSubtitlesMode, ForcedSubtitleOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.ForcedSubtitlesMode = v))
+                            @StringSelect("Audio language", _settings.Subtitles.AudioLanguage, LanguageOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.AudioLanguage = v))
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Subtitle Appearance" Icon="@Icons.Material.Outlined.Subtitles">
-                            @StringSelect("Subtitle size", _settings.Subtitles.SubtitleSize, SubtitleSizeOptions, v => Update(() => _settings.Subtitles.SubtitleSize = v), Display)
-                            @BoolRow("Subtitle background", "Add a readable background behind subtitles.", _settings.Subtitles.SubtitleBackground, v => Update(() => _settings.Subtitles.SubtitleBackground = v))
-                            @StringSelect("Subtitle position", _settings.Subtitles.SubtitlePosition, SubtitlePositionOptions, v => Update(() => _settings.Subtitles.SubtitlePosition = v))
-                            @StringSelect("Subtitle style", _settings.Subtitles.SubtitleStyle, SubtitleStyleOptions, v => Update(() => _settings.Subtitles.SubtitleStyle = v), Display)
+                            @StringSelect("Subtitle size", _settings.Subtitles.SubtitleSize, SubtitleSizeOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.SubtitleSize = v), Display)
+                            @BoolRow(Icons.Material.Outlined.Subtitles, "Subtitle background", "Add a readable background behind subtitles.", _settings.Subtitles.SubtitleBackground, v => UpdateAndSaveAsync(() => _settings.Subtitles.SubtitleBackground = v))
+                            @StringSelect("Subtitle position", _settings.Subtitles.SubtitlePosition, SubtitlePositionOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.SubtitlePosition = v))
+                            @StringSelect("Subtitle style", _settings.Subtitles.SubtitleStyle, SubtitleStyleOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.SubtitleStyle = v), Display)
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <SettingsSectionPanel Title="Preview" Icon="@Icons.Material.Outlined.Visibility">
+                            <MudPaper Elevation="0" Class="tl-card tl-card--flush settings-subtitle-preview">
+                                <MudText Typo="@SubtitlePreviewTypo" Color="@SubtitlePreviewColor">The quick brown fox jumps over the lazy dog.</MudText>
+                                <MudChip T="string" Variant="Variant.Outlined">@Display(_settings.Subtitles.SubtitleStyle) - @Display(_settings.Subtitles.SubtitlePosition)</MudChip>
+                            </MudPaper>
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
@@ -222,8 +236,6 @@ else if (_settings is not null)
     private ProfileViewModel? _activeProfile;
     private int _activeTab;
     private bool _loading = true;
-    private bool _saving;
-    private bool _dirty;
     private string? _loadError;
     private string? _saveError;
 
@@ -246,12 +258,20 @@ else if (_settings is not null)
     private static readonly string[] SubtitlePositionOptions = [PlaybackPreferenceValues.Bottom, PlaybackPreferenceValues.Top];
     private static readonly string[] SubtitleStyleOptions = [PlaybackPreferenceValues.Clean, PlaybackPreferenceValues.HighContrast, PlaybackPreferenceValues.Shadowed];
 
-    private Color StatusColor => _saveError is not null ? Color.Error : _saving ? Color.Info : _dirty ? Color.Warning : Color.Success;
-    private string StatusIcon => _saveError is not null ? Icons.Material.Outlined.ErrorOutline : _saving ? Icons.Material.Outlined.Sync : _dirty ? Icons.Material.Outlined.Edit : Icons.Material.Outlined.CheckCircle;
-    private string StatusLabel => _saveError is not null ? "Could not save" : _saving ? "Saving..." : _dirty ? "Unsaved changes" : "Saved locally";
     private string ProfileName => string.IsNullOrWhiteSpace(_activeProfile?.DisplayName) ? "Current profile" : _activeProfile.DisplayName;
     private string ProfileRole => string.IsNullOrWhiteSpace(_activeProfile?.Role) ? "User" : _activeProfile.Role;
     private string Initials => GetInitials(ProfileName);
+    private Typo SubtitlePreviewTypo => _settings?.Subtitles.SubtitleSize switch
+    {
+        PlaybackPreferenceValues.Small => Typo.caption,
+        PlaybackPreferenceValues.Large => Typo.h6,
+        PlaybackPreferenceValues.ExtraLarge => Typo.h5,
+        _ => Typo.subtitle1,
+    };
+
+    private Color SubtitlePreviewColor => _settings?.Subtitles.SubtitleStyle == PlaybackPreferenceValues.HighContrast
+        ? Color.Warning
+        : Color.Default;
 
     protected override async Task OnInitializedAsync()
     {
@@ -272,29 +292,51 @@ else if (_settings is not null)
         }
     }
 
-    private RenderFragment BoolRow(string title, string description, bool value, Action<bool> changed) => @<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-        <MudStack Spacing="0">
+    private RenderFragment BoolRow(string title, string description, bool value, Func<bool, Task> changed) =>
+        BoolRow(Icons.Material.Outlined.Tune, title, description, value, changed);
+
+    private RenderFragment BoolRow(string icon, string title, string description, bool value, Func<bool, Task> changed) => @<div class="settings-preference-row">
+        <span class="settings-preference-row__icon">
+            <MudIcon Icon="@icon" Size="Size.Small" Color="Color.Primary" />
+        </span>
+        <MudStack Spacing="0" Class="settings-preference-row__text">
             <MudText Typo="Typo.body1">@title</MudText>
             <MudText Typo="Typo.caption" Color="Color.Secondary">@description</MudText>
         </MudStack>
         <MudSwitch T="bool" Value="@value" ValueChanged="@changed" Color="Color.Primary" />
-    </MudStack>;
+    </div>;
 
-    private RenderFragment IntSelect(string label, int value, IReadOnlyList<int> options, Action<int> changed, string suffix) => @<MudSelect T="int" Label="@label" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Dense="true" FullWidth="true">
+    private RenderFragment IntSelectRow(string icon, string title, string description, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<div class="settings-preference-row">
+        <span class="settings-preference-row__icon">
+            <MudIcon Icon="@icon" Size="Size.Small" Color="Color.Primary" />
+        </span>
+        <MudStack Spacing="0" Class="settings-preference-row__text">
+            <MudText Typo="Typo.body1">@title</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@description</MudText>
+        </MudStack>
+        <MudSelect T="int" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--row-control" PopoverClass="settings-select-menu">
+            @foreach (var option in options)
+            {
+                <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
+            }
+        </MudSelect>
+    </div>;
+
+    private RenderFragment IntSelect(string label, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<MudSelect T="int" Label="@label" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" FullWidth="true" Class="settings-field--compact" PopoverClass="settings-select-menu">
         @foreach (var option in options)
         {
             <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
         }
     </MudSelect>;
 
-    private RenderFragment StringSelect(string label, string value, IReadOnlyList<string> options, Action<string> changed, Func<string, string>? formatter = null) => @<MudSelect T="string" Label="@label" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Dense="true" FullWidth="true">
+    private RenderFragment StringSelect(string label, string value, IReadOnlyList<string> options, Func<string, Task> changed, Func<string, string>? formatter = null) => @<MudSelect T="string" Label="@label" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" FullWidth="true" Class="settings-field--compact" PopoverClass="settings-select-menu">
         @foreach (var option in options)
         {
             <MudSelectItem T="string" Value="@option">@((formatter ?? Display)(option))</MudSelectItem>
         }
     </MudSelect>;
 
-    private RenderFragment Glance(string title, string icon, string value) => @<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+    private RenderFragment Glance(string title, string icon, string value) => @<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="settings-glance-item">
         <MudIcon Icon="@icon" Color="Color.Primary" />
         <MudStack Spacing="0">
             <MudText Typo="Typo.subtitle2">@title</MudText>
@@ -302,18 +344,29 @@ else if (_settings is not null)
         </MudStack>
     </MudStack>;
 
-    private static RenderFragment SliderLabels(IReadOnlyList<string> labels) => @<MudStack Row="true" Justify="Justify.SpaceBetween">
+    private RenderFragment SummaryMetric(string icon, string label, string value, Color color) => @<MudStack Spacing="1" Class="settings-summary-metric">
+        <MudIcon Icon="@icon" Color="@color" />
+        <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
+        <MudText Typo="Typo.subtitle1">@value</MudText>
+    </MudStack>;
+
+    private RenderFragment SliderHeader(string label, string value) => @<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="settings-slider-header">
+        <MudText Typo="Typo.body2">@label</MudText>
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@($"Current: {value}")</MudChip>
+    </MudStack>;
+
+    private static RenderFragment SliderLabels(IReadOnlyList<string> labels) => @<MudStack Row="true" Justify="Justify.SpaceBetween" Class="settings-slider-scale">
         @foreach (var label in labels)
         {
             <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
         }
     </MudStack>;
 
-    private void Update(Action action)
+    private async Task UpdateAndSaveAsync(Action action)
     {
         action();
         _saveError = null;
-        _dirty = !SettingsEqual(_settings, _savedSettings);
+        await SaveAsync();
     }
 
     private async Task SaveAsync()
@@ -321,7 +374,6 @@ else if (_settings is not null)
         if (_settings is null)
             return;
 
-        _saving = true;
         _saveError = null;
 
         try
@@ -334,8 +386,7 @@ else if (_settings is not null)
                 PreferencesAccessor.UpdateCache(saved);
             }
 
-            _dirty = false;
-            Snackbar.Add("Playback and reading settings saved.", Severity.Success);
+            StateHasChanged();
         }
         catch
         {
@@ -344,27 +395,14 @@ else if (_settings is not null)
         }
         finally
         {
-            _saving = false;
+            StateHasChanged();
         }
-    }
-
-    private void ResetChanges()
-    {
-        if (_savedSettings is null)
-            return;
-
-        _settings = Clone(_savedSettings);
-        _saveError = null;
-        _dirty = false;
     }
 
     private UserPlaybackSettingsDto Clone(UserPlaybackSettingsDto source) =>
         JsonSerializer.Deserialize<UserPlaybackSettingsDto>(
             JsonSerializer.Serialize(source, _jsonOptions),
             _jsonOptions) ?? UserPlaybackSettingsDto.CreateDefaults(source.ProfileId);
-
-    private bool SettingsEqual(UserPlaybackSettingsDto? left, UserPlaybackSettingsDto? right) =>
-        JsonSerializer.Serialize(left, _jsonOptions) == JsonSerializer.Serialize(right, _jsonOptions);
 
     private static string FormatSpeed(decimal value) => $"{value:0.##}x";
     private static string OnOff(bool value) => value ? "On" : "Off";

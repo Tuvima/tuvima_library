@@ -774,6 +774,417 @@ body {
     margin: 0 !important;
 }
 
+.settings-admin-panel .settings-tab-strip {
+    background: transparent !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tabs-toolbar,
+.settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-primary,
+.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar,
+.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-primary {
+    min-height: 58px !important;
+    padding: 0 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: var(--app-radius-md, 8px) !important;
+    background: rgba(10, 13, 22, 0.76) !important;
+    box-shadow: none !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-wrapper,
+.settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content,
+.settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner,
+.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper,
+.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content,
+.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner,
+.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner,
+.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content {
+    display: block !important;
+    transform: none !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-wrapper,
+.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    transform: none !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tabs-scroll-button,
+.settings-admin-panel .settings-tab-strip .mud-tabs-scroll-button-hidden,
+.settings-admin-panel .settings-tab-strip .mud-tabs-scroll-button-left,
+.settings-admin-panel .settings-tab-strip .mud-tabs-scroll-button-right {
+    display: none !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tooltip-root {
+    display: block !important;
+    min-width: 0 !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tab {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    min-height: 56px !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: 0 18px !important;
+    border-radius: 0 !important;
+    color: var(--app-text-secondary) !important;
+    text-transform: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    outline: 0 !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tab .mud-tab-content {
+    gap: 10px !important;
+    min-width: 0 !important;
+    font-weight: 650 !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tab.mud-tab-active {
+    color: var(--app-text-primary) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tab .mud-icon-root {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 24px !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(1) .mud-icon-root {
+    color: #a855f7 !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(2) .mud-icon-root {
+    color: #38bdf8 !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(3) .mud-icon-root {
+    color: #a855f7 !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(4) .mud-icon-root {
+    color: #e5e7eb !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(5) .mud-icon-root {
+    color: #f59e0b !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tabs-inkbar {
+    height: 2px !important;
+    border-radius: 999px !important;
+    background: var(--app-primary) !important;
+}
+
+.settings-admin-panel .settings-tab-panel {
+    padding-top: 16px !important;
+}
+
+.settings-admin-panel .settings-section-card {
+    padding: 17px 18px !important;
+}
+
+.settings-admin-panel .settings-section-card--dense {
+    min-height: auto !important;
+}
+
+.settings-admin-panel .settings-section-card__header {
+    min-height: 26px !important;
+}
+
+.settings-admin-panel .settings-section-card__header .mud-icon-root {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 28px !important;
+}
+
+.settings-admin-panel .settings-section-card__header .mud-typography {
+    font-size: 1.08rem !important;
+    font-weight: 700 !important;
+    line-height: 1.25 !important;
+}
+
+.settings-admin-panel .settings-section-card--progress .settings-section-card__header .mud-icon-root,
+.settings-admin-panel .settings-section-card--progress .settings-section-card__header .mud-typography {
+    color: #a855f7 !important;
+}
+
+.settings-admin-panel .settings-section-card--quick .settings-section-card__header .mud-icon-root,
+.settings-admin-panel .settings-section-card--quick .settings-section-card__header .mud-typography {
+    color: #60a5fa !important;
+}
+
+.settings-admin-panel .settings-summary-strip {
+    padding: 20px 24px !important;
+}
+
+.settings-admin-panel .settings-experience-grid {
+    display: grid !important;
+    grid-template-columns: minmax(270px, 1.9fr) repeat(5, minmax(112px, 1fr));
+    align-items: center !important;
+    gap: 0 !important;
+    width: 100% !important;
+}
+
+.settings-admin-panel .settings-experience-profile {
+    min-width: 0 !important;
+    padding-right: 26px !important;
+}
+
+.settings-admin-panel .settings-experience-profile .mud-avatar {
+    width: 68px !important;
+    height: 68px !important;
+    font-size: 1.35rem !important;
+}
+
+.settings-admin-panel .settings-summary-metric {
+    min-width: 0 !important;
+    padding: 4px 18px !important;
+    border-left: 1px solid var(--tl-divider) !important;
+}
+
+.settings-admin-panel .settings-summary-metric .mud-icon-root {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 32px !important;
+    margin-bottom: 5px !important;
+}
+
+.settings-admin-panel .settings-summary-metric .mud-typography-caption {
+    display: block !important;
+    font-size: 0.88rem !important;
+    line-height: 1.15 !important;
+}
+
+.settings-admin-panel .settings-summary-metric .mud-typography-subtitle1 {
+    margin-top: 2px !important;
+    font-size: 1.18rem !important;
+    line-height: 1.25 !important;
+    font-weight: 700 !important;
+}
+
+.settings-admin-panel .settings-preference-row {
+    display: grid !important;
+    grid-template-columns: 34px minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 12px !important;
+    min-height: 48px !important;
+    padding: 7px 0 !important;
+    border-bottom: 1px solid var(--tl-divider) !important;
+}
+
+.settings-admin-panel .settings-preference-row:last-child {
+    border-bottom: 0 !important;
+}
+
+.settings-admin-panel .settings-preference-row__icon {
+    display: grid !important;
+    width: 28px !important;
+    height: 28px !important;
+    place-items: center !important;
+    border-radius: 999px !important;
+    background: rgba(124, 77, 255, 0.13) !important;
+}
+
+.settings-admin-panel .settings-preference-row__icon .mud-icon-root {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 22px !important;
+}
+
+.settings-admin-panel .settings-preference-row:nth-child(3n + 1) .settings-preference-row__icon,
+.settings-admin-panel .settings-section-card--progress .settings-preference-row:nth-child(3n + 1) .settings-preference-row__icon {
+    color: #f87171 !important;
+    background: rgba(248, 113, 113, 0.13) !important;
+}
+
+.settings-admin-panel .settings-preference-row:nth-child(3n + 2) .settings-preference-row__icon {
+    color: #22c55e !important;
+    background: rgba(34, 197, 94, 0.13) !important;
+}
+
+.settings-admin-panel .settings-preference-row:nth-child(3n) .settings-preference-row__icon {
+    color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.13) !important;
+}
+
+.settings-admin-panel .settings-section-card--quick .settings-preference-row:nth-child(1) .settings-preference-row__icon {
+    color: #8b5cf6 !important;
+    background: rgba(139, 92, 246, 0.16) !important;
+}
+
+.settings-admin-panel .settings-section-card--quick .settings-preference-row:nth-child(2) .settings-preference-row__icon {
+    color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.14) !important;
+}
+
+.settings-admin-panel .settings-section-card--quick .settings-preference-row:nth-child(3) .settings-preference-row__icon {
+    color: #22d3ee !important;
+    background: rgba(34, 211, 238, 0.14) !important;
+}
+
+.settings-admin-panel .settings-section-card--quick .settings-preference-row:nth-child(4) .settings-preference-row__icon {
+    color: #a855f7 !important;
+    background: rgba(168, 85, 247, 0.14) !important;
+}
+
+.settings-admin-panel .settings-preference-row__icon .mud-icon-root {
+    color: currentColor !important;
+}
+
+.settings-admin-panel .settings-preference-row__text {
+    min-width: 0 !important;
+}
+
+.settings-admin-panel .settings-preference-row__text .mud-typography-body1 {
+    font-size: 0.96rem !important;
+    font-weight: 650 !important;
+    line-height: 1.2 !important;
+}
+
+.settings-admin-panel .settings-preference-row__text .mud-typography-caption {
+    font-size: 0.84rem !important;
+    line-height: 1.22 !important;
+}
+
+.settings-admin-panel .settings-preference-row .mud-switch {
+    justify-self: end !important;
+    margin: 0 !important;
+}
+
+.settings-admin-panel .settings-field--compact {
+    margin: 0 0 8px !important;
+}
+
+.settings-admin-panel .settings-field--compact.mud-input-control,
+.settings-admin-panel .settings-field--compact .mud-input-control {
+    margin-top: 0 !important;
+}
+
+.settings-admin-panel .settings-field--compact .mud-input-slot,
+.settings-admin-panel .settings-field--compact .mud-input-outlined,
+.settings-admin-panel .settings-field--compact .mud-select-input {
+    min-height: 38px !important;
+    height: 38px !important;
+    align-items: center !important;
+}
+
+.settings-admin-panel .settings-field--compact input.mud-input-root,
+.settings-admin-panel .settings-field--compact .mud-select-input {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    font-size: 0.9rem !important;
+    line-height: 38px !important;
+}
+
+.settings-admin-panel .settings-field--compact .mud-input-adornment {
+    height: 38px !important;
+    max-height: 38px !important;
+    align-self: center !important;
+    margin-top: 0 !important;
+}
+
+.settings-admin-panel .settings-field--compact .mud-input-control-input-container,
+.settings-admin-panel .settings-field--compact .mud-input {
+    min-height: 38px !important;
+    height: 38px !important;
+    align-items: center !important;
+}
+
+.settings-admin-panel .settings-field--row-control {
+    width: 112px !important;
+    min-width: 112px !important;
+    margin-bottom: 0 !important;
+}
+
+.settings-select-menu.mud-popover,
+.settings-select-menu.mud-popover .mud-paper,
+.settings-select-menu .mud-paper,
+.settings-select-menu .mud-list {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32) !important;
+}
+
+.settings-admin-panel .settings-slider-block {
+    display: block;
+    padding: 2px 0 4px;
+}
+
+.settings-admin-panel .settings-slider-header {
+    margin-bottom: 0 !important;
+}
+
+.settings-admin-panel .settings-slider {
+    margin: 0 !important;
+    padding: 0 8px !important;
+}
+
+.settings-admin-panel .settings-slider .mud-slider-container {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+.settings-admin-panel .settings-slider-scale {
+    margin-top: -8px !important;
+    padding: 0 15px !important;
+    color: var(--app-text-muted) !important;
+}
+
+.settings-admin-panel .settings-glance-item {
+    min-width: 0 !important;
+}
+
+.settings-admin-panel .settings-reading-preview,
+.settings-admin-panel .settings-subtitle-preview {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 18px !important;
+    background: rgba(5, 8, 14, 0.42) !important;
+}
+
+@media (max-width: 1100px) {
+    .settings-admin-panel .settings-experience-grid {
+        grid-template-columns: 1fr 1fr !important;
+        row-gap: 16px !important;
+    }
+
+    .settings-admin-panel .settings-summary-metric {
+        padding: 0 !important;
+        border-left: 0 !important;
+    }
+}
+
+@media (max-width: 720px) {
+    .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-wrapper,
+    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper {
+        grid-template-columns: 1fr !important;
+    }
+
+    .settings-admin-panel .settings-tab-strip .mud-tab {
+        justify-content: flex-start !important;
+    }
+
+    .settings-admin-panel .settings-experience-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
 .mud-popover,
 .mud-list,
 .mud-list-item {

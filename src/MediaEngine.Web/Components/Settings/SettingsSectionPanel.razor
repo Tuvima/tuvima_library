@@ -1,10 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
 
-<MudPaper Elevation="0" Class="tl-card">
-    <MudStack Spacing="3">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+<MudPaper Elevation="0" Class="@Class">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="settings-section-card__header">
             <MudIcon Icon="@Icon" Color="Color.Primary" />
-            <MudText Typo="Typo.h6">@Title</MudText>
+            <MudText Typo="Typo.subtitle1">@Title</MudText>
         </MudStack>
         @ChildContent
     </MudStack>
@@ -13,5 +13,6 @@
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public string Class { get; set; } = "tl-card settings-section-card settings-section-card--dense";
     [Parameter] public RenderFragment? ChildContent { get; set; }
 }

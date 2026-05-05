@@ -47,8 +47,182 @@
     border-bottom-color: var(--tl-border-subtle) !important;
 }
 
+::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar {
+    min-height: 58px !important;
+    padding: 0 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: var(--app-radius-md, 8px) !important;
+    background: rgba(10, 13, 22, 0.72) !important;
+}
+
+::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content {
+    width: 100%;
+}
+
+::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+}
+
+::deep .settings-admin-panel .settings-tab-strip .mud-tab {
+    max-width: none !important;
+    min-height: 56px !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: 0 18px !important;
+    border-radius: 0 !important;
+}
+
+::deep .settings-admin-panel .settings-tab-strip .mud-tabs-inkbar {
+    height: 2px !important;
+    border-radius: 999px;
+    background: var(--tl-accent-primary) !important;
+}
+
+::deep .settings-admin-panel .settings-tab-panel {
+    padding-top: 16px;
+}
+
+::deep .settings-admin-panel .settings-section-card {
+    padding: 18px !important;
+}
+
+::deep .settings-admin-panel .settings-experience-card {
+    padding: 20px 24px !important;
+}
+
+::deep .settings-admin-panel .settings-experience-grid {
+    display: grid !important;
+    grid-template-columns: minmax(260px, 1.8fr) repeat(5, minmax(110px, 1fr));
+    gap: 0;
+    width: 100%;
+}
+
+::deep .settings-admin-panel .settings-experience-profile {
+    padding-right: 24px;
+}
+
+::deep .settings-admin-panel .settings-summary-metric {
+    min-width: 0;
+    padding: 4px 20px;
+    border-left: 1px solid var(--tl-divider);
+}
+
+::deep .settings-admin-panel .settings-summary-metric .mud-typography-caption {
+    display: block;
+    margin-top: 6px;
+}
+
+::deep .settings-admin-panel .settings-preference-row {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--tl-divider);
+}
+
+::deep .settings-admin-panel .settings-preference-row:last-child {
+    border-bottom: 0;
+}
+
+::deep .settings-admin-panel .settings-preference-row__icon {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(124, 77, 255, 0.13);
+}
+
+::deep .settings-admin-panel .settings-preference-row__text .mud-typography-body1 {
+    font-size: 0.88rem;
+    line-height: 1.25;
+}
+
+::deep .settings-admin-panel .settings-preference-row__text .mud-typography-caption {
+    line-height: 1.25;
+}
+
+::deep .settings-admin-panel .settings-field--compact {
+    margin: 2px 0 8px;
+}
+
+::deep .settings-admin-panel .settings-field--compact .mud-input-control {
+    margin-top: 0;
+}
+
+::deep .settings-admin-panel .settings-field--compact .mud-input-slot,
+::deep .settings-admin-panel .settings-field--compact .mud-input-outlined,
+::deep .settings-admin-panel .settings-field--compact .mud-select-input {
+    min-height: 36px !important;
+    height: 36px !important;
+}
+
+::deep .settings-admin-panel .settings-field--compact input.mud-input-root {
+    padding-top: 7px !important;
+    padding-bottom: 7px !important;
+}
+
+::deep .settings-admin-panel .settings-slider-header {
+    margin-bottom: 2px;
+}
+
+::deep .settings-admin-panel .settings-slider {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+::deep .settings-admin-panel .settings-slider-scale {
+    margin-top: -8px;
+    padding: 0 8px;
+    color: var(--tl-text-muted);
+}
+
+::deep .settings-admin-panel .settings-glance-item {
+    min-width: 0;
+}
+
+::deep .settings-admin-panel .settings-reading-preview,
+::deep .settings-admin-panel .settings-subtitle-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 18px !important;
+    background: rgba(5, 8, 14, 0.42) !important;
+}
+
 @media (max-width: 768px) {
     ::deep .settings-admin-panel .tl-page {
         padding: 1rem;
+    }
+}
+
+@media (max-width: 960px) {
+    ::deep .settings-admin-panel .settings-experience-grid {
+        grid-template-columns: 1fr 1fr;
+        row-gap: 16px;
+    }
+
+    ::deep .settings-admin-panel .settings-summary-metric {
+        padding: 0;
+        border-left: 0;
+    }
+}
+
+@media (max-width: 720px) {
+    ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
+        grid-template-columns: 1fr;
+    }
+
+    ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
+        justify-content: flex-start !important;
+    }
+
+    ::deep .settings-admin-panel .settings-experience-grid {
+        grid-template-columns: 1fr;
     }
 }
