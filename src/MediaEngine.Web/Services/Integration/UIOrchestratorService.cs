@@ -213,6 +213,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return ok;
     }
 
+    public async Task<ProfileViewModel?> UploadProfileAvatarAsync(
+        Guid id,
+        Stream fileStream,
+        string fileName,
+        CancellationToken ct = default)
+    {
+        var profile = await _api.UploadProfileAvatarAsync(id, fileStream, fileName, ct);
+        if (profile is not null)
+            OnProfileChanged?.Invoke();
+        return profile;
+    }
     /// <summary>Deletes a user profile. Cannot delete the seed Owner profile or the last Administrator.</summary>
     public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
         => _api.DeleteProfileAsync(id, ct);

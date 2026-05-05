@@ -120,14 +120,16 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Personal overview", cut.Markup);
-            Assert.Contains("At a Glance", cut.Markup);
-            Assert.Contains("Your Statistics", cut.Markup);
-            Assert.Contains("Continue Watching, Reading, Listening", cut.Markup);
-            Assert.Contains("Top Genres", cut.Markup);
-            Assert.Contains("Recently Watched, Read, or Played", cut.Markup);
-            Assert.Contains("Recently Added", cut.Markup);
-            Assert.DoesNotContain("Edit profile", cut.Markup);
+            Assert.Contains("Edit profile", cut.Markup);
+            Assert.Contains("Continue Your Activity", cut.Markup);
+            Assert.Contains("Recent History", cut.Markup);
+            Assert.Contains("Your Taste / Top Genres", cut.Markup);
+            Assert.Contains("Recently Completed", cut.Markup);
+            Assert.DoesNotContain("At a Glance", cut.Markup);
+            Assert.DoesNotContain("Your Statistics", cut.Markup);
+            Assert.DoesNotContain("Libraries Used", cut.Markup);
+            Assert.DoesNotContain("Preferences at a Glance", cut.Markup);
+            Assert.DoesNotContain("user-overview-name-field", cut.Markup);
             Assert.DoesNotContain("user-overview-editor", cut.Markup);
             Assert.DoesNotContain("Runtime status", cut.Markup);
             Assert.DoesNotContain("Heartbeat", cut.Markup);

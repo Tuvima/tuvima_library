@@ -26,8 +26,8 @@ public sealed class TasteProfiler : ITasteProfiler
     {
         _logger.LogDebug("TasteProfiler.GetProfileAsync: building profile for user {User}", userId);
 
-        // Build distributions from all canonical values across the library.
-        // (User-scoping will be added when user_taste_profiles migration M-058 is in place.)
+        // TODO: Build and persist true per-profile taste from user history/progress in user_taste_profiles.
+        // This fallback still scans canonical library values until that calculation is implemented.
         var genreCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var eraCounts   = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var typeCounts  = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);

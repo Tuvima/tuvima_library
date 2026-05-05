@@ -52,6 +52,7 @@ public sealed class ProfileService : IProfileService
             Id          = Guid.NewGuid(),
             DisplayName = displayName.Trim(),
             AvatarColor = string.IsNullOrWhiteSpace(avatarColor) ? "#7C4DFF" : avatarColor.Trim(),
+            AvatarImagePath = null,
             Role        = role,
             CreatedAt   = DateTimeOffset.UtcNow,
         };

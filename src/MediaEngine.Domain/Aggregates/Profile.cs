@@ -32,6 +32,9 @@ public sealed class Profile
     /// </summary>
     public string AvatarColor { get; set; } = "#7C4DFF";
 
+    /// <summary>Absolute path to the uploaded avatar image, when one has been stored.</summary>
+    public string? AvatarImagePath { get; set; }
+
     /// <summary>Access level.  Determines which Settings tabs are visible.</summary>
     public ProfileRole Role { get; set; } = ProfileRole.Consumer;
 

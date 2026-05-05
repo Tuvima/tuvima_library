@@ -6,6 +6,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -145,6 +146,83 @@ public static class ProfileEndpoints
         .WithName("GetProfileOverview")
         .WithSummary("Get user-facing profile details, history, statistics, and taste signals.")
         .Produces<ProfileOverviewResponseDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{id:guid}/avatar", async (
+            Guid id,
+            IProfileService svc,
+            CancellationToken ct) =>
+        {
+            var profile = await svc.GetProfileAsync(id, ct);
+            if (profile is null)
+                return Results.NotFound($"Profile '{id}' not found.");
+            if (string.IsNullOrWhiteSpace(profile.AvatarImagePath) || !File.Exists(profile.AvatarImagePath))
+                return Results.NotFound("No avatar image has been uploaded.");
+
+            var bytes = await File.ReadAllBytesAsync(profile.AvatarImagePath, ct);
+            return Results.File(bytes, GetAvatarMimeType(profile.AvatarImagePath), Path.GetFileName(profile.AvatarImagePath));
+        })
+        .WithName("GetProfileAvatar")
+        .WithSummary("Serves a profile avatar image.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapPost("/{id:guid}/avatar", async (
+            Guid id,
+            HttpRequest request,
+            IProfileService svc,
+            TuvimaDataPaths dataPaths,
+            CancellationToken ct) =>
+        {
+            var profile = await svc.GetProfileAsync(id, ct);
+            if (profile is null)
+                return Results.NotFound($"Profile '{id}' not found.");
+            if (!request.HasFormContentType)
+                return Results.BadRequest("Expected multipart form data.");
+
+            var form = await request.ReadFormAsync(ct);
+            var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+            if (file is null || file.Length == 0)
+                return Results.BadRequest("No file uploaded.");
+            if (file.Length > 5 * 1024 * 1024)
+                return Results.BadRequest("Avatar image must be 5 MB or smaller.");
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var mimeType = NormalizeAvatarMimeType(file.ContentType, extension);
+            if (mimeType is null)
+                return Results.BadRequest("Avatar image must be a JPEG, PNG, or WebP image.");
+
+            dataPaths.EnsureRootExists();
+            var directory = Path.Combine(dataPaths.Root, "profiles", id.ToString("D"));
+            Directory.CreateDirectory(directory);
+            var targetPath = Path.Combine(directory, $"avatar{extension}");
+
+            if (!string.IsNullOrWhiteSpace(profile.AvatarImagePath)
+                && !string.Equals(profile.AvatarImagePath, targetPath, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(profile.AvatarImagePath))
+            {
+                File.Delete(profile.AvatarImagePath);
+            }
+
+            await using (var stream = File.Create(targetPath))
+            await using (var upload = file.OpenReadStream())
+            {
+                await upload.CopyToAsync(stream, ct);
+            }
+
+            profile.AvatarImagePath = targetPath;
+            var updated = await svc.UpdateProfileAsync(profile, ct);
+            return updated
+                ? Results.Ok(ProfileResponseDto.FromDomain(profile))
+                : Results.Problem("Could not update profile avatar.");
+        })
+        .WithName("UploadProfileAvatar")
+        .WithSummary("Uploads and stores a profile avatar image.")
+        .DisableAntiforgery()
+        .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -504,6 +582,33 @@ public static class ProfileEndpoints
 
         return null;
     }
+
+    private static string? NormalizeAvatarMimeType(string? contentType, string extension)
+    {
+        var normalized = contentType?.Trim().ToLowerInvariant();
+        if (normalized is "image/jpeg" or "image/jpg")
+            return "image/jpeg";
+        if (normalized is "image/png")
+            return "image/png";
+        if (normalized is "image/webp")
+            return "image/webp";
+
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => null,
+        };
+    }
+
+    private static string GetAvatarMimeType(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg",
+        };
 
     private static Dictionary<string, string> ReadExtendedProperties(string? json)
     {

@@ -3,28 +3,20 @@
 
 @if (Items.Count == 0)
 {
-    <MudText Typo="Typo.body2" Class="user-overview-muted">@EmptyText</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@EmptyText</MudText>
 }
 else
 {
-    <div class="user-overview-rail">
+    <MudStack Row="true" Spacing="2" Style="overflow-x:auto; padding-bottom: 0.25rem;">
         @foreach (var item in Items)
         {
-            if (!string.IsNullOrWhiteSpace(item.Route))
-            {
-                <a class="user-overview-media-link" href="@item.Route">
-                    <MediaRailCard Item="@item" />
-                </a>
-            }
-            else
-            {
-                <MediaRailCard Item="@item" />
-            }
+            <MediaRailCard Item="@item" ShowContinuation="@ShowContinuation" />
         }
-    </div>
+    </MudStack>
 }
 
 @code {
     [Parameter] public IReadOnlyList<ProfileOverviewItemViewModel> Items { get; set; } = [];
     [Parameter] public string EmptyText { get; set; } = string.Empty;
+    [Parameter] public bool ShowContinuation { get; set; }
 }

@@ -319,6 +319,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "navigation_config",
             ddl:    "ALTER TABLE profiles ADD COLUMN navigation_config TEXT;");
 
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "profiles",
+            column: "avatar_image_path",
+            ddl:    "ALTER TABLE profiles ADD COLUMN avatar_image_path TEXT;");
+
         // Migration M-013: Hydration Pipeline — create review_queue + image_cache tables.
         // review_queue stores metadata items requiring user intervention (disambiguation,
         // low confidence, manual fix).  image_cache tracks downloaded image content hashes

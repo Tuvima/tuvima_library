@@ -145,6 +145,13 @@ public interface IEngineApiClient
         string? navigationConfig = null,
         CancellationToken ct = default);
 
+    /// <summary>POST /profiles/{id}/avatar — upload a persisted profile avatar image.</summary>
+    Task<ProfileViewModel?> UploadProfileAvatarAsync(
+        Guid id,
+        Stream fileStream,
+        string fileName,
+        CancellationToken ct = default);
+
     /// <summary>DELETE /profiles/{id} — delete a profile.</summary>
     Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default);
 

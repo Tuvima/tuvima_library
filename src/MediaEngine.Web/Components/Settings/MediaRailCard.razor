@@ -1,27 +1,137 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 
-<article class="user-overview-media-card tl-card-hover--media">
-    <div class="user-overview-media-art">
-        @if (!string.IsNullOrWhiteSpace(Item.CoverUrl))
-        {
-            <img src="@Item.CoverUrl" alt="" />
-        }
-        else
-        {
-            <MudIcon Icon="@Icons.Material.Outlined.Movie" />
-        }
-        @if (Item.ProgressPct > 0)
-        {
-            <span>@Math.Round(Item.ProgressPct)%</span>
-        }
-    </div>
-    <div class="user-overview-media-meta">
-        <strong title="@Item.Title">@Item.Title</strong>
-        <small>@(Item.CollectionName ?? Item.Subtitle ?? Item.MediaType)</small>
-    </div>
-</article>
+<MudCard Outlined="true" Style="width: 156px; min-width: 156px;">
+    @if (!string.IsNullOrWhiteSpace(Item.Route))
+    {
+        <MudLink Href="@Item.Route" Underline="Underline.None" Color="Color.Inherit">
+            @CardContent
+        </MudLink>
+    }
+    else
+    {
+        @CardContent
+    }
+</MudCard>
 
 @code {
     [Parameter, EditorRequired] public ProfileOverviewItemViewModel Item { get; set; } = new();
+    [Parameter] public bool ShowContinuation { get; set; }
+
+    private RenderFragment CardContent => @<MudStack Spacing="1" Class="pa-2">
+        @if (!string.IsNullOrWhiteSpace(Item.CoverUrl))
+        {
+            <MudImage Src="@Item.CoverUrl"
+                      Alt=""
+                      ObjectFit="ObjectFit.Cover"
+                      Height="190"
+                      Width="140"
+                      Elevation="0"
+                      Class="rounded-lg" />
+        }
+        else
+        {
+            <MudPaper Elevation="0" Outlined="true" Height="190px" Width="140px" Class="d-flex align-center justify-center rounded-lg">
+                <MudIcon Icon="@MediaIcon(Item.MediaType)" Size="Size.Large" Color="Color.Primary" />
+            </MudPaper>
+        }
+
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@MediaIcon(Item.MediaType)">
+            @FriendlyMediaType(Item.MediaType)
+        </MudChip>
+        @if (ShowContinuation)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@ContinuationLabel(Item.MediaType)</MudText>
+        }
+        <MudText Typo="Typo.body2">@Item.Title</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">@ProgressCopy()</MudText>
+        @if (Item.ProgressPct > 0)
+        {
+            <MudProgressLinear Value="@Math.Clamp(Item.ProgressPct, 0, 100)" Color="Color.Primary" Rounded="true" />
+        }
+    </MudStack>;
+
+    private string ProgressCopy()
+    {
+        if (ShowContinuation)
+        {
+            var remaining = RemainingLabel();
+            if (!string.IsNullOrWhiteSpace(remaining))
+                return remaining;
+
+            if (Item.ProgressPct > 0)
+                return $"{Math.Round(Item.ProgressPct)}% complete";
+        }
+
+        return Item.CollectionName ?? Item.Subtitle ?? FriendlyMediaType(Item.MediaType);
+    }
+
+    private string? RemainingLabel()
+    {
+        if (Item.DurationSeconds is not > 0)
+            return null;
+
+        var position = Item.PositionSeconds ?? Item.DurationSeconds.Value * Math.Clamp(Item.ProgressPct, 0, 100) / 100;
+        var remainingSeconds = Math.Max(0, Item.DurationSeconds.Value - position);
+        if (remainingSeconds <= 0)
+            return $"{Math.Round(Item.ProgressPct)}% complete";
+
+        var totalMinutes = (int)Math.Ceiling(remainingSeconds / 60);
+        var hours = totalMinutes / 60;
+        var minutes = totalMinutes % 60;
+        var time = hours > 0 ? $"{hours}h {minutes}m left" : $"{minutes}m left";
+        if (!string.IsNullOrWhiteSpace(Item.Subtitle) && IsEpisodeLike(Item.MediaType, Item.Subtitle))
+            return $"{Item.Subtitle} • {time}";
+
+        return time;
+    }
+
+    private static bool IsEpisodeLike(string mediaType, string subtitle)
+    {
+        var normalized = mediaType.Trim().ToLowerInvariant();
+        return normalized.Contains("tv") || normalized.Contains("show") || normalized.Contains("episode") || subtitle.Contains('E', StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ContinuationLabel(string mediaType)
+    {
+        var friendly = FriendlyMediaType(mediaType);
+        return friendly switch
+        {
+            "Book" or "Comic" => "Continue Reading",
+            "Audiobook" or "Podcast" or "Music" => "Continue Listening",
+            "Movie" or "TV" => "Continue Watching",
+            _ => "Continue Playing",
+        };
+    }
+
+    private static string FriendlyMediaType(string mediaType)
+    {
+        var normalized = mediaType.Trim().ToLowerInvariant();
+        if (normalized.Contains("audio") && normalized.Contains("book"))
+            return "Audiobook";
+        if (normalized.Contains("podcast"))
+            return "Podcast";
+        if (normalized.Contains("comic"))
+            return "Comic";
+        if (normalized.Contains("book") || normalized.Contains("epub"))
+            return "Book";
+        if (normalized.Contains("tv") || normalized.Contains("show") || normalized.Contains("episode"))
+            return "TV";
+        if (normalized.Contains("movie") || normalized.Contains("video"))
+            return "Movie";
+        if (normalized.Contains("music") || normalized.Contains("album") || normalized.Contains("song"))
+            return "Music";
+        return string.IsNullOrWhiteSpace(mediaType) ? "Media" : mediaType;
+    }
+
+    private static string MediaIcon(string mediaType) => FriendlyMediaType(mediaType) switch
+    {
+        "Book" => Icons.Material.Outlined.MenuBook,
+        "Audiobook" or "Podcast" => Icons.Material.Outlined.Headphones,
+        "Music" => Icons.Material.Outlined.Album,
+        "TV" => Icons.Material.Outlined.Tv,
+        "Movie" => Icons.Material.Outlined.Movie,
+        "Comic" => Icons.Material.Outlined.AutoStories,
+        _ => Icons.Material.Outlined.PlayCircle,
+    };
 }

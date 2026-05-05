@@ -549,7 +549,7 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var raw = await _http.GetFromJsonAsync<List<ProfileViewModel>>("/profiles", ct);
-            return raw ?? [];
+            return raw?.Select(NormalizeProfile).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -569,7 +569,8 @@ public sealed class EngineApiClient : IEngineApiClient
             var body = new { display_name = displayName, avatar_color = avatarColor, role, navigation_config = navigationConfig };
             var resp = await _http.PostAsJsonAsync("/profiles", body, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
+            var profile = await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
+            return profile is null ? null : NormalizeProfile(profile);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -610,6 +611,32 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "DELETE /profiles/{Id} failed", id);
             return false;
+        }
+    }
+
+    public async Task<ProfileViewModel?> UploadProfileAvatarAsync(
+        Guid id,
+        Stream fileStream,
+        string fileName,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(fileStream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GetImageContentType(fileName));
+            content.Add(fileContent, "file", fileName);
+
+            var resp = await _http.PostAsync($"/profiles/{id}/avatar", content, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            var profile = await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
+            return profile is null ? null : NormalizeProfile(profile);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /profiles/{Id}/avatar failed", id);
+            return null;
         }
     }
 
@@ -796,7 +823,10 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<ProfileOverviewViewModel>($"/profiles/{id}/overview", ct);
+            var overview = await _http.GetFromJsonAsync<ProfileOverviewViewModel>($"/profiles/{id}/overview", ct);
+            if (overview is not null)
+                overview.Profile = NormalizeProfile(overview.Profile);
+            return overview;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -3896,6 +3926,12 @@ public sealed class EngineApiClient : IEngineApiClient
     private string? NormalizeOptionalUrl(string? value)
         => string.IsNullOrWhiteSpace(value) ? value : AbsoluteUrl(value);
 
+    private ProfileViewModel NormalizeProfile(ProfileViewModel profile) =>
+        profile with
+        {
+            AvatarImageUrl = NormalizeOptionalUrl(profile.AvatarImageUrl),
+        };
+
     /// <summary>
     /// Converts relative /stream/… paths stored in canonical values to absolute
     /// Engine URLs so Dashboard components can use them directly as &lt;img src&gt;.
@@ -3915,9 +3951,12 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     private static string GetImageContentType(string fileName) =>
-        string.Equals(Path.GetExtension(fileName), ".png", StringComparison.OrdinalIgnoreCase)
-            ? "image/png"
-            : "image/jpeg";
+        Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg",
+        };
 
     private string? ResolvePersonHeadshotUrl(PersonRaw person) =>
         person.HasLocalHeadshot || !string.IsNullOrWhiteSpace(person.HeadshotUrl)

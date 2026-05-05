@@ -413,6 +413,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     id           TEXT NOT NULL PRIMARY KEY,  -- UUID
     display_name TEXT NOT NULL,
     avatar_color TEXT NOT NULL DEFAULT '#7C4DFF',
+    avatar_image_path TEXT,
     role         TEXT NOT NULL DEFAULT 'Consumer'
                      CHECK (role IN ('Administrator', 'Curator', 'Consumer')),
     pin_hash     TEXT,                       -- SHA-256 of 4-digit PIN; NULL = no PIN set

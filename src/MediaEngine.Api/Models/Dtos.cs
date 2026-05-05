@@ -883,6 +883,9 @@ public sealed class ProfileResponseDto
     [JsonPropertyName("navigation_config")]
     public string? NavigationConfig { get; init; }
 
+    [JsonPropertyName("avatar_image_url")]
+    public string? AvatarImageUrl { get; init; }
+
     public static ProfileResponseDto FromDomain(Domain.Aggregates.Profile p) => new()
     {
         Id               = p.Id,
@@ -891,6 +894,7 @@ public sealed class ProfileResponseDto
         Role             = p.Role.ToString(),
         CreatedAt        = p.CreatedAt,
         NavigationConfig = p.NavigationConfig,
+        AvatarImageUrl   = string.IsNullOrWhiteSpace(p.AvatarImagePath) ? null : $"/profiles/{p.Id:D}/avatar",
     };
 }
 
