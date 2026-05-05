@@ -54,12 +54,6 @@
                             <span>Not in library</span>
                         </div>
                     }
-                    @if (item.IsOwned)
-                    {
-                        <div class="tl-series-item__owned-badge" aria-label="Owned">
-                            <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
-                        </div>
-                    }
                     @if (item.IsCurrent)
                     {
                         <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
@@ -82,12 +76,16 @@
 @code {
     [Parameter, EditorRequired] public SeriesPlacementViewModel Placement { get; set; } = default!;
 
-    private string PanelClass => Placement.CurrentItem.EntityType switch
+    private const int LongSeriesThreshold = 9;
+
+    private string PanelClass => $"{MediaShapeClass}{(IsLongSeries ? " tl-series-placement--long" : string.Empty)}";
+    private string MediaShapeClass => Placement.CurrentItem.EntityType switch
     {
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
         DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-series-panel--square",
         _ => "tl-series-panel--portrait",
     };
+    private bool IsLongSeries => Placement.OrderedItems.Count >= LongSeriesThreshold;
 
     private int OwnedCount => Placement.OrderedItems.Count(item => item.IsOwned);
     private int MissingCount => Math.Max(0, Placement.OrderedItems.Count - OwnedCount);

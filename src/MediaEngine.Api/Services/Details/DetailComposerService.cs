@@ -970,14 +970,16 @@ public sealed class DetailComposerService
 
     private async Task<SeriesPlacementViewModel?> BuildSeriesPlacementAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(detail.Series))
+        var seriesTitle = ResolveSeriesPlacementTitle(detail, entityType);
+        if (string.IsNullOrWhiteSpace(seriesTitle))
             return null;
 
         using var conn = _db.CreateConnection();
         var rawRows = await conn.QueryAsync(new CommandDefinition(
             """
             WITH current_lineage AS (
-                SELECT COALESCE(current_grandparent.id, current_parent.id, current_work.id) AS RootWorkId
+                SELECT COALESCE(current_grandparent.id, current_parent.id, current_work.id) AS RootWorkId,
+                       current_work.collection_id AS CollectionId
                 FROM works current_work
                 LEFT JOIN works current_parent ON current_parent.id = current_work.parent_work_id
                 LEFT JOIN works current_grandparent ON current_grandparent.id = current_parent.parent_work_id
@@ -1007,10 +1009,11 @@ public sealed class DetailComposerService
             WHERE NOT EXISTS (SELECT 1 FROM works child WHERE child.parent_work_id = w.id)
               AND (
                     COALESCE(grandparent.id, parent.id, w.id) = current.RootWorkId
+                 OR (current.CollectionId IS NOT NULL AND w.collection_id = current.CollectionId)
                  OR COALESCE(
-                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'series' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'series' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(grandparent.id, parent.id, w.id) AND key = 'series' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('series', 'franchise') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('series', 'franchise') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(grandparent.id, parent.id, w.id) AND key IN ('series', 'franchise') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = COALESCE(grandparent.id, parent.id, w.id) AND key = 'title' LIMIT 1)
                     ) = @series
               )
@@ -1026,7 +1029,7 @@ public sealed class DetailComposerService
             new
             {
                 workId = workId.ToString("D"),
-                series = detail.Series,
+                series = seriesTitle,
                 mediaFilter = SeriesMediaFilter(entityType, detail.MediaType),
                 wikidataProviderId = WellKnownProviders.Wikidata.ToString(),
             },
@@ -1037,8 +1040,7 @@ public sealed class DetailComposerService
             StringValue(row.MediaType),
             StringValue(row.PositionLabel),
             StringValue(row.ArtworkUrl))).ToList();
-        var seriesQid = ExtractQid(detail.CanonicalValues.FirstOrDefault(c =>
-            string.Equals(c.Key, "series_qid", StringComparison.OrdinalIgnoreCase))?.Value);
+        var seriesQid = ResolveSeriesPlacementQid(detail, entityType);
 
         var items = rows.Select(row =>
         {
@@ -1080,13 +1082,13 @@ public sealed class DetailComposerService
         var current = items[currentIndex];
         return new SeriesPlacementViewModel
         {
-            SeriesId = detail.Series,
-            SeriesTitle = detail.Series,
+            SeriesId = seriesQid ?? seriesTitle,
+            SeriesTitle = seriesTitle,
             UniverseId = detail.UniverseSummary?.UniverseQid,
             UniverseTitle = detail.UniverseSummary?.UniverseName,
             PositionNumber = current.PositionNumber,
             TotalKnownItems = items.Count,
-            PositionLabel = BuildSeriesPositionLabel(entityType, current.PositionNumber, items.Count, detail.Series),
+            PositionLabel = BuildSeriesPositionLabel(entityType, current.PositionNumber, items.Count, seriesTitle),
             OrderingType = entityType is DetailEntityType.ComicIssue ? SeriesOrderingType.IssueNumber : SeriesOrderingType.LibraryOrder,
             PreviousItem = currentIndex > 0 ? items[currentIndex - 1] : null,
             CurrentItem = current,
@@ -1117,6 +1119,31 @@ public sealed class DetailComposerService
             _ when mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("TV", StringComparison.OrdinalIgnoreCase) => "Watch",
             _ => "Other",
         };
+
+    private static string? ResolveSeriesPlacementTitle(LibraryItemDetail detail, DetailEntityType entityType)
+    {
+        var series = FirstText(detail.Series, GetDetailCanonicalValue(detail, MetadataFieldConstants.Series));
+        if (!string.IsNullOrWhiteSpace(series))
+            return series;
+
+        return FirstText(GetDetailCanonicalValue(detail, MetadataFieldConstants.Franchise), GetDetailCanonicalValue(detail, "franchise"));
+    }
+
+    private static string? ResolveSeriesPlacementQid(LibraryItemDetail detail, DetailEntityType entityType)
+    {
+        var qid = FirstText(
+            GetDetailCanonicalValue(detail, "series_qid"),
+            GetDetailCanonicalValue(detail, "part_of_the_series_qid"),
+            GetDetailCanonicalValue(detail, "part_of_series_qid"));
+
+        if (string.IsNullOrWhiteSpace(qid))
+            qid = GetDetailCanonicalValue(detail, "franchise_qid");
+
+        return ExtractQid(qid);
+    }
+
+    private static string? GetDetailCanonicalValue(LibraryItemDetail detail, string key)
+        => detail.CanonicalValues.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
     private async Task<List<SeriesItemViewModel>> MergeSeriesManifestPlaceholdersAsync(
         IReadOnlyList<SeriesItemViewModel> items,

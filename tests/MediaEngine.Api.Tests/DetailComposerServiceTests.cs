@@ -263,6 +263,23 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_SeriesPlacementUsesFranchiseFallbacksForMoviesComicsAndSeriesMedia()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var hydratorSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/WikidataSeriesManifestHydrationService.cs"));
+
+        Assert.Contains("ResolveSeriesPlacementTitle(detail, entityType)", source);
+        Assert.Contains("current_work.collection_id AS CollectionId", source);
+        Assert.Contains("w.collection_id = current.CollectionId", source);
+        Assert.Contains("key IN ('series', 'franchise')", source);
+        Assert.Contains("GetDetailCanonicalValue(detail, MetadataFieldConstants.Franchise)", source);
+        Assert.Contains("qid = GetDetailCanonicalValue(detail, \"franchise_qid\")", source);
+        Assert.Contains("MediaType.Movies", hydratorSource);
+        Assert.Contains("MediaType.Comics", hydratorSource);
+        Assert.Contains("\"franchise_qid\"", hydratorSource);
+    }
+
+    [Fact]
     public void DetailComposer_FormatsRatingsAndUsesCreditImageFallbacks()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));

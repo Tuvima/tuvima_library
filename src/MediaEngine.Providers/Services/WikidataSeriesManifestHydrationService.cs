@@ -241,16 +241,19 @@ public sealed class WikidataSeriesManifestHydrationService
         out string? qid,
         out string? label)
     {
-        foreach (var key in new[] { "series_qid", "part_of_the_series_qid", "part_of_series_qid" })
+        foreach (var key in new[] { "series_qid", "part_of_the_series_qid", "part_of_series_qid", "franchise_qid" })
         {
             var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
             if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
                 return true;
         }
 
-        var seriesClaim = claims.FirstOrDefault(c => string.Equals(c.Key, "series", StringComparison.OrdinalIgnoreCase));
-        if (seriesClaim is not null && TryParseQidValue(seriesClaim.Value, out qid, out label))
-            return true;
+        foreach (var key in new[] { "series", "franchise" })
+        {
+            var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
+            if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
+                return true;
+        }
 
         qid = null;
         label = null;
@@ -407,7 +410,7 @@ public sealed class WikidataSeriesManifestHydrationService
     }
 
     private static bool ShouldHydrate(MediaType mediaType)
-        => mediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Comics or MediaType.TV;
+        => mediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Comics or MediaType.Movies or MediaType.TV;
 
     private static bool IsSeriousWarning(SeriesManifestWarning warning)
         => warning.Code.Contains("conflict", StringComparison.OrdinalIgnoreCase)

@@ -2030,6 +2030,25 @@
     background: linear-gradient(90deg, rgba(42, 135, 255, 0.84), rgba(255,255,255,0.16));
 }
 
+::deep .tl-series-placement--long .tl-series-strip {
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: clamp(1rem, 1.8vw, 1.35rem);
+    overflow-x: visible;
+    padding-top: clamp(1.2rem, 2vw, 1.7rem);
+}
+
+::deep .tl-series-placement--long .tl-series-strip::before {
+    content: none;
+}
+
+::deep .tl-series-placement--long .tl-series-item {
+    min-width: 0;
+}
+
+::deep .tl-series-placement--long.tl-series-panel--landscape .tl-series-strip {
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
 ::deep .tl-series-item {
     position: relative;
     min-width: clamp(5.8rem, 7.2vw, 7.3rem);
@@ -2125,22 +2144,6 @@
 ::deep .tl-series-item.is-missing .tl-series-item__art {
     border-style: dashed;
     border-color: rgba(255,255,255,0.32);
-}
-
-::deep .tl-series-item__owned-badge {
-    position: absolute;
-    z-index: 2;
-    right: 0.32rem;
-    bottom: 0.32rem;
-    width: 1.55rem;
-    height: 1.55rem;
-    display: grid;
-    place-items: center;
-    border: 2px solid rgba(255,255,255,0.86);
-    border-radius: 50%;
-    background: linear-gradient(180deg, #4c8eff, #2358e8);
-    color: #fff;
-    box-shadow: 0 0.35rem 0.9rem rgba(0,0,0,0.55);
 }
 
 ::deep .tl-series-item__missing-art {
