@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MediaEngine.Plugins;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -28,13 +27,13 @@ public sealed class PluginViewModel
     public string? LoadError { get; set; }
 
     [JsonPropertyName("capabilities")]
-    public List<PluginCapabilityDescriptor> Capabilities { get; set; } = [];
+    public List<PluginCapabilityViewModel> Capabilities { get; set; } = [];
 
     [JsonPropertyName("tool_requirements")]
-    public List<PluginToolRequirement> ToolRequirements { get; set; } = [];
+    public List<PluginToolRequirementViewModel> ToolRequirements { get; set; } = [];
 
     [JsonPropertyName("ai_permissions")]
-    public List<PluginAiPermission> AiPermissions { get; set; } = [];
+    public List<PluginAiPermissionViewModel> AiPermissions { get; set; } = [];
 
     [JsonPropertyName("settings")]
     public Dictionary<string, JsonElement> Settings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -49,7 +48,64 @@ public sealed class PluginHealthViewModel
     public string Status { get; set; } = "unknown";
 
     [JsonPropertyName("checks")]
-    public List<PluginHealthResult> Checks { get; set; } = [];
+    public List<PluginHealthCheckViewModel> Checks { get; set; } = [];
+}
+
+public sealed class PluginCapabilityViewModel
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+}
+
+public sealed class PluginToolRequirementViewModel
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("version")]
+    public string Version { get; set; } = "";
+
+    [JsonPropertyName("executable_name")]
+    public string ExecutableName { get; set; } = "";
+
+    [JsonPropertyName("license")]
+    public string? License { get; set; }
+
+    [JsonPropertyName("source_url")]
+    public string? SourceUrl { get; set; }
+}
+
+public sealed class PluginAiPermissionViewModel
+{
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = "";
+
+    [JsonPropertyName("max_tokens")]
+    public int MaxTokens { get; set; }
+
+    [JsonPropertyName("schedule")]
+    public string Schedule { get; set; } = "";
+
+    [JsonPropertyName("resource_class")]
+    public string ResourceClass { get; set; } = "";
+}
+
+public sealed class PluginHealthCheckViewModel
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "unknown";
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("warnings")]
+    public List<string> Warnings { get; set; } = [];
 }
 
 public sealed class PluginJobViewModel

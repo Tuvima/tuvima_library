@@ -122,7 +122,7 @@
                                     <MudIcon Icon="@stat.Icon" Size="Size.Small" />
                                 </MudAvatar>
                                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="user-overview-stat-label">@stat.Label</MudText>
-                                <MudText Typo="Typo.h4" Class="user-overview-stat-value">@stat.Value</MudText>
+                                <MudText Typo="Typo.h4" Class="@StatValueClass(stat.Value)">@stat.Value</MudText>
                                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="user-overview-stat-subtitle">@stat.Subtitle</MudText>
                             </MudStack>
                         }
@@ -352,6 +352,9 @@
             ? RelativeTime(_overview.RecentItems.Max(item => item.LastAccessed))
             : "No activity yet";
     }
+
+    private static string StatValueClass(string value) =>
+        value.Length > 6 ? "user-overview-stat-value user-overview-stat-value--long" : "user-overview-stat-value";
 
     private IReadOnlyDictionary<string, int> TopGenres()
     {

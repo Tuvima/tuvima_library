@@ -49,6 +49,7 @@ public sealed class CommercialSkipPlugin : ITuvimaPlugin
             ["use_ffmpeg_fallback"] = JsonSerializer.SerializeToElement(true),
             ["minimum_commercial_seconds"] = JsonSerializer.SerializeToElement(30),
             ["maximum_commercial_seconds"] = JsonSerializer.SerializeToElement(600),
+            ["scheduled_batch_size"] = JsonSerializer.SerializeToElement(25),
             ["tool_path"] = JsonSerializer.SerializeToElement(""),
             ["comskip_tool_path"] = JsonSerializer.SerializeToElement(""),
             ["ffmpeg_tool_path"] = JsonSerializer.SerializeToElement(""),

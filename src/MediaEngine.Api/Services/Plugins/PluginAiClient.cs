@@ -60,7 +60,8 @@ public sealed class PluginAiClient : IPluginAiClient
             "text_quality" => AiModelRole.TextQuality,
             "text_scholar" => AiModelRole.TextScholar,
             "text_cjk" => AiModelRole.TextCjk,
-            "audio" => AiModelRole.Audio,
+            "audio" => throw new NotSupportedException("Plugin audio AI access is reserved for a future Whisper bridge and is not exposed through the text LLM client."),
+            "vision" => throw new NotSupportedException("Plugin vision access is reserved for a future multimodal runtime and is not exposed through the text LLM client."),
             _ => throw new ArgumentOutOfRangeException(nameof(role), $"Unknown AI role '{role}'."),
         };
     }

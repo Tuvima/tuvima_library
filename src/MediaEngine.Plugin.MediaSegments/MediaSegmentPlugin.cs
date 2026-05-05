@@ -69,7 +69,7 @@ public sealed class RecapDetectionPlugin : ITuvimaPlugin
 
     public IReadOnlyList<IPluginCapability> CreateCapabilities() =>
     [
-        new RecapSegmentDetector(Manifest),
+        new RecapSegmentDetector(),
     ];
 }
 

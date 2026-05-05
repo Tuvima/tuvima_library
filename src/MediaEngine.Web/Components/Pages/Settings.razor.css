@@ -1,4 +1,5 @@
-﻿::deep .settings-admin-shell {
+.settings-admin-style-scope,
+::deep .settings-admin-shell {
     --settings-card: rgba(12, 16, 27, 0.72);
     --settings-card-strong: rgba(13, 18, 31, 0.86);
     --settings-border: rgba(255, 255, 255, 0.105);
@@ -11,7 +12,7 @@
     --settings-muted: rgba(220, 229, 255, 0.64);
 }
 
-.settings-admin-panel {
+.settings-admin-style-scope ::deep .settings-admin-panel {
     min-width: 0;
     position: relative;
     border-radius: 14px;
@@ -24,23 +25,23 @@
     overflow: hidden;
 }
 
-::deep .settings-admin-panel .tl-page {
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-page {
     padding: 1.25rem;
 }
 
-::deep .settings-admin-panel .user-overview-page--refined {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-page--refined {
     width: 100%;
     max-width: 1320px;
     margin: 0 auto;
 }
 
-::deep .settings-admin-panel .mud-paper {
+.settings-admin-style-scope ::deep .settings-admin-panel .mud-paper {
     background: var(--settings-card) !important;
     border-color: var(--settings-border) !important;
     border-radius: 16px !important;
 }
 
-::deep .settings-admin-panel .tl-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-card {
     min-width: 0;
     color: var(--settings-text);
     border: 1px solid var(--settings-border) !important;
@@ -56,51 +57,51 @@
     backdrop-filter: blur(18px) saturate(130%);
 }
 
-::deep .settings-admin-panel .tl-card .mud-typography-h4,
-::deep .settings-admin-panel .tl-card .mud-typography-h5,
-::deep .settings-admin-panel .tl-card .mud-typography-h6,
-::deep .settings-admin-panel .settings-card-title {
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-h4,
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-h5,
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-h6,
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-card-title {
     color: var(--settings-text);
     font-weight: 700;
     letter-spacing: 0;
 }
 
-::deep .settings-admin-panel .tl-card .mud-typography-h6,
-::deep .settings-admin-panel .settings-card-title {
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-h6,
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-card-title {
     font-size: 1.08rem;
     line-height: 1.25;
 }
 
-::deep .settings-admin-panel .tl-card .mud-typography-body2 {
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-body2 {
     color: rgba(255, 255, 255, 0.88);
     font-size: 0.92rem;
     line-height: 1.35;
 }
 
-::deep .settings-admin-panel .tl-card .mud-typography-caption {
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-caption {
     color: var(--settings-muted) !important;
     font-size: 0.81rem;
     line-height: 1.25;
 }
 
-::deep .settings-admin-panel .tl-card .mud-icon-root {
+.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-icon-root {
     font-size: 1.1rem;
 }
 
-::deep .settings-admin-panel .mud-divider {
+.settings-admin-style-scope ::deep .settings-admin-panel .mud-divider {
     border-color: var(--settings-divider) !important;
 }
 
-::deep .settings-admin-panel .mud-table {
+.settings-admin-style-scope ::deep .settings-admin-panel .mud-table {
     background: transparent !important;
 }
 
-::deep .settings-admin-panel .mud-table-container,
-::deep .settings-admin-panel .mud-table-root {
+.settings-admin-style-scope ::deep .settings-admin-panel .mud-table-container,
+.settings-admin-style-scope ::deep .settings-admin-panel .mud-table-root {
     background: transparent !important;
 }
 
-::deep .settings-admin-panel .mud-table-head .mud-table-cell {
+.settings-admin-style-scope ::deep .settings-admin-panel .mud-table-head .mud-table-cell {
     color: rgba(255, 255, 255, 0.46);
     font-size: 0.75rem;
     font-weight: 850;
@@ -108,11 +109,11 @@
     text-transform: uppercase;
 }
 
-::deep .settings-admin-panel .mud-table-cell {
+.settings-admin-style-scope ::deep .settings-admin-panel .mud-table-cell {
     border-bottom-color: var(--tl-border-subtle) !important;
 }
 
-::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar {
     min-height: 58px !important;
     padding: 0 10px !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -120,17 +121,17 @@
     background: rgba(10, 13, 22, 0.72) !important;
 }
 
-::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content {
     width: 100%;
 }
 
-::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     width: 100%;
 }
 
-::deep .settings-admin-panel .settings-tab-strip .mud-tab {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
     max-width: none !important;
     min-height: 56px !important;
     justify-content: center !important;
@@ -139,22 +140,22 @@
     border-radius: 0 !important;
 }
 
-::deep .settings-admin-panel .settings-tab-strip .mud-tabs-inkbar {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-inkbar {
     height: 2px !important;
     border-radius: 999px;
     background: var(--tl-accent-primary) !important;
 }
 
-::deep .settings-admin-panel .settings-tab-panel {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-panel {
     padding-top: 16px;
 }
 
-::deep .settings-admin-panel .settings-section-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-section-card {
     height: 100%;
     padding: 20px 24px !important;
 }
 
-::deep .settings-admin-panel .settings-section-card__header .mud-icon-root {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-section-card__header .mud-icon-root {
     width: 28px;
     height: 28px;
     padding: 6px;
@@ -163,33 +164,33 @@
     box-shadow: 0 0 22px rgba(124, 77, 255, 0.16);
 }
 
-::deep .settings-admin-panel .settings-experience-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-card {
     padding: 20px 24px !important;
 }
 
-::deep .settings-admin-panel .settings-experience-grid {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-grid {
     display: grid !important;
     grid-template-columns: minmax(260px, 1.8fr) repeat(5, minmax(110px, 1fr));
     gap: 0;
     width: 100%;
 }
 
-::deep .settings-admin-panel .settings-experience-profile {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-profile {
     padding-right: 24px;
 }
 
-::deep .settings-admin-panel .settings-summary-metric {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-summary-metric {
     min-width: 0;
     padding: 4px 20px;
     border-left: 1px solid var(--tl-divider);
 }
 
-::deep .settings-admin-panel .settings-summary-metric .mud-typography-caption {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-summary-metric .mud-typography-caption {
     display: block;
     margin-top: 6px;
 }
 
-::deep .settings-admin-panel .settings-preference-row {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row {
     display: grid;
     grid-template-columns: 32px minmax(0, 1fr) auto;
     align-items: center;
@@ -199,11 +200,11 @@
     border-bottom: 1px solid var(--tl-divider);
 }
 
-::deep .settings-admin-panel .settings-preference-row:last-child {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row:last-child {
     border-bottom: 0;
 }
 
-::deep .settings-admin-panel .settings-preference-row__icon {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row__icon {
     display: grid;
     width: 24px;
     height: 24px;
@@ -212,56 +213,56 @@
     background: rgba(124, 77, 255, 0.13);
 }
 
-::deep .settings-admin-panel .settings-preference-row__text .mud-typography-body1 {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row__text .mud-typography-body1 {
     font-size: 0.88rem;
     line-height: 1.25;
 }
 
-::deep .settings-admin-panel .settings-preference-row__text .mud-typography-caption {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row__text .mud-typography-caption {
     line-height: 1.25;
 }
 
-::deep .settings-admin-panel .settings-field--compact {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact {
     margin: 2px 0 8px;
 }
 
-::deep .settings-admin-panel .settings-field--compact .mud-input-control {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact .mud-input-control {
     margin-top: 0;
 }
 
-::deep .settings-admin-panel .settings-field--compact .mud-input-slot,
-::deep .settings-admin-panel .settings-field--compact .mud-input-outlined,
-::deep .settings-admin-panel .settings-field--compact .mud-select-input {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact .mud-input-slot,
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact .mud-input-outlined,
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact .mud-select-input {
     min-height: 36px !important;
     height: 36px !important;
 }
 
-::deep .settings-admin-panel .settings-field--compact input.mud-input-root {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact input.mud-input-root {
     padding-top: 7px !important;
     padding-bottom: 7px !important;
 }
 
-::deep .settings-admin-panel .settings-slider-header {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-slider-header {
     margin-bottom: 2px;
 }
 
-::deep .settings-admin-panel .settings-slider {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-slider {
     margin-top: 0;
     margin-bottom: 0;
 }
 
-::deep .settings-admin-panel .settings-slider-scale {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-slider-scale {
     margin-top: -8px;
     padding: 0 8px;
     color: var(--tl-text-muted);
 }
 
-::deep .settings-admin-panel .settings-glance-item {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-glance-item {
     min-width: 0;
 }
 
-::deep .settings-admin-panel .settings-reading-preview,
-::deep .settings-admin-panel .settings-subtitle-preview {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-reading-preview,
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-subtitle-preview {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -270,74 +271,74 @@
     background: rgba(5, 8, 14, 0.42) !important;
 }
 
-::deep .settings-admin-panel .user-overview-grid {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 16px;
     align-items: stretch;
 }
 
-::deep .settings-admin-panel .user-overview-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-card {
     min-height: 100%;
 }
 
-::deep .settings-admin-panel .user-overview-profile-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-card {
     grid-column: span 5;
-    min-height: 174px;
+    min-height: 164px;
     padding: 20px 24px !important;
 }
 
-::deep .settings-admin-panel .user-overview-stat-strip {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-strip {
     grid-column: span 7;
-    min-height: 174px;
+    min-height: 164px;
 }
 
-::deep .settings-admin-panel .user-overview-continue-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-continue-card {
     grid-column: span 7;
-    min-height: 298px;
+    min-height: 286px;
 }
 
-::deep .settings-admin-panel .user-overview-history-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-card {
     grid-column: span 5;
     grid-row: span 2;
-    min-height: 540px;
+    min-height: 512px;
 }
 
-::deep .settings-admin-panel .user-overview-taste-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-taste-card {
     grid-column: span 7;
     min-height: 226px;
 }
 
-::deep .settings-admin-panel .user-overview-profile-layout {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-layout {
     height: 100%;
 }
 
-::deep .settings-admin-panel .user-overview-avatar-button {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar-button {
     position: relative;
     min-width: 0;
     padding: 0 !important;
     border-radius: 999px !important;
 }
 
-::deep .settings-admin-panel .user-overview-avatar {
-    width: 116px !important;
-    height: 116px !important;
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar {
+    width: 106px !important;
+    height: 106px !important;
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow:
         0 0 0 5px rgba(124, 77, 255, 0.09),
         0 14px 36px rgba(0, 0, 0, 0.34),
         inset 0 -10px 20px rgba(0, 0, 0, 0.18);
-    font-size: 2.35rem !important;
+    font-size: 2.15rem !important;
     font-weight: 800;
 }
 
-::deep .settings-admin-panel .user-overview-avatar-image {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-::deep .settings-admin-panel .user-overview-avatar-edit-badge {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar-edit-badge {
     position: absolute;
     right: 5px;
     bottom: 6px;
@@ -352,39 +353,39 @@
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.36);
 }
 
-::deep .settings-admin-panel .user-overview-profile-name {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-name {
     font-size: 1.62rem !important;
     line-height: 1.1 !important;
     font-weight: 750 !important;
 }
 
-::deep .settings-admin-panel .user-overview-inline-edit {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-inline-edit {
     width: 28px !important;
     height: 28px !important;
     color: rgba(255, 255, 255, 0.78) !important;
 }
 
-::deep .settings-admin-panel .user-overview-name-field {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-field {
     width: min(320px, 100%);
 }
 
-::deep .settings-admin-panel .user-overview-name-field .mud-input-control {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-field .mud-input-control {
     margin-top: 0;
 }
 
-::deep .settings-admin-panel .user-overview-name-field .mud-input-outlined {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-field .mud-input-outlined {
     min-height: 40px !important;
 }
 
-::deep .settings-admin-panel .user-overview-role-row {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-role-row {
     color: rgba(255, 255, 255, 0.9);
 }
 
-::deep .settings-admin-panel .user-overview-joined {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-joined {
     margin-top: 2px;
 }
 
-::deep .settings-admin-panel .user-overview-stats-grid {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: center;
@@ -393,51 +394,57 @@
     height: 100%;
 }
 
-::deep .settings-admin-panel .user-overview-stat-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-card {
     min-width: 0;
     height: 100%;
     justify-content: center;
-    padding: 4px 24px;
+    padding: 4px 22px;
     border-left: 1px solid var(--settings-divider);
 }
 
-::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:first-child {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:first-child {
     border-left: 0;
 }
 
-::deep .settings-admin-panel .user-overview-stat-icon {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-icon {
     width: 44px !important;
     height: 44px !important;
     box-shadow: 0 0 24px rgba(124, 77, 255, 0.18);
 }
 
-::deep .settings-admin-panel .user-overview-stat-value {
-    font-size: 2.08rem !important;
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-value {
+    font-size: 1.95rem !important;
     line-height: 1 !important;
     font-weight: 800 !important;
 }
 
-::deep .settings-admin-panel .user-overview-stat-label {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-value--long {
+    max-width: 132px;
+    font-size: 1.5rem !important;
+    line-height: 1.08 !important;
+}
+
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-label {
     color: rgba(210, 222, 255, 0.78) !important;
 }
 
-::deep .settings-admin-panel .user-overview-stat-subtitle {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-subtitle {
     max-width: 160px;
 }
 
-::deep .settings-admin-panel .user-overview-empty-state {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-empty-state {
     color: rgba(221, 229, 255, 0.72) !important;
     font-size: 0.95rem !important;
     line-height: 1.45;
 }
 
-::deep .settings-admin-panel .settings-media-rail {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail {
     overflow-x: auto;
     padding-bottom: 0.25rem;
     scrollbar-width: thin;
 }
 
-::deep .settings-admin-panel .settings-media-rail-card {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card {
     width: 154px;
     min-width: 154px;
     border: 0 !important;
@@ -445,24 +452,24 @@
     box-shadow: none !important;
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__content {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__content {
     padding: 0 !important;
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__art-shell {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__art-shell {
     position: relative;
     width: 134px;
     height: 178px;
     margin-bottom: 8px;
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__art,
-::deep .settings-admin-panel .settings-media-rail-card__fallback {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__art,
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__fallback {
     border-radius: 7px !important;
     box-shadow: 0 14px 26px rgba(0, 0, 0, 0.32);
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__badge {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__badge {
     position: absolute;
     top: 8px;
     left: 8px;
@@ -478,11 +485,11 @@
     backdrop-filter: blur(10px);
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__continuation {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__continuation {
     color: rgba(235, 239, 255, 0.72) !important;
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__title {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__title {
     overflow: hidden;
     color: rgba(255, 255, 255, 0.95) !important;
     font-weight: 700;
@@ -490,42 +497,42 @@
     white-space: nowrap;
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__progress-copy {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__progress-copy {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__progress .mud-progress-linear-bars {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__progress .mud-progress-linear-bars {
     height: 5px !important;
     border-radius: 999px;
     background-color: rgba(255, 255, 255, 0.12) !important;
 }
 
-::deep .settings-admin-panel .settings-media-rail-card__progress .mud-progress-linear-bar {
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__progress .mud-progress-linear-bar {
     background: linear-gradient(90deg, #8f63ff, #bd8bff) !important;
 }
 
-::deep .settings-admin-panel .user-overview-history-card .mud-list {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-card .mud-list {
     padding: 0;
     background: transparent;
 }
 
-::deep .settings-admin-panel .user-overview-history-row {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row {
     min-height: 62px !important;
     padding: 7px 0 !important;
     border-bottom: 1px solid var(--settings-divider);
 }
 
-::deep .settings-admin-panel .user-overview-history-row:last-child {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row:last-child {
     border-bottom: 0;
 }
 
-::deep .settings-admin-panel .user-overview-history-row .mud-list-item-text {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row .mud-list-item-text {
     margin: 0;
 }
 
-::deep .settings-admin-panel .user-overview-item-thumb {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-item-thumb {
     width: 48px !important;
     height: 48px !important;
     flex: 0 0 auto;
@@ -534,163 +541,176 @@
     background: rgba(124, 77, 255, 0.12) !important;
 }
 
-::deep .settings-admin-panel .user-overview-history-copy {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-copy {
     overflow: hidden;
 }
 
-::deep .settings-admin-panel .user-overview-row-title,
-::deep .settings-admin-panel .user-overview-row-subtitle {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-row-title,
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-row-subtitle {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-::deep .settings-admin-panel .user-overview-row-title {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-row-title {
     color: rgba(255, 255, 255, 0.95) !important;
     font-weight: 700;
 }
 
-::deep .settings-admin-panel .user-overview-history-meta {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-meta {
     flex: 0 0 auto;
 }
 
-::deep .settings-admin-panel .user-overview-overflow {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-overflow {
     width: 28px !important;
     height: 28px !important;
     color: rgba(255, 255, 255, 0.64) !important;
 }
 
-::deep .settings-admin-panel .user-overview-item-thumb img {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-item-thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-::deep .settings-admin-panel .user-overview-mini-bar .mud-progress-linear-bars {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-mini-bar .mud-progress-linear-bars {
     height: 6px !important;
     border-radius: 999px;
     background-color: rgba(255, 255, 255, 0.09) !important;
 }
 
-::deep .settings-admin-panel .user-overview-mini-bar .mud-progress-linear-bar {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-mini-bar .mud-progress-linear-bar {
     background: linear-gradient(90deg, #8e5cff, #b58cff) !important;
 }
 
-::deep .settings-admin-panel .user-overview-genre-row {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-row {
     padding: 3px 0;
 }
 
-::deep .settings-admin-panel .user-overview-genre-grid {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 34px;
     row-gap: 14px;
 }
 
-::deep .settings-admin-panel .user-overview-genre-name,
-::deep .settings-admin-panel .user-overview-genre-percent {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-name,
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-percent {
     color: rgba(255, 255, 255, 0.9) !important;
     font-weight: 700;
 }
 
-::deep .settings-admin-panel .user-overview-taste-note {
+.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-taste-note {
     display: block;
     color: #f6ae38 !important;
 }
 
-::deep .settings-admin-panel .mud-chip {
+.settings-admin-style-scope ::deep .settings-admin-panel .mud-chip {
     border-radius: 7px !important;
     font-size: 0.74rem !important;
 }
 
 @media (max-width: 768px) {
-    ::deep .settings-admin-panel .tl-page {
+    .settings-admin-style-scope ::deep .settings-admin-panel .tl-page {
         padding: 1rem;
     }
 }
 
-@media (max-width: 960px) {
-    ::deep .settings-admin-panel .user-overview-grid {
+@media (max-width: 1200px) {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        row-gap: 0;
+    }
+
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card {
+        min-height: 116px;
+        border-left: 1px solid var(--settings-divider);
+        border-top: 1px solid var(--settings-divider);
+    }
+
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:nth-child(1),
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:nth-child(2) {
+        border-top: 0;
+    }
+
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:nth-child(odd) {
+        border-left: 0;
+    }
+}
+
+@media (max-width: 700px) {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-grid {
         grid-template-columns: 1fr;
     }
 
-    ::deep .settings-admin-panel .user-overview-profile-card,
-    ::deep .settings-admin-panel .user-overview-stat-strip,
-    ::deep .settings-admin-panel .user-overview-continue-card,
-    ::deep .settings-admin-panel .user-overview-history-card,
-    ::deep .settings-admin-panel .user-overview-taste-card {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-card,
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-strip,
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-continue-card,
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-card,
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-taste-card {
         grid-column: 1;
         grid-row: auto;
         min-height: auto;
     }
 
-    ::deep .settings-admin-panel .user-overview-stats-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        row-gap: 18px;
-    }
-
-    ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:nth-child(odd) {
-        border-left: 0;
-    }
-
-    ::deep .settings-admin-panel .user-overview-genre-grid {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-grid {
         grid-template-columns: 1fr;
     }
 
-    ::deep .settings-admin-panel .settings-experience-grid {
+    .settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-grid {
         grid-template-columns: 1fr 1fr;
         row-gap: 16px;
     }
 
-    ::deep .settings-admin-panel .settings-summary-metric {
+    .settings-admin-style-scope ::deep .settings-admin-panel .settings-summary-metric {
         padding: 0;
         border-left: 0;
     }
 }
 
-@media (max-width: 720px) {
-    ::deep .settings-admin-panel .user-overview-profile-layout,
-    ::deep .settings-admin-panel .user-overview-name-edit,
-    ::deep .settings-admin-panel .user-overview-name-row {
+@media (max-width: 560px) {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-layout,
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-edit,
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-row {
         align-items: flex-start !important;
     }
 
-    ::deep .settings-admin-panel .user-overview-profile-layout {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-layout {
         flex-direction: column !important;
     }
 
-    ::deep .settings-admin-panel .user-overview-stats-grid {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid {
         grid-template-columns: 1fr;
     }
 
-    ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card {
         border-left: 0;
         border-top: 1px solid var(--settings-divider);
         padding: 14px 0;
     }
 
-    ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:first-child {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:first-child {
         border-top: 0;
     }
 
-    ::deep .settings-admin-panel .user-overview-history-row > .mud-list-item-text,
-    ::deep .settings-admin-panel .user-overview-history-row .mud-list-item-text > .mud-stack-row {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row > .mud-list-item-text,
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row .mud-list-item-text > .mud-stack-row {
         min-width: 0;
     }
 
-    ::deep .settings-admin-panel .user-overview-history-meta {
+    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-meta {
         display: none !important;
     }
 
-    ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
+    .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
         grid-template-columns: 1fr;
     }
 
-    ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
+    .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
         justify-content: flex-start !important;
     }
 
-    ::deep .settings-admin-panel .settings-experience-grid {
+    .settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-grid {
         grid-template-columns: 1fr;
     }
 }

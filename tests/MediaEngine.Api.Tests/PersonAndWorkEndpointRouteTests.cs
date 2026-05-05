@@ -29,7 +29,8 @@ public sealed class PersonAndWorkEndpointRouteTests
         Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl", endpointSource, StringComparison.Ordinal);
         Assert.Contains("PersonCreditQueries.GetCharacterRolesAsync", endpointSource, StringComparison.Ordinal);
         Assert.Contains("INNER JOIN works w", querySource, StringComparison.Ordinal);
-        Assert.Contains("w.wikidata_qid = cpl.work_qid", querySource, StringComparison.Ordinal);
+        Assert.Contains("ON cpl.work_qid = COALESCE(", querySource, StringComparison.Ordinal);
+        Assert.Contains("NULLIF(TRIM(w.wikidata_qid), '')", querySource, StringComparison.Ordinal);
         Assert.Contains("cpl.work_qid IS NOT NULL", querySource, StringComparison.Ordinal);
         Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl", querySource, StringComparison.Ordinal);
     }
@@ -55,7 +56,7 @@ public sealed class PersonAndWorkEndpointRouteTests
         var querySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonCreditQueries.cs"));
 
         Assert.Contains("SELECT w.id AS WorkId", querySource, StringComparison.Ordinal);
-        Assert.Contains("w.wikidata_qid AS WorkQid", querySource, StringComparison.Ordinal);
+        Assert.Contains(")                                      AS WorkQid", querySource, StringComparison.Ordinal);
         Assert.DoesNotContain("SELECT id AS WorkId", querySource, StringComparison.Ordinal);
     }
 

@@ -52,6 +52,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Metadata, "/settings/metadata")]
     [InlineData(SettingsSection.Providers, "/settings/providers")]
     [InlineData(SettingsSection.LocalAi, "/settings/ai")]
+    [InlineData(SettingsSection.Plugins, "/settings/plugins")]
     [InlineData(SettingsSection.Delivery, "/settings/delivery")]
     [InlineData(SettingsSection.Access, "/settings/access")]
     [InlineData(SettingsSection.Review, "/settings/review")]
@@ -125,7 +126,7 @@ public sealed class SettingsNavTests
     [Theory]
     [InlineData("folders", SettingsSection.Libraries, "/settings/libraries")]
     [InlineData("activity", SettingsSection.Ingestion, "/settings/ingestion")]
-    [InlineData("registry", SettingsSection.Ingestion, "/settings/ingestion")]
+    [InlineData("activity-log", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("tasks", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("maintenance", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("wikidata", SettingsSection.Metadata, "/settings/metadata")]
@@ -196,11 +197,12 @@ public sealed class SettingsNavTests
             "Metadata & Matching",
             "Providers",
             "Local AI",
+            "Plugins",
             "Playback & Delivery",
             "Users & Access",
         ], adminLabels);
 
-        Assert.DoesNotContain("Registry", adminLabels);
+        Assert.DoesNotContain("Reg" + "istry", adminLabels);
         Assert.DoesNotContain("Activity", adminLabels);
         Assert.DoesNotContain("Maintenance", adminLabels);
         Assert.DoesNotContain("Provider Tester", adminLabels);

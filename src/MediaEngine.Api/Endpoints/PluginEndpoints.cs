@@ -12,7 +12,7 @@ internal static class PluginEndpoints
         var group = routes.MapGroup("/plugins")
             .WithTags("Plugins");
 
-        group.MapGet("/", (PluginCatalog catalog) =>
+        group.MapGet("", (PluginCatalog catalog) =>
             Results.Ok(catalog.List().Select(ToDto)))
             .WithName("ListPlugins")
             .RequireAdmin();
