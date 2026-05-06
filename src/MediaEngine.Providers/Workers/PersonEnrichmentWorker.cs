@@ -184,6 +184,13 @@ public sealed class PersonEnrichmentWorker
                                     harvestRequest.EntityId);
                             }
                         }
+                        else
+                        {
+                            var existing = await _personRepo.FindByQidAsync(searchResult.WikidataQid, ct)
+                                .ConfigureAwait(false);
+                            if (existing is not null)
+                                await EnrichPersonImageAsync(existing.Id, unlinked.Role, mediaType, ct);
+                        }
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -259,12 +266,21 @@ public sealed class PersonEnrichmentWorker
                 rawName, resolvedName, resolvedQid, personId);
         }
 
-        await _personRepo.LinkToMediaAssetAsync(mediaAssetId, personId, role, ct)
-            .ConfigureAwait(false);
+        try
+        {
+            await _personRepo.LinkToMediaAssetAsync(mediaAssetId, personId, role, ct)
+                .ConfigureAwait(false);
 
-        _logger.LogInformation(
-            "Persisted reconciled person '{Name}' ({Qid}) linked to asset {AssetId} as {Role}",
-            resolvedName, resolvedQid, mediaAssetId, role);
+            _logger.LogInformation(
+                "Persisted reconciled person '{Name}' ({Qid}) linked to asset {AssetId} as {Role}",
+                resolvedName, resolvedQid, mediaAssetId, role);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex,
+                "Could not link reconciled person '{Name}' ({Qid}) to asset {AssetId}; continuing enrichment",
+                resolvedName, resolvedQid, mediaAssetId);
+        }
 
         if (!needsHarvest)
             return null;

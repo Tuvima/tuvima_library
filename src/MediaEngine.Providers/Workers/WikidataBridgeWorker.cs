@@ -45,6 +45,7 @@ public sealed class WikidataBridgeWorker
     private readonly CatalogUpsertService _catalogUpsert;
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly PostPipelineService _postPipeline;
+    private readonly PersonEnrichmentWorker? _personEnrichment;
     private readonly WikidataSeriesManifestHydrationService? _seriesManifestHydration;
     private readonly CoverArtWorker _coverArt;
     private readonly BatchProgressService? _batchProgress;
@@ -83,7 +84,8 @@ public sealed class WikidataBridgeWorker
         BatchProgressService? batchProgress = null,
         IEnrichmentConcurrencyLimiter? concurrencyLimiter = null,
         ICanonicalValueArrayRepository? arrayRepo = null,
-        WikidataSeriesManifestHydrationService? seriesManifestHydration = null)
+        WikidataSeriesManifestHydrationService? seriesManifestHydration = null,
+        PersonEnrichmentWorker? personEnrichment = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -102,6 +104,7 @@ public sealed class WikidataBridgeWorker
         _catalogUpsert = catalogUpsert;
         _batchRepo = batchRepo;
         _postPipeline = postPipeline;
+        _personEnrichment = personEnrichment;
         _seriesManifestHydration = seriesManifestHydration;
         _coverArt = coverArt;
         _logger = logger;
@@ -693,6 +696,8 @@ public sealed class WikidataBridgeWorker
                 // correct Work, then upsert any catalog children.
                 await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                     fullClaims, ct);
+
+                await RunPostIdentityPersonPassAsync(job.EntityId, ctx.ResolvedQid, ct);
             }
 
             await TryHydrateSeriesManifestAsync(job, ctx, lineage, ctx.ResolvedQid, fullClaims, ct);
@@ -764,6 +769,8 @@ public sealed class WikidataBridgeWorker
 
                             await TryHydrateSeriesManifestAsync(
                                 job, ctx, lineage, ctx.ResolvedQid, fallbackClaims, ct);
+
+                            await RunPostIdentityPersonPassAsync(job.EntityId, ctx.ResolvedQid, ct);
 
                             await _timeline.RecordTitleFallbackResolvedAsync(
                                 job.EntityId, ctx.ResolvedQid, job.IngestionRunId, ct);
@@ -1329,6 +1336,25 @@ public sealed class WikidataBridgeWorker
         return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
             ? lineage.TargetForParentScope
             : assetId;
+    }
+
+    private async Task RunPostIdentityPersonPassAsync(Guid entityId, string qid, CancellationToken ct)
+    {
+        if (_personEnrichment is null)
+            return;
+
+        try
+        {
+            await _personEnrichment.EnrichFromClaimsAsync(entityId, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Post-identity person enrichment failed for entity {EntityId} ({Qid})",
+                entityId,
+                qid);
+        }
     }
 
     // -------------------------------------------------------------------------

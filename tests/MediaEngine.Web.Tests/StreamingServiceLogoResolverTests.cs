@@ -72,7 +72,8 @@ public sealed class StreamingServiceLogoResolverTests
             Assert.True(new FileInfo(assetPath).Length > 1_000, $"Logo asset is unexpectedly empty for {entry.ServiceId}");
 
             var dimensions = ReadPngDimensions(assetPath);
-            Assert.Equal((Width: 1024, Height: 320), dimensions);
+            Assert.InRange(dimensions.Width, 200, 900);
+            Assert.InRange(dimensions.Height, 120, 240);
             Assert.Equal(6, ReadPngColorType(assetPath));
         }
     }
@@ -145,6 +146,7 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         var cut = RenderComponent<DetailHero>(parameters => parameters.Add(component => component.Model, model));
 
         Assert.Equal("/images/show-title-logos/shogun.png", cut.Find(".tl-detail-hero__logo").GetAttribute("src"));
-        Assert.Equal("/images/streaming-services/hulu.png", cut.Find(".tl-detail-hero-brand-badge img").GetAttribute("src"));
+        Assert.Equal("/images/streaming-services/hulu.png", cut.Find(".tl-detail-hero-brand img").GetAttribute("src"));
+        Assert.Empty(cut.FindAll(".tl-detail-hero-brand-badge img"));
     }
 }

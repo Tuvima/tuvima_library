@@ -2,7 +2,7 @@
 @using MediaEngine.Contracts.Details
 
 <section class="tl-detail-hero @Presentation.HeroClass" style="@Presentation.GradientStyle">
-    <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="BackdropHeroBrand" />
+    <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
     @if (Presentation.ShowTitleBar)
     {
         <div class="tl-detail-titlebar">
@@ -36,6 +36,7 @@
                                IsWatchHero="Presentation.IsWatchHero"
                                UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
                                HeroBrand="Model.HeroBrand"
+                               RenderHeroBrandInMetadata="false"
                                IsAdminView="Model.IsAdminView" />
 
             @if (Presentation.CapabilityPills.Count > 0)
@@ -73,5 +74,4 @@
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
     private bool HasHeroBrand => Model.HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
-    private HeroBrandViewModel? BackdropHeroBrand => Presentation.IsWatchHero ? null : Model.HeroBrand;
 }

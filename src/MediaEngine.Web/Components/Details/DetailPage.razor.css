@@ -324,8 +324,8 @@
 
 ::deep .tl-detail-hero-brand {
     position: absolute;
-    right: clamp(1.25rem, 3vw, 3rem);
-    bottom: clamp(1.6rem, 5vh, 3rem);
+    right: clamp(1.4rem, 3.8vw, 4.2rem);
+    bottom: clamp(1.4rem, 4vh, 3.4rem);
     z-index: 4;
     color: rgba(255, 248, 235, 0.92);
     font-size: 1rem;
@@ -337,15 +337,16 @@
 
 ::deep .tl-detail-hero-brand img {
     display: block;
-    max-width: 6rem;
-    max-height: 2.6rem;
+    max-width: clamp(8rem, 12vw, 12.5rem);
+    max-height: clamp(2.8rem, 5vh, 4.4rem);
     object-fit: contain;
     opacity: 1;
     filter: drop-shadow(0 0.3rem 1.2rem rgba(0, 0, 0, 0.72));
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero-brand {
-    display: none;
+    right: clamp(1.4rem, 3.8vw, 4.2rem);
+    bottom: clamp(1.4rem, 4vh, 3.4rem);
 }
 
 ::deep .tl-detail-hero-brand-badge {
@@ -378,8 +379,8 @@
 ::deep .tl-detail-hero-brand-badge img {
     display: block;
     width: auto;
-    max-width: 7.6rem;
-    max-height: 2.65rem;
+    max-width: 8.8rem;
+    max-height: 3rem;
     object-fit: contain;
     filter: drop-shadow(0 0.22rem 0.45rem rgba(0, 0, 0, 0.58));
 }

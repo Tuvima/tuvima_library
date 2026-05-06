@@ -80,8 +80,10 @@
     [Parameter] public bool IsWatchHero { get; set; }
     [Parameter] public bool UsePrimaryHeroChrome { get; set; }
     [Parameter] public HeroBrandViewModel? HeroBrand { get; set; }
+    [Parameter] public bool RenderHeroBrandInMetadata { get; set; } = true;
 
     private bool ShouldRenderHeroBrand => IsWatchHero
+        && RenderHeroBrandInMetadata
         && HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(HeroBrand.Label));
 
@@ -138,7 +140,9 @@
         => string.Equals(item.Kind, kind, StringComparison.OrdinalIgnoreCase);
 
     private bool ShouldSuppressTypeStat(MetadataPill item)
-        => ShouldRenderHeroBrand && KindEquals(item, "type");
+        => IsWatchHero
+        && KindEquals(item, "type")
+        && (EntityType == DetailEntityType.TvShow || string.Equals(item.Label, "TV Show", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsHeroStat(MetadataPill item)
     {

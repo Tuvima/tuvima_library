@@ -115,10 +115,11 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("Model.HeroBrand is not null", source);
         Assert.Contains("HeroBrand=\"Model.HeroBrand\"", source);
-        Assert.Contains("tl-detail-hero-brand-badge", metadata);
+        Assert.Contains("RenderHeroBrandInMetadata=\"false\"", source);
+        Assert.Contains("tl-detail-hero-brand", styles);
         Assert.Contains("ShouldSuppressTypeStat", metadata);
         Assert.Contains("Presentation.IsWatchHero", source);
-        Assert.Contains("tl-detail-hero-brand-badge img", styles);
+        Assert.Contains("tl-detail-hero-brand img", styles);
         Assert.Contains("NormalizeHeroBrand", client);
         Assert.Contains("StreamingServiceLogoResolver", client);
         Assert.Contains("ResolveLogoPath(heroBrand.Label)", client);
