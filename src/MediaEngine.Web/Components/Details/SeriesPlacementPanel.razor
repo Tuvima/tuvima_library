@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Services.Integration
+@using System.Globalization
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 
@@ -51,14 +52,12 @@
     </div>
 
     <div class="tl-series-carousel">
-        @if (CanPageLeft)
-        {
-            <MudIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--left"
-                           Icon="@Icons.Material.Outlined.ChevronLeft"
-                           Size="Size.Large"
-                           aria-label="Previous series items"
-                           OnClick="PageLeft" />
-        }
+        <MudIconButton Class="@LeftArrowClass"
+                       Icon="@Icons.Material.Outlined.ChevronLeft"
+                       Size="Size.Large"
+                       aria-label="Previous series items"
+                       Disabled="@(!CanPageLeft)"
+                       OnClick="PageLeft" />
         <div class="tl-series-strip" style="@SeriesGridStyle" aria-label="@Placement.SeriesTitle series order">
             @foreach (var item in VisibleItems)
             {
@@ -85,18 +84,15 @@
                         }
                     </div>
                     <div class="tl-series-item__title">@SeriesItemTitle(item)</div>
-                    <div class="tl-series-item__meta">@SeriesItemMeta(item)</div>
                 </article>
             }
         </div>
-        @if (CanPageRight)
-        {
-            <MudIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--right"
-                           Icon="@Icons.Material.Outlined.ChevronRight"
-                           Size="Size.Large"
-                           aria-label="More series items"
-                           OnClick="PageRight" />
-        }
+        <MudIconButton Class="@RightArrowClass"
+                       Icon="@Icons.Material.Outlined.ChevronRight"
+                       Size="Size.Large"
+                       aria-label="More series items"
+                       Disabled="@(!CanPageRight)"
+                       OnClick="PageRight" />
     </div>
 
     <div class="tl-series-owned-summary">
@@ -141,13 +137,15 @@
     private int TotalItems => Placement.TotalKnownItems ?? Placement.OrderedItems.Count;
     private string CurrentPositionText => (Placement.PositionNumber ?? Placement.CurrentItem.PositionNumber)?.ToString() ?? SeriesNumber(Placement.CurrentItem);
     private string PositionSummary => $"{CurrentPositionText} of {TotalItems} in series";
-    private string SeriesTitleDisplay => string.IsNullOrWhiteSpace(Placement.SeriesTitle) ? "Series" : Placement.SeriesTitle.Trim();
+    private string SeriesTitleDisplay => TitleCaseDisplay(Placement.SeriesTitle);
     private string SeriesGridStyle => $"--series-count:{Math.Max(1, VisibleItems.Count)};";
     private int VisibleCount => Placement.OrderedItems.Count <= WindowSize ? Placement.OrderedItems.Count : WindowSize;
     private int WindowStart => Math.Clamp(_windowCenterIndex - (VisibleCount / 2), 0, Math.Max(0, Placement.OrderedItems.Count - VisibleCount));
     private IReadOnlyList<SeriesItemViewModel> VisibleItems => Placement.OrderedItems.Skip(WindowStart).Take(VisibleCount).ToList();
     private bool CanPageLeft => WindowStart > 0;
     private bool CanPageRight => WindowStart + VisibleCount < Placement.OrderedItems.Count;
+    private string LeftArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--left{(CanPageLeft ? string.Empty : " is-hidden")}";
+    private string RightArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--right{(CanPageRight ? string.Empty : " is-hidden")}";
     private bool ShowSetDefault => _canCurateSeries && Placement.CanSetDefaultSeries && !string.IsNullOrWhiteSpace(Placement.SelectedSeriesId);
     private List<ChartSeries<double>> SeriesDonutSeries =>
     [
@@ -222,12 +220,21 @@
     private string SeriesItemTitle(SeriesItemViewModel item)
         => FirstNonBlank(item.Title, $"{ItemNoun} {SeriesNumber(item)}")!;
 
-    private string SeriesItemMeta(SeriesItemViewModel item)
-        => item.IsOwned ? $"{ItemNoun} {SeriesNumber(item)}" : $"Missing {ItemNoun.ToLowerInvariant()} {SeriesNumber(item)}";
-
     private static string SeriesNumber(SeriesItemViewModel item)
         => item.PositionNumber?.ToString() ?? FirstNonBlank(item.PositionLabel, "?")!;
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+    private static string TitleCaseDisplay(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Series";
+
+        var textInfo = CultureInfo.CurrentCulture.TextInfo;
+        return string.Join(' ', value.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => word.Length == 0 || word.All(char.IsUpper)
+                ? word
+                : textInfo.ToTitleCase(word)));
+    }
 }

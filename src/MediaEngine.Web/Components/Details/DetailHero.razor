@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Shared
 
 <section class="tl-detail-hero @Presentation.HeroClass" style="@Presentation.GradientStyle">
     <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
@@ -12,16 +13,6 @@
     @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
     {
         <div class="tl-detail-hero__inner tl-detail-person-hero__inner">
-            <div class="tl-detail-person-portrait">
-                @if (!string.IsNullOrWhiteSpace(Model.Artwork.PortraitUrl))
-                {
-                    <img src="@Model.Artwork.PortraitUrl" alt="@Model.Title" />
-                }
-                else
-                {
-                    <GeneratedIdentity Name="@Model.Title" />
-                }
-            </div>
             <div class="tl-detail-hero__copy tl-detail-person-hero__copy">
                 @if (!string.IsNullOrWhiteSpace(PersonEyebrow))
                 {
@@ -64,10 +55,23 @@
                                rel="noopener noreferrer"
                                title="@link.Label"
                                aria-label="@link.Label">
-                                <span>@(link.IconLabel ?? link.Label)</span>
+                                <AppIcon Name="@PersonExternalIcon(link)"
+                                         Size="1.08rem"
+                                         Title="@link.Label"
+                                         Decorative="false" />
                             </a>
                         }
                     </div>
+                }
+            </div>
+            <div class="tl-detail-person-portrait" aria-label="@Model.Title portrait">
+                @if (!string.IsNullOrWhiteSpace(Model.Artwork.PortraitUrl))
+                {
+                    <img src="@Model.Artwork.PortraitUrl" alt="@Model.Title" />
+                }
+                else
+                {
+                    <GeneratedIdentity Name="@Model.Title" />
                 }
             </div>
         </div>
@@ -185,6 +189,21 @@
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static string PersonExternalIcon(PersonExternalLink link) =>
+        link.Key.ToLowerInvariant() switch
+        {
+            "instagram" => "fab:instagram",
+            "twitter" => "fab:x-twitter",
+            "x" => "fab:x-twitter",
+            "tiktok" => "fab:tiktok",
+            "mastodon" => "fab:mastodon",
+            "wikidata" => "fab:wikipedia-w",
+            "wikipedia" => "fab:wikipedia-w",
+            "imdb" => "fab:imdb",
+            "website" => "fa:globe",
+            _ => "fa:up-right-from-square",
+        };
 
     private static IReadOnlyList<string> PersonParagraphs(string? value)
     {

@@ -520,13 +520,15 @@
 }
 
 ::deep .tl-detail-person-hero__inner {
-    grid-template-columns: minmax(14rem, 18rem) minmax(0, 47rem);
+    grid-template-columns: minmax(0, 47rem) minmax(14rem, 18rem);
     align-items: center;
+    justify-content: space-between;
 }
 
 ::deep .tl-detail-person-portrait {
     width: min(100%, 18rem);
     aspect-ratio: 2 / 3;
+    justify-self: end;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.13);
     border-radius: 0.55rem;
@@ -587,14 +589,18 @@
     border-radius: 50%;
     background: rgba(255,255,255,0.065);
     color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 86%, #fff);
-    font-size: 0.72rem;
-    font-weight: 850;
     text-decoration: none;
+    transition: background 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
 ::deep .tl-detail-person-link:hover {
     background: rgba(255,255,255,0.12);
     color: #fff8eb;
+    transform: translateY(-1px);
+}
+
+::deep .tl-detail-person-link .app-icon {
+    display: block;
 }
 
 ::deep .tl-detail-person-facts-grid {
@@ -2232,10 +2238,17 @@
 }
 
 ::deep .tl-series-carousel__arrow {
+    width: 3rem;
+    min-width: 3rem;
     align-self: center;
     border: 1px solid rgba(255,255,255,0.18);
     background: rgba(8, 13, 21, 0.72);
     color: #fff;
+}
+
+::deep .tl-series-carousel__arrow.is-hidden {
+    visibility: hidden;
+    pointer-events: none;
 }
 
 ::deep .tl-series-strip {
@@ -2282,7 +2295,7 @@
     position: relative;
     min-width: clamp(5.8rem, 7.2vw, 7.3rem);
     display: grid;
-    grid-template-rows: auto auto minmax(2.45rem, auto) auto;
+    grid-template-rows: auto auto minmax(2.45rem, auto);
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -3239,6 +3252,7 @@
 
     ::deep .tl-detail-person-portrait {
         width: min(58vw, 13rem);
+        justify-self: start;
     }
 
     ::deep .tl-detail-person-summary {

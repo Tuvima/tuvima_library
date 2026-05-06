@@ -276,7 +276,7 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("<h2>@SeriesTitleDisplay</h2>", source);
         Assert.DoesNotContain("Part of", source);
-        Assert.Contains("Placement.SeriesTitle.Trim()", source);
+        Assert.Contains("TitleCaseDisplay(Placement.SeriesTitle)", source);
         Assert.Contains("VisibleItems", source);
         Assert.Contains("tl-series-carousel__arrow", source);
         Assert.Contains("MudChart T=\"double\"", source);

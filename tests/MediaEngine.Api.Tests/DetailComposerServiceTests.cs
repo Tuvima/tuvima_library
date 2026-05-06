@@ -255,9 +255,9 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("series_qid", source);
         Assert.Contains("GetItemsBySeriesQidAsync(seriesQid, ct)", source);
-        Assert.Contains("MergeManifestItems(items, scopedManifestItems, entityType)", source);
+        Assert.Contains("MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType)", source);
         Assert.Contains("FROM series_members", source);
-        Assert.Contains("MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, entityType, ct)", source);
+        Assert.Contains("MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, workId, entityType, ct)", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
         Assert.Contains("Missing from library", source);
     }

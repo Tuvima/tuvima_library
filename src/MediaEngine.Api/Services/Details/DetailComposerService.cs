@@ -1090,7 +1090,7 @@ public sealed class DetailComposerService
                 ProgressState = LibraryProgressState.Unknown,
             };
         }).ToList();
-        items = await MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, entityType, ct);
+        items = await MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, workId, entityType, ct);
         items = SortSeriesItems(items);
 
         if (items.Count == 0)
@@ -1241,6 +1241,7 @@ public sealed class DetailComposerService
         IReadOnlyList<SeriesItemViewModel> items,
         string? seriesQid,
         string? currentWorkQid,
+        Guid currentWorkId,
         DetailEntityType entityType,
         CancellationToken ct)
     {
@@ -1256,7 +1257,7 @@ public sealed class DetailComposerService
             scopedManifestItems = connectedManifestItems;
 
         if (scopedManifestItems.Count > 0)
-            return MergeManifestItems(items, scopedManifestItems, entityType);
+            return MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType);
 
         return await MergeLegacySeriesMemberPlaceholdersAsync(items, seriesQid, entityType, ct);
     }
@@ -1309,9 +1310,12 @@ public sealed class DetailComposerService
     private static List<SeriesItemViewModel> MergeManifestItems(
         IReadOnlyList<SeriesItemViewModel> items,
         IReadOnlyList<SeriesManifestItemRecord> manifestItems,
+        string? currentWorkQid,
+        Guid currentWorkId,
         DetailEntityType entityType)
     {
         var merged = items.ToList();
+        var currentQid = ExtractQid(currentWorkQid);
         var ownedPositions = merged
             .Where(item => item.PositionNumber.HasValue)
             .Select(item => item.PositionNumber!.Value)
@@ -1327,6 +1331,14 @@ public sealed class DetailComposerService
                 ? (int?)Convert.ToInt32(Math.Round(manifestItem.ParsedOrdinal.Value, MidpointRounding.AwayFromZero))
                 : TryParseSeriesPosition(FirstNonBlank(manifestItem.RawOrdinal, manifestItem.SortOrder?.ToString(CultureInfo.InvariantCulture)));
             var isLinkedOwned = manifestItem.LinkedWorkId.HasValue;
+
+            if ((isLinkedOwned || string.Equals(manifestItem.ItemQid, currentQid, StringComparison.OrdinalIgnoreCase))
+                && TryApplyManifestPositionToOwnedItem(merged, manifestItem, position, currentWorkId))
+            {
+                if (position.HasValue)
+                    ownedPositions.Add(position.Value);
+                continue;
+            }
 
             if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))
                 continue;
@@ -1350,6 +1362,37 @@ public sealed class DetailComposerService
             .OrderBy(item => item.PositionNumber ?? int.MaxValue)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static bool TryApplyManifestPositionToOwnedItem(
+        List<SeriesItemViewModel> items,
+        SeriesManifestItemRecord manifestItem,
+        int? position,
+        Guid currentWorkId)
+    {
+        var index = items.FindIndex(item =>
+            (manifestItem.LinkedWorkId.HasValue && string.Equals(item.Id, manifestItem.LinkedWorkId.Value.ToString("D"), StringComparison.OrdinalIgnoreCase))
+            || (item.IsCurrent && currentWorkId != Guid.Empty && string.Equals(item.Id, currentWorkId.ToString("D"), StringComparison.OrdinalIgnoreCase)));
+        if (index < 0)
+            return false;
+
+        var item = items[index];
+        if (item.PositionNumber.HasValue && !string.IsNullOrWhiteSpace(item.PositionLabel))
+            return true;
+
+        items[index] = new SeriesItemViewModel
+        {
+            Id = item.Id,
+            EntityType = item.EntityType,
+            Title = item.Title,
+            ArtworkUrl = item.ArtworkUrl,
+            PositionNumber = item.PositionNumber ?? position,
+            PositionLabel = FirstNonBlank(item.PositionLabel, position?.ToString(CultureInfo.InvariantCulture), manifestItem.RawOrdinal),
+            IsCurrent = item.IsCurrent,
+            IsOwned = item.IsOwned,
+            ProgressState = item.ProgressState,
+        };
+        return true;
     }
 
     private static bool IsManifestItemInMediaScope(SeriesManifestItemRecord item, DetailEntityType entityType)
