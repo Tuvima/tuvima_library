@@ -91,6 +91,9 @@ public sealed class DetailHeroPresentation
         if (isWatchHero)
             return $"{modeClass} tl-detail-hero--watch";
 
+        if (entityType == DetailEntityType.Person)
+            return $"{modeClass} tl-detail-hero--person";
+
         var surfaceClass = entityType switch
         {
             DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work => "tl-detail-hero--read",

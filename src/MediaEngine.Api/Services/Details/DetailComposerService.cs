@@ -44,7 +44,8 @@ public sealed class DetailComposerService
         DetailEntityType entityType,
         Guid id,
         DetailPresentationContext context,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? selectedSeriesId = null)
     {
         var isAdminView = context is DetailPresentationContext.Admin;
 
@@ -55,7 +56,7 @@ public sealed class DetailComposerService
                 or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(id, entityType, context, isAdminView, ct),
             DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, ct),
             DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, ct),
-            _ => await BuildWorkAsync(id, entityType, context, isAdminView, ct),
+            _ => await BuildWorkAsync(id, entityType, context, isAdminView, selectedSeriesId, ct),
         };
     }
 
@@ -107,6 +108,7 @@ public sealed class DetailComposerService
         DetailEntityType requestedType,
         DetailPresentationContext context,
         bool isAdminView,
+        string? selectedSeriesId,
         CancellationToken ct)
     {
         var detail = await _libraryItems.GetDetailAsync(workId, ct);
@@ -156,7 +158,7 @@ public sealed class DetailComposerService
         var contributors = await BuildWorkContributorsAsync(workId, detail, entityType, ct);
         var characters = BuildCharacterGroupsFromCast(contributors.CastCredits);
         var contributorGroups = await BuildContributorGroupsAsync(workId, detail, entityType, contributors.CastCredits, values, ct);
-        var seriesPlacement = await BuildSeriesPlacementAsync(workId, detail, entityType, ct);
+        var seriesPlacement = await BuildSeriesPlacementAsync(workId, detail, entityType, selectedSeriesId, ct);
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, ct);
         var longDescription = ResolveLongDescription(detail.Description, values, entityType);
         var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, entityType, ct);
@@ -351,6 +353,11 @@ public sealed class DetailComposerService
 
         var credits = await PersonCreditQueries.GetLibraryCreditsAsync(personId, _db, ct);
         var characterRoles = await PersonCreditQueries.GetCharacterRolesAsync(personId, _db, ct);
+        var aliases = await _persons.FindAliasesAsync(personId, ct);
+        var groupMembers = await PersonCreditQueries.GetGroupMembersAsync(personId, person.IsGroup, _db, ct);
+        var memberOfGroups = person.IsGroup
+            ? []
+            : await PersonCreditQueries.GetGroupMembersAsync(personId, false, _db, ct);
         var artworkAssets = await _entityAssets.GetByEntityAsync(personId.ToString(), null, ct);
         var banner = PreferredAssetUrl(artworkAssets, "Banner");
         var background = PreferredAssetUrl(artworkAssets, "Background");
@@ -367,6 +374,7 @@ public sealed class DetailComposerService
             Title = person.Name,
             Subtitle = person.IsGroup ? "Group" : string.Join(" • ", person.Roles.Take(3)),
             Description = person.Biography,
+            PersonDetails = BuildPersonDetails(person, aliases, groupMembers, memberOfGroups),
             Artwork = BuildArtwork(entityType, background, banner, null, null, portrait, new Dictionary<string, string>(), relatedArt, 0, null, logo),
             Metadata = BuildPersonMetadata(person.Roles, credits.Count),
             PrimaryActions = BuildPersonActions(personId, entityType, context),
@@ -974,11 +982,29 @@ public sealed class DetailComposerService
             : [new CharacterGroupViewModel { Title = "Characters", GroupType = CharacterGroupType.MainCharacters, Characters = characters }];
     }
 
-    private async Task<SeriesPlacementViewModel?> BuildSeriesPlacementAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, CancellationToken ct)
+    private async Task<SeriesPlacementViewModel?> BuildSeriesPlacementAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, string? requestedSeriesId, CancellationToken ct)
     {
-        var seriesTitle = ResolveSeriesPlacementTitle(detail, entityType);
-        if (string.IsNullOrWhiteSpace(seriesTitle))
-            return null;
+        var availableSeries = ResolveSeriesPlacementOptions(detail, entityType);
+        if (availableSeries.Count == 0)
+        {
+            var localSeries = await ResolveLocalSeriesOptionAsync(workId, entityType, detail.MediaType, ct);
+            if (localSeries is null)
+                return null;
+
+            availableSeries = [localSeries];
+        }
+
+        var defaultSeriesQid = ExtractQid(GetDetailCanonicalValue(detail, "default_series_qid"));
+        var requestedQid = ExtractQid(requestedSeriesId);
+        var selectedSeries = availableSeries.FirstOrDefault(option =>
+            !string.IsNullOrWhiteSpace(requestedQid)
+            && string.Equals(option.SeriesId, requestedQid, StringComparison.OrdinalIgnoreCase))
+            ?? availableSeries.FirstOrDefault(option =>
+            !string.IsNullOrWhiteSpace(defaultSeriesQid)
+            && string.Equals(option.SeriesId, defaultSeriesQid, StringComparison.OrdinalIgnoreCase))
+            ?? availableSeries[0];
+        var seriesTitle = selectedSeries.SeriesTitle;
+        var seriesQid = ExtractQid(selectedSeries.SeriesId);
 
         using var conn = _db.CreateConnection();
         var rawRows = await conn.QueryAsync(new CommandDefinition(
@@ -1017,9 +1043,9 @@ public sealed class DetailComposerService
                     COALESCE(grandparent.id, parent.id, w.id) = current.RootWorkId
                  OR (current.CollectionId IS NOT NULL AND w.collection_id = current.CollectionId)
                  OR COALESCE(
-                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('series', 'franchise') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('series', 'franchise') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(grandparent.id, parent.id, w.id) AND key IN ('series', 'franchise') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'series' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'series' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(grandparent.id, parent.id, w.id) AND key = 'series' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = COALESCE(grandparent.id, parent.id, w.id) AND key = 'title' LIMIT 1)
                     ) = @series
               )
@@ -1046,7 +1072,6 @@ public sealed class DetailComposerService
             StringValue(row.MediaType),
             StringValue(row.PositionLabel),
             StringValue(row.ArtworkUrl))).ToList();
-        var seriesQid = ResolveSeriesPlacementQid(detail, entityType);
 
         var items = rows.Select(row =>
         {
@@ -1065,8 +1090,7 @@ public sealed class DetailComposerService
                 ProgressState = LibraryProgressState.Unknown,
             };
         }).ToList();
-        items = await MergeSeriesManifestPlaceholdersAsync(items, seriesQid, entityType, ct);
-        items = AddMissingSeriesPlaceholders(items, entityType);
+        items = await MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, entityType, ct);
         items = SortSeriesItems(items);
 
         if (items.Count == 0)
@@ -1090,6 +1114,18 @@ public sealed class DetailComposerService
         {
             SeriesId = seriesQid ?? seriesTitle,
             SeriesTitle = seriesTitle,
+            SelectedSeriesId = seriesQid ?? seriesTitle,
+            CanChooseSeries = availableSeries.Count > 1,
+            CanSetDefaultSeries = availableSeries.Count > 1 && !string.Equals(selectedSeries.SeriesId, defaultSeriesQid, StringComparison.OrdinalIgnoreCase),
+            AvailableSeries = availableSeries.Select(option => new SeriesOptionViewModel
+            {
+                SeriesId = option.SeriesId,
+                SeriesTitle = option.SeriesTitle,
+                MediaScope = option.MediaScope,
+                IsSelected = string.Equals(option.SeriesId, selectedSeries.SeriesId, StringComparison.OrdinalIgnoreCase),
+                IsDefault = !string.IsNullOrWhiteSpace(defaultSeriesQid)
+                    && string.Equals(option.SeriesId, defaultSeriesQid, StringComparison.OrdinalIgnoreCase),
+            }).ToList(),
             UniverseId = detail.UniverseSummary?.UniverseQid,
             UniverseTitle = detail.UniverseSummary?.UniverseName,
             PositionNumber = current.PositionNumber,
@@ -1126,26 +1162,76 @@ public sealed class DetailComposerService
             _ => "Other",
         };
 
-    private static string? ResolveSeriesPlacementTitle(LibraryItemDetail detail, DetailEntityType entityType)
+    private static IReadOnlyList<SeriesOptionViewModel> ResolveSeriesPlacementOptions(LibraryItemDetail detail, DetailEntityType entityType)
     {
-        var series = FirstText(detail.Series, GetDetailCanonicalValue(detail, MetadataFieldConstants.Series));
-        if (!string.IsNullOrWhiteSpace(series))
-            return series;
+        var mediaScope = SeriesMediaFilter(entityType, detail.MediaType);
+        var options = new List<SeriesOptionViewModel>();
+        var seriesTitle = FirstText(detail.Series, GetDetailCanonicalValue(detail, MetadataFieldConstants.Series));
+        var defaultSeriesQid = ExtractQid(GetDetailCanonicalValue(detail, "default_series_qid"));
+        var defaultSeriesTitle = FirstText(GetDetailCanonicalValue(detail, "default_series_label"), GetDetailCanonicalValue(detail, "default_series"));
 
-        return FirstText(GetDetailCanonicalValue(detail, MetadataFieldConstants.Franchise), GetDetailCanonicalValue(detail, "franchise"));
+        AddSeriesOption(options, defaultSeriesQid, defaultSeriesTitle, mediaScope);
+        AddSeriesOption(options, ExtractQid(GetDetailCanonicalValue(detail, "series_qid")), seriesTitle, mediaScope);
+        AddSeriesOption(options, ExtractQid(GetDetailCanonicalValue(detail, "part_of_the_series_qid")), seriesTitle, mediaScope);
+        AddSeriesOption(options, ExtractQid(GetDetailCanonicalValue(detail, "part_of_series_qid")), seriesTitle, mediaScope);
+
+        if (options.Count == 0 && !string.IsNullOrWhiteSpace(seriesTitle))
+            AddSeriesOption(options, seriesTitle, seriesTitle, mediaScope);
+
+        return options;
     }
 
-    private static string? ResolveSeriesPlacementQid(LibraryItemDetail detail, DetailEntityType entityType)
+    private static void AddSeriesOption(List<SeriesOptionViewModel> options, string? seriesId, string? title, string mediaScope)
     {
-        var qid = FirstText(
-            GetDetailCanonicalValue(detail, "series_qid"),
-            GetDetailCanonicalValue(detail, "part_of_the_series_qid"),
-            GetDetailCanonicalValue(detail, "part_of_series_qid"));
+        if (string.IsNullOrWhiteSpace(seriesId))
+            return;
 
-        if (string.IsNullOrWhiteSpace(qid))
-            qid = GetDetailCanonicalValue(detail, "franchise_qid");
+        if (options.Any(option => string.Equals(option.SeriesId, seriesId, StringComparison.OrdinalIgnoreCase)))
+            return;
 
-        return ExtractQid(qid);
+        options.Add(new SeriesOptionViewModel
+        {
+            SeriesId = seriesId.Trim(),
+            SeriesTitle = FirstText(title, seriesId) ?? "Series",
+            MediaScope = mediaScope,
+        });
+    }
+
+    private async Task<SeriesOptionViewModel?> ResolveLocalSeriesOptionAsync(Guid workId, DetailEntityType entityType, string mediaType, CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        var row = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
+            """
+            WITH current_lineage AS (
+                SELECT COALESCE(current_grandparent.id, current_parent.id, current_work.id) AS RootWorkId,
+                       current_work.collection_id AS CollectionId
+                FROM works current_work
+                LEFT JOIN works current_parent ON current_parent.id = current_work.parent_work_id
+                LEFT JOIN works current_grandparent ON current_grandparent.id = current_parent.parent_work_id
+                WHERE current_work.id = @workId
+            )
+            SELECT CAST(COALESCE(
+                (SELECT display_name FROM collections c WHERE c.id = current.CollectionId LIMIT 1),
+                (SELECT value FROM canonical_values WHERE entity_id = current.RootWorkId AND key = 'series' LIMIT 1),
+                (SELECT value FROM canonical_values WHERE entity_id = current.RootWorkId AND key = 'title' LIMIT 1)
+            ) AS TEXT) AS SeriesTitle,
+            CAST((SELECT wikidata_qid FROM collections c WHERE c.id = current.CollectionId LIMIT 1) AS TEXT) AS SeriesQid
+            FROM current_lineage current;
+            """,
+            new { workId = workId.ToString("D") },
+            cancellationToken: ct));
+
+        var title = StringValue(row?.SeriesTitle);
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
+
+        var qid = ExtractQid(StringValue(row?.SeriesQid));
+        return new SeriesOptionViewModel
+        {
+            SeriesId = qid ?? title,
+            SeriesTitle = title,
+            MediaScope = SeriesMediaFilter(entityType, mediaType),
+        };
     }
 
     private static string? GetDetailCanonicalValue(LibraryItemDetail detail, string key)
@@ -1154,6 +1240,7 @@ public sealed class DetailComposerService
     private async Task<List<SeriesItemViewModel>> MergeSeriesManifestPlaceholdersAsync(
         IReadOnlyList<SeriesItemViewModel> items,
         string? seriesQid,
+        string? currentWorkQid,
         DetailEntityType entityType,
         CancellationToken ct)
     {
@@ -1161,10 +1248,62 @@ public sealed class DetailComposerService
             return items.ToList();
 
         var manifestItems = await _seriesManifests.GetItemsBySeriesQidAsync(seriesQid, ct);
-        if (manifestItems.Count > 0)
-            return MergeManifestItems(items, manifestItems, entityType);
+        var scopedManifestItems = manifestItems
+            .Where(item => IsManifestItemInMediaScope(item, entityType))
+            .ToList();
+        var connectedManifestItems = BuildConnectedManifestSubset(scopedManifestItems, currentWorkQid);
+        if (connectedManifestItems.Count > 1)
+            scopedManifestItems = connectedManifestItems;
+
+        if (scopedManifestItems.Count > 0)
+            return MergeManifestItems(items, scopedManifestItems, entityType);
 
         return await MergeLegacySeriesMemberPlaceholdersAsync(items, seriesQid, entityType, ct);
+    }
+
+    private static List<SeriesManifestItemRecord> BuildConnectedManifestSubset(
+        IReadOnlyList<SeriesManifestItemRecord> manifestItems,
+        string? currentWorkQid)
+    {
+        var qid = ExtractQid(currentWorkQid);
+        if (string.IsNullOrWhiteSpace(qid))
+            return [];
+
+        var byQid = manifestItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.ItemQid))
+            .GroupBy(item => item.ItemQid, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        if (!byQid.ContainsKey(qid))
+            return [];
+
+        var connected = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { qid };
+        var pending = new Queue<string>();
+        pending.Enqueue(qid);
+
+        while (pending.Count > 0)
+        {
+            var current = pending.Dequeue();
+            if (!byQid.TryGetValue(current, out var item))
+                continue;
+
+            foreach (var neighbor in new[] { item.PreviousQid, item.NextQid }.Select(ExtractQid).Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>())
+            {
+                if (byQid.ContainsKey(neighbor) && connected.Add(neighbor))
+                    pending.Enqueue(neighbor);
+            }
+
+            foreach (var inbound in manifestItems.Where(candidate =>
+                string.Equals(ExtractQid(candidate.PreviousQid), current, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(ExtractQid(candidate.NextQid), current, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (connected.Add(inbound.ItemQid))
+                    pending.Enqueue(inbound.ItemQid);
+            }
+        }
+
+        return manifestItems
+            .Where(item => connected.Contains(item.ItemQid))
+            .ToList();
     }
 
     private static List<SeriesItemViewModel> MergeManifestItems(
@@ -1212,6 +1351,43 @@ public sealed class DetailComposerService
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    private static bool IsManifestItemInMediaScope(SeriesManifestItemRecord item, DetailEntityType entityType)
+    {
+        if (item.LinkedWorkId.HasValue)
+            return true;
+
+        if (item.IsCollection)
+            return false;
+
+        var text = string.Join(' ', new[]
+        {
+            item.MediaType,
+            item.ItemDescription,
+            item.ParentCollectionLabel,
+            item.SourcePropertiesJson,
+            item.RelationshipsJson,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        if (string.IsNullOrWhiteSpace(text))
+            return true;
+
+        return entityType switch
+        {
+            DetailEntityType.Movie or DetailEntityType.MovieSeries => ContainsAny(text, "film", "movie")
+                && !ContainsAny(text, "short film", "television", "episode", "video game", "novel", "book", "comic"),
+            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => ContainsAny(text, "television", "tv series", "episode", "season"),
+            DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => ContainsAny(text, "comic", "graphic novel", "manga"),
+            DetailEntityType.Audiobook => ContainsAny(text, "audiobook", "audio book", "book", "novel"),
+            DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.Work => ContainsAny(text, "book", "novel", "literary", "written work")
+                && !ContainsAny(text, "comic", "film", "movie", "television", "video game"),
+            DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.MusicArtist => ContainsAny(text, "album", "song", "single", "music"),
+            _ => true,
+        };
+    }
+
+    private static bool ContainsAny(string value, params string[] needles)
+        => needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
 
     private async Task<List<SeriesItemViewModel>> MergeLegacySeriesMemberPlaceholdersAsync(
         IReadOnlyList<SeriesItemViewModel> items,
@@ -1936,9 +2112,7 @@ public sealed class DetailComposerService
             DetailEntityType.ComicIssue => ["overview", "contributors", "characters", "series", "universe", "editions", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "credits", "related", "details"],
             DetailEntityType.MusicArtist when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "related", "details"],
-            DetailEntityType.Person when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "movies-tv", "details"],
-            DetailEntityType.Person when context == DetailPresentationContext.Watch => ["overview", "movies-tv", "roles", "characters", "music", "collaborators", "details"],
-            DetailEntityType.Person => ["overview", "works", "roles", "music", "movies-tv", "characters", "universes", "details"],
+            DetailEntityType.Person => ["overview", "media", "characters", "details"],
             DetailEntityType.Character => ["overview", "appearances", "portrayals", "relationships", "universe", "details"],
             DetailEntityType.Universe => ["overview", "timeline", "media", "characters", "people", "relationships", "details"],
             _ => ["overview", "people", "characters", "series", "universe", "related", "details"],
@@ -2946,6 +3120,106 @@ public sealed class DetailComposerService
     private static IReadOnlyList<MetadataPill> BuildPersonMetadata(IReadOnlyList<string> roles, int creditCount)
         => roles.Take(4).Select(role => new MetadataPill { Label = role }).Append(new MetadataPill { Label = $"{creditCount} library credits" }).ToList();
 
+    private static PersonDetailFacts BuildPersonDetails(
+        MediaEngine.Domain.Entities.Person person,
+        IReadOnlyList<MediaEngine.Domain.Entities.Person> aliases,
+        IReadOnlyList<MediaEngine.Api.Models.PersonGroupMemberDto> groupMembers,
+        IReadOnlyList<MediaEngine.Api.Models.PersonGroupMemberDto> memberOfGroups)
+        => new()
+        {
+            WikidataQid = person.WikidataQid,
+            WikidataUrl = string.IsNullOrWhiteSpace(person.WikidataQid)
+                ? null
+                : $"https://www.wikidata.org/wiki/{person.WikidataQid}",
+            Occupation = person.Occupation,
+            Roles = person.Roles,
+            DateOfBirth = person.DateOfBirth,
+            DateOfDeath = person.DateOfDeath,
+            PlaceOfBirth = person.PlaceOfBirth,
+            PlaceOfDeath = person.PlaceOfDeath,
+            Nationality = person.Nationality,
+            IsPseudonym = person.IsPseudonym,
+            IsGroup = person.IsGroup,
+            CreatedAt = person.CreatedAt,
+            EnrichedAt = person.EnrichedAt,
+            ExternalLinks = BuildPersonExternalLinks(person),
+            Aliases = aliases.Select(alias => new PersonRelatedLink
+            {
+                Id = alias.Id.ToString("D"),
+                Name = alias.Name,
+                Subtitle = alias.IsPseudonym ? "Pen name" : "Related identity",
+                Route = $"/details/person/{alias.Id:D}",
+            }).ToList(),
+            GroupMembers = groupMembers.Select(member => new PersonRelatedLink
+            {
+                Id = member.Id.ToString("D"),
+                Name = member.Name,
+                Subtitle = member.DateRange,
+                Route = $"/details/person/{member.Id:D}",
+            }).ToList(),
+            MemberOfGroups = memberOfGroups.Select(group => new PersonRelatedLink
+            {
+                Id = group.Id.ToString("D"),
+                Name = group.Name,
+                Subtitle = group.DateRange,
+                Route = $"/details/person/{group.Id:D}",
+            }).ToList(),
+        };
+
+    private static IReadOnlyList<PersonExternalLink> BuildPersonExternalLinks(MediaEngine.Domain.Entities.Person person)
+    {
+        var links = new List<PersonExternalLink>();
+        AddPersonExternalLink(links, "website", "Website", person.Website, "WEB");
+        AddPersonExternalLink(links, "wikidata", "Wikidata", string.IsNullOrWhiteSpace(person.WikidataQid) ? null : $"https://www.wikidata.org/wiki/{person.WikidataQid}", "WD");
+        AddPersonExternalLink(links, "instagram", "Instagram", BuildSocialUrl("instagram", person.Instagram), "IG");
+        AddPersonExternalLink(links, "twitter", "X", BuildSocialUrl("twitter", person.Twitter), "X");
+        AddPersonExternalLink(links, "tiktok", "TikTok", BuildSocialUrl("tiktok", person.TikTok), "TT");
+        AddPersonExternalLink(links, "mastodon", "Mastodon", BuildSocialUrl("mastodon", person.Mastodon), "M");
+        return links;
+    }
+
+    private static void AddPersonExternalLink(List<PersonExternalLink> links, string key, string label, string? url, string iconLabel)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+
+        links.Add(new PersonExternalLink
+        {
+            Key = key,
+            Label = label,
+            Url = url,
+            IconLabel = iconLabel,
+        });
+    }
+
+    private static string? BuildSocialUrl(string platform, string? rawValue)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue))
+            return null;
+
+        var value = rawValue.Trim();
+        var isUrl = value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        if (isUrl)
+            return value;
+
+        var handle = value.TrimStart('@');
+        return platform switch
+        {
+            "instagram" => $"https://instagram.com/{handle}",
+            "twitter" => $"https://x.com/{handle}",
+            "tiktok" => $"https://tiktok.com/@{handle}",
+            "mastodon" when value.Contains('@') && value.Contains('.') => BuildMastodonUrl(value),
+            _ => value,
+        };
+    }
+
+    private static string BuildMastodonUrl(string value)
+    {
+        var parts = value.Split('@', 2, StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length == 2 ? $"https://{parts[1]}/@{parts[0]}" : value;
+    }
+
     private static IReadOnlyList<DetailAction> BuildPersonActions(Guid personId, DetailEntityType entityType, DetailPresentationContext context)
         => context == DetailPresentationContext.Listen || entityType == DetailEntityType.MusicArtist
             ? [new DetailAction { Key = "play", Label = "Play Artist", Icon = "play_arrow", IsPrimary = true }, new DetailAction { Key = "shuffle", Label = "Shuffle", Icon = "shuffle" }]
@@ -3067,6 +3341,7 @@ public sealed class DetailComposerService
     private static string ToTabLabel(string key) => key switch
     {
         "people" => "Cast",
+        "media" => "Media in Library",
         "movies-tv" => "Movies & TV",
         "appears-on" => "Appears On",
         _ => string.Join(" ", key.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(word => char.ToUpperInvariant(word[0]) + word[1..])),

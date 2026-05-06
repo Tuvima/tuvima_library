@@ -68,7 +68,7 @@ else
 
             return Credit.EntityType switch
             {
-                RelatedEntityType.Person => $"/person/{id:D}",
+                RelatedEntityType.Person => $"/details/person/{id:D}",
                 RelatedEntityType.Character => $"/details/character/{id:D}?context=universe",
                 RelatedEntityType.MusicArtist => $"/details/musicartist/{id:D}?context=listen",
                 RelatedEntityType.Universe => $"/details/universe/{id:D}?context=universe",

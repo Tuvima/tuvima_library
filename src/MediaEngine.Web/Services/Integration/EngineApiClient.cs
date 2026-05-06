@@ -923,13 +923,15 @@ public sealed class EngineApiClient : IEngineApiClient
         DetailEntityType entityType,
         Guid id,
         DetailPresentationContext context = DetailPresentationContext.Default,
+        string? seriesId = null,
         CancellationToken ct = default)
     {
         try
         {
             var entity = Uri.EscapeDataString(entityType.ToString().ToLowerInvariant());
             var ctx = Uri.EscapeDataString(context.ToString().ToLowerInvariant());
-            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/details/{entity}/{id:D}?context={ctx}", ct);
+            var seriesQuery = string.IsNullOrWhiteSpace(seriesId) ? string.Empty : $"&seriesId={Uri.EscapeDataString(seriesId)}";
+            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/details/{entity}/{id:D}?context={ctx}{seriesQuery}", ct);
             return detail is null ? null : NormalizeDetailArtwork(detail);
         }
         catch (OperationCanceledException) { return null; }
@@ -937,6 +939,30 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "GET /api/details/{EntityType}/{Id} failed", entityType, id);
             return null;
+        }
+    }
+
+    public async Task<bool> SetDefaultSeriesAsync(
+        DetailEntityType entityType,
+        Guid id,
+        string seriesId,
+        string? seriesTitle = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var entity = Uri.EscapeDataString(entityType.ToString().ToLowerInvariant());
+            var response = await _http.PutAsJsonAsync(
+                $"/api/details/{entity}/{id:D}/series-default",
+                new SetDefaultSeriesRequest { SeriesId = seriesId, SeriesTitle = seriesTitle },
+                ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /api/details/{EntityType}/{Id}/series-default failed", entityType, id);
+            return false;
         }
     }
 
@@ -2640,6 +2666,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 LocalHeadshotUrl = (raw.HasLocalHeadshot || !string.IsNullOrEmpty(raw.HeadshotUrl)) ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
                 Biography        = raw.Biography,
                 Occupation       = raw.Occupation,
+                DateOfBirth      = raw.DateOfBirth,
+                DateOfDeath      = raw.DateOfDeath,
+                PlaceOfBirth     = raw.PlaceOfBirth,
+                PlaceOfDeath     = raw.PlaceOfDeath,
+                Nationality      = raw.Nationality,
+                WikidataQid      = raw.WikidataQid,
                 Instagram        = raw.Instagram,
                 Twitter          = raw.Twitter,
                 TikTok           = raw.TikTok,
@@ -3882,6 +3914,7 @@ public sealed class EngineApiClient : IEngineApiClient
             Subtitle = detail.Subtitle,
             Tagline = detail.Tagline,
             Description = detail.Description,
+            PersonDetails = detail.PersonDetails,
             Artwork = new ArtworkSet
             {
                 BackdropUrl = NormalizeOptionalUrl(artwork.BackdropUrl),
@@ -4038,6 +4071,10 @@ public sealed class EngineApiClient : IEngineApiClient
                 TotalKnownItems = placement.TotalKnownItems,
                 PositionLabel = placement.PositionLabel,
                 OrderingType = placement.OrderingType,
+                SelectedSeriesId = placement.SelectedSeriesId,
+                CanChooseSeries = placement.CanChooseSeries,
+                CanSetDefaultSeries = placement.CanSetDefaultSeries,
+                AvailableSeries = placement.AvailableSeries,
                 PreviousItem = NormalizeSeriesItem(placement.PreviousItem),
                 CurrentItem = NormalizeSeriesItem(placement.CurrentItem) ?? new SeriesItemViewModel(),
                 NextItem = NormalizeSeriesItem(placement.NextItem),
@@ -4576,10 +4613,16 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("id")]                 Guid            Id,
         [property: JsonPropertyName("name")]               string?         Name,
         [property: JsonPropertyName("roles")]              List<string>?   Roles,
+        [property: JsonPropertyName("wikidata_qid")]       string?         WikidataQid,
         [property: JsonPropertyName("headshot_url")]       string?         HeadshotUrl,
         [property: JsonPropertyName("has_local_headshot")] bool            HasLocalHeadshot,
         [property: JsonPropertyName("biography")]          string?         Biography,
         [property: JsonPropertyName("occupation")]         string?         Occupation,
+        [property: JsonPropertyName("date_of_birth")]      string?         DateOfBirth,
+        [property: JsonPropertyName("date_of_death")]      string?         DateOfDeath,
+        [property: JsonPropertyName("place_of_birth")]     string?         PlaceOfBirth,
+        [property: JsonPropertyName("place_of_death")]     string?         PlaceOfDeath,
+        [property: JsonPropertyName("nationality")]        string?         Nationality,
         [property: JsonPropertyName("instagram")]          string?         Instagram,
         [property: JsonPropertyName("twitter")]            string?         Twitter,
         [property: JsonPropertyName("tiktok")]             string?         TikTok,

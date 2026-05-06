@@ -28,7 +28,7 @@
             {
                 @if (Model.SeriesPlacement is not null)
                 {
-                    <SeriesPlacementPanel Placement="Model.SeriesPlacement" />
+                    <SeriesPlacementPanel Placement="Model.SeriesPlacement" OnSeriesSelected="HandleSeriesSelectedAsync" />
                 }
                 else
                 {
@@ -109,6 +109,16 @@
     }
 
     private void SetActiveTab(string key) => _activeTab = key;
+
+    private async Task HandleSeriesSelectedAsync(SeriesOptionViewModel option)
+    {
+        if (Model is null || string.IsNullOrWhiteSpace(option.SeriesId) || !Guid.TryParse(Model.Id, out var id))
+            return;
+
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, id, Model.PresentationContext, option.SeriesId);
+        if (updated is not null)
+            Model = updated;
+    }
 
     private async Task HandleDetailActionAsync(DetailAction action)
     {

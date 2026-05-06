@@ -608,7 +608,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         var dateOfDeath  = claims.FirstOrDefault(c => c.Key == "date_of_death")?.Value;
         var placeOfBirth = claims.FirstOrDefault(c => c.Key == "place_of_birth")?.Value;
         var placeOfDeath = claims.FirstOrDefault(c => c.Key == "place_of_death")?.Value;
-        var nationality  = claims.FirstOrDefault(c => c.Key == "country_of_citizenship")?.Value;
+        var nationality  = claims.FirstOrDefault(c => c.Key == "nationality")?.Value
+            ?? claims.FirstOrDefault(c => c.Key == "country_of_citizenship")?.Value;
         // isPseudonym was computed from claims before the dedup block above.
 
         if (dateOfBirth is not null || dateOfDeath is not null || placeOfBirth is not null ||

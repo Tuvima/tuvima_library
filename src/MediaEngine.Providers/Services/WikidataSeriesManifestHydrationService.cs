@@ -241,14 +241,14 @@ public sealed class WikidataSeriesManifestHydrationService
         out string? qid,
         out string? label)
     {
-        foreach (var key in new[] { "series_qid", "part_of_the_series_qid", "part_of_series_qid", "franchise_qid" })
+        foreach (var key in new[] { "series_qid", "part_of_the_series_qid", "part_of_series_qid" })
         {
             var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
             if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
                 return true;
         }
 
-        foreach (var key in new[] { "series", "franchise" })
+        foreach (var key in new[] { "series" })
         {
             var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
             if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))

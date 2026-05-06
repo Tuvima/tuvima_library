@@ -10,13 +10,6 @@
                  class="person-card-headshot"
                  loading="lazy" />
         }
-        else if (!string.IsNullOrEmpty(Person.HeadshotUrl))
-        {
-            <img src="@Person.HeadshotUrl"
-                 alt="@Person.Name"
-                 class="person-card-headshot"
-                 loading="lazy" />
-        }
         else
         {
             <MudAvatar Size="MudBlazor.Size.Large"

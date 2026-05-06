@@ -2,7 +2,8 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
 /// Full person detail: headshot, biography, and social links.
-/// Used by PersonDetail.razor at /person/{id}.
+/// Used by the library drawer. Full page person rendering now uses the unified
+/// detail page at /details/person/{id}.
 /// </summary>
 public sealed class PersonDetailViewModel
 {
@@ -14,6 +15,12 @@ public sealed class PersonDetailViewModel
     public string?  LocalHeadshotUrl { get; init; }
     public string?  Biography        { get; init; }
     public string?  Occupation       { get; init; }
+    public string?  DateOfBirth      { get; init; }
+    public string?  DateOfDeath      { get; init; }
+    public string?  PlaceOfBirth     { get; init; }
+    public string?  PlaceOfDeath     { get; init; }
+    public string?  Nationality      { get; init; }
+    public string?  WikidataQid      { get; init; }
 
     // Social links
     public string?  Instagram  { get; init; }
@@ -30,9 +37,9 @@ public sealed class PersonDetailViewModel
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    public string EffectiveHeadshotUrl => LocalHeadshotUrl ?? HeadshotUrl ?? string.Empty;
+    public string EffectiveHeadshotUrl => LocalHeadshotUrl ?? string.Empty;
 
-    public bool HasHeadshot => !string.IsNullOrEmpty(LocalHeadshotUrl) || !string.IsNullOrEmpty(HeadshotUrl);
+    public bool HasHeadshot => !string.IsNullOrEmpty(LocalHeadshotUrl);
 
     public string? HeaderArtUrl => BannerUrl ?? BackgroundUrl;
 

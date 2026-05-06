@@ -13,9 +13,13 @@ public sealed class PersonAndWorkEndpointRouteTests
         Assert.Contains("PersonCreditQueries.GetLibraryCreditsAsync", source, StringComparison.Ordinal);
         Assert.Contains("group_members", source, StringComparison.Ordinal);
         Assert.Contains("member_of_groups", source, StringComparison.Ordinal);
+        Assert.Contains("date_of_birth", source, StringComparison.Ordinal);
+        Assert.Contains("place_of_birth", source, StringComparison.Ordinal);
+        Assert.Contains("nationality", source, StringComparison.Ordinal);
         Assert.Contains("banner_url", source, StringComparison.Ordinal);
         Assert.Contains("background_url", source, StringComparison.Ordinal);
         Assert.Contains("logo_url", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Results.Redirect(remoteUri.ToString())", source, StringComparison.Ordinal);
     }
 
     [Fact]

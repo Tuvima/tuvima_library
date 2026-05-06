@@ -55,7 +55,7 @@ else
                     @if (_authorPerson is not null)
                     {
                         <button class="book-detail-bc-link book-detail-bc-author"
-                                @onclick="@(() => Nav.NavigateTo($"/person/{_authorPerson.Id}"))">
+                                @onclick="@(() => Nav.NavigateTo($"/details/person/{_authorPerson.Id}"))">
                             @_work.Author
                         </button>
                     }
@@ -78,15 +78,10 @@ else
                             @if (_authorPerson is not null)
                             {
                                 <div class="book-detail-sidebar-author-wrap"
-                                     @onclick="@(() => Nav.NavigateTo($"/person/{_authorPerson.Id}"))">
+                                     @onclick="@(() => Nav.NavigateTo($"/details/person/{_authorPerson.Id}"))">
                                     @if (!string.IsNullOrEmpty(_authorPerson.LocalHeadshotUrl))
                                     {
                                         <img src="@_authorPerson.LocalHeadshotUrl" alt="@_authorPerson.Name"
-                                             class="book-detail-sidebar-avatar" />
-                                    }
-                                    else if (!string.IsNullOrEmpty(_authorPerson.HeadshotUrl))
-                                    {
-                                        <img src="@_authorPerson.HeadshotUrl" alt="@_authorPerson.Name"
                                              class="book-detail-sidebar-avatar" />
                                     }
                                     else
@@ -118,15 +113,10 @@ else
                             @if (_narratorPerson is not null)
                             {
                                 <div class="book-detail-sidebar-author-wrap"
-                                     @onclick="@(() => Nav.NavigateTo($"/person/{_narratorPerson.Id}"))">
+                                     @onclick="@(() => Nav.NavigateTo($"/details/person/{_narratorPerson.Id}"))">
                                     @if (!string.IsNullOrEmpty(_narratorPerson.LocalHeadshotUrl))
                                     {
                                         <img src="@_narratorPerson.LocalHeadshotUrl" alt="@_narratorPerson.Name"
-                                             class="book-detail-sidebar-avatar" />
-                                    }
-                                    else if (!string.IsNullOrEmpty(_narratorPerson.HeadshotUrl))
-                                    {
-                                        <img src="@_narratorPerson.HeadshotUrl" alt="@_narratorPerson.Name"
                                              class="book-detail-sidebar-avatar" />
                                     }
                                     else

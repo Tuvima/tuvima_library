@@ -104,6 +104,14 @@ public interface IEngineApiClient
         DetailEntityType entityType,
         Guid id,
         DetailPresentationContext context = DetailPresentationContext.Default,
+        string? seriesId = null,
+        CancellationToken ct = default);
+
+    Task<bool> SetDefaultSeriesAsync(
+        DetailEntityType entityType,
+        Guid id,
+        string seriesId,
+        string? seriesTitle = null,
         CancellationToken ct = default);
 
     /// <summary>POST /ingestion/scan — dry-run scan of a directory path.</summary>

@@ -9,8 +9,73 @@
             <div class="tl-detail-titlebar__title">@Model.Title</div>
         </div>
     }
-    <div class="tl-detail-hero__inner">
-        <div class="tl-detail-hero__copy">
+    @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
+    {
+        <div class="tl-detail-hero__inner tl-detail-person-hero__inner">
+            <div class="tl-detail-person-portrait">
+                @if (!string.IsNullOrWhiteSpace(Model.Artwork.PortraitUrl))
+                {
+                    <img src="@Model.Artwork.PortraitUrl" alt="@Model.Title" />
+                }
+                else
+                {
+                    <GeneratedIdentity Name="@Model.Title" />
+                }
+            </div>
+            <div class="tl-detail-hero__copy tl-detail-person-hero__copy">
+                @if (!string.IsNullOrWhiteSpace(PersonEyebrow))
+                {
+                    <div class="tl-detail-hero__eyebrow">@PersonEyebrow</div>
+                }
+
+                <h1>@Presentation.Title</h1>
+
+                @if (PersonHeroFacts.Count > 0)
+                {
+                    <div class="tl-detail-person-fact-row">
+                        @foreach (var fact in PersonHeroFacts)
+                        {
+                            <span class="tl-detail-person-fact">
+                                <MudIcon Icon="@fact.Icon" Size="Size.Small" />
+                                <span>@fact.Label</span>
+                            </span>
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.Description))
+                {
+                    <div class="tl-detail-person-summary">
+                        @foreach (var paragraph in PersonParagraphs(Model.Description))
+                        {
+                            <p>@paragraph</p>
+                        }
+                    </div>
+                }
+
+                @if (Model.PersonDetails.ExternalLinks.Count > 0)
+                {
+                    <div class="tl-detail-person-links" aria-label="External links">
+                        @foreach (var link in Model.PersonDetails.ExternalLinks)
+                        {
+                            <a class="tl-detail-person-link"
+                               href="@link.Url"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               title="@link.Label"
+                               aria-label="@link.Label">
+                                <span>@(link.IconLabel ?? link.Label)</span>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="tl-detail-hero__inner">
+            <div class="tl-detail-hero__copy">
             @if (!(Presentation.IsWatchHero && HasHeroBrand) && !string.IsNullOrWhiteSpace(Presentation.Eyebrow))
             {
                 <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
@@ -63,8 +128,9 @@
             }
 
             <HeroGenreChips Metadata="Model.Metadata" />
+            </div>
         </div>
-    </div>
+    }
 </section>
 
 @code {
@@ -74,4 +140,71 @@
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
     private bool HasHeroBrand => Model.HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
+
+    private string? PersonEyebrow => FirstNonBlank(Model.PersonDetails?.Occupation, PersonRoleLabel);
+
+    private string? PersonRoleLabel => Model.PersonDetails?.Roles.Count > 0
+        ? string.Join(" / ", Model.PersonDetails.Roles.Take(3))
+        : null;
+
+    private IReadOnlyList<(string Icon, string Label)> PersonHeroFacts
+    {
+        get
+        {
+            var details = Model.PersonDetails;
+            if (details is null)
+                return [];
+
+            var facts = new List<(string Icon, string Label)>();
+            var birth = FormatBirthFact(details.DateOfBirth, details.DateOfDeath);
+            if (!string.IsNullOrWhiteSpace(birth))
+                facts.Add((Icons.Material.Outlined.CalendarMonth, birth));
+            if (!string.IsNullOrWhiteSpace(details.PlaceOfBirth))
+                facts.Add((Icons.Material.Outlined.Place, details.PlaceOfBirth!));
+            return facts;
+        }
+    }
+
+    private static string? FormatBirthFact(string? born, string? died)
+    {
+        if (string.IsNullOrWhiteSpace(born) && string.IsNullOrWhiteSpace(died))
+            return null;
+        if (string.IsNullOrWhiteSpace(died))
+            return FormatDateLabel(born);
+        return $"{FormatDateLabel(born)} - {FormatDateLabel(died)}";
+    }
+
+    private static string? FormatDateLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        return DateTimeOffset.TryParse(value, out var parsed)
+            ? parsed.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)
+            : value;
+    }
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static IReadOnlyList<string> PersonParagraphs(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        var normalized = value
+            .Replace("\\r\\n", "\n", StringComparison.Ordinal)
+            .Replace("\\n", "\n", StringComparison.Ordinal)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Replace("<br />", "\n", StringComparison.OrdinalIgnoreCase)
+            .Replace("<br/>", "\n", StringComparison.OrdinalIgnoreCase)
+            .Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase);
+
+        return normalized
+            .Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(paragraph => string.Join('\n',
+                paragraph.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))
+            .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
+            .ToList();
+    }
 }

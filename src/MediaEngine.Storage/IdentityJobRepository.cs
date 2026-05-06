@@ -21,7 +21,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         await conn.ExecuteAsync("""
-            INSERT INTO identity_jobs
+            INSERT OR IGNORE INTO identity_jobs
                 (id, entity_id, entity_type, media_type, ingestion_run_id,
                  state, pass, attempt_count, lease_owner, lease_expires_at,
                  selected_candidate_id, resolved_qid, last_error, next_retry_at,
@@ -36,7 +36,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 FROM   identity_jobs
                 WHERE  entity_id = @EntityId
                   AND  pass = @Pass
-                  AND  state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed')
+                  AND  state NOT IN ('Completed', 'Failed')
             );
             """,
             new

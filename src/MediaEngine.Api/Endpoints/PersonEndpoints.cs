@@ -39,6 +39,11 @@ public static class PersonEndpoints
                 headshot_url    = ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl),
                 biography       = person.Biography,
                 occupation      = person.Occupation,
+                date_of_birth   = person.DateOfBirth,
+                date_of_death   = person.DateOfDeath,
+                place_of_birth  = person.PlaceOfBirth,
+                place_of_death  = person.PlaceOfDeath,
+                nationality     = person.Nationality,
                 instagram       = person.Instagram,
                 twitter         = person.Twitter,
                 tiktok          = person.TikTok,
@@ -244,13 +249,6 @@ public static class PersonEndpoints
                 {
                     // Download failed — fall through to 404
                 }
-            }
-
-            if (!string.IsNullOrEmpty(person.HeadshotUrl)
-                && Uri.TryCreate(person.HeadshotUrl, UriKind.Absolute, out var remoteUri)
-                && (remoteUri.Scheme == Uri.UriSchemeHttp || remoteUri.Scheme == Uri.UriSchemeHttps))
-            {
-                return Results.Redirect(remoteUri.ToString());
             }
 
             logger.LogDebug(

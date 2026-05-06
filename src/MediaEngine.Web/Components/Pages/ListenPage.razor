@@ -516,7 +516,7 @@ else
                                         </button>
                                         @if (_artistDetail.ArtistPersonId.HasValue)
                                         {
-                                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => Nav.NavigateTo($"/person/{_artistDetail.ArtistPersonId.Value}"))">View artist page</button>
+                                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => Nav.NavigateTo($"/details/person/{_artistDetail.ArtistPersonId.Value}"))">View artist page</button>
                                         }
                                     </div>
                                 </div>

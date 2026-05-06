@@ -511,6 +511,145 @@
     font-size: 0.92rem;
 }
 
+::deep .tl-detail-hero--person {
+    min-height: clamp(36rem, 72vh, 48rem);
+}
+
+::deep .tl-detail-hero--person .tl-detail-media-stage__cover-wrap {
+    display: none;
+}
+
+::deep .tl-detail-person-hero__inner {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 47rem);
+    align-items: center;
+}
+
+::deep .tl-detail-person-portrait {
+    width: min(100%, 18rem);
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 0.55rem;
+    background: rgba(var(--hero-surface-rgb, 18, 22, 28), 0.74);
+    box-shadow: 0 1.5rem 3rem rgba(0,0,0,0.42);
+}
+
+::deep .tl-detail-person-portrait img,
+::deep .tl-detail-person-portrait .tl-generated-identity {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+::deep .tl-detail-person-hero__copy {
+    align-content: center;
+    gap: 0.9rem;
+}
+
+::deep .tl-detail-person-fact-row,
+::deep .tl-detail-person-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+::deep .tl-detail-person-fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    color: rgba(246, 240, 232, 0.70);
+    font-size: 0.92rem;
+}
+
+::deep .tl-detail-person-fact .mud-icon-root {
+    color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 78%, #fff);
+}
+
+::deep .tl-detail-person-summary {
+    max-width: 42rem;
+    display: grid;
+    gap: 0.75rem;
+    color: rgba(246, 240, 232, 0.72);
+    font-size: 0.96rem;
+    line-height: 1.65;
+}
+
+::deep .tl-detail-person-summary p {
+    margin: 0;
+}
+
+::deep .tl-detail-person-link {
+    width: 2.8rem;
+    height: 2.8rem;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.065);
+    color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 86%, #fff);
+    font-size: 0.72rem;
+    font-weight: 850;
+    text-decoration: none;
+}
+
+::deep .tl-detail-person-link:hover {
+    background: rgba(255,255,255,0.12);
+    color: #fff8eb;
+}
+
+::deep .tl-detail-person-facts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 1rem;
+}
+
+::deep .tl-detail-person-fact-card {
+    display: grid;
+    gap: 0.35rem;
+}
+
+::deep .tl-detail-person-fact-card__label {
+    color: rgba(246, 240, 232, 0.52);
+    font-size: 0.78rem;
+    font-weight: 820;
+}
+
+::deep .tl-detail-person-fact-card__value {
+    color: rgba(246, 240, 232, 0.86);
+    font-size: 0.96rem;
+    line-height: 1.45;
+    white-space: pre-line;
+}
+
+::deep .tl-detail-copy--person p {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+}
+
+::deep .tl-detail-person-related-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+::deep .tl-detail-person-related {
+    min-height: 3.1rem;
+    display: inline-grid;
+    align-content: center;
+    gap: 0.15rem;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 0.45rem;
+    background: rgba(255,255,255,0.045);
+    color: rgba(246, 240, 232, 0.88);
+    text-decoration: none;
+}
+
+::deep .tl-detail-person-related small {
+    color: rgba(246, 240, 232, 0.52);
+}
+
 ::deep .tl-action-row,
 ::deep .tl-detail-actions {
     display: flex;
@@ -2059,15 +2198,55 @@
     font-weight: 860;
 }
 
+::deep .tl-series-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+::deep .tl-series-selector__option,
+::deep .tl-series-default-action {
+    min-height: 2.1rem;
+    padding: 0 0.8rem;
+    border: 1px solid rgba(126, 162, 255, 0.34);
+    border-radius: 999px;
+    background: rgba(10, 18, 30, 0.7);
+    color: rgba(235, 242, 255, 0.86);
+    font-size: 0.78rem;
+    font-weight: 840;
+}
+
+::deep .tl-series-selector__option.is-selected {
+    border-color: rgba(255,255,255,0.68);
+    background: rgba(64, 113, 255, 0.32);
+    color: #fff;
+}
+
+::deep .tl-series-carousel {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(0.45rem, 0.9vw, 0.8rem);
+}
+
+::deep .tl-series-carousel__arrow {
+    align-self: center;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(8, 13, 21, 0.72);
+    color: #fff;
+}
+
 ::deep .tl-series-strip {
     position: relative;
     display: grid;
     grid-template-columns: repeat(var(--series-count, 6), minmax(5.8rem, 7.3rem));
     gap: clamp(0.7rem, 1.2vw, 1rem);
-    justify-content: start;
-    overflow-x: auto;
+    justify-content: center;
+    overflow: hidden;
     padding: clamp(1.55rem, 2.7vw, 2.15rem) 0 0.5rem;
-    scrollbar-width: thin;
+    scrollbar-width: none;
 }
 
 ::deep .tl-series-strip::before {
@@ -2081,9 +2260,9 @@
 }
 
 ::deep .tl-series-placement--long .tl-series-strip {
-    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    grid-template-columns: repeat(var(--series-count, 7), minmax(7.2rem, 9.2rem));
     gap: clamp(1rem, 1.8vw, 1.35rem);
-    overflow-x: visible;
+    overflow: hidden;
     padding-top: clamp(1.2rem, 2vw, 1.7rem);
 }
 
@@ -2096,7 +2275,7 @@
 }
 
 ::deep .tl-series-placement--long.tl-series-panel--landscape .tl-series-strip {
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    grid-template-columns: repeat(var(--series-count, 7), minmax(10rem, 13rem));
 }
 
 ::deep .tl-series-item {
@@ -2262,6 +2441,13 @@
     height: 0.24rem;
     border-radius: 50%;
     background: rgba(255,255,255,0.34);
+}
+
+::deep .tl-series-default-action {
+    margin-left: auto;
+    border-color: rgba(255, 194, 75, 0.5);
+    background: rgba(255, 188, 48, 0.12);
+    color: #ffd26d;
 }
 
 ::deep .tl-series-panel--portrait .tl-series-item__art img,
@@ -3044,6 +3230,19 @@
     ::deep .tl-credit-card__image {
         width: 4rem;
         height: 4rem;
+    }
+
+    ::deep .tl-detail-person-hero__inner {
+        grid-template-columns: 1fr;
+        padding-top: 5rem;
+    }
+
+    ::deep .tl-detail-person-portrait {
+        width: min(58vw, 13rem);
+    }
+
+    ::deep .tl-detail-person-summary {
+        max-width: 100%;
     }
 }
 

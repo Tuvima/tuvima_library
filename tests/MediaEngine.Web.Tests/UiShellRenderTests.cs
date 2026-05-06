@@ -97,10 +97,10 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Single(cut.FindAll(".sidebar-page"));
             Assert.Single(cut.FindAll(".sidebar-rail"));
             Assert.Empty(cut.FindAll(".mud-tabs"));
-            Assert.Contains("Heartbeat", cut.Markup);
-            Assert.Contains("Stage 3 coverage", cut.Markup);
-            Assert.Contains("Ingestion idle", cut.Markup);
-            Assert.Contains("View ingestion details", cut.Markup);
+            Assert.Contains("Ingestion Progress", cut.Markup);
+            Assert.Contains("Review Queue", cut.Markup);
+            Assert.Contains("No ingestion currently running", cut.Markup);
+            Assert.Contains("View run", cut.Markup);
         });
     }
 
@@ -500,20 +500,6 @@ public sealed class UiShellRenderTests : TestContext
             Assert.NotEmpty(cut.FindAll(".search-recent-grid"));
             Assert.NotEmpty(cut.FindAll(".mud-paper"));
             Assert.NotEmpty(cut.FindAll(".mud-link"));
-        });
-    }
-
-    [Fact]
-    public void PersonDetail_RendersNotFoundStateWithMudActions()
-    {
-        var cut = RenderComponent<PersonDetail>(parameters => parameters
-            .Add(page => page.Id, Guid.Parse("40000000-0000-0000-0000-000000000001")));
-
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("Person not found.", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".mud-alert"));
-            Assert.NotEmpty(cut.FindAll(".mud-button-root"));
         });
     }
 

@@ -1,6 +1,8 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
-@using System.Globalization
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
 
 <section class="tl-series-placement @PanelClass">
     <div class="tl-series-header">
@@ -10,6 +12,20 @@
                 <span>Series</span>
             </div>
             <h2>@SeriesTitleDisplay</h2>
+            @if (Placement.CanChooseSeries)
+            {
+                <div class="tl-series-selector">
+                    @foreach (var option in Placement.AvailableSeries)
+                    {
+                        <button type="button"
+                                class="tl-series-selector__option @(option.IsSelected ? "is-selected" : null)"
+                                disabled="@option.IsSelected"
+                                @onclick="() => SelectSeriesAsync(option)">
+                            @option.SeriesTitle
+                        </button>
+                    }
+                </div>
+            }
         </div>
 
         <div class="tl-series-position-summary" aria-label="@PositionSummary">
@@ -34,34 +50,52 @@
         </div>
     </div>
 
-    <div class="tl-series-strip" style="@SeriesGridStyle" aria-label="@Placement.SeriesTitle series order">
-        @foreach (var item in Placement.OrderedItems)
+    <div class="tl-series-carousel">
+        @if (CanPageLeft)
         {
-            <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(item.IsOwned ? "is-owned" : "is-missing")">
-                <div class="tl-series-item__position">
-                    <span class="tl-series-item__node">@SeriesNumber(item)</span>
-                </div>
+            <MudIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--left"
+                           Icon="@Icons.Material.Outlined.ChevronLeft"
+                           Size="Size.Large"
+                           aria-label="Previous series items"
+                           OnClick="PageLeft" />
+        }
+        <div class="tl-series-strip" style="@SeriesGridStyle" aria-label="@Placement.SeriesTitle series order">
+            @foreach (var item in VisibleItems)
+            {
+                <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(item.IsOwned ? "is-owned" : "is-missing")">
+                    <div class="tl-series-item__position">
+                        <span class="tl-series-item__node">@SeriesNumber(item)</span>
+                    </div>
 
-                <div class="tl-series-item__art">
-                    @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-                    {
-                        <img src="@item.ArtworkUrl" alt="@item.Title" />
-                    }
-                    else
-                    {
-                        <div class="tl-series-item__missing-art" aria-label="Missing from library">
-                            <MudIcon Icon="@MissingIcon" Size="Size.Large" />
-                            <span>Not in library</span>
-                        </div>
-                    }
-                    @if (item.IsCurrent)
-                    {
-                        <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
-                    }
-                </div>
-                <div class="tl-series-item__title">@(item.IsOwned ? item.Title : $"{ItemNoun} {SeriesNumber(item)}")</div>
-                <div class="tl-series-item__meta">@($"{ItemNoun} {SeriesNumber(item)}")</div>
-            </article>
+                    <div class="tl-series-item__art">
+                        @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                        {
+                            <img src="@item.ArtworkUrl" alt="@item.Title" />
+                        }
+                        else
+                        {
+                            <div class="tl-series-item__missing-art" aria-label="Missing from library">
+                                <MudIcon Icon="@MissingIcon" Size="Size.Large" />
+                                <span>Not in library</span>
+                            </div>
+                        }
+                        @if (item.IsCurrent)
+                        {
+                            <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
+                        }
+                    </div>
+                    <div class="tl-series-item__title">@SeriesItemTitle(item)</div>
+                    <div class="tl-series-item__meta">@SeriesItemMeta(item)</div>
+                </article>
+            }
+        </div>
+        @if (CanPageRight)
+        {
+            <MudIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--right"
+                           Icon="@Icons.Material.Outlined.ChevronRight"
+                           Size="Size.Large"
+                           aria-label="More series items"
+                           OnClick="PageRight" />
         }
     </div>
 
@@ -70,13 +104,28 @@
         <span>@OwnedCount owned</span>
         <span class="tl-series-owned-summary__dot" aria-hidden="true"></span>
         <span>@MissingCount missing</span>
+        @if (ShowSetDefault)
+        {
+            <button type="button"
+                    class="tl-series-default-action"
+                    disabled="@_settingDefault"
+                    @onclick="SetDefaultSeriesAsync">
+                Set as default
+            </button>
+        }
     </div>
 </section>
 
 @code {
     [Parameter, EditorRequired] public SeriesPlacementViewModel Placement { get; set; } = default!;
+    [Parameter] public EventCallback<SeriesOptionViewModel> OnSeriesSelected { get; set; }
 
     private const int LongSeriesThreshold = 9;
+    private const int WindowSize = 7;
+    private string? _placementKey;
+    private int _windowCenterIndex;
+    private bool _canCurateSeries;
+    private bool _settingDefault;
 
     private string PanelClass => $"{MediaShapeClass}{(IsLongSeries ? " tl-series-placement--long" : string.Empty)}";
     private string MediaShapeClass => Placement.CurrentItem.EntityType switch
@@ -92,8 +141,14 @@
     private int TotalItems => Placement.TotalKnownItems ?? Placement.OrderedItems.Count;
     private string CurrentPositionText => (Placement.PositionNumber ?? Placement.CurrentItem.PositionNumber)?.ToString() ?? SeriesNumber(Placement.CurrentItem);
     private string PositionSummary => $"{CurrentPositionText} of {TotalItems} in series";
-    private string SeriesTitleDisplay => ToTitleCase(Placement.SeriesTitle);
-    private string SeriesGridStyle => $"--series-count:{Math.Max(1, Placement.OrderedItems.Count)};";
+    private string SeriesTitleDisplay => string.IsNullOrWhiteSpace(Placement.SeriesTitle) ? "Series" : Placement.SeriesTitle.Trim();
+    private string SeriesGridStyle => $"--series-count:{Math.Max(1, VisibleItems.Count)};";
+    private int VisibleCount => Placement.OrderedItems.Count <= WindowSize ? Placement.OrderedItems.Count : WindowSize;
+    private int WindowStart => Math.Clamp(_windowCenterIndex - (VisibleCount / 2), 0, Math.Max(0, Placement.OrderedItems.Count - VisibleCount));
+    private IReadOnlyList<SeriesItemViewModel> VisibleItems => Placement.OrderedItems.Skip(WindowStart).Take(VisibleCount).ToList();
+    private bool CanPageLeft => WindowStart > 0;
+    private bool CanPageRight => WindowStart + VisibleCount < Placement.OrderedItems.Count;
+    private bool ShowSetDefault => _canCurateSeries && Placement.CanSetDefaultSeries && !string.IsNullOrWhiteSpace(Placement.SelectedSeriesId);
     private List<ChartSeries<double>> SeriesDonutSeries =>
     [
         new() { Name = "Series", Data = new ChartData<double>([Math.Max(OwnedCount, 0), Math.Max(MissingCount, 0)]) },
@@ -124,17 +179,55 @@
     };
     private string CurrentItemBadge => $"This {ItemNoun.ToLowerInvariant()}";
 
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{Placement.SeriesId}:{Placement.CurrentItem.Id}:{Placement.OrderedItems.Count}";
+        if (!string.Equals(key, _placementKey, StringComparison.Ordinal))
+        {
+            _placementKey = key;
+            _windowCenterIndex = Math.Max(0, Placement.OrderedItems.ToList().FindIndex(item => item.IsCurrent));
+        }
+
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        _canCurateSeries = profile?.Role is "Administrator" or "Curator";
+    }
+
+    private void PageLeft()
+        => _windowCenterIndex = Math.Max(0, _windowCenterIndex - Math.Max(1, VisibleCount - 2));
+
+    private void PageRight()
+        => _windowCenterIndex = Math.Min(Math.Max(0, Placement.OrderedItems.Count - 1), _windowCenterIndex + Math.Max(1, VisibleCount - 2));
+
+    private Task SelectSeriesAsync(SeriesOptionViewModel option)
+    {
+        return option.IsSelected ? Task.CompletedTask : OnSeriesSelected.InvokeAsync(option);
+    }
+
+    private async Task SetDefaultSeriesAsync()
+    {
+        if (_settingDefault || string.IsNullOrWhiteSpace(Placement.SelectedSeriesId) || !Guid.TryParse(Placement.CurrentItem.Id, out var workId))
+            return;
+
+        _settingDefault = true;
+        try
+        {
+            await ApiClient.SetDefaultSeriesAsync(Placement.CurrentItem.EntityType, workId, Placement.SelectedSeriesId, Placement.SeriesTitle);
+        }
+        finally
+        {
+            _settingDefault = false;
+        }
+    }
+
+    private string SeriesItemTitle(SeriesItemViewModel item)
+        => FirstNonBlank(item.Title, $"{ItemNoun} {SeriesNumber(item)}")!;
+
+    private string SeriesItemMeta(SeriesItemViewModel item)
+        => item.IsOwned ? $"{ItemNoun} {SeriesNumber(item)}" : $"Missing {ItemNoun.ToLowerInvariant()} {SeriesNumber(item)}";
+
     private static string SeriesNumber(SeriesItemViewModel item)
         => item.PositionNumber?.ToString() ?? FirstNonBlank(item.PositionLabel, "?")!;
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
-
-    private static string ToTitleCase(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return "Series";
-
-        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Trim().ToLower(CultureInfo.CurrentCulture));
-    }
 }

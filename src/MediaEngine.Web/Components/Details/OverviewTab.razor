@@ -2,7 +2,54 @@
 @using MediaEngine.Contracts.Details
 
 <div class="tl-detail-tab-panel">
-    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
+    {
+        <section class="tl-detail-panel tl-detail-person-facts-panel">
+            <div class="tl-section-heading"><h2>Quick Facts</h2></div>
+            <div class="tl-detail-person-facts-grid">
+                @foreach (var fact in QuickFacts)
+                {
+                    <div class="tl-detail-person-fact-card">
+                        <span class="tl-detail-person-fact-card__label">@fact.Label</span>
+                        <span class="tl-detail-person-fact-card__value">@fact.Value</span>
+                    </div>
+                }
+            </div>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Description))
+        {
+            <section class="tl-detail-panel">
+                <div class="tl-section-heading"><h2>Biography</h2></div>
+                <div class="tl-detail-copy tl-detail-copy--person">
+                    @foreach (var paragraph in OverviewParagraphs(Model.Description))
+                    {
+                        <p>@paragraph</p>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (RelatedPeople.Count > 0)
+        {
+            <section class="tl-detail-panel">
+                <div class="tl-section-heading"><h2>Linked People</h2></div>
+                <div class="tl-detail-person-related-list">
+                    @foreach (var person in RelatedPeople)
+                    {
+                        <a class="tl-detail-person-related" href="@person.Route">
+                            <span>@person.Name</span>
+                            @if (!string.IsNullOrWhiteSpace(person.Subtitle))
+                            {
+                                <small>@person.Subtitle</small>
+                            }
+                        </a>
+                    }
+                </div>
+            </section>
+        }
+    }
+    else if (!string.IsNullOrWhiteSpace(Model.Description))
     {
         <section class="tl-detail-panel">
             <div class="tl-section-heading"><h2>Overview</h2></div>
@@ -18,6 +65,61 @@
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+
+    private IReadOnlyList<(string Label, string Value)> QuickFacts
+    {
+        get
+        {
+            var person = Model.PersonDetails;
+            if (person is null)
+                return [];
+
+            var facts = new List<(string Label, string Value)>();
+            AddFact(facts, "Born", JoinLines(FormatDateLabel(person.DateOfBirth), person.PlaceOfBirth));
+            AddFact(facts, "Died", JoinLines(FormatDateLabel(person.DateOfDeath), person.PlaceOfDeath));
+            AddFact(facts, "Occupation", person.Occupation);
+            AddFact(facts, "Roles", person.Roles.Count == 0 ? null : string.Join(", ", person.Roles));
+            AddFact(facts, "Nationality", person.Nationality);
+            AddFact(facts, "Identity", person.IsGroup ? "Group" : person.IsPseudonym ? "Pseudonym" : null);
+            return facts;
+        }
+    }
+
+    private IReadOnlyList<PersonRelatedLink> RelatedPeople
+    {
+        get
+        {
+            var person = Model.PersonDetails;
+            if (person is null)
+                return [];
+
+            return person.Aliases
+                .Concat(person.IsGroup ? person.GroupMembers : person.MemberOfGroups)
+                .Where(item => !string.IsNullOrWhiteSpace(item.Route))
+                .ToList();
+        }
+    }
+
+    private static void AddFact(List<(string Label, string Value)> facts, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            facts.Add((label, value));
+    }
+
+    private static string? JoinLines(params string?[] values)
+    {
+        var parts = values.Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
+        return parts.Count == 0 ? null : string.Join("\n", parts);
+    }
+
+    private static string? FormatDateLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        return DateTimeOffset.TryParse(value, out var parsed)
+            ? parsed.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)
+            : value;
+    }
 
     private static IReadOnlyList<string> OverviewParagraphs(string? value)
     {

@@ -10,6 +10,7 @@ public sealed class DetailPageViewModel
     public string? Subtitle { get; init; }
     public string? Tagline { get; init; }
     public string? Description { get; init; }
+    public PersonDetailFacts? PersonDetails { get; init; }
 
     public ArtworkSet Artwork { get; init; } = new();
     public HeroBrandViewModel? HeroBrand { get; init; }
@@ -176,10 +177,51 @@ public sealed class DetailTab
     public bool IsAdminOnly { get; init; }
 }
 
+public sealed class PersonDetailFacts
+{
+    public string? WikidataQid { get; init; }
+    public string? WikidataUrl { get; init; }
+    public string? Occupation { get; init; }
+    public IReadOnlyList<string> Roles { get; init; } = [];
+    public string? DateOfBirth { get; init; }
+    public string? DateOfDeath { get; init; }
+    public string? PlaceOfBirth { get; init; }
+    public string? PlaceOfDeath { get; init; }
+    public string? Nationality { get; init; }
+    public bool IsPseudonym { get; init; }
+    public bool IsGroup { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? EnrichedAt { get; init; }
+    public IReadOnlyList<PersonExternalLink> ExternalLinks { get; init; } = [];
+    public IReadOnlyList<PersonRelatedLink> Aliases { get; init; } = [];
+    public IReadOnlyList<PersonRelatedLink> GroupMembers { get; init; } = [];
+    public IReadOnlyList<PersonRelatedLink> MemberOfGroups { get; init; } = [];
+}
+
+public sealed class PersonExternalLink
+{
+    public string Key { get; init; } = string.Empty;
+    public string Label { get; init; } = string.Empty;
+    public string Url { get; init; } = string.Empty;
+    public string? IconLabel { get; init; }
+}
+
+public sealed class PersonRelatedLink
+{
+    public string Id { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string? Subtitle { get; init; }
+    public string? Route { get; init; }
+}
+
 public sealed class SeriesPlacementViewModel
 {
     public string SeriesId { get; init; } = string.Empty;
     public string SeriesTitle { get; init; } = string.Empty;
+    public string SelectedSeriesId { get; init; } = string.Empty;
+    public bool CanChooseSeries { get; init; }
+    public bool CanSetDefaultSeries { get; init; }
+    public IReadOnlyList<SeriesOptionViewModel> AvailableSeries { get; init; } = [];
     public string? UniverseId { get; init; }
     public string? UniverseTitle { get; init; }
     public int? PositionNumber { get; init; }
@@ -190,6 +232,21 @@ public sealed class SeriesPlacementViewModel
     public SeriesItemViewModel CurrentItem { get; init; } = new();
     public SeriesItemViewModel? NextItem { get; init; }
     public IReadOnlyList<SeriesItemViewModel> OrderedItems { get; init; } = [];
+}
+
+public sealed class SeriesOptionViewModel
+{
+    public string SeriesId { get; init; } = string.Empty;
+    public string SeriesTitle { get; init; } = string.Empty;
+    public bool IsSelected { get; init; }
+    public bool IsDefault { get; init; }
+    public string? MediaScope { get; init; }
+}
+
+public sealed class SetDefaultSeriesRequest
+{
+    public string SeriesId { get; init; } = string.Empty;
+    public string? SeriesTitle { get; init; }
 }
 
 public enum SeriesOrderingType

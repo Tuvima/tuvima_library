@@ -255,28 +255,29 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("series_qid", source);
         Assert.Contains("GetItemsBySeriesQidAsync(seriesQid, ct)", source);
-        Assert.Contains("MergeManifestItems(items, manifestItems, entityType)", source);
+        Assert.Contains("MergeManifestItems(items, scopedManifestItems, entityType)", source);
         Assert.Contains("FROM series_members", source);
-        Assert.Contains("MergeSeriesManifestPlaceholdersAsync(items, seriesQid, entityType, ct)", source);
+        Assert.Contains("MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, entityType, ct)", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
         Assert.Contains("Missing from library", source);
     }
 
     [Fact]
-    public void DetailComposer_SeriesPlacementUsesFranchiseFallbacksForMoviesComicsAndSeriesMedia()
+    public void DetailComposer_SeriesPlacementDoesNotUseFranchiseAsSeriesSource()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
         var hydratorSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/WikidataSeriesManifestHydrationService.cs"));
 
-        Assert.Contains("ResolveSeriesPlacementTitle(detail, entityType)", source);
+        Assert.Contains("ResolveSeriesPlacementOptions(detail, entityType)", source);
         Assert.Contains("current_work.collection_id AS CollectionId", source);
         Assert.Contains("w.collection_id = current.CollectionId", source);
-        Assert.Contains("key IN ('series', 'franchise')", source);
-        Assert.Contains("GetDetailCanonicalValue(detail, MetadataFieldConstants.Franchise)", source);
-        Assert.Contains("qid = GetDetailCanonicalValue(detail, \"franchise_qid\")", source);
+        Assert.DoesNotContain("key IN ('series', 'franchise')", source);
+        Assert.DoesNotContain("GetDetailCanonicalValue(detail, MetadataFieldConstants.Franchise)", source);
+        Assert.DoesNotContain("qid = GetDetailCanonicalValue(detail, \"franchise_qid\")", source);
+        Assert.Contains("IsManifestItemInMediaScope", source);
         Assert.Contains("MediaType.Movies", hydratorSource);
         Assert.Contains("MediaType.Comics", hydratorSource);
-        Assert.Contains("\"franchise_qid\"", hydratorSource);
+        Assert.DoesNotContain("\"franchise_qid\"", hydratorSource);
     }
 
     [Fact]
@@ -319,14 +320,15 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void PersonEndpoints_FallsBackToRemotePortraitsWhenCacheMisses()
+    public void PersonEndpoints_DownloadsRemotePortraitsButDoesNotRedirectToRemoteImages()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonEndpoints.cs"));
 
         Assert.Contains("IsLikelyImageFile", source);
         Assert.Contains("IsLikelyImageBytes", source);
         Assert.Contains("InferImageExtension(person.HeadshotUrl, contentType)", source);
-        Assert.Contains("Results.Redirect(remoteUri.ToString())", source);
+        Assert.Contains("return Results.File(bytes, contentType ?? GetImageMimeType(localPath), Path.GetFileName(localPath))", source);
+        Assert.DoesNotContain("Results.Redirect(remoteUri.ToString())", source);
     }
 
     private static string FindRepoRoot()

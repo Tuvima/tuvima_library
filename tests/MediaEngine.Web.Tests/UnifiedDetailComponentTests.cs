@@ -276,7 +276,9 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("<h2>@SeriesTitleDisplay</h2>", source);
         Assert.DoesNotContain("Part of", source);
-        Assert.Contains("ToTitleCase", source);
+        Assert.Contains("Placement.SeriesTitle.Trim()", source);
+        Assert.Contains("VisibleItems", source);
+        Assert.Contains("tl-series-carousel__arrow", source);
         Assert.Contains("MudChart T=\"double\"", source);
         Assert.Contains("ChartType=\"ChartType.Donut\"", source);
         Assert.Contains("ChartSeries=\"@SeriesDonutSeries\"", source);
@@ -296,7 +298,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Icons.Material.Filled.Check\" Size=\"Size.Small\"", source);
         Assert.Contains("ItemNoun", source);
         Assert.Contains("grid-template-columns: repeat(var(--series-count, 6), minmax(5.8rem, 7.3rem))", styles);
-        Assert.Contains("grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr))", styles);
+        Assert.Contains("grid-template-columns: repeat(var(--series-count, 7), minmax(7.2rem, 9.2rem))", styles);
+        Assert.Contains("scrollbar-width: none", styles);
         Assert.Contains("tl-series-placement--long .tl-series-strip::before", styles);
         Assert.Contains("content: none", styles);
         Assert.Contains("min-width: clamp(5.8rem, 7.2vw, 7.3rem)", styles);
@@ -319,7 +322,6 @@ public sealed class UnifiedDetailComponentTests
             "WatchTvEpisodePage.razor",
             "BookDetail.razor",
             "CollectionDetail.razor",
-            "PersonDetail.razor",
             "UnifiedDetailPage.razor",
         };
         var pageSources = detailRoutes
