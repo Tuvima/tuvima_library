@@ -73,11 +73,11 @@ internal static class CastCreditQueries
             return [];
 
         var workRankMap = await CastRankMap.BuildAsync(work.WorkId, canonicalArrayRepo, db, ct);
+        var credits = new List<CastCreditDto>();
         var explicitCredits = string.IsNullOrWhiteSpace(work.WorkQid)
             ? []
             : await BuildExplicitCastAsync(work.WorkQid, workRankMap, db, ct);
-        if (explicitCredits.Count > 0)
-            return explicitCredits;
+        AddUniqueCredits(credits, explicitCredits);
 
         var rootRankMap = work.RootWorkId.HasValue
             ? await CastRankMap.BuildAsync(work.RootWorkId.Value, canonicalArrayRepo, db, ct)
@@ -86,31 +86,27 @@ internal static class CastCreditQueries
             || string.Equals(work.RootWorkQid, work.WorkQid, StringComparison.OrdinalIgnoreCase)
             ? []
             : await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, db, ct);
-        if (rootExplicitCredits.Count > 0)
-            return rootExplicitCredits;
+        AddUniqueCredits(credits, rootExplicitCredits);
 
         var linkedActors = await BuildActorOnlyCreditsFromMediaLinksAsync(workId, workRankMap, db, ct);
-        if (linkedActors.Count > 0)
-            return linkedActors;
+        AddUniqueCredits(credits, linkedActors);
 
         var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(workId, canonicalArrayRepo, personRepo, ct);
-        if (fallbackCredits.Count > 0)
-            return fallbackCredits;
+        AddUniqueCredits(credits, fallbackCredits);
 
         fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(workId, personRepo, db, ct);
-        if (fallbackCredits.Count > 0)
-            return fallbackCredits;
+        AddUniqueCredits(credits, fallbackCredits);
 
         if (work.RootWorkId.HasValue && work.RootWorkId.Value != workId)
         {
             fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, canonicalArrayRepo, personRepo, ct);
-            if (fallbackCredits.Count > 0)
-                return fallbackCredits;
+            AddUniqueCredits(credits, fallbackCredits);
 
-            return await BuildFallbackCreditsFromMetadataClaimsAsync(work.RootWorkId.Value, personRepo, db, ct);
+            fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(work.RootWorkId.Value, personRepo, db, ct);
+            AddUniqueCredits(credits, fallbackCredits);
         }
 
-        return [];
+        return credits.Take(MaxCastCredits).ToList();
     }
 
     public static async Task<List<CastCreditDto>> BuildForCollectionRootAsync(
@@ -129,9 +125,27 @@ internal static class CastCreditQueries
             return explicitCredits;
 
         var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(rootWorkId, canonicalArrayRepo, personRepo, ct);
-        return fallbackCredits.Count > 0
-            ? fallbackCredits
-            : await BuildFallbackCreditsFromMetadataClaimsAsync(rootWorkId, personRepo, db, ct);
+        AddUniqueCredits(explicitCredits, fallbackCredits);
+        fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(rootWorkId, personRepo, db, ct);
+        AddUniqueCredits(explicitCredits, fallbackCredits);
+        return explicitCredits.Take(MaxCastCredits).ToList();
+    }
+
+    private static void AddUniqueCredits(List<CastCreditDto> destination, IEnumerable<CastCreditDto> source)
+    {
+        foreach (var credit in source)
+        {
+            var duplicate = destination.Any(existing =>
+                (credit.PersonId.HasValue && existing.PersonId == credit.PersonId)
+                || (!string.IsNullOrWhiteSpace(credit.WikidataQid)
+                    && string.Equals(existing.WikidataQid, credit.WikidataQid, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(existing.Name, credit.Name, StringComparison.OrdinalIgnoreCase));
+            if (!duplicate)
+                destination.Add(credit);
+
+            if (destination.Count >= MaxCastCredits)
+                return;
+        }
     }
 
     private static async Task<List<CastCreditDto>> BuildExplicitCastAsync(

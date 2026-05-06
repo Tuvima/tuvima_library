@@ -109,11 +109,14 @@ public sealed class UnifiedDetailComponentTests
     public void DetailHero_RendersTvHeroBrandBadge()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var metadata = ReadSource("src/MediaEngine.Web/Components/Details/HeroMetadataPills.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
         var client = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
 
         Assert.Contains("Model.HeroBrand is not null", source);
-        Assert.Contains("tl-detail-hero-brand-badge", source);
+        Assert.Contains("HeroBrand=\"Model.HeroBrand\"", source);
+        Assert.Contains("tl-detail-hero-brand-badge", metadata);
+        Assert.Contains("ShouldSuppressTypeStat", metadata);
         Assert.Contains("Presentation.IsWatchHero", source);
         Assert.Contains("tl-detail-hero-brand-badge img", styles);
         Assert.Contains("NormalizeHeroBrand", client);

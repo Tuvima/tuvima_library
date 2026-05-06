@@ -220,7 +220,7 @@ public sealed class DetailComposerServiceTests
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
         var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs"));
 
-        Assert.Contains("BuildCollectionCreditsAsync(collectionId, works, entityType, values, ct)", source);
+        Assert.Contains("BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct)", source);
         Assert.Contains("BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseCastGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct)", source);

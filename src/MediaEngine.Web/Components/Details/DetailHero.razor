@@ -2,7 +2,7 @@
 @using MediaEngine.Contracts.Details
 
 <section class="tl-detail-hero @Presentation.HeroClass" style="@Presentation.GradientStyle">
-    <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
+    <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="BackdropHeroBrand" />
     @if (Presentation.ShowTitleBar)
     {
         <div class="tl-detail-titlebar">
@@ -11,26 +11,9 @@
     }
     <div class="tl-detail-hero__inner">
         <div class="tl-detail-hero__copy">
-            @if (!string.IsNullOrWhiteSpace(Presentation.Eyebrow))
+            @if (!(Presentation.IsWatchHero && HasHeroBrand) && !string.IsNullOrWhiteSpace(Presentation.Eyebrow))
             {
                 <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
-            }
-            else if (Presentation.IsWatchHero
-                && Model.HeroBrand is not null
-                && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label)))
-            {
-                <div class="tl-detail-hero-brand-badge"
-                     title="@Model.HeroBrand.Label"
-                     aria-label="@Model.HeroBrand.Label">
-                    @if (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl))
-                    {
-                        <img src="@Model.HeroBrand.ImageUrl" alt="@Model.HeroBrand.Label" />
-                    }
-                    else
-                    {
-                        <span>@Model.HeroBrand.Label</span>
-                    }
-                </div>
             }
 
             @if (Presentation.UseLogo)
@@ -52,6 +35,7 @@
                                IdentityStatus="Model.IdentityStatus"
                                IsWatchHero="Presentation.IsWatchHero"
                                UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
+                               HeroBrand="Model.HeroBrand"
                                IsAdminView="Model.IsAdminView" />
 
             @if (Presentation.CapabilityPills.Count > 0)
@@ -87,4 +71,7 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
+    private bool HasHeroBrand => Model.HeroBrand is not null
+        && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
+    private HeroBrandViewModel? BackdropHeroBrand => Presentation.IsWatchHero ? null : Model.HeroBrand;
 }

@@ -26,9 +26,24 @@
             }
         </div>
     }
-    else if (statItems.Count > 0)
+    else if (statItems.Count > 0 || ShouldRenderHeroBrand)
     {
         <div class="tl-detail-metadata-row" aria-label="Media details">
+            @if (ShouldRenderHeroBrand)
+            {
+                <span class="@HeroBrandBadgeClass"
+                      title="@HeroBrand!.Label"
+                      aria-label="@HeroBrand.Label">
+                    @if (!string.IsNullOrWhiteSpace(HeroBrand.ImageUrl))
+                    {
+                        <img src="@HeroBrand.ImageUrl" alt="@HeroBrand.Label" />
+                    }
+                    else
+                    {
+                        <span>@HeroBrand.Label</span>
+                    }
+                </span>
+            }
             @foreach (var item in statItems)
             {
                 @if (!string.IsNullOrWhiteSpace(item.Route))
@@ -64,10 +79,20 @@
     [Parameter] public bool IsAdminView { get; set; }
     [Parameter] public bool IsWatchHero { get; set; }
     [Parameter] public bool UsePrimaryHeroChrome { get; set; }
+    [Parameter] public HeroBrandViewModel? HeroBrand { get; set; }
+
+    private bool ShouldRenderHeroBrand => IsWatchHero
+        && HeroBrand is not null
+        && (!string.IsNullOrWhiteSpace(HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(HeroBrand.Label));
+
+    private string HeroBrandBadgeClass => !string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl)
+        ? "tl-detail-hero-brand-badge tl-detail-hero-brand-badge--image"
+        : "tl-detail-hero-brand-badge tl-detail-hero-brand-badge--text";
 
     private IReadOnlyList<MetadataPill> StatItems =>
         Metadata
             .Where(IsHeroStat)
+            .Where(item => !ShouldSuppressTypeStat(item))
             .OrderBy(StatSort)
             .Take(EntityType == DetailEntityType.MusicAlbum ? 6 : 5)
             .ToList();
@@ -111,6 +136,9 @@
 
     private static bool KindEquals(MetadataPill item, string kind)
         => string.Equals(item.Kind, kind, StringComparison.OrdinalIgnoreCase);
+
+    private bool ShouldSuppressTypeStat(MetadataPill item)
+        => ShouldRenderHeroBrand && KindEquals(item, "type");
 
     private static bool IsHeroStat(MetadataPill item)
     {

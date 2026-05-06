@@ -32,6 +32,7 @@ public sealed class PersonEnrichmentWorker
     private readonly ICollectionRepository _collectionRepo;
     private readonly ReconciliationAdapter? _reconciliationAdapter;
     private readonly IPersonReconciliationService? _personReconciliation;
+    private readonly PersonImageEnrichmentWorker? _personImages;
     private readonly ILogger<PersonEnrichmentWorker> _logger;
 
     public PersonEnrichmentWorker(
@@ -44,7 +45,8 @@ public sealed class PersonEnrichmentWorker
         ICollectionRepository collectionRepo,
         ILogger<PersonEnrichmentWorker> logger,
         ReconciliationAdapter? reconciliationAdapter = null,
-        IPersonReconciliationService? personReconciliation = null)
+        IPersonReconciliationService? personReconciliation = null,
+        PersonImageEnrichmentWorker? personImages = null)
     {
         _claimRepo = claimRepo;
         _canonicalRepo = canonicalRepo;
@@ -56,6 +58,7 @@ public sealed class PersonEnrichmentWorker
         _reconciliationAdapter = reconciliationAdapter;
         _logger = logger;
         _personReconciliation = personReconciliation;
+        _personImages = personImages;
     }
 
     /// <summary>
@@ -106,18 +109,32 @@ public sealed class PersonEnrichmentWorker
             try
             {
                 var personRequests = await _identity.EnrichAsync(entityId, personRefs, ct);
+                var imageEnrichedPeople = new HashSet<Guid>();
 
                 foreach (var personReq in personRequests)
                 {
                     try
                     {
                         await _harvesting.ProcessSynchronousAsync(personReq, ct);
+                        await EnrichPersonImageAsync(personReq.EntityId, personReq.Hints.GetValueOrDefault("role"), mediaType, ct);
+                        imageEnrichedPeople.Add(personReq.EntityId);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         _logger.LogWarning(ex,
                             "Synchronous person enrichment failed for person {Id}",
                             personReq.EntityId);
+                    }
+                }
+
+                if (_personImages is not null)
+                {
+                    foreach (var reference in personRefs)
+                    {
+                        var person = await _personRepo.FindByQidAsync(reference.WikidataQid!, ct)
+                            .ConfigureAwait(false);
+                        if (person is not null && imageEnrichedPeople.Add(person.Id))
+                            await EnrichPersonImageAsync(person.Id, reference.Role, mediaType, ct);
                     }
                 }
             }
@@ -158,6 +175,7 @@ public sealed class PersonEnrichmentWorker
                             try
                             {
                                 await _harvesting.ProcessSynchronousAsync(harvestRequest, ct);
+                                await EnrichPersonImageAsync(harvestRequest.EntityId, unlinked.Role, mediaType, ct);
                             }
                             catch (Exception ex) when (ex is not OperationCanceledException)
                             {
@@ -174,6 +192,21 @@ public sealed class PersonEnrichmentWorker
                         "Person reconciliation failed for '{Name}'", unlinked.Name);
                 }
             }
+        }
+    }
+
+    private async Task EnrichPersonImageAsync(Guid personId, string? role, MediaType mediaType, CancellationToken ct)
+    {
+        if (_personImages is null)
+            return;
+
+        try
+        {
+            await _personImages.EnrichAsync(personId, role, mediaType, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Person image enrichment failed for person {PersonId}", personId);
         }
     }
 

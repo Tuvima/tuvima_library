@@ -255,10 +255,13 @@ public sealed class DetailComposerService
             .Take(8)
             .ToList();
         var collectionValues = await LoadCanonicalMapAsync(collectionId, ct);
-        var rootValues = await LoadCollectionRootCanonicalMapAsync(
+        var rootWorkId = await LoadCollectionRootWorkIdAsync(
             collectionId,
             requireRootWithChildren: entityType is DetailEntityType.TvShow or DetailEntityType.MovieSeries or DetailEntityType.BookSeries,
             ct);
+        var rootValues = rootWorkId.HasValue
+            ? await LoadCanonicalMapAsync(rootWorkId.Value, ct)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var values = MergeCanonicalMaps(collectionValues, rootValues);
         var longDescription = FirstText(
             GetValue(values, MetadataFieldConstants.Description),
@@ -287,7 +290,7 @@ public sealed class DetailComposerService
             GetValue(values, "poster"),
             fallbackCover);
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
-        var contributorGroups = await BuildCollectionCreditsAsync(collectionId, works, entityType, values, ct);
+        var contributorGroups = await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
         var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
         var artwork = BuildArtwork(
@@ -313,7 +316,10 @@ public sealed class DetailComposerService
             Tagline = heroSummary,
             Description = longDescription,
             Artwork = artwork,
-            HeroBrand = BuildHeroBrand(entityType, row.HeroBrandLabel, row.HeroBrandImageUrl),
+            HeroBrand = BuildHeroBrand(
+                entityType,
+                FirstNonBlank(row.HeroBrandLabel, GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
+                FirstNonBlank(row.HeroBrandImageUrl, GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
             Progress = heroProgress,
             Metadata = BuildCollectionMetadata(entityType, works, values),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress),
@@ -1433,7 +1439,7 @@ public sealed class DetailComposerService
             .ToDictionary(g => g.Key, g => g.First().Value, StringComparer.OrdinalIgnoreCase);
     }
 
-    private async Task<Dictionary<string, string>> LoadCollectionRootCanonicalMapAsync(
+    private async Task<Guid?> LoadCollectionRootWorkIdAsync(
         Guid collectionId,
         bool requireRootWithChildren,
         CancellationToken ct)
@@ -1464,9 +1470,7 @@ public sealed class DetailComposerService
             },
             cancellationToken: ct));
 
-        return Guid.TryParse(rootId, out var rootGuid)
-            ? await LoadCanonicalMapAsync(rootGuid, ct)
-            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        return Guid.TryParse(rootId, out var rootGuid) ? rootGuid : null;
     }
 
     private static Dictionary<string, string> MergeCanonicalMaps(
@@ -2287,7 +2291,8 @@ public sealed class DetailComposerService
     {
         if (entityType == DetailEntityType.TvShow)
         {
-            return works.GroupBy(w => string.IsNullOrWhiteSpace(w.Season) ? "Season 1" : $"Season {w.Season}")
+            var episodeWorks = DeduplicateTvEpisodeSummaries(works);
+            return episodeWorks.GroupBy(w => string.IsNullOrWhiteSpace(w.Season) ? "Season 1" : $"Season {w.Season}")
                 .OrderBy(g => TryParseInt(g.Key.Replace("Season ", "")) ?? int.MaxValue)
                 .Select(g => new MediaGroupingViewModel
                 {
@@ -2307,6 +2312,38 @@ public sealed class DetailComposerService
             }
         ];
     }
+
+    private static IReadOnlyList<CollectionWorkSummary> DeduplicateTvEpisodeSummaries(IReadOnlyList<CollectionWorkSummary> works)
+    {
+        return works
+            .GroupBy(work => new
+            {
+                Season = NormalizeEpisodeKey(work.Season),
+                Episode = NormalizeEpisodeKey(work.Episode),
+                Title = NormalizeTextKey(work.Title),
+            })
+            .Select(group => group
+                .OrderByDescending(work => !string.IsNullOrWhiteSpace(work.BackgroundUrl))
+                .ThenByDescending(work => !string.IsNullOrWhiteSpace(work.ArtworkUrl))
+                .ThenBy(work => work.Ordinal ?? int.MaxValue)
+                .First())
+            .OrderBy(work => TryParseInt(work.Season) ?? int.MaxValue)
+            .ThenBy(work => TryParseInt(work.Episode) ?? work.Ordinal ?? int.MaxValue)
+            .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string NormalizeEpisodeKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Trim().TrimStart('0');
+        return normalized.Length == 0 ? "0" : normalized;
+    }
+
+    private static string NormalizeTextKey(string? value)
+        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
 
     private static MediaGroupingItemViewModel ToMediaItem(CollectionWorkSummary work)
         => new()
@@ -2392,6 +2429,7 @@ public sealed class DetailComposerService
 
     private async Task<IReadOnlyList<CreditGroupViewModel>> BuildCollectionCreditsAsync(
         Guid collectionId,
+        Guid? rootWorkId,
         IReadOnlyList<CollectionWorkSummary> works,
         DetailEntityType entityType,
         IReadOnlyDictionary<string, string> canonicalValues,
@@ -2400,11 +2438,14 @@ public sealed class DetailComposerService
         if (entityType != DetailEntityType.TvShow)
             return await BuildCollectionTextCreditsAsync(collectionId, entityType, canonicalValues, ct);
 
-        var root = works.FirstOrDefault()?.Id;
-        if (!Guid.TryParse(root, out var rootWorkId))
+        rootWorkId ??= works
+            .Select(work => Guid.TryParse(work.Id, out var parsed) ? parsed : (Guid?)null)
+            .FirstOrDefault(id => id.HasValue);
+
+        if (!rootWorkId.HasValue)
             return [];
 
-        var cast = await CastCreditQueries.BuildForWorkAsync(rootWorkId, _canonicalArrays, _persons, _db, ct);
+        var cast = await CastCreditQueries.BuildForWorkAsync(rootWorkId.Value, _canonicalArrays, _persons, _db, ct);
         if (cast.Count == 0)
             return [];
 

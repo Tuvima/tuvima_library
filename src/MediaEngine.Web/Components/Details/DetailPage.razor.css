@@ -350,26 +350,38 @@
 
 ::deep .tl-detail-hero-brand-badge {
     width: fit-content;
-    min-width: 6.9rem;
-    min-height: 3rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+::deep .tl-detail-hero-brand-badge--image {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+::deep .tl-detail-hero-brand-badge--text {
+    min-width: 6.9rem;
+    min-height: 3rem;
     padding: 0.55rem 0.9rem;
-    border: 1px solid rgba(255, 255, 255, 0.10);
     border-radius: 0.42rem;
-    background: rgba(36, 24, 18, 0.78);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0.8rem 1.6rem rgba(0, 0, 0, 0.24);
-    backdrop-filter: blur(12px);
+    background: rgba(18, 22, 28, 0.58);
+    box-shadow: 0 0.6rem 1.3rem rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(8px);
 }
 
 ::deep .tl-detail-hero-brand-badge img {
     display: block;
     width: auto;
-    max-width: 5.8rem;
-    max-height: 1.85rem;
+    max-width: 7.6rem;
+    max-height: 2.65rem;
     object-fit: contain;
-    filter: drop-shadow(0 0.22rem 0.55rem rgba(0, 0, 0, 0.44));
+    filter: drop-shadow(0 0.22rem 0.45rem rgba(0, 0, 0, 0.58));
 }
 
 ::deep .tl-detail-hero-brand-badge span {

@@ -657,6 +657,7 @@ builder.Services.AddSingleton<BatchProgressService>();
 
 // Enrichment workers
 builder.Services.AddSingleton<CoverArtWorker>();
+builder.Services.AddSingleton<PersonImageEnrichmentWorker>();
 builder.Services.AddSingleton<PersonEnrichmentWorker>();
 builder.Services.AddSingleton<ChildEntityWorker>();
 builder.Services.AddSingleton<FictionalEntityWorker>();
