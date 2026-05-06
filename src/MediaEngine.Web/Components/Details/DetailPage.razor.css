@@ -1431,6 +1431,22 @@
     gap: 0.9rem;
 }
 
+::deep .tl-detail-hero--person .tl-detail-person-hero__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 47rem) minmax(14rem, 18rem);
+    align-items: center;
+    justify-content: space-between;
+}
+
+::deep .tl-detail-hero--person .tl-detail-person-hero__copy,
+::deep .tl-detail-hero--person .tl-detail-person-portrait {
+    align-self: center;
+}
+
+::deep .tl-detail-hero--person .tl-detail-person-portrait {
+    justify-self: end;
+}
+
 ::deep .tl-detail-hero--watch .tl-detail-hero__inner {
     padding: clamp(10rem, 23vh, 15rem) clamp(2rem, 3.5vw, 4rem) clamp(1.7rem, 4vh, 2.6rem);
 }
@@ -3245,12 +3261,12 @@
         height: 4rem;
     }
 
-    ::deep .tl-detail-person-hero__inner {
+    ::deep .tl-detail-hero--person .tl-detail-person-hero__inner {
         grid-template-columns: 1fr;
         padding-top: 5rem;
     }
 
-    ::deep .tl-detail-person-portrait {
+    ::deep .tl-detail-hero--person .tl-detail-person-portrait {
         width: min(58vw, 13rem);
         justify-self: start;
     }

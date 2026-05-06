@@ -358,6 +358,7 @@ public sealed class DetailComposerService
         var memberOfGroups = person.IsGroup
             ? []
             : await PersonCreditQueries.GetGroupMembersAsync(personId, false, _db, ct);
+        var wikipediaUrl = await LoadPersonWikipediaUrlAsync(personId, ct);
         var artworkAssets = await _entityAssets.GetByEntityAsync(personId.ToString(), null, ct);
         var banner = PreferredAssetUrl(artworkAssets, "Banner");
         var background = PreferredAssetUrl(artworkAssets, "Background");
@@ -365,6 +366,7 @@ public sealed class DetailComposerService
         var portrait = ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
         var relatedArt = credits.Select(c => c.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(8).ToList();
         var groups = BuildPersonCreditGroups(credits, context);
+        var displayRoles = BuildPersonDisplayRoles(credits, person.Roles);
 
         return new DetailPageViewModel
         {
@@ -372,11 +374,11 @@ public sealed class DetailComposerService
             EntityType = entityType,
             PresentationContext = context,
             Title = person.Name,
-            Subtitle = person.IsGroup ? "Group" : string.Join(" • ", person.Roles.Take(3)),
+            Subtitle = person.IsGroup ? "Group" : string.Join(" • ", displayRoles.Take(3)),
             Description = person.Biography,
-            PersonDetails = BuildPersonDetails(person, aliases, groupMembers, memberOfGroups),
+            PersonDetails = BuildPersonDetails(person, displayRoles, wikipediaUrl, aliases, groupMembers, memberOfGroups),
             Artwork = BuildArtwork(entityType, background, banner, null, null, portrait, new Dictionary<string, string>(), relatedArt, 0, null, logo),
-            Metadata = BuildPersonMetadata(person.Roles, credits.Count),
+            Metadata = BuildPersonMetadata(displayRoles, credits.Count),
             PrimaryActions = BuildPersonActions(personId, entityType, context),
             SecondaryActions = [],
             OverflowActions = BuildOverflowActions(personId, entityType, isAdminView),
@@ -3163,19 +3165,95 @@ public sealed class DetailComposerService
     private static IReadOnlyList<MetadataPill> BuildPersonMetadata(IReadOnlyList<string> roles, int creditCount)
         => roles.Take(4).Select(role => new MetadataPill { Label = role }).Append(new MetadataPill { Label = $"{creditCount} library credits" }).ToList();
 
+    private static IReadOnlyList<string> BuildPersonDisplayRoles(
+        IReadOnlyList<MediaEngine.Api.Models.PersonLibraryCreditDto> credits,
+        IReadOnlyList<string> fallbackRoles)
+    {
+        var mediaRoles = credits
+            .Select(credit => NormalizePersonRole(credit.Role))
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .GroupBy(role => role!, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => PersonRoleRank(group.Key))
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Key)
+            .ToList();
+
+        if (mediaRoles.Count > 0)
+            return mediaRoles;
+
+        return fallbackRoles
+            .Select(NormalizePersonRole)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Cast<string>()
+            .ToList();
+    }
+
+    private static string? NormalizePersonRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role))
+            return null;
+
+        var normalized = role.Trim().Replace('_', ' ').Replace('-', ' ');
+        return normalized.ToLowerInvariant() switch
+        {
+            "screenwriter" => "Writer",
+            "writer" => "Writer",
+            "voice actor" => "Voice Actor",
+            "voiceactor" => "Voice Actor",
+            "primary artist" => "Artist",
+            "featured artist" => "Performer",
+            _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(normalized.ToLowerInvariant()),
+        };
+    }
+
+    private static int PersonRoleRank(string role) => role.ToLowerInvariant() switch
+    {
+        "author" => 0,
+        "artist" => 1,
+        "illustrator" => 2,
+        "director" => 3,
+        "writer" => 4,
+        "actor" => 5,
+        "voice actor" => 6,
+        "narrator" => 7,
+        "performer" => 8,
+        "composer" => 9,
+        _ => 50,
+    };
+
+    private async Task<string?> LoadPersonWikipediaUrlAsync(Guid personId, CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        return await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
+            """
+            SELECT value
+            FROM canonical_values
+            WHERE entity_id = @personId
+              AND key = 'wikipedia_url'
+              AND value IS NOT NULL
+              AND TRIM(value) <> ''
+            ORDER BY last_scored_at DESC
+            LIMIT 1;
+            """,
+            new { personId = personId.ToString("D") },
+            cancellationToken: ct));
+    }
+
     private static PersonDetailFacts BuildPersonDetails(
         MediaEngine.Domain.Entities.Person person,
+        IReadOnlyList<string> displayRoles,
+        string? wikipediaUrl,
         IReadOnlyList<MediaEngine.Domain.Entities.Person> aliases,
         IReadOnlyList<MediaEngine.Api.Models.PersonGroupMemberDto> groupMembers,
         IReadOnlyList<MediaEngine.Api.Models.PersonGroupMemberDto> memberOfGroups)
         => new()
         {
             WikidataQid = person.WikidataQid,
-            WikidataUrl = string.IsNullOrWhiteSpace(person.WikidataQid)
-                ? null
-                : $"https://www.wikidata.org/wiki/{person.WikidataQid}",
+            WikidataUrl = null,
             Occupation = person.Occupation,
-            Roles = person.Roles,
+            Roles = displayRoles,
             DateOfBirth = person.DateOfBirth,
             DateOfDeath = person.DateOfDeath,
             PlaceOfBirth = person.PlaceOfBirth,
@@ -3185,7 +3263,7 @@ public sealed class DetailComposerService
             IsGroup = person.IsGroup,
             CreatedAt = person.CreatedAt,
             EnrichedAt = person.EnrichedAt,
-            ExternalLinks = BuildPersonExternalLinks(person),
+            ExternalLinks = BuildPersonExternalLinks(person, wikipediaUrl),
             Aliases = aliases.Select(alias => new PersonRelatedLink
             {
                 Id = alias.Id.ToString("D"),
@@ -3209,11 +3287,11 @@ public sealed class DetailComposerService
             }).ToList(),
         };
 
-    private static IReadOnlyList<PersonExternalLink> BuildPersonExternalLinks(MediaEngine.Domain.Entities.Person person)
+    private static IReadOnlyList<PersonExternalLink> BuildPersonExternalLinks(MediaEngine.Domain.Entities.Person person, string? wikipediaUrl)
     {
         var links = new List<PersonExternalLink>();
         AddPersonExternalLink(links, "website", "Website", person.Website, "WEB");
-        AddPersonExternalLink(links, "wikidata", "Wikidata", string.IsNullOrWhiteSpace(person.WikidataQid) ? null : $"https://www.wikidata.org/wiki/{person.WikidataQid}", "WD");
+        AddPersonExternalLink(links, "wikipedia", "Wikipedia", wikipediaUrl, "W");
         AddPersonExternalLink(links, "instagram", "Instagram", BuildSocialUrl("instagram", person.Instagram), "IG");
         AddPersonExternalLink(links, "twitter", "X", BuildSocialUrl("twitter", person.Twitter), "X");
         AddPersonExternalLink(links, "tiktok", "TikTok", BuildSocialUrl("tiktok", person.TikTok), "TT");

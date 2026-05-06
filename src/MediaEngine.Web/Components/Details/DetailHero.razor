@@ -145,7 +145,7 @@
     private bool HasHeroBrand => Model.HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
 
-    private string? PersonEyebrow => FirstNonBlank(Model.PersonDetails?.Occupation, PersonRoleLabel);
+    private string? PersonEyebrow => FirstNonBlank(PersonRoleLabel, Model.PersonDetails?.Occupation);
 
     private string? PersonRoleLabel => Model.PersonDetails?.Roles.Count > 0
         ? string.Join(" / ", Model.PersonDetails.Roles.Take(3))
