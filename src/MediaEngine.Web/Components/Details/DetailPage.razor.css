@@ -580,6 +580,27 @@
     margin: 0;
 }
 
+::deep .tl-detail-description-attribution {
+    color: color-mix(in srgb, var(--tl-text-muted) 82%, var(--tl-accent-primary));
+    font-size: 0.78rem;
+    line-height: 1.45;
+    margin: 0.9rem 0 0;
+}
+
+::deep .tl-detail-description-attribution--compact {
+    font-size: 0.72rem;
+    margin-top: 0.75rem;
+}
+
+::deep .tl-detail-description-attribution a {
+    color: var(--tl-accent-primary);
+    text-decoration: none;
+}
+
+::deep .tl-detail-description-attribution a:hover {
+    text-decoration: underline;
+}
+
 ::deep .tl-detail-person-link {
     width: 2.8rem;
     height: 2.8rem;

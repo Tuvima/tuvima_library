@@ -1,0 +1,31 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@if (Attribution is not null)
+{
+    <p class="tl-detail-description-attribution @(Compact ? "tl-detail-description-attribution--compact" : null)">
+        @if (!string.IsNullOrWhiteSpace(Attribution.SourceUrl))
+        {
+            <a href="@Attribution.SourceUrl" target="_blank" rel="noopener noreferrer">@Attribution.SourceName</a>
+        }
+        else
+        {
+            <span>@Attribution.SourceName</span>
+        }
+        <span>text is available under</span>
+        @if (!string.IsNullOrWhiteSpace(Attribution.LicenseUrl))
+        {
+            <a href="@Attribution.LicenseUrl" target="_blank" rel="noopener noreferrer">@Attribution.LicenseName</a>
+        }
+        else
+        {
+            <span>@Attribution.LicenseName</span>
+        }
+        <span>; additional terms may apply.</span>
+    </p>
+}
+
+@code {
+    [Parameter] public DescriptionAttributionViewModel? Attribution { get; set; }
+    [Parameter] public bool Compact { get; set; }
+}

@@ -32,6 +32,7 @@ public static class PersonReferenceExtractor
         AddPersonRefsFromLists(refs, "Director",     byKey, "director",                      "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter",                  "screenwriter_qid");
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",                      "composer_qid");
+        AddPersonRefsFromLists(refs, "Producer",     byKey, "producer",                      "producer_qid");
         AddPersonRefsFromLists(refs, "Actor",        byKey, "cast_member",                   "cast_member_qid");
 
         // Mark author refs as collective pseudonyms when the adapter flagged it.
@@ -68,11 +69,11 @@ public static class PersonReferenceExtractor
         }
 
         // QID-first: only emit references with a confirmed Wikidata QID.
-        return refs
+        return CollapseEquivalentRoles(refs
             .Where(r => !string.IsNullOrEmpty(r.WikidataQid))
-            .GroupBy(r => r.WikidataQid!, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(r => $"{r.WikidataQid}::{r.Role}", StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
-            .ToList();
+            .ToList());
     }
 
     /// <summary>
@@ -94,6 +95,7 @@ public static class PersonReferenceExtractor
         AddPersonRefsFromLists(refs, "Director",     byKey, "director",                      "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter",                  "screenwriter_qid");
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",                      "composer_qid");
+        AddPersonRefsFromLists(refs, "Producer",     byKey, "producer",                      "producer_qid");
         AddPersonRefsFromLists(refs, "Actor",        byKey, "cast_member",                   "cast_member_qid");
 
         return refs
@@ -122,6 +124,7 @@ public static class PersonReferenceExtractor
         AddPersonRefsFromCanonicals(refs, "Director",     canonicals, "director",                      "director_qid");
         AddPersonRefsFromCanonicals(refs, "Screenwriter", canonicals, "screenwriter",                  "screenwriter_qid");
         AddPersonRefsFromCanonicals(refs, "Composer",     canonicals, "composer",                      "composer_qid");
+        AddPersonRefsFromCanonicals(refs, "Producer",     canonicals, "producer",                      "producer_qid");
         AddPersonRefsFromCanonicals(refs, "Actor",        canonicals, "cast_member",                   "cast_member_qid");
 
         // Collective pseudonym constituent members from canonical values.
@@ -242,5 +245,24 @@ public static class PersonReferenceExtractor
 
             refs.Add(new PersonReference(role, names[i], string.IsNullOrEmpty(qid) ? null : qid));
         }
+    }
+
+    private static IReadOnlyList<PersonReference> CollapseEquivalentRoles(IReadOnlyList<PersonReference> refs)
+    {
+        var result = refs.ToList();
+        var narratorQids = result
+            .Where(r => string.Equals(r.Role, "Narrator", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(r.WikidataQid))
+            .Select(r => r.WikidataQid!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (narratorQids.Count == 0)
+            return result;
+
+        return result
+            .Where(r => !(string.Equals(r.Role, "Actor", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(r.WikidataQid)
+                && narratorQids.Contains(r.WikidataQid!)))
+            .ToList();
     }
 }

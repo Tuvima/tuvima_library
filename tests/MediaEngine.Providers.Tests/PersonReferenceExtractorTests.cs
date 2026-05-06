@@ -81,6 +81,24 @@ public sealed class PersonReferenceExtractorTests
     }
 
     [Fact]
+    public void FromRawClaims_SameQidDifferentRoles_PreservesEachRole()
+    {
+        var claims = new List<ProviderClaim>
+        {
+            new("director", "Bryan Cranston", 0.90),
+            new("director_qid", "Q94687::Bryan Cranston", 0.90),
+            new("cast_member", "Bryan Cranston", 0.90),
+            new("cast_member_qid", "Q94687::Bryan Cranston", 0.90),
+        };
+
+        var refs = PersonReferenceExtractor.FromRawClaims(claims, MediaType.Movies);
+
+        Assert.Equal(2, refs.Count);
+        Assert.Contains(refs, r => r.Role == "Director" && r.WikidataQid == "Q94687");
+        Assert.Contains(refs, r => r.Role == "Actor" && r.WikidataQid == "Q94687");
+    }
+
+    [Fact]
     public void FromRawClaims_CollectivePseudonym_FlagSet()
     {
         var claims = new List<ProviderClaim>

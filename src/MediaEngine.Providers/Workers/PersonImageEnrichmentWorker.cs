@@ -63,7 +63,9 @@ public sealed class PersonImageEnrichmentWorker
         Guid personId,
         string? role,
         MediaType mediaType,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? tmdbPersonId = null,
+        string? tmdbProfileUrl = null)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -71,8 +73,15 @@ public sealed class PersonImageEnrichmentWorker
             return;
 
         var person = await _personRepo.FindByIdAsync(personId, ct).ConfigureAwait(false);
-        if (person is null || string.IsNullOrWhiteSpace(person.WikidataQid))
+        if (person is null)
             return;
+
+        if (string.IsNullOrWhiteSpace(person.WikidataQid)
+            && !tmdbPersonId.HasValue
+            && string.IsNullOrWhiteSpace(tmdbProfileUrl))
+        {
+            return;
+        }
 
         var apiKey = await ResolveTmdbApiKeyAsync(ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -81,12 +90,17 @@ public sealed class PersonImageEnrichmentWorker
             return;
         }
 
-        var tmdbPersonId = await ResolveTmdbPersonIdAsync(person.WikidataQid, apiKey, ct).ConfigureAwait(false);
-        if (!tmdbPersonId.HasValue)
+        var resolvedTmdbPersonId = tmdbPersonId;
+        if (!resolvedTmdbPersonId.HasValue && !string.IsNullOrWhiteSpace(person.WikidataQid))
+            resolvedTmdbPersonId = await ResolveTmdbPersonIdAsync(person.WikidataQid, apiKey, ct).ConfigureAwait(false);
+
+        if (!resolvedTmdbPersonId.HasValue && string.IsNullOrWhiteSpace(tmdbProfileUrl))
             return;
 
         var imageBaseUrl = await ResolveImageBaseUrlAsync(apiKey, ct).ConfigureAwait(false);
-        var candidates = await FetchProfileImagesAsync(tmdbPersonId.Value, apiKey, ct).ConfigureAwait(false);
+        var candidates = resolvedTmdbPersonId.HasValue
+            ? await FetchProfileImagesAsync(resolvedTmdbPersonId.Value, apiKey, ct).ConfigureAwait(false)
+            : [];
         var selected = candidates
             .Where(IsUsableProfile)
             .OrderByDescending(candidate => candidate.VoteAverage)
@@ -94,10 +108,12 @@ public sealed class PersonImageEnrichmentWorker
             .ThenByDescending(candidate => candidate.Width * candidate.Height)
             .FirstOrDefault();
 
-        if (selected is null || string.IsNullOrWhiteSpace(selected.FilePath))
+        var imageUrl = selected is not null && !string.IsNullOrWhiteSpace(selected.FilePath)
+            ? BuildTmdbImageUrl(imageBaseUrl, "original", selected.FilePath)
+            : NormalizeTmdbProfileUrl(tmdbProfileUrl);
+        if (string.IsNullOrWhiteSpace(imageUrl))
             return;
 
-        var imageUrl = BuildTmdbImageUrl(imageBaseUrl, "original", selected.FilePath);
         var existingAssets = (await _assetRepo.GetByEntityAsync(personId.ToString("D"), "Headshot", ct).ConfigureAwait(false)).ToList();
         var existingTmdbAsset = existingAssets.FirstOrDefault(asset =>
             string.Equals(asset.ImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase));
@@ -108,7 +124,7 @@ public sealed class PersonImageEnrichmentWorker
             return;
         }
 
-        if (!ShouldReplaceCurrentHeadshot(person, existingAssets, selected))
+        if (selected is not null && !ShouldReplaceCurrentHeadshot(person, existingAssets, selected))
             return;
 
         var bytes = await DownloadImageAsync(imageUrl, ct).ConfigureAwait(false);
@@ -141,6 +157,12 @@ public sealed class PersonImageEnrichmentWorker
             return;
         }
 
+        if (selected is null && !ShouldReplaceCurrentHeadshot(person, existingAssets, asset.WidthPx ?? 0, asset.HeightPx ?? 0))
+        {
+            TryDelete(asset.LocalImagePath);
+            return;
+        }
+
         await _assetRepo.UpsertAsync(asset, ct).ConfigureAwait(false);
         await _assetRepo.SetPreferredAsync(asset.Id, ct).ConfigureAwait(false);
         await _personRepo.UpdateLocalHeadshotPathAsync(personId, asset.LocalImagePath, ct).ConfigureAwait(false);
@@ -148,7 +170,7 @@ public sealed class PersonImageEnrichmentWorker
         _logger.LogInformation(
             "Person {PersonId}: upgraded headshot from TMDB profile {TmdbPersonId} ({Width}x{Height})",
             personId,
-            tmdbPersonId.Value,
+            resolvedTmdbPersonId,
             asset.WidthPx,
             asset.HeightPx);
     }
@@ -255,6 +277,13 @@ public sealed class PersonImageEnrichmentWorker
         Person person,
         IReadOnlyList<EntityAsset> existingAssets,
         TmdbProfileImage selected)
+        => ShouldReplaceCurrentHeadshot(person, existingAssets, selected.Width, selected.Height);
+
+    private static bool ShouldReplaceCurrentHeadshot(
+        Person person,
+        IReadOnlyList<EntityAsset> existingAssets,
+        int candidateWidth,
+        int candidateHeight)
     {
         var preferred = existingAssets.FirstOrDefault(asset => asset.IsPreferred);
         if (preferred?.IsUserOverride == true)
@@ -262,9 +291,15 @@ public sealed class PersonImageEnrichmentWorker
 
         if (preferred is not null
             && string.Equals(preferred.SourceProvider, TmdbProviderName, StringComparison.OrdinalIgnoreCase)
-            && (preferred.WidthPx ?? 0) * (preferred.HeightPx ?? 0) >= selected.Width * selected.Height)
+            && (preferred.WidthPx ?? 0) * (preferred.HeightPx ?? 0) >= candidateWidth * candidateHeight)
         {
             return false;
+        }
+
+        if (preferred is null
+            || !string.Equals(preferred.SourceProvider, TmdbProviderName, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
         }
 
         if (string.IsNullOrWhiteSpace(person.LocalHeadshotPath) || !File.Exists(person.LocalHeadshotPath))
@@ -275,7 +310,7 @@ public sealed class PersonImageEnrichmentWorker
             return true;
 
         var currentPixels = currentSize.Value.Width * currentSize.Value.Height;
-        var candidatePixels = selected.Width * selected.Height;
+        var candidatePixels = candidateWidth * candidateHeight;
         return candidatePixels > currentPixels;
     }
 
@@ -338,6 +373,17 @@ public sealed class PersonImageEnrichmentWorker
 
     private static string BuildTmdbImageUrl(string baseUrl, string size, string filePath)
         => $"{baseUrl.TrimEnd('/')}/{size.Trim('/')}/{filePath.TrimStart('/')}";
+
+    private static string? NormalizeTmdbProfileUrl(string? profileUrl)
+    {
+        if (string.IsNullOrWhiteSpace(profileUrl))
+            return null;
+
+        if (Uri.TryCreate(profileUrl, UriKind.Absolute, out _))
+            return profileUrl;
+
+        return BuildTmdbImageUrl(TmdbImageBaseUrl, "original", profileUrl);
+    }
 
     private static string InferExtension(string imageUrl)
     {

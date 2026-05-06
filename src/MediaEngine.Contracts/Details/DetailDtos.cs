@@ -10,6 +10,7 @@ public sealed class DetailPageViewModel
     public string? Subtitle { get; init; }
     public string? Tagline { get; init; }
     public string? Description { get; init; }
+    public DescriptionAttributionViewModel? DescriptionAttribution { get; init; }
     public PersonDetailFacts? PersonDetails { get; init; }
 
     public ArtworkSet Artwork { get; init; } = new();
@@ -39,6 +40,15 @@ public sealed class DetailPageViewModel
     public CanonicalIdentityStatus IdentityStatus { get; init; } = CanonicalIdentityStatus.Unknown;
     public LibraryStatus LibraryStatus { get; init; } = LibraryStatus.Unknown;
     public bool IsAdminView { get; init; }
+}
+
+public sealed class DescriptionAttributionViewModel
+{
+    public string SourceName { get; init; } = string.Empty;
+    public string? SourceUrl { get; init; }
+    public string LicenseName { get; init; } = string.Empty;
+    public string? LicenseUrl { get; init; }
+    public string Notice { get; init; } = string.Empty;
 }
 
 public enum DetailEntityType

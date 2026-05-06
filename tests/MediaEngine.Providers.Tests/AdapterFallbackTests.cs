@@ -204,6 +204,93 @@ public sealed class AdapterFallbackTests
         Assert.DoesNotContain(claims, c => c.Key == MetadataFieldConstants.Language);
     }
 
+    [Fact]
+    public async Task Tmdb_MovieSearch_PreservesCastProfileHints()
+    {
+        var config = LoadExampleConfig("tmdb");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+
+                if (url.Contains("/search/movie?", StringComparison.OrdinalIgnoreCase))
+                {
+                    return JsonResponse("""
+                        {
+                          "results": [
+                            {
+                              "id": 1001,
+                              "title": "Test Movie",
+                              "overview": "Overview",
+                              "release_date": "2024-01-01"
+                            }
+                          ]
+                        }
+                        """);
+                }
+
+                if (url.Contains("/movie/1001?", StringComparison.OrdinalIgnoreCase))
+                {
+                    return JsonResponse("""
+                        {
+                          "id": 1001,
+                          "overview": "Detail overview",
+                          "credits": {
+                            "cast": [
+                              {
+                                "id": 12345,
+                                "name": "Cosmo Jarvis",
+                                "order": 0,
+                                "profile_path": "/cosmo.jpg"
+                              }
+                            ],
+                            "crew": [
+                              {
+                                "id": 98765,
+                                "name": "Jane Director",
+                                "job": "Director",
+                                "profile_path": "/jane.jpg"
+                              }
+                            ]
+                          }
+                        }
+                        """);
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Movies,
+            Title = "Test Movie",
+            Language = "en",
+            Country = "US",
+        });
+
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.CastMember
+            && c.Value == "Cosmo Jarvis");
+        Assert.Contains(claims, c => c.Key == "cast_member_tmdb_id"
+            && c.Value == "12345");
+        Assert.Contains(claims, c => c.Key == "cast_member_profile_url"
+            && c.Value == "https://image.tmdb.org/t/p/original/cosmo.jpg");
+        Assert.Contains(claims, c => c.Key == "director"
+            && c.Value == "Jane Director");
+        Assert.Contains(claims, c => c.Key == "director_tmdb_id"
+            && c.Value == "98765");
+        Assert.Contains(claims, c => c.Key == "director_profile_url"
+            && c.Value == "https://image.tmdb.org/t/p/original/jane.jpg");
+    }
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         AllowTrailingCommas = true,

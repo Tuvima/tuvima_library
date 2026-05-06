@@ -376,6 +376,7 @@ public sealed class DetailComposerService
             Title = person.Name,
             Subtitle = person.IsGroup ? "Group" : string.Join(" • ", displayRoles.Take(3)),
             Description = person.Biography,
+            DescriptionAttribution = BuildWikipediaDescriptionAttribution(person.Biography, wikipediaUrl),
             PersonDetails = BuildPersonDetails(person, displayRoles, wikipediaUrl, aliases, groupMembers, memberOfGroups),
             Artwork = BuildArtwork(entityType, background, banner, null, null, portrait, new Dictionary<string, string>(), relatedArt, 0, null, logo),
             Metadata = BuildPersonMetadata(displayRoles, credits.Count),
@@ -1093,9 +1094,8 @@ public sealed class DetailComposerService
             };
         }).ToList();
         items = await MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, workId, entityType, ct);
-        items = SortSeriesItems(items);
 
-        if (items.Count == 0)
+        if (!items.Any(item => item.IsCurrent))
         {
             items.Add(new SeriesItemViewModel
             {
@@ -1109,6 +1109,10 @@ public sealed class DetailComposerService
                 IsOwned = true,
             });
         }
+
+        items = SortSeriesItems(items);
+        if (items.Count <= 1)
+            return null;
 
         var currentIndex = Math.Max(0, items.FindIndex(i => i.IsCurrent));
         var current = items[currentIndex];
@@ -2150,17 +2154,18 @@ public sealed class DetailComposerService
             DetailEntityType.Movie when hasSeries => ["series", "overview", "people", "universe", "related", "details"],
             DetailEntityType.Movie => ["overview", "people", "universe", "related", "details"],
             DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["series", "overview", "chapters", "contributors", "characters", "universe", "editions", "details"],
-            DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "chapters", "contributors", "characters", "series", "universe", "editions", "details"],
+            DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "chapters", "contributors", "characters", "universe", "editions", "details"],
             DetailEntityType.Work when hasSeries => ["series", "overview", "formats", "chapters", "contributors", "characters", "universe", "editions", "details"],
-            DetailEntityType.Work => ["overview", "formats", "chapters", "contributors", "characters", "series", "universe", "editions", "details"],
+            DetailEntityType.Work => ["overview", "formats", "chapters", "contributors", "characters", "universe", "editions", "details"],
             DetailEntityType.ComicIssue when hasSeries => ["series", "overview", "contributors", "characters", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue => ["overview", "contributors", "characters", "series", "universe", "editions", "details"],
+            DetailEntityType.ComicIssue => ["overview", "contributors", "characters", "universe", "editions", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "credits", "related", "details"],
             DetailEntityType.MusicArtist when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "related", "details"],
             DetailEntityType.Person => ["overview", "media", "characters", "details"],
             DetailEntityType.Character => ["overview", "appearances", "portrayals", "relationships", "universe", "details"],
             DetailEntityType.Universe => ["overview", "timeline", "media", "characters", "people", "relationships", "details"],
-            _ => ["overview", "people", "characters", "series", "universe", "related", "details"],
+            _ when hasSeries => ["overview", "people", "characters", "series", "universe", "related", "details"],
+            _ => ["overview", "people", "characters", "universe", "related", "details"],
         };
 
         var tabs = keys.Select(key => new DetailTab { Key = key, Label = ToTabLabel(key) }).ToList();
@@ -3173,8 +3178,8 @@ public sealed class DetailComposerService
             .Select(credit => NormalizePersonRole(credit.Role))
             .Where(role => !string.IsNullOrWhiteSpace(role))
             .GroupBy(role => role!, StringComparer.OrdinalIgnoreCase)
-            .OrderByDescending(group => group.Count())
-            .ThenBy(group => PersonRoleRank(group.Key))
+            .OrderBy(group => PersonRoleRank(group.Key))
+            .ThenByDescending(group => group.Count())
             .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.Key)
             .ToList();
@@ -3198,7 +3203,7 @@ public sealed class DetailComposerService
         var normalized = role.Trim().Replace('_', ' ').Replace('-', ' ');
         return normalized.ToLowerInvariant() switch
         {
-            "screenwriter" => "Writer",
+        "screenwriter" => "Writer",
             "writer" => "Writer",
             "voice actor" => "Voice Actor",
             "voiceactor" => "Voice Actor",
@@ -3211,15 +3216,16 @@ public sealed class DetailComposerService
     private static int PersonRoleRank(string role) => role.ToLowerInvariant() switch
     {
         "author" => 0,
-        "artist" => 1,
-        "illustrator" => 2,
-        "director" => 3,
-        "writer" => 4,
-        "actor" => 5,
-        "voice actor" => 6,
+        "actor" => 1,
+        "director" => 2,
+        "writer" => 3,
+        "producer" => 4,
+        "artist" => 5,
+        "illustrator" => 6,
         "narrator" => 7,
-        "performer" => 8,
-        "composer" => 9,
+        "voice actor" => 8,
+        "performer" => 9,
+        "composer" => 10,
         _ => 50,
     };
 
@@ -3239,6 +3245,21 @@ public sealed class DetailComposerService
             """,
             new { personId = personId.ToString("D") },
             cancellationToken: ct));
+    }
+
+    private static DescriptionAttributionViewModel? BuildWikipediaDescriptionAttribution(string? description, string? wikipediaUrl)
+    {
+        if (string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(wikipediaUrl))
+            return null;
+
+        return new DescriptionAttributionViewModel
+        {
+            SourceName = "Wikipedia",
+            SourceUrl = wikipediaUrl,
+            LicenseName = "CC BY-SA 4.0",
+            LicenseUrl = "https://creativecommons.org/licenses/by-sa/4.0/",
+            Notice = "Text from Wikipedia is available under the Creative Commons Attribution-ShareAlike 4.0 License; additional terms may apply.",
+        };
     }
 
     private static PersonDetailFacts BuildPersonDetails(

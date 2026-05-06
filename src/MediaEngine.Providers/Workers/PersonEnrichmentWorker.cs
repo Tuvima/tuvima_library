@@ -91,12 +91,13 @@ public sealed class PersonEnrichmentWorker
         var providerClaims = claims
             .Select(mc => new ProviderClaim(mc.ClaimKey, mc.ClaimValue, mc.Confidence))
             .ToList();
+        var tmdbImageHints = BuildTmdbImageHints(providerClaims);
 
         // Extract person refs — prefer raw claims (QID-first), fall back to canonicals
         var personRefs = PersonReferenceExtractor.FromRawClaims(providerClaims, mediaType)
             .Concat(PersonReferenceExtractor.FromCanonicals(canonicals, mediaType))
             .Where(reference => !string.IsNullOrWhiteSpace(reference.WikidataQid))
-            .GroupBy(reference => reference.WikidataQid!, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(reference => $"{reference.WikidataQid}::{reference.Role}", StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
 
@@ -116,7 +117,12 @@ public sealed class PersonEnrichmentWorker
                     try
                     {
                         await _harvesting.ProcessSynchronousAsync(personReq, ct);
-                        await EnrichPersonImageAsync(personReq.EntityId, personReq.Hints.GetValueOrDefault("role"), mediaType, ct);
+                        await EnrichPersonImageAsync(
+                            personReq.EntityId,
+                            personReq.Hints.GetValueOrDefault("role"),
+                            mediaType,
+                            FindTmdbImageHint(tmdbImageHints, personReq.Hints.GetValueOrDefault("role"), personReq.Hints.GetValueOrDefault("name")),
+                            ct);
                         imageEnrichedPeople.Add(personReq.EntityId);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
@@ -134,7 +140,12 @@ public sealed class PersonEnrichmentWorker
                         var person = await _personRepo.FindByQidAsync(reference.WikidataQid!, ct)
                             .ConfigureAwait(false);
                         if (person is not null && imageEnrichedPeople.Add(person.Id))
-                            await EnrichPersonImageAsync(person.Id, reference.Role, mediaType, ct);
+                            await EnrichPersonImageAsync(
+                                person.Id,
+                                reference.Role,
+                                mediaType,
+                                FindTmdbImageHint(tmdbImageHints, reference.Role, reference.Name),
+                                ct);
                     }
                 }
             }
@@ -175,7 +186,12 @@ public sealed class PersonEnrichmentWorker
                             try
                             {
                                 await _harvesting.ProcessSynchronousAsync(harvestRequest, ct);
-                                await EnrichPersonImageAsync(harvestRequest.EntityId, unlinked.Role, mediaType, ct);
+                                await EnrichPersonImageAsync(
+                                    harvestRequest.EntityId,
+                                    unlinked.Role,
+                                    mediaType,
+                                    FindTmdbImageHint(tmdbImageHints, unlinked.Role, unlinked.Name),
+                                    ct);
                             }
                             catch (Exception ex) when (ex is not OperationCanceledException)
                             {
@@ -189,7 +205,12 @@ public sealed class PersonEnrichmentWorker
                             var existing = await _personRepo.FindByQidAsync(searchResult.WikidataQid, ct)
                                 .ConfigureAwait(false);
                             if (existing is not null)
-                                await EnrichPersonImageAsync(existing.Id, unlinked.Role, mediaType, ct);
+                                await EnrichPersonImageAsync(
+                                    existing.Id,
+                                    unlinked.Role,
+                                    mediaType,
+                                    FindTmdbImageHint(tmdbImageHints, unlinked.Role, unlinked.Name),
+                                    ct);
                         }
                     }
                 }
@@ -202,20 +223,100 @@ public sealed class PersonEnrichmentWorker
         }
     }
 
-    private async Task EnrichPersonImageAsync(Guid personId, string? role, MediaType mediaType, CancellationToken ct)
+    private async Task EnrichPersonImageAsync(
+        Guid personId,
+        string? role,
+        MediaType mediaType,
+        TmdbPersonImageHint? tmdbImageHint,
+        CancellationToken ct)
     {
         if (_personImages is null)
             return;
 
         try
         {
-            await _personImages.EnrichAsync(personId, role, mediaType, ct).ConfigureAwait(false);
+            await _personImages.EnrichAsync(
+                personId,
+                role,
+                mediaType,
+                ct,
+                tmdbImageHint?.PersonId,
+                tmdbImageHint?.ProfileUrl).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogDebug(ex, "Person image enrichment failed for person {PersonId}", personId);
         }
     }
+
+    private static IReadOnlyDictionary<string, TmdbPersonImageHint> BuildTmdbImageHints(IReadOnlyList<ProviderClaim> claims)
+    {
+        var hints = new Dictionary<string, TmdbPersonImageHint>(StringComparer.OrdinalIgnoreCase);
+
+        AddTmdbImageHints(hints, "Actor", ValuesFor(claims, MetadataFieldConstants.CastMember), ValuesFor(claims, "cast_member_tmdb_id"), ValuesFor(claims, "cast_member_profile_url"));
+        AddTmdbImageHints(hints, "Director", ValuesFor(claims, "director"), ValuesFor(claims, "director_tmdb_id"), ValuesFor(claims, "director_profile_url"));
+        AddTmdbImageHints(hints, "Screenwriter", ValuesFor(claims, "screenwriter"), ValuesFor(claims, "screenwriter_tmdb_id"), ValuesFor(claims, "screenwriter_profile_url"));
+        AddTmdbImageHints(hints, "Composer", ValuesFor(claims, "composer"), ValuesFor(claims, "composer_tmdb_id"), ValuesFor(claims, "composer_profile_url"));
+        AddTmdbImageHints(hints, "Producer", ValuesFor(claims, "producer"), ValuesFor(claims, "producer_tmdb_id"), ValuesFor(claims, "producer_profile_url"));
+
+        return hints;
+    }
+
+    private static void AddTmdbImageHints(
+        Dictionary<string, TmdbPersonImageHint> hints,
+        string role,
+        IReadOnlyList<string> names,
+        IReadOnlyList<string> ids,
+        IReadOnlyList<string> profileUrls)
+    {
+        for (var i = 0; i < names.Count; i++)
+        {
+            var name = names[i];
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            int? personId = null;
+            if (i < ids.Count && int.TryParse(ids[i], out var parsedId))
+                personId = parsedId;
+
+            var profileUrl = i < profileUrls.Count ? profileUrls[i] : null;
+            if (!personId.HasValue && string.IsNullOrWhiteSpace(profileUrl))
+                continue;
+
+            hints[$"{role}::{NormalizePersonName(name)}"] = new TmdbPersonImageHint(personId, profileUrl);
+        }
+    }
+
+    private static TmdbPersonImageHint? FindTmdbImageHint(
+        IReadOnlyDictionary<string, TmdbPersonImageHint> hints,
+        string? role,
+        string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || hints.Count == 0)
+            return null;
+
+        var normalizedName = NormalizePersonName(name);
+        if (!string.IsNullOrWhiteSpace(role)
+            && hints.TryGetValue($"{role}::{normalizedName}", out var exact))
+        {
+            return exact;
+        }
+
+        return hints.TryGetValue($"Actor::{normalizedName}", out var actorHint)
+            ? actorHint
+            : null;
+    }
+
+    private static IReadOnlyList<string> ValuesFor(IReadOnlyList<ProviderClaim> claims, string key)
+        => claims
+            .Where(claim => string.Equals(claim.Key, key, StringComparison.OrdinalIgnoreCase))
+            .Select(claim => claim.Value)
+            .ToList();
+
+    private static string NormalizePersonName(string name)
+        => string.Join(' ', name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
+
+    private sealed record TmdbPersonImageHint(int? PersonId, string? ProfileUrl);
 
     /// <summary>
     /// Creates or locates a Person record for a name-only person reference that was
