@@ -89,7 +89,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     // -- Library works --------------------------------------------------------
 
     public Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default)
-        => _api.GetLibraryWorksAsync(ct);
+        => _api.GetLibraryWorksAsync(ct: ct);
 
     public Task<WorkDetailViewModel?> GetWorkDetailAsync(Guid workId, CancellationToken ct = default)
         => _api.GetWorkDetailAsync(workId, ct);
@@ -717,7 +717,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Returns persons as libraryItem list items (for People filter in LibraryItem Library view).</summary>
     public Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
         string? role = null, int limit = 200, CancellationToken ct = default)
-        => _api.GetPersonsAsync(role, limit, ct);
+        => _api.GetPersonsAsync(role: role, limit: limit, ct: ct);
 
     /// <summary>Returns all persons linked to works in a collection.</summary>
     public Task<List<PersonViewModel>> GetPersonsByCollectionAsync(

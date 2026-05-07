@@ -2,6 +2,7 @@
 using MediaEngine.Domain.Services;
 using MediaEngine.Api.Models;
 using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -281,7 +282,9 @@ public static class PersonEndpoints
         group.MapGet("/presence", async (string ids, IPersonPresenceReadService presenceReadService, CancellationToken ct) =>
         {
             var personIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(Guid.Parse)
+                .Select(value => Guid.TryParse(value, out var parsed) ? parsed : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .Take(500)
                 .ToList();
             var presence = await presenceReadService.GetPresenceAsync(personIds, ct);
             return Results.Ok(presence);
@@ -292,11 +295,15 @@ public static class PersonEndpoints
         // GET /persons?role=Author&limit=50 -- list persons filtered by role.
         group.MapGet("/", async (
             string? role,
+            int? offset,
             int? limit,
             IPersonRepository personRepo,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
-            var all = await personRepo.ListAllAsync(ct);
+            var page = PagedRequest.From(offset, limit, defaultLimit: 100, maxLimit: 500);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var all = await personRepo.ListPagedAsync(role, page.Offset, page.Limit + 1, ct);
 
             // Filter out Composer role and fix groups incorrectly tagged as Narrator
             IEnumerable<MediaEngine.Domain.Entities.Person> filtered = all
@@ -311,11 +318,7 @@ public static class PersonEndpoints
                 })
                 .Where(p => p.Roles.Count > 0); // Exclude persons with no remaining roles
 
-            if (!string.IsNullOrEmpty(role))
-                filtered = filtered.Where(p => p.Roles.Any(r => r.Equals(role, StringComparison.OrdinalIgnoreCase)));
-
             var results = filtered
-                .Take(limit ?? 50)
                 .Select(p => new
                 {
                     id                 = p.Id,
@@ -332,7 +335,35 @@ public static class PersonEndpoints
                 })
                 .ToList();
 
-            return Results.Ok(results);
+            var response = PagedResponse<object>.FromPage(results.Cast<object>().ToList(), page);
+            var logger = loggerFactory.CreateLogger("MediaEngine.Api.Persons");
+            sw.Stop();
+            if (sw.ElapsedMilliseconds >= 1000)
+            {
+                logger.LogWarning(
+                    "Large-list read {Operation} took {ElapsedMs} ms with role {Role}, offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
+                    "persons.list",
+                    sw.ElapsedMilliseconds,
+                    role,
+                    response.Offset,
+                    response.Limit,
+                    response.Items.Count,
+                    response.HasMore);
+            }
+            else
+            {
+                logger.LogDebug(
+                    "Large-list read {Operation} took {ElapsedMs} ms with role {Role}, offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
+                    "persons.list",
+                    sw.ElapsedMilliseconds,
+                    role,
+                    response.Offset,
+                    response.Limit,
+                    response.Items.Count,
+                    response.HasMore);
+            }
+
+            return Results.Ok(response);
         })
         .WithName("ListPersons")
         .WithSummary("List persons, optionally filtered by role.");

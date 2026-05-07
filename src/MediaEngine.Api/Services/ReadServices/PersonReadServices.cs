@@ -65,12 +65,10 @@ public sealed class PersonAliasReadService : IPersonAliasReadService
 public sealed class PersonPresenceReadService : IPersonPresenceReadService
 {
     private readonly IPersonRepository _personRepo;
-    private readonly IDatabaseConnection _db;
 
-    public PersonPresenceReadService(IPersonRepository personRepo, IDatabaseConnection db)
+    public PersonPresenceReadService(IPersonRepository personRepo)
     {
         _personRepo = personRepo;
-        _db = db;
     }
 
     public async Task<IReadOnlyDictionary<string, Dictionary<string, int>>> GetPresenceAsync(
@@ -78,49 +76,9 @@ public sealed class PersonPresenceReadService : IPersonPresenceReadService
         CancellationToken ct)
     {
         var presence = await _personRepo.GetPresenceBatchAsync(personIds, ct);
-        if (presence.Values.Any(d => d.Count > 0))
-        {
-            return presence.ToDictionary(
-                kv => kv.Key.ToString(),
-                kv => kv.Value);
-        }
-
-        var persons = new Dictionary<Guid, string>();
-        foreach (var pid in personIds)
-        {
-            var person = await _personRepo.FindByIdAsync(pid, ct);
-            if (person is not null)
-                persons[pid] = person.Name;
-        }
-
-        using var conn = _db.CreateConnection();
-        var fallbackPresence = new Dictionary<string, Dictionary<string, int>>();
-        foreach (var (pid, name) in persons)
-        {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                SELECT cv2.value AS MediaType, COUNT(DISTINCT w.id) AS Count
-                FROM canonical_values cv
-                JOIN media_assets ma ON ma.id = cv.entity_id
-                JOIN editions e ON e.id = ma.edition_id
-                JOIN works w ON w.id = e.work_id
-                JOIN canonical_values cv2 ON cv2.entity_id = ma.id AND cv2.key = 'media_type'
-                WHERE cv.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
-                  AND cv.value = @name
-                GROUP BY cv2.value;
-                """;
-            cmd.Parameters.AddWithValue("@name", name);
-
-            var mediaTypeCounts = new Dictionary<string, int>();
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                mediaTypeCounts[reader.GetString(0)] = reader.GetInt32(1);
-
-            if (mediaTypeCounts.Count > 0)
-                fallbackPresence[pid.ToString()] = mediaTypeCounts;
-        }
-
-        return fallbackPresence;
+        return presence.ToDictionary(
+            kv => kv.Key.ToString(),
+            kv => kv.Value);
     }
 }
 
@@ -234,30 +192,21 @@ public sealed class PersonAssetScopeReadService : IPersonAssetScopeReadService
                 assetIds.Add(Guid.Parse(reader.GetString(0)));
         }
 
-        var seen = new HashSet<Guid>();
-        var persons = new List<PersonSummaryResponse>();
-        foreach (var assetId in assetIds)
-        {
-            var linked = await _personRepo.GetByMediaAssetAsync(assetId, ct);
-            foreach (var p in linked)
+        var linked = await _personRepo.GetByMediaAssetsAsync(assetIds, ct);
+        return linked
+            .GroupBy(p => p.Id)
+            .Select(group => group.First())
+            .Select(p => new PersonSummaryResponse
             {
-                if (!seen.Add(p.Id))
-                    continue;
-
-                persons.Add(new PersonSummaryResponse
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Roles = p.Roles,
-                    WikidataQid = p.WikidataQid,
-                    HeadshotUrl = ApiImageUrls.BuildPersonHeadshotUrl(p.Id, p.LocalHeadshotPath, p.HeadshotUrl),
-                    HasLocalHeadshot = !string.IsNullOrEmpty(p.LocalHeadshotPath) && File.Exists(p.LocalHeadshotPath),
-                    Biography = p.Biography,
-                    Occupation = p.Occupation,
-                });
-            }
-        }
-
-        return persons;
+                Id = p.Id,
+                Name = p.Name,
+                Roles = p.Roles,
+                WikidataQid = p.WikidataQid,
+                HeadshotUrl = ApiImageUrls.BuildPersonHeadshotUrl(p.Id, p.LocalHeadshotPath, p.HeadshotUrl),
+                HasLocalHeadshot = !string.IsNullOrEmpty(p.LocalHeadshotPath) && File.Exists(p.LocalHeadshotPath),
+                Biography = p.Biography,
+                Occupation = p.Occupation,
+            })
+            .ToList();
     }
 }

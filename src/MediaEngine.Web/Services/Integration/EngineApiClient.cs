@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
@@ -404,23 +405,37 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── GET /library/works ─────────────────────────────────────────────────────
 
-    public async Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default)
+    public async Task<List<WorkViewModel>> GetLibraryWorksAsync(int offset = 0, int limit = 500, CancellationToken ct = default)
     {
         const string endpoint = "GET /library/works";
         try
         {
-            var response = await _http.GetAsync("/library/works", ct).ConfigureAwait(false);
+            var safeOffset = Math.Max(0, offset);
+            var safeLimit = Math.Clamp(limit <= 0 ? 500 : limit, 1, 500);
+            var response = await _http.GetAsync($"/library/works?offset={safeOffset}&limit={safeLimit}", ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 await RecordHttpFailureAsync(endpoint, response, ct);
                 return [];
             }
 
-            var raw = await response.Content.ReadFromJsonAsync<List<LibraryWorkRaw>>(cancellationToken: ct).ConfigureAwait(false);
+            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct).ConfigureAwait(false);
             ClearFailure(endpoint);
-            if (raw is null) return [];
+            List<LibraryWorkRaw>? raw;
+            if (payload.ValueKind == JsonValueKind.Array)
+            {
+                raw = payload.Deserialize<List<LibraryWorkRaw>>();
+            }
+            else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("items", out var items))
+            {
+                raw = items.Deserialize<List<LibraryWorkRaw>>();
+            }
+            else
+            {
+                raw = [];
+            }
 
-            return raw.Select(MapLibraryWork).ToList();
+            return raw?.Select(MapLibraryWork).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -2573,14 +2588,29 @@ public sealed class EngineApiClient : IEngineApiClient
     // ── GET /persons (libraryItem list) ────────────────────────────────────
 
     public async Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
-        string? role = null, int limit = 200, CancellationToken ct = default)
+        string? role = null, int offset = 0, int limit = 200, CancellationToken ct = default)
     {
         try
         {
-            var url = $"/persons?limit={limit}";
+            var safeOffset = Math.Max(0, offset);
+            var safeLimit = Math.Clamp(limit <= 0 ? 200 : limit, 1, 500);
+            var url = $"/persons?offset={safeOffset}&limit={safeLimit}";
             if (!string.IsNullOrEmpty(role))
                 url += $"&role={Uri.EscapeDataString(role)}";
-            var results = await _http.GetFromJsonAsync<List<PersonListItemDto>>(url, ct);
+            var payload = await _http.GetFromJsonAsync<JsonElement>(url, ct);
+            List<PersonListItemDto>? results;
+            if (payload.ValueKind == JsonValueKind.Array)
+            {
+                results = payload.Deserialize<List<PersonListItemDto>>();
+            }
+            else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("items", out var items))
+            {
+                results = items.Deserialize<List<PersonListItemDto>>();
+            }
+            else
+            {
+                results = [];
+            }
             if (results is not null)
             {
                 foreach (var p in results)
@@ -2606,8 +2636,22 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
-                $"/persons?role={Uri.EscapeDataString(role)}&limit={limit}", ct);
+            var safeLimit = Math.Clamp(limit <= 0 ? 50 : limit, 1, 500);
+            var payload = await _http.GetFromJsonAsync<JsonElement>(
+                $"/persons?role={Uri.EscapeDataString(role)}&limit={safeLimit}", ct);
+            List<PersonRaw>? raw;
+            if (payload.ValueKind == JsonValueKind.Array)
+            {
+                raw = payload.Deserialize<List<PersonRaw>>();
+            }
+            else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("items", out var items))
+            {
+                raw = items.Deserialize<List<PersonRaw>>();
+            }
+            else
+            {
+                raw = [];
+            }
             return raw?.Select(p =>
             {
                 var headshotUrl = ResolvePersonHeadshotUrl(p);

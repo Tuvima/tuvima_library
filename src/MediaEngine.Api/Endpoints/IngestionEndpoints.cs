@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Paging;
 using Microsoft.Extensions.Options;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
@@ -98,39 +99,37 @@ public static class IngestionEndpoints
         // ── GET /ingestion/watch-folder ─────────────────────────────────────────
 
         group.MapGet("/watch-folder", (
-            IOptions<IngestionOptions> opts) =>
+            IOptions<IngestionOptions> opts,
+            int? offset,
+            int? limit,
+            CancellationToken ct) =>
         {
+            var page = PagedRequest.From(offset, limit, defaultLimit: 100, maxLimit: 500);
             var watchDir = opts.Value.WatchDirectory;
 
             if (string.IsNullOrWhiteSpace(watchDir))
-                return Results.Ok(new WatchFolderResponse { Files = [] });
+                return Results.Ok(new { watch_directory = (string?)null, files = Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, has_more = false, next_cursor = (string?)null });
 
             if (!Directory.Exists(watchDir))
-                return Results.Ok(new WatchFolderResponse { Files = [] });
+                return Results.Ok(new { watch_directory = watchDir, files = Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, has_more = false, next_cursor = (string?)null });
 
             var searchOption = opts.Value.IncludeSubdirectories
                 ? SearchOption.AllDirectories
                 : SearchOption.TopDirectoryOnly;
 
-            var files = Directory.EnumerateFiles(watchDir, "*", searchOption)
-                .Select(fullPath =>
-                {
-                    var info = new FileInfo(fullPath);
-                    return new WatchFolderFileDto
-                    {
-                        FileName      = info.Name,
-                        RelativePath  = Path.GetRelativePath(watchDir, fullPath),
-                        FileSizeBytes = info.Length,
-                        LastModified  = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                    };
-                })
-                .OrderByDescending(f => f.LastModified)
-                .ToList();
+            var files = GetNewestWatchFiles(watchDir, searchOption, page.Offset + page.Limit + 1, ct);
+            var response = PagedResponse<WatchFolderFileDto>.FromPage(
+                files.Skip(page.Offset).ToList(),
+                page);
 
-            return Results.Ok(new WatchFolderResponse
+            return Results.Ok(new
             {
-                WatchDirectory = watchDir,
-                Files          = files,
+                watch_directory = watchDir,
+                files = response.Items,
+                offset = response.Offset,
+                limit = response.Limit,
+                has_more = response.HasMore,
+                next_cursor = response.NextCursor,
             });
         })
         .WithName("ListWatchFolder")
@@ -230,11 +229,41 @@ public static class IngestionEndpoints
         group.MapGet("/batches/{id:guid}/items", async (
             Guid id,
             IIngestionBatchReadService batchReadService,
+            int? offset,
             int? limit,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
-            var items = await batchReadService.GetItemsAsync(id, limit ?? 500, ct);
-            return Results.Ok(items);
+            var page = PagedRequest.From(offset, limit, defaultLimit: 100, maxLimit: 500);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var items = await batchReadService.GetItemsAsync(id, page.Offset, page.Limit + 1, ct);
+            var response = PagedResponse<IngestionBatchItemResponse>.FromPage(items, page);
+            var logger = loggerFactory.CreateLogger("MediaEngine.Api.IngestionBatches");
+            sw.Stop();
+            if (sw.ElapsedMilliseconds >= 1000)
+            {
+                logger.LogWarning(
+                    "Large-list read {Operation} took {ElapsedMs} ms with offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
+                    "ingestion.batch.items",
+                    sw.ElapsedMilliseconds,
+                    response.Offset,
+                    response.Limit,
+                    response.Items.Count,
+                    response.HasMore);
+            }
+            else
+            {
+                logger.LogDebug(
+                    "Large-list read {Operation} took {ElapsedMs} ms with offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
+                    "ingestion.batch.items",
+                    sw.ElapsedMilliseconds,
+                    response.Offset,
+                    response.Limit,
+                    response.Items.Count,
+                    response.HasMore);
+            }
+
+            return Results.Ok(response);
         })
         .WithName("GetBatchItems")
         .WithSummary("List item-level ingestion progress for a batch.")
@@ -350,6 +379,37 @@ public static class IngestionEndpoints
         .RequireAdminOrCurator();
 
         return app;
+    }
+
+    private static List<WatchFolderFileDto> GetNewestWatchFiles(
+        string watchDir,
+        SearchOption searchOption,
+        int limit,
+        CancellationToken ct)
+    {
+        var bounded = new List<WatchFolderFileDto>(Math.Max(1, limit));
+        foreach (var fullPath in Directory.EnumerateFiles(watchDir, "*", searchOption))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var info = new FileInfo(fullPath);
+            bounded.Add(new WatchFolderFileDto
+            {
+                FileName      = info.Name,
+                RelativePath  = Path.GetRelativePath(watchDir, fullPath),
+                FileSizeBytes = info.Length,
+                LastModified  = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+            });
+
+            if (bounded.Count <= limit)
+                continue;
+
+            bounded.Sort(static (left, right) => right.LastModified.CompareTo(left.LastModified));
+            bounded.RemoveRange(limit, bounded.Count - limit);
+        }
+
+        bounded.Sort(static (left, right) => right.LastModified.CompareTo(left.LastModified));
+        return bounded;
     }
 
     private static void TryDeleteTempUpload(string tempPath)

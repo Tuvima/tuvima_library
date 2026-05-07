@@ -70,8 +70,8 @@ public interface IEngineApiClient
     /// <summary>GET /collections — full collection list with works and canonical values.</summary>
     Task<List<CollectionViewModel>> GetCollectionsAsync(CancellationToken ct = default);
 
-    /// <summary>GET /library/works — flat list of works with canonical values (excludes staging).</summary>
-    Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default);
+    /// <summary>GET /library/works — paged flat list of works with canonical values (excludes staging).</summary>
+    Task<List<WorkViewModel>> GetLibraryWorksAsync(int offset = 0, int limit = 500, CancellationToken ct = default);
 
     /// <summary>GET /works/{id} — one work with editions and assets.</summary>
     Task<WorkDetailViewModel?> GetWorkDetailAsync(Guid workId, CancellationToken ct = default);
@@ -520,7 +520,7 @@ public interface IEngineApiClient
     // ── Persons by Collection (/persons/by-collection) ────────────────────────────────
 
     /// <summary>GET /persons?role={role}&amp;limit={limit} — list persons as PersonListItemDto (for libraryItem view).</summary>
-    Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(string? role = null, int limit = 200, CancellationToken ct = default);
+    Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(string? role = null, int offset = 0, int limit = 200, CancellationToken ct = default);
 
     /// <summary>GET /persons?role={role}&amp;limit={limit}  -  list persons filtered by role.</summary>
     Task<List<PersonViewModel>> GetPersonsByRoleAsync(

@@ -15,6 +15,7 @@ public interface IIngestionBatchReadService
 {
     Task<IReadOnlyList<IngestionBatchItemResponse>> GetItemsAsync(
         Guid batchId,
+        int offset,
         int limit,
         CancellationToken ct);
 }

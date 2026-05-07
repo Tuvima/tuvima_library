@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
@@ -115,10 +116,16 @@ public static class LibraryEndpoints
 
         group.MapGet("/works", async (
             IDatabaseConnection db,
+            ILoggerFactory loggerFactory,
+            int? offset,
+            int? limit,
             CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
 
+            var page = PagedRequest.From(offset, limit, defaultLimit: 100, maxLimit: 500);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var logger = loggerFactory.CreateLogger("MediaEngine.Api.LibraryWorks");
             using var conn = db.CreateConnection();
 
             var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
@@ -174,15 +181,19 @@ public static class LibraryEndpoints
                 ORDER BY
                     CASE WHEN first_claimed_at IS NULL THEN 1 ELSE 0 END,
                     first_claimed_at DESC,
-                    work_id;
+                    work_id
+                LIMIT @LimitPlusOne OFFSET @Offset;
                 """;
 
             var workRows = (await conn.QueryAsync<LibraryWorkFeedRow>(
-                new CommandDefinition(worksSql, cancellationToken: ct)))
+                new CommandDefinition(
+                    worksSql,
+                    new { LimitPlusOne = page.Limit + 1, page.Offset },
+                    cancellationToken: ct)))
                 .ToList();
 
             if (workRows.Count == 0)
-                return Results.Ok(Array.Empty<LibraryWorkListItemDto>());
+                return Results.Ok(new PagedResponse<LibraryWorkListItemDto>([], page.Offset, page.Limit, false));
 
             var assetIds = workRows.Select(row => row.AssetId).Distinct().ToArray();
             var rootWorkIds = workRows.Select(row => row.RootWorkId).Distinct().ToArray();
@@ -262,11 +273,36 @@ public static class LibraryEndpoints
                 })
                 .ToList();
 
-            return Results.Ok(items);
+            var response = PagedResponse<LibraryWorkListItemDto>.FromPage(items, page);
+            sw.Stop();
+            if (sw.ElapsedMilliseconds >= 1000)
+            {
+                logger.LogWarning(
+                    "Large-list read {Operation} took {ElapsedMs} ms with offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
+                    "library.works",
+                    sw.ElapsedMilliseconds,
+                    response.Offset,
+                    response.Limit,
+                    response.Items.Count,
+                    response.HasMore);
+            }
+            else
+            {
+                logger.LogDebug(
+                    "Large-list read {Operation} took {ElapsedMs} ms with offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
+                    "library.works",
+                    sw.ElapsedMilliseconds,
+                    response.Offset,
+                    response.Limit,
+                    response.Items.Count,
+                    response.HasMore);
+            }
+
+            return Results.Ok(response);
         })
         .WithName("GetLibraryWorks")
         .WithSummary("Returns library-owned works for the home and browse surfaces.")
-        .Produces<List<LibraryWorkListItemDto>>(StatusCodes.Status200OK)
+        .Produces<PagedResponse<LibraryWorkListItemDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // â”€â”€ POST /library/batch-edit/preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

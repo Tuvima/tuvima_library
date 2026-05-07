@@ -128,10 +128,26 @@ public interface IPersonRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Returns all persons linked to any of the given media assets in one query.
+    /// </summary>
+    Task<IReadOnlyList<Person>> GetByMediaAssetsAsync(
+        IEnumerable<Guid> mediaAssetIds,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Returns all person records in the database.
     /// Used by the reconciliation service for orphan detection.
     /// </summary>
     Task<IReadOnlyList<Person>> ListAllAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns a bounded person page, optionally filtered by role.
+    /// </summary>
+    Task<IReadOnlyList<Person>> ListPagedAsync(
+        string? role,
+        int offset,
+        int limit,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Returns the number of media asset links for a given person.

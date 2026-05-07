@@ -15,6 +15,7 @@ public sealed class IngestionBatchReadService : IIngestionBatchReadService
 
     public Task<IReadOnlyList<IngestionBatchItemResponse>> GetItemsAsync(
         Guid batchId,
+        int offset,
         int limit,
         CancellationToken ct)
     {
@@ -23,7 +24,8 @@ public sealed class IngestionBatchReadService : IIngestionBatchReadService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = Query;
         cmd.Parameters.AddWithValue("@batchId", batchId.ToString());
-        cmd.Parameters.AddWithValue("@limit", Math.Clamp(limit, 1, 5000));
+        cmd.Parameters.AddWithValue("@offset", Math.Max(0, offset));
+        cmd.Parameters.AddWithValue("@limit", Math.Clamp(limit, 1, 501));
 
         using var reader = cmd.ExecuteReader();
         var items = new List<IngestionBatchItemResponse>();
@@ -227,6 +229,6 @@ public sealed class IngestionBatchReadService : IIngestionBatchReadService
             ON cf.entity_id = COALESCE(il.media_asset_id, il.id)
         WHERE il.ingestion_run_id = @batchId
         ORDER BY il.created_at ASC
-        LIMIT @limit;
+        LIMIT @limit OFFSET @offset;
         """;
 }

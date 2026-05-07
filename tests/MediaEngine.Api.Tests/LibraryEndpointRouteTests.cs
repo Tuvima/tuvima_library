@@ -11,7 +11,7 @@ public sealed class LibraryEndpointRouteTests
 
         Assert.Contains("group.MapGet(\"/works\", async (", source, StringComparison.Ordinal);
         Assert.Contains(".WithName(\"GetLibraryWorks\")", source, StringComparison.Ordinal);
-        Assert.Contains(".Produces<List<LibraryWorkListItemDto>>(StatusCodes.Status200OK)", source, StringComparison.Ordinal);
+        Assert.Contains(".Produces<PagedResponse<LibraryWorkListItemDto>>(StatusCodes.Status200OK)", source, StringComparison.Ordinal);
     }
 
     [Fact]

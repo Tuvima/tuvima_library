@@ -481,7 +481,9 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task UpdateLocalHeadshotPathAsync(Guid id, string path, CancellationToken ct = default) => Task.CompletedTask;
         public Task<Person?> FindByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<Person?>(null);
         public Task<IReadOnlyList<Person>> GetByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
+        public Task<IReadOnlyList<Person>> GetByMediaAssetsAsync(IEnumerable<Guid> mediaAssetIds, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
         public Task<IReadOnlyList<Person>> ListAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
+        public Task<IReadOnlyList<Person>> ListPagedAsync(string? role, int offset, int limit, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
         public Task<int> CountMediaLinksAsync(Guid personId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<Person?> FindByQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<Person?>(null);
         public Task DeleteAsync(Guid personId, CancellationToken ct = default) => Task.CompletedTask;

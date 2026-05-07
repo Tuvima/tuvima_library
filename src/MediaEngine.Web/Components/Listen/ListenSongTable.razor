@@ -43,9 +43,9 @@
         }
     </div>
 
-    @foreach (var track in DisplayTracks)
-    {
+    <Virtualize Items="@DisplayTracks" Context="track" TItem="WorkViewModel" ItemSize="48" OverscanCount="8">
         <div class="listen-song-table__row"
+             @key="track.Id"
              style="@($"grid-template-columns: {GridTemplate}")"
              role="row"
              draggable="true"
@@ -157,7 +157,7 @@
                 }
             }
         </div>
-    }
+    </Virtualize>
 </div>
 
 @code {
@@ -217,9 +217,9 @@
 
     private string GridTemplate => string.Join(" ", VisibleColumns.Select(column => $"{column.Width}px"));
 
-    private IReadOnlyList<WorkViewModel> DisplayTracks => Sortable
-        ? SortTracks(Tracks)
-        : Tracks;
+    private List<WorkViewModel> DisplayTracks => Sortable
+        ? SortTracks(Tracks).ToList()
+        : Tracks.ToList();
 
     private bool IsColumnVisible(ListenSongTableColumn column) => column.Key switch
     {

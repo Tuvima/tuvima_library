@@ -1514,6 +1514,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Migration M-090: Wikidata series manifest cache.
         MigrateSeriesManifestTables(conn);
 
+        // Migration M-092: targeted indexes for large-library list reads.
+        EnsureLargeLibraryIndexes(conn);
+
         // Seed S-001: metadata_providers entries for all known providers.
         // metadata_claims.provider_id has a FK to metadata_providers(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1571,6 +1574,33 @@ public sealed class DatabaseConnection : IDatabaseConnection
         }
     }
 
+    private static void EnsureLargeLibraryIndexes(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE INDEX IF NOT EXISTS idx_editions_work_id
+                ON editions(work_id);
+
+            CREATE INDEX IF NOT EXISTS idx_media_assets_edition_id
+                ON media_assets(edition_id);
+
+            CREATE INDEX IF NOT EXISTS idx_canonical_values_key_value_entity
+                ON canonical_values(key, value, entity_id);
+
+            CREATE INDEX IF NOT EXISTS idx_canonical_value_arrays_key_value_entity
+                ON canonical_value_arrays(key, value, entity_id);
+
+            CREATE INDEX IF NOT EXISTS idx_person_media_links_person
+                ON person_media_links(person_id);
+
+            CREATE INDEX IF NOT EXISTS idx_ingestion_log_run_created
+                ON ingestion_log(ingestion_run_id, created_at);
+
+            CREATE INDEX IF NOT EXISTS idx_identity_jobs_run_entity_updated
+                ON identity_jobs(ingestion_run_id, entity_id, updated_at);
+            """;
+        cmd.ExecuteNonQuery();
+    }
     /// <summary>
     /// Seeds the default "Owner" Administrator profile on first run.
     /// Uses <c>INSERT OR IGNORE</c> so duplicate rows are silently skipped.

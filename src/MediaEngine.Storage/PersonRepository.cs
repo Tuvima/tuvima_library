@@ -347,6 +347,58 @@ public sealed class PersonRepository : IPersonRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<Person>> GetByMediaAssetsAsync(
+        IEnumerable<Guid> mediaAssetIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var ids = mediaAssetIds
+            .Select(id => id.ToString())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (ids.Count == 0)
+            return Task.FromResult<IReadOnlyList<Person>>([]);
+
+        using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("MediaAssetIds", ids);
+        var rows = conn.Query<PersonWithRolesCsv>($"""
+            SELECT p.id                  AS Id,
+                   p.name                AS Name,
+                   p.wikidata_qid        AS WikidataQid,
+                   p.headshot_url        AS HeadshotUrl,
+                   p.biography           AS Biography,
+                   p.created_at          AS CreatedAt,
+                   p.enriched_at         AS EnrichedAt,
+                   p.occupation          AS Occupation,
+                   p.instagram           AS Instagram,
+                   p.twitter             AS Twitter,
+                   p.tiktok              AS TikTok,
+                   p.mastodon            AS Mastodon,
+                   p.website             AS Website,
+                   p.local_headshot_path AS LocalHeadshotPath,
+                   p.date_of_birth       AS DateOfBirth,
+                   p.date_of_death       AS DateOfDeath,
+                   p.place_of_birth      AS PlaceOfBirth,
+                   p.place_of_death      AS PlaceOfDeath,
+                   p.nationality         AS Nationality,
+                   p.is_pseudonym        AS IsPseudonym,
+                   p.is_group            AS IsGroup,
+                   GROUP_CONCAT(pr.role, ',') AS RolesCsv
+            FROM   persons p
+            JOIN   person_media_links l ON l.person_id = p.id
+            LEFT JOIN person_roles pr ON pr.person_id = p.id
+            WHERE  l.media_asset_id IN @MediaAssetIds
+            GROUP  BY p.id
+            ORDER  BY p.name ASC;
+            """, p).AsList();
+
+        var results = rows.Select(MapFromCsvRow).ToList();
+        return Task.FromResult<IReadOnlyList<Person>>(results);
+    }
+
+    /// <inheritdoc/>
     public Task UpdateLocalHeadshotPathAsync(
         Guid id,
         string path,
@@ -423,6 +475,61 @@ public sealed class PersonRepository : IPersonRepository
             GROUP  BY p.id
             ORDER  BY p.name ASC;
             """).AsList();
+
+        var results = rows.Select(MapFromCsvRow).ToList();
+        return Task.FromResult<IReadOnlyList<Person>>(results);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Person>> ListPagedAsync(
+        string? role,
+        int offset,
+        int limit,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("role", role);
+        p.Add("offset", Math.Max(0, offset));
+        p.Add("limit", Math.Clamp(limit, 1, 501));
+
+        var roleFilter = string.IsNullOrWhiteSpace(role)
+            ? ""
+            : "WHERE EXISTS (SELECT 1 FROM person_roles role_filter WHERE role_filter.person_id = p.id AND role_filter.role = @role COLLATE NOCASE)";
+
+        var rows = conn.Query<PersonWithRolesCsv>($"""
+            SELECT p.id                  AS Id,
+                   p.name                AS Name,
+                   p.wikidata_qid        AS WikidataQid,
+                   p.headshot_url        AS HeadshotUrl,
+                   p.biography           AS Biography,
+                   p.created_at          AS CreatedAt,
+                   p.enriched_at         AS EnrichedAt,
+                   p.occupation          AS Occupation,
+                   p.instagram           AS Instagram,
+                   p.twitter             AS Twitter,
+                   p.tiktok              AS TikTok,
+                   p.mastodon            AS Mastodon,
+                   p.website             AS Website,
+                   p.local_headshot_path AS LocalHeadshotPath,
+                   p.date_of_birth       AS DateOfBirth,
+                   p.date_of_death       AS DateOfDeath,
+                   p.place_of_birth      AS PlaceOfBirth,
+                   p.place_of_death      AS PlaceOfDeath,
+                   p.nationality         AS Nationality,
+                   p.is_pseudonym        AS IsPseudonym,
+                   p.is_group            AS IsGroup,
+                   GROUP_CONCAT(pr.role, ',') AS RolesCsv
+            FROM   persons p
+            LEFT JOIN person_roles pr ON pr.person_id = p.id
+            {roleFilter}
+            GROUP  BY p.id
+            HAVING RolesCsv IS NOT NULL
+            ORDER  BY p.name ASC
+            LIMIT  @limit OFFSET @offset;
+            """, p).AsList();
 
         var results = rows.Select(MapFromCsvRow).ToList();
         return Task.FromResult<IReadOnlyList<Person>>(results);
