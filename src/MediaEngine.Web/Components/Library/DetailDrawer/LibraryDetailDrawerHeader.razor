@@ -1,0 +1,116 @@
+@using MediaEngine.Domain.Enums
+@using MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Library.DetailDrawer
+
+<div class="vdd-header">
+    <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                   Size="Size.Small"
+                   Style="position:absolute;top:24px;right:24px;color:var(--tl-text-muted);"
+                   OnClick="OnClose" />
+
+    @if (!string.IsNullOrWhiteSpace(LoadError))
+    {
+        <AppErrorState Title="Details failed to load"
+                       Message="The Dashboard could not load all details for this item."
+                       Details="@LoadError"
+                       Retry="OnRetry"
+                       Compact="true" />
+    }
+    else if (MediaItem is not null)
+    {
+        <div class="vdd-header-content">
+            <div class="vdd-thumb-wrap">
+                @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
+                {
+                    <img src="@MediaItem.CoverUrl" alt="" class="vdd-thumb-img" loading="lazy" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 48px; color: rgba(255,255,255,0.1);" />
+                }
+            </div>
+            <div class="vdd-header-info">
+                <div class="vdd-badges">
+                    <span class="vdd-location-chip @GetReadinessChipClass()">
+                        @MediaItem.ReadinessLabel
+                    </span>
+                    <StatusPill Status="@MediaItem.LibraryDisplayStatus" QuarantineDays="@MediaItem.QuarantineDays" />
+                    @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
+                    {
+                        <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
+                            <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
+                            @MediaItem.WikidataQid
+                        </a>
+                        @if (!string.IsNullOrWhiteSpace(WikipediaUrl))
+                        {
+                            <a href="@WikipediaUrl" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
+                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                Wikipedia
+                            </a>
+                        }
+                    }
+                </div>
+                <h2 class="vdd-title">@MediaItem.Title</h2>
+                @if (!string.IsNullOrEmpty(DrawerCreator))
+                {
+                    <p class="vdd-subtitle vdd-subtitle--clickable" @onclick="() => OnCreatorClicked.InvokeAsync(DrawerCreator)">
+                        @DrawerCreator.ToUpperInvariant()
+                    </p>
+                }
+                <div class="vdd-meta">
+                    <span class="vdd-meta-item" style="color: @LibraryHelpers.GetMediaTypeColor(MediaItem.MediaType);">
+                        <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px;" />
+                        @LibraryHelpers.FormatMediaType(MediaItem.MediaType)
+                    </span>
+                    @if (!string.IsNullOrEmpty(MediaItem.Year))
+                    {
+                        <span class="vdd-meta-item">@MediaItem.Year</span>
+                    }
+                </div>
+                <p class="vdd-added-date">Added @MediaItem.CreatedAt.ToString("MMM dd, yyyy")</p>
+            </div>
+        </div>
+    }
+    else if (Person is not null)
+    {
+        <LibraryDetailDrawerPersonHeader Person="Person" WikipediaUrl="WikipediaUrl" />
+    }
+    else if (Universe is not null)
+    {
+        <LibraryDetailDrawerUniverseHeader Universe="Universe" />
+    }
+</div>
+
+@code {
+    [Parameter] public LibraryItemViewModel? MediaItem { get; set; }
+    [Parameter] public PersonListItemDto? Person { get; set; }
+    [Parameter] public CollectionViewModel? Universe { get; set; }
+    [Parameter] public string? LoadError { get; set; }
+    [Parameter] public string? WikipediaUrl { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+    [Parameter] public EventCallback<string> OnCreatorClicked { get; set; }
+
+    private string DrawerCreator => MediaItem?.MediaType switch
+    {
+        "Movies" => MediaItem.Director ?? MediaItem.Author ?? string.Empty,
+        "TV" => MediaItem.Director ?? string.Empty,
+        "Music" => MediaItem.Artist ?? MediaItem.Author ?? string.Empty,
+        _ => MediaItem?.Author ?? string.Empty,
+    };
+
+    private string GetReadinessChipClass()
+    {
+        if (MediaItem is null)
+            return "vdd-location-chip--pending";
+
+        return MediaItem.ReadinessLabel switch
+        {
+            "Ready" => "vdd-location-chip--library",
+            "Needs review" => "vdd-location-chip--review",
+            _ => "vdd-location-chip--pending",
+        };
+    }
+}

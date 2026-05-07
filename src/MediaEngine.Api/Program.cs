@@ -1,4 +1,4 @@
-﻿using System.Threading.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
 using MediaEngine.Api.Endpoints;
@@ -48,6 +48,7 @@ using MediaEngine.Api.Services.HealthChecks;
 using Tuvima.Wikidata.AspNetCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+builder.Services.AddMemoryCache();
 ConfigurationManager config  = builder.Configuration;
 
 // -- Serilog ------------------------------------------------------------------

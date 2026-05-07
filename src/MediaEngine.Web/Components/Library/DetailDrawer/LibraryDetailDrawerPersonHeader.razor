@@ -1,0 +1,47 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Library.DetailDrawer
+
+<div class="vdd-header-content">
+    <div class="vdd-avatar-round">
+        @if (!string.IsNullOrEmpty(Person?.HeadshotUrl))
+        {
+            <img src="@Person.HeadshotUrl" alt="" class="vdd-avatar-img" />
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 48px; color: rgba(255,255,255,0.1);" />
+        }
+    </div>
+    <div class="vdd-header-info">
+        <div class="vdd-badges">
+            @foreach (var role in Person?.Roles ?? [])
+            {
+                <span class="vdd-role-chip" @key="role">@role.ToUpperInvariant()</span>
+            }
+            @if (!string.IsNullOrEmpty(Person?.WikidataQid))
+            {
+                <a href="https://www.wikidata.org/wiki/@Person.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
+                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                    @Person.WikidataQid
+                </a>
+                @if (!string.IsNullOrWhiteSpace(WikipediaUrl))
+                {
+                    <a href="@WikipediaUrl" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
+                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                        Wikipedia
+                    </a>
+                }
+            }
+        </div>
+        <h2 class="vdd-title">@Person?.Name</h2>
+        @if (!string.IsNullOrEmpty(Person?.Occupation))
+        {
+            <p class="vdd-subtitle-italic">@Person.Occupation</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PersonListItemDto? Person { get; set; }
+    [Parameter] public string? WikipediaUrl { get; set; }
+}

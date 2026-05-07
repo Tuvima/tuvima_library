@@ -2019,10 +2019,18 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collections = await collectionRepo.GetManagedCollectionsAsync(ct);
+            var accessibleCollections = collections
+                .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
+                .ToList();
+            var curatedCountByCollection = await collectionRepo.GetCollectionItemCountsAsync(
+                accessibleCollections
+                    .Where(collection => !string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase))
+                    .Select(collection => collection.Id),
+                ct);
             var dtos = new List<ManagedCollectionDto>();
-            foreach (var collection in collections.Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile)))
+            foreach (var collection in accessibleCollections)
             {
-                var count = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, ct);
+                var count = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, curatedCountByCollection, ct);
                 dtos.Add(ManagedCollectionDto.FromDomain(collection, count, activeProfile));
             }
 
@@ -2854,6 +2862,7 @@ public static class CollectionEndpoints
         Collection collection,
         ICollectionRepository collectionRepo,
         IDatabaseConnection db,
+        IReadOnlyDictionary<Guid, int>? curatedCountByCollection,
         CancellationToken ct)
     {
         if (string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase)
@@ -2870,6 +2879,9 @@ public static class CollectionEndpoints
                 collection.SortField,
                 collection.SortDirection).Count;
         }
+
+        if (curatedCountByCollection is not null && curatedCountByCollection.TryGetValue(collection.Id, out var count))
+            return count;
 
         return await collectionRepo.GetCollectionItemCountAsync(collection.Id, ct);
     }

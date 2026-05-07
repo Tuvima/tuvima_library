@@ -11,6 +11,8 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
+using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -24,15 +26,24 @@ public sealed class EngineApiClient : IEngineApiClient
     private readonly HttpClient                      _http;
     private readonly ILogger<EngineApiClient>        _logger;
     private readonly StreamingServiceLogoResolver    _streamingServiceLogos;
+    private readonly EngineApiFailureState           _failureState;
+    private readonly SystemClient                    _systemClient;
+    private readonly ProviderClient                  _providerClient;
 
     public EngineApiClient(
         HttpClient http,
         ILogger<EngineApiClient> logger,
-        StreamingServiceLogoResolver? streamingServiceLogos = null)
+        StreamingServiceLogoResolver? streamingServiceLogos = null,
+        ILoggerFactory? loggerFactory = null,
+        EngineApiFailureState? failureState = null)
     {
         _http                  = http;
         _logger                = logger;
         _streamingServiceLogos = streamingServiceLogos ?? new StreamingServiceLogoResolver();
+        _failureState          = failureState ?? new EngineApiFailureState();
+        var factory            = loggerFactory ?? NullLoggerFactory.Instance;
+        _systemClient          = new SystemClient(_http, factory.CreateLogger<SystemClient>(), _failureState);
+        _providerClient        = new ProviderClient(_http, factory.CreateLogger<ProviderClient>(), _failureState);
     }
 
     public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
@@ -353,35 +364,7 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
-    {
-        const string endpoint = "GET /system/status";
-        try
-        {
-            var response = await _http.GetAsync("/system/status", ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct, logAsWarning: false);
-                return null;
-            }
-
-            var raw = await response.Content.ReadFromJsonAsync<StatusRaw>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return raw is null ? null : new SystemStatusViewModel
-            {
-                Status   = raw.Status,
-                Version  = raw.Version,
-                Language = raw.Language ?? "en",
-            };
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            // Debug level: this endpoint is polled; Engine may not be up yet.
-            _logger.LogDebug(ex, "GET /system/status failed");
-            RecordExceptionFailure(endpoint, ex, logAsWarning: false);
-            return null;
-        }
-    }
+        => await _systemClient.GetSystemStatusAsync(ct);
 
     // ── GET /collections ─────────────────────────────────────────────────────────────
 
@@ -1368,65 +1351,17 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<IReadOnlyList<ProviderCatalogueDto>> GetProviderCatalogueAsync(
         CancellationToken ct = default)
-    {
-        try
-        {
-            var raw = await _http.GetFromJsonAsync<ProviderCatalogueDto[]>("/providers/catalogue", ct);
-            return raw ?? [];
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /providers/catalogue failed");
-            LastError = ex.Message;
-            return [];
-        }
-    }
+        => await _providerClient.GetProviderCatalogueAsync(ct);
 
     public async Task<IReadOnlyList<ProviderStatusDto>> GetProviderStatusAsync(
         CancellationToken ct = default)
-    {
-        try
-        {
-            var raw = await _http.GetFromJsonAsync<ProviderStatusDto[]>("/settings/providers", ct);
-            return raw ?? [];
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /settings/providers failed");
-            LastError = ex.Message;
-            return [];
-        }
-    }
+        => await _providerClient.GetProviderStatusAsync(ct);
 
     public async Task<bool> UpdateProviderAsync(
         string            name,
         bool              enabled,
         CancellationToken ct = default)
-    {
-        try
-        {
-            var encoded = WebUtility.UrlEncode(name);
-            var body    = new { enabled };
-            var resp    = await _http.PutAsJsonAsync($"/settings/providers/{encoded}", body, ct);
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                var detail = await resp.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning(
-                    "PUT /settings/providers/{Name} returned {Status}: {Detail}",
-                    name, (int)resp.StatusCode, detail);
-                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
-            }
-
-            return resp.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PUT /settings/providers/{Name} failed", name);
-            LastError = ex.Message;
-            return false;
-        }
-    }
+        => await _providerClient.UpdateProviderAsync(name, enabled, ct);
 
     public async Task<List<ProviderHealthDto>> GetProviderHealthAsync(
         CancellationToken ct = default)
@@ -3943,60 +3878,30 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public string? LastError { get; private set; }
+    public string? LastError
+    {
+        get => _failureState.LastError;
+        private set => _failureState.SetError(value);
+    }
 
-    public int? LastStatusCode { get; private set; }
+    public int? LastStatusCode => _failureState.LastStatusCode;
 
-    public string? LastFailedEndpoint { get; private set; }
+    public string? LastFailedEndpoint => _failureState.LastFailedEndpoint;
 
-    public string? LastFailureKind { get; private set; }
+    public string? LastFailureKind => _failureState.LastFailureKind;
 
     private void ClearFailure(string endpoint)
-    {
-        if (!string.Equals(LastFailedEndpoint, endpoint, StringComparison.Ordinal))
-            return;
-
-        LastError = null;
-        LastStatusCode = null;
-        LastFailedEndpoint = null;
-        LastFailureKind = null;
-    }
+        => _failureState.Clear(endpoint);
 
     private async Task RecordHttpFailureAsync(
         string endpoint,
         HttpResponseMessage response,
         CancellationToken ct,
         bool logAsWarning = true)
-    {
-        var detail = await ReadProblemSummaryAsync(response, ct);
-        LastStatusCode = (int)response.StatusCode;
-        LastFailedEndpoint = endpoint;
-        LastFailureKind = response.StatusCode switch
-        {
-            HttpStatusCode.NotFound => "not_found",
-            HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => "unauthorized",
-            _ => "http_failure",
-        };
-        LastError = $"HTTP {(int)response.StatusCode}: {detail}";
-
-        if (logAsWarning)
-            _logger.LogWarning("{Endpoint} returned {Status}: {Detail}", endpoint, (int)response.StatusCode, detail);
-        else
-            _logger.LogDebug("{Endpoint} returned {Status}: {Detail}", endpoint, (int)response.StatusCode, detail);
-    }
+        => await _failureState.RecordHttpFailureAsync(endpoint, response, _logger, ct, logAsWarning);
 
     private void RecordExceptionFailure(string endpoint, Exception ex, bool logAsWarning = true)
-    {
-        LastStatusCode = null;
-        LastFailedEndpoint = endpoint;
-        LastFailureKind = ex is HttpRequestException ? "engine_unavailable" : "unexpected_failure";
-        LastError = ex.Message;
-
-        if (logAsWarning)
-            _logger.LogWarning(ex, "{Endpoint} failed", endpoint);
-        else
-            _logger.LogDebug(ex, "{Endpoint} failed", endpoint);
-    }
+        => _failureState.RecordExceptionFailure(endpoint, ex, _logger, logAsWarning);
 
     private static async Task<string> ReadProblemSummaryAsync(HttpResponseMessage response, CancellationToken ct)
     {

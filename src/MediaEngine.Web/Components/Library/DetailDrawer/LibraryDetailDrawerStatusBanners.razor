@@ -1,0 +1,37 @@
+@using MediaEngine.Domain.Enums
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Library.DetailDrawer
+@inject IStringLocalizer<SharedStrings> L
+
+@if (MediaItem?.LibraryDisplayStatus == LibraryStatus.NeedsReview && !string.IsNullOrEmpty(MediaItem.ReviewTrigger))
+{
+    <div class="vdd-problem-banner">
+        <div class="vdd-problem-banner-top">
+            <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 18px; color: var(--tl-status-warning); flex-shrink: 0;" />
+            <span class="vdd-problem-banner-msg">@LibraryHelpers.GetReviewTriggerLabel(MediaItem.ReviewTrigger)</span>
+        </div>
+        <p class="vdd-problem-banner-hint">You can search for a match in the Pipeline section below, or check the Details section for clues.</p>
+    </div>
+}
+
+@if (MediaItem?.LibraryDisplayStatus == LibraryStatus.WaitingForProvider)
+{
+    <div class="vdd-waiting-banner">
+        <MudIcon Icon="@Icons.Material.Outlined.Schedule" Style="font-size: 18px;" />
+        <span>
+            @if (!string.IsNullOrEmpty(MediaItem.FailedProviderName))
+            {
+                @L["VaultDetail_WaitingForProviderNamed", MediaItem.FailedProviderName]
+            }
+            else
+            {
+                @L["VaultDetail_WaitingForProvider"]
+            }
+        </span>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public LibraryItemViewModel? MediaItem { get; set; }
+}

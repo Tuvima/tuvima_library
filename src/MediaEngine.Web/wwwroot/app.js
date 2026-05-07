@@ -147,7 +147,13 @@ window.getDiscoveryHoverHost = function () {
 window.positionDiscoveryCardHover = function (cardEl) {
     if (!cardEl) return;
 
-    window.requestAnimationFrame(function () {
+    if (cardEl.__discoveryHoverFrame) {
+        cardEl.__discoveryHoverNeedsReposition = true;
+        return;
+    }
+
+    cardEl.__discoveryHoverFrame = window.requestAnimationFrame(function () {
+        cardEl.__discoveryHoverFrame = null;
         var panel = cardEl.__discoveryHoverPanel || cardEl.querySelector('.discovery-card-hover-panel');
         if (!panel) return;
 
@@ -203,6 +209,11 @@ window.positionDiscoveryCardHover = function (cardEl) {
 
         panel.style.left = panelLeft + 'px';
         panel.style.top = panelTop + 'px';
+
+        if (cardEl.__discoveryHoverNeedsReposition) {
+            cardEl.__discoveryHoverNeedsReposition = false;
+            window.positionDiscoveryCardHover(cardEl);
+        }
     });
 };
 
@@ -411,6 +422,9 @@ window.unregisterDiscoveryCardHover = function (cardEl) {
     if (cardEl.__discoveryShowTimer) {
         window.clearTimeout(cardEl.__discoveryShowTimer);
     }
+    if (cardEl.__discoveryHoverFrame) {
+        window.cancelAnimationFrame(cardEl.__discoveryHoverFrame);
+    }
 
     cardEl.__discoveryPinned = false;
     window.clearDiscoveryCardHover(cardEl);
@@ -421,6 +435,8 @@ window.unregisterDiscoveryCardHover = function (cardEl) {
     delete cardEl.__discoveryHoverHide;
     delete cardEl.__discoveryHoverKeepOpen;
     delete cardEl.__discoveryHoverReposition;
+    delete cardEl.__discoveryHoverFrame;
+    delete cardEl.__discoveryHoverNeedsReposition;
     delete cardEl.__discoveryShowTimer;
     delete cardEl.__discoveryHideTimer;
     delete cardEl.__discoveryPinned;

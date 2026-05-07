@@ -24,4 +24,30 @@
 @code {
     [Parameter] public IReadOnlyList<RelationshipGroup> Relationships { get; set; } = [];
     [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
+
+    private RenderSnapshot _lastSnapshot;
+    private bool _shouldRender = true;
+    private bool _hasRendered;
+
+    protected override void OnParametersSet()
+    {
+        var next = new RenderSnapshot(
+            Relationships.Count,
+            Groups.Count,
+            string.Join("|", Relationships.Select(static group => $"{group.Title}:{group.Items.Count}")),
+            string.Join("|", Groups.Select(static group => $"{group.Title}:{group.Items.Count}")));
+
+        _shouldRender = !_hasRendered || !_lastSnapshot.Equals(next);
+        _lastSnapshot = next;
+        _hasRendered = true;
+    }
+
+    // Avoid re-rendering the expensive relationship and children lists unless their visible groups changed.
+    protected override bool ShouldRender() => _shouldRender;
+
+    internal readonly record struct RenderSnapshot(
+        int RelationshipCount,
+        int GroupCount,
+        string RelationshipKeys,
+        string GroupKeys);
 }

@@ -9,6 +9,7 @@ using MediaEngine.Web.Services.Discovery;
 using MediaEngine.Web.Services.Playback;
 using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Web.Services.Configuration;
+using MediaEngine.Web.Services.Integration.Clients;
 using MediaEngine.Domain.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -48,6 +49,7 @@ builder.Services.Configure<RequestLocalizationOptions>(opts =>
 
 // ── MudBlazor ─────────────────────────────────────────────────────────────────
 builder.Services.AddMudServices();
+builder.Services.AddMemoryCache();
 
 // ── Theming ───────────────────────────────────────────────────────────────────
 // Singleton: dark-mode-only theme shared across all connections.
@@ -132,6 +134,31 @@ builder.Services.AddHttpClient<IEngineApiClient, EngineApiClient>(client =>
     if (!string.IsNullOrWhiteSpace(apiKey))
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
 });
+builder.Services.AddScoped<EngineApiFailureState>();
+builder.Services.AddHttpClient<SystemClient>(client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+    if (!string.IsNullOrWhiteSpace(apiKey))
+        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+});
+builder.Services.AddHttpClient<ProviderClient>(client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+    if (!string.IsNullOrWhiteSpace(apiKey))
+        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+});
+builder.Services.AddScoped<LibraryClient>();
+builder.Services.AddScoped<DisplayClient>();
+builder.Services.AddScoped<CollectionClient>();
+builder.Services.AddScoped<IngestionClient>();
+builder.Services.AddScoped<MetadataClient>();
+builder.Services.AddScoped<IdentityClient>();
+builder.Services.AddScoped<UniverseClient>();
+builder.Services.AddScoped<SettingsClient>();
+builder.Services.AddScoped<PlaybackClient>();
+builder.Services.AddScoped<PluginClient>();
+builder.Services.AddScoped<ProfileClient>();
+builder.Services.AddScoped<ActivityClient>();
 
 // Named "EngineApi" client — same base address and API key as the typed client above.
 // Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
@@ -153,6 +180,7 @@ builder.Services.AddScoped<DiscoveryComposerService>();
 builder.Services.AddScoped<WatchlistService>();
 builder.Services.AddScoped<MediaReactionService>();
 builder.Services.AddScoped<ListenPlaybackService>();
+builder.Services.AddScoped<ListenPageState>();
 builder.Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
 
 // ── Provider Catalogue (singleton = loaded once, shared across all circuits) ──

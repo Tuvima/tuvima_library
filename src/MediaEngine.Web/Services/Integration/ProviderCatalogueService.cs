@@ -1,5 +1,6 @@
 using MediaEngine.Web.Models;
 using MediaEngine.Web.Models.ViewDTOs;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -18,12 +19,15 @@ namespace MediaEngine.Web.Services.Integration;
 public sealed class ProviderCatalogueService
 {
     private readonly IEngineApiClient _api;
+    private readonly IMemoryCache _cache;
     private IReadOnlyList<ProviderCatalogueDto>? _catalogue;
     private readonly SemaphoreSlim _loadLock = new(1, 1);
+    private const string CatalogueCacheKey = "provider-catalogue:v1";
 
-    public ProviderCatalogueService(IEngineApiClient api)
+    public ProviderCatalogueService(IEngineApiClient api, IMemoryCache cache)
     {
         _api = api;
+        _cache = cache;
     }
 
     // -- Catalogue access ------------------------------------------------------
@@ -32,13 +36,33 @@ public sealed class ProviderCatalogueService
     public async Task<IReadOnlyList<ProviderCatalogueDto>> GetCatalogueAsync(
         CancellationToken ct = default)
     {
+        if (_cache.TryGetValue(CatalogueCacheKey, out IReadOnlyList<ProviderCatalogueDto>? cached) && cached is not null)
+        {
+            _catalogue = cached;
+            return cached;
+        }
+
         if (_catalogue is not null) return _catalogue;
 
         await _loadLock.WaitAsync(ct);
         try
         {
+            if (_cache.TryGetValue(CatalogueCacheKey, out cached) && cached is not null)
+            {
+                _catalogue = cached;
+                return cached;
+            }
+
             if (_catalogue is not null) return _catalogue;
             _catalogue = await _api.GetProviderCatalogueAsync(ct);
+            _cache.Set(
+                CatalogueCacheKey,
+                _catalogue,
+                new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5),
+                    Size = Math.Max(1, _catalogue.Count),
+                });
         }
         finally
         {
@@ -171,7 +195,11 @@ public sealed class ProviderCatalogueService
     }
 
     /// <summary>Invalidates the cached catalogue, forcing a reload on the next call.</summary>
-    public void Invalidate() => _catalogue = null;
+    public void Invalidate()
+    {
+        _catalogue = null;
+        _cache.Remove(CatalogueCacheKey);
+    }
 
     // -- Private helpers -------------------------------------------------------
 
@@ -181,3 +209,4 @@ public sealed class ProviderCatalogueService
         return mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase) ? "tv" : "movie";
     }
 }
+

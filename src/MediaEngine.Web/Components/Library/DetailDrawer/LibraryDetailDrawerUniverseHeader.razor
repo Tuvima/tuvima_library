@@ -1,0 +1,21 @@
+@using MediaEngine.Domain.Enums
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Library.DetailDrawer
+
+<div class="vdd-header-content">
+    <div class="vdd-universe-icon">
+        <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 48px; color: #A78BFA;" />
+    </div>
+    <div class="vdd-header-info">
+        <div class="vdd-badges">
+            <StatusPill Status="LibraryStatus.Verified" />
+        </div>
+        <h2 class="vdd-title">@Universe?.DisplayName</h2>
+        <p class="vdd-subtitle-italic">@Universe?.Description</p>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CollectionViewModel? Universe { get; set; }
+}

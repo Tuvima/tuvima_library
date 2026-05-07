@@ -151,6 +151,15 @@ public interface ICollectionRepository
     /// <summary>Returns total curated item count for a collection.</summary>
     Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default);
 
+    /// <summary>Returns curated item counts for multiple collections in one read.</summary>
+    async Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default)
+    {
+        var result = new Dictionary<Guid, int>();
+        foreach (var collectionId in collectionIds.Distinct())
+            result[collectionId] = await GetCollectionItemCountAsync(collectionId, ct);
+        return result;
+    }
+
     /// <summary>Toggles the is_enabled flag on a collection.</summary>
     Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default);
 

@@ -102,6 +102,34 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         Assert.Equal("image/jpeg", saved.SquareArtworkMimeType);
     }
 
+    [Fact]
+    public async Task GetCollectionItemCountsAsync_ReturnsCountsForMultipleCollectionsInOneCall()
+    {
+        var repo = new CollectionRepository(_db);
+        var first = CreateCollection("Road Trip Mix", "Playlist");
+        var second = CreateCollection("Night Queue", "Playlist");
+
+        await repo.UpsertAsync(first);
+        await repo.UpsertAsync(second);
+
+        var firstWorkA = Guid.NewGuid();
+        var firstWorkB = Guid.NewGuid();
+        var secondWork = Guid.NewGuid();
+        InsertWork(firstWorkA, first.Id);
+        InsertWork(firstWorkB, first.Id);
+        InsertWork(secondWork, second.Id);
+
+        await repo.AddCollectionItemAsync(CreateCollectionItem(first.Id, firstWorkA, 0));
+        await repo.AddCollectionItemAsync(CreateCollectionItem(first.Id, firstWorkB, 1));
+        await repo.AddCollectionItemAsync(CreateCollectionItem(second.Id, secondWork, 0));
+
+        var counts = await repo.GetCollectionItemCountsAsync([first.Id, second.Id, Guid.NewGuid()]);
+
+        Assert.Equal(2, counts[first.Id]);
+        Assert.Equal(1, counts[second.Id]);
+        Assert.Contains(counts, pair => pair.Value == 0);
+    }
+
     private static Collection CreateCollection(string name, string type = "Universe") => new()
     {
         Id = Guid.NewGuid(),
@@ -126,4 +154,23 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         Confidence = 1.0,
         DiscoveredAt = DateTimeOffset.UtcNow,
     };
+
+    private static CollectionItem CreateCollectionItem(Guid collectionId, Guid workId, int sortOrder) => new()
+    {
+        Id = Guid.NewGuid(),
+        CollectionId = collectionId,
+        WorkId = workId,
+        SortOrder = sortOrder,
+        AddedAt = DateTimeOffset.UtcNow,
+    };
+
+    private void InsertWork(Guid workId, Guid collectionId)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO works (id, collection_id, media_type) VALUES ($id, $collectionId, 'Music')";
+        cmd.Parameters.AddWithValue("$id", workId.ToString());
+        cmd.Parameters.AddWithValue("$collectionId", collectionId.ToString());
+        cmd.ExecuteNonQuery();
+    }
 }

@@ -886,6 +886,34 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
+    public async Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ids = collectionIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        using var conn = _db.CreateConnection();
+        var rows = await conn.QueryAsync<(string CollectionId, int Count)>(
+            """
+            SELECT collection_id AS CollectionId, COUNT(*) AS Count
+            FROM collection_items
+            WHERE collection_id IN @CollectionIds
+            GROUP BY collection_id
+            """,
+            new { CollectionIds = ids.Select(id => id.ToString()).ToArray() });
+
+        var counts = ids.ToDictionary(id => id, _ => 0);
+        foreach (var row in rows)
+        {
+            if (Guid.TryParse(row.CollectionId, out var collectionId))
+                counts[collectionId] = row.Count;
+        }
+
+        return counts;
+    }
+
+    /// <inheritdoc/>
     public async Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
