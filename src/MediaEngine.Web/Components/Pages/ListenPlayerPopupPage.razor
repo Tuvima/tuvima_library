@@ -1,20 +1,22 @@
-﻿@page "/listen/player-popup"
+@page "/listen/player-popup"
 @layout MediaEngine.Web.Shared.PopupLayout
 @using System.Globalization
 @using System.Text.Json
 @using Microsoft.JSInterop
 @using MediaEngine.Web.Services.Playback
 @inject IJSRuntime JS
-@implements IDisposable
+@inject IStringLocalizer<SharedStrings> L
+@inject ILogger<ListenPlayerPopupPage> Logger
+@implements IAsyncDisposable
 
-<PageTitle>Mini Player</PageTitle>
+<PageTitle>@L["Listen_MiniPlayerTitle"]</PageTitle>
 
 <div class="listen-popup">
     @if (CurrentItem is null)
     {
         <div class="listen-popup__empty">
             <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px; opacity: 0.34;" />
-            <p>Nothing is playing right now.</p>
+            <p>@L["Listen_NothingPlaying"]</p>
         </div>
     }
     else
@@ -40,25 +42,25 @@
             <button type="button"
                     class="listen-popup__tab @(_snapshot.ActiveTab == ListenPlaybackTabs.Queue ? "is-active" : null)"
                     @onclick="@(() => SetTabAsync(ListenPlaybackTabs.Queue))">
-                Playing Next
+                @L["Listen_PlayingNext"]
             </button>
             <button type="button"
                     class="listen-popup__tab @(_snapshot.ActiveTab == ListenPlaybackTabs.History ? "is-active" : null)"
                     @onclick="@(() => SetTabAsync(ListenPlaybackTabs.History))">
-                History
+                @L["Listen_History"]
             </button>
         </div>
 
         @if (_snapshot.ActiveTab == ListenPlaybackTabs.Queue)
         {
             <div class="listen-popup__subheader">
-                <span>Playing Next</span>
-                <button type="button" class="listen-popup__text-action" @onclick="ClearUpcomingAsync">Clear</button>
+                <span>@L["Listen_PlayingNext"]</span>
+                <button type="button" class="listen-popup__text-action" @onclick="ClearUpcomingAsync">@L["Common_Clear"]</button>
             </div>
 
             @if (UpcomingItems.Count == 0)
             {
-                <div class="listen-popup__empty-state">The queue ends with the current track.</div>
+                <div class="listen-popup__empty-state">@L["Listen_QueueEndsWithCurrent"]</div>
             }
             else
             {
@@ -95,12 +97,12 @@
         else
         {
             <div class="listen-popup__subheader">
-                <span>History</span>
+                <span>@L["Listen_History"]</span>
             </div>
 
             @if (_snapshot.History.Count == 0)
             {
-                <div class="listen-popup__empty-state">Played tracks will appear here for this session.</div>
+                <div class="listen-popup__empty-state">@L["Listen_HistoryEmpty"]</div>
             }
             else
             {
@@ -263,16 +265,29 @@
             : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 
-    private static string FormatHistoryStamp(DateTimeOffset? playedAt)
+    private string FormatHistoryStamp(DateTimeOffset? playedAt)
         => playedAt.HasValue
             ? playedAt.Value.LocalDateTime.ToString("M/d h:mm tt", CultureInfo.CurrentCulture)
-            : "Played earlier";
+            : L["Listen_PlayedEarlier"];
 
-    private static string FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
+    private string FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? L["Listen_LibraryAudio"];
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        try
+        {
+            await JS.InvokeVoidAsync("listenPlayback.unregisterStateHandler", _selfReference);
+            await JS.InvokeVoidAsync("listenPlayback.unregisterPopupWindow");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.LogDebug(ex, "Failed to unregister listen popup JavaScript handlers.");
+        }
+
         _selfReference?.Dispose();
     }
 
@@ -285,203 +300,3 @@
         public ListenQueueItem? Item { get; set; }
     }
 }
-
-<style>
-    .listen-popup {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        padding: 14px;
-        background: #1a1b20;
-        color: rgba(255, 255, 255, 0.92);
-    }
-
-    .listen-popup__header,
-    .listen-popup__row-main,
-    .listen-popup__subheader,
-    .listen-popup__controls,
-    .listen-popup__progress {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .listen-popup__thumb,
-    .listen-popup__row-thumb {
-        flex-shrink: 0;
-        overflow: hidden;
-        background: var(--tl-border-subtle);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .listen-popup__thumb {
-        width: 62px;
-        height: 62px;
-    }
-
-    .listen-popup__row-thumb {
-        width: 40px;
-        height: 40px;
-    }
-
-    .listen-popup__thumb img,
-    .listen-popup__row-thumb img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .listen-popup__copy,
-    .listen-popup__row-copy {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .listen-popup__title,
-    .listen-popup__row-title {
-        font-weight: 700;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .listen-popup__subtitle,
-    .listen-popup__row-subtitle,
-    .listen-popup__row-duration,
-    .listen-popup__progress span {
-        color: rgba(255, 255, 255, 0.62);
-        font-size: 0.84rem;
-    }
-
-    .listen-popup__tabs {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-    }
-
-    .listen-popup__tab,
-    .listen-popup__icon,
-    .listen-popup__play,
-    .listen-popup__row-action,
-    .listen-popup__text-action {
-        border: 0;
-        cursor: pointer;
-        transition: background 0.16s ease, transform 0.16s ease;
-    }
-
-    .listen-popup__tab {
-        min-height: 38px;
-        border-radius: 10px;
-        background: var(--tl-border-subtle);
-        color: rgba(255, 255, 255, 0.78);
-        font-weight: 700;
-    }
-
-    .listen-popup__tab.is-active {
-        background: rgba(0, 0, 0, 0.92);
-        color: white;
-    }
-
-    .listen-popup__subheader {
-        justify-content: space-between;
-        color: rgba(255, 255, 255, 0.76);
-        font-weight: 700;
-    }
-
-    .listen-popup__text-action {
-        background: transparent;
-        color: rgba(255, 255, 255, 0.72);
-        font-weight: 700;
-    }
-
-    .listen-popup__list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        min-height: 0;
-        max-height: 420px;
-        overflow: auto;
-    }
-
-    .listen-popup__row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 6px;
-        align-items: center;
-    }
-
-    .listen-popup__row-main {
-        width: 100%;
-        padding: 8px 6px;
-        border-radius: 10px;
-        background: transparent;
-        color: inherit;
-        text-align: left;
-    }
-
-    .listen-popup__row-main:hover,
-    .listen-popup__row-action:hover,
-    .listen-popup__tab:hover,
-    .listen-popup__icon:hover,
-    .listen-popup__play:hover {
-        transform: translateY(-1px);
-        background: var(--tl-border-subtle);
-    }
-
-    .listen-popup__row-duration {
-        margin-left: auto;
-        white-space: nowrap;
-    }
-
-    .listen-popup__row-action,
-    .listen-popup__icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 10px;
-        background: var(--tl-border-subtle);
-        color: rgba(255, 255, 255, 0.82);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .listen-popup__play {
-        width: 42px;
-        height: 42px;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #ff416c, #ff2746);
-        color: white;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .listen-popup__progress input,
-    .listen-popup__volume {
-        width: 100%;
-        accent-color: #ff476d;
-    }
-
-    .listen-popup__controls {
-        margin-top: auto;
-        justify-content: space-between;
-    }
-
-    .listen-popup__empty,
-    .listen-popup__empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        min-height: 180px;
-        color: rgba(255, 255, 255, 0.58);
-        text-align: center;
-    }
-</style>

@@ -486,6 +486,7 @@ window.listenPlayback = (function () {
     var stateHandler = null;
     var commandHandler = null;
     var popupWindow = null;
+    var popupUnloadHandler = null;
 
     function notifyState(json) {
         if (stateHandler && json) {
@@ -551,8 +552,18 @@ window.listenPlayback = (function () {
         registerStateHandler: function (dotNetRef) {
             stateHandler = dotNetRef;
         },
+        unregisterStateHandler: function (dotNetRef) {
+            if (!dotNetRef || stateHandler === dotNetRef) {
+                stateHandler = null;
+            }
+        },
         registerCommandHandler: function (dotNetRef) {
             commandHandler = dotNetRef;
+        },
+        unregisterCommandHandler: function (dotNetRef) {
+            if (!dotNetRef || commandHandler === dotNetRef) {
+                commandHandler = null;
+            }
         },
         openPopup: function (url) {
             popupWindow = window.open(
@@ -575,7 +586,11 @@ window.listenPlayback = (function () {
             popupWindow = null;
         },
         registerPopupWindow: function () {
-            window.addEventListener('beforeunload', function () {
+            if (popupUnloadHandler) {
+                window.removeEventListener('beforeunload', popupUnloadHandler);
+            }
+
+            popupUnloadHandler = function () {
                 try {
                     var json = JSON.stringify({ action: 'popup-closed' });
                     localStorage.setItem(commandKey, json);
@@ -584,7 +599,14 @@ window.listenPlayback = (function () {
                     }
                 } catch {
                 }
-            });
+            };
+
+            window.addEventListener('beforeunload', popupUnloadHandler);
+        },
+        unregisterPopupWindow: function () {
+            if (!popupUnloadHandler) return;
+            window.removeEventListener('beforeunload', popupUnloadHandler);
+            popupUnloadHandler = null;
         },
         closeOwnWindow: function () {
             window.close();

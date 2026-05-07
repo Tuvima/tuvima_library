@@ -7,7 +7,7 @@
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
 @inject ILogger<MainLayout> Logger
-@implements IDisposable
+@implements IAsyncDisposable
 
 @using MediaEngine.Web.Components.Listen
 @using MediaEngine.Web.Models.ViewDTOs
@@ -24,7 +24,7 @@
     <CommandPalette @ref="_palette" />
 }
 
-<a class="skip-to-content" href="#main-content">Skip to main content</a>
+<a class="skip-to-content" href="#main-content">@L["Layout_SkipToContent"]</a>
 
 <MudLayout Class="@LayoutShellClass">
     <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="@AppBarClass">
@@ -420,7 +420,7 @@
         });
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         DeviceContext.OnChanged -= OnDeviceContextChanged;
         Nav.LocationChanged -= OnLocationChanged;
@@ -428,7 +428,18 @@
         Orchestrator.OnProfileChanged -= OnProfileChanged;
         Orchestrator.OnEngineConnectionStateChanged -= OnEngineConnectionStateChanged;
 
-        _ = JS.InvokeVoidAsync("unregisterCtrlK");
+        try
+        {
+            await JS.InvokeVoidAsync("unregisterCtrlK");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.LogDebug(ex, "Failed to unregister Ctrl+K during layout disposal.");
+        }
+
         _dotNetRef?.Dispose();
     }
 
@@ -452,7 +463,7 @@
     private string GetEngineStatusBannerText() => Orchestrator.EngineConnectionState switch
     {
         EngineConnectionState.Offline => L["TopBar_EngineUnavailable"],
-        EngineConnectionState.Degraded => "Engine is degraded. Some screens may be incomplete.",
+        EngineConnectionState.Degraded => L["TopBar_EngineDegradedBanner"],
         EngineConnectionState.LiveUpdatesDisconnected => L["TopBar_LiveUpdatesOffline"],
         _ => _engineStatusSummary,
     };
@@ -462,7 +473,7 @@
         _engineStatusSummary = state switch
         {
             EngineConnectionState.Offline => BuildEngineStatusSummary(null),
-            EngineConnectionState.Degraded => "Engine degraded - live updates connected",
+            EngineConnectionState.Degraded => L["TopBar_EngineDegradedSummary"],
             EngineConnectionState.LiveUpdatesDisconnected => $"{L["TopBar_EngineOnline"]} - {L["TopBar_LiveUpdatesOffline"]}",
             EngineConnectionState.Online => $"{L["TopBar_EngineOnline"]} - {L["TopBar_LiveUpdatesConnected"]}",
             _ => _engineStatusSummary,

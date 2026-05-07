@@ -104,7 +104,7 @@ Coverage reports land in `tests/*/TestResults/`.
 
 These tests are intentionally about preventing regressions, not only checking one feature:
 
-- `UiCompositionGuardrailTests` prevents active Vault/LibraryPage workflows, Vault navigation labels, current Vault docs, and non-shared media editing paths from returning.
+- `UiCompositionGuardrailTests` prevents retired LibraryPage workflows, outdated navigation labels, current Dashboard docs for removed workflows, and non-shared media editing paths from returning.
 - `ArchitectureBoundaryTests` keeps Domain independent, blocks Web-to-Storage implementation coupling in active UI, flags direct SQL in Razor, and tracks endpoint files that still use direct database access.
 - `DatabaseConnectionGuardrailTests` reserves `IDatabaseConnection.Open()` for startup/schema work and keeps silent catches limited to documented legacy locations.
 - `DatabaseStartupSafetyTests` initializes temporary SQLite databases from scratch, verifies idempotent startup, checks WAL/foreign-key/integrity settings, and exercises the first previous-schema compatibility fixture.

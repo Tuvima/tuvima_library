@@ -13,6 +13,7 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<IPersonPresenceReadService, PersonPresenceReadService>();
         services.AddSingleton<IPersonWorksReadService, PersonWorksReadService>();
         services.AddSingleton<IPersonAssetScopeReadService, PersonAssetScopeReadService>();
+        services.AddSingleton<IOrphanImageReferenceReadService, OrphanImageReferenceReadService>();
         return services;
     }
 }

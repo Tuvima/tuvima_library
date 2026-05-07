@@ -1,6 +1,7 @@
 using System.Reflection;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
@@ -27,8 +28,8 @@ public static class SystemEndpoints
             var core = configLoader.LoadCore();
             return Results.Ok(new SystemStatusResponse
             {
-                Status   = "ok",
-                Version  = AppVersion,
+                Status = "ok",
+                Version = AppVersion,
                 Language = core?.Language.Metadata ?? "en",
             });
         })
@@ -40,11 +41,11 @@ public static class SystemEndpoints
         app.MapGet("/system/watcher-status", (IFileWatcher watcher) =>
             Results.Ok(new
             {
-                running         = watcher.IsRunning,
+                running = watcher.IsRunning,
                 directory_count = watcher.WatchedPaths.Count,
-                directories     = watcher.WatchedPaths,
-                event_count     = watcher.EventCount,
-                last_event_at   = watcher.LastEventAt,
+                directories = watcher.WatchedPaths,
+                event_count = watcher.EventCount,
+                last_event_at = watcher.LastEventAt,
             }))
         .WithTags("System")
         .WithName("GetWatcherStatus")
@@ -57,68 +58,23 @@ public static class SystemEndpoints
         // at any time — best-effort, never throws on individual directory failures.
         app.MapPost("/maintenance/sweep-orphan-images", async (
             ImagePathService imagePaths,
-            IDatabaseConnection db,
+            IOrphanImageReferenceReadService references,
             CancellationToken ct) =>
         {
             var imagesRoot = imagePaths.ImagesRoot;
             if (!Directory.Exists(imagesRoot))
+            {
                 return Results.Ok(new { cleaned = 0, message = ".images/ directory does not exist — nothing to sweep." });
+            }
 
             int cleaned = 0;
 
             // ── Collect known QIDs and work IDs from the database ─────────────
-            var knownWorkQids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var knownWorkId12 = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var knownPersonQids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var knownUniverseQids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            OrphanImageReferenceSet known;
 
             try
             {
-                using var conn = db.CreateConnection();
-
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = "SELECT DISTINCT wikidata_qid FROM works WHERE wikidata_qid IS NOT NULL";
-                    using var r = cmd.ExecuteReader();
-                    while (r.Read()) knownWorkQids.Add(r.GetString(0));
-                }
-
-                using (var cmd = conn.CreateCommand())
-                {
-                    // Provisional slot uses first 12 hex chars of any media_asset id linked to the work
-                    cmd.CommandText = """
-                        SELECT DISTINCT LOWER(SUBSTR(REPLACE(ma.id, '-', ''), 1, 12))
-                        FROM media_assets ma
-                        INNER JOIN editions e ON e.id = ma.edition_id
-                        INNER JOIN works w ON w.id = e.work_id
-                        WHERE w.wikidata_qid IS NULL
-                        """;
-                    using var r = cmd.ExecuteReader();
-                    while (r.Read()) knownWorkId12.Add(r.GetString(0));
-                }
-
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = "SELECT DISTINCT wikidata_qid FROM persons WHERE wikidata_qid IS NOT NULL";
-                    using var r = cmd.ExecuteReader();
-                    while (r.Read()) knownPersonQids.Add(r.GetString(0));
-                }
-
-                // Universe images use the QID of the parent collection (franchise-level collection)
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = """
-                        SELECT DISTINCT wikidata_qid FROM collections
-                        WHERE wikidata_qid IS NOT NULL AND parent_collection_id IS NOT NULL
-                        UNION
-                        SELECT DISTINCT wikidata_qid FROM collections
-                        WHERE wikidata_qid IS NOT NULL AND id IN (
-                            SELECT DISTINCT parent_collection_id FROM collections WHERE parent_collection_id IS NOT NULL
-                        )
-                        """;
-                    using var r = cmd.ExecuteReader();
-                    while (r.Read()) knownUniverseQids.Add(r.GetString(0));
-                }
+                known = await references.GetKnownReferencesAsync(ct);
             }
             catch (Exception ex)
             {
@@ -136,9 +92,11 @@ public static class SystemEndpoints
                     ct.ThrowIfCancellationRequested();
                     var name = Path.GetFileName(dir);
                     if (string.Equals(name, "_pending", StringComparison.OrdinalIgnoreCase))
+                    {
                         continue; // handled separately below
+                    }
 
-                    if (!knownWorkQids.Contains(name))
+                    if (!known.KnownWorkQids.Contains(name))
                     {
                         try { Directory.Delete(dir, recursive: true); cleaned++; }
                         catch { /* best-effort */ }
@@ -153,7 +111,7 @@ public static class SystemEndpoints
                     {
                         ct.ThrowIfCancellationRequested();
                         var name = Path.GetFileName(dir);
-                        if (!knownWorkId12.Contains(name))
+                        if (!known.KnownWorkId12.Contains(name))
                         {
                             try { Directory.Delete(dir, recursive: true); cleaned++; }
                             catch { /* best-effort */ }
@@ -170,7 +128,7 @@ public static class SystemEndpoints
                 {
                     ct.ThrowIfCancellationRequested();
                     var name = Path.GetFileName(dir);
-                    if (!knownPersonQids.Contains(name))
+                    if (!known.KnownPersonQids.Contains(name))
                     {
                         try { Directory.Delete(dir, recursive: true); cleaned++; }
                         catch { /* best-effort */ }
@@ -186,7 +144,7 @@ public static class SystemEndpoints
                 {
                     ct.ThrowIfCancellationRequested();
                     var name = Path.GetFileName(dir);
-                    if (!knownUniverseQids.Contains(name))
+                    if (!known.KnownUniverseQids.Contains(name))
                     {
                         try { Directory.Delete(dir, recursive: true); cleaned++; }
                         catch { /* best-effort */ }

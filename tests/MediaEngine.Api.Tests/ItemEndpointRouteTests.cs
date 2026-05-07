@@ -44,6 +44,7 @@ public sealed class ItemEndpointRouteTests
             $"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}",
             $"{Path.DirectorySeparatorChar}.claude{Path.DirectorySeparatorChar}",
             $"{Path.DirectorySeparatorChar}.tmp{Path.DirectorySeparatorChar}",
+            $"{Path.DirectorySeparatorChar}TestResults{Path.DirectorySeparatorChar}",
             $"{Path.DirectorySeparatorChar}wwwroot{Path.DirectorySeparatorChar}lib{Path.DirectorySeparatorChar}",
         };
         var textExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

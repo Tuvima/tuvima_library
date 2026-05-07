@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Listen
+@namespace MediaEngine.Web.Components.Listen
 @using System.Globalization
 @using System.Text.Json
 @using System.Text.RegularExpressions
@@ -8,7 +8,8 @@
 @inject ListenPlaybackService Playback
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
-@implements IDisposable
+@inject ILogger<ListenNowPlayingBar> Logger
+@implements IAsyncDisposable
 
 @if (Playback.HasQueue && Playback.CurrentItem is not null)
 {
@@ -650,9 +651,22 @@
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         Playback.OnChanged -= HandlePlaybackChanged;
+
+        try
+        {
+            await JS.InvokeVoidAsync("listenPlayback.unregisterCommandHandler", _selfReference);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.LogDebug(ex, "Failed to unregister listen playback command handler.");
+        }
+
         _selfReference?.Dispose();
     }
 

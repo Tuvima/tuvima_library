@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
@@ -1355,6 +1355,43 @@
   </data>
   <data name="Universe_GuideFilterOrgs" xml:space="preserve">
     <value>Organisations</value>
+  </data>
+  <!-- Wave 6 hardening -->
+  <data name="Layout_SkipToContent" xml:space="preserve">
+    <value>Skip to main content</value>
+  </data>
+  <data name="TopBar_EngineDegradedBanner" xml:space="preserve">
+    <value>Engine is degraded. Some screens may be incomplete.</value>
+  </data>
+  <data name="TopBar_EngineDegradedSummary" xml:space="preserve">
+    <value>Engine degraded - live updates connected</value>
+  </data>
+  <data name="Listen_MiniPlayerTitle" xml:space="preserve">
+    <value>Mini Player</value>
+  </data>
+  <data name="Listen_NothingPlaying" xml:space="preserve">
+    <value>Nothing is playing right now.</value>
+  </data>
+  <data name="Listen_PlayingNext" xml:space="preserve">
+    <value>Playing Next</value>
+  </data>
+  <data name="Listen_History" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="Common_Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Listen_QueueEndsWithCurrent" xml:space="preserve">
+    <value>The queue ends with the current track.</value>
+  </data>
+  <data name="Listen_HistoryEmpty" xml:space="preserve">
+    <value>Played tracks will appear here for this session.</value>
+  </data>
+  <data name="Listen_PlayedEarlier" xml:space="preserve">
+    <value>Played earlier</value>
+  </data>
+  <data name="Listen_LibraryAudio" xml:space="preserve">
+    <value>Library audio</value>
   </data>
 </root>
 

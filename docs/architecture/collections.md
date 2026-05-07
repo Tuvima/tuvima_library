@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Universal Parameterized Collection System"
 summary: "Architecture of the universal collection model â€” every collection is a parameterized query container with normalized filter predicates."
 audience: "developer"
@@ -410,7 +410,7 @@ Each placement record contains:
 | Field | Description |
 |-------|-------------|
 | `collection_id` | Which collection |
-| `location` | Where it appears (e.g. `home`, `media_lane_books`, `vault_tv`, `my_library`, `collections_page`) |
+| `location` | Where it appears (e.g. `home`, `media_lane_books`, `read_lane_books`, `my_library`, `collections_page`) |
 | `display_limit` | Maximum items to show at this location (e.g. 10 for a home swimlane, null for full detail) |
 | `sort_override` | Optional sort that overrides the collection's default for this location |
 | `position` | Display order within the location |
@@ -423,7 +423,7 @@ Each placement record contains:
 | `media_lane_{type}` | Category browsing (e.g. `/books`) | Smart (filtered to media type) |
 | `my_library` | Personal collections | System, Playlist |
 | `collections_page` | Collections page (`/collections`) | All types |
-| `vault_{type}` | browse container views | ContentGroup (filtered to media type) |
+| `read_lane_books`, `watch_lane_video`, `listen_lane_audio` | media lane browse surfaces | ContentGroup (filtered to media type) |
 
 This model replaces hardcoded rules about where each collection type appears. Adding a new location or changing which collections appear where is a data change, not a code change.
 

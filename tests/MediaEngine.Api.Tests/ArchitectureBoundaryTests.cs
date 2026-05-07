@@ -63,6 +63,32 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void ApiEndpointFiles_OutsideLegacyAllowlist_DoNotContainDirectSql()
+    {
+        var repoRoot = FindRepoRoot();
+        var endpointRoot = Path.Combine(repoRoot, "src", "MediaEngine.Api", "Endpoints");
+        var offenders = Directory.EnumerateFiles(endpointRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !EndpointDatabaseAccessAllowlist.Contains(
+                Path.GetRelativePath(repoRoot, path).Replace('\\', '/'),
+                StringComparer.OrdinalIgnoreCase))
+            .Select(path => new { Path = path, Text = File.ReadAllText(path) })
+            .Where(file => ContainsDirectSql(file.Text))
+            .Select(file => Path.GetRelativePath(repoRoot, file.Path))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void LegacyEndpointDatabaseAllowlist_DoesNotIncludeMigratedFiles()
+    {
+        Assert.DoesNotContain(
+            "src/MediaEngine.Api/Endpoints/SystemEndpoints.cs",
+            EndpointDatabaseAccessAllowlist,
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void PhaseOneEndpointFiles_DoNotContainDirectSql()
     {
         var repoRoot = FindRepoRoot();
@@ -75,8 +101,7 @@ public sealed class ArchitectureBoundaryTests
 
         var offenders = endpointFiles
             .Select(path => new { Path = path, Text = File.ReadAllText(path) })
-            .Where(file => DirectSqlPatterns.Any(pattern =>
-                file.Text.Contains(pattern, StringComparison.OrdinalIgnoreCase)))
+            .Where(file => ContainsDirectSql(file.Text))
             .Select(file => Path.GetRelativePath(repoRoot, file.Path))
             .ToList();
 
@@ -100,7 +125,9 @@ public sealed class ArchitectureBoundaryTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MediaEngine.slnx")))
+        {
             dir = dir.Parent;
+        }
 
         return dir?.FullName ?? throw new InvalidOperationException("Could not locate repository root.");
     }
@@ -116,19 +143,39 @@ public sealed class ArchitectureBoundaryTests
         "MediaEngine.AI",
     ];
 
-    private static readonly string[] DirectSqlPatterns =
-    [
-        "CreateCommand(",
-        "CommandText",
-        "SELECT ",
-        "INSERT ",
-        "UPDATE ",
-        "DELETE ",
-    ];
+    private static bool ContainsDirectSql(string text)
+    {
+        foreach (var rawLine in text.Split('\n'))
+        {
+            var line = rawLine.TrimStart();
+            if (line.StartsWith("//", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (line.Contains(".WithSummary(", StringComparison.Ordinal)
+                || line.Contains(".WithDescription(", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (line.Contains("CreateCommand(", StringComparison.Ordinal)
+                || line.Contains("CommandText", StringComparison.Ordinal)
+                || DirectSqlStatementRegex.IsMatch(line))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex DirectSqlStatementRegex =
+        new(@"\b(SELECT|INSERT|UPDATE|DELETE)\s+", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
 
     private static readonly string[] EndpointDatabaseAccessAllowlist =
     [
-        // TODO Phase 5: move these SQL-heavy request handlers behind read services/repositories.
+        // TODO Wave 7+: legacy endpoint SQL debt. Keep this list shrinking; do not add new files.
         "src/MediaEngine.Api/Endpoints/CharacterEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/CollectionEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs",
@@ -139,7 +186,6 @@ public sealed class ArchitectureBoundaryTests
         "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs",
         "src/MediaEngine.Api/Endpoints/PersonEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/ProfileEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/SystemEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/UniverseGraphEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/WorkEndpoints.cs",
     ];

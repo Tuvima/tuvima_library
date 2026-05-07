@@ -501,7 +501,7 @@ Two AI assistants work on this repository:
 
 `CLAUDE.md` is the canonical source. The `.agent/` directory contains supplementary files that must stay in sync. `.agent/SYNC-MAP.md` contains the reverse mapping from `.agent/` files to `CLAUDE.md` sections.
 
-> **Known drift (as of 2026-04-22):** The `.agent/` files reference a "Library Vault" page concept and section numbers that no longer align with this CLAUDE.md. The Vault has been **deprecated** (see §3.12). When updating `.agent/` files in a future sync, reconcile them with the current surface-per-concern layout — `LibraryBrowsePage`, `ReadPage`, `WatchPage`, `ListenPage`, `Collections`, and Settings (with the review queue at `/settings/review`).
+> **Naming note:** Older `.agent/` notes may still mention the retired Library Vault concept as historical context. Current work uses the surface-per-concern layout: `LibraryBrowsePage`, `ReadPage`, `WatchPage`, `ListenPage`, `Collections`, and Settings (with the review queue at `/settings/review`). Do not add new Vault routes, components, docs, or navigation.
 
 ### 5.4 — Documentation Upkeep (Diátaxis)
 
