@@ -1,0 +1,112 @@
+@namespace MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Resources
+@inject IStringLocalizer<SharedStrings> L
+
+<div class="@RootClass" role="alert">
+    <MudIcon Icon="@ResolvedIcon" Class="app-error-state__icon" />
+    <div class="app-error-state__copy">
+        <h3>@ResolvedTitle</h3>
+        <p>@ResolvedMessage</p>
+        @if (!string.IsNullOrWhiteSpace(Details))
+        {
+            <p class="app-error-state__details">@Details</p>
+        }
+    </div>
+    @if (Retry.HasDelegate)
+    {
+        <MudButton Variant="Variant.Outlined"
+                   Size="@(Compact ? Size.Small : Size.Medium)"
+                   StartIcon="@Icons.Material.Outlined.Refresh"
+                   OnClick="Retry"
+                   Class="app-error-state__retry">
+            @RetryLabel
+        </MudButton>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string? Details { get; set; }
+    [Parameter] public EventCallback Retry { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string? Icon { get; set; }
+
+    private string ResolvedTitle => string.IsNullOrWhiteSpace(Title)
+        ? L["Error"].Value
+        : Title;
+
+    private string ResolvedMessage => string.IsNullOrWhiteSpace(Message)
+        ? L["Try again"].Value
+        : Message;
+
+    private string RetryLabel => L["Retry"].Value;
+
+    private string ResolvedIcon => string.IsNullOrWhiteSpace(Icon)
+        ? Icons.Material.Outlined.ErrorOutline
+        : Icon;
+
+    private string RootClass => Compact
+        ? "app-error-state app-error-state--compact"
+        : "app-error-state";
+}
+
+<style>
+    .app-error-state {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 24px;
+        border: 1px solid var(--tl-border-subtle);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.035);
+        color: var(--tl-text-primary);
+    }
+
+    .app-error-state--compact {
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+    }
+
+    .app-error-state__icon {
+        color: var(--tl-status-warning);
+        font-size: 28px;
+        flex: 0 0 auto;
+    }
+
+    .app-error-state__copy {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .app-error-state__copy h3 {
+        margin: 0 0 4px;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--tl-text-primary);
+    }
+
+    .app-error-state__copy p {
+        margin: 0;
+        font-size: 0.88rem;
+        color: var(--tl-text-muted);
+        line-height: 1.45;
+    }
+
+    .app-error-state__details {
+        margin-top: 8px !important;
+        color: var(--tl-text-faint) !important;
+        font-size: 0.78rem !important;
+    }
+
+    .app-error-state__retry {
+        flex: 0 0 auto;
+    }
+
+    @@media (max-width: 640px) {
+        .app-error-state {
+            flex-direction: column;
+        }
+    }
+</style>

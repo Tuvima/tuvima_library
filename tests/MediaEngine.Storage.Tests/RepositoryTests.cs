@@ -456,6 +456,63 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task IdentityJob_ScheduleRetryAsync_DelaysLeaseAndIncrementsAttempts()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var job = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = IdentityJobState.Queued.ToString(),
+        };
+        await repo.CreateAsync(job);
+
+        var leased = await repo.LeaseNextAsync("test-worker", [IdentityJobState.Queued], 1, TimeSpan.FromMinutes(10));
+        Assert.Single(leased);
+
+        await repo.ScheduleRetryAsync(job.Id, IdentityJobState.Queued, DateTimeOffset.UtcNow.AddMinutes(10), "locked", CancellationToken.None);
+
+        var retrying = await repo.GetByIdAsync(job.Id);
+        Assert.NotNull(retrying);
+        Assert.Equal(1, retrying!.AttemptCount);
+        Assert.Equal("locked", retrying.LastError);
+        Assert.NotNull(retrying.NextRetryAt);
+        Assert.Null(retrying.LeaseOwner);
+
+        var notEligible = await repo.LeaseNextAsync("test-worker-2", [IdentityJobState.Queued], 1, TimeSpan.FromMinutes(10));
+        Assert.Empty(notEligible);
+    }
+
+    [Fact]
+    public async Task IdentityJob_MarkDeadLetteredAsync_UsesTerminalFailedState()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var job = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = IdentityJobState.Queued.ToString(),
+        };
+        await repo.CreateAsync(job);
+
+        await repo.MarkDeadLetteredAsync(job.Id, "poison data", CancellationToken.None);
+
+        var failed = await repo.GetByIdAsync(job.Id);
+        Assert.NotNull(failed);
+        Assert.Equal(IdentityJobState.Failed.ToString(), failed!.State);
+        Assert.Equal("poison data", failed.LastError);
+
+        var leased = await repo.LeaseNextAsync("test-worker", [IdentityJobState.Queued], 1, TimeSpan.FromMinutes(10));
+        Assert.Empty(leased);
+    }
+
+    [Fact]
     public async Task ApiKey_InsertAndFindByHash()
     {
         var repo = new ApiKeyRepository(_db);

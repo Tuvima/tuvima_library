@@ -19,7 +19,15 @@
                        Style="position:absolute;top:24px;right:24px;color:var(--tl-text-muted);"
                        OnClick="OnClose" />
 
-        @if (MediaItem is not null)
+        @if (!string.IsNullOrWhiteSpace(_loadError))
+        {
+            <AppErrorState Title="Details failed to load"
+                           Message="The Dashboard could not load all details for this item."
+                           Details="@_loadError"
+                           Retry="OnParametersSetAsync"
+                           Compact="true" />
+        }
+        else if (MediaItem is not null)
         {
             @* -- Media Header -- *@
             <div class="vdd-header-content">
@@ -102,7 +110,7 @@
                     <div class="vdd-badges">
                         @foreach (var role in Person.Roles)
                         {
-                            <span class="vdd-role-chip">@role.ToUpperInvariant()</span>
+                            <span class="vdd-role-chip" @key="role">@role.ToUpperInvariant()</span>
                         }
                         @if (!string.IsNullOrEmpty(Person.WikidataQid))
                         {
@@ -214,7 +222,7 @@
                          Class="vdd-details-tabs">
                     @foreach (var tab in DetailTabs)
                     {
-                        <MudTabPanel Text="@tab.Label" />
+                        <MudTabPanel @key="tab.Label" Text="@tab.Label" />
                     }
                 </MudTabs>
 
@@ -224,7 +232,7 @@
                         <div class="vdd-metadata-list">
                             @foreach (var (label, val) in GetCurrentMetadataRows())
                             {
-                                <div class="vdd-claim-row">
+                                <div class="vdd-claim-row" @key="label">
                                     <span class="vdd-field-label">@label</span>
                                     <span class="vdd-field-value">@val</span>
                                 </div>
@@ -262,7 +270,7 @@
                                     @foreach (var group in fileClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
                                     {
                                         var bestClaim = group.OrderByDescending(c => c.Confidence).First();
-                                        <div class="vdd-claim-row">
+                                        <div class="vdd-claim-row" @key="group.Key">
                                             <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
                                             <span class="vdd-field-value">@bestClaim.ClaimValue</span>
                                         </div>
@@ -1292,6 +1300,7 @@
     private readonly Dictionary<string, HashSet<string>> _selectedSuggestedFieldKeys = new(StringComparer.OrdinalIgnoreCase);
     private List<ClaimHistoryDto> _claims = [];
     private bool _claimsLoading;
+    private string? _loadError;
 
     private void OnSearchTypeChanged(ChangeEventArgs e)
     {
@@ -1407,6 +1416,7 @@
         _selectedSuggestedFieldKeys.Clear();
         _claims = [];
         _claimsLoading = false;
+        _loadError = null;
         _universeHealth = null;
         _universeCharacters = [];
         _personCharacterRoles = [];
@@ -1417,6 +1427,8 @@
             _claimsLoading = true;
             StateHasChanged();
             _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
+            if (_claims.Count == 0 && !string.IsNullOrWhiteSpace(ApiClient.LastError))
+                _loadError = ApiClient.LastError;
             _claimsLoading = false;
             _searchFilters = [];
             switch (MediaItem.MediaType)
@@ -1489,6 +1501,8 @@
             _personCharacterRoles = await rolesTask;
             _personDetail = await detailTask;
             _personCredits = await creditsTask;
+            if ((_personDetail is null || _personCredits is null or { Count: 0 }) && !string.IsNullOrWhiteSpace(ApiClient.LastError))
+                _loadError = ApiClient.LastError;
         }
         else if (Universe is not null && !string.IsNullOrWhiteSpace(Universe.FictionalUniverseQid))
         {
@@ -1500,6 +1514,8 @@
             await Task.WhenAll(healthTask, charactersTask);
             _universeHealth     = await healthTask;
             _universeCharacters = await charactersTask;
+            if (_universeHealth is null && !string.IsNullOrWhiteSpace(ApiClient.LastError))
+                _loadError = ApiClient.LastError;
             _loadingUniverseData = false;
         }
     }

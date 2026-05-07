@@ -1,4 +1,5 @@
 ﻿using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Realtime;
@@ -109,6 +110,14 @@ builder.Services.AddDataProtection();
 builder.Services.AddSingleton<ISecretStore, DataProtectionSecretStore>();
 
 // -- OpenAPI / Swagger ---------------------------------------------------------
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+    };
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -851,6 +860,32 @@ catch (Exception ex)
 }
 
 // -- Middleware pipeline -------------------------------------------------------
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<IExceptionHandlerFeature>();
+        var traceId = context.TraceIdentifier;
+        var isDevelopment = app.Environment.IsDevelopment();
+        var problem = new Microsoft.AspNetCore.Mvc.ProblemDetails
+        {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = "The Engine hit an unexpected error.",
+            Detail = isDevelopment
+                ? feature?.Error.Message
+                : "The request failed. Check Engine logs with the trace id for details.",
+            Instance = context.Request.Path,
+        };
+        problem.Extensions["traceId"] = traceId;
+
+        app.Logger.LogError(feature?.Error, "Unhandled API exception for {Path} (trace {TraceId})",
+            context.Request.Path, traceId);
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(problem);
+    });
+});
 app.UseCors("BlazorWasm");
 app.UseMiddleware<ApiKeyMiddleware>();
 app.UseRateLimiter();
@@ -875,4 +910,5 @@ app.MapDevelopmentEngineEndpoints();
 }
 
 app.Run();
+
 

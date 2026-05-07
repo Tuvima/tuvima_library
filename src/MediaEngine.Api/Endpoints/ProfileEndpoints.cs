@@ -732,8 +732,14 @@ public static class ProfileEndpoints
 
         using var surface = SKSurface.Create(new SKImageInfo(512, 512, SKColorType.Rgba8888, SKAlphaType.Premul));
         surface.Canvas.Clear(SKColors.Transparent);
-        using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High };
-        surface.Canvas.DrawBitmap(bitmap, source, destination, paint);
+        using var paint = new SKPaint { IsAntialias = true };
+        using var imageSource = SKImage.FromBitmap(bitmap);
+        surface.Canvas.DrawImage(
+            imageSource,
+            new SKRect(source.Left, source.Top, source.Right, source.Bottom),
+            destination,
+            new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
+            paint);
 
         using var image = surface.Snapshot();
         using var data = image.Encode(GetAvatarEncodeFormat(extension), 92);

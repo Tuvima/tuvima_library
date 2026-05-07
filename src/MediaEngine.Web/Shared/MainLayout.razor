@@ -39,6 +39,7 @@
                 @foreach (var link in _navLinks)
                 {
                     <a href="@link.Path"
+                       @key="link.Path"
                        class="@GetNavLinkClass(link.Path)"
                        aria-current="@(IsNavActive(link.Path) ? "page" : null)">
                         <span class="layout-shell__nav-link-label" style="@NavLabelStyle">
@@ -130,6 +131,7 @@
                         @foreach (var profile in _profiles)
                         {
                             <MudMenuItem Icon="@(profile.Id == _activeProfileId ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Person)"
+                                         @key="profile.Id"
                                          OnClick="@(() => SwitchProfileAsync(profile.Id))">
                                 @profile.DisplayName
                             </MudMenuItem>
@@ -148,6 +150,14 @@
             </MudMenu>
         </MudStack>
     </MudAppBar>
+
+    @if (ShouldShowEngineStatusBanner)
+    {
+        <div class="layout-shell__engine-banner">
+            <MudIcon Icon="@GetEngineStatusIcon()" Size="Size.Small" />
+            <span>@GetEngineStatusBannerText()</span>
+        </div>
+    }
 
     <MudMainContent Class="@MainContentClass">
         <MudContainer MaxWidth="MaxWidth.False" Class="@MainContainerClass">
@@ -197,6 +207,7 @@
     {
         DeviceContext.OnChanged += OnDeviceContextChanged;
         Nav.LocationChanged += OnLocationChanged;
+        Orchestrator.OnEngineConnectionStateChanged += OnEngineConnectionStateChanged;
         SyncLocationState();
     }
 
@@ -413,6 +424,7 @@
         Nav.LocationChanged -= OnLocationChanged;
         Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
         Orchestrator.OnProfileChanged -= OnProfileChanged;
+        Orchestrator.OnEngineConnectionStateChanged -= OnEngineConnectionStateChanged;
 
         _ = JS.InvokeVoidAsync("unregisterCtrlK");
         _dotNetRef?.Dispose();
@@ -428,6 +440,32 @@
             : L["TopBar_LiveUpdatesOffline"];
 
         return $"{engineLabel} - {liveUpdatesLabel}";
+    }
+
+    private bool ShouldShowEngineStatusBanner =>
+        Orchestrator.EngineConnectionState is EngineConnectionState.Offline
+            or EngineConnectionState.Degraded
+            or EngineConnectionState.LiveUpdatesDisconnected;
+
+    private string GetEngineStatusBannerText() => Orchestrator.EngineConnectionState switch
+    {
+        EngineConnectionState.Offline => L["TopBar_EngineUnavailable"],
+        EngineConnectionState.Degraded => "Engine is degraded. Some screens may be incomplete.",
+        EngineConnectionState.LiveUpdatesDisconnected => L["TopBar_LiveUpdatesOffline"],
+        _ => _engineStatusSummary,
+    };
+
+    private void OnEngineConnectionStateChanged(EngineConnectionState state)
+    {
+        _engineStatusSummary = state switch
+        {
+            EngineConnectionState.Offline => BuildEngineStatusSummary(null),
+            EngineConnectionState.Degraded => "Engine degraded - live updates connected",
+            EngineConnectionState.LiveUpdatesDisconnected => $"{L["TopBar_EngineOnline"]} - {L["TopBar_LiveUpdatesOffline"]}",
+            EngineConnectionState.Online => $"{L["TopBar_EngineOnline"]} - {L["TopBar_LiveUpdatesConnected"]}",
+            _ => _engineStatusSummary,
+        };
+        InvokeAsync(StateHasChanged);
     }
 
     private Color GetEngineStatusColor() =>
@@ -517,5 +555,23 @@
 
     .discovery-hover-host > .discovery-card-hover-panel {
         pointer-events: auto;
+    }
+
+    .layout-shell__engine-banner {
+        position: fixed;
+        top: 56px;
+        left: 0;
+        right: 0;
+        z-index: 1100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 32px;
+        padding: 6px 16px;
+        border-bottom: 1px solid rgba(255, 190, 92, 0.24);
+        background: rgba(60, 42, 14, 0.92);
+        color: var(--tl-text-primary);
+        font-size: 0.82rem;
     }
 </style>

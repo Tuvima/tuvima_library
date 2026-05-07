@@ -176,7 +176,12 @@ public sealed class RetailMatchWorker
             {
                 _logger.LogError(ex, "RetailMatchWorker failed for job {JobId} (entity {EntityId})",
                     job.Id, job.EntityId);
-                await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, ex.Message, ct);
+                await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                    _jobRepo,
+                    job,
+                    IdentityJobState.Queued,
+                    ex,
+                    ct);
             }
         }
 
@@ -260,7 +265,12 @@ public sealed class RetailMatchWorker
                     {
                         _logger.LogError(innerEx,
                             "RetailMatchWorker per-track fallback failed for {EntityId}", job.EntityId);
-                        await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, innerEx.Message, ct);
+                        await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                            _jobRepo,
+                            job,
+                            IdentityJobState.Queued,
+                            innerEx,
+                            ct);
                     }
                 }
             }

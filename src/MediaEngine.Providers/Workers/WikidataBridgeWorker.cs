@@ -379,8 +379,12 @@ public sealed class WikidataBridgeWorker
                     var resetState = Enum.TryParse<IdentityJobState>(job.State, true, out var s)
                         ? s
                         : IdentityJobState.RetailMatched;
-                    await _jobRepo.UpdateStateAsync(job.Id, resetState,
-                        $"Batch error (will retry): {ex.Message}", ct);
+                    await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                        _jobRepo,
+                        job,
+                        resetState,
+                        ex,
+                        ct);
                 }
                 catch (Exception resetEx)
                 {

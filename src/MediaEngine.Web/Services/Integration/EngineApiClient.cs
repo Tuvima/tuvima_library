@@ -39,15 +39,26 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", CancellationToken ct = default)
     {
+        var endpoint = $"GET /playback/{assetId}/manifest";
         try
         {
             var encodedClient = Uri.EscapeDataString(string.IsNullOrWhiteSpace(client) ? "web" : client);
-            return await _http.GetFromJsonAsync<PlaybackManifestDto>($"/playback/{assetId}/manifest?client={encodedClient}", ct);
+            var response = await _http.GetAsync($"/playback/{assetId}/manifest?client={encodedClient}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var manifest = await response.Content.ReadFromJsonAsync<PlaybackManifestDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return manifest;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /playback/{AssetId}/manifest failed", assetId);
+            RecordExceptionFailure(endpoint, ex);
             return null;
         }
     }
@@ -3506,10 +3517,17 @@ public sealed class EngineApiClient : IEngineApiClient
     public async Task<LibraryItemDetailViewModel?> GetLibraryItemDetailAsync(
         Guid entityId, CancellationToken ct = default)
     {
+        var endpoint = $"GET /library/items/{entityId}/detail";
         try
         {
-            var detail = await _http.GetFromJsonAsync<LibraryItemDetailViewModel>(
-                $"/library/items/{entityId}/detail", ct);
+            var response = await _http.GetAsync($"/library/items/{entityId}/detail", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var detail = await response.Content.ReadFromJsonAsync<LibraryItemDetailViewModel>(cancellationToken: ct);
             if (detail?.CoverUrl is not null)
                 detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
             if (detail?.BackgroundUrl is not null)
@@ -3518,13 +3536,14 @@ public sealed class EngineApiClient : IEngineApiClient
                 detail.BannerUrl = AbsoluteUrl(detail.BannerUrl);
             if (detail?.HeroUrl is not null)
                 detail.HeroUrl = AbsoluteUrl(detail.HeroUrl);
+            ClearFailure(endpoint);
             return detail;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /library/items/{EntityId}/detail failed", entityId);
-            LastError = ex.Message;
+            RecordExceptionFailure(endpoint, ex);
             return null;
         }
     }
@@ -3949,7 +3968,7 @@ public sealed class EngineApiClient : IEngineApiClient
         CancellationToken ct,
         bool logAsWarning = true)
     {
-        var detail = await response.Content.ReadAsStringAsync(ct);
+        var detail = await ReadProblemSummaryAsync(response, ct);
         LastStatusCode = (int)response.StatusCode;
         LastFailedEndpoint = endpoint;
         LastFailureKind = response.StatusCode switch
@@ -3978,6 +3997,41 @@ public sealed class EngineApiClient : IEngineApiClient
         else
             _logger.LogDebug(ex, "{Endpoint} failed", endpoint);
     }
+
+    private static async Task<string> ReadProblemSummaryAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        var raw = await response.Content.ReadAsStringAsync(ct);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return response.ReasonPhrase ?? "Request failed";
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return raw;
+            }
+
+            var title = TryGetString(doc.RootElement, "title");
+            var detail = TryGetString(doc.RootElement, "detail");
+            var traceId = TryGetString(doc.RootElement, "traceId") ?? TryGetString(doc.RootElement, "trace_id");
+            var parts = new[] { title, detail, string.IsNullOrWhiteSpace(traceId) ? null : $"Trace: {traceId}" }
+                .Where(static part => !string.IsNullOrWhiteSpace(part));
+            var summary = string.Join(" ", parts);
+            return string.IsNullOrWhiteSpace(summary) ? raw : summary;
+        }
+        catch (JsonException)
+        {
+            return raw;
+        }
+    }
+
+    private static string? TryGetString(JsonElement element, string propertyName)
+        => element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
 
     // ── Private mapping ───────────────────────────────────────────────────────
 
@@ -4504,20 +4558,59 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<EpubBookMetadataDto?> GetBookMetadataAsync(Guid assetId, CancellationToken ct = default)
     {
-        try { return await _http.GetFromJsonAsync<EpubBookMetadataDto>($"read/{assetId}/metadata", ct); }
-        catch (Exception ex) { LastError = ex.Message; return null; }
+        var endpoint = $"GET /read/{assetId}/metadata";
+        try
+        {
+            var response = await _http.GetAsync($"read/{assetId}/metadata", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var metadata = await response.Content.ReadFromJsonAsync<EpubBookMetadataDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return metadata;
+        }
+        catch (Exception ex) { RecordExceptionFailure(endpoint, ex); return null; }
     }
 
     public async Task<List<EpubTocEntryDto>> GetTableOfContentsAsync(Guid assetId, CancellationToken ct = default)
     {
-        try { return await _http.GetFromJsonAsync<List<EpubTocEntryDto>>($"read/{assetId}/toc", ct) ?? []; }
-        catch (Exception ex) { LastError = ex.Message; return []; }
+        var endpoint = $"GET /read/{assetId}/toc";
+        try
+        {
+            var response = await _http.GetAsync($"read/{assetId}/toc", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return [];
+            }
+
+            var toc = await response.Content.ReadFromJsonAsync<List<EpubTocEntryDto>>(cancellationToken: ct) ?? [];
+            ClearFailure(endpoint);
+            return toc;
+        }
+        catch (Exception ex) { RecordExceptionFailure(endpoint, ex); return []; }
     }
 
     public async Task<EpubChapterContentDto?> GetChapterContentAsync(Guid assetId, int chapterIndex, CancellationToken ct = default)
     {
-        try { return await _http.GetFromJsonAsync<EpubChapterContentDto>($"read/{assetId}/chapter/{chapterIndex}", ct); }
-        catch (Exception ex) { LastError = ex.Message; return null; }
+        var endpoint = $"GET /read/{assetId}/chapter/{chapterIndex}";
+        try
+        {
+            var response = await _http.GetAsync($"read/{assetId}/chapter/{chapterIndex}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var chapter = await response.Content.ReadFromJsonAsync<EpubChapterContentDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return chapter;
+        }
+        catch (Exception ex) { RecordExceptionFailure(endpoint, ex); return null; }
     }
 
     public async Task<List<EpubSearchHitDto>> SearchEpubAsync(Guid assetId, string query, CancellationToken ct = default)

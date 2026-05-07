@@ -45,6 +45,14 @@ public interface IIdentityJobRepository
     /// <summary>Transitions the job to a new state and clears the lease.</summary>
     Task UpdateStateAsync(Guid jobId, IdentityJobState newState, string? error = null, CancellationToken ct = default);
 
+    /// <summary>Clears the lease, increments the attempt count, and delays the next lease attempt.</summary>
+    Task ScheduleRetryAsync(Guid jobId, IdentityJobState retryState, DateTimeOffset nextRetryAt, string error, CancellationToken ct = default)
+        => UpdateStateAsync(jobId, retryState, error, ct);
+
+    /// <summary>Marks a poison job as terminally failed using the existing failed state.</summary>
+    Task MarkDeadLetteredAsync(Guid jobId, string error, CancellationToken ct = default)
+        => UpdateStateAsync(jobId, IdentityJobState.Failed, error, ct);
+
     /// <summary>Sets the accepted retail candidate on the job.</summary>
     Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default);
 

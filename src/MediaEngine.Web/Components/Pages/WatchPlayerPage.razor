@@ -58,6 +58,7 @@ else
                     @foreach (var track in _subtitleTracks)
                     {
                         <track kind="subtitles"
+                               @key="@($"{track.Language}-{track.Url}")"
                                src="@track.Url"
                                srclang="@track.Language"
                                label="@SubtitleLabel(track)"
@@ -70,6 +71,7 @@ else
                         @foreach (var segment in VisibleSkipSegments)
                         {
                             <button type="button"
+                                    @key="@($"{segment.Kind}-{segment.StartSeconds}-{segment.EndSeconds}")"
                                     class="watch-player-skip-chip"
                                     title="@SkipTitle(segment)"
                                     @onclick="() => SkipSegmentAsync(segment)">
@@ -84,9 +86,11 @@ else
         else
         {
             <div class="watch-player-state">
-                <MudIcon Icon="@Icons.Material.Outlined.Movie" Style="font-size: 54px; opacity: 0.22;" />
-                <h3>Playable video not found</h3>
-                <p>This asset could not be streamed from the Engine.</p>
+                <AppErrorState Title="Playable video not found"
+                               Message="This asset could not be streamed from the Engine."
+                               Details="@_loadError"
+                               Retry="LoadPlayerAsync"
+                               Icon="@Icons.Material.Outlined.Movie" />
             </div>
         }
     </div>
@@ -102,6 +106,7 @@ else
     private PlaybackManifestDto? _manifest;
     private IReadOnlyList<TextTrackViewModel> _subtitleTracks = [];
     private string? _streamUrl;
+    private string? _loadError;
     private ProgressStateDto? _progress;
     private Guid? _activeProfileId;
     private bool _loading = true;
@@ -124,8 +129,12 @@ else
             .ToList();
 
     protected override async Task OnParametersSetAsync()
+        => await LoadPlayerAsync();
+
+    private async Task LoadPlayerAsync()
     {
         _loading = true;
+        _loadError = null;
         StateHasChanged();
 
         var detailTask = WorkId.HasValue
@@ -145,7 +154,13 @@ else
         _subtitleTracks = tracksTask.Result
             .Where(t => string.Equals(t.Kind, "Subtitles", StringComparison.OrdinalIgnoreCase))
             .ToList();
-        _streamUrl = ApiClient.ToAbsoluteEngineUrl(_manifest?.DirectStreamUrl ?? $"/stream/{AssetId}");
+        _streamUrl = _manifest is null
+            ? null
+            : ApiClient.ToAbsoluteEngineUrl(_manifest.DirectStreamUrl ?? $"/stream/{AssetId}");
+        if (_streamUrl is null)
+        {
+            _loadError = ApiClient.LastError ?? Orchestrator.LastApiError;
+        }
         _loading = false;
     }
 

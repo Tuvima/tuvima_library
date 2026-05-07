@@ -180,6 +180,34 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             });
     }
 
+    public async Task ScheduleRetryAsync(Guid jobId, IdentityJobState retryState, DateTimeOffset nextRetryAt, string error, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync("""
+            UPDATE identity_jobs
+            SET    state            = @state,
+                   last_error       = @error,
+                   next_retry_at    = @nextRetryAt,
+                   lease_owner      = NULL,
+                   lease_expires_at = NULL,
+                   attempt_count    = attempt_count + 1,
+                   updated_at       = @now
+            WHERE  id = @jobId;
+            """,
+            new
+            {
+                jobId = jobId.ToString(),
+                state = retryState.ToString(),
+                error,
+                nextRetryAt = nextRetryAt.ToString("O"),
+                now = DateTimeOffset.UtcNow.ToString("O"),
+            });
+    }
+
+    public Task MarkDeadLetteredAsync(Guid jobId, string error, CancellationToken ct = default)
+        => UpdateStateAsync(jobId, IdentityJobState.Failed, error, ct);
+
     public async Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

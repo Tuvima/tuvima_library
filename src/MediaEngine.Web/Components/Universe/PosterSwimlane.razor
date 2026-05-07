@@ -44,6 +44,7 @@
                 @foreach (var item in Items)
                 {
                     <LibraryCard Item="@item"
+                               @key="item.Id"
                                OnItemSelected="OnItemSelected" />
                 }
             </div>
@@ -72,11 +73,13 @@
     private ElementReference _scrollRef;
     private bool _atStart = true;
     private bool _atEnd   = false;
+    private bool _refreshBoundaries;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && Items.Count > 1)
+        if ((firstRender || _refreshBoundaries) && Items.Count > 1)
         {
+            _refreshBoundaries = false;
             var state = await JS.InvokeAsync<ScrollBoundary>("getSwimlaneScrollState", _scrollRef);
             _atStart = state.AtStart;
             _atEnd   = state.AtEnd;
@@ -88,6 +91,7 @@
     {
         _atStart = true;
         _atEnd   = false;
+        _refreshBoundaries = true;
     }
 
     private async Task ScrollLeft()

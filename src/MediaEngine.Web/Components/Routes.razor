@@ -1,6 +1,18 @@
-﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(MediaEngine.Web.Shared.MainLayout)" />
+        <ErrorBoundary>
+            <ChildContent>
+                <RouteView RouteData="routeData" DefaultLayout="typeof(MediaEngine.Web.Shared.MainLayout)" />
+            </ChildContent>
+            <ErrorContent>
+                <LayoutView Layout="typeof(MediaEngine.Web.Shared.MainLayout)">
+                    <AppErrorState Title="Screen failed to load"
+                                   Message="Something went wrong while rendering this screen."
+                                   Details="@context.Message"
+                                   Icon="@Icons.Material.Outlined.ReportProblem" />
+                </LayoutView>
+            </ErrorContent>
+        </ErrorBoundary>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>

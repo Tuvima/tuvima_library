@@ -10,10 +10,10 @@
 else
 {
     <div class="rg-container" style="--rc-card-width: @(CardSize)px;">
-        @foreach (var group in GetGroups())
+        @foreach (var group in _groups)
         {
             var isExpanded = IsExpanded(group.Key);
-            <div class="rg-section">
+            <div class="rg-section" @key="group.Key">
                 <div class="rg-section-header @(group.IsReviewGroup ? "rg-section-header--review" : "")"
                      style="@(group.HeaderColor is not null ? $"--rg-header-accent: {group.HeaderColor};" : "")"
                      @onclick="@(() => ToggleSection(group.Key))">
@@ -46,6 +46,7 @@ else
                         @foreach (var item in group.Items)
                         {
                             <LibraryItemCard Item="@item"
+                                          @key="item.EntityId"
                                           IsSelected="@SelectedIds.Contains(item.EntityId)"
                                           IsFocused="@(FocusedEntityId == item.EntityId)"
                                           SelectionModeActive="@SelectionModeActive"
@@ -101,6 +102,7 @@ else
     [Parameter] public EventCallback<List<Guid>> OnRejectGroup { get; set; }
 
     private readonly Dictionary<string, bool> _expandedSections = new();
+    private List<SectionGroup> _groups = [];
 
     private record SectionGroup(
         string Key,
@@ -117,8 +119,7 @@ else
         if (NeedsReviewFilter)
             return true;
 
-        var groups = GetGroups();
-        return groups.Count > 0 && groups[0].Key == key;
+        return _groups.Count > 0 && _groups[0].Key == key;
     }
 
     private void ToggleSection(string key)
@@ -127,7 +128,12 @@ else
         _expandedSections[key] = !current;
     }
 
-    private List<SectionGroup> GetGroups()
+    protected override void OnParametersSet()
+    {
+        _groups = BuildGroups();
+    }
+
+    private List<SectionGroup> BuildGroups()
     {
         if (NeedsReviewFilter)
             return GetReviewGroups();

@@ -9,6 +9,7 @@
 @inject IEngineApiClient Api
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ILogger<EpubReader> Logger
 
 @implements IAsyncDisposable
 
@@ -97,6 +98,7 @@
                     @foreach (var entry in FlattenToc(_toc))
                     {
                         <div class="reader-toc-item @(entry.ChapterIndex == _currentChapterIndex ? "active" : "") @($"indent-{entry.Depth}")"
+                             @key="@($"{entry.ChapterIndex}-{entry.Depth}-{entry.Title}")"
                              @onclick="@(() => NavigateToChapter(entry.ChapterIndex))">
                             @entry.Title
                         </div>
@@ -126,7 +128,7 @@
                 {
                     @foreach (var hit in _searchResults)
                     {
-                        <div class="reader-search-result" @onclick="@(() => NavigateToChapter(hit.ChapterIndex))">
+                        <div class="reader-search-result" @key="@($"{hit.ChapterIndex}-{hit.ContextSnippet}")" @onclick="@(() => NavigateToChapter(hit.ChapterIndex))">
                             <div class="reader-search-chapter">Chapter @(hit.ChapterIndex + 1) — @hit.ChapterTitle</div>
                             <div class="reader-search-snippet">@((MarkupString)HighlightSnippet(hit.ContextSnippet, _searchQuery))</div>
                         </div>
@@ -156,7 +158,7 @@
                 {
                     @foreach (var bm in _bookmarks)
                     {
-                        <div class="reader-list-item" @onclick="@(() => NavigateToChapter(bm.ChapterIndex))">
+                        <div class="reader-list-item" @key="bm.Id" @onclick="@(() => NavigateToChapter(bm.ChapterIndex))">
                             <MudIcon Icon="@Icons.Material.Filled.BookmarkBorder"
                                      Size="Size.Small" class="reader-list-icon"
                                      Style="color: var(--reader-accent);" />
@@ -219,6 +221,7 @@
                         @foreach (var f in _fontOptions)
                         {
                             <button class="reader-font-chip @(_settings.FontFamily == f.Key ? "active" : "")"
+                                    @key="f.Key"
                                     style="font-family: @f.Value;"
                                     @onclick="@(() => SetFont(f.Key))">
                                 @f.Key
@@ -280,6 +283,15 @@
             </div>
         </div>
     }
+    else if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <div class="reader-loading">
+            <AppErrorState Title="Book failed to load"
+                           Message="The reader could not load this book from the Engine."
+                           Details="@_loadError"
+                           Retry="LoadBook" />
+        </div>
+    }
     else
     {
         <div class="reader-loading">
@@ -300,6 +312,7 @@
     [SupplyParameterFromQuery] public Guid? ReturnCollectionId { get; set; }
 
     private bool _loading = true;
+    private string? _loadError;
     private bool _progressAlreadySaved; // prevents double-save when ExitReader awaits then DisposeAsync fires
     private EpubBookMetadataDto? _metadata;
     private List<EpubTocEntryDto>? _toc;
@@ -355,11 +368,13 @@
     private async Task LoadBook()
     {
         _loading = true;
+        _loadError = null;
         StateHasChanged();
 
         _metadata = await Api.GetBookMetadataAsync(AssetId);
         if (_metadata is null)
         {
+            _loadError = Api.LastError;
             _loading = false;
             StateHasChanged();
             return;
@@ -388,6 +403,13 @@
         }
 
         await LoadChapter(_currentChapterIndex);
+        if (_currentChapter is null)
+        {
+            _loadError = Api.LastError ?? "The selected book chapter could not be loaded.";
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
         _sessionTimer = new System.Threading.Timer(OnSessionTick, null, 1000, 1000);
         _autoSaveTimer = new System.Threading.Timer(async _ => await AutoSaveProgress(), null, 30_000, 30_000);
 
@@ -663,7 +685,10 @@
 
             await SaveSettings();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to apply reader settings.");
+        }
         StateHasChanged();
     }
 
@@ -678,7 +703,10 @@
                 if (loaded is not null) _settings = loaded;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to load reader settings from local storage.");
+        }
     }
 
     private async Task SaveSettings()
@@ -688,7 +716,10 @@
             var json = System.Text.Json.JsonSerializer.Serialize(_settings);
             await JS.InvokeVoidAsync("localStorage.setItem", "tuvima-reader-settings", json);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to save reader settings to local storage.");
+        }
     }
 
     private void OnSessionTick(object? state)
@@ -727,7 +758,10 @@
                 SessionsCount: _sessionsCount,
                 AvgWordsPerMinute: _sessionWpm));
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to auto-save reader progress.");
+        }
     }
 
     private int ComputeOverallPercent()
@@ -791,7 +825,10 @@
                 await AutoSaveProgress();
             await JS.InvokeVoidAsync("epubReader.dispose");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to dispose EPUB reader JavaScript resources.");
+        }
 
         _dotNetRef?.Dispose();
     }

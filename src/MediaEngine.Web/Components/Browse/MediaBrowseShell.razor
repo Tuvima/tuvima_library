@@ -36,7 +36,7 @@
                          Class="browse-shell__tabs">
                     @foreach (var tab in Preset.Tabs)
                     {
-                        <MudTabPanel Text="@tab.Label" />
+                        <MudTabPanel @key="tab.Id" Text="@tab.Label" />
                     }
                 </MudTabs>
             </div>
@@ -62,6 +62,7 @@
                             @foreach (var option in CurrentTab.GroupingOptions)
                             {
                                 <MudChip T="string"
+                                         @key="option.Value"
                                          Value="@option.Value"
                                          Icon="@option.Icon"
                                          Variant="Variant.Text">
@@ -92,7 +93,7 @@
                                    Class="browse-shell__sort">
                             @foreach (var option in GetSortOptions())
                             {
-                                <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
+                                <MudSelectItem T="string" @key="option.Value" Value="@option.Value">@option.Label</MudSelectItem>
                             }
                         </MudSelect>
 
@@ -144,6 +145,13 @@
                         OnAlbumNameClicked="OpenAlbumGroupByName"
                         OnPersonClicked="OpenPerson" />
     }
+    else if (_loadFailed)
+    {
+        <AppErrorState Title="Library view failed to load"
+                       Message="The Dashboard could not load this library view from the Engine."
+                       Details="@_loadError"
+                       Retry="ReloadAsync" />
+    }
     else if (UseListLayout)
     {
         <LibraryConfigurableTable Columns="@ActiveColumns"
@@ -168,7 +176,7 @@
         <div class="browse-shell__grid">
             @foreach (var card in _cards)
             {
-                <DiscoveryCard Item="@card" />
+                <DiscoveryCard Item="@card" @key="card.Id" />
             }
         </div>
     }
@@ -204,6 +212,8 @@
     private bool _hasLoadedOnce;
     private bool _hasMore;
     private bool _navigatingInternally;
+    private bool _loadFailed;
+    private string? _loadError;
 
     private List<LibraryItemViewModel> _items = [];
     private List<ContentGroupViewModel> _groups = [];
@@ -323,6 +333,8 @@
 
     private async Task LoadBrowseContentAsync(bool append = false)
     {
+        _loadFailed = false;
+        _loadError = null;
         if (_isGroupDrilldown)
         {
             _loading = false;
@@ -334,34 +346,47 @@
         _hero = null;
         StateHasChanged();
 
-        var journeyTask = ApiClient.GetJourneyAsync(limit: 24);
+        try
+        {
+            var journeyTask = ApiClient.GetJourneyAsync(limit: 24);
 
-        if (IsContainerGrouping)
-        {
-            var groupsTask = LoadGroupsAsync();
-            await Task.WhenAll(journeyTask, groupsTask);
-            _cards.Clear();
-            _cards.AddRange(_groups.Select(ToGroupCard));
-        }
-        else
-        {
-            if (!UseListLayout && await LoadDisplayCardsAsync(append))
+            if (IsContainerGrouping)
             {
-                await journeyTask;
+                var groupsTask = LoadGroupsAsync();
+                await Task.WhenAll(journeyTask, groupsTask);
+                _cards.Clear();
+                _cards.AddRange(_groups.Select(ToGroupCard));
             }
             else
             {
-                var itemsTask = LoadItemsAsync(append);
-                await Task.WhenAll(journeyTask, itemsTask);
-                _cards.Clear();
-                _cards.AddRange(_items.Select(ToItemCard));
+                if (!UseListLayout && await LoadDisplayCardsAsync(append))
+                {
+                    await journeyTask;
+                }
+                else
+                {
+                    var itemsTask = LoadItemsAsync(append);
+                    await Task.WhenAll(journeyTask, itemsTask);
+                    _cards.Clear();
+                    _cards.AddRange(_items.Select(ToItemCard));
+                }
             }
-        }
 
-        _hero ??= BuildHero(journeyTask.Result);
-        _loading = false;
-        _hasLoadedOnce = true;
+            _hero ??= BuildHero(journeyTask.Result);
+        }
+        catch (Exception ex)
+        {
+            _loadFailed = true;
+            _loadError = ApiClient.LastError ?? ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            _hasLoadedOnce = true;
+        }
     }
+
+    private Task ReloadAsync() => LoadBrowseContentAsync();
 
     private async Task<bool> LoadDisplayCardsAsync(bool append)
     {
@@ -409,6 +434,12 @@
             sort: ResolveLibraryItemSort());
 
         var incoming = response?.Items?.Select(LibraryItemViewModel.From).ToList() ?? [];
+        if (response is null && !string.IsNullOrWhiteSpace(ApiClient.LastError))
+        {
+            _loadFailed = true;
+            _loadError = ApiClient.LastError;
+            return;
+        }
         incoming = SortItems(incoming);
 
         if (append)
@@ -432,6 +463,12 @@
         var groups = systemGroupField is not null
             ? await ApiClient.GetSystemViewGroupsAsync(mediaType, systemGroupField)
             : await ApiClient.GetContentGroupsAsync();
+        if (groups.Count == 0 && !string.IsNullOrWhiteSpace(ApiClient.LastError))
+        {
+            _loadFailed = true;
+            _loadError = ApiClient.LastError;
+            return;
+        }
 
         if (systemGroupField is null)
         {
