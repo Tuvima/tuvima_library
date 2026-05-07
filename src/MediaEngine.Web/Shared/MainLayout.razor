@@ -6,6 +6,7 @@
 @inject UniverseStateContainer State
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
+@inject ILogger<MainLayout> Logger
 @implements IDisposable
 
 @using MediaEngine.Web.Components.Listen
@@ -317,8 +318,9 @@
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Failed to sync culture during initial layout render.");
         }
     }
 
@@ -344,8 +346,9 @@
                 : profile.Role.Trim();
             _avatarInitial = GetAvatarInitial(_displayName);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to load active profile for layout shell.");
         }
     }
 
@@ -367,8 +370,9 @@
         {
             _reviewCount = await Orchestrator.RefreshReviewCountAsync();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to load review count for layout shell.");
         }
     }
 
@@ -379,8 +383,9 @@
             var status = await Orchestrator.GetSystemStatusAsync();
             _engineStatusSummary = BuildEngineStatusSummary(status);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to load Engine status for layout shell.");
             _engineStatusSummary = BuildEngineStatusSummary(null);
         }
     }

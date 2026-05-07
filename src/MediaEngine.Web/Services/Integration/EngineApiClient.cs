@@ -342,9 +342,18 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
     {
+        const string endpoint = "GET /system/status";
         try
         {
-            var raw = await _http.GetFromJsonAsync<StatusRaw>("/system/status", ct);
+            var response = await _http.GetAsync("/system/status", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct, logAsWarning: false);
+                return null;
+            }
+
+            var raw = await response.Content.ReadFromJsonAsync<StatusRaw>(cancellationToken: ct);
+            ClearFailure(endpoint);
             return raw is null ? null : new SystemStatusViewModel
             {
                 Status   = raw.Status,
@@ -357,6 +366,7 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             // Debug level: this endpoint is polled; Engine may not be up yet.
             _logger.LogDebug(ex, "GET /system/status failed");
+            RecordExceptionFailure(endpoint, ex, logAsWarning: false);
             return null;
         }
     }
@@ -396,12 +406,18 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default)
     {
+        const string endpoint = "GET /library/works";
         try
         {
             var response = await _http.GetAsync("/library/works", ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return [];
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return [];
+            }
 
             var raw = await response.Content.ReadFromJsonAsync<List<LibraryWorkRaw>>(cancellationToken: ct).ConfigureAwait(false);
+            ClearFailure(endpoint);
             if (raw is null) return [];
 
             return raw.Select(MapLibraryWork).ToList();
@@ -410,6 +426,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /library/works failed");
+            RecordExceptionFailure(endpoint, ex);
             return [];
         }
     }
@@ -448,12 +465,19 @@ public sealed class EngineApiClient : IEngineApiClient
         string? rootPath = null,
         CancellationToken ct = default)
     {
+        const string endpoint = "POST /ingestion/scan";
         try
         {
             var body    = new { root_path = rootPath };
             var resp    = await _http.PostAsJsonAsync("/ingestion/scan", body, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, resp, ct);
+                return null;
+            }
+
             var raw     = await resp.Content.ReadFromJsonAsync<ScanRaw>(ct);
+            ClearFailure(endpoint);
             return raw is null ? null : new ScanResultViewModel
             {
                 Operations = raw.Operations.Select(o => new PendingOperationViewModel
@@ -469,6 +493,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /ingestion/scan failed");
+            RecordExceptionFailure(endpoint, ex);
             return null;
         }
     }
@@ -478,16 +503,24 @@ public sealed class EngineApiClient : IEngineApiClient
     public async Task<LibraryScanResultViewModel?> TriggerLibraryScanAsync(
         CancellationToken ct = default)
     {
+        const string endpoint = "POST /ingestion/library-scan";
         try
         {
             var resp = await _http.PostAsJsonAsync("/ingestion/library-scan", new { }, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, resp, ct);
+                return null;
+            }
+
+            ClearFailure(endpoint);
             return await resp.Content.ReadFromJsonAsync<LibraryScanResultViewModel>(ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /ingestion/library-scan failed");
+            RecordExceptionFailure(endpoint, ex);
             return null;
         }
     }
@@ -532,15 +565,24 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<bool> TriggerRescanAsync(CancellationToken ct = default)
     {
+        const string endpoint = "POST /ingestion/rescan";
         try
         {
             var resp = await _http.PostAsJsonAsync("/ingestion/rescan", new { }, ct);
-            return resp.IsSuccessStatusCode;
+            if (!resp.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, resp, ct);
+                return false;
+            }
+
+            ClearFailure(endpoint);
+            return true;
         }
         catch (OperationCanceledException) { return false; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /ingestion/rescan failed");
+            RecordExceptionFailure(endpoint, ex);
             return false;
         }
     }
@@ -683,15 +725,25 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<List<ProfileViewModel>> GetProfilesAsync(CancellationToken ct = default)
     {
+        const string endpoint = "GET /profiles";
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ProfileViewModel>>("/profiles", ct);
+            var response = await _http.GetAsync("/profiles", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return [];
+            }
+
+            var raw = await response.Content.ReadFromJsonAsync<List<ProfileViewModel>>(cancellationToken: ct);
+            ClearFailure(endpoint);
             return raw?.Select(NormalizeProfile).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /profiles failed");
+            RecordExceptionFailure(endpoint, ex);
             return [];
         }
     }
@@ -856,15 +908,25 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<DisplayPageDto?> GetDisplayHomeAsync(CancellationToken ct = default)
     {
+        const string endpoint = "GET /api/v1/display/home";
         try
         {
-            var page = await _http.GetFromJsonAsync<DisplayPageDto>("/api/v1/display/home", ct);
+            var response = await _http.GetAsync("/api/v1/display/home", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<DisplayPageDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
             return NormalizeDisplayPage(page);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /api/v1/display/home failed");
+            RecordExceptionFailure(endpoint, ex);
             return null;
         }
     }
@@ -880,6 +942,7 @@ public sealed class EngineApiClient : IEngineApiClient
         Guid? profileId = null,
         CancellationToken ct = default)
     {
+        const string endpoint = "GET /api/v1/display/browse";
         try
         {
             var query = new List<string>();
@@ -892,13 +955,22 @@ public sealed class EngineApiClient : IEngineApiClient
             AddQuery(query, "includeCatalog", includeCatalog?.ToString().ToLowerInvariant());
             AddQuery(query, "profileId", profileId?.ToString("D"));
             var url = "/api/v1/display/browse" + (query.Count == 0 ? string.Empty : "?" + string.Join("&", query));
-            var page = await _http.GetFromJsonAsync<DisplayPageDto>(url, ct);
+            var response = await _http.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<DisplayPageDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
             return NormalizeDisplayPage(page);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /api/v1/display/browse failed");
+            RecordExceptionFailure(endpoint, ex);
             return null;
         }
     }
@@ -1650,16 +1722,25 @@ public sealed class EngineApiClient : IEngineApiClient
     public async Task<List<ReviewItemViewModel>> GetPendingReviewsAsync(
         int limit = 50, CancellationToken ct = default)
     {
+        const string endpoint = "GET /review/pending";
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ReviewItemViewModel>>(
-                $"/review/pending?limit={limit}", ct);
+            var response = await _http.GetAsync($"/review/pending?limit={limit}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return [];
+            }
+
+            var raw = await response.Content.ReadFromJsonAsync<List<ReviewItemViewModel>>(cancellationToken: ct);
+            ClearFailure(endpoint);
             return raw ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /review/pending failed");
+            RecordExceptionFailure(endpoint, ex);
             return [];
         }
     }
@@ -1682,9 +1763,18 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<int> GetReviewCountAsync(CancellationToken ct = default)
     {
+        const string endpoint = "GET /review/count";
         try
         {
-            var raw = await _http.GetFromJsonAsync<ReviewCountDto>("/review/count", ct);
+            var response = await _http.GetAsync("/review/count", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct, logAsWarning: false);
+                return 0;
+            }
+
+            var raw = await response.Content.ReadFromJsonAsync<ReviewCountDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
             return raw?.PendingCount ?? 0;
         }
         catch (OperationCanceledException) { return 0; }
@@ -1692,6 +1782,7 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             // Debug level: this is polled for the badge count.
             _logger.LogDebug(ex, "GET /review/count failed");
+            RecordExceptionFailure(endpoint, ex, logAsWarning: false);
             return 0;
         }
     }
@@ -2020,22 +2111,23 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public async Task<bool> UploadMediaAsync(MultipartFormDataContent content, CancellationToken ct = default)
     {
+        const string endpoint = "POST /ingestion/upload";
         try
         {
             var response = await _http.PostAsync("/ingestion/upload", content, ct);
             if (!response.IsSuccessStatusCode)
             {
-                var detail = await response.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning("POST /ingestion/upload returned {Status}: {Detail}",
-                    (int)response.StatusCode, detail);
-                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return false;
             }
-            return response.IsSuccessStatusCode;
+
+            ClearFailure(endpoint);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /ingestion/upload failed");
-            LastError = ex.Message;
+            RecordExceptionFailure(endpoint, ex);
             return false;
         }
     }
@@ -3789,6 +3881,59 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     public string? LastError { get; private set; }
+
+    public int? LastStatusCode { get; private set; }
+
+    public string? LastFailedEndpoint { get; private set; }
+
+    public string? LastFailureKind { get; private set; }
+
+    private void ClearFailure(string endpoint)
+    {
+        if (!string.Equals(LastFailedEndpoint, endpoint, StringComparison.Ordinal))
+            return;
+
+        LastError = null;
+        LastStatusCode = null;
+        LastFailedEndpoint = null;
+        LastFailureKind = null;
+    }
+
+    private async Task RecordHttpFailureAsync(
+        string endpoint,
+        HttpResponseMessage response,
+        CancellationToken ct,
+        bool logAsWarning = true)
+    {
+        var detail = await response.Content.ReadAsStringAsync(ct);
+        LastStatusCode = (int)response.StatusCode;
+        LastFailedEndpoint = endpoint;
+        LastFailureKind = response.StatusCode switch
+        {
+            HttpStatusCode.NotFound => "not_found",
+            HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => "unauthorized",
+            _ => "http_failure",
+        };
+        LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+
+        if (logAsWarning)
+            _logger.LogWarning("{Endpoint} returned {Status}: {Detail}", endpoint, (int)response.StatusCode, detail);
+        else
+            _logger.LogDebug("{Endpoint} returned {Status}: {Detail}", endpoint, (int)response.StatusCode, detail);
+    }
+
+    private void RecordExceptionFailure(string endpoint, Exception ex, bool logAsWarning = true)
+    {
+        LastStatusCode = null;
+        LastFailedEndpoint = endpoint;
+        LastFailureKind = ex is HttpRequestException ? "engine_unavailable" : "unexpected_failure";
+        LastError = ex.Message;
+
+        if (logAsWarning)
+            _logger.LogWarning(ex, "{Endpoint} failed", endpoint);
+        else
+            _logger.LogDebug(ex, "{Endpoint} failed", endpoint);
+    }
 
     // ── Private mapping ───────────────────────────────────────────────────────
 

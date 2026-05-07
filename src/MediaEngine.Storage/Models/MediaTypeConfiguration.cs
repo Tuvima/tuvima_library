@@ -23,7 +23,7 @@ public sealed class MediaTypeConfiguration
     /// <summary>Returns the default set of built-in media types.</summary>
     public static List<MediaTypeDefinition> DefaultTypes() =>
     [
-        new() { Key = "books",      DisplayName = "Books",      Icon = "MenuBook",    Extensions = [".epub"],                                      CategoryFolder = "Books",    BuiltIn = true },
+        new() { Key = "books",      DisplayName = "Books",      Icon = "MenuBook",    Extensions = [".epub", ".pdf"],                              CategoryFolder = "Books",    BuiltIn = true },
         new() { Key = "audiobooks", DisplayName = "Audiobooks", Icon = "Headphones",  Extensions = [".m4b", ".mp3", ".m4a"],                       CategoryFolder = "Audio",    BuiltIn = true },
         new() { Key = "comics",     DisplayName = "Comics",     Icon = "AutoStories", Extensions = [".cbz", ".cbr"],                               CategoryFolder = "Comics",   BuiltIn = true },
         new() { Key = "movies",     DisplayName = "Movies",     Icon = "Movie",       Extensions = [".mp4", ".mkv", ".webm", ".avi", ".m4v"],      CategoryFolder = "Videos",   BuiltIn = true },

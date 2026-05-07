@@ -376,6 +376,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Most recent error detail from the last failed API call.</summary>
     public string? LastApiError => _api.LastError;
 
+    public int? LastApiStatusCode => _api.LastStatusCode;
+
+    public string? LastApiFailedEndpoint => _api.LastFailedEndpoint;
+
+    public string? LastApiFailureKind => _api.LastFailureKind;
+
     // -- Activity Log (local in-memory) --------------------------------------
 
     /// <summary>Returns the current activity log (most recent first).</summary>

@@ -246,6 +246,26 @@ public sealed class EngineApiClientLibraryWorksTests
     }
 
     [Fact]
+    public async Task GetLibraryWorksAsync_RecordsFailureStateWhenRequestFails()
+    {
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            {
+                Content = new StringContent("Engine warming up", Encoding.UTF8, "text/plain"),
+            });
+
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        var results = await client.GetLibraryWorksAsync();
+
+        Assert.Empty(results);
+        Assert.Equal("GET /library/works", client.LastFailedEndpoint);
+        Assert.Equal((int)HttpStatusCode.ServiceUnavailable, client.LastStatusCode);
+        Assert.Equal("http_failure", client.LastFailureKind);
+        Assert.Contains("Engine warming up", client.LastError);
+    }
+
+    [Fact]
     public async Task GetLibraryWorksAsync_NormalizesRootRelativeAndRootlessArtworkUrls()
     {
         const string json = """

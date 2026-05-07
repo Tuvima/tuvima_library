@@ -141,7 +141,7 @@ public static partial class MetadataEndpoints
 
             // 2. Upsert the canonical value so the Dashboard sees the change immediately.
             //    User-locked claims resolve any conflict, so is_conflicted is set to 0.
-            var conn = db.Open();
+            using var conn = db.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 INSERT INTO canonical_values (entity_id, key, value, last_scored_at, is_conflicted)
@@ -199,7 +199,7 @@ public static partial class MetadataEndpoints
 
             var resolvedAt = DateTimeOffset.UtcNow;
 
-            var conn = db.Open();
+            using var conn = db.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 INSERT INTO canonical_values (entity_id, key, value, last_scored_at, is_conflicted)

@@ -15,8 +15,11 @@ WORKDIR /src
 # from source so a code change doesn't bust the NuGet restore cache).
 COPY Directory.Packages.props .
 COPY Directory.Build.props .
+COPY global.json .
+COPY nuget.config .
 
 # Copy every .csproj in the correct relative position for restore.
+COPY src/MediaEngine.Contracts/MediaEngine.Contracts.csproj       src/MediaEngine.Contracts/
 COPY src/MediaEngine.Domain/MediaEngine.Domain.csproj             src/MediaEngine.Domain/
 COPY src/MediaEngine.Storage/MediaEngine.Storage.csproj           src/MediaEngine.Storage/
 COPY src/MediaEngine.Intelligence/MediaEngine.Intelligence.csproj src/MediaEngine.Intelligence/
@@ -24,9 +27,12 @@ COPY src/MediaEngine.Processors/MediaEngine.Processors.csproj     src/MediaEngin
 COPY src/MediaEngine.Providers/MediaEngine.Providers.csproj       src/MediaEngine.Providers/
 COPY src/MediaEngine.Ingestion/MediaEngine.Ingestion.csproj       src/MediaEngine.Ingestion/
 COPY src/MediaEngine.Identity/MediaEngine.Identity.csproj         src/MediaEngine.Identity/
+COPY src/MediaEngine.AI/MediaEngine.AI.csproj                     src/MediaEngine.AI/
+COPY src/MediaEngine.Plugins/MediaEngine.Plugins.csproj           src/MediaEngine.Plugins/
+COPY src/MediaEngine.Plugin.CommercialSkip/MediaEngine.Plugin.CommercialSkip.csproj src/MediaEngine.Plugin.CommercialSkip/
+COPY src/MediaEngine.Plugin.MediaSegments/MediaEngine.Plugin.MediaSegments.csproj   src/MediaEngine.Plugin.MediaSegments/
 COPY src/MediaEngine.Api/MediaEngine.Api.csproj                   src/MediaEngine.Api/
 COPY src/MediaEngine.Web/MediaEngine.Web.csproj                   src/MediaEngine.Web/
-COPY src/MediaEngine.AI/MediaEngine.AI.csproj                 src/MediaEngine.AI/
 
 # Restore (cached until any .csproj changes).
 RUN dotnet restore src/MediaEngine.Api/MediaEngine.Api.csproj

@@ -167,6 +167,19 @@ public sealed class IngestionOptions
     /// </summary>
     public bool IncludeSubdirectories { get; set; } = true;
 
+    /// <summary>
+    /// Maximum accepted size for a single Dashboard upload. The default is
+    /// finite but large enough for local video files. Override with
+    /// <c>Ingestion:MaxUploadSizeBytes</c> / <c>Ingestion__MaxUploadSizeBytes</c>.
+    /// </summary>
+    public long MaxUploadSizeBytes { get; set; } = 25L * 1024 * 1024 * 1024;
+
+    /// <summary>
+    /// Required free-space buffer left on the destination drive after upload.
+    /// Override with <c>Ingestion:UploadFreeSpaceBufferBytes</c>.
+    /// </summary>
+    public long UploadFreeSpaceBufferBytes { get; set; } = 512L * 1024 * 1024;
+
     // ── Polling Fallback ────────────────────────────────────────────
 
     /// <summary>

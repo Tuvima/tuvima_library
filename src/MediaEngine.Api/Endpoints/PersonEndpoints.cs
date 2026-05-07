@@ -74,7 +74,7 @@ public static class PersonEndpoints
             if (person is null)
                 return Results.NotFound($"Person '{id}' not found.");
 
-            var conn = db.Open();
+            using var conn = db.CreateConnection();
             var aliases = new List<object>();
 
             if (person.IsPseudonym)
@@ -270,7 +270,7 @@ public static class PersonEndpoints
             CancellationToken ct) =>
         {
             // Find all media asset IDs for works in this collection.
-            var conn = db.Open();
+            using var conn = db.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 SELECT ma.id
@@ -322,7 +322,7 @@ public static class PersonEndpoints
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            var conn = db.Open();
+            using var conn = db.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 SELECT ma.id

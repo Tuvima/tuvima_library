@@ -80,7 +80,7 @@ public static class ProgressEndpoints
             ct.ThrowIfCancellationRequested();
             var uid       = ResolveUserId(userId);
             var filterCollection = Guid.TryParse(collectionId, out var parsedCollectionId);
-            var conn      = db.Open();
+            using var conn = db.CreateConnection();
 
             // Phase 4 — lineage-aware reads. Self-scope fields (title, series_position)
             // read from the asset row; parent-scope fields (author, cover, narrator,

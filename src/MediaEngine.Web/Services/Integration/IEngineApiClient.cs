@@ -15,6 +15,14 @@ namespace MediaEngine.Web.Services.Integration;
 /// </summary>
 public interface IEngineApiClient
 {
+    string? LastError { get; }
+
+    int? LastStatusCode { get; }
+
+    string? LastFailedEndpoint { get; }
+
+    string? LastFailureKind { get; }
+
     string ToAbsoluteEngineUrl(string value);
 
     Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", CancellationToken ct = default);
@@ -675,11 +683,6 @@ public interface IEngineApiClient
     /// <summary>POST /metadata/{entityId}/cover-from-url  -  download cover from provider URL.</summary>
     Task<bool> ApplyCoverFromUrlAsync(
         Guid entityId, string imageUrl, CancellationToken ct = default);
-    /// Most recent error message from the last failed API call.
-    /// Useful for surfacing diagnostic details in the UI.
-    /// </summary>
-    string? LastError { get; }
-
     // ── Universe Graph (Chronicle Explorer) ─────────────────────────────────
 
     /// <summary>GET /universe/{qid}/graph — fetch the universe relationship graph with optional filters.</summary>

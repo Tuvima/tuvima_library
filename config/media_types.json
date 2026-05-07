@@ -5,7 +5,7 @@
       "key": "books",
       "display_name": "Books",
       "icon": "MenuBook",
-      "extensions": [".epub"],
+      "extensions": [".epub", ".pdf"],
       "category_folder": "Books",
       "built_in": true
     },

@@ -50,10 +50,33 @@ ASPNETCORE_ENVIRONMENT="Production" \
 dotnet /app/engine/MediaEngine.Api.dll &
 ENGINE_PID=$!
 
-# Brief pause to allow the Engine to start accepting connections before the
-# Dashboard's first request (avoids "connection refused" in the browser on
-# the very first page load).
-sleep 3
+echo "[Tuvima] Waiting for Engine readiness on http://localhost:61495 ..."
+ENGINE_READY_TIMEOUT_SECONDS="${TUVIMA_ENGINE_READY_TIMEOUT_SECONDS:-120}"
+ENGINE_READY_DEADLINE=$((SECONDS + ENGINE_READY_TIMEOUT_SECONDS))
+
+while true; do
+    if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
+        wait "$ENGINE_PID" || ENGINE_EXIT_CODE=$?
+        echo "[Tuvima] Engine exited before becoming ready. Exit code=${ENGINE_EXIT_CODE:-unknown}"
+        exit "${ENGINE_EXIT_CODE:-1}"
+    fi
+
+    if (exec 3<>/dev/tcp/127.0.0.1/61495) 2>/dev/null; then
+        exec 3>&-
+        exec 3<&-
+        echo "[Tuvima] Engine is reachable."
+        break
+    fi
+
+    if [ "$SECONDS" -ge "$ENGINE_READY_DEADLINE" ]; then
+        echo "[Tuvima] Engine did not become reachable within ${ENGINE_READY_TIMEOUT_SECONDS}s; shutting down."
+        kill "$ENGINE_PID" 2>/dev/null || true
+        wait "$ENGINE_PID" 2>/dev/null || true
+        exit 1
+    fi
+
+    sleep 1
+done
 
 # ── Start Dashboard ───────────────────────────────────────────────────────────
 ASPNETCORE_URLS="http://+:5016" \

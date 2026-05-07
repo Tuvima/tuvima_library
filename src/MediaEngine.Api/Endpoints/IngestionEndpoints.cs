@@ -232,7 +232,7 @@ public static class IngestionEndpoints
             CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
-            using var conn = db.Open();
+            using var conn = db.CreateConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 WITH latest_jobs AS (
@@ -381,6 +381,7 @@ public static class IngestionEndpoints
         group.MapPost("/upload", async (
             HttpRequest request,
             IConfigurationLoader configLoader,
+            IOptions<IngestionOptions> opts,
             CancellationToken ct) =>
         {
             var form = await request.ReadFormAsync(ct);
@@ -390,7 +391,11 @@ public static class IngestionEndpoints
             if (file is null || string.IsNullOrWhiteSpace(mediaType))
                 return Results.BadRequest("File and mediaType are required.");
 
+            if (file.Length <= 0)
+                return Results.BadRequest("Upload file must not be empty.");
+
             var libraries = configLoader.LoadLibraries();
+            var mediaTypes = configLoader.LoadMediaTypes();
             var watchFolder = libraries.Libraries
                 .FirstOrDefault(l => !string.IsNullOrWhiteSpace(l.SourcePath)
                                      && Directory.Exists(l.SourcePath));
@@ -398,36 +403,58 @@ public static class IngestionEndpoints
             if (watchFolder is null)
                 return Results.BadRequest("No watch folder configured.");
 
-            var targetDir = Path.Combine(watchFolder.SourcePath, mediaType);
-            Directory.CreateDirectory(targetDir);
+            var plan = UploadSafety.CreatePlan(
+                watchFolder.SourcePath,
+                mediaType,
+                file.FileName,
+                file.Length,
+                mediaTypes.Types,
+                opts.Value);
 
-            // Prevent path traversal: reject filenames that contain directory separators
-            // or attempt to navigate outside the target directory.
-            var safeFileName = Path.GetFileName(file.FileName);
-            if (string.IsNullOrWhiteSpace(safeFileName))
-                return Results.BadRequest("Invalid filename.");
+            if (plan.Error is not null)
+                return plan.Error;
 
-            var targetPath = Path.Combine(targetDir, safeFileName);
+            Directory.CreateDirectory(plan.TargetDirectory);
 
-            // Handle filename collision with a counter suffix.
-            var counter  = 1;
-            var baseName = Path.GetFileNameWithoutExtension(safeFileName);
-            var ext      = Path.GetExtension(safeFileName);
-            while (File.Exists(targetPath))
+            if (!UploadSafety.HasRequiredFreeSpace(plan.TargetDirectory, file.Length, opts.Value.UploadFreeSpaceBufferBytes))
             {
-                targetPath = Path.Combine(targetDir, $"{baseName} ({counter}){ext}");
-                counter++;
+                return Results.Problem(
+                    title: "Insufficient disk space",
+                    detail: "The destination drive does not have enough free space for this upload and the configured safety buffer.",
+                    statusCode: StatusCodes.Status507InsufficientStorage);
             }
 
-            await using var stream = File.Create(targetPath);
-            await file.CopyToAsync(stream, ct);
+            var tempPath = Path.Combine(
+                plan.TargetDirectory,
+                $".{Path.GetFileNameWithoutExtension(plan.SafeFileName)}.{Guid.NewGuid():N}.uploading");
 
-            return Results.Ok(new { path = targetPath, mediaType });
+            try
+            {
+                await using (var stream = new FileStream(
+                    tempPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 1024 * 1024,
+                    useAsync: true))
+                {
+                    await file.CopyToAsync(stream, ct);
+                }
+
+                File.Move(tempPath, plan.TargetPath);
+            }
+            catch
+            {
+                TryDeleteTempUpload(tempPath);
+                throw;
+            }
+
+            return Results.Ok(new { path = plan.TargetPath, mediaType = plan.CanonicalMediaType });
         })
         .WithName("UploadMedia")
         .WithSummary("Upload a media file and route it to the correct watch subfolder.")
         .DisableAntiforgery()
-        .RequireAnyRole();
+        .RequireAdminOrCurator();
 
         return app;
     }
@@ -528,6 +555,135 @@ public static class IngestionEndpoints
             "Ready" or "ReadyWithoutUniverse" or "Completed" or "RetailNoMatch" or "QidNoMatch" or "QidNeedsReview" or "Failed" => 1,
             _ => 0,
         };
+
+    private static void TryDeleteTempUpload(string tempPath)
+    {
+        try
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
+        catch
+        {
+            // Best-effort cleanup. The temp suffix prevents partial files being treated as complete uploads.
+        }
+    }
+}
+
+public static class UploadSafety
+{
+    private static readonly char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
+
+    public static UploadPlan CreatePlan(
+        string watchRoot,
+        string mediaType,
+        string fileName,
+        long fileLength,
+        IReadOnlyList<MediaEngine.Storage.Models.MediaTypeDefinition> mediaTypes,
+        IngestionOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(watchRoot))
+            return UploadPlan.Fail(Results.BadRequest("No watch folder configured."));
+
+        if (fileLength <= 0)
+            return UploadPlan.Fail(Results.BadRequest("Upload file must not be empty."));
+
+        if (fileLength > options.MaxUploadSizeBytes)
+        {
+            return UploadPlan.Fail(Results.Problem(
+                title: "Upload too large",
+                detail: $"The upload is {fileLength} bytes, which exceeds the configured limit of {options.MaxUploadSizeBytes} bytes.",
+                statusCode: StatusCodes.Status413PayloadTooLarge));
+        }
+
+        var definition = ResolveMediaType(mediaType, mediaTypes);
+        if (definition is null)
+            return UploadPlan.Fail(Results.BadRequest($"Unsupported media type: {mediaType}"));
+
+        if (!IsSafeFileName(fileName, out var safeFileName))
+            return UploadPlan.Fail(Results.BadRequest("Invalid filename."));
+
+        var extension = Path.GetExtension(safeFileName);
+        if (string.IsNullOrWhiteSpace(extension)
+            || !definition.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        {
+            return UploadPlan.Fail(Results.BadRequest(
+                $"Files with extension '{extension}' are not allowed for {definition.DisplayName}."));
+        }
+
+        var targetDir = Path.GetFullPath(Path.Combine(watchRoot, definition.DisplayName));
+        var watchRootFull = Path.GetFullPath(watchRoot);
+        var rootPrefix = watchRootFull.EndsWith(Path.DirectorySeparatorChar)
+            ? watchRootFull
+            : watchRootFull + Path.DirectorySeparatorChar;
+        if (!targetDir.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+            return UploadPlan.Fail(Results.BadRequest("Invalid media type destination."));
+
+        var targetPath = ResolveCollisionPath(targetDir, safeFileName);
+        return new UploadPlan(
+            true,
+            null,
+            targetDir,
+            targetPath,
+            safeFileName,
+            definition.DisplayName);
+    }
+
+    public static bool HasRequiredFreeSpace(string targetDirectory, long fileLength, long freeSpaceBufferBytes)
+    {
+        var root = Path.GetPathRoot(Path.GetFullPath(targetDirectory));
+        if (string.IsNullOrWhiteSpace(root))
+            return false;
+
+        var drive = new DriveInfo(root);
+        return drive.AvailableFreeSpace >= fileLength + Math.Max(0, freeSpaceBufferBytes);
+    }
+
+    private static MediaEngine.Storage.Models.MediaTypeDefinition? ResolveMediaType(
+        string mediaType,
+        IReadOnlyList<MediaEngine.Storage.Models.MediaTypeDefinition> mediaTypes)
+    {
+        if (string.IsNullOrWhiteSpace(mediaType))
+            return null;
+
+        return mediaTypes.FirstOrDefault(t =>
+            string.Equals(t.DisplayName, mediaType, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(t.Key, mediaType, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsSafeFileName(string fileName, out string safeFileName)
+    {
+        safeFileName = Path.GetFileName(fileName);
+        return !string.IsNullOrWhiteSpace(fileName)
+               && string.Equals(fileName, safeFileName, StringComparison.Ordinal)
+               && !safeFileName.Any(c => InvalidFileNameChars.Contains(c));
+    }
+
+    private static string ResolveCollisionPath(string targetDir, string safeFileName)
+    {
+        var targetPath = Path.Combine(targetDir, safeFileName);
+        var counter = 1;
+        var baseName = Path.GetFileNameWithoutExtension(safeFileName);
+        var ext = Path.GetExtension(safeFileName);
+        while (File.Exists(targetPath))
+        {
+            targetPath = Path.Combine(targetDir, $"{baseName} ({counter}){ext}");
+            counter++;
+        }
+
+        return targetPath;
+    }
+}
+
+public sealed record UploadPlan(
+    bool IsValid,
+    IResult? Error,
+    string TargetDirectory,
+    string TargetPath,
+    string SafeFileName,
+    string CanonicalMediaType)
+{
+    public static UploadPlan Fail(IResult error) => new(false, error, string.Empty, string.Empty, string.Empty, string.Empty);
 }
 
 /// <summary>API response shape for an ingestion batch.</summary>
