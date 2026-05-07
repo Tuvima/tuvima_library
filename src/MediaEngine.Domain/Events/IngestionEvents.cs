@@ -110,4 +110,6 @@ public sealed record BatchProgressEvent(
     int    FilesReady = 0,
     int    FilesReadyWithoutUniverse = 0,
     string? CurrentFileTitle = null,
-    string? LifecycleStage = null);
+    string? LifecycleStage = null,
+    int    WorkUnitsTotal = 0,
+    int    WorkUnitsCompleted = 0);

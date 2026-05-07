@@ -88,7 +88,10 @@ public sealed class QuickHydrationWorker
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "QuickHydrationWorker failed for job {JobId}", job.Id);
-                await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, ex.Message, ct);
+                var retryState = job.AttemptCount >= 4
+                    ? IdentityJobState.Failed
+                    : IdentityJobState.QidResolved;
+                await _jobRepo.UpdateStateAsync(job.Id, retryState, ex.Message, ct);
             }
         }
 

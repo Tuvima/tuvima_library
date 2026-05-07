@@ -165,6 +165,98 @@ public sealed class BatchProgressService
                 """,
                 new { batchId = batchId.ToString(), activeStates = ActiveStates }).ConfigureAwait(false);
 
+            var work = await conn.QueryFirstOrDefaultAsync<BatchWorkSnapshot>(
+                """
+                WITH latest_jobs AS (
+                    SELECT
+                        entity_id,
+                        state,
+                        updated_at,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY entity_id
+                            ORDER BY updated_at DESC, created_at DESC
+                        ) AS rn
+                    FROM identity_jobs
+                    WHERE ingestion_run_id = @batchId
+                ),
+                job_states AS (
+                    SELECT entity_id, state, updated_at
+                    FROM latest_jobs
+                    WHERE rn = 1
+                ),
+                person_counts AS (
+                    SELECT
+                        pml.media_asset_id AS entity_id,
+                        COUNT(DISTINCT p.id) AS total_people,
+                        COUNT(DISTINCT CASE WHEN p.enriched_at IS NOT NULL THEN p.id END) AS enriched_people
+                    FROM person_media_links pml
+                    INNER JOIN persons p ON p.id = pml.person_id
+                    GROUP BY pml.media_asset_id
+                ),
+                canonical_flags AS (
+                    SELECT
+                        entity_id,
+                        MAX(CASE WHEN key = 'stage3_enriched_at' THEN 1 ELSE 0 END) AS stage3_core_done,
+                        MAX(CASE WHEN key = 'stage3_enhanced_at' THEN 1 ELSE 0 END) AS stage3_enhancers_done
+                    FROM canonical_values
+                    WHERE key IN ('stage3_enriched_at', 'stage3_enhanced_at')
+                    GROUP BY entity_id
+                ),
+                item_progress AS (
+                    SELECT
+                        js.entity_id,
+                        CASE
+                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'Failed') THEN 100.0
+                            WHEN js.state = 'UniverseEnriching' THEN
+                                80.0
+                                + CASE WHEN COALESCE(cf.stage3_core_done, 0) = 1 THEN 10.0 ELSE 0.0 END
+                                + CASE WHEN COALESCE(cf.stage3_enhancers_done, 0) = 1 THEN 10.0 ELSE 0.0 END
+                            WHEN js.state = 'Hydrating' THEN
+                                50.0
+                                + CASE
+                                    WHEN COALESCE(pc.total_people, 0) = 0 THEN 20.0
+                                    ELSE 20.0 * COALESCE(pc.enriched_people, 0) / pc.total_people
+                                  END
+                            WHEN js.state = 'QidResolved' THEN 45.0
+                            WHEN js.state = 'BridgeSearching' THEN 35.0
+                            WHEN js.state IN ('RetailMatched', 'RetailMatchedNeedsReview') THEN 30.0
+                            WHEN js.state = 'RetailSearching' THEN 20.0
+                            WHEN js.state = 'Queued' THEN 10.0
+                            ELSE 0.0
+                        END AS progress_percent,
+                        CASE
+                            WHEN js.state = 'Hydrating' THEN MAX(COALESCE(pc.total_people, 0), 1)
+                            WHEN js.state = 'UniverseEnriching' THEN 2
+                            ELSE 1
+                        END AS work_units_total,
+                        CASE
+                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'Failed') THEN
+                                CASE
+                                    WHEN js.state = 'UniverseEnriching' THEN 2
+                                    ELSE 1
+                                END
+                            WHEN js.state = 'Hydrating' THEN
+                                CASE
+                                    WHEN COALESCE(pc.total_people, 0) = 0 THEN 1
+                                    ELSE COALESCE(pc.enriched_people, 0)
+                                END
+                            WHEN js.state = 'UniverseEnriching' THEN
+                                COALESCE(cf.stage3_core_done, 0) + COALESCE(cf.stage3_enhancers_done, 0)
+                            WHEN js.state IN ('RetailSearching', 'RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved') THEN 0
+                            ELSE 0
+                        END AS work_units_completed
+                    FROM job_states js
+                    LEFT JOIN person_counts pc ON pc.entity_id = js.entity_id
+                    LEFT JOIN canonical_flags cf ON cf.entity_id = js.entity_id
+                )
+                SELECT
+                    COALESCE(AVG(progress_percent), 0) AS AverageProgressPercent,
+                    COALESCE(SUM(work_units_total), 0) AS WorkUnitsTotal,
+                    COALESCE(SUM(work_units_completed), 0) AS WorkUnitsCompleted
+                FROM item_progress;
+                """,
+                new { batchId = batchId.ToString() }).ConfigureAwait(false) ?? new BatchWorkSnapshot();
+
             var total = batch.FilesTotal;
             var failed = batch.FilesFailed + snapshot.PipelineFailed;
             var ready = snapshot.FilesReady;
@@ -182,7 +274,7 @@ public sealed class BatchProgressService
                 + snapshot.UniverseEnriching;
 
             var progressed = Math.Max(0, total - queued);
-            var pct = total > 0 ? (int)Math.Round(progressed * 100.0 / total) : 0;
+            var pct = total > 0 ? (int)Math.Round(Math.Clamp(work.AverageProgressPercent, 0, 100)) : 0;
             var completed = total > 0 && queued == 0 && active == 0;
 
             int? etaSecs = null;
@@ -220,7 +312,9 @@ public sealed class BatchProgressService
                     FilesReady: ready,
                     FilesReadyWithoutUniverse: readyWithoutUniverse,
                     CurrentFileTitle: currentFileTitle,
-                    LifecycleStage: lifecycleStage),
+                    LifecycleStage: lifecycleStage,
+                    WorkUnitsTotal: work.WorkUnitsTotal,
+                    WorkUnitsCompleted: work.WorkUnitsCompleted),
                 ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -279,5 +373,12 @@ public sealed class BatchProgressService
         public int QidResolved { get; init; }
         public int Hydrating { get; init; }
         public int UniverseEnriching { get; init; }
+    }
+
+    private sealed class BatchWorkSnapshot
+    {
+        public double AverageProgressPercent { get; init; }
+        public int WorkUnitsTotal { get; init; }
+        public int WorkUnitsCompleted { get; init; }
     }
 }

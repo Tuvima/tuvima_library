@@ -473,6 +473,66 @@ public sealed class DurablePipelineTests : IDisposable
         Assert.Equal(qid, universeScheduler.Requests[0].WorkQid);
     }
 
+    [Fact]
+    public async Task QuickHydrationWorker_NestedEnrichmentFailure_RequeuesQidResolvedForRetry()
+    {
+        const string qid = "Q185166";
+
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+
+        var jobRepo = new InMemoryIdentityJobRepository();
+        var enrichment = new RecordingEnrichmentService
+        {
+            QuickPassException = new InvalidOperationException("person enrichment did not complete")
+        };
+        var universeScheduler = new RecordingUniverseEnrichmentScheduler();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Movies",
+            State = IdentityJobState.QidResolved.ToString(),
+            ResolvedQid = qid,
+        });
+
+        var postPipeline = new PostPipelineService(
+            new NoOpMetadataClaimRepository(),
+            new NoOpCanonicalValueRepository(),
+            new NoOpScoringEngine(overallConfidence: 0.90),
+            new MinimalConfigurationLoader(),
+            Array.Empty<IExternalMetadataProvider>(),
+            new NoOpReviewQueueRepository(),
+            new NoOpAutoOrganizeService(),
+            CreateBatchProgressService(),
+            NullLogger<PostPipelineService>.Instance);
+
+        var worker = new QuickHydrationWorker(
+            jobRepo,
+            enrichment,
+            new CollectionAssignmentService(
+                new NoOpCollectionRepository(),
+                new NoOpCanonicalValueRepository(),
+                new NoOpWorkRepository(),
+                NullLogger<CollectionAssignmentService>.Instance),
+            postPipeline,
+            new NoOpCanonicalValueRepository(),
+            new NoOpCollectionRepository(),
+            universeScheduler,
+            new MinimalConfigurationLoader(),
+            NullLogger<QuickHydrationWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+        var updated = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updated);
+        Assert.Equal(IdentityJobState.QidResolved.ToString(), updated!.State);
+        Assert.Empty(universeScheduler.Requests);
+    }
+
     // ── Test 8: PostPipelineService auto-resolves stale review items ──────
 
     [Fact]
@@ -848,10 +908,13 @@ public sealed class DurablePipelineTests : IDisposable
     private sealed class RecordingEnrichmentService : IEnrichmentService
     {
         public List<(Guid EntityId, string Qid)> Calls { get; } = [];
+        public Exception? QuickPassException { get; init; }
 
         public Task RunQuickPassAsync(Guid entityId, string qid, CancellationToken ct = default)
         {
             Calls.Add((entityId, qid));
+            if (QuickPassException is not null)
+                throw QuickPassException;
             return Task.CompletedTask;
         }
 

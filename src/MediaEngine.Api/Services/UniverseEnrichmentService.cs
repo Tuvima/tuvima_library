@@ -328,16 +328,6 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
                 await ClearStage3SettledAsync(services.CanonicalRepository, request.EntityId, ct).ConfigureAwait(false);
             }
 
-            if (source == Stage3Source.Inline)
-            {
-                await CompleteInlineJobAsync(
-                    request,
-                    hasUniversePath,
-                    services.JobRepository,
-                    services.BatchProgress,
-                    ct).ConfigureAwait(false);
-            }
-
             await PublishUniverseProgressAsync(
                 services.EventPublisher,
                 request.WorkQid,
@@ -350,14 +340,32 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
             try
             {
                 await services.Enrichment.RunUniverseEnhancerPassAsync(request.EntityId, request.WorkQid, ct).ConfigureAwait(false);
+                await MarkStage3EnhancedAsync(services.CanonicalRepository, request.EntityId, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogWarning(
+                _logger.LogError(
                     ex,
-                    "[UNIVERSE-ENRICH] Enhancer phase failed for {Qid} ({EntityId}); core completion already recorded",
+                    "[UNIVERSE-ENRICH] Enhancer phase failed for {Qid} ({EntityId}); leaving item retryable",
                     request.WorkQid,
                     request.EntityId);
+                if (request.IngestionRunId.HasValue)
+                {
+                    await services.BatchProgress.EmitProgressAsync(request.IngestionRunId.Value, isFinal: false, ct)
+                        .ConfigureAwait(false);
+                }
+
+                return;
+            }
+
+            if (source == Stage3Source.Inline && stage3Settled)
+            {
+                await CompleteInlineJobAsync(
+                    request,
+                    hasUniversePath,
+                    services.JobRepository,
+                    services.BatchProgress,
+                    ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -462,6 +470,24 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         Guid entityId,
         CancellationToken ct)
         => canonicalRepository.DeleteByKeyAsync(entityId, "stage3_enriched_at", ct);
+
+    private static async Task MarkStage3EnhancedAsync(
+        ICanonicalValueRepository canonicalRepository,
+        Guid entityId,
+        CancellationToken ct)
+    {
+        await canonicalRepository.UpsertBatchAsync(
+        [
+            new CanonicalValue
+            {
+                EntityId = entityId,
+                Key = "stage3_enhanced_at",
+                Value = DateTimeOffset.UtcNow.ToString("o"),
+                LastScoredAt = DateTimeOffset.UtcNow,
+                WinningProviderId = Guid.Empty,
+            }
+        ], ct).ConfigureAwait(false);
+    }
 
     private static async Task<bool> HasLinkedFictionalEntitiesAsync(
         IFictionalEntityRepository fictionalEntityRepository,

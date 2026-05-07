@@ -107,6 +107,8 @@ public sealed class PersonEnrichmentWorker
 
         if (personRefs.Count > 0)
         {
+            var failures = new List<Exception>();
+
             try
             {
                 var personRequests = await _identity.EnrichAsync(entityId, personRefs, ct);
@@ -117,6 +119,7 @@ public sealed class PersonEnrichmentWorker
                     try
                     {
                         await _harvesting.ProcessSynchronousAsync(personReq, ct);
+                        await EnsurePersonHarvestCompletedAsync(personReq.EntityId, ct).ConfigureAwait(false);
                         await EnrichPersonImageAsync(
                             personReq.EntityId,
                             personReq.Hints.GetValueOrDefault("role"),
@@ -130,6 +133,7 @@ public sealed class PersonEnrichmentWorker
                         _logger.LogWarning(ex,
                             "Synchronous person enrichment failed for person {Id}",
                             personReq.EntityId);
+                        failures.Add(ex);
                     }
                 }
 
@@ -153,6 +157,14 @@ public sealed class PersonEnrichmentWorker
             {
                 _logger.LogWarning(ex,
                     "Person enrichment failed for entity {Id}", entityId);
+                failures.Add(ex);
+            }
+
+            if (failures.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Person enrichment failed for {failures.Count} linked person(s) on entity {entityId}.",
+                    failures[0]);
             }
         }
 
@@ -186,6 +198,7 @@ public sealed class PersonEnrichmentWorker
                             try
                             {
                                 await _harvesting.ProcessSynchronousAsync(harvestRequest, ct);
+                                await EnsurePersonHarvestCompletedAsync(harvestRequest.EntityId, ct).ConfigureAwait(false);
                                 await EnrichPersonImageAsync(
                                     harvestRequest.EntityId,
                                     unlinked.Role,
@@ -198,6 +211,7 @@ public sealed class PersonEnrichmentWorker
                                 _logger.LogWarning(ex,
                                     "Synchronous person enrichment failed for reconciled person {Id}",
                                     harvestRequest.EntityId);
+                                throw;
                             }
                         }
                         else
@@ -223,6 +237,16 @@ public sealed class PersonEnrichmentWorker
         }
     }
 
+    private async Task EnsurePersonHarvestCompletedAsync(Guid personId, CancellationToken ct)
+    {
+        var person = await _personRepo.FindByIdAsync(personId, ct).ConfigureAwait(false);
+        if (person?.EnrichedAt is null)
+        {
+            throw new InvalidOperationException(
+                $"Person {personId} was queued for enrichment but did not complete.");
+        }
+    }
+
     private async Task EnrichPersonImageAsync(
         Guid personId,
         string? role,
@@ -245,7 +269,8 @@ public sealed class PersonEnrichmentWorker
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogDebug(ex, "Person image enrichment failed for person {PersonId}", personId);
+            _logger.LogWarning(ex, "Person image enrichment failed for person {PersonId}", personId);
+            throw;
         }
     }
 
