@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuvima pipeline configuration",
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "properties": {
+      "strategy": { "enum": ["Waterfall", "Cascade", "Sequential"] },
+      "providers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["rank", "name"],
+          "properties": {
+            "rank": { "type": "integer", "minimum": 1 },
+            "name": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "additionalProperties": true
+  }
+}

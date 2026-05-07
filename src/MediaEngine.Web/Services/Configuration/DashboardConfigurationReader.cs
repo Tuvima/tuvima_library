@@ -31,8 +31,15 @@ public sealed class DashboardConfigurationReader
         if (!File.Exists(path))
             return default;
 
-        using var stream = File.OpenRead(path);
-        return JsonSerializer.Deserialize<T>(stream, JsonOptions);
+        try
+        {
+            using var stream = File.OpenRead(path);
+            return JsonSerializer.Deserialize<T>(stream, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Dashboard configuration file '{path}' is invalid at {ex.Path ?? "$"}. Fix the JSON shape or restore the .bak file.", ex);
+        }
     }
 }
 

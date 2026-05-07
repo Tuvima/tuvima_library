@@ -1,6 +1,8 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.JSInterop;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
@@ -70,6 +72,7 @@ public partial class SharedMediaEditorShell
     [Inject] protected IEngineApiClient ApiClient { get; set; } = null!;
     [Inject] protected UIOrchestratorService Orchestrator { get; set; } = null!;
     [Inject] protected ISnackbar Snackbar { get; set; } = null!;
+    [Inject] protected IJSRuntime JS { get; set; } = null!;
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
     [Parameter] public MediaEditorLaunchRequest Request { get; set; } = new();
@@ -767,6 +770,12 @@ public partial class SharedMediaEditorShell
     }
 
     protected void DiscardAndClose() => MudDialog.Cancel();
+
+    protected async Task ConfirmNavigationWithUnsavedChanges(LocationChangingContext context)
+    {
+        if (IsDirty && !await JS.InvokeAsync<bool>("confirm", "You have unsaved changes. Leave without saving?"))
+            context.PreventNavigation();
+    }
 
     protected async Task ReclassifyMediaTypeAsync()
     {

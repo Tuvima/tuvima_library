@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuvima scoring configuration",
+  "type": "object",
+  "properties": {
+    "auto_link_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+    "conflict_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+    "conflict_epsilon": { "type": "number", "minimum": 0, "maximum": 1 },
+    "stale_claim_decay_days": { "type": "integer", "minimum": 0 },
+    "stale_claim_decay_factor": { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "additionalProperties": true
+}

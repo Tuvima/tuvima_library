@@ -1,11 +1,16 @@
 @namespace MediaEngine.Web.Components.Collections
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components.Routing
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<NavigationLock ConfirmExternalNavigation="@_hasUnsavedChanges"
+                OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
 <MudDialog Class="collection-editor-dialog">
     <DialogContent>
@@ -128,6 +133,7 @@
     private bool _isEnabled = true;
     private bool _isFeatured;
     private bool _saving;
+    private bool _hasUnsavedChanges;
     private CollectionPreviewResult? _previewResult;
     private string _itemSearchText = string.Empty;
     private bool _loadingLibraryItems;
@@ -258,13 +264,42 @@
         return Task.CompletedTask;
     }
 
+    private void MarkDirty() => _hasUnsavedChanges = true;
+
+    private Task OnNameChanged(string value)
+    {
+        _name = value;
+        MarkDirty();
+        return Task.CompletedTask;
+    }
+
+    private Task OnDescriptionChanged(string? value)
+    {
+        _description = value;
+        MarkDirty();
+        return Task.CompletedTask;
+    }
+
+    private async Task ConfirmNavigationWithUnsavedChanges(LocationChangingContext context)
+    {
+        if (_hasUnsavedChanges && !await JS.InvokeAsync<bool>("confirm", "You have unsaved changes. Leave without saving?"))
+            context.PreventNavigation();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && _rulesEnabled && _rules.Any(rule => !string.IsNullOrWhiteSpace(rule.Value)))
             await RunPreview();
     }
 
-    private void Cancel() => MudDialog.Cancel();
+    private async Task Cancel()
+    {
+        if (_hasUnsavedChanges && !await JS.InvokeAsync<bool>("confirm", "You have unsaved changes. Leave without saving?"))
+            return;
+
+        _hasUnsavedChanges = false;
+        MudDialog.Cancel();
+    }
 
     private async Task EnsureManualCollectionContextAsync()
     {
@@ -334,13 +369,19 @@
         }
     }
 
-    private void AddRule(int afterIndex) =>
+    private void AddRule(int afterIndex)
+    {
         _rules.Insert(afterIndex + 1, new CollectionRulePredicateViewModel());
+        MarkDirty();
+    }
 
     private void RemoveRule(int index)
     {
         if (_rules.Count > 1)
+        {
             _rules.RemoveAt(index);
+            MarkDirty();
+        }
 
         _ = RunPreview();
     }
@@ -348,6 +389,7 @@
     private async Task OnRulesEnabledChanged(bool value)
     {
         _rulesEnabled = value;
+        MarkDirty();
 
         if (!_rulesEnabled)
         {
@@ -367,6 +409,7 @@
     {
         var file = args.File;
         _artworkFile = file;
+        MarkDirty();
 
         try
         {
@@ -386,6 +429,7 @@
     private async Task OnCollectionTypeChanged(string value)
     {
         _collectionType = value;
+        MarkDirty();
 
         if (IsPlaylist)
         {
@@ -409,6 +453,7 @@
     private Task OnMatchModeChanged(string value)
     {
         _matchMode = value;
+        MarkDirty();
         return RunPreview();
     }
 
@@ -416,12 +461,14 @@
     {
         rule.Field = value;
         rule.Op = GetOperatorsForField(value).First().Key;
+        MarkDirty();
         return RunPreview();
     }
 
     private Task OnRuleValueChanged(CollectionRulePredicateViewModel rule, string? value)
     {
         rule.Value = value;
+        MarkDirty();
         return RunPreview();
     }
 
@@ -453,6 +500,7 @@
             CoverUrl = work.CoverUrl,
             SortOrder = _manualItems.Count == 0 ? 1 : _manualItems.Max(item => item.SortOrder) + 1,
         });
+        MarkDirty();
 
         StateHasChanged();
     }
@@ -473,6 +521,7 @@
         }
 
         _manualItems.RemoveAll(existing => existing.WorkId == item.WorkId);
+        MarkDirty();
         StateHasChanged();
     }
 
@@ -588,6 +637,7 @@
                     : $"Collection \"{_name}\" created.",
                 Severity.Success);
 
+            _hasUnsavedChanges = false;
             MudDialog.Close(DialogResult.Ok(true));
         }
         catch (Exception ex)
@@ -739,14 +789,16 @@
             }
 
             <MudTextField T="string"
-                          @bind-Value="_name"
+                          Value="_name"
+                          ValueChanged="OnNameChanged"
                           Placeholder="Playlist Title"
                           Variant="Variant.Outlined"
                           Immediate="true"
                           Class="collection-editor-field app-dialog-field" />
 
             <MudTextField T="string"
-                          @bind-Value="_description"
+                          Value="_description"
+                          ValueChanged="OnDescriptionChanged"
                           Placeholder="Description (Optional)"
                           Variant="Variant.Outlined"
                           Lines="3"

@@ -401,3 +401,12 @@ matches `http://localhost:61495`.
 - [Engine API Reference](../reference/api-endpoints.md)
 - [Database Schema Reference](../reference/database-schema.md)
 
+# Coverage Threshold
+
+CI still runs restore, warning-as-error build, format verification, tests with `XPlat Code Coverage`, vulnerable package checks, and Docker build/push behavior. Wave 5 adds a Cobertura threshold step:
+
+```powershell
+./scripts/coverage/Enforce-Coverage.ps1 -ResultsDirectory ./TestResults
+```
+
+The initial floor lives in `scripts/coverage/coverage-thresholds.json`: 13% line coverage and 7% branch coverage, rounded down from the Wave 5 baseline run. This is a conservative regression gate for the current repository, with documented targets of 70% line and 60% branch coverage to ratchet toward over time.

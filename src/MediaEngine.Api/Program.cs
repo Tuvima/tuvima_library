@@ -23,6 +23,7 @@ using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Extractors;
 using MediaEngine.Processors.Processors;
 using MediaEngine.Storage;
+using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 using MediaEngine.Storage.Services;
@@ -193,7 +194,24 @@ string configDir     = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
                     ?? config["MediaEngine:ConfigDirectory"]
                     ?? "config";
 string manifestPath  = config["MediaEngine:ManifestPath"] ?? "legacy_manifest.json";
-var    configLoader  = new ConfigurationDirectoryLoader(configDir, manifestPath);
+ConfigurationDirectoryLoader configLoader;
+try
+{
+    configLoader = new ConfigurationDirectoryLoader(configDir, manifestPath);
+    configLoader.StartWatching();
+    configLoader.ConfigurationChanged += (_, change) =>
+    {
+        if (change.Applied)
+            Log.Information("Configuration reloaded: {ConfigFile}", change.RelativePath);
+        else
+            Log.Warning(change.Error, "Configuration reload rejected for {ConfigFile}; keeping last-known-good values.", change.RelativePath);
+    };
+}
+catch (ConfigValidationException ex)
+{
+    Log.Fatal(ex, "Invalid Tuvima Library configuration: {ConfigFile} failed {SchemaName}", ex.FilePath, ex.SchemaName);
+    throw;
+}
 builder.Services.AddSingleton<IStorageManifest>(configLoader);
 builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 

@@ -1,8 +1,12 @@
 @namespace MediaEngine.Web.Components.MediaEditor
 @using System.Globalization
+@using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
+
+<NavigationLock ConfirmExternalNavigation="@IsDirty"
+                OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
 <MudDialog Class="sme-dialog">
     <DialogContent>
@@ -62,6 +66,7 @@
                                Size="Size.Small"
                                Color="Color.Inherit"
                                Class="sme-close"
+                               aria-label="Close media editor"
                                OnClick="HandleClose" />
             </div>
 
@@ -861,6 +866,7 @@
                                                        Size="Size.Small"
                                                        Class="sme-art-lightbox-close"
                                                        Color="Color.Inherit"
+                                                       aria-label="Close artwork preview"
                                                        OnClick="CloseArtworkZoom" />
                                         <div class="sme-art-lightbox-copy">
                                             <div class="sme-art-lightbox-title">@ZoomArtworkSlot.Label</div>

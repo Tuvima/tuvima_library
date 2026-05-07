@@ -8,10 +8,15 @@
 @inject NavigationManager Nav
 
 @* -- Backdrop -- *@
-<div class="vdd-backdrop" @onclick="OnClose"></div>
+<div class="vdd-backdrop" @onclick="OnClose" aria-hidden="true"></div>
 
 @* -- Drawer Panel -- *@
-<div class="vdd-drawer" @onclick:stopPropagation="true">
+<div class="vdd-drawer"
+     role="dialog"
+     aria-modal="true"
+     aria-label="@DrawerAccessibleLabel"
+     tabindex="-1"
+     @onclick:stopPropagation="true">
 
     @* -- 1. Pinned Header -- *@
     <LibraryDetailDrawerHeader MediaItem="MediaItem"
@@ -1143,6 +1148,11 @@
     private List<ClaimHistoryDto> _claims = [];
     private bool _claimsLoading;
     private string? _loadError;
+    private string DrawerAccessibleLabel =>
+        MediaItem?.Title
+        ?? Person?.Name
+        ?? Universe?.DisplayName
+        ?? "Library item details";
 
     private void OnSearchTypeChanged(ChangeEventArgs e)
     {

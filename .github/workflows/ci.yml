@@ -39,6 +39,10 @@ jobs:
       - name: Run tests
         run: dotnet test MediaEngine.slnx --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
+      - name: Enforce coverage threshold
+        shell: pwsh
+        run: ./scripts/coverage/Enforce-Coverage.ps1 -ResultsDirectory ./TestResults
+
       - name: Check vulnerable packages
         run: dotnet list MediaEngine.slnx package --vulnerable --include-transitive
 

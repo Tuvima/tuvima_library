@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuvima hydration configuration",
+  "type": "object",
+  "properties": {
+    "stage_concurrency": { "type": "integer", "minimum": 1 },
+    "stage1_timeout_seconds": { "type": "integer", "minimum": 1 },
+    "stage2_timeout_seconds": { "type": "integer", "minimum": 1 },
+    "stage3_timeout_seconds": { "type": "integer", "minimum": 1 },
+    "auto_review_confidence_threshold": { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "additionalProperties": true
+}

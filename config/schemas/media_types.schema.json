@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuvima media type configuration",
+  "type": "object",
+  "required": ["version", "types"],
+  "properties": {
+    "version": { "type": "string" },
+    "types": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["key", "display_name", "extensions", "category_folder"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "extensions": { "type": "array", "items": { "type": "string", "pattern": "^\\." } },
+          "category_folder": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuvima provider configuration",
+  "type": "object",
+  "required": ["name", "enabled", "weight"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "enabled": { "type": "boolean" },
+    "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+    "throttle_ms": { "type": "integer", "minimum": 0 },
+    "max_concurrency": { "type": "integer", "minimum": 1 },
+    "hydration_stages": { "type": "array", "items": { "enum": [1, 2, 3] } },
+    "http_client": {
+      "type": "object",
+      "properties": {
+        "timeout_seconds": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

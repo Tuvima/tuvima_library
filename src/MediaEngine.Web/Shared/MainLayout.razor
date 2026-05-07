@@ -24,6 +24,8 @@
     <CommandPalette @ref="_palette" />
 }
 
+<a class="skip-to-content" href="#main-content">Skip to main content</a>
+
 <MudLayout Class="@LayoutShellClass">
     <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="@AppBarClass">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="layout-shell__left-rail">
@@ -159,7 +161,7 @@
         </div>
     }
 
-    <MudMainContent Class="@MainContentClass">
+    <MudMainContent id="main-content" role="main" tabindex="-1" Class="@MainContentClass">
         <MudContainer MaxWidth="MaxWidth.False" Class="@MainContainerClass">
             @Body
         </MudContainer>
@@ -546,6 +548,24 @@
 }
 
 <style>
+    .skip-to-content {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 5000;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: var(--tl-accent-primary);
+        color: #080B14;
+        font-weight: 700;
+        transform: translateY(-160%);
+        transition: transform 0.12s ease;
+    }
+
+    .skip-to-content:focus {
+        transform: translateY(0);
+    }
+
     .discovery-hover-host {
         position: fixed;
         inset: 0;

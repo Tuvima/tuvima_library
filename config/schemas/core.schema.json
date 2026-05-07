@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuvima core configuration",
+  "type": "object",
+  "required": ["schema_version", "database_path", "server_name"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "database_path": { "type": "string", "minLength": 1 },
+    "country": { "type": "string", "minLength": 2, "maxLength": 2 },
+    "date_format": { "enum": ["system", "short", "medium", "long", "iso8601"] },
+    "time_format": { "enum": ["system", "12h", "24h"] },
+    "pipeline": { "type": "object" },
+    "auth": { "type": "object" },
+    "rate_limiting": { "type": "object" }
+  },
+  "additionalProperties": true
+}

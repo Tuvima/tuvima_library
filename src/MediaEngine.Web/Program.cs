@@ -62,6 +62,7 @@ string configDir = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
                 ?? builder.Configuration["MediaEngine:ConfigDirectory"]
                 ?? "config";
 var dashboardConfig = new DashboardConfigurationReader(configDir);
+builder.Services.AddSingleton(dashboardConfig);
 
 var authSettings = dashboardConfig.LoadCore().Auth;
 var ssoEnabled =
@@ -108,6 +109,7 @@ if (ssoEnabled)
 }
 
 PaletteProvider.Initialize(dashboardConfig.LoadPalette());
+builder.Services.AddHostedService<DashboardPaletteReloadService>();
 
 // ── Narration ─────────────────────────────────────────────────────────────────
 // Singleton: config-driven phrase templates for hero subtitles and section headings.

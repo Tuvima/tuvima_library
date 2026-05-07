@@ -1,10 +1,15 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
+@using Microsoft.AspNetCore.Components.Routing
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 @inject ProviderCatalogueService CatalogueService
+@inject IJSRuntime JS
+
+<NavigationLock ConfirmExternalNavigation="@_appliedAny"
+                OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
 <MudDialog Class="eo-dialog">
     <TitleContent>
@@ -14,6 +19,7 @@
             <span style="flex: 1;"></span>
             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
                            OnClick="@Cancel"
+                           aria-label="Close media item editor"
                            Style="color: var(--tl-text-secondary);" />
         </div>
     </TitleContent>
@@ -673,6 +679,12 @@
     {
         CancelRetailLookup();
         MudDialog.Close(_appliedAny ? DialogResult.Ok(true) : DialogResult.Cancel());
+    }
+
+    private async Task ConfirmNavigationWithUnsavedChanges(LocationChangingContext context)
+    {
+        if (_appliedAny && !await JS.InvokeAsync<bool>("confirm", "You have unsaved changes. Leave without saving?"))
+            context.PreventNavigation();
     }
 
     private RenderFragment RenderGroupedFields() => __builder =>

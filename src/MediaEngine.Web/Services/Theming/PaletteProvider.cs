@@ -17,4 +17,7 @@ public static class PaletteProvider
     /// <summary>Called once at startup to set the loaded palette.</summary>
     public static void Initialize(PaletteConfiguration palette) =>
         _palette = palette ?? new();
+
+    public static void Reload(PaletteConfiguration palette) =>
+        _palette = palette ?? new();
 }

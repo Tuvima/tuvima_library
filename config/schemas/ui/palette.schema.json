@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuvima palette configuration",
+  "type": "object",
+  "required": ["theme", "status", "pipeline", "media_type", "confidence", "review_trigger"],
+  "additionalProperties": true
+}

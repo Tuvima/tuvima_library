@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 
@@ -47,7 +48,7 @@ namespace MediaEngine.Storage;
 /// files into a composite <see cref="LegacyManifest"/>.
 /// </para>
 /// </summary>
-public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorageManifest
+public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorageManifest, IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -58,6 +59,11 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
 
     private readonly string  _configDir;
     private readonly string? _legacyManifestPath;
+    private readonly object _reloadLock = new();
+    private readonly Dictionary<string, object> _lastKnownGood = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Timer> _reloadTimers = new(StringComparer.OrdinalIgnoreCase);
+    private FileSystemWatcher? _watcher;
+    private bool _disposed;
 
     // ── Subdirectory constants ────────────────────────────────────────────────
 
@@ -109,6 +115,24 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
 
     /// <inheritdoc/>
     public string ConfigDirectoryPath => _configDir;
+
+    public event EventHandler<ConfigurationFileChangedEventArgs>? ConfigurationChanged;
+
+    public void StartWatching()
+    {
+        if (_watcher is not null || !Directory.Exists(_configDir))
+            return;
+
+        _watcher = new FileSystemWatcher(_configDir, "*.json")
+        {
+            IncludeSubdirectories = true,
+            NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+            EnableRaisingEvents = true,
+        };
+        _watcher.Changed += OnConfigFileChanged;
+        _watcher.Created += OnConfigFileChanged;
+        _watcher.Renamed += OnConfigFileRenamed;
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     //  IStorageManifest — Backward Compatibility
@@ -363,12 +387,13 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         var results = new List<ProviderConfiguration>();
         foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
         {
-            var config = TryDeserializeFile<ProviderConfiguration>(file);
-            if (config is not null)
-            {
-                ApplySecrets(config, Path.GetFileNameWithoutExtension(file));
-                results.Add(config);
-            }
+            var relativePath = Path.Combine(ProvidersSubdir, Path.GetFileName(file));
+            var config = LoadFile<ProviderConfiguration>(relativePath);
+            if (config is null)
+                continue;
+
+            ApplySecrets(config, Path.GetFileNameWithoutExtension(file));
+            results.Add(config);
         }
         return results;
     }
@@ -508,22 +533,34 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     {
         var fullPath   = Path.Combine(_configDir, relativePath);
         var backupPath = fullPath + ".bak";
+        var schemaName = ResolveSchemaName(relativePath);
 
         // Attempt 1 — primary file
-        var result = TryDeserializeFile<T>(fullPath);
-        if (result is not null)
-            return result;
-
-        // Attempt 2 — backup file; restore primary on success
-        result = TryDeserializeFile<T>(backupPath);
+        var result = TryDeserializeFile<T>(fullPath, relativePath, out var primaryErrors);
         if (result is not null)
         {
-            try { File.Copy(backupPath, fullPath, overwrite: true); }
-            catch { /* Best-effort restore */ }
+            RememberLastKnownGood(relativePath, result);
             return result;
         }
 
-        return null;
+        if (!File.Exists(fullPath))
+            return null;
+
+        // Attempt 2 — backup file; restore primary on success
+        result = TryDeserializeFile<T>(backupPath, relativePath, out var backupErrors);
+        if (result is not null)
+        {
+            try { File.Copy(backupPath, fullPath, overwrite: true); }
+            catch (IOException) { /* Best-effort restore */ }
+            RememberLastKnownGood(relativePath, result);
+            return result;
+        }
+
+        if (TryGetLastKnownGood<T>(relativePath, out var cached))
+            return cached;
+
+        var errors = primaryErrors.Count > 0 ? primaryErrors : backupErrors;
+        throw new ConfigValidationException(fullPath, schemaName, errors);
     }
 
     /// <summary>
@@ -553,18 +590,149 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     }
 
     /// <summary>Deserialize a file; returns <c>null</c> on any failure.</summary>
-    private static T? TryDeserializeFile<T>(string path) where T : class
+    private static T? TryDeserializeFile<T>(string path, string relativePath, out IReadOnlyList<string> errors) where T : class
     {
+        errors = [];
         if (!File.Exists(path))
             return null;
 
         try
         {
             var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<T>(json, JsonOptions);
+            var result = JsonSerializer.Deserialize<T>(json, JsonOptions);
+            if (result is null)
+            {
+                errors = ["The file is empty or does not contain a JSON object."];
+                return null;
+            }
+
+            errors = JsonConfigValidator.Validate(result, relativePath);
+            return errors.Count == 0 ? result : null;
         }
-        catch (JsonException) { return null; }
-        catch (IOException)   { return null; }
+        catch (JsonException ex)
+        {
+            errors = [$"JSON syntax or type error at {ex.Path ?? "$"}."];
+            return null;
+        }
+        catch (IOException ex)
+        {
+            errors = [$"The file could not be read: {ex.GetType().Name}."];
+            return null;
+        }
+    }
+
+    private void RememberLastKnownGood<T>(string relativePath, T value) where T : class
+    {
+        lock (_reloadLock)
+        {
+            _lastKnownGood[NormalizeRelativePath(relativePath)] = value;
+        }
+    }
+
+    private bool TryGetLastKnownGood<T>(string relativePath, out T? value) where T : class
+    {
+        lock (_reloadLock)
+        {
+            if (_lastKnownGood.TryGetValue(NormalizeRelativePath(relativePath), out var cached) && cached is T typed)
+            {
+                value = typed;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
+
+    private void OnConfigFileChanged(object sender, FileSystemEventArgs args)
+    {
+        if (_disposed || !args.FullPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var relativePath = NormalizeRelativePath(Path.GetRelativePath(_configDir, args.FullPath));
+        if (relativePath.StartsWith("schemas/", StringComparison.OrdinalIgnoreCase)
+            || relativePath.Contains(".bak", StringComparison.OrdinalIgnoreCase)
+            || relativePath.StartsWith("secrets/", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        lock (_reloadLock)
+        {
+            if (!_reloadTimers.TryGetValue(relativePath, out var timer))
+            {
+                timer = new Timer(_ => ReloadChangedFile(relativePath), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                _reloadTimers[relativePath] = timer;
+            }
+
+            timer.Change(TimeSpan.FromMilliseconds(250), Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void OnConfigFileRenamed(object sender, RenamedEventArgs args) =>
+        OnConfigFileChanged(sender, args);
+
+    private void ReloadChangedFile(string relativePath)
+    {
+        var fullPath = Path.Combine(_configDir, relativePath);
+        Exception? error = null;
+        var applied = false;
+
+        try
+        {
+            _ = relativePath.Replace('\\', '/') switch
+            {
+                CoreFileName => ReloadFile<CoreConfiguration>(relativePath),
+                ScoringFileName => ReloadFile<ScoringSettings>(relativePath),
+                MaintenanceFileName => ReloadFile<MaintenanceSettings>(relativePath),
+                HydrationFileName => ReloadFile<HydrationSettings>(relativePath),
+                MediaTypesFileName => ReloadFile<MediaTypeConfiguration>(relativePath),
+                PipelinesFileName => ReloadFile<Dictionary<string, MediaTypePipeline>>(relativePath),
+                "ui/palette.json" => ReloadFile<PaletteConfiguration>(relativePath),
+                var path when path.StartsWith("providers/", StringComparison.OrdinalIgnoreCase) => ReloadFile<ProviderConfiguration>(relativePath),
+                _ => LoadConfig<object>(Path.GetDirectoryName(relativePath) ?? string.Empty, Path.GetFileNameWithoutExtension(relativePath)),
+            };
+            applied = true;
+        }
+        catch (Exception ex) when (ex is IOException or ConfigValidationException or JsonException)
+        {
+            error = ex;
+        }
+
+        ConfigurationChanged?.Invoke(this, new ConfigurationFileChangedEventArgs(relativePath, fullPath, applied, error));
+    }
+
+    private T ReloadFile<T>(string relativePath) where T : class
+    {
+        var fullPath = Path.Combine(_configDir, relativePath);
+        var result = TryDeserializeFile<T>(fullPath, relativePath, out var errors);
+        if (result is null)
+            throw new ConfigValidationException(fullPath, ResolveSchemaName(relativePath), errors);
+
+        RememberLastKnownGood(relativePath, result);
+        return result;
+    }
+
+    private static string NormalizeRelativePath(string relativePath) =>
+        relativePath.Replace('\\', '/');
+
+    private static string ResolveSchemaName(string relativePath)
+    {
+        var normalized = NormalizeRelativePath(relativePath);
+        if (normalized.StartsWith("providers/", StringComparison.OrdinalIgnoreCase))
+            return "providers/provider.schema.json";
+
+        return normalized switch
+        {
+            "core.json" => "core.schema.json",
+            "hydration.json" => "hydration.schema.json",
+            "scoring.json" => "scoring.schema.json",
+            "maintenance.json" => "maintenance.schema.json",
+            "media_types.json" => "media_types.schema.json",
+            "pipelines.json" => "pipelines.schema.json",
+            "ui/palette.json" => "ui/palette.schema.json",
+            _ => $"{Path.GetFileNameWithoutExtension(normalized)}.schema.json",
+        };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -970,4 +1138,27 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     {
         _ => 1, // All providers default to serial
     };
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        if (_watcher is not null)
+        {
+            _watcher.EnableRaisingEvents = false;
+            _watcher.Changed -= OnConfigFileChanged;
+            _watcher.Created -= OnConfigFileChanged;
+            _watcher.Renamed -= OnConfigFileRenamed;
+            _watcher.Dispose();
+        }
+
+        lock (_reloadLock)
+        {
+            foreach (var timer in _reloadTimers.Values)
+                timer.Dispose();
+            _reloadTimers.Clear();
+        }
+    }
 }

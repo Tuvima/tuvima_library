@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Storage.Contracts;
@@ -28,6 +29,19 @@ public interface IConfigurationLoader
     /// without duplicating the resolution logic.
     /// </summary>
     string ConfigDirectoryPath => string.Empty;
+
+    /// <summary>
+    /// Raised after a watched config file is reloaded or rejected. Implementations
+    /// that do not support hot reload can leave this event unused.
+    /// </summary>
+    event EventHandler<ConfigurationFileChangedEventArgs>? ConfigurationChanged
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>Begin bounded file watching for safe reloadable config files.</summary>
+    void StartWatching() { }
 
     // ── Core ─────────────────────────────────────────────────────────────────
 
