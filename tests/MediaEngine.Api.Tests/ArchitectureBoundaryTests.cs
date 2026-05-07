@@ -32,6 +32,37 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void ActiveRazorComponents_DoNotImportStorageImplementationModelsOrSql()
+    {
+        var repoRoot = FindRepoRoot();
+        var componentRoot = Path.Combine(repoRoot, "src", "MediaEngine.Web", "Components");
+        var offenders = Directory.EnumerateFiles(componentRoot, "*.razor", SearchOption.AllDirectories)
+            .Select(path => new { Path = path, Text = File.ReadAllText(path) })
+            .Where(file =>
+                file.Text.Contains("@using MediaEngine.Storage.Models", StringComparison.Ordinal)
+                || file.Text.Contains("CreateCommand(", StringComparison.Ordinal)
+                || file.Text.Contains("CommandText", StringComparison.Ordinal))
+            .Select(file => Path.GetRelativePath(repoRoot, file.Path))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void ApiEndpointFiles_WithDirectDatabaseAccess_AreExplicitlyTracked()
+    {
+        var repoRoot = FindRepoRoot();
+        var endpointRoot = Path.Combine(repoRoot, "src", "MediaEngine.Api", "Endpoints");
+        var offenders = Directory.EnumerateFiles(endpointRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => File.ReadAllText(path).Contains("IDatabaseConnection", StringComparison.Ordinal))
+            .Select(path => Path.GetRelativePath(repoRoot, path).Replace('\\', '/'))
+            .Except(EndpointDatabaseAccessAllowlist, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void PhaseOneEndpointFiles_DoNotContainDirectSql()
     {
         var repoRoot = FindRepoRoot();
@@ -93,5 +124,23 @@ public sealed class ArchitectureBoundaryTests
         "INSERT ",
         "UPDATE ",
         "DELETE ",
+    ];
+
+    private static readonly string[] EndpointDatabaseAccessAllowlist =
+    [
+        // TODO Phase 5: move these SQL-heavy request handlers behind read services/repositories.
+        "src/MediaEngine.Api/Endpoints/CharacterEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/CollectionEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/LibraryEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/LibraryItemEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs",
+        "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs",
+        "src/MediaEngine.Api/Endpoints/PersonEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/ProfileEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/SystemEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/UniverseGraphEndpoints.cs",
+        "src/MediaEngine.Api/Endpoints/WorkEndpoints.cs",
     ];
 }

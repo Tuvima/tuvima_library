@@ -243,7 +243,7 @@ The solution sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in `Dire
 
 ## Step 10 â€” Where to find things
 
-**Engine endpoints** live in `src/MediaEngine.Api/Endpoints/`. Each file groups related actions (e.g., `LibraryEndpoints.cs`, `VaultEndpoints.cs`, `AiEndpoints.cs`). Endpoints use minimal API style (`MapGet`, `MapPost`, etc.) registered in `Program.cs`.
+**Engine endpoints** live in `src/MediaEngine.Api/Endpoints/`. Each file groups related actions (e.g., `LibraryEndpoints.cs`, `CollectionEndpoints.cs`, `MetadataEndpoints.cs`, `AiEndpoints.cs`). Endpoints use minimal API style (`MapGet`, `MapPost`, etc.) registered in `Program.cs`.
 
 **Domain entities** live in `src/MediaEngine.Domain/Entities/`. The core hierarchy: `MediaAsset` â†’ `Edition` â†’ `Work` â†’ `Collection` (Series) â†’ `ParentCollection` (Universe).
 

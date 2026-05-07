@@ -88,6 +88,7 @@ The Dashboard is organized around the way people use their media:
 - **Settings/Admin** is for folders, providers, profiles, ingestion status, system health, and configuration.
 
 The old Library Vault workspace has been removed. Normal media corrections now happen inline from the page, row, card, album, track, movie, show, book, comic, or detail view where the issue appears.
+When Tuvima is uncertain, it sends only that exception to the Review Queue instead of making the whole library feel like an admin workspace.
 ---
 
 ## Privacy

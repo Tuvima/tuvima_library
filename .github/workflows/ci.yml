@@ -28,13 +28,19 @@ jobs:
           dotnet-version: "10.0.2xx"
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore MediaEngine.slnx
 
       - name: Build (warnings as errors)
-        run: dotnet build --no-restore --warnaserror
+        run: dotnet build MediaEngine.slnx --no-restore --warnaserror
+
+      - name: Verify formatting
+        run: dotnet format MediaEngine.slnx --verify-no-changes --no-restore
 
       - name: Run tests
-        run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
+        run: dotnet test MediaEngine.slnx --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
+
+      - name: Check vulnerable packages
+        run: dotnet list MediaEngine.slnx package --vulnerable --include-transitive
 
       - name: Upload test results
         if: always()

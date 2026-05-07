@@ -55,7 +55,7 @@ After an edit is applied, the current surface refreshes and the user remains in 
 
 Review Queue is for items that are blocked, uncertain, or need confirmation before ingestion/enrichment can continue. It should explain why each item needs attention and open the shared editor in review mode. Review may support dismiss, retry, skip-universe, approve, or apply-match actions according to Engine rules.
 
-Review is not a broad Review Queue and must not become a second management workspace.
+Review Queue is not a broad media management workspace and must not become one.
 
 ## Settings/Admin scope
 
@@ -74,9 +74,10 @@ Settings/Admin should not host normal media browse/edit pages.
 
 ## Guardrails
 
-- Do not add new media library routes, media library tabs, `media library-` CSS, or Review Queue docs.
+- Do not add new Vault routes, Vault tabs, `vault-` CSS, or docs that describe Vault as current product behavior.
 - Do not restore `LibraryPage` or `LibrarySurfacePreset`.
 - Do not route normal media fixes through a management workbench.
 - Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for normal, review, and batch edit flows.
+- Refresh the current surface only after the shared editor returns a successful result; canceled edits should not mutate UI state.
 
 

@@ -142,4 +142,6 @@ UI kits:
 
 Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
 
+Design changes must preserve the Phase 4 quality gates: no retired Vault/LibraryPage workflow, no Vault navigation label, and media correction controls should launch the shared editor instead of creating a separate management surface.
+
 

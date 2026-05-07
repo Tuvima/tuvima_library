@@ -31,7 +31,8 @@ Always build from the repository root. The build must produce **0 errors and 0 w
 before any change is considered complete.
 
 ```bash
-dotnet build
+dotnet restore MediaEngine.slnx
+dotnet build MediaEngine.slnx --no-restore
 ```
 
 A clean build looks like:
@@ -62,7 +63,7 @@ dotnet build src/MediaEngine.Api/MediaEngine.Api.csproj
 ## 2. Running the unit test suite
 
 ```bash
-dotnet test
+dotnet test MediaEngine.slnx --no-build
 ```
 
 This runs all test projects under `tests/`. Each project maps to one source project:
@@ -76,7 +77,8 @@ This runs all test projects under `tests/`. Each project maps to one source proj
 | `MediaEngine.Providers.Tests` | Provider config parsing, field mapping logic |
 | `MediaEngine.Ingestion.Tests` | Ingestion pipeline steps |
 | `MediaEngine.AI.Tests` | AI feature contracts, hardware tier policy |
-| `MediaEngine.Api.Tests` | API key generation, path validation |
+| `MediaEngine.Api.Tests` | API contracts, architecture boundaries, Engine smoke guardrails, DB access rules |
+| `MediaEngine.Web.Tests` | Dashboard shell, navigation, product guardrails, shared editor launch behavior |
 
 To run a single project:
 
@@ -97,6 +99,26 @@ dotnet test --collect:"XPlat Code Coverage"
 ```
 
 Coverage reports land in `tests/*/TestResults/`.
+
+### Phase 4 guardrail suites
+
+These tests are intentionally about preventing regressions, not only checking one feature:
+
+- `UiCompositionGuardrailTests` prevents active Vault/LibraryPage workflows, Vault navigation labels, current Vault docs, and non-shared media editing paths from returning.
+- `ArchitectureBoundaryTests` keeps Domain independent, blocks Web-to-Storage implementation coupling in active UI, flags direct SQL in Razor, and tracks endpoint files that still use direct database access.
+- `DatabaseConnectionGuardrailTests` reserves `IDatabaseConnection.Open()` for startup/schema work and keeps silent catches limited to documented legacy locations.
+- `DatabaseStartupSafetyTests` initializes temporary SQLite databases from scratch, verifies idempotent startup, checks WAL/foreign-key/integrity settings, and exercises the first previous-schema compatibility fixture.
+- `DockerfileGuardrailTests` verifies Docker restore inputs and readiness-based container startup.
+
+Run a targeted guardrail pass with:
+
+```bash
+dotnet test tests/MediaEngine.Api.Tests --filter "ArchitectureBoundaryTests|DatabaseConnectionGuardrailTests|EngineSmokeGuardrailTests|DockerfileGuardrailTests"
+dotnet test tests/MediaEngine.Storage.Tests --filter DatabaseStartupSafetyTests
+dotnet test tests/MediaEngine.Web.Tests --filter UiCompositionGuardrailTests
+```
+
+CI also runs `dotnet format MediaEngine.slnx --verify-no-changes`, `dotnet list MediaEngine.slnx package --vulnerable --include-transitive`, Docker build, docs build, and coverage collection. Coverage is reporting-first for now; critical storage, API, Web shell/editor, review, ingestion, provider failure, and API-client failure paths should be ratcheted upward as those areas stabilize.
 
 ---
 

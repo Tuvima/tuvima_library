@@ -15,6 +15,8 @@ tags:
 
 > **NONE of the features in this document are implemented.** This document describes the planned future state of Tuvima Library. It exists to preserve design decisions and prevent accidental overlap with what is already built.
 
+Target-state work still follows the current quality gates: do not bring back the retired Vault/LibraryPage workflow, keep media correction inline through the shared editor, keep Review Queue as the exception workflow, and keep Settings/Admin focused on configuration and operations.
+
 ---
 
 ## Playback and Streaming

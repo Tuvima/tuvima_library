@@ -91,6 +91,19 @@ Current UI entry points:
 
 Treat stale references to `LibraryPage`, `LibrarySurfacePreset`, retired Vault CSS, broad management workbenches, or removed Vault docs as cleanup candidates unless they are historical notes explaining that the old workspace was removed.
 
+## Quality Gates and Regression Rules
+
+- Do not recreate the old Vault workflow. No new `/vault` routes, `LibraryPage`, `LibrarySurfacePreset`, Vault navigation labels, Vault docs as current product behavior, or all-in-one media correction workbenches.
+- Normal media fixes belong inline on the media surface where the issue appears. Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for Normal, Review, and Batch editing modes.
+- Review Queue is the exception workflow for blocked, uncertain, low-confidence, or unresolved items. Settings/Admin is for configuration and operational state, not a normal media correction workspace.
+- Use `IDatabaseConnection.CreateConnection()` for normal repository, read-service, endpoint, background-job, and request-path database work. Dispose each short-lived connection with `using`.
+- `IDatabaseConnection.Open()` is startup/schema/integrity-only. New uses outside `DatabaseConnection`, Engine startup, or explicitly documented test fixtures should fail guardrail tests.
+- Avoid silent `catch { }` blocks. Best-effort failures need a justification comment or an explicit guardrail allowlist entry; user-visible failures need logging and degraded/error UI.
+- Domain must stay independent of Web, API, Storage, Providers, Ingestion, Processors, AI, and UI packages. UI should consume view models/contracts/typed clients, not storage implementation models.
+- Razor components must not contain direct SQL. API endpoints should move SQL-heavy behavior into repositories/read services when touched.
+- When product concepts, navigation, editing flows, database lifecycle, Docker startup, or CI checks change, update README/docs/AGENTS/CLAUDE and relevant `.agent` guidance in the same change.
+- Before finalizing code changes, run at minimum `dotnet restore MediaEngine.slnx`, `dotnet build MediaEngine.slnx --no-restore`, and `dotnet test MediaEngine.slnx --no-build`. Run docs, Docker, format, and dependency checks when those areas are touched.
+
 ## Repository Map
 
 ### Main application code

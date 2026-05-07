@@ -428,7 +428,7 @@ Identifiers flow between Wikidata (dashed ISBNs, mixed-case ASINs, full IMDb URL
 
 ## 9. Review Queue Data Model
 
-The review queue surfaces items that need human attention. The Dashboard interaction layer (media library page, VaultResolutionOverlay) is described in the UI architecture document. This section covers the data model and API.
+The review queue surfaces items that need human attention. Dashboard review actions open the shared media editor in Review mode, while normal fixes stay inline on the media surface where the issue appears. The Dashboard interaction layer is described in the UI architecture document. This section covers the data model and API.
 
 ### Review Item Types
 

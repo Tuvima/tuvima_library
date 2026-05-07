@@ -61,6 +61,10 @@ public sealed class UiCompositionGuardrailTests
         new(@"\bLibraryPage\b|\bLibrarySurfacePreset\b|vault-|Library Vault|>\s*Vault\s*<",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    private static readonly Regex ActiveVaultDocsRegex =
+        new(@"\bLibrary Vault\b|\bVault\b.*\b(current|feature|workflow|page|tab|surface|workspace)\b|\b/vault\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private static readonly Regex RazorCommentRegex =
         new(@"@\*.*?\*@", RegexOptions.Singleline | RegexOptions.Compiled);
 
@@ -124,6 +128,58 @@ public sealed class UiCompositionGuardrailTests
     }
 
     [Fact]
+    public void ActiveDocs_DoNotDescribeVaultAsCurrentFeature()
+    {
+        var roots = new[]
+        {
+            Path.Combine(RepoRoot, "README.md"),
+            Path.Combine(RepoRoot, "docs"),
+            Path.Combine(RepoRoot, ".agent"),
+        };
+
+        var allowedHistoricalFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "README.md",
+            "docs/architecture/dashboard-ui.md",
+            "docs/architecture/target-state.md",
+            "docs/design-system/README.md",
+            "docs/design-system/SKILL.md",
+            "docs/guides/running-tests.md",
+            ".agent/FIX-PLAN.md",
+            ".agent/features/LIBRARY-DASHBOARD.md",
+            ".agent/skills/DASHBOARD-UI.md",
+        };
+
+        var offenders = roots
+            .SelectMany(root =>
+            {
+                if (File.Exists(root))
+                    return [root];
+                return Directory.Exists(root)
+                    ? Directory.EnumerateFiles(root, "*.md", SearchOption.AllDirectories)
+                    : [];
+            })
+            .Where(path => !allowedHistoricalFiles.Contains(ToRelativePath(path)))
+            .Where(path => ActiveVaultDocsRegex.IsMatch(Sanitize(File.ReadAllText(path))))
+            .Select(ToRelativePath)
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void ActiveNavigationResources_DoNotExposeVaultLabel()
+    {
+        var resourceRoot = Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Resources");
+        var offenders = Directory.EnumerateFiles(resourceRoot, "*.resx", SearchOption.AllDirectories)
+            .Where(path => Regex.IsMatch(File.ReadAllText(path), @"<value>\s*Vault\s*</value>", RegexOptions.IgnoreCase))
+            .Select(ToRelativePath)
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void SharedMediaEditorLauncher_RemainsCanonicalEditingPath()
     {
         var detailPage = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components", "Details", "DetailPage.razor"));
@@ -137,6 +193,30 @@ public sealed class UiCompositionGuardrailTests
         Assert.Contains("SharedMediaEditorMode.Normal", detailPage);
         Assert.Contains("SharedMediaEditorMode.Review", reviewTab);
         Assert.Contains("SharedMediaEditorMode.Batch", launcher);
+    }
+
+    [Fact]
+    public void InlineEditingSurfaces_RefreshOnlyAfterSuccessfulEditorResult()
+    {
+        var detailPage = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components", "Details", "DetailPage.razor"));
+        var reviewTab = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components", "Settings", "SettingsReviewQueueTab.razor"));
+        var listenPage = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor.cs"));
+
+        Assert.Matches(@"if\s*\(\s*applied\s*\)\s*\{[^}]*GetDetailPageAsync", detailPage);
+        Assert.Matches(@"if\s*\(\s*applied\s*\)\s*\{[^}]*LoadAsync", reviewTab);
+        Assert.Matches(@"if\s*\(\s*applied\s*\)\s*\{[^}]*LoadAsync", listenPage);
+    }
+
+    [Fact]
+    public void MediaEditorLauncher_ProtectsEmptyAndMultiItemBatchLaunches()
+    {
+        var launcher = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Services", "Editing", "MediaEditorLauncherService.cs"));
+
+        Assert.Contains("request.EntityIds.Count == 0", launcher);
+        Assert.Contains("return false", launcher);
+        Assert.Contains("request.Mode == SharedMediaEditorMode.Batch && request.EntityIds.Count > 1", launcher);
+        Assert.Contains("SharedMediaBatchConfirmDialog", launcher);
+        Assert.Contains("confirmResult is null || confirmResult.Canceled", launcher);
     }
 
     private static string Sanitize(string contents)

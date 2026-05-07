@@ -78,4 +78,10 @@ The Library Dashboard presents your collection as a cinematic streaming interfac
 
 Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
 
+## Quality Gates
+
+- Keep retired Vault/LibraryPage workflows out of active routes, navigation, docs, and CSS.
+- Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for normal, review, and batch media editing.
+- Review Queue remains the exception workflow; Settings/Admin remains configuration and operations.
+
 
