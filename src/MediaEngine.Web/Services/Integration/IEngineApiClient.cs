@@ -175,9 +175,13 @@ public interface IEngineApiClient
         Guid id,
         Stream fileStream,
         string fileName,
+        double zoom = 1,
         CancellationToken ct = default);
 
     /// <summary>DELETE /profiles/{id} — delete a profile.</summary>
+    /// <summary>DELETE /profiles/{id}/avatar - remove a persisted profile avatar image.</summary>
+    Task<ProfileViewModel?> RemoveProfileAvatarAsync(Guid id, CancellationToken ct = default);
+
     Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>GET /profiles/{id}/external-logins — list linked SSO/OAuth accounts.</summary>

@@ -11,6 +11,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage.Contracts;
+using SkiaSharp;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -244,6 +245,8 @@ public static class ProfileEndpoints
             if (mimeType is null)
                 return Results.BadRequest("Avatar image must be a JPEG, PNG, or WebP image.");
 
+            var zoom = ParseAvatarZoom(form.TryGetValue("zoom", out var zoomValue) ? zoomValue.ToString() : null);
+
             dataPaths.EnsureRootExists();
             var directory = Path.Combine(dataPaths.Root, "profiles", id.ToString("D"));
             Directory.CreateDirectory(directory);
@@ -256,10 +259,14 @@ public static class ProfileEndpoints
                 File.Delete(profile.AvatarImagePath);
             }
 
-            await using (var stream = File.Create(targetPath))
-            await using (var upload = file.OpenReadStream())
+            try
             {
-                await upload.CopyToAsync(stream, ct);
+                await using var upload = file.OpenReadStream();
+                await SaveAvatarImageAsync(upload, targetPath, extension, zoom, ct);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(ex.Message);
             }
 
             profile.AvatarImagePath = targetPath;
@@ -273,6 +280,34 @@ public static class ProfileEndpoints
         .DisableAntiforgery()
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapDelete("/{id:guid}/avatar", async (
+            Guid id,
+            IProfileService svc,
+            CancellationToken ct) =>
+        {
+            var profile = await svc.GetProfileAsync(id, ct);
+            if (profile is null)
+                return Results.NotFound($"Profile '{id}' not found.");
+
+            var existingPath = profile.AvatarImagePath;
+            profile.AvatarImagePath = null;
+            var updated = await svc.UpdateProfileAsync(profile, ct);
+            if (!updated)
+                return Results.Problem("Could not remove profile avatar.");
+
+            if (!string.IsNullOrWhiteSpace(existingPath) && File.Exists(existingPath))
+            {
+                File.Delete(existingPath);
+            }
+
+            return Results.Ok(ProfileResponseDto.FromDomain(profile));
+        })
+        .WithName("RemoveProfileAvatar")
+        .WithSummary("Removes the uploaded avatar image for a profile.")
+        .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -658,6 +693,60 @@ public static class ProfileEndpoints
             ".png" => "image/png",
             ".webp" => "image/webp",
             _ => "image/jpeg",
+        };
+
+    private static float ParseAvatarZoom(string? value)
+    {
+        if (!float.TryParse(
+                value,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var zoom))
+        {
+            return 1f;
+        }
+
+        return Math.Clamp(zoom, 1f, 3f);
+    }
+
+    private static async Task SaveAvatarImageAsync(
+        Stream upload,
+        string targetPath,
+        string extension,
+        float zoom,
+        CancellationToken ct)
+    {
+        using var input = new MemoryStream();
+        await upload.CopyToAsync(input, ct);
+        input.Position = 0;
+
+        using var bitmap = SKBitmap.Decode(input);
+        if (bitmap is null)
+            throw new ArgumentException("Avatar image could not be decoded.");
+
+        var cropSize = Math.Max(1, (int)MathF.Round(Math.Min(bitmap.Width, bitmap.Height) / zoom));
+        var cropLeft = Math.Max(0, (bitmap.Width - cropSize) / 2);
+        var cropTop = Math.Max(0, (bitmap.Height - cropSize) / 2);
+        var source = new SKRectI(cropLeft, cropTop, cropLeft + cropSize, cropTop + cropSize);
+        var destination = new SKRect(0, 0, 512, 512);
+
+        using var surface = SKSurface.Create(new SKImageInfo(512, 512, SKColorType.Rgba8888, SKAlphaType.Premul));
+        surface.Canvas.Clear(SKColors.Transparent);
+        using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High };
+        surface.Canvas.DrawBitmap(bitmap, source, destination, paint);
+
+        using var image = surface.Snapshot();
+        using var data = image.Encode(GetAvatarEncodeFormat(extension), 92);
+        await using var output = File.Create(targetPath);
+        data.SaveTo(output);
+    }
+
+    private static SKEncodedImageFormat GetAvatarEncodeFormat(string extension) =>
+        extension.ToLowerInvariant() switch
+        {
+            ".png" => SKEncodedImageFormat.Png,
+            ".webp" => SKEncodedImageFormat.Webp,
+            _ => SKEncodedImageFormat.Jpeg,
         };
 
     private static Dictionary<string, string> ReadExtendedProperties(string? json)

@@ -755,6 +755,7 @@ public sealed class EngineApiClient : IEngineApiClient
         Guid id,
         Stream fileStream,
         string fileName,
+        double zoom = 1,
         CancellationToken ct = default)
     {
         try
@@ -763,6 +764,7 @@ public sealed class EngineApiClient : IEngineApiClient
             var fileContent = new StreamContent(fileStream);
             fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GetImageContentType(fileName));
             content.Add(fileContent, "file", fileName);
+            content.Add(new StringContent(Math.Clamp(zoom, 1d, 3d).ToString(System.Globalization.CultureInfo.InvariantCulture)), "zoom");
 
             var resp = await _http.PostAsync($"/profiles/{id}/avatar", content, ct);
             if (!resp.IsSuccessStatusCode) return null;
@@ -773,6 +775,23 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /profiles/{Id}/avatar failed", id);
+            return null;
+        }
+    }
+
+    public async Task<ProfileViewModel?> RemoveProfileAvatarAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.DeleteAsync($"/profiles/{id}/avatar", ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            var profile = await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
+            return profile is null ? null : NormalizeProfile(profile);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /profiles/{Id}/avatar failed", id);
             return null;
         }
     }

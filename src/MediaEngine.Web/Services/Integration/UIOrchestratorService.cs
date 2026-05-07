@@ -219,14 +219,22 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid id,
         Stream fileStream,
         string fileName,
+        double zoom = 1,
         CancellationToken ct = default)
     {
-        var profile = await _api.UploadProfileAvatarAsync(id, fileStream, fileName, ct);
+        var profile = await _api.UploadProfileAvatarAsync(id, fileStream, fileName, zoom, ct);
         if (profile is not null)
             OnProfileChanged?.Invoke();
         return profile;
     }
 
+    public async Task<ProfileViewModel?> RemoveProfileAvatarAsync(Guid id, CancellationToken ct = default)
+    {
+        var profile = await _api.RemoveProfileAvatarAsync(id, ct);
+        if (profile is not null)
+            OnProfileChanged?.Invoke();
+        return profile;
+    }
     public async Task<UserPlaybackSettingsDto?> GetPlaybackSettingsAsync(CancellationToken ct = default)
     {
         var profile = await GetActiveProfileAsync(ct);

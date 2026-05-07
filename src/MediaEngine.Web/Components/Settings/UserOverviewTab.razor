@@ -28,39 +28,28 @@
             <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-profile-card">
                     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="user-overview-profile-layout">
                         <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-avatar-wrap">
-                            <MudFileUpload T="IBrowserFile"
-                                           Accept=".jpg,.jpeg,.png,.webp"
-                                           FilesChanged="@UploadAvatarAsync"
-                                           MaximumFileCount="1"
-                                           Disabled="@_uploadingAvatar">
-                                <CustomContent>
-                                    <MudButton Variant="Variant.Text"
-                                               Color="Color.Inherit"
-                                               Class="user-overview-avatar-button"
-                                               Disabled="@_uploadingAvatar"
-                                               OnClick="@context.OpenFilePickerAsync"
-                                               aria-label="Edit profile photo">
-                                        <MudAvatar Size="Size.Large"
-                                                   Color="Color.Primary"
-                                                   Class="user-overview-avatar">
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Inherit"
+                                       Class="user-overview-avatar-button"
+                                       Disabled="@_avatarDialogBusy"
+                                       OnClick="@OpenAvatarDialog"
+                                       aria-label="Change profile photo">
+                                <MudAvatar Size="Size.Large"
+                                           Color="Color.Primary"
+                                           Class="user-overview-avatar">
                                 @if (!string.IsNullOrWhiteSpace(profile.AvatarImageUrl))
                                 {
-                                                <img src="@profile.AvatarImageUrl" alt="" class="user-overview-avatar-image" />
+                                        <img src="@profile.AvatarImageUrl" alt="" class="user-overview-avatar-image" />
                                 }
                                 else
                                 {
                                     @GetInitials(profile.DisplayName)
                                 }
-                                        </MudAvatar>
-                                        <span class="user-overview-avatar-edit-badge">
-                                            <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Size="Size.Small" />
-                                        </span>
-                                    </MudButton>
-                                </CustomContent>
-                            </MudFileUpload>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                @(_uploadingAvatar ? "Uploading" : "Edit photo")
-                            </MudText>
+                                </MudAvatar>
+                                <span class="user-overview-avatar-edit-badge">
+                                    <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Size="Size.Small" />
+                                </span>
+                            </MudButton>
                         </MudStack>
 
                         <MudStack Spacing="2" Class="flex-grow-1 user-overview-profile-copy">
@@ -211,14 +200,139 @@
     }
 </div>
 
+<MudDialog @bind-Visible="_avatarDialogOpen" Options="_avatarDialogOptions" Class="user-overview-photo-dialog">
+    <TitleContent>
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="user-overview-photo-dialog-title">
+            <MudText Typo="Typo.h6">Change photo</MudText>
+            <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                           Size="Size.Small"
+                           Color="Color.Default"
+                           OnClick="@CloseAvatarDialog"
+                           aria-label="Close change photo dialog" />
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (_overview is not null)
+        {
+            <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                <div class="user-overview-photo-preview">
+                    @if (!string.IsNullOrWhiteSpace(AvatarDialogImageUrl))
+                    {
+                        <img src="@AvatarDialogImageUrl" alt="" style="@AvatarPreviewImageStyle" />
+                    }
+                    else
+                    {
+                        <span>@GetInitials(_overview.Profile.DisplayName)</span>
+                    }
+                </div>
+
+                @if (_pendingAvatarFile is not null)
+                {
+                    <div class="user-overview-photo-zoom">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="user-overview-photo-zoom-label">
+                            <MudText Typo="Typo.caption">Zoom</MudText>
+                            <MudText Typo="Typo.caption">@($"{_avatarZoom:0.0}x")</MudText>
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Outlined.Remove" Size="Size.Small" />
+                            <MudSlider T="double"
+                                       Value="@_avatarZoom"
+                                       ValueChanged="@OnAvatarZoomChanged"
+                                       Min="1"
+                                       Max="3"
+                                       Step="0.1"
+                                       Color="Color.Primary"
+                                       Class="user-overview-photo-slider" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Add" Size="Size.Small" />
+                        </MudStack>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(_avatarDialogError))
+                {
+                    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="user-overview-photo-alert">
+                        @_avatarDialogError
+                    </MudAlert>
+                }
+
+                @if (_avatarRemoveRequested)
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="user-overview-photo-alert">
+                        The current photo will be removed when you save.
+                    </MudAlert>
+                }
+
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="user-overview-photo-help">
+                    Review the selected photo before saving. Supported file types are JPEG, PNG, and WebP up to 5 MB.
+                </MudText>
+
+                <MudStack Spacing="1" AlignItems="AlignItems.Start" Class="user-overview-photo-actions">
+                    <MudFileUpload T="IBrowserFile"
+                                   Accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                                   FilesChanged="@PreviewAvatarAsync"
+                                   MaximumFileCount="1"
+                                   Disabled="@_avatarDialogBusy">
+                        <CustomContent>
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Outlined.AddPhotoAlternate"
+                                       Disabled="@_avatarDialogBusy"
+                                       OnClick="@context.OpenFilePickerAsync">
+                                Change photo
+                            </MudButton>
+                        </CustomContent>
+                        <SelectedTemplate>
+                        </SelectedTemplate>
+                    </MudFileUpload>
+
+                    @if (CanRemoveAvatarInDialog)
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   Color="@(_confirmRemoveAvatar ? Color.Error : Color.Primary)"
+                                   Size="Size.Small"
+                                   StartIcon="@Icons.Material.Outlined.DeleteOutline"
+                                   Disabled="@_avatarDialogBusy"
+                                   OnClick="@RequestRemoveAvatar">
+                            @(_confirmRemoveAvatar ? "Confirm remove" : "Remove photo")
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@CloseAvatarDialog" Disabled="@_avatarDialogBusy">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(!CanSaveAvatarDialog)"
+                   OnClick="@SaveAvatarDialogAsync">
+            @(_avatarDialogBusy ? "Saving" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private bool _loading = true;
     private bool _savingProfile;
-    private bool _uploadingAvatar;
+    private bool _avatarDialogOpen;
+    private bool _avatarDialogBusy;
+    private bool _avatarRemoveRequested;
+    private bool _confirmRemoveAvatar;
     private bool _editingName;
+    private IBrowserFile? _pendingAvatarFile;
+    private string? _pendingAvatarPreviewUrl;
+    private string? _avatarDialogError;
+    private double _avatarZoom = 1;
     private ProfileOverviewViewModel? _overview;
     private string _displayName = string.Empty;
     private string _savedDisplayName = string.Empty;
+    private static readonly DialogOptions _avatarDialogOptions = new()
+    {
+        CloseOnEscapeKey = true,
+        MaxWidth = MaxWidth.ExtraSmall,
+        FullWidth = true
+    };
 
     private bool ProfileDirty =>
         !string.Equals(_displayName.Trim(), _savedDisplayName, StringComparison.Ordinal);
@@ -293,34 +407,167 @@
         _savingProfile = false;
     }
 
-    private async Task UploadAvatarAsync(IBrowserFile file)
+    private void OpenAvatarDialog()
     {
         if (_overview is null)
             return;
 
-        _uploadingAvatar = true;
+        _avatarDialogOpen = true;
+        _avatarDialogBusy = false;
+        _avatarRemoveRequested = false;
+        _confirmRemoveAvatar = false;
+        _pendingAvatarFile = null;
+        _pendingAvatarPreviewUrl = null;
+        _avatarDialogError = null;
+        _avatarZoom = 1;
+    }
+
+    private void CloseAvatarDialog()
+    {
+        _avatarDialogOpen = false;
+        _avatarDialogBusy = false;
+        _avatarRemoveRequested = false;
+        _confirmRemoveAvatar = false;
+        _pendingAvatarFile = null;
+        _pendingAvatarPreviewUrl = null;
+        _avatarDialogError = null;
+        _avatarZoom = 1;
+    }
+
+    private async Task PreviewAvatarAsync(IBrowserFile file)
+    {
+        _avatarDialogError = null;
+        _confirmRemoveAvatar = false;
+        _avatarRemoveRequested = false;
+        _pendingAvatarFile = null;
+        _pendingAvatarPreviewUrl = null;
+        _avatarZoom = 1;
+
+        if (!IsSupportedAvatarFile(file))
+        {
+            _avatarDialogError = "Choose a JPEG, PNG, or WebP image.";
+            return;
+        }
+
+        if (file.Size > 5 * 1024 * 1024)
+        {
+            _avatarDialogError = "Profile photo must be 5 MB or smaller.";
+            return;
+        }
+
         try
         {
             await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-            var updated = await Orchestrator.UploadProfileAvatarAsync(_overview.Profile.Id, stream, file.Name);
-            if (updated is null)
-            {
-                Snackbar.Add("Could not upload profile photo.", Severity.Error);
-                return;
-            }
-
-            _overview.Profile = updated;
-            SyncProfileEditor(updated);
-            Snackbar.Add("Profile photo updated.", Severity.Success);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            _pendingAvatarFile = file;
+            _pendingAvatarPreviewUrl = $"data:{GetAvatarPreviewContentType(file)};base64,{Convert.ToBase64String(buffer.ToArray())}";
+            _avatarZoom = 1;
         }
         catch (IOException)
         {
             Snackbar.Add("Profile photo must be 5 MB or smaller.", Severity.Error);
         }
+    }
+
+    private void RequestRemoveAvatar()
+    {
+        if (!_confirmRemoveAvatar)
+        {
+            _confirmRemoveAvatar = true;
+            return;
+        }
+
+        _pendingAvatarFile = null;
+        _pendingAvatarPreviewUrl = null;
+        _avatarZoom = 1;
+        _avatarRemoveRequested = true;
+        _confirmRemoveAvatar = false;
+        _avatarDialogError = null;
+    }
+
+    private async Task SaveAvatarDialogAsync()
+    {
+        if (_overview is null)
+            return;
+
+        _avatarDialogBusy = true;
+        try
+        {
+            ProfileViewModel? updated = null;
+            if (_pendingAvatarFile is not null)
+            {
+                await using var stream = _pendingAvatarFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                updated = await Orchestrator.UploadProfileAvatarAsync(_overview.Profile.Id, stream, _pendingAvatarFile.Name, _avatarZoom);
+            }
+            else if (_avatarRemoveRequested)
+            {
+                updated = await Orchestrator.RemoveProfileAvatarAsync(_overview.Profile.Id);
+            }
+
+            if (updated is null)
+            {
+                Snackbar.Add("Could not save profile photo.", Severity.Error);
+                return;
+            }
+
+            _overview.Profile = updated;
+            SyncProfileEditor(updated);
+            CloseAvatarDialog();
+            Snackbar.Add("Profile photo updated.", Severity.Success);
+        }
         finally
         {
-            _uploadingAvatar = false;
+            _avatarDialogBusy = false;
         }
+    }
+
+    private bool CanRemoveAvatarInDialog =>
+        _pendingAvatarFile is not null || !string.IsNullOrWhiteSpace(_overview?.Profile.AvatarImageUrl);
+
+    private bool CanSaveAvatarDialog =>
+        !_avatarDialogBusy
+        && string.IsNullOrWhiteSpace(_avatarDialogError)
+        && (_pendingAvatarFile is not null || _avatarRemoveRequested);
+
+    private string? AvatarDialogImageUrl =>
+        _avatarRemoveRequested
+            ? null
+            : _pendingAvatarPreviewUrl ?? _overview?.Profile.AvatarImageUrl;
+
+    private string AvatarPreviewImageStyle =>
+        _pendingAvatarFile is null
+            ? string.Empty
+            : $"transform:scale({_avatarZoom.ToString(System.Globalization.CultureInfo.InvariantCulture)});";
+
+    private Task OnAvatarZoomChanged(double value)
+    {
+        _avatarZoom = Math.Clamp(value, 1d, 3d);
+        return Task.CompletedTask;
+    }
+
+    private static bool IsSupportedAvatarFile(IBrowserFile file)
+    {
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+        var contentType = file.ContentType.Trim().ToLowerInvariant();
+        return contentType is "image/jpeg" or "image/jpg" or "image/png" or "image/webp"
+               || extension is ".jpg" or ".jpeg" or ".png" or ".webp";
+    }
+
+    private static string GetAvatarPreviewContentType(IBrowserFile file)
+    {
+        var contentType = file.ContentType.Trim().ToLowerInvariant();
+        if (contentType is "image/jpeg" or "image/jpg")
+            return "image/jpeg";
+        if (contentType is "image/png" or "image/webp")
+            return contentType;
+
+        return Path.GetExtension(file.Name).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg",
+        };
     }
 
     private void SyncProfileEditor(ProfileViewModel profile)
@@ -343,14 +590,14 @@
     private string RecentActivityValue()
     {
         if (_overview is null)
-            return "No activity yet";
+            return "-";
 
         if (_overview.Stats.RecentActivity > 0)
             return _overview.Stats.RecentActivity.ToString("N0");
 
         return _overview.RecentItems.Count > 0
             ? RelativeTime(_overview.RecentItems.Max(item => item.LastAccessed))
-            : "No activity yet";
+            : "-";
     }
 
     private static string StatValueClass(string value) =>

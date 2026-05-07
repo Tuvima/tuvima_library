@@ -135,10 +135,10 @@
                         }
                     }
                     <MudDivider />
-                    <MudMenuItem Href="/settings/review" Icon="@Icons.Material.Outlined.RateReview">
+                    <MudMenuItem Href="/settings/review" ForceLoad="true" Target="_self" Icon="@Icons.Material.Outlined.RateReview">
                         @(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])
                     </MudMenuItem>
-                    <MudMenuItem Href="/settings" Icon="@Icons.Material.Outlined.Settings">
+                    <MudMenuItem Href="/settings" ForceLoad="true" Target="_self" Icon="@Icons.Material.Outlined.Settings">
                         @L["Nav_Settings"]
                     </MudMenuItem>
                     <MudDivider />
@@ -263,6 +263,18 @@
     private void OpenReviewQueue()
     {
         Nav.NavigateTo("/settings/review");
+    }
+
+    private Task OpenReviewQueueAsync()
+    {
+        OpenReviewQueue();
+        return Task.CompletedTask;
+    }
+
+    private Task OpenSettingsAsync()
+    {
+        Nav.NavigateTo("/settings");
+        return Task.CompletedTask;
     }
 
     private string GetNavLinkClass(string path) =>

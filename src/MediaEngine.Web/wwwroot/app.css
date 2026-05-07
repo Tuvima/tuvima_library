@@ -3173,6 +3173,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .layout-shell__profile-popover.mud-popover,
 .layout-shell__profile-popover.mud-popover .mud-paper,
 .layout-shell__profile-menu-list.mud-list {
+    z-index: calc(var(--tl-z-modal, 1400) - 10) !important;
     color: var(--app-text-primary, #aab8c5) !important;
     background: var(--app-surface, #1e1f27) !important;
     border: 0 !important;
