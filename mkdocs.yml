@@ -10,6 +10,7 @@ strict: true
 not_in_nav: |
   /404.md
   /providers.md
+  /design-system/ui_kits/dashboard/README.md
 
 theme:
   name: material
@@ -92,16 +93,15 @@ nav:
       - Product Concepts:
           - How the Priority Cascade Works: explanation/how-scoring-works.md
           - How the Local AI Works: explanation/how-ai-works.md
-          - How the Library Vault Works: explanation/how-the-vault-works.md
       - Deep Dives:
           - Ingestion Pipeline: architecture/ingestion-pipeline.md
           - Hydration Pipeline and Providers: architecture/hydration-and-providers.md
           - Priority Cascade Engine: architecture/scoring-and-cascade.md
           - Dashboard UI Architecture: architecture/dashboard-ui.md
-          - Settings and Library Vault: architecture/settings-and-vault.md
+          - Inline Media Editing: architecture/inline-media-editing.md
           - Universe Graph: architecture/universe-graph.md
-          - Hubs and Playlists: architecture/hubs-and-playlists.md
           - Local AI Integration: architecture/ai-integration.md
           - Security Architecture: architecture/security.md
       - Future State:
           - Target State: architecture/target-state.md
+

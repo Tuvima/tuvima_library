@@ -484,3 +484,4 @@ Update the approved tools table in `CLAUDE.md` Â§5.1 once the package is confi
 - [Supported Media Types and Formats](../reference/media-types.md)
 - [Ingestion Pipeline](../architecture/ingestion-pipeline.md)
 - [Developer Setup](../tutorials/dev-setup.md)
+

@@ -1,14 +1,14 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 @inject IStringLocalizer<SharedStrings> L
 
-<div class="vault-status-pill">
+<div class="media-status-pill">
     <AppStatusBadge Text="@_label"
                     Icon="@_icon"
                     Tone="@_tone"
-                    Class="@(Status == LibraryStatus.Unowned ? "vault-status-badge--muted" : null)" />
+                    Class="@(Status == LibraryStatus.Unowned ? "media-status-badge--muted" : null)" />
     @if (Status == LibraryStatus.Quarantined && QuarantineDays.HasValue)
     {
-        <span class="vault-quarantine-timer">@L["StatusPill_DeletesIn", QuarantineDays]</span>
+        <span class="media-quarantine-timer">@L["StatusPill_DeletesIn", QuarantineDays]</span>
     }
 </div>
 
@@ -53,20 +53,21 @@
 }
 
 <style>
-    .vault-status-pill {
+    .media-status-pill {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 4px;
     }
 
-    .vault-status-badge--muted {
+    .media-status-badge--muted {
         opacity: 0.5;
     }
 
-    .vault-quarantine-timer {
+    .media-quarantine-timer {
         font-size: 9px;
         font-weight: 700;
         color: rgba(226, 75, 74, 0.7);
     }
 </style>
+

@@ -211,3 +211,4 @@ Three layers prevent redundant Wikidata calls:
 - [How Universes and Series Work](../explanation/how-universes-work.md)
 - [Collections and Playlists](collections.md)
 - [Glossary](../reference/glossary.md)
+

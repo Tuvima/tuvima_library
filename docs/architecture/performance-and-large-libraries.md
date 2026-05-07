@@ -25,3 +25,4 @@ SQLite indexes should be added for new high-volume query patterns. Prioritize jo
 Large-list read paths should emit debug timing logs with operation name, elapsed milliseconds, offset or cursor, limit, returned item count, and `has_more`. Slow reads over one second should log a warning. Do not log sensitive paths, full queries, secrets, or user media metadata.
 
 Performance tests should use generated temp SQLite data or in-memory fixtures. They must not depend on the user's real database, watch folder, media files, local AI models, or network.
+

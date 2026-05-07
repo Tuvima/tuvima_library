@@ -64,3 +64,4 @@ The Dashboard maintains a persistent, live connection to the Engine. When someth
 ## PO Summary
 
 The real-time update system works reliably — new files, enriched metadata, and folder health changes all push to the Dashboard instantly with automatic reconnection on failure. The SignalR collection now requires authentication (Phase A Security Foundation). **One remaining concern: the PersonEnriched event sends an empty name (cosmetic bug).**
+

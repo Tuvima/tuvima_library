@@ -21,7 +21,7 @@ public sealed class UniverseHealthDto
 
 /// <summary>
 /// A portrait of a specific actor portraying a specific character.
-/// Returned as part of character portrait lists in Vault drawer.
+/// Returned as part of character portrait lists in media detail drawer.
 /// </summary>
 public sealed class CharacterPortraitDto
 {
@@ -86,3 +86,4 @@ public sealed class EntityAssetDto
     public bool    IsPreferred    { get; set; }
     public string? SourceProvider { get; set; }
 }
+

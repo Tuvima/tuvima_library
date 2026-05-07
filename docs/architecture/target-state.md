@@ -1,4 +1,4 @@
----
+﻿---
 title: "Target State"
 summary: "Forward-looking architecture notes for features and structures that are planned but not yet implemented."
 audience: "developer"
@@ -32,7 +32,7 @@ Route: `/read/{assetId}`
 - Resume from last position
 - Keyboard navigation, mobile swipe gestures
 
-Content served via `GET /read/{assetId}/chapter/{index}` â€” EPUB chapter HTML/XHTML with embedded images and CSS.
+Content served via `GET /read/{assetId}/chapter/{index}` Ã¢â‚¬â€ EPUB chapter HTML/XHTML with embedded images and CSS.
 
 ### Comic Viewer
 
@@ -43,16 +43,16 @@ Route: `/read/{assetId}` (comic media type)
 - Page thumbnail sidebar
 - Zoom and pan for high-resolution panels
 - LTR/RTL toggle for manga
-- Prefetch of next 2â€“3 pages
+- Prefetch of next 2Ã¢â‚¬â€œ3 pages
 
-Content served via `GET /comic/{assetId}/page/{pageNum}` â€” individual images extracted from CBZ/CBR archives.
+Content served via `GET /comic/{assetId}/page/{pageNum}` Ã¢â‚¬â€ individual images extracted from CBZ/CBR archives.
 
 ### Audiobook Player
 
-Rendered as a persistent bottom bar in `MainLayout.razor` â€” survives page navigation. A `PlaybackStateService` (scoped per circuit, in `Services/Playback/`) manages the active audio session and exposes play/pause/seek to any component.
+Rendered as a persistent bottom bar in `MainLayout.razor` Ã¢â‚¬â€ survives page navigation. A `PlaybackStateService` (scoped per circuit, in `Services/Playback/`) manages the active audio session and exposes play/pause/seek to any component.
 
-- Play/pause, skip Â±30 seconds
-- Playback speed (0.5xâ€“3x)
+- Play/pause, skip Ã‚Â±30 seconds
+- Playback speed (0.5xÃ¢â‚¬â€œ3x)
 - Chapter list with direct navigation
 - Sleep timer
 - Progress bar with chapter position markers
@@ -62,7 +62,7 @@ Rendered as a persistent bottom bar in `MainLayout.razor` â€” survives page
 Route: `/watch/{assetId}`
 
 - HTML5 video with HLS.js for adaptive bitrate streaming
-- Subtitle track selection â€” SRT, VTT, ASS with on-the-fly WebVTT conversion
+- Subtitle track selection Ã¢â‚¬â€ SRT, VTT, ASS with on-the-fly WebVTT conversion
 - Chapter markers on the scrub bar
 - Playback speed adjustment
 - Picture-in-Picture
@@ -70,15 +70,15 @@ Route: `/watch/{assetId}`
 - "Mark as watched" triggered automatically at 90% completion threshold
 
 Content served via:
-- `GET /stream/{assetId}/subtitles/{trackIndex}` â€” subtitle extraction from MKV, converted to WebVTT
-- `GET /stream/{assetId}/chapters` â€” chapter metadata from MKV/M4B
+- `GET /stream/{assetId}/subtitles/{trackIndex}` Ã¢â‚¬â€ subtitle extraction from MKV, converted to WebVTT
+- `GET /stream/{assetId}/chapters` Ã¢â‚¬â€ chapter metadata from MKV/M4B
 
 ### Progress Tracking
 
 All four players share a common progress API:
 
-- `PUT /progress/{assetId}` â€” upserts UserState with progress percentage, last-accessed timestamp, and media-specific extended data (page number, chapter index, video timestamp)
-- `GET /progress/{assetId}` â€” retrieves current position for resume
+- `PUT /progress/{assetId}` Ã¢â‚¬â€ upserts UserState with progress percentage, last-accessed timestamp, and media-specific extended data (page number, chapter index, video timestamp)
+- `GET /progress/{assetId}` Ã¢â‚¬â€ retrieves current position for resume
 
 Progress updates are sent at configurable intervals (default: every 30 seconds, or on chapter/page change).
 
@@ -185,8 +185,8 @@ Magic byte detection:
 
 ### Providers
 
-- **MusicBrainz** â€” zero-key, config-driven. Search by artist + album or MBID. Field weights: artist 0.9, album 0.85, year 0.9, genre 0.7.
-- **Spotify** â€” requires a free API key. Contributes artist headshots, album art, genre, and popularity score. Metadata only â€” no streaming.
+- **MusicBrainz** Ã¢â‚¬â€ zero-key, config-driven. Search by artist + album or MBID. Field weights: artist 0.9, album 0.85, year 0.9, genre 0.7.
+- **Spotify** Ã¢â‚¬â€ requires a free API key. Contributes artist headshots, album art, genre, and popularity score. Metadata only Ã¢â‚¬â€ no streaming.
 
 ### Player
 
@@ -228,9 +228,9 @@ Use cases include Discord/Telegram notifications for new content and automation 
 
 Guided import from existing media managers:
 
-- **Plex** â€” reads `com.plexapp.plugins.library.db`, maps sections to Library Folders, imports watched status
-- **Calibre** â€” reads `metadata.db`, imports books with existing metadata intact
-- **Jellyfin** â€” reads NFO sidecar files alongside media, maps fields to Library claims
+- **Plex** Ã¢â‚¬â€ reads `com.plexapp.plugins.library.db`, maps sections to Library Folders, imports watched status
+- **Calibre** Ã¢â‚¬â€ reads `metadata.db`, imports books with existing metadata intact
+- **Jellyfin** Ã¢â‚¬â€ reads NFO sidecar files alongside media, maps fields to Library claims
 
 ### PWA
 
@@ -258,21 +258,21 @@ Work metadata (title, author, year, series position). Edition list with format l
 
 Route: `/person/{id}`
 
-Headshot, biography, occupation. Social links (Instagram, TikTok, Mastodon, website â€” using Actionable URI Schemes). Works grouped by role (author, narrator, director, cast member). Pseudonym relationships where applicable.
+Headshot, biography, occupation. Social links (Instagram, TikTok, Mastodon, website Ã¢â‚¬â€ using Actionable URI Schemes). Works grouped by role (author, narrator, director, cast member). Pseudonym relationships where applicable.
 
 ### New Home Sections
 
 The Home page adds three sections above the existing Universe swimlanes:
 
-1. **Continue Journey** â€” most recently accessed, incomplete items (queries UserState)
-2. **Recently Added** â€” horizontal scroll of newest Collections (via `GET /collections/recent?limit=20`)
-3. **Smart Collections** â€” "In Progress", "New This Week", "Unread" (auto-generated from metadata, pre-computed)
+1. **Continue Journey** Ã¢â‚¬â€ most recently accessed, incomplete items (queries UserState)
+2. **Recently Added** Ã¢â‚¬â€ horizontal scroll of newest Collections (via `GET /collections/recent?limit=20`)
+3. **Smart Collections** Ã¢â‚¬â€ "In Progress", "New This Week", "Unread" (auto-generated from metadata, pre-computed)
 
 Faceted filtering is added to the Home page: filter by year range, media type, and author.
 
 ### Navigation Additions
 
-- Breadcrumb trail: Home â†’ Collection â†’ Work
+- Breadcrumb trail: Home Ã¢â€ â€™ Collection Ã¢â€ â€™ Work
 - Click-through from swimlane tiles to CollectionDetail
 - Click-through from search results to WorkDetail
 - "Next in series" link on WorkDetail (uses `Work.Ordinal`)
@@ -299,4 +299,10 @@ Library statistics and personal reading/watching history charts.
 
 - [Collections and Playlists](collections.md)
 - [Dashboard UI Architecture](dashboard-ui.md)
-- [Settings Architecture and Library Vault](settings-and-vault.md)
+- [Settings Architecture and Review Queue](dashboard-ui.md)
+
+## Current Dashboard/Product UI Model
+
+Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Review Queue concept is deprecated and must not be recreated; do not add new Review Queue routes, components, docs, or management-workbench flows.
+
+

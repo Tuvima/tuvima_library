@@ -1,7 +1,7 @@
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
-/// View model for a single stat card in the Vault stats bar.
+/// View model for a single stat card in the dashboard stats bar.
 /// </summary>
 public sealed class StatCardModel
 {
@@ -12,3 +12,4 @@ public sealed class StatCardModel
     public required string Color { get; init; }
     public bool IsActive { get; set; } = true;
 }
+

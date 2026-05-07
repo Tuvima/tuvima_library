@@ -1,4 +1,4 @@
----
+﻿---
 title: "How the Entire Pipeline Works"
 summary: "Follow a file's complete journey from detection through enrichment, scoring, and organization and understand why each stage exists."
 audience: "user"
@@ -14,7 +14,7 @@ tags:
 
 # How the Entire Pipeline Works
 
-When you drop a file into a watched folder, Tuvima Library does much more than rename it. The Engine verifies the file, reads what it can from the file itself, looks for trustworthy external matches, decides what metadata wins, and only then decides whether the item is ready for the main Vault and the organised library.
+When you drop a file into a watched folder, Tuvima Library does much more than rename it. The Engine verifies the file, reads what it can from the file itself, looks for trustworthy external matches, decides what metadata wins, and only then decides whether the item is ready for the main browse surfaces and the organised library.
 
 This page tells the full story end to end.
 
@@ -32,13 +32,13 @@ New file appears
   -> Wikidata stage
   -> metadata cascade
   -> artwork settlement
-  -> Vault quality gate
+  -> browse readiness gate
   -> organisation and later enrichment
 ```
 
 Two important ideas sit underneath the whole design:
 
-- **The main Vault is not the same as the organised library on disk**
+- **The main browse surfaces is not the same as the organised library on disk**
 - **A match must be safe before the pipeline treats it as truth**
 
 ---
@@ -112,7 +112,7 @@ When that happens, the item lands in a **QID Not Found** style outcome:
 
 - it stays marked at the Wikidata step
 - the missing QID is explicit
-- the item can still remain usable and visible in the main Vault if its title, media type, and artwork state are settled
+- the item can still remain usable and visible in the main browse surfaces if its title, media type, and artwork state are settled
 
 This is a deliberate precision-preserving choice.
 
@@ -138,11 +138,11 @@ This lets the system combine the strengths of different sources instead of prete
 
 ---
 
-## Phase 5: Artwork settlement and Vault readiness
+## Phase 5: Artwork settlement and browse readiness
 
-The main Vault has its own quality gate.
+The main browse surfaces has its own quality gate.
 
-An item is not shown in the main Vault just because the file exists or because Retail started. It appears only when all of these are true:
+An item is not shown in the main browse surfaces just because the file exists or because Retail started. It appears only when all of these are true:
 
 - the title is not a placeholder
 - the media type is resolved
@@ -154,15 +154,15 @@ That last point matters. The Engine now distinguishes between:
 - artwork is still pending
 - artwork was checked and is missing
 
-Items that fail this gate remain visible in **Activity**, **Review**, and the **Action Center**, but they are held back from the main Vault until the story is trustworthy.
+Items that fail this gate remain visible in **Activity**, **Review**, and the **Review Queue**, but they are held back from the main browse surfaces until the story is trustworthy.
 
 ---
 
 ## Phase 6: Organisation on disk
 
-Organisation is a separate decision from Vault visibility.
+Organisation is a separate decision from browse visibility.
 
-The Engine can show an item in the main Vault once the quality gate is satisfied, while filesystem promotion still follows the wider organisation rules and confidence thresholds.
+The Engine can show an item in the main browse surfaces once the quality gate is satisfied, while filesystem promotion still follows the wider organisation rules and confidence thresholds.
 
 The classic promotion gate is still about overall confidence and library organisation safety. For many items that means:
 
@@ -171,7 +171,7 @@ The classic promotion gate is still about overall confidence and library organis
 
 So there are really two questions:
 
-1. Is this item ready to be shown in the main Vault?
+1. Is this item ready to be shown in the main browse surfaces?
 2. Is this item ready to be promoted into the organised library structure?
 
 Those questions are related, but they are no longer the same thing.
@@ -189,13 +189,13 @@ Items go to review when the Engine decides that guessing would be worse than wai
 - multiple Wikidata candidates
 - a useful item with no trustworthy QID yet
 
-The Action Center and Review surfaces exist so the system can stop at the right moment instead of silently creating bad matches.
+The Review Queue and Review surfaces exist so the system can stop at the right moment instead of silently creating bad matches.
 
 ---
 
 ## How the UI represents the pipeline
 
-The Vault now uses the same three stages everywhere:
+the current media surfaces now uses the same three stages everywhere:
 
 | Stage | Meaning |
 |---|---|
@@ -230,6 +230,8 @@ The result is a system that surfaces items a little later, but with much higher 
 
 - [How File Ingestion Works](how-ingestion-works.md)
 - [How Two-Stage Enrichment Works](how-hydration-works.md)
-- [How the Library Vault Works](how-the-vault-works.md)
+- [How the Review Queue Works](../guides/resolving-reviews.md)
 - [Ingestion Pipeline Architecture](../architecture/ingestion-pipeline.md)
 - [Scoring and Cascade Architecture](../architecture/scoring-and-cascade.md)
+
+

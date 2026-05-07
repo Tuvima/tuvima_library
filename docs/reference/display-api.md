@@ -31,3 +31,4 @@ The Engine owns consumer display composition for Home, Watch, Read, Listen, musi
 ## Client Responsibilities
 
 Clients own layout and interaction style. Web can render hover cards, mobile can render long-press previews, and TV clients can render focus cards. All clients should use the same facts, artwork choices, progress, and action targets from the Engine.
+

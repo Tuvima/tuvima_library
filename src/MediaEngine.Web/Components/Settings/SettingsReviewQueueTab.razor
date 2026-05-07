@@ -1,6 +1,8 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
+@inject MediaEditorLauncherService MediaEditorLauncher
 @inject ISnackbar Snackbar
+@using MediaEngine.Web.Services.Editing
 
 <div class="tl-page settings-review-page">
     <MudStack Spacing="3">
@@ -78,6 +80,13 @@
                 <MudTd DataLabel="Actions">
                     <MudStack Row="true" Spacing="1">
                         <MudButton Size="Size.Small"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Warning"
+                                   Disabled="@_busyIds.Contains(context.Id)"
+                                   OnClick="@(() => OpenReviewEditorAsync(context))">
+                            Review
+                        </MudButton>
+                        <MudButton Size="Size.Small"
                                    Variant="Variant.Outlined"
                                    Color="Color.Warning"
                                    Disabled="@_busyIds.Contains(context.Id)"
@@ -147,6 +156,54 @@
             {
                 Snackbar.Add("Review item could not be dismissed.", Severity.Warning);
             }
+        }
+        finally
+        {
+            _busyIds.Remove(item.Id);
+        }
+    }
+
+    private async Task OpenReviewEditorAsync(ReviewItemViewModel item)
+    {
+        _busyIds.Add(item.Id);
+        try
+        {
+            var target = ReviewTargetResolver.Resolve(item.MediaType, item.Trigger);
+            var title = DisplayTitle(item);
+            var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+            {
+                EntityIds = [item.EntityId],
+                LaunchEntityId = item.EntityId,
+                LaunchEntityKind = FirstNonBlank(item.EntityType, "review"),
+                Mode = SharedMediaEditorMode.Review,
+                InitialTab = target.InitialTab,
+                InitialCanonicalTargetGroup = target.CanonicalTargetGroup,
+                ReviewTrigger = item.Trigger,
+                MediaType = item.MediaType,
+                HeaderTitle = title,
+                HeaderSubtitle = FormatTrigger(item.Trigger),
+                CoverUrl = item.CoverUrl,
+                PreviewItems =
+                [
+                    new MediaEditorPreviewItem
+                    {
+                        EntityId = item.EntityId,
+                        Title = title,
+                        CoverUrl = item.CoverUrl,
+                        MediaType = item.MediaType,
+                    },
+                ],
+            });
+
+            if (applied)
+            {
+                await LoadAsync();
+                Snackbar.Add("Review changes applied.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Review editor could not open: {ex.Message}", Severity.Error);
         }
         finally
         {

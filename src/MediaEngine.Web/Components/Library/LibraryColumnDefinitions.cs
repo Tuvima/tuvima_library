@@ -155,9 +155,9 @@ public static class LibraryColumnDefinitions
         new() { Key = "featured",  Label = "Featured", Width = "10%", Align = "center", RenderType = ColumnRenderType.Text, PropertyName = "Featured" },
     ];
 
-    // -- Action Center tab ----------------------------------------------------
+    // -- Review Queue tab ----------------------------------------------------
 
-    /// <summary>Returns the column definitions for the Action Center tab.</summary>
+    /// <summary>Returns the column definitions for the Review Queue tab.</summary>
     public static List<LibraryColumnDef> GetActionCenterColumns() =>
     [
         Checkbox(),
@@ -186,7 +186,7 @@ public static class LibraryColumnDefinitions
             "people"        => GetPeopleColumns(),
             "universes"     => GetUniverseColumns(),
             "collections"          => GetCollectionColumns(),
-            "action_center" => GetActionCenterColumns(),
+            "review_queue" => GetActionCenterColumns(),
             _               => NewTabColumns(),
         };
 
@@ -406,4 +406,5 @@ public static class LibraryColumnDefinitions
         new() { Key = "issues",    Label = "Issues",    Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
     ];
 }
+
 

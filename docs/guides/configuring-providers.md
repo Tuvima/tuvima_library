@@ -111,7 +111,7 @@ Each provider that supports cover art will download images and store them locall
 
 When multiple providers supply cover art for the same title, the Engine also checks the artwork visually against the cover already embedded in the file. This comparison helps identify the best match and can improve the Engine's confidence in its identification â€” not just the quality of the image.
 
-In the Library Vault, you can see all the cover art options gathered for any item. Open the item's detail drawer and look at the **Assets** section. You can set a preferred image, upload your own, or keep the one the Engine selected automatically. Any image you upload is protected and will never be overwritten by an automatic refresh.
+In the Review Queue, you can see all the cover art options gathered for any item. Open the item's detail drawer and look at the **Assets** section. You can set a preferred image, upload your own, or keep the one the Engine selected automatically. Any image you upload is protected and will never be overwritten by an automatic refresh.
 
 ---
 
@@ -119,10 +119,11 @@ In the Library Vault, you can see all the cover art options gathered for any ite
 
 Providers update their data over time. New editions are added, descriptions are improved, cover art is refreshed. The Engine automatically re-queries providers for all items in your library every 30 days to pick up these improvements.
 
-You can also trigger a manual refresh at any time. In the Library Vault, select one or more items and click **Sync Now** in the floating action bar. This immediately re-runs both enrichment stages for the selected items.
+You can also trigger a manual refresh at any time. In the Review Queue, select one or more items and click **Sync Now** in the floating action bar. This immediately re-runs both enrichment stages for the selected items.
 
 ## Related
 
 - [Providers Reference](../reference/providers.md)
 - [Configuration Reference](../reference/configuration.md)
 - [How Two-Stage Enrichment Works](../explanation/how-hydration-works.md)
+

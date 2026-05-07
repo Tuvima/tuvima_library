@@ -267,11 +267,11 @@ Navigation is URL-driven: `/settings/review` deep-links straight into the review
 
 ### 3.12 — Review Queue (inside Settings)
 
-The Review Queue is the Engine's safety net for uncertain matches. It lives at `/settings/review` and is rendered by `LibraryPage` (in `Components/Library/`) with `ReviewOnly="true"`. `/review` is a 301 redirect to the Settings route.
+The Review Queue is the Engine's safety net for uncertain matches. It lives at `/settings/review` and is rendered by `SettingsReviewQueueTab`. It opens the shared media editor in review mode for blocked or uncertain items.
 
-The queue surfaces items that need human attention: failed retail matches, ambiguous Wikidata candidates, low-confidence matches, missing titles, and items that fell through during enrichment. The detail drawer shows current file metadata, retail candidates, Wikidata candidates, and pipeline history across three tabs (File / Retail / Wikidata). Actions include accepting a candidate, running a manual search, purging the item, or deferring. `PostPipelineService` auto-resolves queue items when a later enrichment pass pushes confidence above threshold.
+The queue surfaces items that need human attention: failed retail matches, ambiguous Wikidata candidates, low-confidence matches, missing titles, and items that fell through during enrichment. Review rows can launch the shared editor in review mode, dismiss an item, skip universe matching where supported, or retry/resolve according to existing Engine rules. `PostPipelineService` auto-resolves queue items when a later enrichment pass pushes confidence above threshold.
 
-> **Historical note:** An earlier `/vault` page concept combined browsing, management, and review into one 9-tab surface. That page has been **deprecated**. Browsing now lives on the media surfaces (`/`, `/read`, `/watch`, `/listen`, `/collections`) and review lives inside Settings. References to a "Library Vault" in older documentation, `.agent/` files, or memory entries are stale.
+> **Historical note:** An earlier `/vault` page concept combined browsing, management, and review into one 9-tab surface. That page has been **deprecated**. Browsing now lives on the media surfaces (`/`, `/read`, `/watch`, `/listen`, `/collections`) and review lives inside Settings. Do not add new Vault routes, components, docs, or navigation. Normal media correction belongs inline on media pages and details, using `MediaEditorLauncherService` and `SharedMediaEditorShell`; Review uses the same editor in review mode.
 
 ### 3.13 — Universal Parameterized Collection System
 **Detail:** [`docs/architecture/collections.md`](docs/architecture/collections.md)
@@ -548,7 +548,7 @@ Reusable visual components, organised by feature slice.
 | `Collections/` | `CollectionsPage`, `CollectionEditorShell` |
 | `Discovery/` | `DiscoveryHero`, `DiscoveryShelf`, `DiscoveryCard`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |
-| `Library/` | Review-queue surface: `LibraryPage` (used in review mode inside Settings), `LibraryActionCenter`, `LibraryOverviewPanel`, `LibraryDetailDrawer`, `LibraryEditorPanel`, `LibraryConfigurableTable`, `LibraryColumnDefinitions`, `LibraryPipelineCircles`, `StageGate`, `StatusPill`, `ConfidenceBar`, `PersonBiographyDrawer`, `MediaGroupPage`, `LibraryMediaGrid`, `LibraryMusicGrid`, `LibraryPeopleTable`, `LibraryUniversesTable`, `LibraryBatchBar`, `LibraryDeleteConfirm`, `LibraryColumnPicker`, `LibraryTimeline`, `LibraryMobileDetail`, `LibraryAddMediaDrawer`, `LibraryCollectionDrawer`, `LibraryUniverse*` panels, `LibraryToolbar`, `SearchResultCard`, `DrawerSection` |
+| `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, status pills, and group drill-down components. Do not add Vault workflow components here. |
 | `Listen/` | `ListenNowPlayingBar`, `ListenTrackDataGrid` |
 | `MediaEditor/` | `SharedMediaEditorShell`, `SharedMediaBatchConfirmDialog` |
 | `Navigation/` | `TopBar`, `AppLogo`, `AppTabs`, `AppSelectorNav`, `CommandPalette` (Ctrl+K), `ProfileDropdown`, `MobileFilterBar` |
@@ -627,3 +627,4 @@ Reusable visual components, organised by feature slice.
 | License | AGPLv3 |
 | Engine base URL (local dev) | `http://localhost:61495` (HTTPS on `61494`) |
 | Dashboard URL (local dev) | `http://localhost:5016` (HTTPS on `7062`) |
+

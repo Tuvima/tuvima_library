@@ -11,3 +11,9 @@ Tuvima Library is a dark-only, cinematic media-library product. The visual langu
 If creating visual artifacts (slides, mocks, throwaway prototypes, etc.), copy assets out of this folder and create static HTML files that link `colors_and_type.css` for tokens. If working on production code, copy assets and read the rules in `README.md` to become an expert in designing with this brand — pay special attention to the CONTENT FUNDAMENTALS (voice, casing, person), VISUAL FOUNDATIONS (shadows, blur, transparency rules), and ICONOGRAPHY sections.
 
 If the user invokes this skill without any other guidance, ask them what they want to build or design, ask some focused questions (audience, surface — dashboard vs reader, hi-fi vs wireframe, how many variations), and act as an expert designer who outputs HTML artifacts _or_ production code, depending on the need.
+
+## Current Dashboard/Product UI Model
+
+Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+
+

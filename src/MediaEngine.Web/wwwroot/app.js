@@ -17,16 +17,25 @@ window.setThemeClass = function () {
  * @param {DotNetObjectReference} dotNetRef - Reference to the MainLayout component.
  */
 window.registerCtrlK = function (dotNetRef) {
-    // Guard: avoid double-registering on hot-reload.
-    if (window._appCtrlKRegistered) return;
-    window._appCtrlKRegistered = true;
+    window.unregisterCtrlK();
 
-    document.addEventListener('keydown', function (e) {
+    window._appCtrlKHandler = function (e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
             dotNetRef.invokeMethodAsync('OpenPalette');
         }
-    });
+    };
+
+    document.addEventListener('keydown', window._appCtrlKHandler);
+};
+
+window.unregisterCtrlK = function () {
+    if (!window._appCtrlKHandler) {
+        return;
+    }
+
+    document.removeEventListener('keydown', window._appCtrlKHandler);
+    window._appCtrlKHandler = null;
 };
 
 // -- Device Context ---------------------------------------------------------

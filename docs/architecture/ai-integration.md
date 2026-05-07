@@ -188,3 +188,4 @@ All AI settings live in `config/ai.json`:
 - [How the Local AI Works](../explanation/how-ai-works.md)
 - [How to Set Up Language Preferences](../guides/language-setup.md)
 - [Hydration Pipeline, Provider Architecture and Enrichment Strategy](hydration-and-providers.md)
+

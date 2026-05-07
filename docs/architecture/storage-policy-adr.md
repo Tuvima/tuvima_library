@@ -88,3 +88,4 @@ Local exports are mirrors only. The central asset store remains the source of tr
 - `AssetPathService` is the policy authority for managed asset paths.
 - `entity_assets` records track storage location and export state.
 - Legacy `.data/images` and local managed artwork are reconciled into `.data/assets` at startup.
+

@@ -18,7 +18,7 @@ This document describes how Tuvima Library discovers metadata for ingested media
 
 ## 1. Provider Authority Model
 
-Wikidata is the sole identity authority. Every media item is identified by its Wikidata Q-identifier (QID) when one can be resolved. The main Vault, however, is no longer gated on QID alone. An item can be shown in the main Vault once it has a non-placeholder title, a resolved media type, and a settled artwork outcome (`present`, or `missing` after the artwork pass has explicitly settled). Items that are still uncertain stay in Activity, Review, and the Action Center instead of appearing early in the main Vault.
+Wikidata is the sole identity authority. Every media item is identified by its Wikidata Q-identifier (QID) when one can be resolved. The main browse surfaces, however, is no longer gated on QID alone. An item can be shown in the main browse surfaces once it has a non-placeholder title, a resolved media type, and a settled artwork outcome (`present`, or `missing` after the artwork pass has explicitly settled). Items that are still uncertain stay in Activity, Review, and the Review Queue instead of appearing early in the main browse surfaces.
 
 All providers divide cleanly into two categories:
 
@@ -119,7 +119,7 @@ Retail providers run in ranked pipeline order defined in `config/pipelines.json`
 
 Providers participate in Stage 1 by declaring `"hydration_stages": [1]` in their config.
 
-**Retail match confidence gate:** After each provider returns claims, `RetailMatchScoringService` scores the candidate against file metadata (title 45%, author 35%, year 10%, format 10% + cross-field boosts). Scores below 0.65 are discarded; scores between 0.65–0.90 are accepted with a review flag; scores ≥ 0.90 are auto-accepted. Auto-accept is further capped to review when creator evidence contradicts the file, when grouped TV matching lacks exact show+season+episode agreement, when grouped music matching lacks track-number or duration corroboration, or when cover similarity would be the only reason a weak-text candidate crossed the gate. This uses the same unified scoring as manual search from the Vault detail drawer.
+**Retail match confidence gate:** After each provider returns claims, `RetailMatchScoringService` scores the candidate against file metadata (title 45%, author 35%, year 10%, format 10% + cross-field boosts). Scores below 0.65 are discarded; scores between 0.65–0.90 are accepted with a review flag; scores ≥ 0.90 are auto-accepted. Auto-accept is further capped to review when creator evidence contradicts the file, when grouped TV matching lacks exact show+season+episode agreement, when grouped music matching lacks track-number or duration corroboration, or when cover similarity would be the only reason a weak-text candidate crossed the gate. This uses the same unified scoring as manual search from the media detail editor.
 
 Stage 1 never waits on Stage 2. Cover art is written to disk during Stage 1 (`cover.jpg` alongside the staged file). If Stage 1 fails to find any matching provider, the item routes directly to the review queue — **no text-only Wikidata fallback is attempted**. The principle: no retail match = no Wikidata.
 
@@ -141,7 +141,7 @@ Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Current
 
 **Parity baseline:** `tests/fixtures/stage2-baseline-v2.json` is the authoritative snapshot of the library-backed Stage 2 path against a 12-request fixture (books, movies, TV, music, audiobooks, plus Pattern 1/3 edge cases). The `Stage2BaselineCapture.CaptureStage2BaselineViaLibraryPath` xUnit fixture (Skip'd by default) re-captures the baseline on demand against live Wikidata.
 
-**Pipeline continuation on failure:** If Stage 2 fails to resolve a QID and `continue_pipeline_on_authority_failure` is `true`, the pipeline continues (the file retains its Stage 1 metadata). A `QidNoMatch` item is treated as a terminal precision-preserving outcome: the item may still remain visible in the main Vault if it passes the Vault quality gate, but its pipeline step stays at Wikidata and its status makes the missing QID explicit.
+**Pipeline continuation on failure:** If Stage 2 fails to resolve a QID and `continue_pipeline_on_authority_failure` is `true`, the pipeline continues (the file retains its Stage 1 metadata). A `QidNoMatch` item is treated as a terminal precision-preserving outcome: the item may still remain visible in the main browse surfaces if it passes the browse readiness gate, but its pipeline step stays at Wikidata and its status makes the missing QID explicit.
 
 ### Provider Pipeline Assignments (config/pipelines.json)
 
@@ -428,7 +428,7 @@ Identifiers flow between Wikidata (dashed ISBNs, mixed-case ASINs, full IMDb URL
 
 ## 9. Review Queue Data Model
 
-The review queue surfaces items that need human attention. The Dashboard interaction layer (Vault page, VaultResolutionOverlay) is described in the UI architecture document. This section covers the data model and API.
+The review queue surfaces items that need human attention. The Dashboard interaction layer (media library page, VaultResolutionOverlay) is described in the UI architecture document. This section covers the data model and API.
 
 ### Review Item Types
 
@@ -445,7 +445,7 @@ Each review item carries: entity reference, trigger reason, confidence score, op
 
 ### Resolution Flow
 
-1. User opens the Vault page in Settings â†’ Metadata section.
+1. User opens the current media surfaces page in Settings â†’ Metadata section.
 2. Selects a review item â†’ sees current metadata versus proposed match.
 3. For `MultipleQidMatches`: picks a QID candidate from a card grid.
 4. Clicks Resolve â†’ `POST /review/{id}/resolve` fires.
@@ -590,3 +590,4 @@ Thin dispatcher (`IEnrichmentService`) routing to modular enrichment workers:
 After full Stage 2 claims are persisted and routed to Works, Tuvima Library checks for a canonical series QID from bridge/claim data. For books, audiobooks, comics, and TV, it calls `Tuvima.Wikidata.Series.GetManifestAsync` and stores a named ordered manifest locally. Wikidata supplies factual series data; Tuvima stores local ownership state (`Owned`, `Missing`, `Provisional`, `Ambiguous`), warnings, and UI-ready counts.
 
 `series_manifest_refresh_days` in `config/hydration.json` controls how long a fetched manifest is considered fresh. While fresh, later sibling imports relink against the cached named manifest before any refetch. If a newly resolved QID is not present in the cached manifest and no package-level delta API is available, the service falls back to an idempotent full manifest refresh.
+

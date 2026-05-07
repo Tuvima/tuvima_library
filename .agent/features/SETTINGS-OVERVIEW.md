@@ -121,3 +121,4 @@ The user opens Server Settings from the avatar menu — but this menu item only 
 ## PO Summary
 
 Settings and Preferences are split into two clean pages — one for personal look-and-feel, one for server administration. Seven of the ten tabs are fully working (General, Libraries, Metadata, API Keys, Users, Curator's Drawer, and the redirect shim); three are clearly-labelled placeholders (Playback, Connectivity, Maintenance). **The most important gap is security: the Engine does not currently enforce role-based access on its endpoints — any caller can perform admin actions, which must be addressed before external access is enabled.**
+

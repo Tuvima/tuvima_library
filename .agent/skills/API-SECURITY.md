@@ -88,3 +88,4 @@ Request arrives
 7. **No key expiration** — keys are valid forever.
 8. **Unsalted key hashes** — SHA-256 without salt (acceptable for 256-bit random keys).
 9. **Broadcast events are unscoped** — all clients receive all events regardless of role.
+

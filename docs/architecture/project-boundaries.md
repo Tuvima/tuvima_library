@@ -10,3 +10,4 @@ Tuvima Library keeps project dependencies pointed inward so UI and endpoint work
 - `MediaEngine.Web` talks to the Engine through HTTP and SignalR. It must not reference `MediaEngine.Storage`.
 
 Endpoint methods should stay thin: validate route/query/body inputs, call a service or query object, and return HTTP results. SQL, row mapping, and fallback query rules belong in Storage or clearly named API read services.
+

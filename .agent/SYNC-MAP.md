@@ -56,3 +56,4 @@
 1. Check `CLAUDE.md` §5.3 for the sync mapping table.
 2. Update the corresponding `.agent/` files from the table above.
 3. Update the "Last synced" date at the top of this file.
+

@@ -47,7 +47,7 @@ The cascade evaluates four tiers in strict order. The first tier that produces a
 
 ### Tier A â€” User Locks (always wins)
 
-If you manually lock a field in the Vault, your value wins at confidence 1.0. Full stop. No source â€” not even Wikidata â€” overrides a user lock.
+If you manually lock a field in the current media surfaces, your value wins at confidence 1.0. Full stop. No source â€” not even Wikidata â€” overrides a user lock.
 
 User locks are the override of last resort. The Engine is designed to be right on its own, so you should rarely need them. But when you do â€” when you know something the Engine doesn't, or when a source has genuinely wrong data â€” a lock is absolute.
 
@@ -101,7 +101,7 @@ This prevents near-empty files from auto-promoting to high-confidence status on 
 
 ### Conflicted Fields
 
-When two claims for the same field are within 0.05 confidence of each other â€” close enough that neither is clearly better â€” the field is marked **Conflicted**. The Vault surfaces conflicted fields for your review rather than silently picking one.
+When two claims for the same field are within 0.05 confidence of each other â€” close enough that neither is clearly better â€” the field is marked **Conflicted**. the current media surfaces surfaces conflicted fields for your review rather than silently picking one.
 
 You'll see conflicted fields highlighted in the Claims section of the detail drawer. You can pick the value you prefer, which applies a Tier A user lock for that field.
 
@@ -136,3 +136,4 @@ For the technical details of the cascade implementation â€” scoring weights
 - [Priority Cascade Engine](../architecture/scoring-and-cascade.md)
 - [How to Resolve Items That Need Review](../guides/resolving-reviews.md)
 - [Database Schema Reference](../reference/database-schema.md)
+

@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Library
+@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @inject IJSRuntime JS
 
@@ -116,7 +116,7 @@
     {
         if (firstRender)
         {
-            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", $"vault-columns-{ViewKey}");
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", $"media-columns-{ViewKey}");
             if (!string.IsNullOrEmpty(stored))
             {
                 try
@@ -157,7 +157,7 @@
     private async Task SaveToLocalStorage()
     {
         var json = System.Text.Json.JsonSerializer.Serialize(GetVisibleKeys());
-        await JS.InvokeVoidAsync("localStorage.setItem", $"vault-columns-{ViewKey}", json);
+        await JS.InvokeVoidAsync("localStorage.setItem", $"media-columns-{ViewKey}", json);
     }
 
     private void OnDragStart(int index)
@@ -220,7 +220,7 @@
             .Select(c => c.Key)
             .ToHashSet();
 
-        await JS.InvokeVoidAsync("localStorage.removeItem", $"vault-columns-{ViewKey}");
+        await JS.InvokeVoidAsync("localStorage.removeItem", $"media-columns-{ViewKey}");
         await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
     }
 
@@ -398,3 +398,4 @@
         }
     }
 </style>
+

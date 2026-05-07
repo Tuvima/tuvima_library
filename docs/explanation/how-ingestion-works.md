@@ -12,7 +12,7 @@ tags:
 
 # How File Ingestion Works
 
-When a new file lands in a watched folder, Tuvima Library does not trust it immediately. The Engine waits until the file is stable, reads what it can from the file itself, stages it safely on disk, and only then starts deciding whether it is ready for the Vault and the organised library.
+When a new file lands in a watched folder, Tuvima Library does not trust it immediately. The Engine waits until the file is stable, reads what it can from the file itself, stages it safely on disk, and only then starts deciding whether it is ready for the current media surfaces and the organised library.
 
 ---
 
@@ -27,7 +27,7 @@ File appears in a watched folder
   -> move to staging
   -> Retail and Wikidata enrichment
   -> artwork settlement
-  -> Vault quality gate
+  -> browse readiness gate
   -> library organisation
 ```
 
@@ -91,7 +91,7 @@ Staging is the Engine's safe holding area:
 - retries can happen without touching the organised library
 - a bad or uncertain match does not immediately rewrite your final folder structure
 
-This staging decision is separate from whether the item is visible in the main Vault.
+This staging decision is separate from whether the item is visible in the main browse surfaces.
 
 ---
 
@@ -120,21 +120,21 @@ The Engine also tracks whether artwork is:
 - still pending
 - explicitly missing
 
-That matters because the main Vault does not show an item until its artwork outcome has settled. A file can be safely staged and partly identified without being ready for the main Vault yet.
+That matters because the main browse surfaces does not show an item until its artwork outcome has settled. A file can be safely staged and partly identified without being ready for the main browse surfaces yet.
 
 ---
 
-## Step 8: Main Vault visibility
+## Step 8: main browse surfaces visibility
 
-An item becomes visible in the main Vault only after it passes the Vault quality gate:
+An item becomes visible in the main browse surfaces only after it passes the browse readiness gate:
 
 - non-placeholder title
 - resolved media type
 - settled artwork outcome
 
-If it fails that gate, it stays visible in Activity, Review, and the Action Center until the missing piece is resolved.
+If it fails that gate, it stays visible in Activity, Review, and the Review Queue until the missing piece is resolved.
 
-This is why "the system has seen the file" and "the file is in the main Vault" are no longer the same moment.
+This is why "the system has seen the file" and "the file is in the main browse surfaces" are no longer the same moment.
 
 ---
 
@@ -144,7 +144,7 @@ Promotion into the organised library on disk is a later decision based on the wi
 
 So there are two separate milestones:
 
-- the item is ready enough to surface in the main Vault
+- the item is ready enough to surface in the main browse surfaces
 - the item is ready enough to be promoted into the final organised library structure
 
 That separation makes the product more honest and reduces bad auto-moves.
@@ -159,7 +159,7 @@ The pipeline is designed to fail safely:
 - if the processor cannot read it cleanly, the system falls back to weaker signals
 - if Retail cannot find a safe match, the item goes to review
 - if Wikidata finds no QID, the item can still remain usable without forcing a bad identity
-- if artwork is still unresolved, the item stays out of the main Vault until that question is settled
+- if artwork is still unresolved, the item stays out of the main browse surfaces until that question is settled
 
 ## Related
 
@@ -167,3 +167,4 @@ The pipeline is designed to fail safely:
 - [How Two-Stage Enrichment Works](how-hydration-works.md)
 - [How to Add Media to Your Library](../guides/adding-media.md)
 - [Ingestion Pipeline](../architecture/ingestion-pipeline.md)
+

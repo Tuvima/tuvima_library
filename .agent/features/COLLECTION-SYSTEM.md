@@ -57,11 +57,11 @@ Operators: eq, neq, contains, gt, lt, between, in, like. Match mode: ALL (AND) o
 
 ### Content Groups
 
-Created during ingestion by `MediaEntityChainFactory` — albums, TV shows, book series work immediately when files are scanned, not waiting for Wikidata. Power the container views in Vault media tabs.
+Created during ingestion by `MediaEntityChainFactory` — albums, TV shows, book series work immediately when files are scanned, not waiting for Wikidata. Power the container views in media lane container views.
 
 ### Collection Placements
 
-`collection_placements` table maps collections to UI locations (home, media lanes, vault, collections page) with display limits and position. Location is a data-driven display constraint.
+`collection_placements` table maps collections to UI locations (home, media lanes, media library, collections page) with display limits and position. Location is a data-driven display constraint.
 
 ---
 
@@ -80,7 +80,7 @@ Library   (your entire collection)
 
 ## Collections Page (`/collections`)
 
-Dedicated page for browsing, creating, and managing all collection types. Replaces the former Vault Collections tab. Features:
+Dedicated page for browsing, creating, and managing all collection types. Replaces the former Collections page. Features:
 - Type filter chips (All, Content Groups, Smart, System Lists, Mixes, Playlists, Custom)
 - Grid/list view toggle
 - Collection builder for creating Custom collections (Apple Music Smart Playlist-style filter rows)
@@ -133,4 +133,5 @@ Migration: M-070 (collection columns + collection_placements table + backfill)
 
 ## PO Summary
 
-The collection system has been unified into a single universal model. Every collection — whether an auto-detected album, a genre category, or a user playlist — uses the same rule-based mechanism. Content groups (albums, TV shows, series) are created the moment files are scanned, so they work immediately. A dedicated Collections page replaces the old Vault Collections tab for managing all collection types. Users can create their own smart collections using an intuitive filter builder inspired by Apple Music's Smart Playlist interface.
+The collection system has been unified into a single universal model. Every collection — whether an auto-detected album, a genre category, or a user playlist — uses the same rule-based mechanism. Content groups (albums, TV shows, series) are created the moment files are scanned, so they work immediately. A dedicated Collections page replaces the old Collections page for managing all collection types. Users can create their own smart collections using an intuitive filter builder inspired by Apple Music's Smart Playlist interface.
+

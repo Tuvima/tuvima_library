@@ -1,6 +1,6 @@
 namespace MediaEngine.Web.Models.ViewDTOs;
 
-/// <summary>Dashboard-level operational health summary for the Vault Overview panel.</summary>
+/// <summary>Dashboard-level operational health summary for the settings overview panel.</summary>
 public sealed class LibraryOverviewViewModel
 {
     public int TotalItems { get; init; }
@@ -33,3 +33,4 @@ public sealed class LibraryOverviewViewModel
     public int QidNoMatch { get; init; }
     public int CompletedWithArt { get; init; }
 }
+

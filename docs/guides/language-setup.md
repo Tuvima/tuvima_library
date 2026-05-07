@@ -76,7 +76,7 @@ The Engine uses this list when searching Wikidata. For a file whose embedded met
 
 The **Accept any** toggle is on by default. When it is on, the Engine will process files in any language â€” even if their language doesn't appear in your display language, metadata language, or additional languages list. This is the recommended setting for most users.
 
-When you turn Accept any off, the Engine will flag files whose language doesn't match any of your configured languages with an amber informational banner in the Library Vault. The file is still processed and stored; the banner is informational only and does not block identification or enrichment.
+When you turn Accept any off, the Engine will flag files whose language doesn't match any of your configured languages with an amber informational banner in the Review Queue. The file is still processed and stored; the banner is informational only and does not block identification or enrichment.
 
 ---
 
@@ -126,7 +126,7 @@ You generally don't need to change the default strategy for any provider. The de
 
 ## Search across languages
 
-The Engine's search index covers multiple languages at once. When you type in the search box in the Library Vault or Command Palette, the Engine searches:
+The Engine's search index covers multiple languages at once. When you type in the search box in the Review Queue or Command Palette, the Engine searches:
 
 - Titles in your display language
 - Original-script titles (Japanese, Korean, Chinese, etc.)
@@ -140,3 +140,4 @@ This means you can find any item in your library regardless of which script or l
 - [Configuration Reference](../reference/configuration.md)
 - [How the Local AI Works](../explanation/how-ai-works.md)
 - [How to Configure Metadata Providers](configuring-providers.md)
+

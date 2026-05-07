@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## Project Overview
 
@@ -65,6 +65,31 @@ Runtime notes:
 - The Dashboard defaults to `Engine:BaseUrl = http://localhost:61495`
 - If the Engine is started on a different address, set `TUVIMA_ENGINE_URL` before starting the Dashboard
 - First Engine startup may benchmark hardware and download AI models, which can take time and use about 9 GB
+
+
+## Current Dashboard/Product UI Model
+
+The Dashboard is organized by user experience, not by a separate media management workspace:
+
+- **Home** is discovery and overview.
+- **Read**, **Watch**, and **Listen** are the media lanes where users browse and experience their library.
+- **Search** is cross-library discovery.
+- **Detail pages** are where users view an item and fix/edit that item inline.
+- **Review Queue** is only for blocked, uncertain, or low-confidence items that need human confirmation.
+- **Settings/Admin** is for configuration and system operations: library folders, provider setup, profiles and roles, device/profile UI settings, ingestion status, system health, logs, and diagnostics.
+
+The old **Vault** concept is deprecated and must not be rebuilt. Do not add new Vault routes, Vault tabs, Vault docs, or a separate media-fixing workbench. Normal media corrections belong inline on the media surface where the issue appears, using `MediaEditorLauncherService` and `SharedMediaEditorShell`. Review uses the same shared editor in review mode.
+
+Current UI entry points:
+
+1. `src/MediaEngine.Web/Shared/MainLayout.razor` for the global shell, search, review notification, profile menu, engine status, command palette, and persistent playback host.
+2. `src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor` for Home/discovery.
+3. `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor` for shared Read/Watch/Listen browse behavior.
+4. `src/MediaEngine.Web/Components/Details/DetailPage.razor` and `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` for detail surfaces and inline edit launch points.
+5. `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` for the exception queue.
+6. `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` for normal, review, and batch editing.
+
+Treat stale references to `LibraryPage`, `LibrarySurfacePreset`, retired Vault CSS, broad management workbenches, or removed Vault docs as cleanup candidates unless they are historical notes explaining that the old workspace was removed.
 
 ## Repository Map
 
@@ -165,7 +190,7 @@ In plain English:
 2. The ingestion layer notices it, waits for file activity to settle, and makes sure it is not a duplicate.
 3. File processors inspect the file itself and extract whatever metadata is already available.
 4. Intelligence services decide the best current title/author/type values from the claims gathered so far.
-5. Retail Identification (Stage 1) searches commercial catalogues for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). If no retail provider matches, the item goes to review — Wikidata is never attempted.
+5. Retail Identification (Stage 1) searches commercial catalogues for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). If no retail provider matches, the item goes to review â€” Wikidata is never attempted.
 6. Wikidata Bridge Resolution (Stage 2) uses bridge IDs from Stage 1 to find the canonical Wikidata entity (QID). This provides universe linkage, person relationships, and canonical metadata. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking.
 7. Storage writes the results into SQLite and caches supporting data for fast reads later.
 8. Organization and write-back services can move files into the library structure and write metadata back into the files.
@@ -249,13 +274,17 @@ Before changing C# for behavior that looks configurable, check `config/` first.
 If you are new to the repo, read these files in roughly this order:
 
 1. `README.md`
-2. `src/MediaEngine.Api/Program.cs`
-3. `src/MediaEngine.Web/Program.cs`
-4. `src/MediaEngine.Ingestion/IngestionEngine.cs`
-5. `src/MediaEngine.Providers/Services/HydrationPipelineService.cs`
-6. `src/MediaEngine.Intelligence/PriorityCascadeEngine.cs`
-7. `src/MediaEngine.Storage/ConfigurationDirectoryLoader.cs`
-8. `src/MediaEngine.Storage/DatabaseConnection.cs`
+2. `src/MediaEngine.Web/Shared/MainLayout.razor`
+3. `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor`
+4. `src/MediaEngine.Web/Components/Details/DetailPage.razor`
+5. `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor`
+6. `src/MediaEngine.Api/Program.cs`
+7. `src/MediaEngine.Web/Program.cs`
+8. `src/MediaEngine.Ingestion/IngestionEngine.cs`
+9. `src/MediaEngine.Providers/Services/HydrationPipelineService.cs`
+10. `src/MediaEngine.Intelligence/PriorityCascadeEngine.cs`
+11. `src/MediaEngine.Storage/ConfigurationDirectoryLoader.cs`
+12. `src/MediaEngine.Storage/DatabaseConnection.cs`
 
 That sequence explains the product, the runtime wiring, the intake flow, the enrichment flow, the decision logic, and the persistence/config layer.
 
@@ -266,3 +295,6 @@ That sequence explains the product, the runtime wiring, the intake flow, the enr
 - The Engine is the operational center of the app.
 - The Dashboard is mostly a client of the Engine, not the place where core business rules live.
 - Tests are organized by layer, so they are often the fastest way to confirm intended behavior once you know which project you are in.
+
+
+

@@ -56,7 +56,7 @@ You can add as many folders as you need.
 | Music | FLAC, MP3, AAC, M4A, OGG |
 | Comics | CBZ, CBR, PDF |
 
-> **MP3 and MP4 can be ambiguous.** The Engine uses file metadata, folder hints, and classification logic to decide whether a file is music, audiobook, movie, or TV. If it guesses wrong, you can correct it in the Vault.
+> **MP3 and MP4 can be ambiguous.** The Engine uses file metadata, folder hints, and classification logic to decide whether a file is music, audiobook, movie, or TV. If it guesses wrong, you can correct it in the current media surfaces.
 
 ---
 
@@ -71,24 +71,24 @@ When the Engine finds a new file, it runs it through several stages automaticall
 5. **Stage**: moves the file into the safe staging area on disk
 6. **Hydrate**: Stage 1 queries retail providers for cover art, descriptions, ratings, and bridge IDs; Stage 2 uses those IDs to resolve a Wikidata identity when possible
 7. **Settle artwork and readiness**: the system decides whether the item has present art, missing art, or still-pending art
-8. **Surface and promote**: main Vault visibility and final filesystem promotion are separate decisions
+8. **Surface and promote**: main browse surfaces visibility and final filesystem promotion are separate decisions
 
 Two details matter here:
 
-- An item can be known to the system before it is visible in the main Vault
-- An item can be visible in the main Vault before or after final promotion into the organised library structure
+- An item can be known to the system before it is visible in the main browse surfaces
+- An item can be visible in the main browse surfaces before or after final promotion into the organised library structure
 
 ---
 
-## When an item appears in the main Vault
+## When an item appears in the main browse surfaces
 
-The main Vault only shows an item after it passes the Vault quality gate:
+The main browse surfaces only shows an item after it passes the browse readiness gate:
 
 - real title
 - resolved media type
 - settled artwork outcome
 
-If that gate is not satisfied yet, the item remains visible in Activity, Review, or the Action Center instead of appearing early in the main Vault.
+If that gate is not satisfied yet, the item remains visible in Activity, Review, or the Review Queue instead of appearing early in the main browse surfaces.
 
 ---
 
@@ -118,7 +118,7 @@ If you already have a large library on disk:
 3. Click **Import Now** on that folder.
 4. Watch progress in the Dashboard while the Engine processes the files in the background.
 
-During a large import, some items will first appear in Activity, Review, or the Action Center before they are ready for the main Vault. That is expected.
+During a large import, some items will first appear in Activity, Review, or the Review Queue before they are ready for the main browse surfaces. That is expected.
 
 ---
 
@@ -140,3 +140,4 @@ During a large import, some items will first appear in Activity, Review, or the 
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
 - [How the Entire Pipeline Works](../explanation/how-the-pipeline-works.md)
 - [Supported Media Types and Formats](../reference/media-types.md)
+

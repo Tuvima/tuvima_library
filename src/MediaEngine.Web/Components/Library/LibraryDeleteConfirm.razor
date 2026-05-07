@@ -1,11 +1,11 @@
-﻿<div class="vdc-backdrop" @onclick="OnCancel">
+<div class="vdc-backdrop" @onclick="OnCancel">
     <div class="vdc-modal" @onclick:stopPropagation="true">
         <div class="vdc-icon-wrap">
             <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 32px;" />
         </div>
         <div class="vdc-text">
             <h2 class="vdc-title">@(Count > 1 ? $"Move {Count} Items to Quarantine?" : "Move to Quarantine?")</h2>
-            <p class="vdc-desc">@(Count > 1 ? $"This will move {Count} items to quarantine. They will be hidden from your library but can be reviewed or restored from the Action Center." : "This will move the item to quarantine. It will be hidden from your library but can be reviewed or restored from the Action Center.")</p>
+            <p class="vdc-desc">@(Count > 1 ? $"This will move {Count} items to quarantine. They will be hidden from your library but can be reviewed or restored from the Review Queue." : "This will move the item to quarantine. It will be hidden from your library but can be reviewed or restored from the Review Queue.")</p>
         </div>
         <div class="vdc-actions">
             <MudButton Variant="Variant.Filled"
@@ -117,3 +117,4 @@
         font-weight: 700;
     }
 </style>
+

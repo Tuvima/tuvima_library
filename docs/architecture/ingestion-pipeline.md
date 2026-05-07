@@ -1,6 +1,6 @@
 ---
 title: "Ingestion Pipeline"
-summary: "Deep technical documentation for file watching, fingerprinting, staging, Vault surfacing, promotion, and organization."
+summary: "Deep technical documentation for file watching, fingerprinting, staging, browse surfacing, promotion, and organization."
 audience: "developer"
 category: "architecture"
 product_area: "ingestion"
@@ -142,7 +142,7 @@ Files are routed to one of four subcategories based on their overall confidence 
 
 **Staging lifecycle logging:** The Engine logs staging progress at `Information` level at four points: (1) when an asset is moved into staging, (2) when a review queue item is created, (3) when a gap is detected in expected review creation (e.g. a confidence score that should have triggered a review but did not), and (4) when an asset is promoted out of staging into the organised library. These log entries allow the staging pipeline to be audited from the activity log.
 
-**Vault quality gate:** Main Vault visibility is no longer a simple "in staging or not" decision. The shared library item projection computes `vault_visibility`, `pipeline_step`, `artwork_state`, and `is_ready_for_vault` from identity jobs, review state, and canonical artwork flags. An item is visible in the main Vault only after it has a non-placeholder title, a resolved media type, and settled artwork (`present`, or `missing` after explicit settlement). Review-only or still-hidden items remain available in Activity, Review, and the Action Center.
+**browse readiness gate:** main browse surfaces visibility is no longer a simple "in staging or not" decision. The shared library item projection computes `vault_visibility`, `pipeline_step`, `artwork_state`, and `is_ready_for_vault` from identity jobs, review state, and canonical artwork flags. An item is visible in the main browse surfaces only after it has a non-placeholder title, a resolved media type, and settled artwork (`present`, or `missing` after explicit settlement). Review-only or still-hidden items remain available in Activity, Review, and the Review Queue.
 
 ### AutoOrganize Gate
 
@@ -152,7 +152,7 @@ Files are routed to one of four subcategories based on their overall confidence 
 overallConfidence >= 0.85  OR  any claim has IsUserLocked = true
 ```
 
-This threshold (`AutoLinkThreshold = 0.85`) is defined once in `ScoringConfiguration` and reused by both the staging router and the promotion gate. It governs filesystem promotion, not main Vault visibility.
+This threshold (`AutoLinkThreshold = 0.85`) is defined once in `ScoringConfiguration` and reused by both the staging router and the promotion gate. It governs filesystem promotion, not main browse surfaces visibility.
 
 ### Hero Banner
 
@@ -295,7 +295,7 @@ After Stage 1 hydration (retail providers), if 3 or more claims are returned, th
 
 ## Writeback & Auto Re-tag Sweep
 
-Once a file is identified and enriched, `WriteBackService` embeds the canonical metadata back into the file itself so external players, re-ingestion, and library rebuilds see it without consulting the database. The per-media-type field list lives in `config/writeback-fields.json` — the single source of truth shared by the taggers and the Vault detail drawer.
+Once a file is identified and enriched, `WriteBackService` embeds the canonical metadata back into the file itself so external players, re-ingestion, and library rebuilds see it without consulting the database. The per-media-type field list lives in `config/writeback-fields.json` — the single source of truth shared by the taggers and the media detail editor.
 
 ### Per-media-type writeback hash
 
@@ -323,7 +323,7 @@ A `BackgroundService` that wakes on either a cron schedule (`config/maintenance.
 2. Processes in batches, calling `WriteBackService.WriteMetadataAsync(assetId, "config_change")` for each asset. On success, the service stamps the new hash on the row.
 3. Classifies failures via `RetagFailureClassifier`:
    - **Locked** / **IoFailed** → `ScheduleRetagRetryAsync` with the next off-hours window start. The sweep picks these up on the next run.
-   - **Corrupt** / **Unknown** (after retries exhausted) → inserts a `ReviewQueueEntry` with trigger `WritebackFailed`, routing the file to the Action Center.
+   - **Corrupt** / **Unknown** (after retries exhausted) → inserts a `ReviewQueueEntry` with trigger `WritebackFailed`, routing the file to the Review Queue.
 4. Broadcasts live progress via SignalR (`RetagSweepProgress` and `RetagSweepCompleted` events) so the Maintenance tab shows a processed / succeeded / transient / terminal counter during a sweep.
 
 ### Endpoints
@@ -335,9 +335,9 @@ A `BackgroundService` that wakes on either a cron schedule (`config/maintenance.
 | `POST /maintenance/retag-sweep/run-now` | Admin | Signals worker without applying a diff |
 | `POST /maintenance/retag-sweep/retry/{assetId}` | Admin | Manual retry for a specific failed asset |
 
-### Action Center integration
+### Review Queue integration
 
-The Vault Action Center surfaces `WritebackFailed` review items alongside other review triggers. The message reads "Re-tag failed — file may be locked or corrupt"; resolving the item either manually (fix the file, click retry) or via a successful next-sweep-pass clears the review row.
+the current media surfaces Review Queue surfaces `WritebackFailed` review items alongside other review triggers. The message reads "Re-tag failed — file may be locked or corrupt"; resolving the item either manually (fix the file, click retry) or via a successful next-sweep-pass clears the review row.
 
 ---
 
@@ -368,3 +368,4 @@ The Vault Action Center surfaces `WritebackFailed` review items alongside other 
 After Stage 2 resolves a Wikidata QID and full property claims have been persisted, `WikidataBridgeWorker` asks `WikidataSeriesManifestHydrationService` whether the item belongs to a canonical series. The service only uses QID-backed relationship facts such as P179/`series_qid`, never fuzzy title matching.
 
 For books, audiobooks, comics, and TV, a canonical series QID triggers a Tuvima.Wikidata manifest fetch. Tuvima stores every named item in `series_manifest_items`, including missing works the user does not own. Later imports from the same series first link against the cached named manifest, so adding another Dune ebook or audiobook usually does not require downloading the whole series again while the cache is fresh.
+

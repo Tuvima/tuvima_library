@@ -151,3 +151,4 @@ Confidence values indicate the strength of trust assigned to a claim when it ent
 For the `author` field specifically, a non-Wikidata claim with strictly higher confidence than the best Wikidata P50 claim wins in Tier C of the cascade (to honour deliberately reduced P50 author confidence of 0.75 and preserve embedded pen names at 0.95). All other fields follow standard Tier C Wikidata authority.
 
 See [`docs/architecture/scoring-and-cascade.md`](../architecture/scoring-and-cascade.md) for the full Priority Cascade rules.
+

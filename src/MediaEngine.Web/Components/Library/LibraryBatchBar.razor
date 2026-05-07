@@ -1,37 +1,37 @@
-﻿@namespace MediaEngine.Web.Components.Library
+@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 
 @inject IStringLocalizer<SharedStrings> L
 
 @if (SelectedCount > 0)
 {
-    <div class="vault-batch-bar">
-        <span class="vault-batch-count">@SelectedCount selected</span>
+    <div class="media-batch-bar">
+        <span class="media-batch-count">@SelectedCount selected</span>
 
         <MudButton Variant="Variant.Filled"
                    Color="Color.Warning"
-                   Class="vault-batch-btn vault-batch-btn--edit"
+                   Class="media-batch-btn media-batch-btn--edit"
                    OnClick="() => OnEdit.InvokeAsync()">
             Edit (@SelectedCount)
         </MudButton>
 
         <MudButton Variant="Variant.Filled"
                    Color="Color.Error"
-                   Class="vault-batch-btn vault-batch-btn--delete"
+                   Class="media-batch-btn media-batch-btn--delete"
                    OnClick="() => OnDelete.InvokeAsync()">
             Delete
         </MudButton>
 
         <MudButton Variant="Variant.Filled"
                    Color="Color.Info"
-                   Class="vault-batch-btn vault-batch-btn--sync"
+                   Class="media-batch-btn media-batch-btn--sync"
                    OnClick="() => OnSyncNow.InvokeAsync()">
             Sync Now
         </MudButton>
 
         <MudButton Variant="Variant.Text"
                    Color="Color.Inherit"
-                   Class="vault-batch-btn vault-batch-btn--clear"
+                   Class="media-batch-btn media-batch-btn--clear"
                    StartIcon="@Icons.Material.Outlined.Close"
                    OnClick="() => OnClearSelection.InvokeAsync()">
             Clear
@@ -48,7 +48,7 @@
 }
 
 <style>
-    .vault-batch-bar {
+    .media-batch-bar {
         position: fixed;
         bottom: 24px;
         left: 50%;
@@ -63,22 +63,22 @@
         backdrop-filter: blur(12px);
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
         z-index: 1000;
-        animation: vault-batch-slide-up 0.2s ease;
+        animation: media-batch-slide-up 0.2s ease;
     }
 
-    @@keyframes vault-batch-slide-up {
+    @@keyframes media-batch-slide-up {
         from { transform: translateX(-50%) translateY(20px); opacity: 0; }
         to   { transform: translateX(-50%) translateY(0); opacity: 1; }
     }
 
-    .vault-batch-count {
+    .media-batch-count {
         font-size: 13px;
         font-weight: 700;
         color: rgba(255, 255, 255, 1);
         white-space: nowrap;
     }
 
-    .vault-batch-btn {
+    .media-batch-btn {
         font-size: 11px;
         font-weight: 800;
         text-transform: uppercase;
@@ -89,24 +89,24 @@
         line-height: 1;
     }
 
-    .vault-batch-btn--edit {
+    .media-batch-btn--edit {
         color: var(--tl-accent-primary);
     }
 
-    .vault-batch-btn--delete {
+    .media-batch-btn--delete {
         color: var(--tl-status-danger);
     }
 
-    .vault-batch-btn--sync {
+    .media-batch-btn--sync {
         color: var(--tl-status-info);
     }
 
-    .vault-batch-btn--clear {
+    .media-batch-btn--clear {
         color: rgba(255, 255, 255, 0.4);
     }
 
     @@media (max-width: 768px) {
-        .vault-batch-bar {
+        .media-batch-bar {
             bottom: 12px;
             gap: 8px;
             padding: 10px 16px;
@@ -116,30 +116,31 @@
             border-radius: 12px;
         }
 
-        @@keyframes vault-batch-slide-up {
+        @@keyframes media-batch-slide-up {
             from { transform: translateY(20px); opacity: 0; }
             to   { transform: translateY(0); opacity: 1; }
         }
 
-        .vault-batch-count {
+        .media-batch-count {
             font-size: 12px;
         }
 
-        .vault-batch-btn {
+        .media-batch-btn {
             padding: 6px 12px;
             font-size: 10px;
         }
     }
 
     @@media (max-width: 480px) {
-        .vault-batch-bar {
+        .media-batch-bar {
             gap: 6px;
             padding: 8px 12px;
         }
 
-        .vault-batch-btn {
+        .media-batch-btn {
             padding: 6px 8px;
             font-size: 9px;
         }
     }
 </style>
+

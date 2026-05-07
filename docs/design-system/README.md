@@ -15,7 +15,7 @@ Design system for **Tuvima Library** — a unified media intelligence platform t
 
 Tuvima Library is a single-product system with two distinct UI surfaces:
 
-1. **Dashboard** — the cinematic library browser (home, swimlanes, collection detail, settings, vault). Dark, glassy, full-bleed hero banners.
+1. **Dashboard** — the cinematic library browser (home, swimlanes, collection detail, settings, Review Queue). Dark, glassy, full-bleed hero banners.
 2. **EPUB Reader** — the in-app reader surface (`/read/{assetId}`). Serif, page-like, softer tones.
 
 This system covers both.
@@ -28,13 +28,13 @@ The voice is **warm, literary, and a little reverent** — it treats a media col
 
 **Tone**
 - Confident, direct, never marketing-hype. No exclamation marks in UI copy.
-- Slightly literary — favors evocative nouns (library, story, vault, universe, chronicle) over generic SaaS words (workspace, project, dashboard panel).
+- Slightly literary — favors evocative nouns (library, story, Review Queue, universe, chronicle) over generic SaaS words (workspace, project, dashboard panel).
 - Privacy is framed as a promise, not a feature: "no accounts", "no telemetry", "no cloud AI".
 
 **Casing**
 - **Sentence case** for body copy, descriptions, toast messages, and menu items ("Resolving reviews", "Adding media").
-- **Title Case** for page titles, tab labels, section headings, and CTAs ("Continue Your Journey", "Recently Added", "Library Vault").
-- Proper nouns are capitalized and capitalized consistently: **Library**, **Universe**, **Series**, **Work**, **Edition**, **Media Asset**, **Vault**, **Action Center**, **Engine**, **Dashboard**, **Chronicle**.
+- **Title Case** for page titles, tab labels, section headings, and CTAs ("Continue Your Journey", "Recently Added", "Review Queue").
+- Proper nouns are capitalized and capitalized consistently: **Library**, **Universe**, **Series**, **Work**, **Edition**, **Media Asset**, **Review Queue**, **Review Queue**, **Engine**, **Dashboard**, **Chronicle**.
 
 **Person**
 - Default to **you** ("Drop your files into a folder", "Your Dune ebook lives here"). Never "users".
@@ -137,3 +137,9 @@ Root files:
 
 UI kits:
 - **Dashboard** (`ui_kits/dashboard/`) — home, hero carousel, swimlanes, top bar, left dock, cards, search, collection detail, settings panel.
+
+## Current Dashboard/Product UI Model
+
+Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+
+

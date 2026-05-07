@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Library
+@namespace MediaEngine.Web.Components.Library
 @using System.Globalization
 @using MediaEngine.Web.Models.ViewDTOs
 @using Microsoft.AspNetCore.Components.Web
@@ -541,7 +541,7 @@ else
                                         break;
 
                                     case ColumnRenderType.TypeBadge:
-                                        <span class="vault-type-badge" style="@GetTypeBadgeStyle(GetPropertyValue(item, col.PropertyName))">
+                                        <span class="media-type-badge" style="@GetTypeBadgeStyle(GetPropertyValue(item, col.PropertyName))">
                                             @LibraryHelpers.FormatMediaType(GetPropertyValue(item, col.PropertyName) ?? "")
                                         </span>
                                         break;
@@ -1477,7 +1477,7 @@ else
     }
 
 
-    .vault-type-badge {
+    .media-type-badge {
         font-size: 9px;
         font-weight: 900;
         text-transform: uppercase;
@@ -1590,4 +1590,5 @@ else
         margin-left: -2px;
     }
 </style>
+
 

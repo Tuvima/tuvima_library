@@ -1,10 +1,10 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @namespace MediaEngine.Web.Components.Library
 
 @inject IEngineApiClient ApiClient
 
-<div class="vault-timeline">
+<div class="media-timeline">
     @if (_loading)
     {
         <div class="timeline-loading">
@@ -339,8 +339,8 @@
 }
 
 <style>
-    .vault-timeline { padding: 0 4px; }
-    .vault-timeline-heading { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .media-timeline { padding: 0 4px; }
+    .media-timeline-heading { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px; }
     .timeline-loading { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 12px; color: var(--tl-text-muted); }
     .timeline-empty { font-size: 12px; color: var(--tl-text-muted); font-style: italic; padding: 4px 0; }
     .timeline-list { display: flex; flex-direction: column; gap: 0; }
@@ -375,4 +375,5 @@
     .timeline-fields-list li { font-size: 10px; color: rgba(255,255,255,0.4); padding: 1px 0; }
     .timeline-fields-list li::before { content: "\00B7"; margin-right: 6px; color: var(--tl-text-faint); }
 </style>
+
 

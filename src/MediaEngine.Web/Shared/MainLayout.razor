@@ -73,7 +73,7 @@
                     <MudIconButton Icon="@Icons.Material.Outlined.NotificationsNone"
                                    Color="Color.Inherit"
                                    Class="layout-shell__review-button"
-                                   aria-label="@(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])"
+                                   aria-label="@(_reviewCount > 0 ? L["Nav_ReviewPending", _reviewCount] : L["Nav_ReviewQueue"])"
                                    OnClick="@OpenReviewQueue" />
                 </MudBadge>
             }
@@ -137,7 +137,7 @@
                     }
                     <MudDivider />
                     <MudMenuItem Href="/settings/review" ForceLoad="true" Target="_self" Icon="@Icons.Material.Outlined.RateReview">
-                        @(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])
+                        @(_reviewCount > 0 ? L["Nav_ReviewPending", _reviewCount] : L["Nav_ReviewQueue"])
                     </MudMenuItem>
                     <MudMenuItem Href="/settings" ForceLoad="true" Target="_self" Icon="@Icons.Material.Outlined.Settings">
                         @L["Nav_Settings"]
@@ -173,6 +173,7 @@
     private Guid? _activeProfileId;
     private int _reviewCount;
     private List<ProfileViewModel> _profiles = [];
+    private DotNetObjectReference<MainLayout>? _dotNetRef;
     private const string NavLabelStyle = "font-family:'Montserrat',sans-serif;font-weight:400;font-size:1.02rem;letter-spacing:0.16em;line-height:1;text-transform:uppercase;";
 
     private readonly record struct ShellNavLink(string Path, string LabelKey);
@@ -211,7 +212,8 @@
 
         if (!DeviceContext.IsFeatureDisabled("command_palette"))
         {
-            await JS.InvokeVoidAsync("registerCtrlK", DotNetObjectReference.Create(this));
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("registerCtrlK", _dotNetRef);
         }
 
         await JS.InvokeVoidAsync("setThemeClass");
@@ -411,6 +413,9 @@
         Nav.LocationChanged -= OnLocationChanged;
         Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
         Orchestrator.OnProfileChanged -= OnProfileChanged;
+
+        _ = JS.InvokeVoidAsync("unregisterCtrlK");
+        _dotNetRef?.Dispose();
     }
 
     private string BuildEngineStatusSummary(SystemStatusViewModel? status)

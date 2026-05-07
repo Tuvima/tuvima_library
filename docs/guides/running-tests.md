@@ -333,7 +333,7 @@ New Dashboard code goes into the correct slice of `src/MediaEngine.Web/`:
 | Dashboard data shape | `Models/ViewDTOs/` |
 | Reusable component | `Components/<FeatureName>/` |
 | Full page (routed) | `Components/Pages/` |
-| Vault sub-component | `Components/Vault/` |
+| media library sub-component | `Components/media library/` |
 | Settings tab | `Components/Settings/{GroupName}Tab.razor` |
 
 ### Config files
@@ -378,3 +378,4 @@ matches `http://localhost:61495`.
 - [Developer Setup](../tutorials/dev-setup.md)
 - [Engine API Reference](../reference/api-endpoints.md)
 - [Database Schema Reference](../reference/database-schema.md)
+

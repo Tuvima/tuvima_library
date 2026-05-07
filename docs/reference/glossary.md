@@ -1,4 +1,4 @@
----
+﻿---
 title: "Glossary"
 summary: "Reference the core product and architecture terms used throughout Tuvima Library documentation."
 audience: "user"
@@ -32,7 +32,7 @@ See **Series**. The codebase often uses `Collection` where the product surface s
 ## D
 
 **Dashboard**
-The web UI (`MediaEngine.Web`) where you browse the library, inspect the Vault, and review ingestion progress.
+The web UI (`MediaEngine.Web`) where you browse the library, inspect the current media surfaces, and review ingestion progress.
 
 ---
 
@@ -89,17 +89,17 @@ An external metadata source such as Apple, TMDB, MusicBrainz, Metron, or Wikidat
 ## Q
 
 **QID**
-A Wikidata entity identifier such as `Q190804`. A QID is the strongest identity anchor when one can be resolved, but an item can still remain visible in the main Vault without a QID if it passes the Vault quality gate.
+A Wikidata entity identifier such as `Q190804`. A QID is the strongest identity anchor when one can be resolved, but an item can still remain visible in the main browse surfaces without a QID if it passes the browse readiness gate.
 
 **QID Not Found**
-A terminal precision-preserving outcome where Retail succeeded but Wikidata could not resolve a trustworthy QID. The item remains marked at the Wikidata stage and may still be usable in the main Vault if title, media type, and artwork are settled.
+A terminal precision-preserving outcome where Retail succeeded but Wikidata could not resolve a trustworthy QID. The item remains marked at the Wikidata stage and may still be usable in the main browse surfaces if title, media type, and artwork are settled.
 
 ---
 
 ## R
 
 **Readiness Label**
-The plain-English summary shown in the Vault, such as **Pending artwork**, **Needs review**, or **Ready**.
+The plain-English summary shown in the current media surfaces, such as **Pending artwork**, **Needs review**, or **Ready**.
 
 **Retail**
 The first identity stage. Retail providers search external catalogues, return candidates, and supply the bridge IDs that make Wikidata resolution precise.
@@ -112,7 +112,7 @@ The first identity stage. Retail providers search external catalogues, return ca
 A grouping of related works, such as a book series, film series, or album grouping.
 
 **Staging**
-The safe on-disk holding area where files live between ingestion and final organisation. Staging is not the same thing as main Vault visibility; an item can be staged, known to the system, and still hidden from the main Vault until the quality gate is satisfied.
+The safe on-disk holding area where files live between ingestion and final organisation. Staging is not the same thing as main browse surfaces visibility; an item can be staged, known to the system, and still hidden from the main browse surfaces until the quality gate is satisfied.
 
 ---
 
@@ -125,11 +125,11 @@ A franchise-level grouping above Series that links related works into a wider cr
 
 ## V
 
-**Vault**
-The management surface of the product. The Vault shows stage progress, review state, artwork truth, and readiness. The main Vault only shows items that pass the Vault quality gate.
+**media library**
+The management surface of the product. the current media surfaces shows stage progress, review state, artwork truth, and readiness. The main browse surfaces only shows items that pass the browse readiness gate.
 
-**Vault Quality Gate**
-The rule that controls whether an item appears in the main Vault. The item must have a non-placeholder title, a resolved media type, and a settled artwork outcome.
+**browse readiness gate**
+The rule that controls whether an item appears in the main browse surfaces. The item must have a non-placeholder title, a resolved media type, and a settled artwork outcome.
 
 ---
 
@@ -148,4 +148,6 @@ The process of writing resolved metadata back into supported file tags after enr
 
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
 - [How the Entire Pipeline Works](../explanation/how-the-pipeline-works.md)
-- [How the Library Vault Works](../explanation/how-the-vault-works.md)
+- [How the Review Queue Works](../guides/resolving-reviews.md)
+
+

@@ -1,9 +1,9 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 
 <MudDrawer Open="@IsOpen" Anchor="Anchor.Bottom" Variant="@DrawerVariant.Temporary"
            OpenChanged="OnOpenChanged"
            Elevation="16"
-           Class="vault-mobile-drawer">
+           Class="media-mobile-drawer">
     @if (Item is not null)
     {
         <div class="vmd-content">
@@ -75,12 +75,12 @@
 }
 
 <style>
-    :deep(.vault-mobile-drawer) {
+    :deep(.media-mobile-drawer) {
         border-radius: 24px 24px 0 0 !important;
         max-height: 60vh !important;
     }
 
-    :deep(.vault-mobile-drawer .mud-drawer-content) {
+    :deep(.media-mobile-drawer .mud-drawer-content) {
         background: #14181d !important;
     }
 
@@ -195,3 +195,4 @@
         background: rgba(226, 75, 74, 0.25);
     }
 </style>
+

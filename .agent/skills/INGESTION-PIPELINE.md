@@ -98,3 +98,4 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 4. **PersonEnriched event has empty name** — known bug in MetadataHarvestingService.
 5. **Work+Edition proliferation** — new chain created per asset, even for same work under same Collection.
 6. **Great Inhale cannot restore from complete wipe** — requires assets to already exist in DB.
+

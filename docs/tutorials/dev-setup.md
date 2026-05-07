@@ -220,7 +220,7 @@ Dashboard code is organised by feature slice, not by technical layer. When addin
 | Dashboard data shape | `Models/ViewDTOs/` |
 | Reusable component | `Components/<FeatureName>/` |
 | Full page (routed) | `Components/Pages/` |
-| Vault sub-component | `Components/Vault/` |
+| media library sub-component | `Components/media library/` |
 | Settings tab | `Components/Settings/` |
 
 See `CLAUDE.md` Â§6 for the full layout reference.
@@ -247,7 +247,7 @@ The solution sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in `Dire
 
 **Domain entities** live in `src/MediaEngine.Domain/Entities/`. The core hierarchy: `MediaAsset` â†’ `Edition` â†’ `Work` â†’ `Collection` (Series) â†’ `ParentCollection` (Universe).
 
-**Dashboard components** live in `src/MediaEngine.Web/Components/`. Navigation is in `Components/Navigation/`, Vault in `Components/Vault/`, Settings in `Components/Settings/`.
+**Dashboard components** live in `src/MediaEngine.Web/Components/`. Navigation is in `Components/Navigation/`, media library in `Components/media library/`, Settings in `Components/Settings/`.
 
 **Background services** live in `src/MediaEngine.Api/Services/`. Long-running services (ingestion watcher, hydration scheduler, AI batch processor) are registered as `IHostedService` implementations.
 
@@ -285,3 +285,4 @@ The build must pass before committing. Run `dotnet build` and `dotnet test` and 
 - [How to Build, Test, and Verify Changes](../guides/running-tests.md)
 - [How to Write a New File Format Processor](../guides/writing-a-processor.md)
 - [How to Add a New Metadata Provider](../guides/adding-a-provider.md)
+

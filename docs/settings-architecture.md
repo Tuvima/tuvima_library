@@ -30,3 +30,4 @@ Palette, accent, and color customization are no longer product-facing settings. 
 ## UI Rule
 
 Every visible settings page should declare its source of truth, editability, role requirement, validation shape, and whether a restart is required. Placeholder or local-only controls should stay hidden until backed by a real persistence path.
+

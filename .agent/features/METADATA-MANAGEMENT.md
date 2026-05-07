@@ -123,3 +123,4 @@ Metadata enrichment is a strict two-stage sequence. The stages are never reverse
 ## PO Summary
 
 The Metadata Sources screen now presents your metadata providers in a clear, categorised layout — grouped by media type, with rich cards showing each source's capabilities, trust level, and status at a glance. Administrators can toggle sources on and off, and an "Add Source" wizard is ready to collect registration details for when the Engine supports custom provider connections. The screen is properly restricted: only Administrators and Curators can see it, and only Administrators can make changes.
+

@@ -1,12 +1,15 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Services.Playback
 @inject IEngineApiClient ApiClient
+@inject MediaEditorLauncherService MediaEditorLauncher
 @inject MediaReactionService Reactions
 @inject ListenPlaybackService Playback
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
 @if (Model is not null)
 {
@@ -128,6 +131,12 @@
             return;
         }
 
+        if (action.Key == "edit-media")
+        {
+            await OpenInlineEditorAsync();
+            return;
+        }
+
         if (action.Key is "like" or "dislike")
         {
             await SetReactionAsync(action.Key == "like" ? MediaReaction.Like : MediaReaction.Dislike);
@@ -141,6 +150,51 @@
         }
 
         await OnActionSelected.InvokeAsync(action);
+    }
+
+    private async Task OpenInlineEditorAsync()
+    {
+        if (Model is null || !Guid.TryParse(Model.Id, out var entityId))
+            return;
+
+        try
+        {
+            var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+            {
+                EntityIds = [entityId],
+                LaunchEntityId = entityId,
+                LaunchEntityKind = Model.EntityType.ToString(),
+                Mode = SharedMediaEditorMode.Normal,
+                InitialTab = "details",
+                MediaType = ResolveEditorMediaType(Model.EntityType, Model.PresentationContext),
+                HeaderTitle = Model.Title,
+                HeaderSubtitle = Model.Subtitle,
+                CoverUrl = Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.PortraitUrl,
+                PreviewItems =
+                [
+                    new MediaEditorPreviewItem
+                    {
+                        EntityId = entityId,
+                        Title = Model.Title,
+                        CoverUrl = Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.PortraitUrl,
+                        MediaType = ResolveEditorMediaType(Model.EntityType, Model.PresentationContext),
+                    },
+                ],
+            });
+
+            if (applied)
+            {
+                var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext);
+                if (updated is not null)
+                    Model = updated;
+
+                Snackbar.Add("Media details updated.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Media editor could not open: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task OpenReaderAsync(DetailAction action)
@@ -207,5 +261,20 @@
 
     private static int TrackSortKey(MediaGroupingItemViewModel item)
         => int.TryParse(item.TrackNumber, out var parsed) ? parsed : int.MaxValue;
+
+    private static string ResolveEditorMediaType(DetailEntityType entityType, DetailPresentationContext context)
+        => entityType switch
+        {
+            DetailEntityType.Movie or DetailEntityType.MovieSeries => "Movies",
+            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "TV",
+            DetailEntityType.Audiobook => "Audiobooks",
+            DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "Comics",
+            DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "Music",
+            DetailEntityType.Book or DetailEntityType.BookSeries => "Books",
+            _ when context == DetailPresentationContext.Watch => "Movies",
+            _ when context == DetailPresentationContext.Listen => "Music",
+            _ when context == DetailPresentationContext.Comics => "Comics",
+            _ => "Books",
+        };
 
 }

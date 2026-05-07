@@ -125,6 +125,19 @@
                            UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
                            OnActionSelected="OnActionSelected" />
 
+            @if (CanInlineEdit)
+            {
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.Edit"
+                           Class="tl-detail-inline-edit"
+                           aria-label="@InlineEditLabel"
+                           OnClick="OpenInlineEditorAsync">
+                    @InlineEditLabel
+                </MudButton>
+            }
+
             <HeroProgressBlock Progress="Presentation.Progress" />
 
             @if (!string.IsNullOrWhiteSpace(Presentation.HeroCopy))
@@ -145,6 +158,37 @@
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
     private bool HasHeroBrand => Model.HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
+    private bool CanInlineEdit => Model.EntityType is DetailEntityType.Work
+        or DetailEntityType.Movie
+        or DetailEntityType.MovieSeries
+        or DetailEntityType.TvShow
+        or DetailEntityType.TvSeason
+        or DetailEntityType.TvEpisode
+        or DetailEntityType.Book
+        or DetailEntityType.BookSeries
+        or DetailEntityType.Audiobook
+        or DetailEntityType.ComicIssue
+        or DetailEntityType.ComicSeries
+        or DetailEntityType.MusicAlbum
+        or DetailEntityType.MusicArtist
+        or DetailEntityType.MusicTrack;
+    private string InlineEditLabel => Model.EntityType switch
+    {
+        DetailEntityType.Movie => "Edit movie",
+        DetailEntityType.MovieSeries => "Edit series",
+        DetailEntityType.TvShow => "Edit show",
+        DetailEntityType.TvSeason => "Edit season",
+        DetailEntityType.TvEpisode => "Edit episode",
+        DetailEntityType.Book => "Edit book",
+        DetailEntityType.BookSeries => "Edit series",
+        DetailEntityType.Audiobook => "Edit audiobook",
+        DetailEntityType.ComicIssue => "Edit issue",
+        DetailEntityType.ComicSeries => "Edit series",
+        DetailEntityType.MusicAlbum => "Edit album",
+        DetailEntityType.MusicArtist => "Edit artist",
+        DetailEntityType.MusicTrack => "Edit track",
+        _ => "Edit media",
+    };
 
     private string? PersonEyebrow => FirstNonBlank(PersonRoleLabel, Model.PersonDetails?.Occupation);
 
@@ -190,6 +234,14 @@
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private Task OpenInlineEditorAsync()
+        => OnActionSelected.InvokeAsync(new DetailAction
+        {
+            Key = "edit-media",
+            Label = InlineEditLabel,
+            Icon = Icons.Material.Outlined.Edit,
+        });
 
     private static string PersonExternalIcon(PersonExternalLink link) =>
         link.Key.ToLowerInvariant() switch

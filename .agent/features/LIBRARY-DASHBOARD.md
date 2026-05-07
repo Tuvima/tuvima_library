@@ -73,3 +73,9 @@ The Dashboard maintains a live connection to the Engine via SignalR. When a new 
 ## PO Summary
 
 The Library Dashboard presents your collection as a cinematic streaming interface. A full-width hero banner shows blurred cover artwork with metadata badges. Poster-art swimlanes replace the old Bento grid, grouping content by media type (Books, Movies, Comics, Audio). Navigation uses a dual system: a horizontal TopBar at the top (logo, search, bell, profile) plus an icon-only LeftDock on desktop. Mobile uses a hamburger menu that opens a slide-out drawer. **The Dashboard is dark-mode only.** Key gaps: Collection detail page doesn't exist yet, "Continue Journey" and "Recently Added" swimlanes are stubs pending API endpoints.
+
+## Current Dashboard/Product UI Model
+
+Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+
+

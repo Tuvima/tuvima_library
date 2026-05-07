@@ -122,3 +122,9 @@ Config-driven: `UIShellSettingsDto.TopBarStyle`, `UIShellSettingsDto.DockVisible
 2. **Progress bars are stubs** — UserState API does not exist yet.
 3. **Continue Journey / Recently Added swimlanes** — Stubs pending API endpoints.
 4. **Cover art availability** — Depends on metadata providers having been run. No cover = gradient fallback.
+
+## Current Dashboard/Product UI Model
+
+Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+
+

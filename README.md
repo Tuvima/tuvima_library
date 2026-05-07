@@ -76,6 +76,19 @@ Four local AI models (~9 GB total) handle filename parsing, media classification
 [Full format details, processors, and providers.](https://tuvima.github.io/tuvima_library/reference/media-types/)
 
 ---
+### Dashboard model
+
+The Dashboard is organized around the way people use their media:
+
+- **Home** is discovery and overview.
+- **Read**, **Watch**, and **Listen** are the main media lanes.
+- **Search** finds media across the whole library.
+- **Detail pages** are where a user views an item and fixes its metadata inline.
+- **Review Queue** is only for blocked or uncertain items that need human confirmation.
+- **Settings/Admin** is for folders, providers, profiles, ingestion status, system health, and configuration.
+
+The old Library Vault workspace has been removed. Normal media corrections now happen inline from the page, row, card, album, track, movie, show, book, comic, or detail view where the issue appears.
+---
 
 ## Privacy
 
@@ -120,7 +133,7 @@ Full documentation lives on GitHub Pages at [tuvima.github.io/tuvima_library](ht
 | **Tutorials** | [Getting Started](https://tuvima.github.io/tuvima_library/tutorials/getting-started/), [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) | [Developer Setup](https://tuvima.github.io/tuvima_library/tutorials/dev-setup/) |
 | **How-to Guides** | [Adding Media](https://tuvima.github.io/tuvima_library/guides/adding-media/), [Resolving Reviews](https://tuvima.github.io/tuvima_library/guides/resolving-reviews/), [Providers](https://tuvima.github.io/tuvima_library/guides/configuring-providers/), [Languages](https://tuvima.github.io/tuvima_library/guides/language-setup/) | [Adding a Provider](https://tuvima.github.io/tuvima_library/guides/adding-a-provider/), [Writing a Processor](https://tuvima.github.io/tuvima_library/guides/writing-a-processor/), [Running Tests](https://tuvima.github.io/tuvima_library/guides/running-tests/) |
 | **Reference** | [Configuration](https://tuvima.github.io/tuvima_library/reference/configuration/), [Media Types](https://tuvima.github.io/tuvima_library/reference/media-types/), [Glossary](https://tuvima.github.io/tuvima_library/reference/glossary/) | [API Endpoints](https://tuvima.github.io/tuvima_library/reference/api-endpoints/), [Database Schema](https://tuvima.github.io/tuvima_library/reference/database-schema/) |
-| **Explanation** | [Ingestion](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/), [Scoring](https://tuvima.github.io/tuvima_library/explanation/how-scoring-works/), [Universes](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/), [AI](https://tuvima.github.io/tuvima_library/explanation/how-ai-works/), [Enrichment](https://tuvima.github.io/tuvima_library/explanation/how-hydration-works/), [Vault](https://tuvima.github.io/tuvima_library/explanation/how-the-vault-works/) | [Architecture deep-dives](https://tuvima.github.io/tuvima_library/architecture/ingestion-pipeline/) |
+| **Explanation** | [Ingestion](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/), [Scoring](https://tuvima.github.io/tuvima_library/explanation/how-scoring-works/), [Universes](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/), [AI](https://tuvima.github.io/tuvima_library/explanation/how-ai-works/), [Enrichment](https://tuvima.github.io/tuvima_library/explanation/how-hydration-works/) | [Architecture deep-dives](https://tuvima.github.io/tuvima_library/architecture/ingestion-pipeline/) |
 
 Published documentation is available on GitHub Pages at [tuvima.github.io/tuvima_library](https://tuvima.github.io/tuvima_library/).
 
@@ -150,3 +163,4 @@ No subscriptions. No cloud. No compromises. Just your stories, finally together.
 [Report a Bug](https://github.com/Tuvima/tuvima_library/issues) · [Request a Feature](https://github.com/Tuvima/tuvima_library/issues)
 
 </div>
+

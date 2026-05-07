@@ -5,7 +5,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// <summary>
 /// Dashboard view model for a Content Group returned by GET /collections/content-groups.
 /// Represents a Universe-type collection (album, TV series, book series, movie series)
-/// shown in the Content Groups section of the Vault Collections tab.
+/// shown in the Content Groups section of the collection management surfaces.
 /// </summary>
 public sealed class ContentGroupViewModel
 {
@@ -147,7 +147,7 @@ public sealed class ContentGroupViewModel
 
 /// <summary>
 /// Dashboard view model for a managed collection (Smart, System, Mix, Playlist)
-/// displayed in the Vault Collections tab.
+/// displayed in the collection management surfaces.
 /// </summary>
 public sealed class ManagedCollectionViewModel
 {
@@ -269,3 +269,4 @@ public sealed class ManagedCollectionViewModel
         _          => Status,
     };
 }
+

@@ -7,7 +7,7 @@ using MudBlazor;
 
 namespace MediaEngine.Web.Components.Library;
 
-/// <summary>Static display helpers for Vault components.</summary>
+/// <summary>Static display helpers for media library components.</summary>
 public static class LibraryHelpers
 {
     /// <summary>Returns the hex color for a LibraryStatus.</summary>
@@ -473,4 +473,5 @@ public static class LibraryHelpers
         return p.Unknown;
     }
 }
+
 

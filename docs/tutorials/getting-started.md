@@ -167,3 +167,4 @@ Press `Ctrl+C` in each terminal window to stop the Engine and Dashboard. Your li
 - [Your First Library](first-library.md)
 - [How to Configure Metadata Providers](../guides/configuring-providers.md)
 - [Configuration Reference](../reference/configuration.md)
+

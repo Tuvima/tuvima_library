@@ -58,7 +58,7 @@ The Engine compares what it found in the file against its knowledge of known wor
 
 ### Stage
 
-The file is registered and enrichment begins immediately, but the main Vault does not show it yet. Items stay in Activity, Review, and the Action Center until they have a trustworthy title, a resolved media type, and a settled artwork outcome.
+The file is registered and enrichment begins immediately, but the main browse surfaces does not show it yet. Items stay in Activity, Review, and the Review Queue until they have a trustworthy title, a resolved media type, and a settled artwork outcome.
 
 ### Hydrate
 
@@ -70,13 +70,13 @@ Two enrichment stages happen automatically:
 
 ### Promote
 
-Once enrichment is complete enough for the Vault quality gate, the item appears in the main Vault. Full organization and browse-page promotion continue separately based on the wider pipeline and library confidence rules.
+Once enrichment is complete enough for the browse readiness gate, the item appears in the main browse surfaces. Full organization and browse-page promotion continue separately based on the wider pipeline and library confidence rules.
 
 ---
 
-## Step 3 â€” Watch your files appear in the Vault
+## Step 3 â€” Watch your files appear in the current media surfaces
 
-Click **Vault** in the left dock. This is the command centre for everything in your Library.
+Click **media library** in the left dock. This is the command centre for everything in your Library.
 
 You will see qualified files appearing as the pipeline settles. Each row shows:
 
@@ -86,20 +86,20 @@ You will see qualified files appearing as the pipeline settles. Each row shows:
 - **Pipeline status** â€” small dots showing which pipeline stages are complete (hover over them for detail)
 - **Status pill** â€” the current state of this item
 
-Items do not enter the main Vault immediately on file registration anymore. Review-only or still-pending items stay in the Action Center until they are either ready for the main Vault or explicitly need your intervention.
+Items do not enter the main browse surfaces immediately on file registration anymore. Review-only or still-pending items stay in the Review Queue until they are either ready for the main browse surfaces or explicitly need your intervention.
 
-The Vault updates in real time â€” you do not need to refresh the page.
+the current media surfaces updates in real time â€” you do not need to refresh the page.
 
 ---
 
 ## Step 4 â€” Understanding status indicators
 
-Every item in the Vault has a status pill that tells you where it stands.
+Every item in the current media surfaces has a status pill that tells you where it stands.
 
 | Status | What it means |
 |---|---|
 | **Verified** | The Engine is confident about this item's identity. It has been matched against Wikidata and enriched with canonical metadata. |
-| **QID Not Found** | Retail matching succeeded, but Stage 2 could not resolve a Wikidata QID. The item may still be visible in the Vault if its title, media type, and artwork state are settled. |
+| **QID Not Found** | Retail matching succeeded, but Stage 2 could not resolve a Wikidata QID. The item may still be visible in the current media surfaces if its title, media type, and artwork state are settled. |
 | **Needs Review** | Something went wrong or the Engine is unsure and wants your input. See below. |
 | **Quarantined** | The file has a problem (corrupt, unreadable, or a type mismatch) and has been set aside. |
 | **Pending** | The item is still moving through the pipeline. |
@@ -117,7 +117,7 @@ A **Needs Review** status means the Engine ran into a situation it could not res
 
 To resolve a Needs Review item:
 
-1. Click the item's row in the Vault to open the **Detail Drawer** on the right.
+1. Click the item's row in the current media surfaces to open the **Detail Drawer** on the right.
 2. Scroll to the **Pipeline** section.
 3. Look at the **Retail** and **Wikidata** stage entries. Each shows the candidates the Engine found, along with match scores.
 4. Pick the correct candidate, or use the manual search to find the right one.
@@ -125,7 +125,7 @@ To resolve a Needs Review item:
 
 Once you resolve an item, the Engine re-runs enrichment with your input. The status updates automatically.
 
-> **Items that are still uncertain are not forced into the main Vault.** They remain visible in Review, Activity, and the Action Center until they either pass the Vault quality gate or you resolve them manually.
+> **Items that are still uncertain are not forced into the main browse surfaces.** They remain visible in Review, Activity, and the Review Queue until they either pass the browse readiness gate or you resolve them manually.
 
 ---
 
@@ -137,14 +137,14 @@ The **Home** page surfaces personalised swimlanes â€” recently added items,
 
 The media lane pages (accessible from the left dock) show everything in a given category, organised into swimlanes by Universe, series, genre, or whatever grouping makes sense for that media type.
 
-Click any item to see its detail page, or return to the Vault to manage your collection.
+Click any item to see its detail page, or return to the current media surfaces to manage your collection.
 
 ---
 
 ## What to do next
 
 - Add more watch folders in Settings â†’ Library Folders.
-- If you have items stuck in Needs Review, work through them in the Vault.
+- If you have items stuck in Needs Review, work through them in the current media surfaces.
 - Explore the Settings â†’ Providers screen to configure which external services the Engine uses for enrichment.
 - Read [How File Ingestion Works](../explanation/how-ingestion-works.md) for a deeper explanation of the decisions the Engine makes along the way.
 
@@ -153,3 +153,4 @@ Click any item to see its detail page, or return to the Vault to manage your col
 - [How to Add Media to Your Library](../guides/adding-media.md)
 - [How to Resolve Items That Need Review](../guides/resolving-reviews.md)
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
+

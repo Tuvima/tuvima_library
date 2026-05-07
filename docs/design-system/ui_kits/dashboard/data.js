@@ -18,7 +18,7 @@ window.TUVIMA_DATA = {
       id: 'gods',
       eyebrow: 'Recently Added',
       title: 'American Gods',
-      sub: 'Neil Gaiman\u2019s full-cast audiobook landed in your Vault 3 days ago. Bill Nighy narrates Mr. Wednesday.',
+      sub: 'Neil Gaiman\u2019s full-cast audiobook landed in your media library 3 days ago. Bill Nighy narrates Mr. Wednesday.',
       dominant: '#0F2A4A',
       bg: 'linear-gradient(135deg, #1F4B7A 0%, #0F2A4A 55%, #0A1020 100%)',
       coverText: 'American\nGods',
@@ -82,3 +82,4 @@ window.TUVIMA_DATA = {
     }
   }
 };
+

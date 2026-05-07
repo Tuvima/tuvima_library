@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject UIOrchestratorService Orchestrator
@@ -82,7 +82,7 @@
             Walks every matched file and re-applies metadata whenever
             <code>writeback-fields.json</code> changes or a tagger version is bumped.
             Locked files are retried in the next off-hours window; permanent
-            failures are routed to the Action Center.
+            failures are routed to the Review Queue.
         </MudText>
 
         @if (_retagState is { HasPendingDiff: true, PendingDiff.Count: > 0 })
@@ -432,3 +432,4 @@
         }
     }
 </style>
+

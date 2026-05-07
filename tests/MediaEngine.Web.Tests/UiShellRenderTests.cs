@@ -121,7 +121,7 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Edit photo", cut.Markup);
+            Assert.Contains("Change profile photo", cut.Markup);
             Assert.Contains("Continue Your Activity", cut.Markup);
             Assert.Contains("Recent History", cut.Markup);
             Assert.Contains("Your Taste / Top Genres", cut.Markup);

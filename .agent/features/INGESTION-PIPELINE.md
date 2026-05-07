@@ -74,3 +74,4 @@ All of this happens without the user lifting a finger after the initial folder s
 ## PO Summary
 
 The ingestion pipeline is fully operational from file detection through organisation, enrichment, and reconciliation. Files land in the Watch Folder, get fingerprinted, scored, organised, and enriched — all automatically. The sidecar/cover art gate now correctly uses a path-based check. Orphaned duplicates are cleaned automatically. A scheduled reconciliation service detects missing files and cleans up artifacts. The activity log shows rich match cards with cover thumbnails, confidence bars, and reprocess buttons. **Two gaps remain: (1) if the filesystem watcher loses its connection (e.g., network drive goes offline), there's no recovery mechanism, and (2) the standalone worker mode is broken due to missing dependencies — only the full Engine works.**
+

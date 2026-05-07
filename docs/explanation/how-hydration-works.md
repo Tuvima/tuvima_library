@@ -1,4 +1,4 @@
----
+﻿---
 title: "How Two-Stage Enrichment Works"
 summary: "Learn how retail providers and Wikidata combine to enrich media after ingestion."
 audience: "user"
@@ -107,7 +107,7 @@ When a bridge ID resolves successfully, the Engine fetches canonical properties 
 
 If Retail succeeded but Wikidata still cannot resolve a good QID, the outcome is **QID Not Found**.
 
-That is a real terminal state, not a silent failure. The item may still be usable and visible in the main Vault if it passes the Vault quality gate:
+That is a real terminal state, not a silent failure. The item may still be usable and visible in the main browse surfaces if it passes the browse readiness gate:
 
 - good title
 - resolved media type
@@ -125,7 +125,7 @@ Artwork is not treated as "maybe there somewhere" anymore. The system tracks whe
 - **pending**
 - **missing**
 
-The main Vault waits for that result to settle. An item is not considered ready just because a provider search started. It becomes ready when artwork is actually present, or when the artwork pass has explicitly finished and confirmed that no cover is available.
+The main browse surfaces waits for that result to settle. An item is not considered ready just because a provider search started. It becomes ready when artwork is actually present, or when the artwork pass has explicitly finished and confirmed that no cover is available.
 
 That makes cover display and readiness much more honest.
 
@@ -172,6 +172,8 @@ That is why an item that was review-only last month can become a clean match lat
 ## Related
 
 - [How the Entire Pipeline Works](how-the-pipeline-works.md)
-- [How the Library Vault Works](how-the-vault-works.md)
+- [How the Review Queue Works](../guides/resolving-reviews.md)
 - [Hydration Pipeline, Provider Architecture and Enrichment Strategy](../architecture/hydration-and-providers.md)
 - [Providers Reference](../reference/providers.md)
+
+

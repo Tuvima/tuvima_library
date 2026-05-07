@@ -1,655 +1,1261 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string"/>
-              <xsd:attribute name="type" type="xsd:string"/>
-              <xsd:attribute name="mimetype" type="xsd:string"/>
-              <xsd:attribute ref="xml:space"/>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string"/>
-              <xsd:attribute name="name" type="xsd:string"/>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string"/>
-              <xsd:attribute name="type" type="xsd:string"/>
-              <xsd:attribute name="mimetype" type="xsd:string"/>
-              <xsd:attribute ref="xml:space"/>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string"/>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
       </xsd:complexType>
     </xsd:element>
   </xsd:schema>
-  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
-  <resheader name="version"><value>2.0</value></resheader>
-  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
-  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
-
-  <!-- ── Navigation ─────────────────────────────────────────────────────── -->
-  <data name="Nav_Home" xml:space="preserve"><value>Inicio</value></data>
-  <data name="Nav_Search" xml:space="preserve"><value>Buscar</value></data>
-  <data name="Nav_Books" xml:space="preserve"><value>Libros</value></data>
-  <data name="Nav_Video" xml:space="preserve"><value>Video</value></data>
-  <data name="Nav_Music" xml:space="preserve"><value>Música</value></data>
-  <data name="Nav_Comics" xml:space="preserve"><value>Cómics</value></data>
-  <data name="Nav_Settings" xml:space="preserve"><value>Configuración</value></data>
-  <data name="Nav_Read" xml:space="preserve"><value>Leer</value></data>
-  <data name="Nav_Watch" xml:space="preserve"><value>Ver</value></data>
-  <data name="Nav_Listen" xml:space="preserve"><value>Escuchar</value></data>
-  <data name="Nav_Collections" xml:space="preserve"><value>Colecciones</value></data>
-  <data name="Nav_OpenNavigation" xml:space="preserve"><value>Abrir navegación</value></data>
-  <data name="Nav_SearchPlaceholder" xml:space="preserve"><value>Buscar en su biblioteca…</value></data>
-  <data name="Nav_ReviewQueue" xml:space="preserve"><value>Cola de revisión</value></data>
-  <data name="Nav_CloseNavigation" xml:space="preserve"><value>Cerrar menú de navegación</value></data>
-  <data name="Nav_Vault" xml:space="preserve"><value>Biblioteca</value></data>
-  <data name="Nav_VaultPending" xml:space="preserve"><value>Revisión ({0} pendientes)</value></data>
-  <data name="Nav_Universes" xml:space="preserve"><value>Universos</value></data>
-  <data name="Nav_ExpandNavigation" xml:space="preserve"><value>Expandir navegación</value></data>
-  <data name="Nav_CollapseNavigation" xml:space="preserve"><value>Contraer navegación</value></data>
-  <data name="Nav_Expand" xml:space="preserve"><value>Expandir</value></data>
-  <data name="Nav_Collapse" xml:space="preserve"><value>Contraer</value></data>
-  <data name="TopBar_OpenProfileMenu" xml:space="preserve"><value>Abrir menú de perfil</value></data>
-  <data name="TopBar_SignedInAs" xml:space="preserve"><value>Sesión iniciada como</value></data>
-  <data name="TopBar_EngineStatus" xml:space="preserve"><value>Estado del motor</value></data>
-  <data name="TopBar_EngineOnline" xml:space="preserve"><value>Motor en línea</value></data>
-  <data name="TopBar_EngineUnavailable" xml:space="preserve"><value>Motor no disponible</value></data>
-  <data name="TopBar_LiveUpdatesConnected" xml:space="preserve"><value>Actualizaciones en vivo conectadas</value></data>
-  <data name="TopBar_LiveUpdatesOffline" xml:space="preserve"><value>Actualizaciones en vivo desconectadas</value></data>
-
-  <!-- ── Command Palette ────────────────────────────────────────────────── -->
-  <data name="CmdPalette_Placeholder" xml:space="preserve"><value>Buscar series, navegar…</value></data>
-  <data name="CmdPalette_Hint" xml:space="preserve"><value>↑↓ navegar · Enter seleccionar · Esc cerrar</value></data>
-  <data name="CmdPalette_Library" xml:space="preserve"><value>Biblioteca</value></data>
-  <data name="CmdPalette_Settings" xml:space="preserve"><value>Configuración</value></data>
-  <data name="CmdPalette_SettingsSubtitle" xml:space="preserve"><value>Preferencias, biblioteca, claves API</value></data>
-
-  <!-- ── Vault ──────────────────────────────────────────────────────────── -->
-  <data name="Vault_Title" xml:space="preserve"><value>Biblioteca</value></data>
-  <data name="Vault_AddMedia" xml:space="preserve"><value>Agregar contenido</value></data>
-  <data name="Vault_WaitingForProvider" xml:space="preserve"><value>Esperando al proveedor</value></data>
-  <data name="Vault_LoadMore" xml:space="preserve"><value>Cargar más</value></data>
-  <data name="Vault_ItemPurged" xml:space="preserve"><value>Elemento eliminado definitivamente</value></data>
-  <data name="Vault_ItemDeleted" xml:space="preserve"><value>Elemento eliminado</value></data>
-  <data name="Vault_NeedsReview" xml:space="preserve"><value>Necesita revisión</value></data>
-  <data name="Vault_Quarantined" xml:space="preserve"><value>En cuarentena</value></data>
-  <data name="Vault_NeedReview" xml:space="preserve"><value>Necesita revisión</value></data>
-  <data name="Vault_Provisional" xml:space="preserve"><value>Provisional</value></data>
-
-  <!-- ── Vault Toolbar ──────────────────────────────────────────────────── -->
-  <data name="VaultToolbar_SearchPlaceholder" xml:space="preserve"><value>Buscar…</value></data>
-  <data name="VaultToolbar_SortNewest" xml:space="preserve"><value>Ordenar: Más reciente</value></data>
-  <data name="VaultToolbar_SortOldest" xml:space="preserve"><value>Ordenar: Más antiguo</value></data>
-  <data name="VaultToolbar_SortConfidence" xml:space="preserve"><value>Ordenar: Confianza</value></data>
-  <data name="VaultToolbar_GroupNone" xml:space="preserve"><value>Sin agrupación</value></data>
-  <data name="VaultToolbar_GroupType" xml:space="preserve"><value>Agrupar: Tipo</value></data>
-  <data name="VaultToolbar_GroupStatus" xml:space="preserve"><value>Agrupar: Estado</value></data>
-  <data name="VaultToolbar_GroupLetter" xml:space="preserve"><value>Agrupar: A-Z</value></data>
-  <data name="VaultToolbar_GroupUniverse" xml:space="preserve"><value>Universo</value></data>
-  <data name="VaultToolbar_SortName" xml:space="preserve"><value>Nombre</value></data>
-  <data name="VaultToolbar_SortPresence" xml:space="preserve"><value>Presencia</value></data>
-  <data name="VaultToolbar_SortTitle" xml:space="preserve"><value>Título</value></data>
-  <data name="VaultToolbar_SortUniverse" xml:space="preserve"><value>Universo</value></data>
-
-  <!-- ── Vault Media Table ──────────────────────────────────────────────── -->
-  <data name="VaultMedia_NoItemsMatch" xml:space="preserve"><value>Ningún elemento coincide con los filtros aplicados.</value></data>
-  <data name="VaultMedia_ItemsCount" xml:space="preserve"><value>elementos</value></data>
-  <data name="VaultMedia_ColPipelineStatus" xml:space="preserve"><value>Estado del flujo</value></data>
-  <data name="VaultMedia_ColLinkedUniverse" xml:space="preserve"><value>Universo vinculado</value></data>
-  <data name="VaultMedia_ColVerification" xml:space="preserve"><value>Verificación</value></data>
-  <data name="VaultMedia_UnknownCreator" xml:space="preserve"><value>DESCONOCIDO</value></data>
-  <data name="VaultMedia_Standalone" xml:space="preserve"><value>INDEPENDIENTE</value></data>
-  <data name="VaultMedia_WaitingForProvider" xml:space="preserve"><value>Proveedor actualmente inaccesible — se reintentará automáticamente</value></data>
-  <data name="VaultMedia_WaitingForProviderNamed" xml:space="preserve"><value>{0} está actualmente inaccesible — se reintentará automáticamente</value></data>
-  <data name="VaultMedia_GroupVerified" xml:space="preserve"><value>Verificado</value></data>
-  <data name="VaultMedia_GroupProvisional" xml:space="preserve"><value>Provisional</value></data>
-  <data name="VaultMedia_GroupNeedsReview" xml:space="preserve"><value>Requiere revisión</value></data>
-  <data name="VaultMedia_GroupFailed" xml:space="preserve"><value>Fallido</value></data>
-  <data name="VaultMedia_GroupQuarantined" xml:space="preserve"><value>En cuarentena</value></data>
-  <data name="VaultMedia_GroupWaitingForProvider" xml:space="preserve"><value>Esperando al proveedor</value></data>
-  <data name="VaultMedia_GroupAll" xml:space="preserve"><value>Todos los elementos</value></data>
-
-  <!-- ── Vault People Table ─────────────────────────────────────────────── -->
-  <data name="VaultPeople_NoPeopleFound" xml:space="preserve"><value>No se encontraron personas.</value></data>
-  <data name="VaultPeople_ColIndividual" xml:space="preserve"><value>Persona</value></data>
-  <data name="VaultPeople_ColName" xml:space="preserve"><value>Nombre</value></data>
-  <data name="VaultPeople_ColPresence" xml:space="preserve"><value>Presencia</value></data>
-
-  <!-- ── Vault Universes Table ──────────────────────────────────────────── -->
-  <data name="VaultUniverses_NoUniversesFound" xml:space="preserve"><value>No se encontraron universos.</value></data>
-  <data name="VaultUniverses_ColUniverse" xml:space="preserve"><value>Universo</value></data>
-  <data name="VaultUniverses_ColSeries" xml:space="preserve"><value>Series</value></data>
-  <data name="VaultUniverses_ColMediaAssets" xml:space="preserve"><value>Archivos multimedia</value></data>
-  <data name="VaultUniverses_ColPeople" xml:space="preserve"><value>Personas</value></data>
-
-  <!-- ── Vault Collection? Drawer ───────────────────────────────────────────────── -->
-  <data name="VaultCollection_ScopePerUser" xml:space="preserve"><value>Por usuario</value></data>
-  <data name="VaultCollection_ScopeLibrary" xml:space="preserve"><value>Biblioteca</value></data>
-  <data name="VaultCollection_SectionConfiguration" xml:space="preserve"><value>CONFIGURACIÓN</value></data>
-  <data name="VaultCollection_LabelRules" xml:space="preserve"><value>Reglas</value></data>
-  <data name="VaultCollection_LabelGenerationThreshold" xml:space="preserve"><value>Umbral de generación</value></data>
-  <data name="VaultCollection_LabelFeatured" xml:space="preserve"><value>Destacado</value></data>
-  <data name="VaultCollection_LabelShowInBrowsing" xml:space="preserve"><value>Mostrar al explorar</value></data>
-  <data name="VaultCollection_LabelMediaTypes" xml:space="preserve"><value>Tipos de contenido</value></data>
-  <data name="VaultCollection_LabelProgressTracking" xml:space="preserve"><value>Seguimiento de progreso</value></data>
-  <data name="VaultCollection_ValueEnabled" xml:space="preserve"><value>Habilitado</value></data>
-  <data name="VaultCollection_LabelItems" xml:space="preserve"><value>Elementos</value></data>
-  <data name="VaultCollection_LabelLogic" xml:space="preserve"><value>Lógica</value></data>
-  <data name="VaultCollection_LabelRefreshSchedule" xml:space="preserve"><value>Programa de actualización</value></data>
-  <data name="VaultCollection_ValueDaily" xml:space="preserve"><value>Diario</value></data>
-  <data name="VaultCollection_LabelGenerateForAllUsers" xml:space="preserve"><value>Generar para todos los usuarios</value></data>
-  <data name="VaultCollection_LabelOwner" xml:space="preserve"><value>Propietario</value></data>
-  <data name="VaultCollection_OwnerUser" xml:space="preserve"><value>Usuario</value></data>
-  <data name="VaultCollection_OwnerLibrary" xml:space="preserve"><value>Biblioteca</value></data>
-  <data name="VaultCollection_ValueDerivedFromContents" xml:space="preserve"><value>Derivado del contenido</value></data>
-  <data name="VaultCollection_LabelCreated" xml:space="preserve"><value>Creado</value></data>
-  <data name="VaultCollection_LabelLastModified" xml:space="preserve"><value>Última modificación</value></data>
-  <data name="VaultCollection_SectionItemsPreview" xml:space="preserve"><value>VISTA PREVIA DE ELEMENTOS</value></data>
-  <data name="VaultCollection_NoItemsYet" xml:space="preserve"><value>Aún no hay elementos.</value></data>
-  <data name="VaultCollection_ViewAllItems" xml:space="preserve"><value>Ver los {0} elementos</value></data>
-  <data name="VaultCollection_SectionAssets" xml:space="preserve"><value>RECURSOS</value></data>
-  <data name="VaultCollection_AssetAutoComposed" xml:space="preserve"><value>Compuesto automáticamente</value></data>
-  <data name="VaultCollection_AssetDropOrUpload" xml:space="preserve"><value>Suelte una imagen o haga clic para subir</value></data>
-  <data name="VaultCollection_ActionDisable" xml:space="preserve"><value>Deshabilitar</value></data>
-  <data name="VaultCollection_ActionEnable" xml:space="preserve"><value>Habilitar</value></data>
-  <data name="VaultCollection_ActionUnfeature" xml:space="preserve"><value>Quitar de destacados</value></data>
-  <data name="VaultCollection_ActionFeature" xml:space="preserve"><value>Destacar</value></data>
-  <data name="VaultCollection_SystemManaged" xml:space="preserve"><value>Gestionado por el sistema</value></data>
-  <data name="VaultCollection_ManagedByOwner" xml:space="preserve"><value>Gestionado por el propietario</value></data>
-  <data name="VaultCollection_OpenInMyLibrary" xml:space="preserve"><value>Abrir en Mi biblioteca</value></data>
-
-  <!-- ── Vault Detail Drawer ────────────────────────────────────────────── -->
-  <data name="VaultDetail_Unknown" xml:space="preserve"><value>Desconocido</value></data>
-  <data name="VaultDetail_SectionSourceDetails" xml:space="preserve"><value>Detalles de origen</value></data>
-  <data name="VaultDetail_LocationLibrary" xml:space="preserve"><value>Biblioteca</value></data>
-  <data name="VaultDetail_LocationStaging" xml:space="preserve"><value>Preparación</value></data>
-  <data name="VaultDetail_FieldFileIdentity" xml:space="preserve"><value>Identidad del archivo</value></data>
-  <data name="VaultDetail_FieldSize" xml:space="preserve"><value>Tamaño</value></data>
-  <data name="VaultDetail_SectionPipeline" xml:space="preserve"><value>Flujo de procesamiento</value></data>
-  <data name="VaultDetail_StageRetail" xml:space="preserve"><value>Etapa comercial</value></data>
-  <data name="VaultDetail_ActionUnmatch" xml:space="preserve"><value>Desasociar</value></data>
-  <data name="VaultDetail_FieldRetailMatch" xml:space="preserve"><value>Coincidencia comercial</value></data>
-  <data name="VaultDetail_TagProvider" xml:space="preserve"><value>Proveedor</value></data>
-  <data name="VaultDetail_FieldConfidenceScore" xml:space="preserve"><value>Puntuación de confianza</value></data>
-  <data name="VaultDetail_TagAi" xml:space="preserve"><value>IA</value></data>
-  <data name="VaultDetail_HintAwaitingRetail" xml:space="preserve"><value>En espera de coincidencia con proveedor comercial. Use los proveedores a continuación para buscar manualmente.</value></data>
-  <data name="VaultDetail_StageWikidata" xml:space="preserve"><value>Etapa Wikidata</value></data>
-  <data name="VaultDetail_Linked" xml:space="preserve"><value>Vinculado:</value></data>
-  <data name="VaultDetail_FieldWikidataMatch" xml:space="preserve"><value>Coincidencia Wikidata</value></data>
-  <data name="VaultDetail_TagAuthority" xml:space="preserve"><value>Autoridad</value></data>
-  <data name="VaultDetail_HintRetailMatchedSearchWikidata" xml:space="preserve"><value>Coincidencia comercial encontrada — busque en Wikidata para completar la vinculación de autoridad.</value></data>
-  <data name="VaultDetail_HintCompleteStage1First" xml:space="preserve"><value>Complete la Etapa 1 primero para habilitar la vinculación con Wikidata.</value></data>
-  <data name="VaultDetail_StageUniverse" xml:space="preserve"><value>Etapa de Universo</value></data>
-  <data name="VaultDetail_CascadeNote" xml:space="preserve"><value>Desasociar la Etapa 1 (Comercial) también limpiará la Etapa 2 (Wikidata).</value></data>
-  <data name="VaultDetail_WaitingForProvider" xml:space="preserve"><value>Este elemento está esperando a que un proveedor vuelva a estar disponible. Se enriquecerá automáticamente cuando el proveedor se recupere.</value></data>
-  <data name="VaultDetail_WaitingForProviderNamed" xml:space="preserve"><value>Este elemento está esperando a que {0} vuelva a estar disponible. Se enriquecerá automáticamente cuando el proveedor se recupere.</value></data>
-  <data name="VaultDetail_SectionAssets" xml:space="preserve"><value>Recursos e imágenes</value></data>
-  <data name="VaultDetail_AssetCoverArt" xml:space="preserve"><value>Portada</value></data>
-  <data name="VaultDetail_AssetSourceProvider" xml:space="preserve"><value>Proveedor</value></data>
-  <data name="VaultDetail_AssetCustom" xml:space="preserve"><value>Personalizado</value></data>
-  <data name="VaultDetail_AssetHeroBanner" xml:space="preserve"><value>Banner principal</value></data>
-  <data name="VaultDetail_AssetSourceGenerated" xml:space="preserve"><value>Generado</value></data>
-  <data name="VaultDetail_AssetUpload" xml:space="preserve"><value>Subir</value></data>
-  <data name="VaultDetail_SectionLifecycle" xml:space="preserve"><value>Ciclo de vida</value></data>
-  <data name="VaultDetail_FieldState" xml:space="preserve"><value>Estado</value></data>
-  <data name="VaultDetail_StateSynced" xml:space="preserve"><value>SINCRONIZADO</value></data>
-  <data name="VaultDetail_FieldAdded" xml:space="preserve"><value>Agregado</value></data>
-  <data name="VaultDetail_SectionLibraryPresence" xml:space="preserve"><value>Presencia en la biblioteca</value></data>
-  <data name="VaultDetail_HintPersonPresence" xml:space="preserve"><value>Las obras de esta persona aparecerán aquí una vez vinculadas.</value></data>
-  <data name="VaultDetail_SectionLinkedIdentities" xml:space="preserve"><value>Identidades vinculadas</value></data>
-  <data name="VaultDetail_FieldKnownAs" xml:space="preserve"><value>Conocido como</value></data>
-  <data name="VaultDetail_FieldPenNames" xml:space="preserve"><value>Seudónimos / Nombres de pluma</value></data>
-  <data name="VaultDetail_FieldRealPeople" xml:space="preserve"><value>Personas reales</value></data>
-  <data name="VaultDetail_HintPenNames" xml:space="preserve"><value>La resolución de seudónimos aparecerá aquí cuando esté disponible en Wikidata.</value></data>
-  <data name="VaultDetail_AssetHeadshot" xml:space="preserve"><value>Fotografía</value></data>
-  <data name="VaultDetail_FieldLastSync" xml:space="preserve"><value>Última sincronización</value></data>
-  <data name="VaultDetail_ValueAutoManaged" xml:space="preserve"><value>Gestionado automáticamente</value></data>
-  <data name="VaultDetail_SectionUniverseContent" xml:space="preserve"><value>Contenido del Universo</value></data>
-  <data name="VaultDetail_WorksAcross" xml:space="preserve"><value>obras en</value></data>
-  <data name="VaultDetail_VariousMediaTypes" xml:space="preserve"><value>distintos tipos de contenido</value></data>
-  <data name="VaultDetail_HintNoSeriesLinked" xml:space="preserve"><value>Aún no hay series vinculadas a este universo.</value></data>
-  <data name="VaultDetail_SectionNotablePeople" xml:space="preserve"><value>Personas destacadas</value></data>
-  <data name="VaultDetail_HintPeopleAssociated" xml:space="preserve"><value>Las personas asociadas a este universo aparecerán aquí.</value></data>
-  <data name="VaultDetail_ConfirmPurge" xml:space="preserve"><value>¿Confirmar eliminación definitiva?</value></data>
-  <data name="VaultDetail_ActionPurgeRecord" xml:space="preserve"><value>Eliminar registro</value></data>
-
-  <!-- ── Vault Add Media Drawer ─────────────────────────────────────────── -->
-  <data name="VaultAddMedia_Title" xml:space="preserve"><value>Agregar contenido</value></data>
-  <data name="VaultAddMedia_Hint" xml:space="preserve"><value>Arrastre archivos o carpetas a la zona de abajo, o use el botón para explorar.</value></data>
-  <data name="VaultAddMedia_DropToImport" xml:space="preserve"><value>Suelte para importar</value></data>
-  <data name="VaultAddMedia_DragFilesHere" xml:space="preserve"><value>Arrastre archivos o carpetas aquí</value></data>
-  <data name="VaultAddMedia_Or" xml:space="preserve"><value>o</value></data>
-  <data name="VaultAddMedia_BrowseFiles" xml:space="preserve"><value>Explorar archivos</value></data>
-  <data name="VaultAddMedia_Supported" xml:space="preserve"><value>COMPATIBLES</value></data>
-
-  <!-- ── Status Pill ────────────────────────────────────────────────────── -->
-  <data name="StatusPill_Verified" xml:space="preserve"><value>VERIFICADO</value></data>
-  <data name="StatusPill_Provisional" xml:space="preserve"><value>PROVISIONAL</value></data>
-  <data name="StatusPill_NeedsReview" xml:space="preserve"><value>REQUIERE REVISIÓN</value></data>
-  <data name="StatusPill_Failed" xml:space="preserve"><value>FALLIDO</value></data>
-  <data name="StatusPill_Quarantined" xml:space="preserve"><value>EN CUARENTENA</value></data>
-  <data name="StatusPill_Unknown" xml:space="preserve"><value>DESCONOCIDO</value></data>
-  <data name="StatusPill_WaitingForProvider" xml:space="preserve"><value>ESPERANDO AL PROVEEDOR</value></data>
-  <data name="StatusPill_RetailMatched" xml:space="preserve"><value>ENRIQUECIENDO</value></data>
-  <data name="StatusPill_Unowned" xml:space="preserve"><value>NO POSEÍDO</value></data>
-  <data name="StatusPill_DeletesIn" xml:space="preserve"><value>Se elimina en {0}d</value></data>
-
-  <!-- ── Profile Tab ────────────────────────────────────────────────────── -->
-  <data name="Profile_AccountIdentity" xml:space="preserve"><value>Identidad de la cuenta</value></data>
-  <data name="Profile_UploadAvatarComingSoon" xml:space="preserve"><value>Subir avatar (próximamente)</value></data>
-  <data name="Profile_DisplayName" xml:space="preserve"><value>Nombre para mostrar</value></data>
-  <data name="Profile_Role" xml:space="preserve"><value>Rol</value></data>
-  <data name="Profile_AvatarColour" xml:space="preserve"><value>Color del avatar</value></data>
-  <data name="Profile_AvatarColourHint" xml:space="preserve"><value>Elija un color para el círculo de su avatar.</value></data>
-  <data name="Profile_DisplayAndLocale" xml:space="preserve"><value>Visualización y región</value></data>
-  <data name="Profile_DateFormat" xml:space="preserve"><value>Formato de fecha</value></data>
-  <data name="Profile_SystemDefault" xml:space="preserve"><value>Predeterminado del sistema</value></data>
-  <data name="Profile_TimeFormat" xml:space="preserve"><value>Formato de hora</value></data>
-  <data name="Profile_TimeFormat12Hour" xml:space="preserve"><value>12 horas (AM/PM)</value></data>
-  <data name="Profile_TimeFormat24Hour" xml:space="preserve"><value>24 horas</value></data>
-  <data name="Profile_LanguagePreferences" xml:space="preserve"><value>Preferencias de idioma</value></data>
-  <data name="Profile_LanguagePreferencesHint" xml:space="preserve"><value>Controle qué idiomas usa el Motor para las búsquedas de metadatos y qué idiomas de contenido se aceptan sin revisión.</value></data>
-  <data name="Profile_DisplayLanguage" xml:space="preserve"><value>Idioma de visualización</value></data>
-  <data name="Profile_DisplayLanguageHelper" xml:space="preserve"><value>Idioma para las etiquetas de la interfaz y la visualización en Wikidata</value></data>
-  <data name="Profile_MetadataLanguage" xml:space="preserve"><value>Idioma de metadatos</value></data>
-  <data name="Profile_MetadataLanguageHelper" xml:space="preserve"><value>Idioma para las consultas a proveedores y búsquedas en Wikidata</value></data>
-  <data name="Profile_AdditionalContentLanguages" xml:space="preserve"><value>Idiomas de contenido adicionales</value></data>
-  <data name="Profile_AdditionalContentLanguagesHelper" xml:space="preserve"><value>Idiomas en los que consume contenido — los archivos en estos idiomas no serán marcados</value></data>
-  <data name="Profile_AcceptAnyLanguage" xml:space="preserve"><value>Aceptar cualquier idioma</value></data>
-  <data name="Profile_AcceptAnyLanguageHint" xml:space="preserve"><value>Cuando está habilitado, los archivos en cualquier idioma se procesan sin marcas de revisión. Deshabilite esta opción para restringir los idiomas aceptados a los idiomas de visualización, metadatos y adicionales.</value></data>
-  <data name="Profile_Saving" xml:space="preserve"><value>Guardando...</value></data>
-  <data name="Profile_SaveProfile" xml:space="preserve"><value>Guardar perfil</value></data>
-  <data name="Profile_ProfileUpdated" xml:space="preserve"><value>Perfil actualizado</value></data>
-  <data name="Profile_CouldNotSaveProfile" xml:space="preserve"><value>No se pudo guardar el perfil — ¿está el Motor en ejecución?</value></data>
-  <data name="Profile_CouldNotSaveLanguagePreferences" xml:space="preserve"><value>No se pudieron guardar las preferencias de idioma</value></data>
-
-  <!-- ── Models Tab ─────────────────────────────────────────────────────── -->
-  <data name="Models_AiModels" xml:space="preserve"><value>Modelos de IA</value></data>
-  <data name="Models_AiModelsDescription" xml:space="preserve"><value>Descargue, cargue y gestione los modelos de IA locales que impulsan las funciones inteligentes. Los modelos se ejecutan completamente en su máquina — ningún dato sale de ella.</value></data>
-  <data name="Models_HardwareProfile" xml:space="preserve"><value>Perfil de hardware</value></data>
-  <data name="Models_ReRunBenchmark" xml:space="preserve"><value>Volver a ejecutar prueba de rendimiento</value></data>
-  <data name="Models_PerformanceTier" xml:space="preserve"><value>NIVEL DE RENDIMIENTO</value></data>
-  <data name="Models_ComputeBackend" xml:space="preserve"><value>BACKEND DE CÓMPUTO</value></data>
-  <data name="Models_CpuOnly" xml:space="preserve"><value>Solo CPU</value></data>
-  <data name="Models_InferenceSpeed" xml:space="preserve"><value>VELOCIDAD DE INFERENCIA</value></data>
-  <data name="Models_AvailableMemory" xml:space="preserve"><value>MEMORIA DISPONIBLE</value></data>
-  <data name="Models_LastBenchmark" xml:space="preserve"><value>ÚLTIMA PRUEBA DE RENDIMIENTO</value></data>
-  <data name="Models_NoBenchmarkData" xml:space="preserve"><value>Aún no hay datos de prueba — el Motor ejecutará la prueba automáticamente en el primer inicio.</value></data>
-  <data name="Models_ResourceMonitor" xml:space="preserve"><value>Monitor de recursos</value></data>
-  <data name="Models_EngineRam" xml:space="preserve"><value>RAM DEL MOTOR</value></data>
-  <data name="Models_FreeRam" xml:space="preserve"><value>RAM LIBRE</value></data>
-  <data name="Models_CpuPressure" xml:space="preserve"><value>CARGA DE CPU</value></data>
-  <data name="Models_Transcoding" xml:space="preserve"><value>TRANSCODIFICACIÓN</value></data>
-  <data name="Models_TranscodingActive" xml:space="preserve"><value>Activa</value></data>
-  <data name="Models_TranscodingIdle" xml:space="preserve"><value>Inactiva</value></data>
-  <data name="Models_Status" xml:space="preserve"><value>Estado</value></data>
-  <data name="Models_Ram" xml:space="preserve"><value>RAM</value></data>
-  <data name="Models_Size" xml:space="preserve"><value>Tamaño</value></data>
-  <data name="Models_Downloading" xml:space="preserve"><value>Descargando…</value></data>
-  <data name="Models_Download" xml:space="preserve"><value>Descargar</value></data>
-  <data name="Models_Load" xml:space="preserve"><value>Cargar</value></data>
-  <data name="Models_Unload" xml:space="preserve"><value>Descargar de memoria</value></data>
-  <data name="Models_DeleteModelFiles" xml:space="preserve"><value>Eliminar archivos del modelo del disco</value></data>
-  <data name="Models_StorageAndRuntimeSettings" xml:space="preserve"><value>Almacenamiento y configuración de ejecución</value></data>
-  <data name="Models_ModelsDirectory" xml:space="preserve"><value>Directorio de modelos</value></data>
-  <data name="Models_IdleAutoUnloadTimeout" xml:space="preserve"><value>Tiempo de descarga automática por inactividad (segundos)</value></data>
-  <data name="Models_IdleAutoUnloadTimeoutHelper" xml:space="preserve"><value>Descarga el modelo de la RAM después de este número de segundos de inactividad.</value></data>
-  <data name="Models_GpuAcceleration" xml:space="preserve"><value>Aceleración GPU (CUDA / Vulkan)</value></data>
-  <data name="Models_GpuActive" xml:space="preserve"><value>Activa — usando</value></data>
-  <data name="Models_GpuOn" xml:space="preserve"><value>en</value></data>
-  <data name="Models_GpuFallback" xml:space="preserve"><value>GPU</value></data>
-  <data name="Models_CpuInferenceActive" xml:space="preserve"><value>Inferencia por CPU activa. Una GPU dedicada (NVIDIA, AMD o Intel Arc) permite una inferencia 6-7× más rápida.</value></data>
-
-  <!-- ── AI Features Tab ────────────────────────────────────────────────── -->
-  <data name="AiFeatures_AiFeatures" xml:space="preserve"><value>Funciones de IA</value></data>
-  <data name="AiFeatures_AiFeaturesDescription" xml:space="preserve"><value>Habilite o deshabilite funciones individuales impulsadas por IA. Los cambios surten efecto de inmediato para operaciones futuras — no se reprocesan los archivos ya ingresados.</value></data>
-  <data name="AiFeatures_Ingestion" xml:space="preserve"><value>Ingesta</value></data>
-  <data name="AiFeatures_Automatic" xml:space="preserve"><value>Automático</value></data>
-  <data name="AiFeatures_On" xml:space="preserve"><value>activado</value></data>
-  <data name="AiFeatures_IngestionDescription" xml:space="preserve"><value>Se ejecuta automáticamente durante la ingesta de archivos. Cada archivo nuevo se beneficia de estas funciones sin ninguna acción del usuario.</value></data>
-  <data name="AiFeatures_BuiltIn" xml:space="preserve"><value>integrado</value></data>
-  <data name="AiFeatures_Requires" xml:space="preserve"><value>Requiere</value></data>
-  <data name="AiFeatures_Tier" xml:space="preserve"><value>nivel</value></data>
-  <data name="AiFeatures_Enrichment" xml:space="preserve"><value>Enriquecimiento</value></data>
-  <data name="AiFeatures_Background" xml:space="preserve"><value>En segundo plano</value></data>
-  <data name="AiFeatures_EnrichmentDescription" xml:space="preserve"><value>Se ejecuta en segundo plano después de la ingesta, cuando el Motor está inactivo. Agrega profundidad y personalidad a su biblioteca sin bloquear otras tareas.</value></data>
-  <data name="AiFeatures_OnDemand" xml:space="preserve"><value>Bajo demanda</value></data>
-  <data name="AiFeatures_UserTriggered" xml:space="preserve"><value>Activado por el usuario</value></data>
-  <data name="AiFeatures_OnDemandDescription" xml:space="preserve"><value>Se activa mediante acciones del usuario — una consulta de búsqueda, un clic en un botón o al explorar la página de detalle de una obra. Se esperan respuestas rápidas.</value></data>
-  <data name="AiFeatures_Scheduled" xml:space="preserve"><value>Programado</value></data>
-  <data name="AiFeatures_ScheduledDescription" xml:space="preserve"><value>Se ejecuta según un programa cron nocturno o semanal. Estas funciones son de larga duración y están diseñadas para ejecutarse mientras usted duerme.</value></data>
-
-  <!-- ── AI Schedule Tab ────────────────────────────────────────────────── -->
-  <data name="Schedule_AiSchedule" xml:space="preserve"><value>Programación de IA</value></data>
-  <data name="Schedule_AiScheduleDescription" xml:space="preserve"><value>Configure cuándo se ejecuta cada tarea de IA en segundo plano. Los cambios surten efecto después de reiniciar el Motor.</value></data>
-  <data name="Schedule_EnrichmentProgress" xml:space="preserve"><value>Progreso del enriquecimiento</value></data>
-  <data name="Schedule_ItemsEnriched" xml:space="preserve"><value>elementos enriquecidos</value></data>
-  <data name="Schedule_ItemsPending" xml:space="preserve"><value>elementos pendientes — procesados en lotes en segundo plano</value></data>
-  <data name="Schedule_AllItemsEnriched" xml:space="preserve"><value>Todos los elementos enriquecidos</value></data>
-  <data name="Schedule_NoItemsInQueue" xml:space="preserve"><value>Aún no hay elementos en la cola de enriquecimiento. Agregue contenido a su biblioteca para comenzar.</value></data>
-  <data name="Schedule_Job" xml:space="preserve"><value>Tarea</value></data>
-  <data name="Schedule_CronExpression" xml:space="preserve"><value>Expresión cron</value></data>
-  <data name="Schedule_Schedule" xml:space="preserve"><value>Programación</value></data>
-  <data name="Schedule_LastRun" xml:space="preserve"><value>Última ejecución</value></data>
-  <data name="Schedule_NextRun" xml:space="preserve"><value>Próxima ejecución</value></data>
-  <data name="Schedule_Enabled" xml:space="preserve"><value>Habilitado</value></data>
-  <data name="Schedule_ChangesRequireRestart" xml:space="preserve"><value>Los cambios requieren reiniciar el Motor para surtir efecto.</value></data>
-  <data name="Schedule_SaveSchedules" xml:space="preserve"><value>Guardar programaciones</value></data>
-
-  <!-- ── Libraries Tab ──────────────────────────────────────────────────── -->
-  <data name="Libraries_NotAvailable" xml:space="preserve"><value>No disponible</value></data>
-  <data name="Libraries_NotAvailableDescription" xml:space="preserve"><value>La configuración de carpetas de biblioteca no está disponible en este dispositivo. Use la interfaz web o móvil para configurar su biblioteca.</value></data>
-  <data name="Libraries_LibraryPaths" xml:space="preserve"><value>Rutas de biblioteca</value></data>
-  <data name="Libraries_ViewOnly" xml:space="preserve"><value>Solo lectura</value></data>
-  <data name="Libraries_LibraryFolder" xml:space="preserve"><value>Carpeta de biblioteca</value></data>
-  <data name="Libraries_WatchFolder" xml:space="preserve"><value>Carpeta vigilada</value></data>
-  <data name="Libraries_BrowseFolders" xml:space="preserve"><value>Explorar carpetas</value></data>
-  <data name="Libraries_FileOrganization" xml:space="preserve"><value>Organización de archivos</value></data>
-  <data name="Libraries_FileOrganizationHint" xml:space="preserve"><value>Haga clic en un campo para añadirlo a la ruta. Use / para separar carpetas. El texto fuera de las llaves es literal.</value></data>
-  <data name="Libraries_ResetPathToDefault" xml:space="preserve"><value>Restablecer ruta predeterminada</value></data>
-  <data name="Libraries_PreviewExampleOutput" xml:space="preserve"><value>Vista previa — ejemplo de salida</value></data>
-  <data name="Libraries_Reset" xml:space="preserve"><value>Restablecer</value></data>
-  <data name="Libraries_Saving" xml:space="preserve"><value>Guardando...</value></data>
-  <data name="Libraries_SaveChanges" xml:space="preserve"><value>Guardar cambios</value></data>
-  <data name="Libraries_CannotReachEngine" xml:space="preserve"><value>No se puede comunicar con el Motor — asegúrese de que esté en ejecución.</value></data>
-  <data name="Libraries_WatchFolderNotAccessible" xml:space="preserve"><value>La carpeta vigilada no es accesible — compruebe la ruta y los permisos.</value></data>
-  <data name="Libraries_LibraryFolderNotAccessible" xml:space="preserve"><value>La carpeta de biblioteca no es accesible — compruebe la ruta y los permisos.</value></data>
-  <data name="Libraries_InvalidTemplate" xml:space="preserve"><value>Plantilla no válida — compruebe sus variables.</value></data>
-  <data name="Libraries_SettingsSaved" xml:space="preserve"><value>Configuración guardada — ahora vigilando</value></data>
-  <data name="Libraries_CouldNotSaveFolderSettings" xml:space="preserve"><value>No se pudo guardar la configuración de carpetas — asegúrese de que el Motor esté en ejecución.</value></data>
-  <data name="Libraries_CouldNotSave" xml:space="preserve"><value>No se pudo guardar:</value></data>
-  <data name="Libraries_Checking" xml:space="preserve"><value>Verificando...</value></data>
-  <data name="Libraries_FolderNotFound" xml:space="preserve"><value>Carpeta no encontrada</value></data>
-  <data name="Libraries_ReadWriteConfirmed" xml:space="preserve"><value>Acceso de lectura y escritura confirmado</value></data>
-  <data name="Libraries_ReadOnly" xml:space="preserve"><value>Solo lectura — no se puede escribir</value></data>
-  <data name="Libraries_AccessDenied" xml:space="preserve"><value>Acceso denegado</value></data>
-  <data name="Libraries_ConfiguredLibraries" xml:space="preserve"><value>Bibliotecas configuradas</value></data>
-  <data name="Libraries_ConfiguredLibrariesHint" xml:space="preserve"><value>Bibliotecas definidas en config/libraries.json. Cada biblioteca puede abarcar múltiples rutas de origen. Edite el archivo de configuración directamente para agregar o modificar bibliotecas.</value></data>
-
-  <!-- ── Status Dashboard Tab ───────────────────────────────────────────── -->
-  <data name="Status_StatusDashboard" xml:space="preserve"><value>Panel de estado</value></data>
-  <data name="Status_StatusDashboardDescription" xml:space="preserve"><value>Una vista en vivo del estado del Motor, el tamaño de la biblioteca y el uso del almacenamiento.</value></data>
-  <data name="Status_ServerUptime" xml:space="preserve"><value>Tiempo en línea del servidor</value></data>
-  <data name="Status_TotalAssets" xml:space="preserve"><value>Total de recursos</value></data>
-  <data name="Status_Database" xml:space="preserve"><value>Base de datos</value></data>
-  <data name="Status_GlobalCache" xml:space="preserve"><value>Caché global</value></data>
-  <data name="Status_CacheUsed" xml:space="preserve"><value>62% usado</value></data>
-  <data name="Status_EngineInformation" xml:space="preserve"><value>Información del Motor</value></data>
-  <data name="Status_ServerName" xml:space="preserve"><value>Nombre del servidor</value></data>
-  <data name="Status_EngineUrl" xml:space="preserve"><value>URL del Motor</value></data>
-  <data name="Status_Version" xml:space="preserve"><value>Versión</value></data>
-  <data name="Status_AiModels" xml:space="preserve"><value>Modelos de IA</value></data>
-
-  <!-- ── Security Tab ───────────────────────────────────────────────────── -->
-  <data name="Security_Security" xml:space="preserve"><value>Seguridad</value></data>
-  <data name="Security_SecurityDescription" xml:space="preserve"><value>Controle cómo el Motor acepta conexiones y aplica la autenticación.</value></data>
-  <data name="Security_ConnectionSettings" xml:space="preserve"><value>Configuración de conexión</value></data>
-  <data name="Security_LocalhostBypass" xml:space="preserve"><value>Omisión de localhost</value></data>
-  <data name="Security_LocalhostBypassDescription" xml:space="preserve"><value>Permitir solicitudes no autenticadas desde esta máquina</value></data>
-  <data name="Security_RequireHttps" xml:space="preserve"><value>Requerir HTTPS para conexiones remotas</value></data>
-  <data name="Security_RequireHttpsDescription" xml:space="preserve"><value>Rechazar solicitudes no HTTPS de otros dispositivos en la red</value></data>
-  <data name="Security_RateLimits" xml:space="preserve"><value>Límites de velocidad</value></data>
-  <data name="Security_ReadOnly" xml:space="preserve"><value>Solo lectura</value></data>
-  <data name="Security_KeyGeneration" xml:space="preserve"><value>Generación de claves</value></data>
-  <data name="Security_FileStreaming" xml:space="preserve"><value>Transmisión de archivos</value></data>
-  <data name="Security_GeneralApi" xml:space="preserve"><value>API general</value></data>
-
-  <!-- ── API Keys Tab ───────────────────────────────────────────────────── -->
-  <data name="ApiKeys_GuestApiKeys" xml:space="preserve"><value>Claves API de invitado</value></data>
-  <data name="ApiKeys_GenerateKey" xml:space="preserve"><value>Generar clave</value></data>
-  <data name="ApiKeys_GuestApiKeysDescription" xml:space="preserve"><value>Cualquier aplicación que se conecte al Motor — Radarr, Sonarr, una aplicación móvil — debe presentar una clave API de invitado válida. Cada clave tiene una etiqueta y puede revocarse individualmente.</value></data>
-  <data name="ApiKeys_NoKeysIssued" xml:space="preserve"><value>Aún no se han emitido claves API de invitado. Genere una para permitir conexiones externas.</value></data>
-  <data name="ApiKeys_Label" xml:space="preserve"><value>Etiqueta</value></data>
-  <data name="ApiKeys_Key" xml:space="preserve"><value>Clave</value></data>
-  <data name="ApiKeys_Created" xml:space="preserve"><value>Creada</value></data>
-  <data name="ApiKeys_Actions" xml:space="preserve"><value>Acciones</value></data>
-  <data name="ApiKeys_ToggleKeyVisibility" xml:space="preserve"><value>Alternar visibilidad del prefijo de clave</value></data>
-  <data name="ApiKeys_RevokeThisKey" xml:space="preserve"><value>Revocar esta clave</value></data>
-  <data name="ApiKeys_RevokeAllKeys" xml:space="preserve"><value>Revocar todas las claves</value></data>
-  <data name="ApiKeys_GenerateGuestApiKey" xml:space="preserve"><value>Generar clave API de invitado</value></data>
-  <data name="ApiKeys_LabelPlaceholder" xml:space="preserve"><value>p. ej. Integración con Radarr, Aplicación móvil</value></data>
-  <data name="ApiKeys_CopyKeyNow" xml:space="preserve"><value>Copie esta clave ahora — no volverá a mostrarse.</value></data>
-  <data name="ApiKeys_CopyKeyToClipboard" xml:space="preserve"><value>Copiar clave al portapapeles</value></data>
-  <data name="ApiKeys_Cancel" xml:space="preserve"><value>Cancelar</value></data>
-  <data name="ApiKeys_Generating" xml:space="preserve"><value>Generando...</value></data>
-  <data name="ApiKeys_Generate" xml:space="preserve"><value>Generar</value></data>
-  <data name="ApiKeys_IveSavedTheKey" xml:space="preserve"><value>He guardado la clave</value></data>
-  <data name="ApiKeys_RevokeAllGuestApiKeys" xml:space="preserve"><value>Revocar todas las claves API de invitado</value></data>
-  <data name="ApiKeys_All" xml:space="preserve"><value>todas las</value></data>
-  <data name="ApiKeys_RevokeAllConfirmation1" xml:space="preserve"><value>Esto revocará</value></data>
-  <data name="ApiKeys_RevokeAllConfirmation2" xml:space="preserve"><value>claves API de invitado de inmediato. Cualquier aplicación actualmente conectada al Motor perderá el acceso.</value></data>
-  <data name="ApiKeys_ActionCannotBeUndone" xml:space="preserve"><value>Esta acción no se puede deshacer.</value></data>
-  <data name="ApiKeys_Revoking" xml:space="preserve"><value>Revocando...</value></data>
-  <data name="ApiKeys_RevokeAll" xml:space="preserve"><value>Revocar todas</value></data>
-  <data name="ApiKeys_CouldNotGenerateKey" xml:space="preserve"><value>No se pudo generar la clave — ¿está el Motor en ejecución?</value></data>
-  <data name="ApiKeys_KeyCopiedToClipboard" xml:space="preserve"><value>Clave copiada al portapapeles</value></data>
-  <data name="ApiKeys_KeyRevoked" xml:space="preserve"><value>Clave revocada</value></data>
-  <data name="ApiKeys_RevokeFailed" xml:space="preserve"><value>Error al revocar — ¿está el Motor en ejecución?</value></data>
-  <data name="ApiKeys_AllKeysRevoked" xml:space="preserve"><value>Todas las</value></data>
-  <data name="ApiKeys_Keys" xml:space="preserve"><value>claves revocadas</value></data>
-  <data name="ApiKeys_CouldNotRevokeKeys" xml:space="preserve"><value>No se pudieron revocar las claves — ¿está el Motor en ejecución?</value></data>
-
-  <!-- ── Users Tab ──────────────────────────────────────────────────────── -->
-  <data name="Users_PageTitle" xml:space="preserve"><value>Usuarios y perfiles</value></data>
-  <data name="Users_PageDescription" xml:space="preserve"><value>Gestione los perfiles con acceso a esta instancia de Tuvima Library. El perfil inicial (Propietario) no se puede eliminar.</value></data>
-  <data name="Users_NewProfile" xml:space="preserve"><value>Nuevo perfil</value></data>
-  <data name="Users_NoProfiles" xml:space="preserve"><value>No se encontraron perfiles. Cree uno para comenzar.</value></data>
-  <data name="Users_ColAvatar" xml:space="preserve"><value>Avatar</value></data>
-  <data name="Users_ColName" xml:space="preserve"><value>Nombre</value></data>
-  <data name="Users_ColRole" xml:space="preserve"><value>Rol</value></data>
-  <data name="Users_ColLastActive" xml:space="preserve"><value>Último acceso</value></data>
-  <data name="Users_ColStatus" xml:space="preserve"><value>Estado</value></data>
-  <data name="Users_ColActions" xml:space="preserve"><value>Acciones</value></data>
-  <data name="Users_DeleteProfileTooltip" xml:space="preserve"><value>Eliminar perfil</value></data>
-  <data name="Users_CreateProfileTitle" xml:space="preserve"><value>Crear perfil</value></data>
-  <data name="Users_DisplayNameLabel" xml:space="preserve"><value>Nombre para mostrar</value></data>
-  <data name="Users_DisplayNamePlaceholder" xml:space="preserve"><value>p. ej. Alice, Bob</value></data>
-  <data name="Users_RoleLabel" xml:space="preserve"><value>Rol</value></data>
-  <data name="Users_RoleAdministrator" xml:space="preserve"><value>Administrador</value></data>
-  <data name="Users_RoleCurator" xml:space="preserve"><value>Curador</value></data>
-  <data name="Users_RoleConsumer" xml:space="preserve"><value>Consumidor</value></data>
-  <data name="Users_AvatarColour" xml:space="preserve"><value>Color del avatar</value></data>
-  <data name="Users_Cancel" xml:space="preserve"><value>Cancelar</value></data>
-  <data name="Users_Creating" xml:space="preserve"><value>Creando...</value></data>
-  <data name="Users_Create" xml:space="preserve"><value>Crear</value></data>
-  <data name="Users_CreateError" xml:space="preserve"><value>No se pudo crear el perfil — ¿está el Motor en ejecución?</value></data>
-  <data name="Users_DeleteError" xml:space="preserve"><value>No se pudo eliminar el perfil — ¿está el Motor en ejecución?</value></data>
-
-  <!-- ── Activity Tab ───────────────────────────────────────────────────── -->
-  <data name="Activity_PageTitle" xml:space="preserve"><value>Registro de actividad</value></data>
-  <data name="Activity_PageDescription" xml:space="preserve"><value>Un registro completo de cada acción significativa realizada por el Motor — ingesta, enriquecimiento, resoluciones de revisión y mantenimiento programado.</value></data>
-  <data name="Activity_RetentionPolicy" xml:space="preserve"><value>Política de retención</value></data>
-  <data name="Activity_KeepEntriesFor" xml:space="preserve"><value>Conservar entradas durante</value></data>
-  <data name="Activity_Days" xml:space="preserve"><value>días</value></data>
-  <data name="Activity_SevenDays" xml:space="preserve"><value>7 días</value></data>
-  <data name="Activity_OneYear" xml:space="preserve"><value>1 año</value></data>
-  <data name="Activity_Pruning" xml:space="preserve"><value>Depurando...</value></data>
-  <data name="Activity_PruneNow" xml:space="preserve"><value>Depurar ahora</value></data>
-  <data name="Activity_Filter" xml:space="preserve"><value>Filtrar</value></data>
-  <data name="Activity_Clear" xml:space="preserve"><value>Limpiar</value></data>
-  <data name="Activity_NoEntries" xml:space="preserve"><value>Ninguna entrada de actividad coincide con el filtro actual.</value></data>
-  <data name="Activity_LoadMore" xml:space="preserve"><value>Cargar más</value></data>
-  <data name="Activity_Remaining" xml:space="preserve"><value>restantes</value></data>
-  <data name="Activity_PruneError" xml:space="preserve"><value>Error al depurar — ¿está el Motor en ejecución?</value></data>
-
-  <!-- ── Maintenance Tab ────────────────────────────────────────────────── -->
-  <data name="Maintenance_PageTitle" xml:space="preserve"><value>Mantenimiento</value></data>
-  <data name="Maintenance_PageDescription" xml:space="preserve"><value>Herramientas de limpieza para la integridad de la biblioteca y la actualización periódica de metadatos.</value></data>
-  <data name="Maintenance_ReconciliationTitle" xml:space="preserve"><value>Reconciliación de biblioteca</value></data>
-  <data name="Maintenance_ReconciliationDescription" xml:space="preserve"><value>Analice todos los recursos de la biblioteca y verifique que sus archivos aún existan en el disco. Los archivos faltantes se limpian automáticamente — se eliminan las portadas huérfanas, archivos XML secundarios y carpetas vacías.</value></data>
-  <data name="Maintenance_Scanning" xml:space="preserve"><value>Analizando...</value></data>
-  <data name="Maintenance_ReconcileNow" xml:space="preserve"><value>Reconciliar ahora</value></data>
-  <data name="Maintenance_UniverseEnrichmentTitle" xml:space="preserve"><value>Enriquecimiento de Universo</value></data>
-  <data name="Maintenance_UniverseEnrichmentDescription" xml:space="preserve"><value>Ejecute el enriquecimiento profundo para todos los elementos pendientes — relaciones entre personajes, conexiones de franquicia y vínculos narrativos entre distintos medios.</value></data>
-  <data name="Maintenance_Running" xml:space="preserve"><value>Ejecutando...</value></data>
-  <data name="Maintenance_RunPass2Now" xml:space="preserve"><value>Ejecutar Pasada 2 ahora</value></data>
-  <data name="Maintenance_Pending" xml:space="preserve"><value>pendientes</value></data>
-  <data name="Maintenance_LibraryCrawlTitle" xml:space="preserve"><value>Exploración de biblioteca</value></data>
-  <data name="Maintenance_LibraryCrawlDescription" xml:space="preserve"><value>Analice la raíz de la biblioteca en busca de archivos secundarios library.xml y reconstruya la base de datos desde el sistema de archivos. Disponible en una actualización futura.</value></data>
-  <data name="Maintenance_WeeklySyncTitle" xml:space="preserve"><value>Sincronización semanal</value></data>
-  <data name="Maintenance_WeeklySyncDescription" xml:space="preserve"><value>Actualización periódica de metadatos con verificación de hash de imágenes. Disponible en una actualización futura.</value></data>
-  <data name="Maintenance_ReconciliationComplete" xml:space="preserve"><value>Reconciliación completa — todos los archivos presentes</value></data>
-  <data name="Maintenance_ReconciliationError" xml:space="preserve"><value>Error en la reconciliación — ¿está el Motor en ejecución?</value></data>
-  <data name="Maintenance_Pass2Error" xml:space="preserve"><value>No se pudo iniciar la Pasada 2 — ¿está el Motor en ejecución?</value></data>
-
-  <!-- ── Setup Tab ──────────────────────────────────────────────────────── -->
-  <data name="Setup_PageTitle" xml:space="preserve"><value>Asistente de configuración</value></data>
-  <data name="Setup_PageDescription" xml:space="preserve"><value>Revise los pasos de configuración inicial o consulte su configuración actual del servidor de un vistazo.</value></data>
-  <data name="Setup_RerunTitle" xml:space="preserve"><value>Volver a ejecutar el asistente de configuración</value></data>
-  <data name="Setup_RerunDescription" xml:space="preserve"><value>Vuelva a recorrer la selección de rutas de biblioteca, la configuración de proveedores y la descarga de modelos de IA. Los datos de su biblioteca existente nunca se modifican.</value></data>
-  <data name="Setup_RunWizard" xml:space="preserve"><value>Ejecutar asistente</value></data>
-  <data name="Setup_CurrentConfiguration" xml:space="preserve"><value>Configuración actual</value></data>
-  <data name="Setup_ServerName" xml:space="preserve"><value>Nombre del servidor</value></data>
-  <data name="Setup_Language" xml:space="preserve"><value>Idioma</value></data>
-  <data name="Setup_LibraryRoot" xml:space="preserve"><value>Raíz de la biblioteca</value></data>
-  <data name="Setup_ConfiguredProviders" xml:space="preserve"><value>Proveedores configurados</value></data>
-  <data name="Setup_AiModels" xml:space="preserve"><value>Modelos de IA</value></data>
-  <data name="Setup_NotDownloaded" xml:space="preserve"><value>No descargados</value></data>
-  <data name="Setup_Reconfigure" xml:space="preserve"><value>Reconfigurar</value></data>
-
-  <!-- ── Connectivity Tab ───────────────────────────────────────────────── -->
-  <data name="Connectivity_Title" xml:space="preserve"><value>Conectividad</value></data>
-  <data name="Connectivity_ComingSoon" xml:space="preserve"><value>Función en desarrollo — La configuración de red y sincronización aparecerá aquí en una actualización futura.</value></data>
-
-  <!-- ── Server General Tab ─────────────────────────────────────────────── -->
-  <data name="ServerGeneral_ServerIdentityTitle" xml:space="preserve"><value>Identidad del servidor</value></data>
-  <data name="ServerGeneral_ServerIdentityDescription" xml:space="preserve"><value>El nombre del servidor aparece en el descubrimiento de red (mDNS/Bonjour) para que otras aplicaciones en su red doméstica puedan encontrar su biblioteca por nombre.</value></data>
-  <data name="ServerGeneral_ServerNameLabel" xml:space="preserve"><value>Nombre del servidor</value></data>
-  <data name="ServerGeneral_ServerNameHelper" xml:space="preserve"><value>Visible para aplicaciones multimedia en su red local</value></data>
-  <data name="ServerGeneral_RegionalSettingsTitle" xml:space="preserve"><value>Configuración regional</value></data>
-  <data name="ServerGeneral_RegionalSettingsDescription" xml:space="preserve"><value>Estas configuraciones afectan las descargas de metadatos (descripciones de libros, géneros, etiquetas de Wikidata) y cómo se muestran las fechas y horas en todo el Panel.</value></data>
-  <data name="ServerGeneral_LanguageLabel" xml:space="preserve"><value>Idioma</value></data>
-  <data name="ServerGeneral_LanguageHelper" xml:space="preserve"><value>Usado para las consultas a proveedores de metadatos</value></data>
-  <data name="ServerGeneral_CountryLabel" xml:space="preserve"><value>País</value></data>
-  <data name="ServerGeneral_CountryHelper" xml:space="preserve"><value>Usado para búsquedas en tiendas regionales (p. ej. Apple API)</value></data>
-  <data name="ServerGeneral_DateFormatLabel" xml:space="preserve"><value>Formato de fecha</value></data>
-  <data name="ServerGeneral_DateFormatSystem" xml:space="preserve"><value>Predeterminado del sistema</value></data>
-  <data name="ServerGeneral_DateFormatShort" xml:space="preserve"><value>Corto</value></data>
-  <data name="ServerGeneral_DateFormatLong" xml:space="preserve"><value>Largo</value></data>
-  <data name="ServerGeneral_DateFormatIso" xml:space="preserve"><value>ISO 8601</value></data>
-  <data name="ServerGeneral_TimeFormatLabel" xml:space="preserve"><value>Formato de hora</value></data>
-  <data name="ServerGeneral_TimeFormatSystem" xml:space="preserve"><value>Predeterminado del sistema</value></data>
-  <data name="ServerGeneral_TimeFormat12h" xml:space="preserve"><value>12 horas</value></data>
-  <data name="ServerGeneral_TimeFormat24h" xml:space="preserve"><value>24 horas</value></data>
-  <data name="ServerGeneral_LanguageChangeNotice" xml:space="preserve"><value>Cambiar el idioma recargará la página para aplicar la nueva configuración regional de la interfaz.</value></data>
-  <data name="ServerGeneral_Reset" xml:space="preserve"><value>Restablecer</value></data>
-  <data name="ServerGeneral_Saving" xml:space="preserve"><value>Guardando…</value></data>
-  <data name="ServerGeneral_SaveChanges" xml:space="preserve"><value>Guardar cambios</value></data>
-  <data name="ServerGeneral_ServerNameEmpty" xml:space="preserve"><value>El nombre del servidor no puede estar vacío.</value></data>
-  <data name="ServerGeneral_SavedSuccess" xml:space="preserve"><value>Configuración guardada.</value></data>
-  <data name="ServerGeneral_SaveError" xml:space="preserve"><value>No se pudo guardar la configuración. Verifique la conexión con el Motor.</value></data>
-
-  <!-- ── Vibe Vocabulary Tab ────────────────────────────────────────────── -->
-  <data name="Vibes_PageTitle" xml:space="preserve"><value>Vocabulario de vibraciones</value></data>
-  <data name="Vibes_PageDescription" xml:space="preserve"><value>Etiquetas de estado de ánimo y atmósfera que la IA utiliza al enriquecer su biblioteca.</value></data>
-  <data name="Vibes_InfoAlert" xml:space="preserve"><value>La IA puede generar etiquetas fuera de esta lista, pero prefiere estas. Edite libremente — los cambios surten efecto en la próxima ejecución de enriquecimiento.</value></data>
-  <data name="Vibes_TagSingular" xml:space="preserve"><value>etiqueta</value></data>
-  <data name="Vibes_TagPlural" xml:space="preserve"><value>etiquetas</value></data>
-  <data name="Vibes_NoTags" xml:space="preserve"><value>Sin etiquetas — agregue una a continuación.</value></data>
-  <data name="Vibes_NewTagPlaceholder" xml:space="preserve"><value>Nueva etiqueta…</value></data>
-  <data name="Vibes_Add" xml:space="preserve"><value>Agregar</value></data>
-  <data name="Vibes_ResetToDefaults" xml:space="preserve"><value>Restablecer valores predeterminados</value></data>
-
-  <!-- ── Wikidata Configuration Tab ─────────────────────────────────────── -->
-  <data name="Wikidata_PageTitle" xml:space="preserve"><value>Configuración de Wikidata</value></data>
-  <data name="Wikidata_PageDescription" xml:space="preserve"><value>Wikidata es la única autoridad de identidad para su biblioteca. Cada libro, película, persona y franquicia se identifica mediante un identificador Q de Wikidata. La Etapa 2 resuelve la identidad durante la ingesta; la Etapa 3 enriquece el universo de su biblioteca en segundo plano.</value></data>
-  <data name="Wikidata_Stage2Title" xml:space="preserve"><value>Etapa 2 — Identidad y datos principales</value></data>
-  <data name="Wikidata_Stage2Badge" xml:space="preserve"><value>Ingesta</value></data>
-  <data name="Wikidata_Stage2Description" xml:space="preserve"><value>Se ejecuta inmediatamente después de que los proveedores comerciales (Etapa 1) depositan los identificadores puente. Resuelve el identificador Q y obtiene las propiedades principales mediante la API de extensión de datos.</value></data>
-  <data name="Wikidata_PropertiesFetched" xml:space="preserve"><value>PROPIEDADES OBTENIDAS</value></data>
-  <data name="Wikidata_MatchingThresholds" xml:space="preserve"><value>UMBRALES DE COINCIDENCIA</value></data>
-  <data name="Wikidata_AutoAcceptThresholdLabel" xml:space="preserve"><value>Umbral de aceptación automática</value></data>
-  <data name="Wikidata_AutoAcceptThresholdDescription" xml:space="preserve"><value>Puntuación de reconciliación a partir de la cual se acepta automáticamente una coincidencia de QID. Las puntuaciones por debajo de este valor van a la cola de revisión.</value></data>
-  <data name="Wikidata_ReviewThresholdLabel" xml:space="preserve"><value>Umbral de revisión</value></data>
-  <data name="Wikidata_ReviewThresholdDescription" xml:space="preserve"><value>Puntuación mínima para que una coincidencia aparezca en la cola de revisión. Las coincidencias por debajo de este valor se descartan.</value></data>
-  <data name="Wikidata_PipelineOptions" xml:space="preserve"><value>OPCIONES DE FLUJO</value></data>
-  <data name="Wikidata_ContinueOnFailureLabel" xml:space="preserve"><value>Continuar el flujo si Wikidata falla</value></data>
-  <data name="Wikidata_MaxQidCandidatesLabel" xml:space="preserve"><value>Máximo de candidatos QID en revisión</value></data>
-  <data name="Wikidata_MaxQidCandidatesHelper" xml:space="preserve"><value>Cuántos candidatos de Wikidata se muestran en la cola de revisión para selección manual.</value></data>
-  <data name="Wikidata_WikipediaMaxCharsLabel" xml:space="preserve"><value>Máximo de caracteres de descripción de Wikipedia</value></data>
-  <data name="Wikidata_WikipediaMaxCharsHelper" xml:space="preserve"><value>Las descripciones largas se truncan a esta longitud antes de almacenarse como una reclamación de metadatos.</value></data>
-  <data name="Wikidata_Stage3Title" xml:space="preserve"><value>Etapa 3 — Datos del Universo</value></data>
-  <data name="Wikidata_Stage3Badge" xml:space="preserve"><value>En segundo plano</value></data>
-  <data name="Wikidata_Stage3Description" xml:space="preserve"><value>Se ejecuta en segundo plano después de que se completa la Etapa 2, o durante el barrido nocturno. Puebla el Explorador de crónicas con relaciones profundas del universo.</value></data>
-  <data name="Wikidata_DataGroups" xml:space="preserve"><value>GRUPOS DE DATOS</value></data>
-  <data name="Wikidata_PeopleGroupTitle" xml:space="preserve"><value>Personas</value></data>
-  <data name="Wikidata_PeopleGroupDescription" xml:space="preserve"><value>Fotografías, biografías, enlaces sociales, seudónimos</value></data>
-  <data name="Wikidata_UniverseLoreGroupTitle" xml:space="preserve"><value>Universo / Lore</value></data>
-  <data name="Wikidata_UniverseLoreGroupDescription" xml:space="preserve"><value>Personajes, lugares, organizaciones, relaciones</value></data>
-  <data name="Wikidata_CrossMediaGroupTitle" xml:space="preserve"><value>Vínculos entre medios</value></data>
-  <data name="Wikidata_CrossMediaGroupDescription" xml:space="preserve"><value>Adaptaciones, secuelas, universos compartidos</value></data>
-  <data name="Wikidata_SchedulingDepth" xml:space="preserve"><value>PROGRAMACIÓN Y PROFUNDIDAD</value></data>
-  <data name="Wikidata_BackgroundIdleDelayLabel" xml:space="preserve"><value>Retardo de inactividad en segundo plano (segundos)</value></data>
-  <data name="Wikidata_BackgroundIdleDelayHelper" xml:space="preserve"><value>Cuánto tiempo espera el Motor después de que la cola de ingesta se vacía antes de iniciar el procesamiento de la Etapa 3.</value></data>
-  <data name="Wikidata_NightlySweepCronLabel" xml:space="preserve"><value>Programa del barrido nocturno (cron)</value></data>
-  <data name="Wikidata_NightlySweepCronHelper" xml:space="preserve"><value>Expresión cron estándar de 5 campos en su zona horaria local. Predeterminado: 2 AM diario.</value></data>
-  <data name="Wikidata_RelationshipDepthLabel" xml:space="preserve"><value>Profundidad de relaciones</value></data>
-  <data name="Wikidata_RelationshipDepthDescription" xml:space="preserve"><value>Cuántos saltos sigue el Motor al construir el grafo del universo. Profundidad 1 = solo relaciones directas. Profundidad 3 = abuelos, subfacciones.</value></data>
-  <data name="Wikidata_LoreDeltaLabel" xml:space="preserve"><value>Verificar automáticamente el Delta de lore al abrir el Explorador de crónicas</value></data>
-  <data name="Wikidata_LoreDeltaDescription" xml:space="preserve"><value>Detecta cuando Wikidata ha actualizado información sobre su universo desde la última pasada de enriquecimiento.</value></data>
-  <data name="Wikidata_ResetToDefaults" xml:space="preserve"><value>Restablecer valores predeterminados</value></data>
-  <data name="Wikidata_Saving" xml:space="preserve"><value>Guardando…</value></data>
-  <data name="Wikidata_SaveConfiguration" xml:space="preserve"><value>Guardar configuración</value></data>
-
-  <!-- ── Home Page ──────────────────────────────────────────────────────── -->
-  <data name="Home_EmptyTitle" xml:space="preserve"><value>Su biblioteca está vacía</value></data>
-  <data name="Home_EmptySubtitle" xml:space="preserve"><value>Suelte archivos en su carpeta vigilada, o agregue libros de muestra a la biblioteca para comenzar.</value></data>
-  <data name="Home_Seeding" xml:space="preserve"><value>Agregando contenido de muestra...</value></data>
-  <data name="Home_SeedLibrary" xml:space="preserve"><value>Agregar contenido de muestra</value></data>
-  <data name="Home_SearchPlaceholder" xml:space="preserve"><value>Buscar en su biblioteca...</value></data>
-  <data name="Home_ContinueYourJourney" xml:space="preserve"><value>Continuar su recorrido</value></data>
-  <data name="Home_RecentlyAdded" xml:space="preserve"><value>Agregados recientemente</value></data>
-  <data name="Home_YouMightLike" xml:space="preserve"><value>Quizás le guste</value></data>
-  <data name="Home_ExploreYourLibrary" xml:space="preserve"><value>Explorar su biblioteca</value></data>
-  <data name="Home_SeedSuccess" xml:space="preserve"><value>Se están procesando 7 libros — aparecerán aquí en breve.</value></data>
-  <data name="Home_SeedFailure" xml:space="preserve"><value>No se pudo agregar el contenido de muestra. Asegúrese de que la carpeta vigilada esté configurada.</value></data>
-  <data name="Home_CarouselPrevious" xml:space="preserve"><value>Anterior</value></data>
-  <data name="Home_CarouselNext" xml:space="preserve"><value>Siguiente</value></data>
-
-  <!-- ── Settings Page ──────────────────────────────────────────────────── -->
-  <data name="Settings_Title" xml:space="preserve"><value>Configuración</value></data>
-  <data name="Settings_Subtitle" xml:space="preserve"><value>Administre su experiencia.</value></data>
-  <data name="Settings_Save" xml:space="preserve"><value>Guardar cambios</value></data>
-  <data name="Settings_Reset" xml:space="preserve"><value>Restablecer</value></data>
-  <data name="Settings_Saving" xml:space="preserve"><value>Guardando…</value></data>
-
-
-  <!-- ── Search Page ────────────────────────────────────────────────────── -->
-  <data name="Search_Title" xml:space="preserve"><value>Buscar en su biblioteca</value></data>
-  <data name="Search_Subtitle" xml:space="preserve"><value>Use la barra de búsqueda de arriba para encontrar libros, audiolibros y cómics.</value></data>
-  <data name="Search_AllTitles" xml:space="preserve"><value>Todos los títulos</value></data>
-
-  <!-- ── Provider Language Strategy ────────────────────────────────────── -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <!-- â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Nav_Home" xml:space="preserve">
+    <value>Inicio</value>
+  </data>
+  <data name="Nav_Search" xml:space="preserve">
+    <value>Buscar</value>
+  </data>
+  <data name="Nav_Books" xml:space="preserve">
+    <value>Libros</value>
+  </data>
+  <data name="Nav_Video" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="Nav_Music" xml:space="preserve">
+    <value>MÃºsica</value>
+  </data>
+  <data name="Nav_Comics" xml:space="preserve">
+    <value>CÃ³mics</value>
+  </data>
+  <data name="Nav_Settings" xml:space="preserve">
+    <value>ConfiguraciÃ³n</value>
+  </data>
+  <data name="Nav_Read" xml:space="preserve">
+    <value>Leer</value>
+  </data>
+  <data name="Nav_Watch" xml:space="preserve">
+    <value>Ver</value>
+  </data>
+  <data name="Nav_Listen" xml:space="preserve">
+    <value>Escuchar</value>
+  </data>
+  <data name="Nav_Collections" xml:space="preserve">
+    <value>Colecciones</value>
+  </data>
+  <data name="Nav_OpenNavigation" xml:space="preserve">
+    <value>Abrir navegaciÃ³n</value>
+  </data>
+  <data name="Nav_SearchPlaceholder" xml:space="preserve">
+    <value>Buscar en su bibliotecaâ€¦</value>
+  </data>
+  <data name="Nav_ReviewQueue" xml:space="preserve">
+    <value>Cola de revisiÃ³n</value>
+  </data>
+  <data name="Nav_CloseNavigation" xml:space="preserve">
+    <value>Cerrar menÃº de navegaciÃ³n</value>
+  </data>
+  <data name="Nav_Vault" xml:space="preserve">
+    <value>Biblioteca</value>
+  </data>
+  <data name="Nav_ReviewPending" xml:space="preserve">
+    <value>RevisiÃ³n ({0} pendientes)</value>
+  </data>
+  <data name="Nav_Universes" xml:space="preserve">
+    <value>Universos</value>
+  </data>
+  <data name="Nav_ExpandNavigation" xml:space="preserve">
+    <value>Expandir navegaciÃ³n</value>
+  </data>
+  <data name="Nav_CollapseNavigation" xml:space="preserve">
+    <value>Contraer navegaciÃ³n</value>
+  </data>
+  <data name="Nav_Expand" xml:space="preserve">
+    <value>Expandir</value>
+  </data>
+  <data name="Nav_Collapse" xml:space="preserve">
+    <value>Contraer</value>
+  </data>
+  <data name="TopBar_OpenProfileMenu" xml:space="preserve">
+    <value>Abrir menÃº de perfil</value>
+  </data>
+  <data name="TopBar_SignedInAs" xml:space="preserve">
+    <value>SesiÃ³n iniciada como</value>
+  </data>
+  <data name="TopBar_EngineStatus" xml:space="preserve">
+    <value>Estado del motor</value>
+  </data>
+  <data name="TopBar_EngineOnline" xml:space="preserve">
+    <value>Motor en lÃ­nea</value>
+  </data>
+  <data name="TopBar_EngineUnavailable" xml:space="preserve">
+    <value>Motor no disponible</value>
+  </data>
+  <data name="TopBar_LiveUpdatesConnected" xml:space="preserve">
+    <value>Actualizaciones en vivo conectadas</value>
+  </data>
+  <data name="TopBar_LiveUpdatesOffline" xml:space="preserve">
+    <value>Actualizaciones en vivo desconectadas</value>
+  </data>
+  <!-- â”€â”€ Command Palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="CmdPalette_Placeholder" xml:space="preserve">
+    <value>Buscar series, navegarâ€¦</value>
+  </data>
+  <data name="CmdPalette_Hint" xml:space="preserve">
+    <value>â†‘â†“ navegar Â· Enter seleccionar Â· Esc cerrar</value>
+  </data>
+  <data name="CmdPalette_Library" xml:space="preserve">
+    <value>Biblioteca</value>
+  </data>
+  <data name="CmdPalette_Settings" xml:space="preserve">
+    <value>ConfiguraciÃ³n</value>
+  </data>
+  <data name="CmdPalette_SettingsSubtitle" xml:space="preserve">
+    <value>Preferencias, biblioteca, claves API</value>
+  </data>
+  <!-- â”€â”€ Status Pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="StatusPill_Verified" xml:space="preserve">
+    <value>VERIFICADO</value>
+  </data>
+  <data name="StatusPill_Provisional" xml:space="preserve">
+    <value>PROVISIONAL</value>
+  </data>
+  <data name="StatusPill_NeedsReview" xml:space="preserve">
+    <value>REQUIERE REVISIÃ“N</value>
+  </data>
+  <data name="StatusPill_Failed" xml:space="preserve">
+    <value>FALLIDO</value>
+  </data>
+  <data name="StatusPill_Quarantined" xml:space="preserve">
+    <value>EN CUARENTENA</value>
+  </data>
+  <data name="StatusPill_Unknown" xml:space="preserve">
+    <value>DESCONOCIDO</value>
+  </data>
+  <data name="StatusPill_WaitingForProvider" xml:space="preserve">
+    <value>ESPERANDO AL PROVEEDOR</value>
+  </data>
+  <data name="StatusPill_RetailMatched" xml:space="preserve">
+    <value>ENRIQUECIENDO</value>
+  </data>
+  <data name="StatusPill_Unowned" xml:space="preserve">
+    <value>NO POSEÃDO</value>
+  </data>
+  <data name="StatusPill_DeletesIn" xml:space="preserve">
+    <value>Se elimina en {0}d</value>
+  </data>
+  <!-- â”€â”€ Profile Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Profile_AccountIdentity" xml:space="preserve">
+    <value>Identidad de la cuenta</value>
+  </data>
+  <data name="Profile_UploadAvatarComingSoon" xml:space="preserve">
+    <value>Subir avatar (prÃ³ximamente)</value>
+  </data>
+  <data name="Profile_DisplayName" xml:space="preserve">
+    <value>Nombre para mostrar</value>
+  </data>
+  <data name="Profile_Role" xml:space="preserve">
+    <value>Rol</value>
+  </data>
+  <data name="Profile_AvatarColour" xml:space="preserve">
+    <value>Color del avatar</value>
+  </data>
+  <data name="Profile_AvatarColourHint" xml:space="preserve">
+    <value>Elija un color para el cÃ­rculo de su avatar.</value>
+  </data>
+  <data name="Profile_DisplayAndLocale" xml:space="preserve">
+    <value>VisualizaciÃ³n y regiÃ³n</value>
+  </data>
+  <data name="Profile_DateFormat" xml:space="preserve">
+    <value>Formato de fecha</value>
+  </data>
+  <data name="Profile_SystemDefault" xml:space="preserve">
+    <value>Predeterminado del sistema</value>
+  </data>
+  <data name="Profile_TimeFormat" xml:space="preserve">
+    <value>Formato de hora</value>
+  </data>
+  <data name="Profile_TimeFormat12Hour" xml:space="preserve">
+    <value>12 horas (AM/PM)</value>
+  </data>
+  <data name="Profile_TimeFormat24Hour" xml:space="preserve">
+    <value>24 horas</value>
+  </data>
+  <data name="Profile_LanguagePreferences" xml:space="preserve">
+    <value>Preferencias de idioma</value>
+  </data>
+  <data name="Profile_LanguagePreferencesHint" xml:space="preserve">
+    <value>Controle quÃ© idiomas usa el Motor para las bÃºsquedas de metadatos y quÃ© idiomas de contenido se aceptan sin revisiÃ³n.</value>
+  </data>
+  <data name="Profile_DisplayLanguage" xml:space="preserve">
+    <value>Idioma de visualizaciÃ³n</value>
+  </data>
+  <data name="Profile_DisplayLanguageHelper" xml:space="preserve">
+    <value>Idioma para las etiquetas de la interfaz y la visualizaciÃ³n en Wikidata</value>
+  </data>
+  <data name="Profile_MetadataLanguage" xml:space="preserve">
+    <value>Idioma de metadatos</value>
+  </data>
+  <data name="Profile_MetadataLanguageHelper" xml:space="preserve">
+    <value>Idioma para las consultas a proveedores y bÃºsquedas en Wikidata</value>
+  </data>
+  <data name="Profile_AdditionalContentLanguages" xml:space="preserve">
+    <value>Idiomas de contenido adicionales</value>
+  </data>
+  <data name="Profile_AdditionalContentLanguagesHelper" xml:space="preserve">
+    <value>Idiomas en los que consume contenido â€” los archivos en estos idiomas no serÃ¡n marcados</value>
+  </data>
+  <data name="Profile_AcceptAnyLanguage" xml:space="preserve">
+    <value>Aceptar cualquier idioma</value>
+  </data>
+  <data name="Profile_AcceptAnyLanguageHint" xml:space="preserve">
+    <value>Cuando estÃ¡ habilitado, los archivos en cualquier idioma se procesan sin marcas de revisiÃ³n. Deshabilite esta opciÃ³n para restringir los idiomas aceptados a los idiomas de visualizaciÃ³n, metadatos y adicionales.</value>
+  </data>
+  <data name="Profile_Saving" xml:space="preserve">
+    <value>Guardando...</value>
+  </data>
+  <data name="Profile_SaveProfile" xml:space="preserve">
+    <value>Guardar perfil</value>
+  </data>
+  <data name="Profile_ProfileUpdated" xml:space="preserve">
+    <value>Perfil actualizado</value>
+  </data>
+  <data name="Profile_CouldNotSaveProfile" xml:space="preserve">
+    <value>No se pudo guardar el perfil â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <data name="Profile_CouldNotSaveLanguagePreferences" xml:space="preserve">
+    <value>No se pudieron guardar las preferencias de idioma</value>
+  </data>
+  <!-- â”€â”€ Models Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Models_AiModels" xml:space="preserve">
+    <value>Modelos de IA</value>
+  </data>
+  <data name="Models_AiModelsDescription" xml:space="preserve">
+    <value>Descargue, cargue y gestione los modelos de IA locales que impulsan las funciones inteligentes. Los modelos se ejecutan completamente en su mÃ¡quina â€” ningÃºn dato sale de ella.</value>
+  </data>
+  <data name="Models_HardwareProfile" xml:space="preserve">
+    <value>Perfil de hardware</value>
+  </data>
+  <data name="Models_ReRunBenchmark" xml:space="preserve">
+    <value>Volver a ejecutar prueba de rendimiento</value>
+  </data>
+  <data name="Models_PerformanceTier" xml:space="preserve">
+    <value>NIVEL DE RENDIMIENTO</value>
+  </data>
+  <data name="Models_ComputeBackend" xml:space="preserve">
+    <value>BACKEND DE CÃ“MPUTO</value>
+  </data>
+  <data name="Models_CpuOnly" xml:space="preserve">
+    <value>Solo CPU</value>
+  </data>
+  <data name="Models_InferenceSpeed" xml:space="preserve">
+    <value>VELOCIDAD DE INFERENCIA</value>
+  </data>
+  <data name="Models_AvailableMemory" xml:space="preserve">
+    <value>MEMORIA DISPONIBLE</value>
+  </data>
+  <data name="Models_LastBenchmark" xml:space="preserve">
+    <value>ÃšLTIMA PRUEBA DE RENDIMIENTO</value>
+  </data>
+  <data name="Models_NoBenchmarkData" xml:space="preserve">
+    <value>AÃºn no hay datos de prueba â€” el Motor ejecutarÃ¡ la prueba automÃ¡ticamente en el primer inicio.</value>
+  </data>
+  <data name="Models_ResourceMonitor" xml:space="preserve">
+    <value>Monitor de recursos</value>
+  </data>
+  <data name="Models_EngineRam" xml:space="preserve">
+    <value>RAM DEL MOTOR</value>
+  </data>
+  <data name="Models_FreeRam" xml:space="preserve">
+    <value>RAM LIBRE</value>
+  </data>
+  <data name="Models_CpuPressure" xml:space="preserve">
+    <value>CARGA DE CPU</value>
+  </data>
+  <data name="Models_Transcoding" xml:space="preserve">
+    <value>TRANSCODIFICACIÃ“N</value>
+  </data>
+  <data name="Models_TranscodingActive" xml:space="preserve">
+    <value>Activa</value>
+  </data>
+  <data name="Models_TranscodingIdle" xml:space="preserve">
+    <value>Inactiva</value>
+  </data>
+  <data name="Models_Status" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="Models_Ram" xml:space="preserve">
+    <value>RAM</value>
+  </data>
+  <data name="Models_Size" xml:space="preserve">
+    <value>TamaÃ±o</value>
+  </data>
+  <data name="Models_Downloading" xml:space="preserve">
+    <value>Descargandoâ€¦</value>
+  </data>
+  <data name="Models_Download" xml:space="preserve">
+    <value>Descargar</value>
+  </data>
+  <data name="Models_Load" xml:space="preserve">
+    <value>Cargar</value>
+  </data>
+  <data name="Models_Unload" xml:space="preserve">
+    <value>Descargar de memoria</value>
+  </data>
+  <data name="Models_DeleteModelFiles" xml:space="preserve">
+    <value>Eliminar archivos del modelo del disco</value>
+  </data>
+  <data name="Models_StorageAndRuntimeSettings" xml:space="preserve">
+    <value>Almacenamiento y configuraciÃ³n de ejecuciÃ³n</value>
+  </data>
+  <data name="Models_ModelsDirectory" xml:space="preserve">
+    <value>Directorio de modelos</value>
+  </data>
+  <data name="Models_IdleAutoUnloadTimeout" xml:space="preserve">
+    <value>Tiempo de descarga automÃ¡tica por inactividad (segundos)</value>
+  </data>
+  <data name="Models_IdleAutoUnloadTimeoutHelper" xml:space="preserve">
+    <value>Descarga el modelo de la RAM despuÃ©s de este nÃºmero de segundos de inactividad.</value>
+  </data>
+  <data name="Models_GpuAcceleration" xml:space="preserve">
+    <value>AceleraciÃ³n GPU (CUDA / Vulkan)</value>
+  </data>
+  <data name="Models_GpuActive" xml:space="preserve">
+    <value>Activa â€” usando</value>
+  </data>
+  <data name="Models_GpuOn" xml:space="preserve">
+    <value>en</value>
+  </data>
+  <data name="Models_GpuFallback" xml:space="preserve">
+    <value>GPU</value>
+  </data>
+  <data name="Models_CpuInferenceActive" xml:space="preserve">
+    <value>Inferencia por CPU activa. Una GPU dedicada (NVIDIA, AMD o Intel Arc) permite una inferencia 6-7Ã— mÃ¡s rÃ¡pida.</value>
+  </data>
+  <!-- â”€â”€ AI Features Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="AiFeatures_AiFeatures" xml:space="preserve">
+    <value>Funciones de IA</value>
+  </data>
+  <data name="AiFeatures_AiFeaturesDescription" xml:space="preserve">
+    <value>Habilite o deshabilite funciones individuales impulsadas por IA. Los cambios surten efecto de inmediato para operaciones futuras â€” no se reprocesan los archivos ya ingresados.</value>
+  </data>
+  <data name="AiFeatures_Ingestion" xml:space="preserve">
+    <value>Ingesta</value>
+  </data>
+  <data name="AiFeatures_Automatic" xml:space="preserve">
+    <value>AutomÃ¡tico</value>
+  </data>
+  <data name="AiFeatures_On" xml:space="preserve">
+    <value>activado</value>
+  </data>
+  <data name="AiFeatures_IngestionDescription" xml:space="preserve">
+    <value>Se ejecuta automÃ¡ticamente durante la ingesta de archivos. Cada archivo nuevo se beneficia de estas funciones sin ninguna acciÃ³n del usuario.</value>
+  </data>
+  <data name="AiFeatures_BuiltIn" xml:space="preserve">
+    <value>integrado</value>
+  </data>
+  <data name="AiFeatures_Requires" xml:space="preserve">
+    <value>Requiere</value>
+  </data>
+  <data name="AiFeatures_Tier" xml:space="preserve">
+    <value>nivel</value>
+  </data>
+  <data name="AiFeatures_Enrichment" xml:space="preserve">
+    <value>Enriquecimiento</value>
+  </data>
+  <data name="AiFeatures_Background" xml:space="preserve">
+    <value>En segundo plano</value>
+  </data>
+  <data name="AiFeatures_EnrichmentDescription" xml:space="preserve">
+    <value>Se ejecuta en segundo plano despuÃ©s de la ingesta, cuando el Motor estÃ¡ inactivo. Agrega profundidad y personalidad a su biblioteca sin bloquear otras tareas.</value>
+  </data>
+  <data name="AiFeatures_OnDemand" xml:space="preserve">
+    <value>Bajo demanda</value>
+  </data>
+  <data name="AiFeatures_UserTriggered" xml:space="preserve">
+    <value>Activado por el usuario</value>
+  </data>
+  <data name="AiFeatures_OnDemandDescription" xml:space="preserve">
+    <value>Se activa mediante acciones del usuario â€” una consulta de bÃºsqueda, un clic en un botÃ³n o al explorar la pÃ¡gina de detalle de una obra. Se esperan respuestas rÃ¡pidas.</value>
+  </data>
+  <data name="AiFeatures_Scheduled" xml:space="preserve">
+    <value>Programado</value>
+  </data>
+  <data name="AiFeatures_ScheduledDescription" xml:space="preserve">
+    <value>Se ejecuta segÃºn un programa cron nocturno o semanal. Estas funciones son de larga duraciÃ³n y estÃ¡n diseÃ±adas para ejecutarse mientras usted duerme.</value>
+  </data>
+  <!-- â”€â”€ AI Schedule Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Schedule_AiSchedule" xml:space="preserve">
+    <value>ProgramaciÃ³n de IA</value>
+  </data>
+  <data name="Schedule_AiScheduleDescription" xml:space="preserve">
+    <value>Configure cuÃ¡ndo se ejecuta cada tarea de IA en segundo plano. Los cambios surten efecto despuÃ©s de reiniciar el Motor.</value>
+  </data>
+  <data name="Schedule_EnrichmentProgress" xml:space="preserve">
+    <value>Progreso del enriquecimiento</value>
+  </data>
+  <data name="Schedule_ItemsEnriched" xml:space="preserve">
+    <value>elementos enriquecidos</value>
+  </data>
+  <data name="Schedule_ItemsPending" xml:space="preserve">
+    <value>elementos pendientes â€” procesados en lotes en segundo plano</value>
+  </data>
+  <data name="Schedule_AllItemsEnriched" xml:space="preserve">
+    <value>Todos los elementos enriquecidos</value>
+  </data>
+  <data name="Schedule_NoItemsInQueue" xml:space="preserve">
+    <value>AÃºn no hay elementos en la cola de enriquecimiento. Agregue contenido a su biblioteca para comenzar.</value>
+  </data>
+  <data name="Schedule_Job" xml:space="preserve">
+    <value>Tarea</value>
+  </data>
+  <data name="Schedule_CronExpression" xml:space="preserve">
+    <value>ExpresiÃ³n cron</value>
+  </data>
+  <data name="Schedule_Schedule" xml:space="preserve">
+    <value>ProgramaciÃ³n</value>
+  </data>
+  <data name="Schedule_LastRun" xml:space="preserve">
+    <value>Ãšltima ejecuciÃ³n</value>
+  </data>
+  <data name="Schedule_NextRun" xml:space="preserve">
+    <value>PrÃ³xima ejecuciÃ³n</value>
+  </data>
+  <data name="Schedule_Enabled" xml:space="preserve">
+    <value>Habilitado</value>
+  </data>
+  <data name="Schedule_ChangesRequireRestart" xml:space="preserve">
+    <value>Los cambios requieren reiniciar el Motor para surtir efecto.</value>
+  </data>
+  <data name="Schedule_SaveSchedules" xml:space="preserve">
+    <value>Guardar programaciones</value>
+  </data>
+  <!-- â”€â”€ Libraries Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Libraries_NotAvailable" xml:space="preserve">
+    <value>No disponible</value>
+  </data>
+  <data name="Libraries_NotAvailableDescription" xml:space="preserve">
+    <value>La configuraciÃ³n de carpetas de biblioteca no estÃ¡ disponible en este dispositivo. Use la interfaz web o mÃ³vil para configurar su biblioteca.</value>
+  </data>
+  <data name="Libraries_LibraryPaths" xml:space="preserve">
+    <value>Rutas de biblioteca</value>
+  </data>
+  <data name="Libraries_ViewOnly" xml:space="preserve">
+    <value>Solo lectura</value>
+  </data>
+  <data name="Libraries_LibraryFolder" xml:space="preserve">
+    <value>Carpeta de biblioteca</value>
+  </data>
+  <data name="Libraries_WatchFolder" xml:space="preserve">
+    <value>Carpeta vigilada</value>
+  </data>
+  <data name="Libraries_BrowseFolders" xml:space="preserve">
+    <value>Explorar carpetas</value>
+  </data>
+  <data name="Libraries_FileOrganization" xml:space="preserve">
+    <value>OrganizaciÃ³n de archivos</value>
+  </data>
+  <data name="Libraries_FileOrganizationHint" xml:space="preserve">
+    <value>Haga clic en un campo para aÃ±adirlo a la ruta. Use / para separar carpetas. El texto fuera de las llaves es literal.</value>
+  </data>
+  <data name="Libraries_ResetPathToDefault" xml:space="preserve">
+    <value>Restablecer ruta predeterminada</value>
+  </data>
+  <data name="Libraries_PreviewExampleOutput" xml:space="preserve">
+    <value>Vista previa â€” ejemplo de salida</value>
+  </data>
+  <data name="Libraries_Reset" xml:space="preserve">
+    <value>Restablecer</value>
+  </data>
+  <data name="Libraries_Saving" xml:space="preserve">
+    <value>Guardando...</value>
+  </data>
+  <data name="Libraries_SaveChanges" xml:space="preserve">
+    <value>Guardar cambios</value>
+  </data>
+  <data name="Libraries_CannotReachEngine" xml:space="preserve">
+    <value>No se puede comunicar con el Motor â€” asegÃºrese de que estÃ© en ejecuciÃ³n.</value>
+  </data>
+  <data name="Libraries_WatchFolderNotAccessible" xml:space="preserve">
+    <value>La carpeta vigilada no es accesible â€” compruebe la ruta y los permisos.</value>
+  </data>
+  <data name="Libraries_LibraryFolderNotAccessible" xml:space="preserve">
+    <value>La carpeta de biblioteca no es accesible â€” compruebe la ruta y los permisos.</value>
+  </data>
+  <data name="Libraries_InvalidTemplate" xml:space="preserve">
+    <value>Plantilla no vÃ¡lida â€” compruebe sus variables.</value>
+  </data>
+  <data name="Libraries_SettingsSaved" xml:space="preserve">
+    <value>ConfiguraciÃ³n guardada â€” ahora vigilando</value>
+  </data>
+  <data name="Libraries_CouldNotSaveFolderSettings" xml:space="preserve">
+    <value>No se pudo guardar la configuraciÃ³n de carpetas â€” asegÃºrese de que el Motor estÃ© en ejecuciÃ³n.</value>
+  </data>
+  <data name="Libraries_CouldNotSave" xml:space="preserve">
+    <value>No se pudo guardar:</value>
+  </data>
+  <data name="Libraries_Checking" xml:space="preserve">
+    <value>Verificando...</value>
+  </data>
+  <data name="Libraries_FolderNotFound" xml:space="preserve">
+    <value>Carpeta no encontrada</value>
+  </data>
+  <data name="Libraries_ReadWriteConfirmed" xml:space="preserve">
+    <value>Acceso de lectura y escritura confirmado</value>
+  </data>
+  <data name="Libraries_ReadOnly" xml:space="preserve">
+    <value>Solo lectura â€” no se puede escribir</value>
+  </data>
+  <data name="Libraries_AccessDenied" xml:space="preserve">
+    <value>Acceso denegado</value>
+  </data>
+  <data name="Libraries_ConfiguredLibraries" xml:space="preserve">
+    <value>Bibliotecas configuradas</value>
+  </data>
+  <data name="Libraries_ConfiguredLibrariesHint" xml:space="preserve">
+    <value>Bibliotecas definidas en config/libraries.json. Cada biblioteca puede abarcar mÃºltiples rutas de origen. Edite el archivo de configuraciÃ³n directamente para agregar o modificar bibliotecas.</value>
+  </data>
+  <!-- â”€â”€ Status Dashboard Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Status_StatusDashboard" xml:space="preserve">
+    <value>Panel de estado</value>
+  </data>
+  <data name="Status_StatusDashboardDescription" xml:space="preserve">
+    <value>Una vista en vivo del estado del Motor, el tamaÃ±o de la biblioteca y el uso del almacenamiento.</value>
+  </data>
+  <data name="Status_ServerUptime" xml:space="preserve">
+    <value>Tiempo en lÃ­nea del servidor</value>
+  </data>
+  <data name="Status_TotalAssets" xml:space="preserve">
+    <value>Total de recursos</value>
+  </data>
+  <data name="Status_Database" xml:space="preserve">
+    <value>Base de datos</value>
+  </data>
+  <data name="Status_GlobalCache" xml:space="preserve">
+    <value>CachÃ© global</value>
+  </data>
+  <data name="Status_CacheUsed" xml:space="preserve">
+    <value>62% usado</value>
+  </data>
+  <data name="Status_EngineInformation" xml:space="preserve">
+    <value>InformaciÃ³n del Motor</value>
+  </data>
+  <data name="Status_ServerName" xml:space="preserve">
+    <value>Nombre del servidor</value>
+  </data>
+  <data name="Status_EngineUrl" xml:space="preserve">
+    <value>URL del Motor</value>
+  </data>
+  <data name="Status_Version" xml:space="preserve">
+    <value>VersiÃ³n</value>
+  </data>
+  <data name="Status_AiModels" xml:space="preserve">
+    <value>Modelos de IA</value>
+  </data>
+  <!-- â”€â”€ Security Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Security_Security" xml:space="preserve">
+    <value>Seguridad</value>
+  </data>
+  <data name="Security_SecurityDescription" xml:space="preserve">
+    <value>Controle cÃ³mo el Motor acepta conexiones y aplica la autenticaciÃ³n.</value>
+  </data>
+  <data name="Security_ConnectionSettings" xml:space="preserve">
+    <value>ConfiguraciÃ³n de conexiÃ³n</value>
+  </data>
+  <data name="Security_LocalhostBypass" xml:space="preserve">
+    <value>OmisiÃ³n de localhost</value>
+  </data>
+  <data name="Security_LocalhostBypassDescription" xml:space="preserve">
+    <value>Permitir solicitudes no autenticadas desde esta mÃ¡quina</value>
+  </data>
+  <data name="Security_RequireHttps" xml:space="preserve">
+    <value>Requerir HTTPS para conexiones remotas</value>
+  </data>
+  <data name="Security_RequireHttpsDescription" xml:space="preserve">
+    <value>Rechazar solicitudes no HTTPS de otros dispositivos en la red</value>
+  </data>
+  <data name="Security_RateLimits" xml:space="preserve">
+    <value>LÃ­mites de velocidad</value>
+  </data>
+  <data name="Security_ReadOnly" xml:space="preserve">
+    <value>Solo lectura</value>
+  </data>
+  <data name="Security_KeyGeneration" xml:space="preserve">
+    <value>GeneraciÃ³n de claves</value>
+  </data>
+  <data name="Security_FileStreaming" xml:space="preserve">
+    <value>TransmisiÃ³n de archivos</value>
+  </data>
+  <data name="Security_GeneralApi" xml:space="preserve">
+    <value>API general</value>
+  </data>
+  <!-- â”€â”€ API Keys Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="ApiKeys_GuestApiKeys" xml:space="preserve">
+    <value>Claves API de invitado</value>
+  </data>
+  <data name="ApiKeys_GenerateKey" xml:space="preserve">
+    <value>Generar clave</value>
+  </data>
+  <data name="ApiKeys_GuestApiKeysDescription" xml:space="preserve">
+    <value>Cualquier aplicaciÃ³n que se conecte al Motor â€” Radarr, Sonarr, una aplicaciÃ³n mÃ³vil â€” debe presentar una clave API de invitado vÃ¡lida. Cada clave tiene una etiqueta y puede revocarse individualmente.</value>
+  </data>
+  <data name="ApiKeys_NoKeysIssued" xml:space="preserve">
+    <value>AÃºn no se han emitido claves API de invitado. Genere una para permitir conexiones externas.</value>
+  </data>
+  <data name="ApiKeys_Label" xml:space="preserve">
+    <value>Etiqueta</value>
+  </data>
+  <data name="ApiKeys_Key" xml:space="preserve">
+    <value>Clave</value>
+  </data>
+  <data name="ApiKeys_Created" xml:space="preserve">
+    <value>Creada</value>
+  </data>
+  <data name="ApiKeys_Actions" xml:space="preserve">
+    <value>Acciones</value>
+  </data>
+  <data name="ApiKeys_ToggleKeyVisibility" xml:space="preserve">
+    <value>Alternar visibilidad del prefijo de clave</value>
+  </data>
+  <data name="ApiKeys_RevokeThisKey" xml:space="preserve">
+    <value>Revocar esta clave</value>
+  </data>
+  <data name="ApiKeys_RevokeAllKeys" xml:space="preserve">
+    <value>Revocar todas las claves</value>
+  </data>
+  <data name="ApiKeys_GenerateGuestApiKey" xml:space="preserve">
+    <value>Generar clave API de invitado</value>
+  </data>
+  <data name="ApiKeys_LabelPlaceholder" xml:space="preserve">
+    <value>p. ej. IntegraciÃ³n con Radarr, AplicaciÃ³n mÃ³vil</value>
+  </data>
+  <data name="ApiKeys_CopyKeyNow" xml:space="preserve">
+    <value>Copie esta clave ahora â€” no volverÃ¡ a mostrarse.</value>
+  </data>
+  <data name="ApiKeys_CopyKeyToClipboard" xml:space="preserve">
+    <value>Copiar clave al portapapeles</value>
+  </data>
+  <data name="ApiKeys_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="ApiKeys_Generating" xml:space="preserve">
+    <value>Generando...</value>
+  </data>
+  <data name="ApiKeys_Generate" xml:space="preserve">
+    <value>Generar</value>
+  </data>
+  <data name="ApiKeys_IveSavedTheKey" xml:space="preserve">
+    <value>He guardado la clave</value>
+  </data>
+  <data name="ApiKeys_RevokeAllGuestApiKeys" xml:space="preserve">
+    <value>Revocar todas las claves API de invitado</value>
+  </data>
+  <data name="ApiKeys_All" xml:space="preserve">
+    <value>todas las</value>
+  </data>
+  <data name="ApiKeys_RevokeAllConfirmation1" xml:space="preserve">
+    <value>Esto revocarÃ¡</value>
+  </data>
+  <data name="ApiKeys_RevokeAllConfirmation2" xml:space="preserve">
+    <value>claves API de invitado de inmediato. Cualquier aplicaciÃ³n actualmente conectada al Motor perderÃ¡ el acceso.</value>
+  </data>
+  <data name="ApiKeys_ActionCannotBeUndone" xml:space="preserve">
+    <value>Esta acciÃ³n no se puede deshacer.</value>
+  </data>
+  <data name="ApiKeys_Revoking" xml:space="preserve">
+    <value>Revocando...</value>
+  </data>
+  <data name="ApiKeys_RevokeAll" xml:space="preserve">
+    <value>Revocar todas</value>
+  </data>
+  <data name="ApiKeys_CouldNotGenerateKey" xml:space="preserve">
+    <value>No se pudo generar la clave â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <data name="ApiKeys_KeyCopiedToClipboard" xml:space="preserve">
+    <value>Clave copiada al portapapeles</value>
+  </data>
+  <data name="ApiKeys_KeyRevoked" xml:space="preserve">
+    <value>Clave revocada</value>
+  </data>
+  <data name="ApiKeys_RevokeFailed" xml:space="preserve">
+    <value>Error al revocar â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <data name="ApiKeys_AllKeysRevoked" xml:space="preserve">
+    <value>Todas las</value>
+  </data>
+  <data name="ApiKeys_Keys" xml:space="preserve">
+    <value>claves revocadas</value>
+  </data>
+  <data name="ApiKeys_CouldNotRevokeKeys" xml:space="preserve">
+    <value>No se pudieron revocar las claves â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <!-- â”€â”€ Users Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Users_PageTitle" xml:space="preserve">
+    <value>Usuarios y perfiles</value>
+  </data>
+  <data name="Users_PageDescription" xml:space="preserve">
+    <value>Gestione los perfiles con acceso a esta instancia de Tuvima Library. El perfil inicial (Propietario) no se puede eliminar.</value>
+  </data>
+  <data name="Users_NewProfile" xml:space="preserve">
+    <value>Nuevo perfil</value>
+  </data>
+  <data name="Users_NoProfiles" xml:space="preserve">
+    <value>No se encontraron perfiles. Cree uno para comenzar.</value>
+  </data>
+  <data name="Users_ColAvatar" xml:space="preserve">
+    <value>Avatar</value>
+  </data>
+  <data name="Users_ColName" xml:space="preserve">
+    <value>Nombre</value>
+  </data>
+  <data name="Users_ColRole" xml:space="preserve">
+    <value>Rol</value>
+  </data>
+  <data name="Users_ColLastActive" xml:space="preserve">
+    <value>Ãšltimo acceso</value>
+  </data>
+  <data name="Users_ColStatus" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="Users_ColActions" xml:space="preserve">
+    <value>Acciones</value>
+  </data>
+  <data name="Users_DeleteProfileTooltip" xml:space="preserve">
+    <value>Eliminar perfil</value>
+  </data>
+  <data name="Users_CreateProfileTitle" xml:space="preserve">
+    <value>Crear perfil</value>
+  </data>
+  <data name="Users_DisplayNameLabel" xml:space="preserve">
+    <value>Nombre para mostrar</value>
+  </data>
+  <data name="Users_DisplayNamePlaceholder" xml:space="preserve">
+    <value>p. ej. Alice, Bob</value>
+  </data>
+  <data name="Users_RoleLabel" xml:space="preserve">
+    <value>Rol</value>
+  </data>
+  <data name="Users_RoleAdministrator" xml:space="preserve">
+    <value>Administrador</value>
+  </data>
+  <data name="Users_RoleCurator" xml:space="preserve">
+    <value>Curador</value>
+  </data>
+  <data name="Users_RoleConsumer" xml:space="preserve">
+    <value>Consumidor</value>
+  </data>
+  <data name="Users_AvatarColour" xml:space="preserve">
+    <value>Color del avatar</value>
+  </data>
+  <data name="Users_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Users_Creating" xml:space="preserve">
+    <value>Creando...</value>
+  </data>
+  <data name="Users_Create" xml:space="preserve">
+    <value>Crear</value>
+  </data>
+  <data name="Users_CreateError" xml:space="preserve">
+    <value>No se pudo crear el perfil â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <data name="Users_DeleteError" xml:space="preserve">
+    <value>No se pudo eliminar el perfil â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <!-- â”€â”€ Activity Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Activity_PageTitle" xml:space="preserve">
+    <value>Registro de actividad</value>
+  </data>
+  <data name="Activity_PageDescription" xml:space="preserve">
+    <value>Un registro completo de cada acciÃ³n significativa realizada por el Motor â€” ingesta, enriquecimiento, resoluciones de revisiÃ³n y mantenimiento programado.</value>
+  </data>
+  <data name="Activity_RetentionPolicy" xml:space="preserve">
+    <value>PolÃ­tica de retenciÃ³n</value>
+  </data>
+  <data name="Activity_KeepEntriesFor" xml:space="preserve">
+    <value>Conservar entradas durante</value>
+  </data>
+  <data name="Activity_Days" xml:space="preserve">
+    <value>dÃ­as</value>
+  </data>
+  <data name="Activity_SevenDays" xml:space="preserve">
+    <value>7 dÃ­as</value>
+  </data>
+  <data name="Activity_OneYear" xml:space="preserve">
+    <value>1 aÃ±o</value>
+  </data>
+  <data name="Activity_Pruning" xml:space="preserve">
+    <value>Depurando...</value>
+  </data>
+  <data name="Activity_PruneNow" xml:space="preserve">
+    <value>Depurar ahora</value>
+  </data>
+  <data name="Activity_Filter" xml:space="preserve">
+    <value>Filtrar</value>
+  </data>
+  <data name="Activity_Clear" xml:space="preserve">
+    <value>Limpiar</value>
+  </data>
+  <data name="Activity_NoEntries" xml:space="preserve">
+    <value>Ninguna entrada de actividad coincide con el filtro actual.</value>
+  </data>
+  <data name="Activity_LoadMore" xml:space="preserve">
+    <value>Cargar mÃ¡s</value>
+  </data>
+  <data name="Activity_Remaining" xml:space="preserve">
+    <value>restantes</value>
+  </data>
+  <data name="Activity_PruneError" xml:space="preserve">
+    <value>Error al depurar â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <!-- â”€â”€ Maintenance Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Maintenance_PageTitle" xml:space="preserve">
+    <value>Mantenimiento</value>
+  </data>
+  <data name="Maintenance_PageDescription" xml:space="preserve">
+    <value>Herramientas de limpieza para la integridad de la biblioteca y la actualizaciÃ³n periÃ³dica de metadatos.</value>
+  </data>
+  <data name="Maintenance_ReconciliationTitle" xml:space="preserve">
+    <value>ReconciliaciÃ³n de biblioteca</value>
+  </data>
+  <data name="Maintenance_ReconciliationDescription" xml:space="preserve">
+    <value>Analice todos los recursos de la biblioteca y verifique que sus archivos aÃºn existan en el disco. Los archivos faltantes se limpian automÃ¡ticamente â€” se eliminan las portadas huÃ©rfanas, archivos XML secundarios y carpetas vacÃ­as.</value>
+  </data>
+  <data name="Maintenance_Scanning" xml:space="preserve">
+    <value>Analizando...</value>
+  </data>
+  <data name="Maintenance_ReconcileNow" xml:space="preserve">
+    <value>Reconciliar ahora</value>
+  </data>
+  <data name="Maintenance_UniverseEnrichmentTitle" xml:space="preserve">
+    <value>Enriquecimiento de Universo</value>
+  </data>
+  <data name="Maintenance_UniverseEnrichmentDescription" xml:space="preserve">
+    <value>Ejecute el enriquecimiento profundo para todos los elementos pendientes â€” relaciones entre personajes, conexiones de franquicia y vÃ­nculos narrativos entre distintos medios.</value>
+  </data>
+  <data name="Maintenance_Running" xml:space="preserve">
+    <value>Ejecutando...</value>
+  </data>
+  <data name="Maintenance_RunPass2Now" xml:space="preserve">
+    <value>Ejecutar Pasada 2 ahora</value>
+  </data>
+  <data name="Maintenance_Pending" xml:space="preserve">
+    <value>pendientes</value>
+  </data>
+  <data name="Maintenance_LibraryCrawlTitle" xml:space="preserve">
+    <value>ExploraciÃ³n de biblioteca</value>
+  </data>
+  <data name="Maintenance_LibraryCrawlDescription" xml:space="preserve">
+    <value>Analice la raÃ­z de la biblioteca en busca de archivos secundarios library.xml y reconstruya la base de datos desde el sistema de archivos. Disponible en una actualizaciÃ³n futura.</value>
+  </data>
+  <data name="Maintenance_WeeklySyncTitle" xml:space="preserve">
+    <value>SincronizaciÃ³n semanal</value>
+  </data>
+  <data name="Maintenance_WeeklySyncDescription" xml:space="preserve">
+    <value>ActualizaciÃ³n periÃ³dica de metadatos con verificaciÃ³n de hash de imÃ¡genes. Disponible en una actualizaciÃ³n futura.</value>
+  </data>
+  <data name="Maintenance_ReconciliationComplete" xml:space="preserve">
+    <value>ReconciliaciÃ³n completa â€” todos los archivos presentes</value>
+  </data>
+  <data name="Maintenance_ReconciliationError" xml:space="preserve">
+    <value>Error en la reconciliaciÃ³n â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <data name="Maintenance_Pass2Error" xml:space="preserve">
+    <value>No se pudo iniciar la Pasada 2 â€” Â¿estÃ¡ el Motor en ejecuciÃ³n?</value>
+  </data>
+  <!-- â”€â”€ Setup Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Setup_PageTitle" xml:space="preserve">
+    <value>Asistente de configuraciÃ³n</value>
+  </data>
+  <data name="Setup_PageDescription" xml:space="preserve">
+    <value>Revise los pasos de configuraciÃ³n inicial o consulte su configuraciÃ³n actual del servidor de un vistazo.</value>
+  </data>
+  <data name="Setup_RerunTitle" xml:space="preserve">
+    <value>Volver a ejecutar el asistente de configuraciÃ³n</value>
+  </data>
+  <data name="Setup_RerunDescription" xml:space="preserve">
+    <value>Vuelva a recorrer la selecciÃ³n de rutas de biblioteca, la configuraciÃ³n de proveedores y la descarga de modelos de IA. Los datos de su biblioteca existente nunca se modifican.</value>
+  </data>
+  <data name="Setup_RunWizard" xml:space="preserve">
+    <value>Ejecutar asistente</value>
+  </data>
+  <data name="Setup_CurrentConfiguration" xml:space="preserve">
+    <value>ConfiguraciÃ³n actual</value>
+  </data>
+  <data name="Setup_ServerName" xml:space="preserve">
+    <value>Nombre del servidor</value>
+  </data>
+  <data name="Setup_Language" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="Setup_LibraryRoot" xml:space="preserve">
+    <value>RaÃ­z de la biblioteca</value>
+  </data>
+  <data name="Setup_ConfiguredProviders" xml:space="preserve">
+    <value>Proveedores configurados</value>
+  </data>
+  <data name="Setup_AiModels" xml:space="preserve">
+    <value>Modelos de IA</value>
+  </data>
+  <data name="Setup_NotDownloaded" xml:space="preserve">
+    <value>No descargados</value>
+  </data>
+  <data name="Setup_Reconfigure" xml:space="preserve">
+    <value>Reconfigurar</value>
+  </data>
+  <!-- â”€â”€ Connectivity Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Connectivity_Title" xml:space="preserve">
+    <value>Conectividad</value>
+  </data>
+  <data name="Connectivity_ComingSoon" xml:space="preserve">
+    <value>FunciÃ³n en desarrollo â€” La configuraciÃ³n de red y sincronizaciÃ³n aparecerÃ¡ aquÃ­ en una actualizaciÃ³n futura.</value>
+  </data>
+  <!-- â”€â”€ Server General Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="ServerGeneral_ServerIdentityTitle" xml:space="preserve">
+    <value>Identidad del servidor</value>
+  </data>
+  <data name="ServerGeneral_ServerIdentityDescription" xml:space="preserve">
+    <value>El nombre del servidor aparece en el descubrimiento de red (mDNS/Bonjour) para que otras aplicaciones en su red domÃ©stica puedan encontrar su biblioteca por nombre.</value>
+  </data>
+  <data name="ServerGeneral_ServerNameLabel" xml:space="preserve">
+    <value>Nombre del servidor</value>
+  </data>
+  <data name="ServerGeneral_ServerNameHelper" xml:space="preserve">
+    <value>Visible para aplicaciones multimedia en su red local</value>
+  </data>
+  <data name="ServerGeneral_RegionalSettingsTitle" xml:space="preserve">
+    <value>ConfiguraciÃ³n regional</value>
+  </data>
+  <data name="ServerGeneral_RegionalSettingsDescription" xml:space="preserve">
+    <value>Estas configuraciones afectan las descargas de metadatos (descripciones de libros, gÃ©neros, etiquetas de Wikidata) y cÃ³mo se muestran las fechas y horas en todo el Panel.</value>
+  </data>
+  <data name="ServerGeneral_LanguageLabel" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="ServerGeneral_LanguageHelper" xml:space="preserve">
+    <value>Usado para las consultas a proveedores de metadatos</value>
+  </data>
+  <data name="ServerGeneral_CountryLabel" xml:space="preserve">
+    <value>PaÃ­s</value>
+  </data>
+  <data name="ServerGeneral_CountryHelper" xml:space="preserve">
+    <value>Usado para bÃºsquedas en tiendas regionales (p. ej. Apple API)</value>
+  </data>
+  <data name="ServerGeneral_DateFormatLabel" xml:space="preserve">
+    <value>Formato de fecha</value>
+  </data>
+  <data name="ServerGeneral_DateFormatSystem" xml:space="preserve">
+    <value>Predeterminado del sistema</value>
+  </data>
+  <data name="ServerGeneral_DateFormatShort" xml:space="preserve">
+    <value>Corto</value>
+  </data>
+  <data name="ServerGeneral_DateFormatLong" xml:space="preserve">
+    <value>Largo</value>
+  </data>
+  <data name="ServerGeneral_DateFormatIso" xml:space="preserve">
+    <value>ISO 8601</value>
+  </data>
+  <data name="ServerGeneral_TimeFormatLabel" xml:space="preserve">
+    <value>Formato de hora</value>
+  </data>
+  <data name="ServerGeneral_TimeFormatSystem" xml:space="preserve">
+    <value>Predeterminado del sistema</value>
+  </data>
+  <data name="ServerGeneral_TimeFormat12h" xml:space="preserve">
+    <value>12 horas</value>
+  </data>
+  <data name="ServerGeneral_TimeFormat24h" xml:space="preserve">
+    <value>24 horas</value>
+  </data>
+  <data name="ServerGeneral_LanguageChangeNotice" xml:space="preserve">
+    <value>Cambiar el idioma recargarÃ¡ la pÃ¡gina para aplicar la nueva configuraciÃ³n regional de la interfaz.</value>
+  </data>
+  <data name="ServerGeneral_Reset" xml:space="preserve">
+    <value>Restablecer</value>
+  </data>
+  <data name="ServerGeneral_Saving" xml:space="preserve">
+    <value>Guardandoâ€¦</value>
+  </data>
+  <data name="ServerGeneral_SaveChanges" xml:space="preserve">
+    <value>Guardar cambios</value>
+  </data>
+  <data name="ServerGeneral_ServerNameEmpty" xml:space="preserve">
+    <value>El nombre del servidor no puede estar vacÃ­o.</value>
+  </data>
+  <data name="ServerGeneral_SavedSuccess" xml:space="preserve">
+    <value>ConfiguraciÃ³n guardada.</value>
+  </data>
+  <data name="ServerGeneral_SaveError" xml:space="preserve">
+    <value>No se pudo guardar la configuraciÃ³n. Verifique la conexiÃ³n con el Motor.</value>
+  </data>
+  <!-- â”€â”€ Vibe Vocabulary Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Vibes_PageTitle" xml:space="preserve">
+    <value>Vocabulario de vibraciones</value>
+  </data>
+  <data name="Vibes_PageDescription" xml:space="preserve">
+    <value>Etiquetas de estado de Ã¡nimo y atmÃ³sfera que la IA utiliza al enriquecer su biblioteca.</value>
+  </data>
+  <data name="Vibes_InfoAlert" xml:space="preserve">
+    <value>La IA puede generar etiquetas fuera de esta lista, pero prefiere estas. Edite libremente â€” los cambios surten efecto en la prÃ³xima ejecuciÃ³n de enriquecimiento.</value>
+  </data>
+  <data name="Vibes_TagSingular" xml:space="preserve">
+    <value>etiqueta</value>
+  </data>
+  <data name="Vibes_TagPlural" xml:space="preserve">
+    <value>etiquetas</value>
+  </data>
+  <data name="Vibes_NoTags" xml:space="preserve">
+    <value>Sin etiquetas â€” agregue una a continuaciÃ³n.</value>
+  </data>
+  <data name="Vibes_NewTagPlaceholder" xml:space="preserve">
+    <value>Nueva etiquetaâ€¦</value>
+  </data>
+  <data name="Vibes_Add" xml:space="preserve">
+    <value>Agregar</value>
+  </data>
+  <data name="Vibes_ResetToDefaults" xml:space="preserve">
+    <value>Restablecer valores predeterminados</value>
+  </data>
+  <!-- â”€â”€ Wikidata Configuration Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Wikidata_PageTitle" xml:space="preserve">
+    <value>ConfiguraciÃ³n de Wikidata</value>
+  </data>
+  <data name="Wikidata_PageDescription" xml:space="preserve">
+    <value>Wikidata es la Ãºnica autoridad de identidad para su biblioteca. Cada libro, pelÃ­cula, persona y franquicia se identifica mediante un identificador Q de Wikidata. La Etapa 2 resuelve la identidad durante la ingesta; la Etapa 3 enriquece el universo de su biblioteca en segundo plano.</value>
+  </data>
+  <data name="Wikidata_Stage2Title" xml:space="preserve">
+    <value>Etapa 2 â€” Identidad y datos principales</value>
+  </data>
+  <data name="Wikidata_Stage2Badge" xml:space="preserve">
+    <value>Ingesta</value>
+  </data>
+  <data name="Wikidata_Stage2Description" xml:space="preserve">
+    <value>Se ejecuta inmediatamente despuÃ©s de que los proveedores comerciales (Etapa 1) depositan los identificadores puente. Resuelve el identificador Q y obtiene las propiedades principales mediante la API de extensiÃ³n de datos.</value>
+  </data>
+  <data name="Wikidata_PropertiesFetched" xml:space="preserve">
+    <value>PROPIEDADES OBTENIDAS</value>
+  </data>
+  <data name="Wikidata_MatchingThresholds" xml:space="preserve">
+    <value>UMBRALES DE COINCIDENCIA</value>
+  </data>
+  <data name="Wikidata_AutoAcceptThresholdLabel" xml:space="preserve">
+    <value>Umbral de aceptaciÃ³n automÃ¡tica</value>
+  </data>
+  <data name="Wikidata_AutoAcceptThresholdDescription" xml:space="preserve">
+    <value>PuntuaciÃ³n de reconciliaciÃ³n a partir de la cual se acepta automÃ¡ticamente una coincidencia de QID. Las puntuaciones por debajo de este valor van a la cola de revisiÃ³n.</value>
+  </data>
+  <data name="Wikidata_ReviewThresholdLabel" xml:space="preserve">
+    <value>Umbral de revisiÃ³n</value>
+  </data>
+  <data name="Wikidata_ReviewThresholdDescription" xml:space="preserve">
+    <value>PuntuaciÃ³n mÃ­nima para que una coincidencia aparezca en la cola de revisiÃ³n. Las coincidencias por debajo de este valor se descartan.</value>
+  </data>
+  <data name="Wikidata_PipelineOptions" xml:space="preserve">
+    <value>OPCIONES DE FLUJO</value>
+  </data>
+  <data name="Wikidata_ContinueOnFailureLabel" xml:space="preserve">
+    <value>Continuar el flujo si Wikidata falla</value>
+  </data>
+  <data name="Wikidata_MaxQidCandidatesLabel" xml:space="preserve">
+    <value>MÃ¡ximo de candidatos QID en revisiÃ³n</value>
+  </data>
+  <data name="Wikidata_MaxQidCandidatesHelper" xml:space="preserve">
+    <value>CuÃ¡ntos candidatos de Wikidata se muestran en la cola de revisiÃ³n para selecciÃ³n manual.</value>
+  </data>
+  <data name="Wikidata_WikipediaMaxCharsLabel" xml:space="preserve">
+    <value>MÃ¡ximo de caracteres de descripciÃ³n de Wikipedia</value>
+  </data>
+  <data name="Wikidata_WikipediaMaxCharsHelper" xml:space="preserve">
+    <value>Las descripciones largas se truncan a esta longitud antes de almacenarse como una reclamaciÃ³n de metadatos.</value>
+  </data>
+  <data name="Wikidata_Stage3Title" xml:space="preserve">
+    <value>Etapa 3 â€” Datos del Universo</value>
+  </data>
+  <data name="Wikidata_Stage3Badge" xml:space="preserve">
+    <value>En segundo plano</value>
+  </data>
+  <data name="Wikidata_Stage3Description" xml:space="preserve">
+    <value>Se ejecuta en segundo plano despuÃ©s de que se completa la Etapa 2, o durante el barrido nocturno. Puebla el Explorador de crÃ³nicas con relaciones profundas del universo.</value>
+  </data>
+  <data name="Wikidata_DataGroups" xml:space="preserve">
+    <value>GRUPOS DE DATOS</value>
+  </data>
+  <data name="Wikidata_PeopleGroupTitle" xml:space="preserve">
+    <value>Personas</value>
+  </data>
+  <data name="Wikidata_PeopleGroupDescription" xml:space="preserve">
+    <value>FotografÃ­as, biografÃ­as, enlaces sociales, seudÃ³nimos</value>
+  </data>
+  <data name="Wikidata_UniverseLoreGroupTitle" xml:space="preserve">
+    <value>Universo / Lore</value>
+  </data>
+  <data name="Wikidata_UniverseLoreGroupDescription" xml:space="preserve">
+    <value>Personajes, lugares, organizaciones, relaciones</value>
+  </data>
+  <data name="Wikidata_CrossMediaGroupTitle" xml:space="preserve">
+    <value>VÃ­nculos entre medios</value>
+  </data>
+  <data name="Wikidata_CrossMediaGroupDescription" xml:space="preserve">
+    <value>Adaptaciones, secuelas, universos compartidos</value>
+  </data>
+  <data name="Wikidata_SchedulingDepth" xml:space="preserve">
+    <value>PROGRAMACIÃ“N Y PROFUNDIDAD</value>
+  </data>
+  <data name="Wikidata_BackgroundIdleDelayLabel" xml:space="preserve">
+    <value>Retardo de inactividad en segundo plano (segundos)</value>
+  </data>
+  <data name="Wikidata_BackgroundIdleDelayHelper" xml:space="preserve">
+    <value>CuÃ¡nto tiempo espera el Motor despuÃ©s de que la cola de ingesta se vacÃ­a antes de iniciar el procesamiento de la Etapa 3.</value>
+  </data>
+  <data name="Wikidata_NightlySweepCronLabel" xml:space="preserve">
+    <value>Programa del barrido nocturno (cron)</value>
+  </data>
+  <data name="Wikidata_NightlySweepCronHelper" xml:space="preserve">
+    <value>ExpresiÃ³n cron estÃ¡ndar de 5 campos en su zona horaria local. Predeterminado: 2 AM diario.</value>
+  </data>
+  <data name="Wikidata_RelationshipDepthLabel" xml:space="preserve">
+    <value>Profundidad de relaciones</value>
+  </data>
+  <data name="Wikidata_RelationshipDepthDescription" xml:space="preserve">
+    <value>CuÃ¡ntos saltos sigue el Motor al construir el grafo del universo. Profundidad 1 = solo relaciones directas. Profundidad 3 = abuelos, subfacciones.</value>
+  </data>
+  <data name="Wikidata_LoreDeltaLabel" xml:space="preserve">
+    <value>Verificar automÃ¡ticamente el Delta de lore al abrir el Explorador de crÃ³nicas</value>
+  </data>
+  <data name="Wikidata_LoreDeltaDescription" xml:space="preserve">
+    <value>Detecta cuando Wikidata ha actualizado informaciÃ³n sobre su universo desde la Ãºltima pasada de enriquecimiento.</value>
+  </data>
+  <data name="Wikidata_ResetToDefaults" xml:space="preserve">
+    <value>Restablecer valores predeterminados</value>
+  </data>
+  <data name="Wikidata_Saving" xml:space="preserve">
+    <value>Guardandoâ€¦</value>
+  </data>
+  <data name="Wikidata_SaveConfiguration" xml:space="preserve">
+    <value>Guardar configuraciÃ³n</value>
+  </data>
+  <!-- â”€â”€ Home Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Home_EmptyTitle" xml:space="preserve">
+    <value>Su biblioteca estÃ¡ vacÃ­a</value>
+  </data>
+  <data name="Home_EmptySubtitle" xml:space="preserve">
+    <value>Suelte archivos en su carpeta vigilada, o agregue libros de muestra a la biblioteca para comenzar.</value>
+  </data>
+  <data name="Home_Seeding" xml:space="preserve">
+    <value>Agregando contenido de muestra...</value>
+  </data>
+  <data name="Home_SeedLibrary" xml:space="preserve">
+    <value>Agregar contenido de muestra</value>
+  </data>
+  <data name="Home_SearchPlaceholder" xml:space="preserve">
+    <value>Buscar en su biblioteca...</value>
+  </data>
+  <data name="Home_ContinueYourJourney" xml:space="preserve">
+    <value>Continuar su recorrido</value>
+  </data>
+  <data name="Home_RecentlyAdded" xml:space="preserve">
+    <value>Agregados recientemente</value>
+  </data>
+  <data name="Home_YouMightLike" xml:space="preserve">
+    <value>QuizÃ¡s le guste</value>
+  </data>
+  <data name="Home_ExploreYourLibrary" xml:space="preserve">
+    <value>Explorar su biblioteca</value>
+  </data>
+  <data name="Home_SeedSuccess" xml:space="preserve">
+    <value>Se estÃ¡n procesando 7 libros â€” aparecerÃ¡n aquÃ­ en breve.</value>
+  </data>
+  <data name="Home_SeedFailure" xml:space="preserve">
+    <value>No se pudo agregar el contenido de muestra. AsegÃºrese de que la carpeta vigilada estÃ© configurada.</value>
+  </data>
+  <data name="Home_CarouselPrevious" xml:space="preserve">
+    <value>Anterior</value>
+  </data>
+  <data name="Home_CarouselNext" xml:space="preserve">
+    <value>Siguiente</value>
+  </data>
+  <!-- â”€â”€ Settings Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Settings_Title" xml:space="preserve">
+    <value>ConfiguraciÃ³n</value>
+  </data>
+  <data name="Settings_Subtitle" xml:space="preserve">
+    <value>Administre su experiencia.</value>
+  </data>
+  <data name="Settings_Save" xml:space="preserve">
+    <value>Guardar cambios</value>
+  </data>
+  <data name="Settings_Reset" xml:space="preserve">
+    <value>Restablecer</value>
+  </data>
+  <data name="Settings_Saving" xml:space="preserve">
+    <value>Guardandoâ€¦</value>
+  </data>
+  <!-- â”€â”€ Search Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Search_Title" xml:space="preserve">
+    <value>Buscar en su biblioteca</value>
+  </data>
+  <data name="Search_Subtitle" xml:space="preserve">
+    <value>Use la barra de bÃºsqueda de arriba para encontrar libros, audiolibros y cÃ³mics.</value>
+  </data>
+  <data name="Search_AllTitles" xml:space="preserve">
+    <value>Todos los tÃ­tulos</value>
+  </data>
+  <!-- â”€â”€ Provider Language Strategy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
   <data name="Provider_LanguageStrategy" xml:space="preserve">
     <value>Estrategia de idioma</value>
   </data>
   <data name="Provider_LanguageStrategy_Source" xml:space="preserve">
-    <value>Origen (siempre en inglés)</value>
+    <value>Origen (siempre en inglÃ©s)</value>
   </data>
   <data name="Provider_LanguageStrategy_Localized" xml:space="preserve">
     <value>Localizado (tu idioma)</value>
@@ -658,27 +1264,26 @@
     <value>Ambos (probar ambos, combinar)</value>
   </data>
   <data name="Provider_LanguageStrategy_Help" xml:space="preserve">
-    <value>Controla si este proveedor consulta en tu idioma de metadatos, en inglés, o ambos.</value>
+    <value>Controla si este proveedor consulta en tu idioma de metadatos, en inglÃ©s, o ambos.</value>
   </data>
-
-  <!-- ── Stage 3 Universe Enrichment ───────────────────────────────────── -->
+  <!-- â”€â”€ Stage 3 Universe Enrichment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
   <data name="Wikidata_Stage3Enabled" xml:space="preserve">
     <value>Etapa 3 habilitada</value>
   </data>
   <data name="Wikidata_Stage3Schedule" xml:space="preserve">
-    <value>Programación</value>
+    <value>ProgramaciÃ³n</value>
   </data>
   <data name="Wikidata_Stage3BatchSize" xml:space="preserve">
-    <value>Tamaño del lote</value>
+    <value>TamaÃ±o del lote</value>
   </data>
   <data name="Wikidata_Stage3BatchSizeHelper" xml:space="preserve">
-    <value>Máximo de obras procesadas por barrido.</value>
+    <value>MÃ¡ximo de obras procesadas por barrido.</value>
   </data>
   <data name="Wikidata_Stage3RefreshDays" xml:space="preserve">
-    <value>Ciclo de actualización (días)</value>
+    <value>Ciclo de actualizaciÃ³n (dÃ­as)</value>
   </data>
   <data name="Wikidata_Stage3RefreshDaysHelper" xml:space="preserve">
-    <value>Volver a verificar las entidades enriquecidas hace más de este número de días.</value>
+    <value>Volver a verificar las entidades enriquecidas hace mÃ¡s de este nÃºmero de dÃ­as.</value>
   </data>
   <data name="Wikidata_Stage3MaxDepth" xml:space="preserve">
     <value>Profundidad de relaciones</value>
@@ -689,50 +1294,67 @@
   <data name="Wikidata_Stage3TriggerHint" xml:space="preserve">
     <value>Iniciar manualmente un barrido de enriquecimiento</value>
   </data>
-
-  <!-- ── Vault stale universes banner ──────────────────────────────────── -->
-  <data name="Vault_StaleUniverses" xml:space="preserve">
-    <value>{0} universos tienen datos obsoletos</value>
-  </data>
-  <data name="Vault_StaleUniversesHint" xml:space="preserve">
-    <value>La etapa 3 actualizará los datos de entidades obsoletos en la próxima ejecución programada.</value>
-  </data>
-
-  <!-- ── Providers ─────────────────────────────────────────────────────── -->
+  <!-- â”€â”€ Providers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
   <data name="Provider_FanartTv" xml:space="preserve">
     <value>Fanart.tv</value>
   </data>
-
-  <!-- ── Vault Detail Drawer — Phase 3 Universe/Character ──────────────────── -->
-  <data name="VaultDetail_SectionCharacters" xml:space="preserve"><value>Personajes</value></data>
-  <data name="VaultDetail_SectionCharacterRoles" xml:space="preserve"><value>Roles de personajes</value></data>
-  <data name="VaultDetail_HintNoCharacters" xml:space="preserve"><value>Aún no se han descubierto personajes</value></data>
-  <data name="VaultDetail_ChangeDefault" xml:space="preserve"><value>Cambiar predeterminado</value></data>
-  <data name="VaultDetail_ActorsCount" xml:space="preserve"><value>{0} actores</value></data>
-  <data name="VaultDetail_HealthScore" xml:space="preserve"><value>Puntuación de salud</value></data>
-  <data name="VaultDetail_OpenExplorer" xml:space="preserve"><value>Abrir Explorador del Universo</value></data>
-  <data name="VaultDetail_EntityCounts" xml:space="preserve"><value>Recuento de entidades</value></data>
-  <data name="VaultDetail_TriggerEnrichment" xml:space="preserve"><value>Iniciar enriquecimiento</value></data>
-
-  <!-- ── Universe Explorer modes ─────────────────────────────────────────── -->
-  <data name="Universe_ModeWeb" xml:space="preserve"><value>Red</value></data>
-  <data name="Universe_ModePaths" xml:space="preserve"><value>Rutas</value></data>
-  <data name="Universe_ModeFamily" xml:space="preserve"><value>Familia</value></data>
-  <data name="Universe_ModeCast" xml:space="preserve"><value>Reparto</value></data>
-  <data name="Universe_ModeAdaptations" xml:space="preserve"><value>Adaptaciones</value></data>
-  <data name="Universe_PathStart" xml:space="preserve"><value>Inicio</value></data>
-  <data name="Universe_PathEnd" xml:space="preserve"><value>Fin</value></data>
-  <data name="Universe_PathClear" xml:space="preserve"><value>Borrar</value></data>
-  <data name="Universe_PathSteps" xml:space="preserve"><value>Pasos</value></data>
-  <data name="Universe_FamilySelectCharacter" xml:space="preserve"><value>Seleccionar personaje</value></data>
-  <data name="Universe_FamilyGenerations" xml:space="preserve"><value>Generaciones</value></data>
-  <data name="Universe_CastMultiActorOnly" xml:space="preserve"><value>Solo multi-actor</value></data>
-  <data name="Universe_CastPerformers" xml:space="preserve"><value>Intérpretes</value></data>
-  <data name="Universe_AdaptationOriginal" xml:space="preserve"><value>Original</value></data>
-  <data name="Universe_GuideSearch" xml:space="preserve"><value>Buscar entidades&#8230;</value></data>
-  <data name="Universe_GuideFilterAll" xml:space="preserve"><value>Todo</value></data>
-  <data name="Universe_GuideFilterCharacters" xml:space="preserve"><value>Personajes</value></data>
-  <data name="Universe_GuideFilterLocations" xml:space="preserve"><value>Lugares</value></data>
-  <data name="Universe_GuideFilterOrgs" xml:space="preserve"><value>Organizaciones</value></data>
-
+  <!-- â”€â”€ Universe Explorer modes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <data name="Universe_ModeWeb" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="Universe_ModePaths" xml:space="preserve">
+    <value>Rutas</value>
+  </data>
+  <data name="Universe_ModeFamily" xml:space="preserve">
+    <value>Familia</value>
+  </data>
+  <data name="Universe_ModeCast" xml:space="preserve">
+    <value>Reparto</value>
+  </data>
+  <data name="Universe_ModeAdaptations" xml:space="preserve">
+    <value>Adaptaciones</value>
+  </data>
+  <data name="Universe_PathStart" xml:space="preserve">
+    <value>Inicio</value>
+  </data>
+  <data name="Universe_PathEnd" xml:space="preserve">
+    <value>Fin</value>
+  </data>
+  <data name="Universe_PathClear" xml:space="preserve">
+    <value>Borrar</value>
+  </data>
+  <data name="Universe_PathSteps" xml:space="preserve">
+    <value>Pasos</value>
+  </data>
+  <data name="Universe_FamilySelectCharacter" xml:space="preserve">
+    <value>Seleccionar personaje</value>
+  </data>
+  <data name="Universe_FamilyGenerations" xml:space="preserve">
+    <value>Generaciones</value>
+  </data>
+  <data name="Universe_CastMultiActorOnly" xml:space="preserve">
+    <value>Solo multi-actor</value>
+  </data>
+  <data name="Universe_CastPerformers" xml:space="preserve">
+    <value>IntÃ©rpretes</value>
+  </data>
+  <data name="Universe_AdaptationOriginal" xml:space="preserve">
+    <value>Original</value>
+  </data>
+  <data name="Universe_GuideSearch" xml:space="preserve">
+    <value>Buscar entidades…</value>
+  </data>
+  <data name="Universe_GuideFilterAll" xml:space="preserve">
+    <value>Todo</value>
+  </data>
+  <data name="Universe_GuideFilterCharacters" xml:space="preserve">
+    <value>Personajes</value>
+  </data>
+  <data name="Universe_GuideFilterLocations" xml:space="preserve">
+    <value>Lugares</value>
+  </data>
+  <data name="Universe_GuideFilterOrgs" xml:space="preserve">
+    <value>Organizaciones</value>
+  </data>
 </root>
+

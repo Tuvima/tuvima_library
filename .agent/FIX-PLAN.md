@@ -257,3 +257,9 @@ Phase F — Polish (Tier 4)
 | Incomplete (Tier 3) | 8 | Working features missing important capabilities |
 | Polish (Tier 4) | 10 | Minor improvements and future-proofing |
 | **Total** | **29** | |
+
+## Current Dashboard/Product UI Model
+
+Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+
+

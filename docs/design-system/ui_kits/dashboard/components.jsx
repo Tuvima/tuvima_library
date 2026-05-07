@@ -29,7 +29,7 @@ function Dock({ active = 'home', onNav }) {
     { key:'watch',       icon:'film' },
     { key:'listen',      icon:'headphones' },
     { key:'collections', icon:'boxes-stacked' },
-    { key:'vault',       icon:'folder-tree' },
+    { key:'media library',       icon:'folder-tree' },
   ];
   const footer = [
     { key:'intel',    icon:'wand-magic-sparkles' },
@@ -282,3 +282,4 @@ function typeColor(t) {
 
 // Expose to other scripts
 Object.assign(window, { Dock, TopBar, HeroCarousel, SectionHead, Poster, Lane, ActionStrip, CollectionDetail, Icon });
+

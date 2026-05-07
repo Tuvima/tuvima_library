@@ -132,3 +132,4 @@ For technical details about the Universe Graph schema, the relationship model, S
 - [Universe Graph](../architecture/universe-graph.md)
 - [Glossary](../reference/glossary.md)
 - [Your First Library](../tutorials/first-library.md)
+

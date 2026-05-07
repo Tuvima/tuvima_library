@@ -11,7 +11,7 @@ This audit reviewed `src/MediaEngine.Web` for visual inconsistencies beyond colo
 The web UI has a usable shared design direction, but `app.css` still contains several layered visual systems:
 
 - early cinematic/glass app variables and overrides
-- Vault-standard settings primitives such as `st-page`, `st-card`, and `st-toggle-row`
+- media library-standard settings primitives such as `st-page`, `st-card`, and `st-toggle-row`
 - legacy provider/listen/card alignment overrides
 - Hybrid Paces + Metronic admin variables and overrides
 - a later Tuvima token-backed cascade
@@ -129,3 +129,4 @@ Promote these patterns into shared classes over time:
 - Migrated the Libraries configured-library cards, organization preview panel, API key table/code blocks, and Report Problem dialog away from static inline styles into reusable `tl-card--compact`, `tl-panel`, `tl-section-*`, `tl-chip-muted`, `tl-inline-code`, and dialog-local classes.
 - Browse URL parsing, grouping metadata, and artwork/card-shape rules have been extracted from `MediaBrowseShell.razor` into `BrowseQueryBuilder`, `BrowseState`, and `BrowseArtworkRules`; keep moving pure query/card/hero logic out before changing browse visuals.
 - Left behavior, routes, bindings, and validation unchanged.
+

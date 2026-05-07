@@ -34,7 +34,7 @@ Core Engine settings. Restart required for changes to take effect.
 | `language.display` | string | `"en"` | UI display language (BCP-47 code). Controls Dashboard localization. |
 | `language.metadata` | string | `"en"` | Language used for provider queries (titles, descriptions). |
 | `language.additional` | string[] | `[]` | Additional content languages accepted (BCP-47 codes). |
-| `language.accept_any` | bool | `true` | When true, files in any language are accepted without review. When false, language mismatches trigger an amber banner in the Vault. |
+| `language.accept_any` | bool | `true` | When true, files in any language are accepted without review. When false, language mismatches trigger an amber banner in the current media surfaces. |
 | `country` | string | `"US"` | Country code. Used by providers that return region-specific data (e.g., Apple API storefronts). |
 | `date_format` | string | `"system"` | Date display format. `"system"` uses the OS locale. Accepts standard format strings. |
 | `time_format` | string | `"system"` | Time display format. `"system"` uses the OS locale. |
@@ -295,7 +295,7 @@ Global UI defaults applied to all devices and users unless overridden.
 | `theme` | string | Always `"dark"`. The Dashboard is dark-mode-only. |
 | `accent_color` | string | `"#C9922E"` â€” fixed golden amber accent. Do not change. |
 | `poster_aspect_ratio` | string | `"2:3"` â€” standard cover art card ratio. |
-| `default_view_mode` | string | `"list"` or `"grid"`. Default Vault view mode. |
+| `default_view_mode` | string | `"list"` or `"grid"`. Default media library view mode. |
 
 ### config/ui/devices/*.json
 
@@ -305,7 +305,7 @@ Each file defines constraints appropriate for the device class: navigation style
 
 ### config/ui/profiles/*.json
 
-Per-user UI preference overrides. Stored server-side and merged into the resolved settings at circuit start. Controls: column visibility and order per Vault media type (also persisted to localStorage), default sort column, sidebar collapsed state.
+Per-user UI preference overrides. Stored server-side and merged into the resolved settings at circuit start. Controls: column visibility and order per media library media type (also persisted to localStorage), default sort column, sidebar collapsed state.
 
 ## Related
 
@@ -313,3 +313,4 @@ Per-user UI preference overrides. Stored server-side and merged into the resolve
 - [How to Set Up Language Preferences](../guides/language-setup.md)
 - [Developer Setup](../tutorials/dev-setup.md)
 - [Wikidata Property Map](wikidata-property-map.md)
+

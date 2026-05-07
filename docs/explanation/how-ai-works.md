@@ -160,3 +160,4 @@ For technical details about the AI model architecture, hardware benchmark thresh
 - [Local AI Intelligence Layer](../architecture/ai-integration.md)
 - [How to Set Up Language Preferences](../guides/language-setup.md)
 - [How Two-Stage Enrichment Works](how-hydration-works.md)
+

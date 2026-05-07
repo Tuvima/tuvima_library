@@ -79,3 +79,4 @@ Before external access is enabled, the Engine needs:
 ## PO Summary
 
 The three-tier role model (Consumer, Curator, Administrator) is fully designed and the Dashboard correctly hides or shows features based on role. **However, the role currently defaults to "Administrator" for everyone (placeholder), and the Engine has no role enforcement at all — any caller can perform any action. This is safe for local-only use today, but must be resolved before issuing API keys to external tools.**
+

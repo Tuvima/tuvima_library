@@ -67,11 +67,11 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 ---
 
-## Vault
+## media library
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/vault/overview` | Aggregated Vault health and readiness view, including `hidden_by_quality_gate`, `art_pending`, `retail_needs_review`, `qid_no_match`, and `completed_with_art` | Required |
+| GET | `/media library/overview` | Aggregated media library health and readiness view, including `hidden_by_quality_gate`, `art_pending`, `retail_needs_review`, `qid_no_match`, and `completed_with_art` | Required |
 
 ---
 
@@ -120,11 +120,11 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/review/pending` | All items currently in the review queue | Curator |
-| GET | `/review/count` | Count of pending review items. Used for Vault badge. | Required |
+| GET | `/review/count` | Count of pending review items. Used for media library badge. | Required |
 | GET | `/review/{id}` | Full detail for a single review item including candidates | Curator |
 | POST | `/review/{id}/resolve` | Resolve a review item by selecting a candidate or confirming corrected local metadata | Curator |
 | POST | `/review/{id}/dismiss` | Dismiss a review item without resolving it | Curator |
-| POST | `/review/{id}/skip-universe` | Accept the item without a Wikidata QID. The item can still remain Vault-visible if it passes the Vault quality gate. | Curator |
+| POST | `/review/{id}/skip-universe` | Accept the item without a Wikidata QID. The item can still remain browse surfaces-visible if it passes the browse readiness gate. | Curator |
 
 ---
 
@@ -295,15 +295,15 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 ---
 
-## Vault
+## media library
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/vault/characters/{id}/portraits` | Portrait images for a fictional character | Required |
-| GET | `/vault/persons/{id}/character-roles` | Characters a person has performed, linked to works | Required |
-| GET | `/vault/universes/{qid}/characters` | All characters in a universe | Required |
-| GET | `/vault/assets/{entityId}` | Shared assets for an entity (Cover Art, Headshot, Banner, Logo, Backdrop) | Required |
-| POST | `/vault/enrichment/universe/trigger` | Trigger universe enrichment for a specific QID | Curator |
+| GET | `/media library/characters/{id}/portraits` | Portrait images for a fictional character | Required |
+| GET | `/media library/persons/{id}/character-roles` | Characters a person has performed, linked to works | Required |
+| GET | `/media library/universes/{qid}/characters` | All characters in a universe | Required |
+| GET | `/media library/assets/{entityId}` | Shared assets for an entity (Cover Art, Headshot, Banner, Logo, Backdrop) | Required |
+| POST | `/media library/enrichment/universe/trigger` | Trigger universe enrichment for a specific QID | Curator |
 
 ---
 
@@ -331,3 +331,4 @@ Available in development environments only. These endpoints are removed in produ
 - [How to Build, Test, and Verify Changes](../guides/running-tests.md)
 - [Database Schema Reference](database-schema.md)
 - [Security Architecture](../architecture/security.md)
+

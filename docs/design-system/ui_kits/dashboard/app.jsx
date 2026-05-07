@@ -6,7 +6,7 @@ function HomeView({ onOpen, onNavTab, activeTab }) {
     { key:'home',    label:'Home' },
     { key:'recent',  label:'Recently Added' },
     { key:'collections', label:'Collections', count: 12 },
-    { key:'action',  label:'Action Center', count: 3, amber: true },
+    { key:'action',  label:'Review Queue', count: 3, amber: true },
   ];
 
   return (
@@ -18,7 +18,7 @@ function HomeView({ onOpen, onNavTab, activeTab }) {
         <div className="shell-inner">
           <ActionStrip onOpen={() => onNavTab('action')} />
           <Lane title="Continue Your Journey"  sub="Pick up where you left off" items={D.continue}  onOpen={onOpen} />
-          <Lane title="Recently Added"         sub="New in your Vault this week" items={D.recent}    onOpen={onOpen} />
+          <Lane title="Recently Added"         sub="New in your media library this week" items={D.recent}    onOpen={onOpen} />
           <Lane title="You Might Like"         sub="Based on your library"     items={D.might_like} onOpen={onOpen} />
         </div>
       </div>
@@ -53,3 +53,4 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+

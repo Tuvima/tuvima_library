@@ -84,3 +84,4 @@ Currently manifest-only. Edit `tuvima_master.json` → `providers` → target pr
 4. **Template preview has a save side-effect** — "Preview" also persists the template.
 5. **Accent swatch highlight** only checks `PaletteDark` — may not work correctly in light mode.
 6. **Error handling inconsistency** — settings methods in the API client log + set LastError; admin/profile methods silently swallow exceptions.
+

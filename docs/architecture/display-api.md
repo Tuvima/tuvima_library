@@ -57,3 +57,4 @@ The shelf route should reuse `DisplayCardDto` and the same `DisplayCardBuilder` 
 The Universe card components, including `PosterSwimlane`, `PosterItemViewModel`, `LibraryCard`, `SquareCard`, and `LandscapeCard`, are still active in detail and related-content areas. They are not stale code.
 
 Future cleanup can migrate related-content shelves to `DiscoveryCard` or a display-card adapter, but detail and operational APIs should stay separate from display shelf APIs.
+

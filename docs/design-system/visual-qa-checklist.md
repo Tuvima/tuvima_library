@@ -39,3 +39,4 @@ Use this checklist after design-token or shared styling changes. Verify desktop,
 - Warning amber appears only for attention, review, provisional, degraded, or conflict states.
 - No page-specific blue, yellow, or gold accents override the shared token system.
 - Long tab labels, buttons, and status pills do not overflow their containers.
+

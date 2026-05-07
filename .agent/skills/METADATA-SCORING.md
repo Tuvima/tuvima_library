@@ -97,3 +97,4 @@ Future: a weight editor on the Metadata tab would allow runtime adjustment with 
 2. **Trust weights have no API endpoint or UI editor.** Must be changed via manifest file.
 3. **Two providers (Local Filesystem, Open Library) have no reachability probe** — they always show as unreachable in the Metadata tab even though Local Filesystem is inherently always available.
 4. **Scoring/Maintenance settings have no API surface.** Thresholds, decay parameters, and vacuum settings are manifest-only.
+

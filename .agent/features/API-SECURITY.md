@@ -104,3 +104,4 @@ Each API key carries one of three roles that determines which endpoints it can a
 ## PO Summary
 
 The Engine now enforces a complete security boundary. Every endpoint requires authentication -- either a valid API key or a localhost connection (configurable). Each API key carries a role (Administrator, Curator, Consumer) that determines exactly which endpoints it can access. Folder-related endpoints reject path traversal attacks. The SignalR collection requires authentication. Rate limiting caps key generation (5/min), streaming (100/min), and general API calls (60/min) per IP. **Three remaining items for future improvement: HTTPS enforcement, key expiration/rotation, and salted key hashes.**
+

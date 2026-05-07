@@ -107,3 +107,4 @@ On the **Curator's Drawer** (accessible from Server Settings), the user can:
 ## PO Summary
 
 The Metadata Priority system — the Weighted Voter — is fully operational in the Engine. Each provider carries per-field trust weights, stale data decays over time, and user corrections are permanent and unbreakable. The Dashboard shows a clear, enriched view of every provider with live status indicators. **Two gaps remain: (1) Conflicted fields are computed but never shown to the user — there's no way to see which data needs manual attention, and (2) trust weights can only be changed by editing the manifest file directly — there's no in-app editor for them yet.**
+
