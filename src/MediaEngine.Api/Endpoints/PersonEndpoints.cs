@@ -1,6 +1,7 @@
-using MediaEngine.Domain.Contracts;
+﻿using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Api.Models;
+using MediaEngine.Application.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -12,7 +13,7 @@ public static class PersonEndpoints
         var group = app.MapGroup("/persons")
                        .WithTags("Persons");
 
-        // GET /persons/{id} — person detail including local headshot availability.
+        // GET /persons/{id} â€” person detail including local headshot availability.
         group.MapGet("/{id:guid}", async (
             Guid id,
             IPersonRepository personRepo,
@@ -63,87 +64,21 @@ public static class PersonEndpoints
             });
         });
 
-        // GET /persons/{id}/aliases — linked pseudonym and real-person entries.
+        // GET /persons/{id}/aliases â€” linked pseudonym and real-person entries.
         group.MapGet("/{id:guid}/aliases", async (
             Guid id,
-            IPersonRepository personRepo,
-            IDatabaseConnection db,
+            IPersonAliasReadService aliasReadService,
             CancellationToken ct) =>
         {
-            var person = await personRepo.FindByIdAsync(id, ct);
-            if (person is null)
-                return Results.NotFound($"Person '{id}' not found.");
-
-            using var conn = db.CreateConnection();
-            var aliases = new List<object>();
-
-            if (person.IsPseudonym)
-            {
-                // This is a pen name — find the real people behind it
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = """
-                    SELECT real_person_id FROM person_aliases
-                    WHERE pseudonym_person_id = @id
-                    """;
-                cmd.Parameters.AddWithValue("@id", id.ToString());
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
-                {
-                    var realId = Guid.Parse(reader.GetString(0));
-                    var realPerson = await personRepo.FindByIdAsync(realId, ct);
-                    if (realPerson is not null)
-                        aliases.Add(new
-                        {
-                            id = realPerson.Id,
-                            name = realPerson.Name,
-                            roles = realPerson.Roles,
-                            headshot_url = ApiImageUrls.BuildPersonHeadshotUrl(realPerson.Id, realPerson.LocalHeadshotPath, realPerson.HeadshotUrl),
-                            is_pseudonym = realPerson.IsPseudonym,
-                            wikidata_qid = realPerson.WikidataQid,
-                            relationship = "real_person",
-                        });
-                }
-            }
-            else
-            {
-                // This is a real person — find pen names that point to them
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = """
-                    SELECT pseudonym_person_id FROM person_aliases
-                    WHERE real_person_id = @id
-                    """;
-                cmd.Parameters.AddWithValue("@id", id.ToString());
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
-                {
-                    var pseudonymId = Guid.Parse(reader.GetString(0));
-                    var pseudonymPerson = await personRepo.FindByIdAsync(pseudonymId, ct);
-                    if (pseudonymPerson is not null)
-                        aliases.Add(new
-                        {
-                            id = pseudonymPerson.Id,
-                            name = pseudonymPerson.Name,
-                            roles = pseudonymPerson.Roles,
-                            headshot_url = ApiImageUrls.BuildPersonHeadshotUrl(pseudonymPerson.Id, pseudonymPerson.LocalHeadshotPath, pseudonymPerson.HeadshotUrl),
-                            is_pseudonym = pseudonymPerson.IsPseudonym,
-                            wikidata_qid = pseudonymPerson.WikidataQid,
-                            relationship = "pen_name",
-                        });
-                }
-            }
-
-            return Results.Ok(new
-            {
-                person_id = id,
-                person_name = person.Name,
-                is_pseudonym = person.IsPseudonym,
-                aliases,
-            });
+            var response = await aliasReadService.GetAliasesAsync(id, ct);
+            return response is null
+                ? Results.NotFound($"Person '{id}' not found.")
+                : Results.Ok(response);
         })
         .WithName("GetPersonAliases")
         .WithSummary("Linked pseudonym and real-person entries for a given person.");
 
-        // GET /persons/{id}/headshot — serves headshot.jpg from the person image directory.
+        // GET /persons/{id}/headshot â€” serves headshot.jpg from the person image directory.
         // Checks .data/images/people/{QID}/ (via ImagePathService) first, then falls back
         // to legacy .people/ conventions. Downloads and caches if no local file exists.
         group.MapGet("/{id:guid}/headshot", async (
@@ -214,7 +149,7 @@ public static class PersonEndpoints
                 }
             }
 
-            // No local file — download from Wikimedia and cache locally using ImagePathService.
+            // No local file â€” download from Wikimedia and cache locally using ImagePathService.
             if (!string.IsNullOrEmpty(person.HeadshotUrl))
             {
                 try
@@ -247,7 +182,7 @@ public static class PersonEndpoints
                 }
                 catch
                 {
-                    // Download failed — fall through to 404
+                    // Download failed â€” fall through to 404
                 }
             }
 
@@ -262,110 +197,27 @@ public static class PersonEndpoints
             return Results.NotFound("Headshot not available.");
         });
 
-        // GET /persons/by-collection/{collectionId} — all persons linked to works in a collection.
+        // GET /persons/by-collection/{collectionId} â€” all persons linked to works in a collection.
         group.MapGet("/by-collection/{collectionId:guid}", async (
             Guid collectionId,
-            IPersonRepository personRepo,
-            IDatabaseConnection db,
+            IPersonAssetScopeReadService personScopeReadService,
             CancellationToken ct) =>
         {
-            // Find all media asset IDs for works in this collection.
-            using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                SELECT ma.id
-                FROM media_assets ma
-                JOIN editions e ON e.id = ma.edition_id
-                JOIN works w    ON w.id = e.work_id
-                WHERE w.collection_id = @collectionId;
-                """;
-            cmd.Parameters.AddWithValue("@collectionId", collectionId.ToString());
-
-            var assetIds = new List<Guid>();
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                assetIds.Add(Guid.Parse(reader.GetString(0)));
-
-            // Gather persons linked to those assets (deduplicated).
-            var seen = new HashSet<Guid>();
-            var persons = new List<object>();
-            foreach (var assetId in assetIds)
-            {
-                var linked = await personRepo.GetByMediaAssetAsync(assetId, ct);
-                foreach (var p in linked)
-                {
-                    if (seen.Add(p.Id))
-                    {
-                        persons.Add(new
-                        {
-                            id                 = p.Id,
-                            name               = p.Name,
-                            roles              = p.Roles,
-                            wikidata_qid       = p.WikidataQid,
-                            headshot_url       = ApiImageUrls.BuildPersonHeadshotUrl(p.Id, p.LocalHeadshotPath, p.HeadshotUrl),
-                            has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
-                                                 && File.Exists(p.LocalHeadshotPath),
-                            biography          = p.Biography,
-                            occupation         = p.Occupation,
-                        });
-                    }
-                }
-            }
-
+            var persons = await personScopeReadService.GetByCollectionAsync(collectionId, ct);
             return Results.Ok(persons);
         });
 
-        // GET /persons/by-work/{workId} — all persons linked to a specific work.
+        // GET /persons/by-work/{workId} â€” all persons linked to a specific work.
         group.MapGet("/by-work/{workId:guid}", async (
             Guid workId,
-            IPersonRepository personRepo,
-            IDatabaseConnection db,
+            IPersonAssetScopeReadService personScopeReadService,
             CancellationToken ct) =>
         {
-            using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                SELECT ma.id
-                FROM media_assets ma
-                JOIN editions e ON e.id = ma.edition_id
-                WHERE e.work_id = @workId;
-                """;
-            cmd.Parameters.AddWithValue("@workId", workId.ToString());
-
-            var assetIds = new List<Guid>();
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                assetIds.Add(Guid.Parse(reader.GetString(0)));
-
-            var seen = new HashSet<Guid>();
-            var persons = new List<object>();
-            foreach (var assetId in assetIds)
-            {
-                var linked = await personRepo.GetByMediaAssetAsync(assetId, ct);
-                foreach (var p in linked)
-                {
-                    if (seen.Add(p.Id))
-                    {
-                        persons.Add(new
-                        {
-                            id                 = p.Id,
-                            name               = p.Name,
-                            roles              = p.Roles,
-                            wikidata_qid       = p.WikidataQid,
-                            headshot_url       = ApiImageUrls.BuildPersonHeadshotUrl(p.Id, p.LocalHeadshotPath, p.HeadshotUrl),
-                            has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
-                                                 && File.Exists(p.LocalHeadshotPath),
-                            biography          = p.Biography,
-                            occupation         = p.Occupation,
-                        });
-                    }
-                }
-            }
-
+            var persons = await personScopeReadService.GetByWorkAsync(workId, ct);
             return Results.Ok(persons);
         });
 
-        // GET /persons/{id}/library-credits — role-aware owned work credits for a person.
+        // GET /persons/{id}/library-credits â€” role-aware owned work credits for a person.
         group.MapGet("/{id:guid}/library-credits", async (
             Guid id,
             IPersonRepository personRepo,
@@ -383,64 +235,24 @@ public static class PersonEndpoints
         .WithSummary("Owned work credits for a person, grouped client-side by role and media type.")
         .Produces<List<PersonLibraryCreditDto>>(StatusCodes.Status200OK);
 
-        // GET /persons/{id}/works — all collections containing works by this person.
+        // GET /persons/{id}/works â€” all collections containing works by this person.
         group.MapGet("/{id:guid}/works", async (
             Guid id,
             IPersonRepository personRepo,
             ICollectionRepository collectionRepo,
-            IDatabaseConnection db,
+            IPersonWorksReadService personWorksReadService,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
             if (person is null)
                 return Results.NotFound($"Person '{id}' not found.");
 
-            // Find all collection IDs linked to this person via person_media_links.
-            using var conn = db.CreateConnection();
-            using var cmd  = conn.CreateCommand();
-            cmd.CommandText = """
-                SELECT DISTINCT w.collection_id
-                FROM person_media_links pml
-                JOIN media_assets ma ON ma.id = pml.media_asset_id
-                JOIN editions e      ON e.id  = ma.edition_id
-                JOIN works w         ON w.id  = e.work_id
-                WHERE pml.person_id = @personId
-                  AND w.collection_id IS NOT NULL;
-                """;
-            cmd.Parameters.AddWithValue("@personId", id.ToString());
-
-            var collectionIds = new HashSet<Guid>();
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                collectionIds.Add(Guid.Parse(reader.GetString(0)));
-
-            if (collectionIds.Count == 0)
-            {
-                // Fallback: match by canonical author/narrator/director name
-                using var fallbackCmd = conn.CreateCommand();
-                fallbackCmd.CommandText = """
-                    SELECT DISTINCT w.collection_id
-                    FROM canonical_values cv
-                    JOIN media_assets ma ON ma.id = cv.entity_id
-                    JOIN editions e      ON e.id  = ma.edition_id
-                    JOIN works w         ON w.id  = e.work_id
-                    WHERE cv.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
-                      AND cv.value = @personName
-                      AND w.collection_id IS NOT NULL;
-                    """;
-                fallbackCmd.Parameters.AddWithValue("@personName", person.Name);
-
-                using var fallbackReader = fallbackCmd.ExecuteReader();
-                while (fallbackReader.Read())
-                    collectionIds.Add(Guid.Parse(fallbackReader.GetString(0)));
-            }
-
+            var collectionIds = await personWorksReadService.GetCollectionIdsForPersonAsync(id, ct);
             if (collectionIds.Count == 0)
                 return Results.Ok(Array.Empty<MediaEngine.Api.Models.CollectionDto>());
 
-            // Load full collection data and filter to matching IDs.
             var allCollections = await collectionRepo.GetAllAsync(ct);
-            var dtos    = allCollections
+            var dtos = allCollections
                 .Where(h => collectionIds.Contains(h.Id))
                 .Select(MediaEngine.Api.Models.CollectionDto.FromDomain)
                 .ToList();
@@ -451,12 +263,12 @@ public static class PersonEndpoints
         .WithSummary("All collections containing works linked to this person (author/narrator/director).")
         .Produces<List<MediaEngine.Api.Models.CollectionDto>>(StatusCodes.Status200OK);
 
-        // GET /persons/role-counts — count of persons per role.
+        // GET /persons/role-counts â€” count of persons per role.
         // Excludes Composer (absorbed into Artist/Performer in the UI).
         group.MapGet("/role-counts", async (IPersonRepository personRepo, CancellationToken ct) =>
         {
             var counts = await personRepo.GetRoleCountsAsync(ct);
-            // Remove Composer — not a UI-visible role
+            // Remove Composer â€” not a UI-visible role
             var filtered = counts
                 .Where(kvp => !kvp.Key.Equals("Composer", StringComparison.OrdinalIgnoreCase))
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
@@ -465,65 +277,14 @@ public static class PersonEndpoints
         .WithName("GetPersonRoleCounts")
         .WithSummary("Count of persons per role.");
 
-        // GET /persons/presence?ids=guid1,guid2,... — media type counts per person.
-        group.MapGet("/presence", async (string ids, IPersonRepository personRepo, IDatabaseConnection db, CancellationToken ct) =>
+        // GET /persons/presence?ids=guid1,guid2,... â€” media type counts per person.
+        group.MapGet("/presence", async (string ids, IPersonPresenceReadService presenceReadService, CancellationToken ct) =>
         {
-            var personIds = ids.Split(',').Select(Guid.Parse).ToList();
-
-            // Primary path: person_media_links
-            var presence = await personRepo.GetPresenceBatchAsync(personIds, ct);
-
-            // Fallback: if person_media_links is empty for ALL persons,
-            // match by canonical author/narrator/director values
-            if (presence.Values.All(d => d.Count == 0))
-            {
-                var persons = new Dictionary<Guid, string>();
-                foreach (var pid in personIds)
-                {
-                    var person = await personRepo.FindByIdAsync(pid, ct);
-                    if (person is not null)
-                        persons[pid] = person.Name;
-                }
-
-                using var conn = db.CreateConnection();
-                var fallbackPresence = new Dictionary<Guid, Dictionary<string, int>>();
-                foreach (var (pid, name) in persons)
-                {
-                    using var cmd = conn.CreateCommand();
-                    cmd.CommandText = """
-                        SELECT cv2.value AS MediaType, COUNT(DISTINCT w.id) AS Count
-                        FROM canonical_values cv
-                        JOIN media_assets ma ON ma.id = cv.entity_id
-                        JOIN editions e ON e.id = ma.edition_id
-                        JOIN works w ON w.id = e.work_id
-                        JOIN canonical_values cv2 ON cv2.entity_id = ma.id AND cv2.key = 'media_type'
-                        WHERE cv.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
-                          AND cv.value = @name
-                        GROUP BY cv2.value;
-                        """;
-                    cmd.Parameters.AddWithValue("@name", name);
-
-                    var mediaTypeCounts = new Dictionary<string, int>();
-                    using var reader = cmd.ExecuteReader();
-                    while (reader.Read())
-                    {
-                        var mediaType = reader.GetString(0);
-                        var count = reader.GetInt32(1);
-                        mediaTypeCounts[mediaType] = count;
-                    }
-
-                    if (mediaTypeCounts.Count > 0)
-                        fallbackPresence[pid] = mediaTypeCounts;
-                }
-
-                return Results.Ok(fallbackPresence.ToDictionary(
-                    kv => kv.Key.ToString(),
-                    kv => kv.Value));
-            }
-
-            return Results.Ok(presence.ToDictionary(
-                kv => kv.Key.ToString(),
-                kv => kv.Value));
+            var personIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(Guid.Parse)
+                .ToList();
+            var presence = await presenceReadService.GetPresenceAsync(personIds, ct);
+            return Results.Ok(presence);
         })
         .WithName("GetPersonPresence")
         .WithSummary("Media type counts per person.");
@@ -672,3 +433,4 @@ public static class PersonEndpoints
             && bytes[11] == 0x50;
     }
 }
+

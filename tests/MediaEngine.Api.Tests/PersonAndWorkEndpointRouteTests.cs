@@ -45,7 +45,7 @@ public sealed class PersonAndWorkEndpointRouteTests
         var workEndpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\WorkEndpoints.cs"));
         var collectionEndpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
         var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionGroupDetailDto.cs"));
-        var programSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Program.cs"));
+        var programSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DependencyInjection\ApiEndpointRouteBuilderExtensions.cs"));
 
         Assert.Contains("group.MapGet(\"/{workId:guid}/cast\"", workEndpointSource, StringComparison.Ordinal);
         Assert.Contains("CastCreditQueries.BuildForWorkAsync", workEndpointSource, StringComparison.Ordinal);

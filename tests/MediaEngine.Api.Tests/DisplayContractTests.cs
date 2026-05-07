@@ -72,7 +72,7 @@ public sealed class DisplayContractTests
     public void DisplayEndpoints_AreVersionedConsumerEndpointsAndMappedInProgram()
     {
         var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\DisplayEndpoints.cs"));
-        var programSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Program.cs"));
+        var programSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DependencyInjection\ApiEndpointRouteBuilderExtensions.cs"));
 
         Assert.Contains("app.MapGroup(\"/api/v1/display\")", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/home\"", endpointSource, StringComparison.Ordinal);

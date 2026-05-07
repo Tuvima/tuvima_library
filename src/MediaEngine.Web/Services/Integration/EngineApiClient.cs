@@ -7,7 +7,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
-using MediaEngine.Storage.Models;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 

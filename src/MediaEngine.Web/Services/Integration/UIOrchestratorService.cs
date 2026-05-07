@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MediaEngine.Domain;
 using MediaEngine.Contracts.Playback;
-using MediaEngine.Storage.Models;
+using MediaEngine.Contracts.Settings;
 using Microsoft.AspNetCore.SignalR.Client;
 using MediaEngine.Web.Models.ViewDTOs;
 

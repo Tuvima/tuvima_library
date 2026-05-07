@@ -20,6 +20,7 @@ COPY nuget.config .
 
 # Copy every .csproj in the correct relative position for restore.
 COPY src/MediaEngine.Contracts/MediaEngine.Contracts.csproj       src/MediaEngine.Contracts/
+COPY src/MediaEngine.Application/MediaEngine.Application.csproj   src/MediaEngine.Application/
 COPY src/MediaEngine.Domain/MediaEngine.Domain.csproj             src/MediaEngine.Domain/
 COPY src/MediaEngine.Storage/MediaEngine.Storage.csproj           src/MediaEngine.Storage/
 COPY src/MediaEngine.Intelligence/MediaEngine.Intelligence.csproj src/MediaEngine.Intelligence/

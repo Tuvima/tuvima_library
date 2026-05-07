@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.Application</RootNamespace>
+    <AssemblyName>MediaEngine.Application</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
+    <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

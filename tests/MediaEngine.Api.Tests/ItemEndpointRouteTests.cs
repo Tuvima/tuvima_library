@@ -21,7 +21,7 @@ public sealed class ItemEndpointRouteTests
     [Fact]
     public void Program_MapsLibraryItemEndpointsOnly()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Program.cs"));
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DependencyInjection\ApiEndpointRouteBuilderExtensions.cs"));
         var oldSurface = "Reg" + "istry";
 
         Assert.Contains("MapLibraryItemEndpoints", source, StringComparison.Ordinal);

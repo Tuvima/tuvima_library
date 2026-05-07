@@ -9,14 +9,23 @@ public sealed class IngestionProgressContractTests
         var source = File.ReadAllText(Path.Combine(
             repoRoot,
             "src",
-            "MediaEngine.Api",
-            "Endpoints",
-            "IngestionEndpoints.cs"));
+            "MediaEngine.Application",
+            "ReadModels",
+            "IngestionBatchItemResponse.cs"));
 
         Assert.Contains("work_units_total", source);
         Assert.Contains("work_units_completed", source);
-        Assert.Contains("stage3_enhanced_at", source);
-        Assert.Contains("person_media_links", source);
+
+        var readServiceSource = File.ReadAllText(Path.Combine(
+            repoRoot,
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "ReadServices",
+            "IngestionBatchReadService.cs"));
+
+        Assert.Contains("stage3_enhanced_at", readServiceSource);
+        Assert.Contains("person_media_links", readServiceSource);
     }
 
     [Fact]

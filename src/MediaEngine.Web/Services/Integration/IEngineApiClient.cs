@@ -2,7 +2,7 @@ using System.Text.Json;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
-using MediaEngine.Storage.Models;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 

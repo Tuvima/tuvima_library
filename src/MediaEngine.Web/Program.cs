@@ -8,9 +8,8 @@ using MediaEngine.Web.Services.Narration;
 using MediaEngine.Web.Services.Discovery;
 using MediaEngine.Web.Services.Playback;
 using MediaEngine.Web.Services.Navigation;
+using MediaEngine.Web.Services.Configuration;
 using MediaEngine.Domain.Models;
-using MediaEngine.Storage;
-using MediaEngine.Storage.Contracts;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
@@ -60,11 +59,9 @@ builder.Services.AddSingleton<ThemeService>();
 string configDir = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
                 ?? builder.Configuration["MediaEngine:ConfigDirectory"]
                 ?? "config";
-string manifestPath = builder.Configuration["MediaEngine:ManifestPath"] ?? "legacy_manifest.json";
-IConfigurationLoader configLoader = new ConfigurationDirectoryLoader(configDir, manifestPath);
-builder.Services.AddSingleton(configLoader);
+var dashboardConfig = new DashboardConfigurationReader(configDir);
 
-var authSettings = configLoader.LoadCore().Auth;
+var authSettings = dashboardConfig.LoadCore().Auth;
 var ssoEnabled =
     authSettings.Oidc.Enabled &&
     (string.Equals(authSettings.Mode, "Oidc", StringComparison.OrdinalIgnoreCase) ||
@@ -108,7 +105,7 @@ if (ssoEnabled)
     });
 }
 
-PaletteProvider.Initialize(configLoader.LoadPalette());
+PaletteProvider.Initialize(dashboardConfig.LoadPalette());
 
 // ── Narration ─────────────────────────────────────────────────────────────────
 // Singleton: config-driven phrase templates for hero subtitles and section headings.

@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <!-- All 5 existing projects -->
+    <ProjectReference Include="..\MediaEngine.Application\MediaEngine.Application.csproj" />
     <ProjectReference Include="..\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
     <ProjectReference Include="..\MediaEngine.Ingestion\MediaEngine.Ingestion.csproj" />

@@ -24,7 +24,7 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     [Fact]
     public void Program_MapsIntegrationTestEndpointsOnlyInDevelopment()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Program.cs"));
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DependencyInjection\ApiEndpointRouteBuilderExtensions.cs"));
         var developmentGuard = "if (app.Environment.IsDevelopment())";
         var guardIndex = source.IndexOf(developmentGuard, StringComparison.Ordinal);
         var mapIndex = source.IndexOf("app.MapIntegrationTestEndpoints();", StringComparison.Ordinal);

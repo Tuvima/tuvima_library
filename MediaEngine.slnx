@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/MediaEngine.AI/MediaEngine.AI.csproj" />
+    <Project Path="src/MediaEngine.Application/MediaEngine.Application.csproj" />
     <Project Path="src/MediaEngine.Api/MediaEngine.Api.csproj" />
     <Project Path="src/MediaEngine.Contracts/MediaEngine.Contracts.csproj" />
     <Project Path="src/MediaEngine.Domain/MediaEngine.Domain.csproj" />
