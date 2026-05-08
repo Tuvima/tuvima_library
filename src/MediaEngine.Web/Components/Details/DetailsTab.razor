@@ -1,18 +1,128 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<section class="tl-detail-panel">
-    <div class="tl-section-heading"><h2>Details</h2></div>
-    <dl class="tl-detail-dl">
-        <dt>Type</dt>
-        <dd>@Model.EntityType</dd>
-        <dt>Library Status</dt>
-        <dd>@Model.LibraryStatus</dd>
-        <dt>Identity</dt>
-        <dd>@Model.IdentityStatus</dd>
-    </dl>
-</section>
+@if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
+{
+    <div class="tl-detail-tab-panel tl-person-details-panel">
+        <section class="tl-detail-panel">
+            <div class="tl-section-heading"><h2>Quick Facts</h2></div>
+            <div class="tl-detail-person-facts-grid tl-detail-person-facts-grid--stacked">
+                @foreach (var fact in QuickFacts)
+                {
+                    <div class="tl-detail-person-fact-card">
+                        <span class="tl-detail-person-fact-card__label">@fact.Label</span>
+                        <span class="tl-detail-person-fact-card__value">@fact.Value</span>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="tl-detail-panel">
+            <div class="tl-section-heading"><h2>Works</h2></div>
+            @if (Model.MediaGroups.Count == 0)
+            {
+                <p class="tl-detail-empty">No linked works in the library yet.</p>
+            }
+            else
+            {
+                <div class="tl-person-work-list">
+                    @foreach (var group in Model.MediaGroups)
+                    {
+                        @if (Model.MediaGroups.Count > 1)
+                        {
+                            <h3 class="tl-person-work-list__group">@group.Title</h3>
+                        }
+
+                        @foreach (var item in group.Items)
+                        {
+                            <a class="tl-person-work-row" href="@ResolveWorkRoute(item)">
+                                <span class="tl-person-work-row__art">
+                                    @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                                    {
+                                        <img src="@item.ArtworkUrl" alt="@item.Title" />
+                                    }
+                                    else
+                                    {
+                                        <GeneratedIdentity Name="@item.Title" />
+                                    }
+                                </span>
+                                <span class="tl-person-work-row__body">
+                                    <span class="tl-person-work-row__title">@item.Title</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                                    {
+                                        <span class="tl-person-work-row__meta">@item.Subtitle</span>
+                                    }
+                                </span>
+                            </a>
+                        }
+                    }
+                </div>
+            }
+        </section>
+    </div>
+}
+else
+{
+    <section class="tl-detail-panel">
+        <div class="tl-section-heading"><h2>Details</h2></div>
+        <dl class="tl-detail-dl">
+            <dt>Type</dt>
+            <dd>@Model.EntityType</dd>
+            <dt>Library Status</dt>
+            <dd>@Model.LibraryStatus</dd>
+            <dt>Identity</dt>
+            <dd>@Model.IdentityStatus</dd>
+        </dl>
+    </section>
+}
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+
+    private IReadOnlyList<(string Label, string Value)> QuickFacts
+    {
+        get
+        {
+            var person = Model.PersonDetails;
+            if (person is null)
+                return [];
+
+            var facts = new List<(string Label, string Value)>();
+            AddFact(facts, "Born", JoinLines(FormatDateLabel(person.DateOfBirth), person.PlaceOfBirth));
+            AddFact(facts, "Died", JoinLines(FormatDateLabel(person.DateOfDeath), person.PlaceOfDeath));
+            AddFact(facts, "Occupation", person.Occupation);
+            AddFact(facts, "Roles", person.Roles.Count == 0 ? null : string.Join(", ", person.Roles));
+            AddFact(facts, "Nationality", person.Nationality);
+            AddFact(facts, "Identity", person.IsGroup ? "Group" : person.IsPseudonym ? "Pseudonym" : null);
+            return facts;
+        }
+    }
+
+    private static void AddFact(List<(string Label, string Value)> facts, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            facts.Add((label, value));
+    }
+
+    private static string? JoinLines(params string?[] values)
+    {
+        var parts = values.Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
+        return parts.Count == 0 ? null : string.Join("\n", parts);
+    }
+
+    private static string? FormatDateLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        return DateTimeOffset.TryParse(value, out var parsed)
+            ? parsed.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)
+            : value;
+    }
+
+    private static string ResolveWorkRoute(MediaGroupingItemViewModel item)
+        => item.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route
+           ?? $"/details/{ToRouteEntityType(item.EntityType)}/{item.Id}";
+
+    private static string ToRouteEntityType(DetailEntityType entityType)
+        => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();
 }

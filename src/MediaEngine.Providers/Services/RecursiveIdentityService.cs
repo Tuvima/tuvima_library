@@ -169,10 +169,10 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         // 2a. Ensure the .people/ folder exists for this person.
         EnsurePersonFolder(person);
 
-        // 3. If not yet enriched, return a harvest request for the caller to handle.
+        // 3. If not yet enriched, or still missing visible profile data, return a harvest request for the caller to handle.
         //    QID is always present — the harvest service uses it directly for
         //    Data Extension property fetching (no name-based search needed).
-        if (person.EnrichedAt is null)
+        if (person.EnrichedAt is null || NeedsProfileBackfill(person))
         {
             var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -198,6 +198,11 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 
         return null;
     }
+
+    private static bool NeedsProfileBackfill(Person person)
+        => string.IsNullOrWhiteSpace(person.Biography)
+           || (string.IsNullOrWhiteSpace(person.HeadshotUrl)
+               && string.IsNullOrWhiteSpace(person.LocalHeadshotPath));
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

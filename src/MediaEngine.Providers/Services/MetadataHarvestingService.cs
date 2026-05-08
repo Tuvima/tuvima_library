@@ -208,11 +208,11 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
         var sparqlBaseUrl = ResolveSparqlBaseUrl(providerEndpoints);
 
-        // For Person entities: skip if already enriched by a concurrent worker.
+        // For Person entities: skip only when a concurrent worker already filled the visible profile.
         if (request.EntityType == EntityType.Person && request.EntityId != Guid.Empty)
         {
             var alreadyEnriched = await _personRepo.FindByIdAsync(request.EntityId, ct).ConfigureAwait(false);
-            if (alreadyEnriched?.EnrichedAt is not null)
+            if (alreadyEnriched?.EnrichedAt is not null && HasCompletePersonProfile(alreadyEnriched))
             {
                 _logger.LogDebug(
                     "Person {Id} already enriched at {EnrichedAt} — skipping duplicate harvest",
@@ -452,6 +452,11 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 request.EntityId);
         }
     }
+
+    private static bool HasCompletePersonProfile(Person person)
+        => !string.IsNullOrWhiteSpace(person.Biography)
+           && (!string.IsNullOrWhiteSpace(person.HeadshotUrl)
+               || !string.IsNullOrWhiteSpace(person.LocalHeadshotPath));
 
     private async Task HandlePersonEnrichmentAsync(
         HarvestRequest request,

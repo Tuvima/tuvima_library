@@ -2161,7 +2161,7 @@ public sealed class DetailComposerService
             DetailEntityType.ComicIssue => ["overview", "contributors", "characters", "universe", "editions", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "credits", "related", "details"],
             DetailEntityType.MusicArtist when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "related", "details"],
-            DetailEntityType.Person => ["overview", "media", "characters", "details"],
+            DetailEntityType.Person => ["details"],
             DetailEntityType.Character => ["overview", "appearances", "portrayals", "relationships", "universe", "details"],
             DetailEntityType.Universe => ["overview", "timeline", "media", "characters", "people", "relationships", "details"],
             _ when hasSeries => ["overview", "people", "characters", "series", "universe", "related", "details"],

@@ -189,9 +189,9 @@ public sealed class PersonRepository : IPersonRepository
         conn.Execute("""
             UPDATE persons
             SET    name         = COALESCE(@name, name),
-                   wikidata_qid = @wikidataQid,
-                   headshot_url = @headshotUrl,
-                   biography    = @biography,
+                   wikidata_qid = COALESCE(@wikidataQid, wikidata_qid),
+                   headshot_url = COALESCE(@headshotUrl, headshot_url),
+                   biography    = COALESCE(@biography, biography),
                    enriched_at  = @enrichedAt
             WHERE  id = @id;
             """, p);
