@@ -21,6 +21,13 @@
 
                 <h1>@Presentation.Title</h1>
 
+                @if (!string.IsNullOrWhiteSpace(Model.Description))
+                {
+                    <div class="tl-detail-person-summary">
+                        <p>@Model.Description</p>
+                    </div>
+                }
+
                 @if (PersonHeroFacts.Count > 0)
                 {
                     <div class="tl-detail-person-fact-row">
@@ -31,17 +38,6 @@
                                 <span>@fact.Label</span>
                             </span>
                         }
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Model.Description))
-                {
-                    <div class="tl-detail-person-summary">
-                        @foreach (var paragraph in PersonParagraphs(Model.Description))
-                        {
-                            <p>@paragraph</p>
-                        }
-                        <DescriptionAttribution Attribution="Model.DescriptionAttribution" Compact="true" />
                     </div>
                 }
 
@@ -60,6 +56,7 @@
                                          Size="1.08rem"
                                          Title="@link.Label"
                                          Decorative="false" />
+                                <span>@link.Label</span>
                             </a>
                         }
                     </div>
@@ -190,6 +187,8 @@
                 facts.Add((Icons.Material.Outlined.CalendarMonth, birth));
             if (!string.IsNullOrWhiteSpace(details.PlaceOfBirth))
                 facts.Add((Icons.Material.Outlined.Place, details.PlaceOfBirth!));
+            if (Model.MediaGroups.Sum(group => group.Items.Count) > 0)
+                facts.Add((Icons.Material.Outlined.VideoLibrary, $"{Model.MediaGroups.Sum(group => group.Items.Count)} titles in library"));
             return facts;
         }
     }

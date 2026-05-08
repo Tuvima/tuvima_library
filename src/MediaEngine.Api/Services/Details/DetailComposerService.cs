@@ -367,6 +367,8 @@ public sealed class DetailComposerService
         var relatedArt = credits.Select(c => c.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(8).ToList();
         var groups = BuildPersonCreditGroups(credits, context);
         var displayRoles = BuildPersonDisplayRoles(credits, person.Roles);
+        var shortDescription = await LoadPersonShortDescriptionAsync(personId, person.WikidataQid, ct)
+            ?? BuildFallbackHeroSummary(person.Biography);
 
         return new DetailPageViewModel
         {
@@ -375,7 +377,7 @@ public sealed class DetailComposerService
             PresentationContext = context,
             Title = person.Name,
             Subtitle = person.IsGroup ? "Group" : string.Join(" • ", displayRoles.Take(3)),
-            Description = person.Biography,
+            Description = shortDescription,
             DescriptionAttribution = BuildWikipediaDescriptionAttribution(person.Biography, wikipediaUrl),
             PersonDetails = BuildPersonDetails(person, displayRoles, wikipediaUrl, aliases, groupMembers, memberOfGroups),
             Artwork = BuildArtwork(entityType, background, banner, null, null, portrait, new Dictionary<string, string>(), relatedArt, 0, null, logo),
@@ -3157,8 +3159,8 @@ public sealed class DetailComposerService
                 Title = g.Key,
                 Items = g.Select(c => new MediaGroupingItemViewModel
                 {
-                    Id = c.WorkId.ToString("D"),
-                    EntityType = MapMediaTypeToEntityType(c.MediaType),
+                    Id = CreditDisplayId(c),
+                    EntityType = MapCreditToEntityType(c),
                     Title = c.Title,
                     Subtitle = string.Join(" • ", new[] { c.Role, c.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
                     ArtworkUrl = c.CoverUrl,
@@ -3247,6 +3249,42 @@ public sealed class DetailComposerService
             cancellationToken: ct));
     }
 
+    private async Task<string?> LoadPersonShortDescriptionAsync(Guid personId, string? qid, CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        var description = await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
+            """
+            SELECT value
+            FROM canonical_values
+            WHERE entity_id = @personId
+              AND key = 'short_description'
+              AND value IS NOT NULL
+              AND TRIM(value) <> ''
+            ORDER BY last_scored_at DESC
+            LIMIT 1;
+            """,
+            new { personId = personId.ToString("D") },
+            cancellationToken: ct));
+
+        if (!string.IsNullOrWhiteSpace(description))
+            return description;
+
+        if (string.IsNullOrWhiteSpace(qid))
+            return null;
+
+        return await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
+            """
+            SELECT description
+            FROM qid_labels
+            WHERE qid = @qid
+              AND description IS NOT NULL
+              AND TRIM(description) <> ''
+            LIMIT 1;
+            """,
+            new { qid },
+            cancellationToken: ct));
+    }
+
     private static DescriptionAttributionViewModel? BuildWikipediaDescriptionAttribution(string? description, string? wikipediaUrl)
     {
         if (string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(wikipediaUrl))
@@ -3273,6 +3311,7 @@ public sealed class DetailComposerService
         {
             WikidataQid = person.WikidataQid,
             WikidataUrl = null,
+            Biography = person.Biography,
             Occupation = person.Occupation,
             Roles = displayRoles,
             DateOfBirth = person.DateOfBirth,
@@ -3425,11 +3464,21 @@ public sealed class DetailComposerService
         return DetailEntityType.Book;
     }
 
+    private static DetailEntityType MapCreditToEntityType(MediaEngine.Api.Models.PersonLibraryCreditDto credit)
+        => credit.CollectionId.HasValue && credit.MediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true
+            ? DetailEntityType.TvShow
+            : MapMediaTypeToEntityType(credit.MediaType);
+
+    private static string CreditDisplayId(MediaEngine.Api.Models.PersonLibraryCreditDto credit)
+        => MapCreditToEntityType(credit) == DetailEntityType.TvShow && credit.CollectionId.HasValue
+            ? credit.CollectionId.Value.ToString("D")
+            : credit.WorkId.ToString("D");
+
     private static string? BuildCreditRoute(MediaEngine.Api.Models.PersonLibraryCreditDto credit)
         => MapMediaTypeToEntityType(credit.MediaType) switch
         {
             DetailEntityType.Movie => $"/watch/movie/{credit.WorkId}",
-            DetailEntityType.TvEpisode when credit.CollectionId.HasValue => $"/watch/tv/show/{credit.CollectionId.Value}/episode/{credit.WorkId}",
+            DetailEntityType.TvEpisode when credit.CollectionId.HasValue => $"/watch/tv/show/{credit.CollectionId.Value}",
             DetailEntityType.Audiobook => $"/listen/audiobook/{credit.WorkId}",
             _ => $"/book/{credit.WorkId}",
         };

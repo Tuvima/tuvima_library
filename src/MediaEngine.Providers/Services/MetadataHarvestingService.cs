@@ -469,9 +469,10 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         var qid         = claims.FirstOrDefault(c => c.Key == BridgeIdKeys.WikidataQid)?.Value;
         var headshotUrl = claims.FirstOrDefault(c => c.Key == "headshot_url")?.Value;
         var biography   = claims.FirstOrDefault(c => c.Key == "biography")?.Value;
+        var shortDescription = claims.FirstOrDefault(c => c.Key == MetadataFieldConstants.ShortDescription)?.Value;
         var name        = claims.FirstOrDefault(c => c.Key == "name")?.Value;
 
-        if (qid is null && headshotUrl is null && biography is null && name is null)
+        if (qid is null && headshotUrl is null && biography is null && shortDescription is null && name is null)
             return;
 
         // ── Pseudonym detection from current claims ───────────────────────────
@@ -608,6 +609,21 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         await _personRepo.UpdateEnrichmentAsync(request.EntityId, qid, headshotUrl, biography, name, ct)
             .ConfigureAwait(false);
 
+        if (!string.IsNullOrWhiteSpace(shortDescription))
+        {
+            await _canonicalRepo.UpsertBatchAsync(
+                [
+                    new CanonicalValue
+                    {
+                        EntityId = request.EntityId,
+                        Key = MetadataFieldConstants.ShortDescription,
+                        Value = shortDescription,
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                    },
+                ],
+                ct).ConfigureAwait(false);
+        }
+
         // Persist biographical fields from Wikidata claims.
         var dateOfBirth  = claims.FirstOrDefault(c => c.Key == "date_of_birth")?.Value;
         var dateOfDeath  = claims.FirstOrDefault(c => c.Key == "date_of_death")?.Value;
@@ -660,7 +676,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         {
             try
             {
-                await _qidLabelRepo.UpsertAsync(qid, personName, biography, "Person", ct)
+                await _qidLabelRepo.UpsertAsync(qid, personName, shortDescription ?? biography, "Person", ct)
                     .ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

@@ -694,6 +694,8 @@ internal static class PersonCreditQueries
             SELECT w.id                                   AS WorkId,
                    w.collection_id                        AS CollectionId,
                    w.media_type                           AS MediaType,
+                   c.display_name                         AS CollectionTitle,
+                   c.wikidata_qid                         AS CollectionQid,
                    COALESCE(
                        NULLIF(TRIM(w.wikidata_qid), ''),
                        (SELECT cvq.value
@@ -735,8 +737,9 @@ internal static class PersonCreditQueries
             new { personId = personId.ToString() })).ToList();
 
         var workQids = baseRows
-            .Where(row => !string.IsNullOrWhiteSpace(row.WorkQid))
-            .Select(row => row.WorkQid!)
+            .SelectMany(row => new[] { row.WorkQid, row.CollectionQid })
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .Select(qid => qid!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -795,29 +798,125 @@ internal static class PersonCreditQueries
                     StringComparer.OrdinalIgnoreCase);
         }
 
-        return baseRows
-            .Select(row =>
+        return NormalizeLibraryCreditRows(baseRows, charactersByWorkQid);
+    }
+
+    private static List<PersonLibraryCreditDto> NormalizeLibraryCreditRows(
+        IReadOnlyList<PersonLibraryCreditRow> baseRows,
+        IReadOnlyDictionary<string, List<CharacterPortrayalDto>> charactersByWorkQid)
+        => baseRows
+            .GroupBy(LibraryCreditGroupKey)
+            .Select(group =>
             {
-                var includeCharacters = row.Role.Equals("Actor", StringComparison.OrdinalIgnoreCase)
-                    || row.Role.Equals("Voice Actor", StringComparison.OrdinalIgnoreCase);
+                var orderedRows = group
+                    .OrderBy(row => row.Year, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var representative = orderedRows.First();
+                var isTvSeriesCredit = IsTvMediaType(representative.MediaType) && representative.CollectionId.HasValue;
+                var role = ResolveLibraryCreditRole(orderedRows, charactersByWorkQid, preferSeriesRole: isTvSeriesCredit);
+                var characterQids = orderedRows
+                    .SelectMany(row => new[] { row.CollectionQid, row.WorkQid })
+                    .Where(qid => !string.IsNullOrWhiteSpace(qid))
+                    .Select(qid => qid!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase);
+                var characters = characterQids
+                    .SelectMany(qid => charactersByWorkQid.TryGetValue(qid, out var qidCharacters)
+                        ? qidCharacters
+                        : [])
+                    .GroupBy(character => character.FictionalEntityId)
+                    .Select(characterGroup => characterGroup.First())
+                    .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var includeCharacters = role.Equals("Actor", StringComparison.OrdinalIgnoreCase)
+                    || role.Equals("Voice Actor", StringComparison.OrdinalIgnoreCase);
 
                 return new PersonLibraryCreditDto
                 {
-                    WorkId = row.WorkId,
-                    CollectionId = row.CollectionId,
-                    MediaType = row.MediaType,
-                    Title = row.Title ?? "Untitled",
-                    CoverUrl = row.FirstAssetId.HasValue ? $"/stream/{row.FirstAssetId.Value}/cover-thumb" : null,
-                    Year = row.Year,
-                    Role = row.Role,
-                    Characters = includeCharacters && !string.IsNullOrWhiteSpace(row.WorkQid)
-                        && charactersByWorkQid.TryGetValue(row.WorkQid, out var characters)
-                        ? characters
-                        : [],
+                    WorkId = representative.WorkId,
+                    CollectionId = representative.CollectionId,
+                    MediaType = representative.MediaType,
+                    Title = isTvSeriesCredit
+                        ? FirstNonBlank(representative.CollectionTitle, representative.Title, "Untitled")!
+                        : FirstNonBlank(representative.Title, "Untitled")!,
+                    CoverUrl = representative.FirstAssetId.HasValue
+                        ? $"/stream/{representative.FirstAssetId.Value}/cover-thumb"
+                        : null,
+                    Year = representative.Year,
+                    Role = role,
+                    Characters = includeCharacters ? characters : [],
                 };
             })
+            .OrderByDescending(credit => credit.Year, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(credit => credit.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(credit => credit.Role, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private static string LibraryCreditGroupKey(PersonLibraryCreditRow row)
+        => IsTvMediaType(row.MediaType) && row.CollectionId.HasValue
+            ? $"tv::{row.CollectionId.Value:D}"
+            : $"work::{row.WorkId:D}";
+
+    private static string ResolveLibraryCreditRole(
+        IReadOnlyList<PersonLibraryCreditRow> rows,
+        IReadOnlyDictionary<string, List<CharacterPortrayalDto>> charactersByWorkQid,
+        bool preferSeriesRole)
+    {
+        var hasCharacterEvidence = rows
+            .SelectMany(row => new[] { row.CollectionQid, row.WorkQid })
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .Any(qid => charactersByWorkQid.ContainsKey(qid!));
+
+        if (hasCharacterEvidence)
+            return "Actor";
+
+        var roles = rows
+            .Select(row => row.Role)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(LibraryCreditRoleRank)
+            .ThenBy(role => role, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (roles.Count == 0)
+            return "Credit";
+
+        if (preferSeriesRole)
+        {
+            var seriesRole = roles.FirstOrDefault(role =>
+                role.Equals("Actor", StringComparison.OrdinalIgnoreCase)
+                || role.Equals("Voice Actor", StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(seriesRole))
+                return seriesRole;
+        }
+
+        return roles[0];
     }
+
+    private static int LibraryCreditRoleRank(string role)
+        => role.Trim().ToLowerInvariant() switch
+        {
+            "actor" => 0,
+            "voice actor" => 1,
+            "author" => 2,
+            "narrator" => 3,
+            "director" => 4,
+            "screenwriter" => 5,
+            "writer" => 5,
+            "producer" => 6,
+            "composer" => 7,
+            "artist" => 8,
+            "performer" => 9,
+            _ => 50,
+        };
+
+    private static bool IsTvMediaType(string? mediaType)
+        => mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     public static async Task<List<PersonCharacterRoleDto>> GetCharacterRolesAsync(
         Guid personId,
@@ -925,6 +1024,8 @@ internal static class PersonCreditQueries
         public Guid WorkId { get; init; }
         public Guid? CollectionId { get; init; }
         public string? MediaType { get; init; }
+        public string? CollectionTitle { get; init; }
+        public string? CollectionQid { get; init; }
         public string? WorkQid { get; init; }
         public string? Title { get; init; }
         public string? Year { get; init; }

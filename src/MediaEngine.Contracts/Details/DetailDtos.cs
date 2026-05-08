@@ -191,6 +191,7 @@ public sealed class PersonDetailFacts
 {
     public string? WikidataQid { get; init; }
     public string? WikidataUrl { get; init; }
+    public string? Biography { get; init; }
     public string? Occupation { get; init; }
     public IReadOnlyList<string> Roles { get; init; } = [];
     public string? DateOfBirth { get; init; }

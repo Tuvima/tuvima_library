@@ -4,57 +4,81 @@
 @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
 {
     <div class="tl-detail-tab-panel tl-person-details-panel">
-        <section class="tl-detail-panel">
-            <div class="tl-section-heading"><h2>Quick Facts</h2></div>
-            <div class="tl-detail-person-facts-grid tl-detail-person-facts-grid--stacked">
-                @foreach (var fact in QuickFacts)
+        <section class="tl-detail-panel tl-person-about-panel">
+            <div class="tl-section-heading"><h2>About</h2></div>
+            @if (BiographyParagraphs.Count == 0)
+            {
+                <p class="tl-detail-empty">No biography is available yet.</p>
+            }
+            else
+            {
+                <div class="tl-person-biography">
+                    @foreach (var paragraph in BiographyParagraphs)
+                    {
+                        <p>@paragraph</p>
+                    }
+                </div>
+                <DescriptionAttribution Attribution="Model.DescriptionAttribution" Compact="true" />
+            }
+        </section>
+
+        <section class="tl-detail-panel tl-person-library-panel">
+            <div class="tl-person-library-header">
+                <div class="tl-section-heading"><h2>In Your Library</h2></div>
+                @if (LibraryLanes.Count > 0)
                 {
-                    <div class="tl-detail-person-fact-card">
-                        <span class="tl-detail-person-fact-card__label">@fact.Label</span>
-                        <span class="tl-detail-person-fact-card__value">@fact.Value</span>
+                    <div class="tl-person-library-pills" aria-label="Library categories">
+                        @foreach (var lane in LibraryLanes)
+                        {
+                            <span class="tl-person-library-pill">
+                                <MudIcon Icon="@LaneIcon(lane.Key)" Size="Size.Small" />
+                                <span>@lane.Title</span>
+                                <strong>@lane.Items.Count</strong>
+                            </span>
+                        }
                     </div>
                 }
             </div>
-        </section>
 
-        <section class="tl-detail-panel">
-            <div class="tl-section-heading"><h2>Works</h2></div>
-            @if (Model.MediaGroups.Count == 0)
+            @if (LibraryLanes.Count == 0)
             {
                 <p class="tl-detail-empty">No linked works in the library yet.</p>
             }
             else
             {
-                <div class="tl-person-work-list">
-                    @foreach (var group in Model.MediaGroups)
+                <div class="tl-person-library-lanes">
+                    @foreach (var lane in LibraryLanes)
                     {
-                        @if (Model.MediaGroups.Count > 1)
-                        {
-                            <h3 class="tl-person-work-list__group">@group.Title</h3>
-                        }
-
-                        @foreach (var item in group.Items)
-                        {
-                            <a class="tl-person-work-row" href="@ResolveWorkRoute(item)">
-                                <span class="tl-person-work-row__art">
-                                    @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-                                    {
-                                        <img src="@item.ArtworkUrl" alt="@item.Title" />
-                                    }
-                                    else
-                                    {
-                                        <GeneratedIdentity Name="@item.Title" />
-                                    }
-                                </span>
-                                <span class="tl-person-work-row__body">
-                                    <span class="tl-person-work-row__title">@item.Title</span>
-                                    @if (!string.IsNullOrWhiteSpace(item.Subtitle))
-                                    {
-                                        <span class="tl-person-work-row__meta">@item.Subtitle</span>
-                                    }
-                                </span>
-                            </a>
-                        }
+                        <section class="tl-person-library-lane tl-person-library-lane--@lane.Key">
+                            <h3>
+                                <MudIcon Icon="@LaneIcon(lane.Key)" Size="Size.Small" />
+                                <span>@lane.Title</span>
+                            </h3>
+                            <div class="tl-person-work-grid">
+                                @foreach (var item in lane.Items)
+                                {
+                                    <a class="tl-person-work-card" href="@ResolveWorkRoute(item)">
+                                        <span class="tl-person-work-card__art">
+                                            @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                                            {
+                                                <img src="@item.ArtworkUrl" alt="@item.Title" />
+                                            }
+                                            else
+                                            {
+                                                <GeneratedIdentity Name="@item.Title" />
+                                            }
+                                        </span>
+                                        <span class="tl-person-work-card__body">
+                                            <span class="tl-person-work-card__title">@item.Title</span>
+                                            @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                                            {
+                                                <span class="tl-person-work-card__meta">@item.Subtitle</span>
+                                            }
+                                        </span>
+                                    </a>
+                                }
+                            </div>
+                        </section>
                     }
                 </div>
             }
@@ -79,45 +103,22 @@ else
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
 
-    private IReadOnlyList<(string Label, string Value)> QuickFacts
-    {
-        get
-        {
-            var person = Model.PersonDetails;
-            if (person is null)
-                return [];
+    private IReadOnlyList<string> BiographyParagraphs
+        => SplitParagraphs(Model.PersonDetails?.Biography ?? Model.Description);
 
-            var facts = new List<(string Label, string Value)>();
-            AddFact(facts, "Born", JoinLines(FormatDateLabel(person.DateOfBirth), person.PlaceOfBirth));
-            AddFact(facts, "Died", JoinLines(FormatDateLabel(person.DateOfDeath), person.PlaceOfDeath));
-            AddFact(facts, "Occupation", person.Occupation);
-            AddFact(facts, "Roles", person.Roles.Count == 0 ? null : string.Join(", ", person.Roles));
-            AddFact(facts, "Nationality", person.Nationality);
-            AddFact(facts, "Identity", person.IsGroup ? "Group" : person.IsPseudonym ? "Pseudonym" : null);
-            return facts;
-        }
-    }
-
-    private static void AddFact(List<(string Label, string Value)> facts, string label, string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-            facts.Add((label, value));
-    }
-
-    private static string? JoinLines(params string?[] values)
-    {
-        var parts = values.Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
-        return parts.Count == 0 ? null : string.Join("\n", parts);
-    }
-
-    private static string? FormatDateLabel(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-        return DateTimeOffset.TryParse(value, out var parsed)
-            ? parsed.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)
-            : value;
-    }
+    private IReadOnlyList<PersonLibraryLane> LibraryLanes
+        => Model.MediaGroups
+            .SelectMany(group => group.Items)
+            .GroupBy(item => LaneKey(item.EntityType))
+            .OrderBy(group => LaneSort(group.Key))
+            .Select(group => new PersonLibraryLane(
+                group.Key,
+                LaneTitle(group.Key),
+                group
+                    .OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                    .ToList()))
+            .Where(lane => lane.Items.Count > 0)
+            .ToList();
 
     private static string ResolveWorkRoute(MediaGroupingItemViewModel item)
         => item.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route
@@ -125,4 +126,60 @@ else
 
     private static string ToRouteEntityType(DetailEntityType entityType)
         => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();
+
+    private static string LaneKey(DetailEntityType entityType) => entityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "read",
+        _ => "other",
+    };
+
+    private static string LaneTitle(string key) => key switch
+    {
+        "watch" => "Watch",
+        "listen" => "Listen",
+        "read" => "Read",
+        _ => "Other",
+    };
+
+    private static string LaneIcon(string key) => key switch
+    {
+        "watch" => Icons.Material.Outlined.LiveTv,
+        "listen" => Icons.Material.Outlined.Headphones,
+        "read" => Icons.Material.Outlined.MenuBook,
+        _ => Icons.Material.Outlined.CollectionsBookmark,
+    };
+
+    private static int LaneSort(string key) => key switch
+    {
+        "watch" => 0,
+        "listen" => 1,
+        "read" => 2,
+        _ => 3,
+    };
+
+    private static IReadOnlyList<string> SplitParagraphs(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        var normalized = value
+            .Replace("\\r\\n", "\n", StringComparison.Ordinal)
+            .Replace("\\n", "\n", StringComparison.Ordinal)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Replace("<br />", "\n", StringComparison.OrdinalIgnoreCase)
+            .Replace("<br/>", "\n", StringComparison.OrdinalIgnoreCase)
+            .Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase);
+
+        return normalized
+            .Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(paragraph => string.Join('\n',
+                paragraph.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))
+            .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
+            .ToList();
+    }
+
+    private sealed record PersonLibraryLane(string Key, string Title, IReadOnlyList<MediaGroupingItemViewModel> Items);
 }

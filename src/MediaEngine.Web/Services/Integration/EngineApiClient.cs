@@ -4105,6 +4105,7 @@ public sealed class EngineApiClient : IEngineApiClient
             Subtitle = detail.Subtitle,
             Tagline = detail.Tagline,
             Description = detail.Description,
+            DescriptionAttribution = detail.DescriptionAttribution,
             PersonDetails = detail.PersonDetails,
             Artwork = new ArtworkSet
             {
