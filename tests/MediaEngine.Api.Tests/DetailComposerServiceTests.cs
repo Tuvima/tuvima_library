@@ -148,11 +148,13 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void DetailComposer_SourceKeepsMovieTabsCastOnlyAndAddsOverflowMenu()
+    public void DetailComposer_SourceKeepsMovieTabsOnCombinedOverviewAndAddsOverflowMenu()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
-        Assert.Contains("DetailEntityType.Movie when hasSeries => [\"series\", \"overview\", \"people\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Movie when hasSeries => [\"series\", \"overview\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Movie => [\"overview\", \"universe\", \"related\", \"details\"]", source);
+        Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"people\"", source);
         Assert.Contains("\"people\" => \"Cast\"", source);
         Assert.Contains("sync-settings", source);
     }

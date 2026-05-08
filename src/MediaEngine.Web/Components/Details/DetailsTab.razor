@@ -173,12 +173,45 @@ else
             .Replace("<br/>", "\n", StringComparison.OrdinalIgnoreCase)
             .Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase);
 
-        return normalized
+        var paragraphs = normalized
             .Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(paragraph => string.Join('\n',
                 paragraph.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))
             .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
             .ToList();
+
+        if (paragraphs.Count == 1 && paragraphs[0].Length > 700)
+            return SplitLongParagraph(paragraphs[0]);
+
+        return paragraphs;
+    }
+
+    private static IReadOnlyList<string> SplitLongParagraph(string paragraph)
+    {
+        var sentences = paragraph
+            .Split([". "], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select((sentence, index) => index == 0 || sentence.EndsWith('.') ? sentence : $"{sentence}.")
+            .ToList();
+
+        var result = new List<string>();
+        var current = string.Empty;
+        foreach (var sentence in sentences)
+        {
+            if (current.Length > 0 && current.Length + sentence.Length > 520)
+            {
+                result.Add(current.Trim());
+                current = string.Empty;
+            }
+
+            current = string.IsNullOrWhiteSpace(current)
+                ? sentence
+                : $"{current} {sentence}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(current))
+            result.Add(current.Trim());
+
+        return result.Count == 0 ? [paragraph] : result;
     }
 
     private sealed record PersonLibraryLane(string Key, string Title, IReadOnlyList<MediaGroupingItemViewModel> Items);

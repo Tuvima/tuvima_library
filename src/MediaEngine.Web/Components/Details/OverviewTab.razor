@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-tab-panel">
+<div class="tl-detail-tab-panel @(Model.EntityType == DetailEntityType.Person ? null : "tl-media-overview-panel")">
     @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
     {
         <section class="tl-detail-panel tl-detail-person-facts-panel">
@@ -50,23 +50,54 @@
             </section>
         }
     }
-    else if (!string.IsNullOrWhiteSpace(Model.Description))
+    else
     {
-        <section class="tl-detail-panel">
+        <section class="tl-detail-panel tl-media-overview-about-panel">
             <div class="tl-section-heading"><h2>Overview</h2></div>
-            <div class="tl-detail-copy">
-                @foreach (var paragraph in OverviewParagraphs(Model.Description))
-                {
-                    <p>@paragraph</p>
-                }
-                <DescriptionAttribution Attribution="Model.DescriptionAttribution" />
-            </div>
+            @{
+                var paragraphs = OverviewParagraphs(Model.Description);
+            }
+            @if (paragraphs.Count == 0)
+            {
+                <p class="tl-detail-empty">No overview is available yet.</p>
+            }
+            else
+            {
+                <div class="tl-detail-copy tl-media-overview-copy">
+                    @foreach (var paragraph in paragraphs)
+                    {
+                        <p>@paragraph</p>
+                    }
+                </div>
+                <DescriptionAttribution Attribution="Model.DescriptionAttribution" Compact="true" />
+            }
+        </section>
+
+        <section class="tl-detail-panel tl-media-overview-credits-panel">
+            <div class="tl-section-heading"><h2>@CreditPanelTitle</h2></div>
+            @if (Model.ContributorGroups.Count == 0 && Model.CharacterGroups.Count == 0)
+            {
+                <p class="tl-detail-empty">No linked people are available yet.</p>
+            }
+            else
+            {
+                <div class="tl-media-overview-credits">
+                    <ContributorsSection Groups="Model.ContributorGroups" />
+                    <CharactersSection Groups="Model.CharacterGroups" />
+                </div>
+            }
         </section>
     }
 </div>
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+
+    private string CreditPanelTitle => Model.EntityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Cast",
+        _ => "Credits",
+    };
 
     private IReadOnlyList<(string Label, string Value)> QuickFacts
     {
@@ -137,11 +168,44 @@
             .Replace("<br/>", "\n", StringComparison.OrdinalIgnoreCase)
             .Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase);
 
-        return normalized
+        var paragraphs = normalized
             .Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(paragraph => string.Join('\n',
                 paragraph.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))
             .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
             .ToList();
+
+        return paragraphs.Count == 1 && paragraphs[0].Length > 900
+            ? SplitLongParagraph(paragraphs[0])
+            : paragraphs;
+    }
+
+    private static IReadOnlyList<string> SplitLongParagraph(string value)
+    {
+        var sentences = value
+            .Split(". ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select((sentence, index) => index == 0 || sentence.EndsWith(".", StringComparison.Ordinal) ? sentence : $". {sentence}")
+            .ToList();
+
+        var paragraphs = new List<string>();
+        var current = new System.Text.StringBuilder();
+        foreach (var sentence in sentences)
+        {
+            if (current.Length > 0 && current.Length + sentence.Length > 520)
+            {
+                paragraphs.Add(current.ToString().Trim());
+                current.Clear();
+            }
+
+            if (current.Length > 0 && !sentence.StartsWith(".", StringComparison.Ordinal))
+                current.Append(' ');
+
+            current.Append(sentence);
+        }
+
+        if (current.Length > 0)
+            paragraphs.Add(current.ToString().Trim());
+
+        return paragraphs;
     }
 }

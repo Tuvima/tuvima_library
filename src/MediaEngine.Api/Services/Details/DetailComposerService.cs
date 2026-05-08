@@ -174,6 +174,7 @@ public sealed class DetailComposerService
             Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
             Tagline = heroSummary,
             Description = longDescription,
+            DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(
                 entityType,
@@ -317,6 +318,7 @@ public sealed class DetailComposerService
             Subtitle = BuildCollectionSubtitle(entityType, works, values),
             Tagline = heroSummary,
             Description = longDescription,
+            DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(
                 entityType,
@@ -367,8 +369,7 @@ public sealed class DetailComposerService
         var relatedArt = credits.Select(c => c.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(8).ToList();
         var groups = BuildPersonCreditGroups(credits, context);
         var displayRoles = BuildPersonDisplayRoles(credits, person.Roles);
-        var shortDescription = await LoadPersonShortDescriptionAsync(personId, person.WikidataQid, ct)
-            ?? BuildFallbackHeroSummary(person.Biography);
+        var shortDescription = await LoadPersonShortDescriptionAsync(personId, person.WikidataQid, ct);
 
         return new DetailPageViewModel
         {
@@ -2151,16 +2152,16 @@ public sealed class DetailComposerService
     {
         string[] keys = entityType switch
         {
-            DetailEntityType.TvShow => ["episodes", "overview", "people", "universe", "details"],
-            DetailEntityType.TvSeason => ["episodes", "overview", "people", "details"],
-            DetailEntityType.Movie when hasSeries => ["series", "overview", "people", "universe", "related", "details"],
-            DetailEntityType.Movie => ["overview", "people", "universe", "related", "details"],
-            DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["series", "overview", "chapters", "contributors", "characters", "universe", "editions", "details"],
-            DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "chapters", "contributors", "characters", "universe", "editions", "details"],
-            DetailEntityType.Work when hasSeries => ["series", "overview", "formats", "chapters", "contributors", "characters", "universe", "editions", "details"],
-            DetailEntityType.Work => ["overview", "formats", "chapters", "contributors", "characters", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue when hasSeries => ["series", "overview", "contributors", "characters", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue => ["overview", "contributors", "characters", "universe", "editions", "details"],
+            DetailEntityType.TvShow => ["episodes", "overview", "universe", "details"],
+            DetailEntityType.TvSeason => ["episodes", "overview", "details"],
+            DetailEntityType.Movie when hasSeries => ["series", "overview", "universe", "related", "details"],
+            DetailEntityType.Movie => ["overview", "universe", "related", "details"],
+            DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["series", "overview", "chapters", "universe", "editions", "details"],
+            DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "chapters", "universe", "editions", "details"],
+            DetailEntityType.Work when hasSeries => ["series", "overview", "formats", "chapters", "universe", "editions", "details"],
+            DetailEntityType.Work => ["overview", "formats", "chapters", "universe", "editions", "details"],
+            DetailEntityType.ComicIssue when hasSeries => ["series", "overview", "universe", "editions", "details"],
+            DetailEntityType.ComicIssue => ["overview", "universe", "editions", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "credits", "related", "details"],
             DetailEntityType.MusicArtist when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "related", "details"],
             DetailEntityType.Person => ["details"],
@@ -3272,7 +3273,7 @@ public sealed class DetailComposerService
         if (string.IsNullOrWhiteSpace(qid))
             return null;
 
-        return await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
+        var labelDescription = await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
             """
             SELECT description
             FROM qid_labels
@@ -3283,6 +3284,21 @@ public sealed class DetailComposerService
             """,
             new { qid },
             cancellationToken: ct));
+
+        return LooksLikeWikidataShortDescription(labelDescription)
+            ? labelDescription
+            : null;
+    }
+
+    private static bool LooksLikeWikidataShortDescription(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= 220
+            && !trimmed.Contains('\n')
+            && !trimmed.Contains(". ", StringComparison.Ordinal);
     }
 
     private static DescriptionAttributionViewModel? BuildWikipediaDescriptionAttribution(string? description, string? wikipediaUrl)

@@ -581,6 +581,10 @@
 }
 
 ::deep .tl-detail-description-attribution {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.24rem;
+    row-gap: 0.12rem;
     color: color-mix(in srgb, var(--tl-text-muted) 82%, var(--tl-accent-primary));
     font-size: 0.78rem;
     line-height: 1.45;
@@ -634,8 +638,52 @@
 }
 
 ::deep .tl-person-details-panel {
-    grid-template-columns: minmax(18rem, 0.35fr) minmax(0, 0.65fr);
+    width: calc(100% - clamp(2rem, 5vw, 6rem));
+    max-width: none;
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
     align-items: start;
+}
+
+::deep .tl-media-overview-panel {
+    width: calc(100% - clamp(2rem, 5vw, 6rem));
+    max-width: none;
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    align-items: start;
+}
+
+::deep .tl-media-overview-about-panel,
+::deep .tl-media-overview-credits-panel {
+    min-height: 100%;
+}
+
+::deep .tl-media-overview-copy {
+    display: grid;
+    gap: 1rem;
+    color: rgba(246, 240, 232, 0.68);
+    font-size: 0.92rem;
+    line-height: 1.68;
+    white-space: normal;
+}
+
+::deep .tl-media-overview-copy p {
+    margin: 0;
+    white-space: pre-line;
+}
+
+::deep .tl-media-overview-credits {
+    display: grid;
+    gap: 1rem;
+}
+
+::deep .tl-media-overview-credits > .tl-detail-panel {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
 }
 
 ::deep .tl-person-about-panel,
@@ -722,7 +770,7 @@
 
 ::deep .tl-person-work-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(8.2rem, 1fr));
     gap: 0.9rem;
 }
 
@@ -3532,6 +3580,16 @@
 
     ::deep .tl-detail-person-summary {
         max-width: 100%;
+    }
+
+    ::deep .tl-person-details-panel {
+        width: calc(100% - 2rem);
+        grid-template-columns: 1fr;
+    }
+
+    ::deep .tl-media-overview-panel {
+        width: calc(100% - 2rem);
+        grid-template-columns: 1fr;
     }
 }
 

@@ -213,17 +213,23 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void OverviewTab_DoesNotRepeatContributorsOrCharacters()
+    public void OverviewTab_CombinesOverviewWithCredits()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/OverviewTab.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.DoesNotContain("ContributorsSection", source);
-        Assert.DoesNotContain("CharactersSection", source);
+        Assert.Contains("tl-media-overview-panel", source);
+        Assert.Contains("tl-media-overview-about-panel", source);
+        Assert.Contains("tl-media-overview-credits-panel", source);
+        Assert.Contains("ContributorsSection", source);
+        Assert.Contains("CharactersSection", source);
         Assert.DoesNotContain("RelatedEntityChip", source);
         Assert.Contains("OverviewParagraphs(Model.Description)", source);
         Assert.Contains("Split([\"\\n\\n\"]", source);
         Assert.Contains("Replace(\"\\\\n\", \"\\n\", StringComparison.Ordinal)", source);
+        Assert.Contains("DescriptionAttribution Attribution=\"Model.DescriptionAttribution\" Compact=\"true\"", source);
+        Assert.Contains("grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr)", styles);
+        Assert.Contains(".tl-media-overview-credits > .tl-detail-panel", styles);
         Assert.Contains("white-space: pre-line", styles);
         Assert.Contains(".tl-detail-copy p", styles);
     }
