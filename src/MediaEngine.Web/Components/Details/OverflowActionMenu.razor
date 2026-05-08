@@ -3,28 +3,37 @@
 
 @if (Actions.Count > 0)
 {
-    <MudMenu Class="tl-detail-overflow"
-             PopoverClass="tl-detail-overflow-popover"
-             ListClass="tl-detail-overflow-list"
-             Dense="true"
-             AnchorOrigin="Origin.BottomRight"
-             TransformOrigin="Origin.TopRight">
-        <ActivatorContent Context="menuContext">
-            <button type="button"
-                    class="@ButtonClass"
-                    aria-label="More actions"
-                    @onclick="@menuContext.ToggleAsync">
-                <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
-            </button>
-        </ActivatorContent>
-        <ChildContent>
-            <ManageActionsMenu Actions="Actions" OnActionSelected="OnActionSelected" />
-        </ChildContent>
-    </MudMenu>
+    <div class="tl-detail-overflow">
+        <button type="button"
+                class="@ButtonClass"
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded="@_isOpen"
+                @onclick="ToggleMenu">
+            <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
+        </button>
+
+        @if (_isOpen)
+        {
+            <div class="tl-detail-overflow-popover" role="menu">
+                <ManageActionsMenu Actions="Actions" OnActionSelected="SelectAsync" />
+            </div>
+        }
+    </div>
 }
 
 @code {
     [Parameter] public IReadOnlyList<DetailAction> Actions { get; set; } = [];
     [Parameter] public string ButtonClass { get; set; } = "tl-detail-icon-button";
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+
+    private bool _isOpen;
+
+    private void ToggleMenu() => _isOpen = !_isOpen;
+
+    private async Task SelectAsync(DetailAction action)
+    {
+        _isOpen = false;
+        await OnActionSelected.InvokeAsync(action);
+    }
 }

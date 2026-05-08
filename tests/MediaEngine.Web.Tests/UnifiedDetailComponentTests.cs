@@ -240,15 +240,19 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("OverflowActions=\"Model.OverflowActions\"", hero);
         Assert.Contains("OverflowActionMenu", actions);
-        Assert.Contains("PopoverClass=\"tl-detail-overflow-popover\"", menu);
-        Assert.Contains("ListClass=\"tl-detail-overflow-list\"", menu);
-        Assert.Contains("@onclick=\"@menuContext.ToggleAsync\"", menu);
-        Assert.Contains("Disabled=\"@action.IsDisabled\"", menuItems);
+        Assert.Contains("class=\"tl-detail-overflow-popover\"", menu);
+        Assert.Contains("@onclick=\"ToggleMenu\"", menu);
+        Assert.Contains("aria-expanded=\"@_isOpen\"", menu);
+        Assert.Contains("class=\"tl-detail-overflow-list\"", menuItems);
+        Assert.Contains("role=\"menuitem\"", menuItems);
+        Assert.Contains("disabled=\"@action.IsDisabled\"", menuItems);
+        Assert.DoesNotContain("MudMenuItem", menuItems);
         Assert.Contains("action.Key is \"edit-media\" or \"edit\"", detailPage);
         Assert.Contains("action.Key == \"details\"", detailPage);
         Assert.Contains("SetActiveTab(\"details\")", detailPage);
-        Assert.Contains(".tl-detail-overflow-popover.mud-popover", appStyles);
-        Assert.Contains("border: 0 !important", appStyles);
+        Assert.Contains(".tl-detail-overflow-popover", appStyles);
+        Assert.Contains(".tl-detail-overflow-item", appStyles);
+        Assert.Contains("border: 0;", appStyles);
     }
 
     [Fact]

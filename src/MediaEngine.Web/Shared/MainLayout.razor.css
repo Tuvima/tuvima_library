@@ -206,8 +206,12 @@
     background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035)) !important;
 }
 
-::deep .layout-shell__profile-menu.mud-menu {
+.layout-shell__profile-menu-shell {
+    position: relative;
     margin-left: 0.45rem;
+}
+
+::deep .layout-shell__profile-menu.mud-menu {
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -288,9 +292,84 @@
     flex: 0 0 auto;
 }
 
+.layout-shell__profile-popover {
+    position: absolute;
+    top: calc(100% + 0.55rem);
+    right: 0;
+    z-index: calc(var(--tl-z-modal, 1400) - 10);
+    min-width: 18rem;
+    padding: 0.55rem;
+    color: var(--app-text-primary, #aab8c5);
+    background: var(--app-surface, #1e1f27);
+    border: 0;
+    border-radius: var(--app-radius-sm, 5px);
+    box-shadow: var(--app-shadow-lg, 0 1rem 2rem rgba(0, 0, 0, 0.34));
+}
+
+.layout-shell__profile-menu-heading,
+.layout-shell__profile-menu-name,
 .layout-shell__menu-status {
     max-width: 18rem;
+}
+
+.layout-shell__profile-menu-heading {
+    padding: 0.45rem 0.55rem 0.1rem;
     color: var(--app-text-muted, #8391a2);
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.layout-shell__profile-menu-name {
+    padding: 0 0.55rem 0.5rem;
+    color: var(--app-text-primary, #e5edf5);
+    font-size: 0.9rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.layout-shell__profile-menu-divider {
+    height: 1px;
+    margin: 0.3rem -0.55rem;
+    background: var(--app-border, rgba(255, 255, 255, 0.09));
+}
+
+.layout-shell__profile-menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 2.35rem;
+    gap: 0.7rem;
+    padding: 0.45rem 0.55rem;
+    border: 0;
+    border-radius: var(--app-radius-sm, 5px);
+    color: var(--app-text-primary, #aab8c5);
+    background: transparent;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.layout-shell__profile-menu-item:hover,
+.layout-shell__profile-menu-item:focus-visible {
+    color: var(--app-text-primary, #e5edf5);
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.055));
+}
+
+.layout-shell__profile-menu-item:focus-visible {
+    outline: 2px solid var(--app-focus, var(--tl-accent-primary, #7c4dff));
+    outline-offset: 1px;
+}
+
+.layout-shell__menu-status {
+    padding: 0.55rem;
+    color: var(--app-text-muted, #8391a2);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.3;
 }
 
 @media (max-width: 1100px) {

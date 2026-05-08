@@ -116,6 +116,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         if (status is not null)
         {
             _state.Language = status.Language;
+            if (status.IsHealthy && !IsIntercomConnected)
+            {
+                await StartSignalRAsync(ct);
+            }
+
             SetEngineConnectionState(status.IsHealthy
                 ? (IsIntercomConnected ? EngineConnectionState.Online : EngineConnectionState.LiveUpdatesDisconnected)
                 : EngineConnectionState.Degraded);
@@ -991,7 +996,22 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public async Task StartSignalRAsync(CancellationToken ct = default)
     {
         if (_hubConnection is not null)
-            return; // Already initialised for this circuit.
+        {
+            if (_hubConnection.State is HubConnectionState.Connected
+                or HubConnectionState.Connecting
+                or HubConnectionState.Reconnecting)
+            {
+                return;
+            }
+
+            if (_hubConnection.State != HubConnectionState.Disconnected)
+            {
+                return;
+            }
+
+            await TryStartSignalRConnectionAsync(_hubConnection, null, ct);
+            return;
+        }
 
         var baseUrl = _config["Engine:BaseUrl"] ?? "http://localhost:61495";
         var apiKey  = _config["Engine:ApiKey"]  ?? string.Empty;
@@ -1222,18 +1242,22 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             return Task.CompletedTask;
         };
 
+        await TryStartSignalRConnectionAsync(_hubConnection, collectionUrl, ct);
+    }
+
+    private async Task TryStartSignalRConnectionAsync(HubConnection connection, string? collectionUrl, CancellationToken ct)
+    {
         try
         {
-            await _hubConnection.StartAsync(ct);
-            _logger.LogInformation("Intercom connected ? {Url}", collectionUrl);
+            await connection.StartAsync(ct);
+            _logger.LogInformation("Intercom connected ? {Url}", collectionUrl ?? connection.ConnectionId);
             SetEngineConnectionState(EngineConnectionState.Online);
             _state.PushServerStarted();
         }
         catch (Exception ex)
         {
-            // Non-fatal: degrade gracefully to HTTP-only mode.
-            _logger.LogWarning(ex,
-                "Could not connect to Intercom collection at {Url} — real-time updates disabled.", collectionUrl);
+            // Non-fatal: degrade gracefully to HTTP-only mode. A later call can retry.
+            _logger.LogWarning(ex, "Could not connect to Intercom collection — real-time updates disabled.");
             SetEngineConnectionState(EngineConnectionState.LiveUpdatesDisconnected);
         }
     }

@@ -209,7 +209,9 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         var overflowMenuSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
             "src/MediaEngine.Web/Components/Details/OverflowActionMenu.razor"));
-        Assert.Contains("@onclick=\"@menuContext.ToggleAsync\"", overflowMenuSource);
+        Assert.Contains("@onclick=\"ToggleMenu\"", overflowMenuSource);
+        Assert.Contains("aria-expanded=\"@_isOpen\"", overflowMenuSource);
+        Assert.Contains("OnActionSelected=\"SelectAsync\"", overflowMenuSource);
     }
 
     private static string FindRepoRoot()

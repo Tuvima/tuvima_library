@@ -82,10 +82,26 @@ public sealed class UiShellRenderTests : TestContext
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor"));
 
         Assert.Contains("await Orchestrator.StartSignalRAsync();", source);
-        Assert.Contains("OnClick=\"@OpenReviewQueueAsync\"", source);
-        Assert.Contains("OnClick=\"@OpenSettingsAsync\"", source);
+        Assert.Contains("OnClick=\"OpenReviewQueueAsync\"", source);
+        Assert.Contains("OnClick=\"OpenSettingsAsync\"", source);
+        Assert.Contains("ToggleProfileMenu", source);
+        Assert.Contains("layout-shell__profile-menu-item", source);
+        Assert.DoesNotContain("<MudMenu AnchorOrigin=\"Origin.BottomRight\"", source);
+        Assert.DoesNotContain("<MudMenuItem", source);
         Assert.DoesNotContain("Href=\"/settings/review\"", source);
         Assert.DoesNotContain("Href=\"/settings\"", source);
+    }
+
+    [Fact]
+    public void Orchestrator_RetriesLiveUpdatesWhenHealthyStatusFindsDisconnectedSignalR()
+    {
+        var source = File.ReadAllText(GetRepoFile(
+            "src", "MediaEngine.Web", "Services", "Integration", "UIOrchestratorService.cs"));
+
+        Assert.Contains("status.IsHealthy && !IsIntercomConnected", source);
+        Assert.Contains("await StartSignalRAsync(ct);", source);
+        Assert.Contains("HubConnectionState.Disconnected", source);
+        Assert.Contains("A later call can retry", source);
     }
 
     [Fact]
