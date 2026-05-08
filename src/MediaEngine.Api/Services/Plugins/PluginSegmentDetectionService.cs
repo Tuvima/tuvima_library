@@ -122,13 +122,16 @@ public sealed class PluginSegmentDetectionService
         };
     }
 
-    private static void TryDeleteDirectory(string path)
+    private void TryDeleteDirectory(string path)
     {
         try
         {
             if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not delete plugin segment detection temp directory {Path}", path);
+        }
     }
 }
 

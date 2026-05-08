@@ -7,6 +7,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject ILogger<LibraryItemInspector> Logger
 
 @if (Item is null)
 {
@@ -206,16 +207,20 @@ else
         var reportsTask = Orchestrator.GetReportsForEntityAsync(Item.EntityId);
         var detailTask  = ApiClient.GetLibraryItemDetailAsync(Item.EntityId);
 
-        try { _history = await historyTask; } catch { _history = []; }
+        try { _history = await historyTask; }
+        catch (Exception ex) { Logger.LogDebug(ex, "Inspector history load failed for {EntityId}", Item.EntityId); _history = []; }
         _historyLoading = false;
 
-        try { _fields = await fieldsTask; } catch { _fields = []; }
+        try { _fields = await fieldsTask; }
+        catch (Exception ex) { Logger.LogDebug(ex, "Inspector canonical field load failed for {EntityId}", Item.EntityId); _fields = []; }
         _fieldsLoading = false;
 
-        try { _reports = await reportsTask; } catch { _reports = []; }
+        try { _reports = await reportsTask; }
+        catch (Exception ex) { Logger.LogDebug(ex, "Inspector report load failed for {EntityId}", Item.EntityId); _reports = []; }
         _reportsLoading = false;
 
-        try { _detail = await detailTask; } catch { _detail = null; }
+        try { _detail = await detailTask; }
+        catch (Exception ex) { Logger.LogDebug(ex, "Inspector detail load failed for {EntityId}", Item.EntityId); _detail = null; }
         _detailLoading = false;
     }
 
@@ -243,7 +248,7 @@ else
             StateHasChanged();
 
             try { _detail = await ApiClient.GetLibraryItemDetailAsync(Item.EntityId); }
-            catch { _detail = null; }
+            catch (Exception ex) { Logger.LogDebug(ex, "Inspector detail refresh failed for {EntityId}", Item.EntityId); _detail = null; }
             _detailLoading = false;
             var freshStatus = _detail?.Status ?? "";
             var stillInReview = freshStatus is "InReview" or "Review";

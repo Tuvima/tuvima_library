@@ -3283,7 +3283,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// traversal to <c>_reconciler.Children.GetChildEntitiesAsync(ChildEntityRequest)</c>,
     /// which handles the season → episode walk for TV (one library call instead of
     /// N+1), the track ordering for Music, and the reverse traversal for Comics
-    /// internally. The JSON blob shape is unchanged so the Vault parser
+    /// internally. The JSON blob shape is unchanged so existing parsers
     /// (<c>CollectionEndpoints.MergeUnownedChildEntities</c>) keeps working without
     /// modification. Per-media-type cap parameters and the legacy
     /// <c>config.ChildEntityDiscovery</c> P-code overrides are no longer consulted —

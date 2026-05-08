@@ -597,7 +597,8 @@ window.listenPlayback = (function () {
                     if (channel) {
                         channel.postMessage({ type: 'command', json: json });
                     }
-                } catch {
+                } catch (error) {
+                    console.debug('Could not broadcast listen popup close.', error);
                 }
             };
 
@@ -636,7 +637,8 @@ window.listenPlayback = (function () {
             try {
                 await element.play();
                 return true;
-            } catch {
+            } catch (error) {
+                console.debug("Audio play request was rejected.", error);
                 return false;
             }
         },

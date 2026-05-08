@@ -139,7 +139,7 @@ public interface ICollectionRepository
     /// <summary>Returns all collections of a given type (e.g. "Smart", "System", "Mix", "Playlist").</summary>
     Task<IReadOnlyList<Collection>> GetByTypeAsync(string collectionType, CancellationToken ct = default);
 
-    /// <summary>Returns all non-Universe collections for the Vault Collections tab.</summary>
+    /// <summary>Returns all non-Universe collections for managed collection surfaces.</summary>
     Task<IReadOnlyList<Collection>> GetManagedCollectionsAsync(CancellationToken ct = default);
 
     /// <summary>Returns count of collections grouped by CollectionType for stats bar.</summary>

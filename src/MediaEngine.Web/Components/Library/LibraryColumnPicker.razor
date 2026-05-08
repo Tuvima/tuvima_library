@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @inject IJSRuntime JS
+@inject ILogger<LibraryColumnPicker> Logger
 
 @if (_initialized)
 {
@@ -147,8 +148,9 @@
                         StateHasChanged();
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Logger.LogDebug(ex, "Could not restore library column state for {ViewKey}.", ViewKey);
                 }
             }
         }

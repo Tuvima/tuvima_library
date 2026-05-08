@@ -2,6 +2,7 @@
 @inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject IJSRuntime JS
+@inject ILogger<DiscoveryCard> Logger
 @implements IAsyncDisposable
 
 <div class="discovery-card tl-card-hover--media @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @HoverPlacementClass @(_expanded ? "is-expanded" : "")"
@@ -479,8 +480,9 @@
         {
             await JS.InvokeVoidAsync("unregisterDiscoveryCardHover", _cardRef);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not unregister discovery card hover behavior.");
         }
     }
 }

@@ -104,7 +104,7 @@
   <data name="Nav_CloseNavigation" xml:space="preserve">
     <value>Fermer le menu de navigation</value>
   </data>
-  <data name="Nav_Vault" xml:space="preserve">
+  <data name="Nav_Library" xml:space="preserve">
     <value>BibliothÃ¨que</value>
   </data>
   <data name="Nav_ReviewPending" xml:space="preserve">

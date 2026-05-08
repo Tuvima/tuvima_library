@@ -2,6 +2,7 @@
 @using MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
+@inject ILogger<ChronicleExplorer> Logger
 @implements IAsyncDisposable
 
 <PageTitle>Chronicle Explorer - @(_graph?.Universe.Label ?? Qid)</PageTitle>
@@ -308,8 +309,9 @@
             var deltas = await ApiClient.CheckLoreDeltaAsync(Qid);
             _loreDeltaChanges = deltas.Count(d => d.HasChanged);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not check lore delta for universe {Qid}.", Qid);
         }
     }
 

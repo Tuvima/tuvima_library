@@ -1,5 +1,5 @@
 {
-  "name": "Wikidata Reconciliation",
+  "name": "wikidata_reconciliation",
   "provider_id": "b3000003-d000-4000-8000-000000000004",
   "adapter_type": "reconciliation",
   "enabled": true,

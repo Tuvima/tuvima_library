@@ -25,7 +25,7 @@ public static class DevSeedEndpoints
     /// <para><c>ExpectedQid</c> â€” when set, the reconciliation pass asserts the
     /// resolved Wikidata QID exactly matches this value. Leave null for fixtures
     /// where any QID (or no QID) is acceptable.</para>
-    /// <para><c>ExpectedCoverArt</c> â€” when true (default), the Vault display
+    /// <para><c>ExpectedCoverArt</c> â€” when true (default), the library display
     /// validation asserts that cover art was successfully downloaded for this
     /// item. Set to false for fixtures where no cover art is expected (e.g.
     /// placeholder titles or review-queue items).</para>

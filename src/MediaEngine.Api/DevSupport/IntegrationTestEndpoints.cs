@@ -63,7 +63,21 @@ public static class IntegrationTestEndpoints
         public int TotalIdentified { get; set; }
         public int TotalNeedsReview { get; set; }
         public int TotalFailed { get; set; }
-        public bool OverallPass => IssuesFound.Count == 0;
+        public bool OverallPass =>
+            IssuesFound.Count == 0
+            && (Reconciliation is null || Reconciliation.Mismatches.Count == 0)
+            && SkippedTypes.Keys.All(type => !RequestedTypes.Contains(type))
+            && MediaTypeResults.All(result => result.Pass)
+            && ManualSearchResults.All(result => result.Pass)
+            && LibraryChecks.All(result => result.Pass)
+            && FileSystemChecks.All(result => result.Pass)
+            && WatchFolderChecks.All(result => result.Pass)
+            && StageGatingResults.All(result => result.Pass)
+            && Stage3FanartSummaries.All(result => result.Pass)
+            && SeriesHarnessChecks.All(result => result.Pass)
+            && CharacterArtworkChecks.All(result => result.Pass)
+            && DescriptionSourceChecks.All(result => result.Pass);
+        public HashSet<string> RequestedTypes { get; set; } = [];
         public HashSet<string> ActiveTypes { get; set; } = [];
         public Dictionary<string, string> SkippedTypes { get; set; } = [];
         public Dictionary<string, bool> ProviderHealth { get; set; } = [];
@@ -524,6 +538,7 @@ public static class IntegrationTestEndpoints
         var requestedTypes = ParseTypes(context);
         var health = await CheckProviderHealthAsync(logger);
         var (activeTypes, skipReasons) = ResolveActiveTypes(requestedTypes, health);
+        report.RequestedTypes = requestedTypes;
         report.ActiveTypes = activeTypes;
         report.SkippedTypes = skipReasons;
         report.ProviderHealth = health.ToDictionary(h => h.Key, h => h.Value.Healthy);
@@ -602,7 +617,7 @@ public static class IntegrationTestEndpoints
             }
         }
 
-        var ingestionTimeout = ResolveIngestionTimeout(configLoader, logger);
+        var ingestionTimeout = ResolveIngestionTimeout(configLoader, stages, activeTypes.Count, logger);
         logger.LogInformation("[Phase 3] Waiting for ingestion to complete (timeout: {Timeout})...", ingestionTimeout);
         var ingestionSw = Stopwatch.StartNew();
         bool ingestionComplete = await WaitForIngestionAsync(
@@ -626,9 +641,9 @@ public static class IntegrationTestEndpoints
         logger.LogInformation("[Phase 4] Validating ingestion results...");
         await ValidateResultsAsync(libraryItemRepo, report, logger, ct);
 
-        // â”€â”€ Phase 4b: Vault Display Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 4b] Vault display validation...");
-            await ValidateVaultDisplayAsync(db, libraryItemRepo, report, stages, logger, ct);
+        // â”€â”€ Phase 4b: Library display validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        logger.LogInformation("[Phase 4b] Library display validation...");
+        await ValidateLibraryDisplayAsync(db, libraryItemRepo, report, stages, logger, ct);
 
         // â”€â”€ Phase 4c: File system and artwork validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (stages < 123)
@@ -705,6 +720,8 @@ public static class IntegrationTestEndpoints
         catch (Exception ex)
         {
             logger.LogWarning(ex, "[Report] Could not save report to disk");
+            report.IssuesFound.Add($"Report save failed: {ex.Message}");
+            html = GenerateHtmlReport(report);
         }
 
         logger.LogInformation("â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
@@ -784,9 +801,15 @@ public static class IntegrationTestEndpoints
             && !HasUnverifiedPortrait;
     }
 
-    private static TimeSpan ResolveIngestionTimeout(IConfigurationLoader configLoader, ILogger logger)
+    private static TimeSpan ResolveIngestionTimeout(
+        IConfigurationLoader configLoader,
+        int stages,
+        int activeTypeCount,
+        ILogger logger)
     {
-        var fallback = TimeSpan.FromMinutes(20);
+        var fallback = stages >= 123
+            ? TimeSpan.FromMinutes(activeTypeCount >= 6 ? 70 : 50)
+            : TimeSpan.FromMinutes(20);
 
         try
         {
@@ -798,7 +821,10 @@ public static class IntegrationTestEndpoints
             // Wikidata calls. A full all-types Stage 1+2+3 run also performs
             // quick hydration, write-back, person enrichment, and Stage 3 image
             // work, so the timeout has to cover more than the retail/bridge gate.
-            var gatedTimeout = TimeSpan.FromSeconds(gate.TimeoutSeconds) + TimeSpan.FromMinutes(25);
+            var postGateBudget = stages >= 123
+                ? TimeSpan.FromMinutes(activeTypeCount >= 6 ? 65 : 45)
+                : TimeSpan.FromMinutes(25);
+            var gatedTimeout = TimeSpan.FromSeconds(gate.TimeoutSeconds) + postGateBudget;
             return gatedTimeout > fallback ? gatedTimeout : fallback;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1086,9 +1112,9 @@ public static class IntegrationTestEndpoints
         }
     }
 
-    // â”€â”€ Vault display validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â”€â”€ Library display validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    private static async Task ValidateVaultDisplayAsync(
+    private static async Task ValidateLibraryDisplayAsync(
         IDatabaseConnection db,
         ILibraryItemRepository libraryItemRepo,
         TestReport report,
@@ -2520,9 +2546,9 @@ public static class IntegrationTestEndpoints
         sb.AppendLine("<body>");
 
         // Header
-        string overallBadge = report.IssuesFound.Count == 0
+        string overallBadge = report.OverallPass
             ? "<span class=\"badge badge-pass\">ALL PASS</span>"
-            : $"<span class=\"badge badge-warn\">{report.IssuesFound.Count} ISSUES</span>";
+            : "<span class=\"badge badge-fail\">VALIDATION FAILED</span>";
         sb.AppendLine($"<h1>Tuvima Library â€” Integration Test Report {overallBadge}</h1>");
         string stageBadge = report.StagesLevel switch
         {
@@ -2691,11 +2717,11 @@ public static class IntegrationTestEndpoints
         // Library Display Validation
         if (report.LibraryChecks.Count > 0)
         {
-            int vaultPass = report.LibraryChecks.Count(v => v.Pass);
-            string vaultBadge = vaultPass == report.LibraryChecks.Count
+            int libraryPass = report.LibraryChecks.Count(v => v.Pass);
+            string libraryBadge = libraryPass == report.LibraryChecks.Count
                 ? "<span class=\"badge badge-pass\">ALL PASS</span>"
-                : $"<span class=\"badge badge-warn\">{report.LibraryChecks.Count - vaultPass} ISSUES</span>";
-            sb.AppendLine($"<h2>Library Display Validation {vaultBadge}</h2>");
+                : $"<span class=\"badge badge-warn\">{report.LibraryChecks.Count - libraryPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Library Display Validation {libraryBadge}</h2>");
             sb.AppendLine("<table>");
             sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Cover Art</th><th>Title</th><th>Creator</th><th>Status</th><th>Retail Match</th><th>Retail Provider</th><th>QID</th></tr>");
             foreach (var v in report.LibraryChecks.OrderBy(v => v.MediaType).ThenBy(v => v.Title))

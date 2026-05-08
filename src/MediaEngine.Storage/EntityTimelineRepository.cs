@@ -279,7 +279,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
         return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
     }
 
-    // ── Queries for Vault List ─────────────────────────────────────────
+    // ── Queries for library list surfaces ──────────────────────────────
 
     public async Task<IReadOnlyDictionary<Guid, EntityEvent>> GetLatestStage2EventsAsync(
         IReadOnlyList<Guid> entityIds, CancellationToken ct = default)

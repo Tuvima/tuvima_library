@@ -25,12 +25,12 @@ public sealed class PipelineConfigurationTests
             var priorities = ReadPriority(document, mediaType, "description");
 
             Assert.NotEmpty(priorities);
-            Assert.Equal("Wikidata Reconciliation", priorities[0]);
+            Assert.Equal("wikidata_reconciliation", priorities[0]);
             Assert.Equal(fallbacks, priorities.Skip(1).ToArray());
         }
 
         Assert.Equal(
-            ["Wikidata Reconciliation", "tmdb"],
+            ["wikidata_reconciliation", "tmdb"],
             ReadPriority(document, "TV", "episode_description"));
     }
 

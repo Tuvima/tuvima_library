@@ -6,7 +6,7 @@ namespace MediaEngine.Storage.Models;
 /// <summary>Configuration for the Wikidata Reconciliation + Data Extension adapter.</summary>
 public sealed class ReconciliationProviderConfig
 {
-    [JsonPropertyName("name")] public string Name { get; set; } = "Wikidata Reconciliation";
+    [JsonPropertyName("name")] public string Name { get; set; } = "wikidata_reconciliation";
     [JsonPropertyName("provider_id")] public string ProviderId { get; set; } = WellKnownProviders.Wikidata.ToString();
     [JsonPropertyName("adapter_type")] public string AdapterType { get; set; } = "reconciliation";
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;

@@ -7,6 +7,7 @@
 @inject ISnackbar Snackbar
 @inject ProviderCatalogueService CatalogueService
 @inject IJSRuntime JS
+@inject ILogger<MediaItemEditor> Logger
 
 <NavigationLock ConfirmExternalNavigation="@_appliedAny"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
@@ -357,7 +358,10 @@
                         _results = items;
                 }
             }
-            catch {  }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Could not load cached search results for {EntityId}", EntityId);
+            }
         }
 
         await LoadMetadataAsync();
@@ -403,8 +407,9 @@
                     .Select(cv => new ClaimFieldDto(cv.Key, cv.Value!))
                     .ToList();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Could not load metadata for {EntityId}; falling back to supplied canonical values", EntityId);
             if (WorkCanonicalValues is { Count: > 0 })
                 _canonicalValues = WorkCanonicalValues
                     .Where(cv => !string.IsNullOrEmpty(cv.Value))
@@ -434,8 +439,9 @@
         {
             _history = await ApiClient.GetItemHistoryAsync(EntityId);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Could not load history for {EntityId}", EntityId);
             _history = [];
         }
         _loadingHistory = false;
@@ -456,7 +462,10 @@
                 return;
             }
         }
-        catch {  }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not deserialize preloaded search result candidates");
+        }
 
         try
         {
@@ -469,7 +478,10 @@
                     RawFields = new Dictionary<string, string> { ["wikidata_qid"] = c.Qid ?? "" },
                 }).ToList();
         }
-        catch {  }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not deserialize preloaded Wikidata candidates");
+        }
     }
 
     private sealed class PreloadedCandidate
@@ -536,7 +548,10 @@
                 var json = System.Text.Json.JsonSerializer.Serialize(_results);
                 await Orchestrator.SaveSearchResultsCacheAsync(EntityId, json);
             }
-            catch {  }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Could not cache search results for {EntityId}", EntityId);
+            }
         }
     }
 
@@ -605,7 +620,10 @@
             _selectedCoverIndex = 0;
         }
         catch (OperationCanceledException) {  }
-        catch {  }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not load retail cover candidates for {EntityId}", EntityId);
+        }
         finally
         {
             if (_highlightedItem == item)

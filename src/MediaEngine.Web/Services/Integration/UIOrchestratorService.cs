@@ -1192,7 +1192,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         // -- "LoreDeltaDiscovered" ---------------------------------------------
         // Stage 3 Lore Delta sweep found entities with updated Wikidata revisions.
-        // Vault page subscribes to OnLoreDeltaDiscovered to show an amber banner.
+        // Dashboard surfaces subscribe to OnLoreDeltaDiscovered to show an amber banner.
         _hubConnection.On<LoreDeltaDiscoveredEvent>(SignalREvents.LoreDeltaDiscovered, ev =>
         {
             _logger.LogDebug(

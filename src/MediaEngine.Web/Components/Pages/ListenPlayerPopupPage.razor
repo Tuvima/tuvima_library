@@ -210,8 +210,9 @@
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not restore listen popup playback state from browser storage.");
         }
     }
 

@@ -258,7 +258,7 @@ public sealed record LoreDeltaDiscoveredEvent(
 ///
 /// SignalR method name: <c>"UniverseEnrichmentProgress"</c>
 ///
-/// The Dashboard uses this event to show live Stage 3 progress in the Vault
+/// The Dashboard uses this event to show live Stage 3 progress on library surfaces
 /// pipeline header and in the WikidataConfigTab trigger feedback.
 /// </summary>
 /// <param name="WorkQid">Wikidata QID of the work currently being enriched.</param>

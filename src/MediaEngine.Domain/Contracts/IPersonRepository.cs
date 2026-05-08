@@ -39,7 +39,7 @@ public interface IPersonRepository
 
     /// <summary>
     /// Returns per-person media type counts (e.g. how many Books, Movies, etc. each person
-    /// is linked to). Used by the Vault People tab for library presence display.
+    /// is linked to). Used by people surfaces for library presence display.
     /// </summary>
     Task<Dictionary<Guid, Dictionary<string, int>>> GetPresenceBatchAsync(
         IEnumerable<Guid> personIds,

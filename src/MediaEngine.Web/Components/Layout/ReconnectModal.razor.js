@@ -51,7 +51,8 @@ async function resume() {
         if (!successful) {
             location.reload();
         }
-    } catch {
+    } catch (err) {
+        console.debug("Circuit resume failed.", err);
         reconnectModal.classList.replace("components-reconnect-paused", "components-reconnect-resume-failed");
     }
 }

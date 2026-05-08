@@ -69,7 +69,7 @@ public sealed class CoverArtWorker
         // so the retail provider's cover URL lands on the parent Work id
         // (album / show / movie Work) — not the media asset id. Without this
         // fallback, every one of those media types silently returns "No cover
-        // URL found" and the Vault shows a placeholder.
+        // URL found" and the Dashboard shows a placeholder.
         if (string.IsNullOrEmpty(coverUrl))
         {
             try

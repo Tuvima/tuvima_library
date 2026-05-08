@@ -325,7 +325,7 @@ public sealed class WikidataBridgeWorker
                 };
 
                 // Persist the resolution method as a canonical value so the
-                // Vault can filter items by how their Wikidata match was made.
+                // The Dashboard can filter items by how their Wikidata match was made.
                 if (ctx.MatchedBy is not null)
                 {
                     var canonicalMethod = ctx.MatchedBy switch

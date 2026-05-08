@@ -403,9 +403,9 @@ public interface IEngineApiClient
         string providerName, string query, string? mediaType = null,
         int limit = 25, CancellationToken ct = default);
 
-    // ── Item preferences (/vault/items/{entityId}/preferences) ────────────
+    // ── Item preferences (/library/items/{entityId}/preferences) ────────────
 
-    /// <summary>PUT /vault/items/{entityId}/preferences — save user-preferred fields without replacing external IDs.</summary>
+    /// <summary>PUT /library/items/{entityId}/preferences - save user-preferred fields without replacing external IDs.</summary>
     Task<bool> SaveItemPreferencesAsync(Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default);
 
     // ── Media types (/settings/media-types) ────────────────────────────────
@@ -569,24 +569,24 @@ public interface IEngineApiClient
     /// <summary>GET /persons/{id}/aliases — aliases and pseudonyms for a person.</summary>
     Task<PersonAliasesResponseDto?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default);
 
-    // ── Universe health + character data (/universe, /vault/characters, /vault/persons) ──
+    // ── Universe health + character data (/universe, /library/characters, /library/persons) ──
 
     /// <summary>GET /universe/{qid}/health — health score for a fictional universe.</summary>
     Task<UniverseHealthDto?> GetUniverseHealthAsync(string qid, CancellationToken ct = default);
 
-    /// <summary>GET /vault/universes/{universeQid}/characters — characters in a universe with default actor/portrait.</summary>
+    /// <summary>GET /library/universes/{universeQid}/characters - characters in a universe with default actor/portrait.</summary>
     Task<IReadOnlyList<UniverseCharacterDto>> GetUniverseCharactersAsync(string universeQid, CancellationToken ct = default);
 
-    /// <summary>GET /vault/persons/{personId}/character-roles — character roles with portraits for a person.</summary>
+    /// <summary>GET /library/persons/{personId}/character-roles - character roles with portraits for a person.</summary>
     Task<IReadOnlyList<CharacterRoleDto>> GetPersonCharacterRolesAsync(Guid personId, CancellationToken ct = default);
 
     /// <summary>GET /works/{id}/cast — actor and character credits for a single work.</summary>
     Task<List<CollectionGroupPersonViewModel>> GetWorkCastAsync(Guid workId, CancellationToken ct = default);
 
-    /// <summary>PUT /vault/characters/{fictionalEntityId}/portraits/{portraitId}/default — set the default portrait for a character.</summary>
+    /// <summary>PUT /library/characters/{fictionalEntityId}/portraits/{portraitId}/default - set the default portrait for a character.</summary>
     Task SetDefaultPortraitAsync(Guid fictionalEntityId, Guid portraitId, CancellationToken ct = default);
 
-    /// <summary>GET /vault/assets/{entityId} — entity assets grouped by type.</summary>
+    /// <summary>GET /library/assets/{entityId} - entity assets grouped by type.</summary>
     Task<IReadOnlyList<EntityAssetDto>> GetEntityAssetsAsync(string entityId, CancellationToken ct = default);
 
     /// <summary>GET /metadata/{entityId}/artwork — grouped artwork variants for the editor.</summary>
@@ -609,7 +609,7 @@ public interface IEngineApiClient
     /// <summary>Re-matches an entity through the full pipeline.</summary>
     Task<bool> RematchEntityAsync(Guid entityId, CancellationToken ct = default);
 
-    /// <summary>POST /vault/enrichment/universe/trigger — manually trigger Stage 3 universe enrichment.</summary>
+    /// <summary>POST /library/enrichment/universe/trigger - manually trigger Stage 3 universe enrichment.</summary>
     Task TriggerUniverseEnrichmentAsync(CancellationToken ct = default);
     // -- EPUB Reader (/read, /reader) ----------------------------------
 
@@ -722,9 +722,9 @@ public interface IEngineApiClient
     Task<FamilyTreeResponse?> GetFamilyTreeAsync(
         string qid, string characterQid, int generations = 3, CancellationToken ct = default);
 
-    // ── Vault items (/vault/items) ─────────────────────────────────────────
+    // ── Library items (/library/items) ─────────────────────────────────────────
 
-    /// <summary>GET /vault/items — paginated list of all ingested items.</summary>
+    /// <summary>GET /library/items - paginated list of all ingested items.</summary>
     Task<LibraryCatalogPageResponse?> GetLibraryCatalogItemsAsync(
         int offset = 0, int limit = 50,
         string? search = null, string? type = null, string? status = null,
@@ -733,41 +733,41 @@ public interface IEngineApiClient
         string? sort = null, int? maxDays = null,
         CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/batch/approve — bulk-approve Vault items.</summary>
+    /// <summary>POST /library/items/batch/approve - bulk-approve library items.</summary>
     Task<BatchLibraryItemResponse?> BatchApproveLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/batch/delete — bulk-delete Vault items.</summary>
+    /// <summary>POST /library/items/batch/delete - bulk-delete library items.</summary>
     Task<BatchLibraryItemResponse?> BatchDeleteLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/{entityId}/reject — reject a single Vault item.</summary>
+    /// <summary>POST /library/items/{entityId}/reject - reject a single library item.</summary>
     Task<BatchLibraryItemResponse?> RejectLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/batch/reject — bulk-reject Vault items.</summary>
+    /// <summary>POST /library/items/batch/reject - bulk-reject library items.</summary>
     Task<BatchLibraryItemResponse?> BatchRejectLibraryCatalogItemsAsync(Guid[] entityIds, CancellationToken ct = default);
 
-    /// <summary>GET /vault/items/{entityId}/detail — full detail for expanded row.</summary>
+    /// <summary>GET /library/items/{entityId}/detail - full detail for expanded row.</summary>
     Task<LibraryItemDetailViewModel?> GetLibraryItemDetailAsync(Guid entityId, CancellationToken ct = default);
 
-    /// <summary>GET /vault/items/{entityId}/history — processing history timeline.</summary>
+    /// <summary>GET /library/items/{entityId}/history - processing history timeline.</summary>
     Task<List<LibraryItemHistoryDto>> GetItemHistoryAsync(Guid entityId, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/{entityId}/recover — recover a previously rejected item.</summary>
+    /// <summary>POST /library/items/{entityId}/recover - recover a previously rejected item.</summary>
     Task<bool> RecoverLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/{entityId}/auto-register — auto-register an item using its top candidate.</summary>
+    /// <summary>POST /library/items/{entityId}/auto-register - auto-register an item using its top candidate.</summary>
     Task<BatchLibraryItemResponse?> AutoMatchLibraryItemAsync(Guid entityId, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/{entityId}/provisional — mark an item as provisional with curator metadata.</summary>
+    /// <summary>POST /library/items/{entityId}/provisional - mark an item as provisional with curator metadata.</summary>
     Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default);
 
-    /// <summary>GET /vault/items/counts — status counts for tab badges.</summary>
+    /// <summary>GET /library/items/counts - status counts for tab badges.</summary>
     Task<LibraryItemStatusCountsDto?> GetLibraryItemStatusCountsAsync(CancellationToken ct = default);
 
-    /// <summary>GET /vault/items/state-counts — four-state counts with trigger breakdown.</summary>
+    /// <summary>GET /library/items/state-counts - four-state counts with trigger breakdown.</summary>
     Task<LibraryItemLifecycleCountsDto?> GetLibraryItemLifecycleCountsAsync(
         Guid? batchId = null, CancellationToken ct = default);
 
-    /// <summary>GET /vault/items/type-counts — per-media-type item counts.</summary>
+    /// <summary>GET /library/items/type-counts - per-media-type item counts.</summary>
     Task<Dictionary<string, int>> GetLibraryItemTypeCountsAsync(CancellationToken ct = default);
 
     /// <summary>GET /ingestion/batches — recent ingestion batches.</summary>
@@ -804,25 +804,25 @@ public interface IEngineApiClient
         string query, string mediaType, int maxCandidates,
         Dictionary<string, string>? fileHints, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/{entityId}/apply-match — apply a match to a Vault item.</summary>
+    /// <summary>POST /library/items/{entityId}/apply-match - apply a match to a library item.</summary>
     Task<ApplyMatchResponseDto?> ApplyLibraryItemMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
         CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/{entityId}/canonical-search — targeted canonical search for a field group.</summary>
+    /// <summary>POST /library/items/{entityId}/canonical-search - targeted canonical search for a field group.</summary>
     Task<ItemCanonicalSearchResponseDto?> SearchItemCanonicalAsync(
         Guid entityId, ItemCanonicalSearchRequestDto request, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/{entityId}/canonical-apply — apply a targeted canonical candidate.</summary>
+    /// <summary>POST /library/items/{entityId}/canonical-apply - apply a targeted canonical candidate.</summary>
     Task<ItemCanonicalApplyResponseDto?> ApplyItemCanonicalAsync(
         Guid entityId, ItemCanonicalApplyRequestDto request, CancellationToken ct = default);
 
-    /// <summary>POST /vault/items/{entityId}/create-manual — create a manual metadata entry.</summary>
+    /// <summary>POST /library/items/{entityId}/create-manual - create a manual metadata entry.</summary>
     Task<CreateManualResponseDto?> CreateManualEntryAsync(
         Guid entityId, CreateManualRequestDto request,
         CancellationToken ct = default);
 
-    /// <summary>DELETE /vault/items/{entityId} — permanently remove a work and all its files.</summary>
+    /// <summary>DELETE /library/items/{entityId} - permanently remove a work and all its files.</summary>
     Task<bool> DeleteLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>Submit a problem report on a media item.</summary>
@@ -851,7 +851,7 @@ public interface IEngineApiClient
     /// <summary>GET /ai/resources — live RAM, CPU pressure, and transcoding status.</summary>
     Task<ResourceSnapshotDto?> GetResourceSnapshotAsync(CancellationToken ct = default);
 
-    // ── Managed Collections (Vault Collections tab) ────────────────────────────────────────
+    // ── Managed Collections (managed collections surface) ────────────────────────────────────────
 
     /// <summary>GET /collections/{collectionId}/group-detail — full drill-down view of a content group (album, TV show, book series, movie series).</summary>
     Task<CollectionGroupDetailViewModel?> GetCollectionGroupDetailAsync(Guid collectionId, CancellationToken ct = default);
@@ -865,7 +865,7 @@ public interface IEngineApiClient
     /// <summary>GET /collections/system-view-detail?groupField=&amp;groupValue=&amp;mediaType=&amp;artistName= — generic system-view drill-down for any group field.</summary>
     Task<CollectionGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, string? artistName = null, CancellationToken ct = default);
 
-    /// <summary>GET /collections/managed — all non-Universe collections for the Vault Collections tab.</summary>
+    /// <summary>GET /collections/managed — all non-Universe collections for the managed collections surface.</summary>
     Task<List<ManagedCollectionViewModel>> GetManagedCollectionsAsync(Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/managed/counts — collection count grouped by type for stats bar.</summary>
@@ -925,41 +925,41 @@ public interface IEngineApiClient
     /// </summary>
     Task<List<CollectionResolvedItemViewModel>> ResolveCollectionByNameAsync(string name, int? limit = null, CancellationToken ct = default);
 
-    // ── Vault Preferences (/settings/ui/vault-preferences) ──────────────────
+    // ── Library Preferences (/settings/ui/library-preferences) ──────────────────
 
-    /// <summary>GET /settings/ui/vault-preferences — vault display preferences (view modes, show unowned).</summary>
+    /// <summary>GET /settings/ui/library-preferences - library display preferences (view modes, show unowned).</summary>
     Task<LibraryPreferencesSettings?> GetLibraryPreferencesAsync();
 
-    /// <summary>PUT /settings/ui/vault-preferences — save vault display preferences.</summary>
+    /// <summary>PUT /settings/ui/library-preferences - save library display preferences.</summary>
     Task SaveLibraryPreferencesAsync(LibraryPreferencesSettings settings);
 
-    // ── Vault Overview ──
+    // ── Library Overview ──
 
-    /// <summary>GET /vault/overview — aggregated operational health summary.</summary>
+    /// <summary>GET /library/overview - aggregated operational health summary.</summary>
     Task<LibraryOverviewViewModel?> GetLibraryOverviewAsync(CancellationToken ct = default);
 
-    /// <summary>POST /vault/batch-edit — apply batch field edits to multiple items.</summary>
+    /// <summary>POST /library/batch-edit - apply batch field edits to multiple items.</summary>
     Task<LibraryBatchEditResultViewModel?> BatchEditAsync(
         List<Guid> entityIds, Dictionary<string, string> fieldChanges, CancellationToken ct = default);
 
     // ── Universe Alignment ──
 
-    /// <summary>GET /vault/universe-candidates — works with universe QIDs but no collection assignment.</summary>
+    /// <summary>GET /library/universe-candidates - works with universe QIDs but no collection assignment.</summary>
     Task<List<UniverseCandidateViewModel>> GetUniverseCandidatesAsync(CancellationToken ct = default);
 
-    /// <summary>POST /vault/universe-candidates/{workId}/accept — accept a universe assignment.</summary>
+    /// <summary>POST /library/universe-candidates/{workId}/accept - accept a universe assignment.</summary>
     Task<bool> AcceptUniverseCandidateAsync(Guid workId, string targetCollectionQid, CancellationToken ct = default);
 
-    /// <summary>POST /vault/universe-candidates/{workId}/reject — reject a universe candidate.</summary>
+    /// <summary>POST /library/universe-candidates/{workId}/reject - reject a universe candidate.</summary>
     Task<bool> RejectUniverseCandidateAsync(Guid workId, CancellationToken ct = default);
 
-    /// <summary>POST /vault/universe-candidates/batch-accept — batch accept universe assignments.</summary>
+    /// <summary>POST /library/universe-candidates/batch-accept - batch accept universe assignments.</summary>
     Task<int> BatchAcceptUniverseCandidatesAsync(List<Guid> workIds, CancellationToken ct = default);
 
-    /// <summary>GET /vault/universe-unlinked — works with QID but no universe properties.</summary>
+    /// <summary>GET /library/universe-unlinked - works with QID but no universe properties.</summary>
     Task<List<UnlinkedWorkViewModel>> GetUniverseUnlinkedAsync(CancellationToken ct = default);
 
-    /// <summary>POST /vault/universe-assign — manually assign a work to a collection.</summary>
+    /// <summary>POST /library/universe-assign - manually assign a work to a collection.</summary>
     Task<bool> ManualUniverseAssignAsync(Guid workId, Guid collectionId, CancellationToken ct = default);
 }
 

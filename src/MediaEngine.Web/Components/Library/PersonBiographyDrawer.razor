@@ -1,4 +1,4 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Library
 @inject IStringLocalizer<SharedStrings> L
 
@@ -84,9 +84,9 @@
 </DrawerSection>
 
 @* -- Linked Identities -- *@
-<DrawerSection Title="@L["VaultDetail_SectionLinkedIdentities"]" Icon="@Icons.Material.Outlined.Fingerprint" DefaultOpen="false">
+<DrawerSection Title="@L["LibraryDetail_SectionLinkedIdentities"]" Icon="@Icons.Material.Outlined.Fingerprint" DefaultOpen="false">
     <div class="pbd-identities">
-        <span class="vdd-field-label">@(Person.IsPseudonym ? L["VaultDetail_FieldRealPeople"] : L["VaultDetail_FieldPenNames"])</span>
+        <span class="vdd-field-label">@(Person.IsPseudonym ? L["LibraryDetail_FieldRealPeople"] : L["LibraryDetail_FieldPenNames"])</span>
         @if (Aliases is not null && Aliases.Aliases.Count > 0)
         {
             <div class="pbd-identity-items">
@@ -113,7 +113,7 @@
         }
         else
         {
-            <p class="pbd-empty-hint">@L["VaultDetail_HintPenNames"]</p>
+            <p class="pbd-empty-hint">@L["LibraryDetail_HintPenNames"]</p>
         }
     </div>
 </DrawerSection>
@@ -171,7 +171,7 @@
 @* -- Character Roles -- *@
 @if (PersonCharacterRoles.Count > 0)
 {
-    <DrawerSection Title="@L["VaultDetail_SectionCharacterRoles"]" Icon="@Icons.Material.Outlined.TheaterComedy" DefaultOpen="false">
+    <DrawerSection Title="@L["LibraryDetail_SectionCharacterRoles"]" Icon="@Icons.Material.Outlined.TheaterComedy" DefaultOpen="false">
         @{
             var rolesByUniverse = PersonCharacterRoles
                 .GroupBy(r => r.UniverseLabel ?? "Unknown Universe")
@@ -211,22 +211,22 @@
 </DrawerSection>
 
 @* -- Assets -- *@
-<DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+<DrawerSection Title="@L["LibraryDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
     <div class="vdd-assets">
         @* Headshot *@
         <div class="vdd-asset-row">
-            <span class="vdd-asset-label">@L["VaultDetail_AssetHeadshot"]</span>
+            <span class="vdd-asset-label">@L["LibraryDetail_AssetHeadshot"]</span>
             <div class="vdd-asset-items">
                 @if (!string.IsNullOrEmpty(Person.HeadshotUrl))
                 {
                     <div class="vdd-asset-filled">
                         <img src="@Person.HeadshotUrl" alt="Headshot" class="vdd-asset-img" />
-                        <span class="vdd-asset-source">@L["VaultDetail_AssetSourceProvider"]</span>
+                        <span class="vdd-asset-source">@L["LibraryDetail_AssetSourceProvider"]</span>
                     </div>
                 }
                 <div class="vdd-asset-slot">
                     <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
-                    <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
+                    <span class="vdd-asset-upload">@L["LibraryDetail_AssetCustom"]</span>
                 </div>
             </div>
         </div>
@@ -238,7 +238,7 @@
                 <div class="vdd-asset-items">
                     <div class="vdd-asset-slot">
                         <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
-                        <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
+                        <span class="vdd-asset-upload">@L["LibraryDetail_AssetUpload"]</span>
                     </div>
                 </div>
             </div>

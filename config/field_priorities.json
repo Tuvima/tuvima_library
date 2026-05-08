@@ -1,11 +1,11 @@
 {
   "field_overrides": {
     "description": {
-      "priority": ["Wikidata Reconciliation", "apple_api", "google_books", "open_library", "tmdb"],
+      "priority": ["wikidata_reconciliation", "apple_api", "google_books", "open_library", "tmdb"],
       "note": "Prefer rich Wikipedia descriptions from the reconciliation provider, then fall back to retail descriptions"
     },
     "biography": {
-      "priority": ["Wikidata Reconciliation"],
+      "priority": ["wikidata_reconciliation"],
       "note": "Rich Wikipedia bios for persons"
     },
     "cover": {

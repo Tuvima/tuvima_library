@@ -260,7 +260,7 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
             || !name.Contains('.', StringComparison.Ordinal);
     }
 
-    private static void TryMakeExecutable(string path)
+    private void TryMakeExecutable(string path)
     {
         if (!File.Exists(path) || OperatingSystem.IsWindows()) return;
         try
@@ -268,15 +268,21 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
             using var chmod = Process.Start("chmod", ["+x", path]);
             chmod?.WaitForExit(5000);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not mark plugin tool executable: {Path}", path);
+        }
     }
 
-    private static void TryKill(Process process)
+    private void TryKill(Process process)
     {
         try
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not terminate plugin tool process {ProcessId}", process.Id);
+        }
     }
 }

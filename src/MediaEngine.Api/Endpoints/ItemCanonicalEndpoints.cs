@@ -29,6 +29,7 @@ public static class ItemCanonicalEndpoints
             IEventPublisher publisher,
             IWorkRepository workRepo,
             IDatabaseConnection db,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
@@ -103,8 +104,11 @@ public static class ItemCanonicalEndpoints
             {
                 await writeBack.WriteMetadataAsync(context.AssetId, "item_preferences", ct);
             }
-            catch
+            catch (Exception ex)
             {
+                loggerFactory
+                    .CreateLogger("MediaEngine.Api.Endpoints.ItemCanonicalEndpoints")
+                    .LogWarning(ex, "Write-back failed after saving item preferences for {EntityId}.", entityId);
             }
 
             return Results.Ok(new ItemPreferencesResponse
@@ -312,6 +316,7 @@ public static class ItemCanonicalEndpoints
             ICollectionRepository collectionRepo,
             IWorkRepository workRepo,
             IDatabaseConnection db,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             var context = TryResolveWorkAssetContext(entityId, db);
@@ -465,8 +470,11 @@ public static class ItemCanonicalEndpoints
             {
                 await writeBack.WriteMetadataAsync(context.AssetId, "item_canonical_apply", ct);
             }
-            catch
+            catch (Exception ex)
             {
+                loggerFactory
+                    .CreateLogger("MediaEngine.Api.Endpoints.ItemCanonicalEndpoints")
+                    .LogWarning(ex, "Write-back failed after applying canonical candidate for {EntityId}.", entityId);
             }
 
             return Results.Ok(new ItemCanonicalApplyResponse

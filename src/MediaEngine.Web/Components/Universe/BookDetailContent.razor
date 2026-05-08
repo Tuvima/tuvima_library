@@ -7,6 +7,7 @@
 @inject IDialogService          DialogService
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject ListenPlaybackService ListenPlayback
+@inject ILogger<BookDetailContent> Logger
 
 @* Edit panel for standalone mode is rendered inline below, same as embedded *@
 
@@ -635,8 +636,9 @@ else
                 _narratorPerson = persons.FirstOrDefault(p =>
                     p.Roles.Any(r => string.Equals(r, "Narrator", StringComparison.OrdinalIgnoreCase)));
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.LogDebug(ex, "Could not load person metadata for book detail {WorkId}.", _work.Id);
             }
             var assetId = await Orchestrator.ResolveWorkToAssetAsync(_work.Id);
             if (assetId.HasValue)

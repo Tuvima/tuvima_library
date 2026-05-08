@@ -454,8 +454,9 @@
 
             StateHasChanged();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Could not initialize EPUB reader pagination for {AssetId}.", AssetId);
         }
     }
 

@@ -1455,7 +1455,7 @@ public static class CollectionEndpoints
         .RequireAnyRole();
 
         // GET /collections/system-views?mediaType=&groupField= — System view collections resolved as content groups.
-        // Used by Vault container views (By Show, By Artist, By Album) that are driven by System collections
+        // Used by library container views (By Show, By Artist, By Album) that are driven by System collections
         // rather than ContentGroup collections.
         group.MapGet("/system-views", async (
             string? mediaType,
@@ -2003,13 +2003,13 @@ public static class CollectionEndpoints
             return Results.Ok(normalizedGroups.OrderBy(r => r.DisplayName, StringComparer.OrdinalIgnoreCase).ToList());
         })
         .WithName("GetSystemViewGroups")
-        .WithSummary("Resolves built-in browse views (By Show, By Artist, By Album) as dynamic content groups for the Vault container views.")
+        .WithSummary("Resolves built-in browse views (By Show, By Artist, By Album) as dynamic content groups for the library container views.")
         .Produces<List<ContentGroupDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // ── Managed Collection endpoints (Vault Collections tab) ──────────────────────────────
+        // ── Managed Collection endpoints (managed collections surface) ──────────────────────────────
 
-        // GET /collections/managed — all non-Universe collections for the Vault Collections tab.
+        // GET /collections/managed — all non-Universe collections for the managed collections surface.
         group.MapGet("/managed", async (
             Guid? profileId,
             ICollectionRepository collectionRepo,
@@ -2482,7 +2482,7 @@ public static class CollectionEndpoints
         // Resolves a System collection by display name and returns matching items.
         // Unlike /library/items, this path bypasses the libraryItem visibility filter so
         // items that are still in the pipeline (no QID, no review) are included.
-        // Used by the Vault flat views (All Songs) to show music even before the
+        // Used by the library flat views (All Songs) to show music even before the
         // retail/Wikidata pipeline completes.  Fields are read from both the asset-level
         // and the root parent Work-level canonical_values rows so that parent-scoped
         // fields (artist, album, cover_url) are correctly resolved.

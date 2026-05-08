@@ -5,7 +5,7 @@ namespace MediaEngine.Storage.Models;
 /// <summary>
 /// Per-media-type list of writable claim keys.
 /// Loaded from <c>config/writeback-fields.json</c>.
-/// Single source of truth for both file write-back and Vault drawer display.
+/// Single source of truth for both file write-back and library detail display.
 /// </summary>
 public sealed class WritebackFieldsConfiguration
 {

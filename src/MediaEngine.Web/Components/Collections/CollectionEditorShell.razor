@@ -8,6 +8,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
+@inject ILogger<CollectionEditorShell> Logger
 
 <NavigationLock ConfirmExternalNavigation="@_hasUnsavedChanges"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
@@ -242,8 +243,9 @@
                     _rulesEnabled = true;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not parse collection rule JSON for {CollectionId}.", EditingCollection.Id);
         }
     }
 

@@ -856,39 +856,39 @@
                 <LibraryTimeline EntityId="@MediaItem.EntityId" />
             </DrawerSection>
 
-            <DrawerSection @key="@($"assets-{MediaItem.EntityId}")" Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+            <DrawerSection @key="@($"assets-{MediaItem.EntityId}")" Title="@L["LibraryDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
                 <div class="vdd-assets">
                     @* Cover Art *@
                     <div class="vdd-asset-row">
-                        <span class="vdd-asset-label">@L["VaultDetail_AssetCoverArt"]</span>
+                        <span class="vdd-asset-label">@L["LibraryDetail_AssetCoverArt"]</span>
                         <div class="vdd-asset-items">
                             @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
                             {
                                 <div class="vdd-asset-filled">
                                     <img src="@MediaItem.CoverUrl" alt="Cover" class="vdd-asset-img" />
-                                    <span class="vdd-asset-source">@L["VaultDetail_AssetSourceProvider"]</span>
+                                    <span class="vdd-asset-source">@L["LibraryDetail_AssetSourceProvider"]</span>
                                 </div>
                             }
                             <div class="vdd-asset-slot">
                                 <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
-                                <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
+                                <span class="vdd-asset-upload">@L["LibraryDetail_AssetCustom"]</span>
                             </div>
                         </div>
                     </div>
                     @* Hero Banner *@
                     <div class="vdd-asset-row">
-                        <span class="vdd-asset-label">@L["VaultDetail_AssetHeroBanner"]</span>
+                        <span class="vdd-asset-label">@L["LibraryDetail_AssetHeroBanner"]</span>
                         <div class="vdd-asset-items">
                             @if (!string.IsNullOrEmpty(MediaItem.HeroUrl))
                             {
                                 <div class="vdd-asset-filled vdd-asset-filled--wide">
                                     <img src="@MediaItem.HeroUrl" alt="Hero" class="vdd-asset-img" />
-                                    <span class="vdd-asset-source">@L["VaultDetail_AssetSourceGenerated"]</span>
+                                    <span class="vdd-asset-source">@L["LibraryDetail_AssetSourceGenerated"]</span>
                                 </div>
                             }
                             <div class="vdd-asset-slot">
                                 <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
-                                <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
+                                <span class="vdd-asset-upload">@L["LibraryDetail_AssetCustom"]</span>
                             </div>
                         </div>
                     </div>
@@ -900,7 +900,7 @@
                             <div class="vdd-asset-items">
                                 <div class="vdd-asset-slot">
                                     <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
-                                    <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
+                                    <span class="vdd-asset-upload">@L["LibraryDetail_AssetUpload"]</span>
                                 </div>
                             </div>
                         </div>
@@ -949,8 +949,8 @@
                         <span class="vdd-health-pct" style="color: @ringColor;">@((int)hp)%</span>
                     </div>
                     <div class="vdd-health-label-block">
-                        <span class="vdd-health-title">@L["VaultDetail_HealthScore"]</span>
-                        <span class="vdd-health-sub">@_universeHealth.EntitiesEnriched / @_universeHealth.EntitiesTotal @L["VaultDetail_EntityCounts"]</span>
+                        <span class="vdd-health-title">@L["LibraryDetail_HealthScore"]</span>
+                        <span class="vdd-health-sub">@_universeHealth.EntitiesEnriched / @_universeHealth.EntitiesTotal @L["LibraryDetail_EntityCounts"]</span>
                     </div>
                 </div>
             }
@@ -958,7 +958,7 @@
             @* Entity Counts *@
             @if (_universeHealth is not null && _universeHealth.EntitiesTotal > 0)
             {
-                <DrawerSection Title="@L["VaultDetail_EntityCounts"]" Icon="@Icons.Material.Outlined.Category">
+                <DrawerSection Title="@L["LibraryDetail_EntityCounts"]" Icon="@Icons.Material.Outlined.Category">
                     <div class="vdd-entity-counts">
                         <div class="vdd-entity-count-item">
                             <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: #A78BFA;" />
@@ -980,7 +980,7 @@
             }
 
             @* Characters *@
-            <DrawerSection Title="@L["VaultDetail_SectionCharacters"]" Icon="@Icons.Material.Outlined.TheaterComedy">
+            <DrawerSection Title="@L["LibraryDetail_SectionCharacters"]" Icon="@Icons.Material.Outlined.TheaterComedy">
                 @if (_loadingUniverseData)
                 {
                     <div style="padding: 12px 0; text-align: center;">
@@ -989,7 +989,7 @@
                 }
                 else if (_universeCharacters.Count == 0)
                 {
-                    <p class="vdd-empty-hint">@L["VaultDetail_HintNoCharacters"]</p>
+                    <p class="vdd-empty-hint">@L["LibraryDetail_HintNoCharacters"]</p>
                 }
                 else
                 {
@@ -1015,7 +1015,7 @@
                                     }
                                     @if (ch.ActorCount > 1)
                                     {
-                                        <span class="vdd-actor-count-badge">@string.Format(L["VaultDetail_ActorsCount"].ToString(), ch.ActorCount)</span>
+                                        <span class="vdd-actor-count-badge">@string.Format(L["LibraryDetail_ActorsCount"].ToString(), ch.ActorCount)</span>
                                     }
                                 </div>
                             </div>
@@ -1029,24 +1029,24 @@
             </DrawerSection>
 
             @* Universe Content *@
-            <DrawerSection Title="@L["VaultDetail_SectionUniverseContent"]" Icon="@Icons.Material.Outlined.Layers">
+            <DrawerSection Title="@L["LibraryDetail_SectionUniverseContent"]" Icon="@Icons.Material.Outlined.Layers">
                 <div class="vdd-universe-content">
                     @if (Universe.WorkCount > 0)
                     {
-                        <p class="vdd-field-value">@Universe.WorkCount @L["VaultDetail_WorksAcross"] @(Universe.MediaTypes ?? L["VaultDetail_VariousMediaTypes"])</p>
+                        <p class="vdd-field-value">@Universe.WorkCount @L["LibraryDetail_WorksAcross"] @(Universe.MediaTypes ?? L["LibraryDetail_VariousMediaTypes"])</p>
                     }
                     else
                     {
-                        <p class="vdd-empty-hint">@L["VaultDetail_HintNoSeriesLinked"]</p>
+                        <p class="vdd-empty-hint">@L["LibraryDetail_HintNoSeriesLinked"]</p>
                     }
                 </div>
             </DrawerSection>
 
-            <DrawerSection Title="@L["VaultDetail_SectionNotablePeople"]" Icon="@Icons.Material.Outlined.People">
-                <p class="vdd-empty-hint">@L["VaultDetail_HintPeopleAssociated"]</p>
+            <DrawerSection Title="@L["LibraryDetail_SectionNotablePeople"]" Icon="@Icons.Material.Outlined.People">
+                <p class="vdd-empty-hint">@L["LibraryDetail_HintPeopleAssociated"]</p>
             </DrawerSection>
 
-            <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+            <DrawerSection Title="@L["LibraryDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
                 <div class="vdd-assets">
                     @foreach (var assetType in _assetTypes)
                     {
@@ -1054,7 +1054,7 @@
                             <span class="vdd-asset-label">@assetType</span>
                             <div class="vdd-asset-slot">
                                 <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: var(--tl-border-subtle);" />
-                                <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
+                                <span class="vdd-asset-upload">@L["LibraryDetail_AssetUpload"]</span>
                             </div>
                         </div>
                     }
@@ -1070,11 +1070,11 @@
             <div class="vdd-universe-actions">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-action-btn vdd-action-btn--primary" OnClick="OpenUniverseExplorer">
                     <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 15px;" />
-                    @L["VaultDetail_OpenExplorer"]
+                    @L["LibraryDetail_OpenExplorer"]
                 </MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="vdd-action-btn" OnClick="TriggerEnrichment">
                     <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 15px;" />
-                    @L["VaultDetail_TriggerEnrichment"]
+                    @L["LibraryDetail_TriggerEnrichment"]
                 </MudButton>
             </div>
         }
@@ -1087,7 +1087,7 @@
             @if (_confirmPurge)
             {
                 <div class="vdd-purge-confirm-row">
-                    <span class="vdd-purge-confirm-text">@L["VaultDetail_ConfirmPurge"]</span>
+                    <span class="vdd-purge-confirm-text">@L["LibraryDetail_ConfirmPurge"]</span>
                     <MudButton Variant="Variant.Filled" Color="Color.Error" Class="vdd-purge-btn vdd-purge-btn--confirm" OnClick="HandlePurge">
                         <span>Yes, Purge</span>
                     </MudButton>
@@ -1100,7 +1100,7 @@
             {
                 <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="vdd-purge-btn" OnClick="HandlePurge">
                     <MudIcon Icon="@Icons.Material.Outlined.DeleteForever" Style="font-size: 16px;" />
-                    <span>@L["VaultDetail_ActionPurgeRecord"]</span>
+                    <span>@L["LibraryDetail_ActionPurgeRecord"]</span>
                 </MudButton>
             }
         </div>

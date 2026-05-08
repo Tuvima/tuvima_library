@@ -4,7 +4,7 @@ using MediaEngine.Domain.Aggregates;
 namespace MediaEngine.Api.Models;
 
 /// <summary>
-/// DTO for non-Universe collections displayed in the Vault Collections tab.
+/// DTO for non-Universe collections displayed in the managed collections surface.
 /// Includes management fields (enabled, featured, rules) not present in <see cref="CollectionDto"/>.
 /// </summary>
 public sealed class ManagedCollectionDto

@@ -5,6 +5,7 @@
 
 @inject UIOrchestratorService Orchestrator
 @inject MudBlazor.ISnackbar Snackbar
+@inject ILogger<UniverseSettingsTab> Logger
 <div class="tl-page">
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.Public" Color="Color.Default" Class="mr-2" />
@@ -288,8 +289,9 @@
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Could not load Wikidata provider status for universe settings.");
         }
     }
 

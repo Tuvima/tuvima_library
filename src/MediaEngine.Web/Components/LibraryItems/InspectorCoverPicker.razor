@@ -4,6 +4,7 @@
 
 @inject UIOrchestratorService Orchestrator
 @inject IJSRuntime JS
+@inject ILogger<InspectorCoverPicker> Logger
 
 <div class="coverpicker">
     @if (_covers.Count == 0 && !_loading)
@@ -162,8 +163,9 @@
             _activeSearchTitle = _aliases.Count > 0 ? _aliases[0] : CandidateTitle;
             StateHasChanged();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not load aliases for cover search QID {Qid}.", qid);
         }
     }
 
@@ -199,8 +201,9 @@
 
             AppendNextBatch();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Retail cover search failed for {Title} ({MediaType}).", _activeSearchTitle ?? CandidateTitle, MediaType);
         }
 
         _loading = false;

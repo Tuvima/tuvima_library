@@ -1,5 +1,5 @@
 {
-  "name": "Fanart.tv",
+  "name": "fanart_tv",
   "provider_id": "bc00000c-0000-4000-8000-000000000013",
   "adapter_type": "config_driven",
   "enabled": true,

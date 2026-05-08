@@ -1400,7 +1400,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Over time, processors and providers emitted non-canonical values (e.g. "epub",
         // "Book", "movie") that do not match the enum names used by the rest of the pipeline.
         // This migration rewrites those stale values in metadata_claims to the canonical
-        // plural forms (e.g. "Books", "Movies") so that Vault counts, filters, and
+        // plural forms (e.g. "Books", "Movies") so that library counts, filters, and
         // disambiguation all agree on a single vocabulary.
         {
             using var m063 = conn.CreateCommand();
@@ -1435,7 +1435,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         // Migration M-067: Backfill missing cover_url canonical values.
         // Assets that have a hero banner but no cover_url are missing thumbnails
-        // in the Vault because GenerateHeroBannerAsync did not previously write
+        // in library views because GenerateHeroBannerAsync did not previously write
         // cover_url alongside hero. This one-time repair inserts the missing rows.
         MigrateBackfillCoverUrl(conn);
 

@@ -304,8 +304,9 @@
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.LogDebug(ex, "Could not restore listen playback state from browser storage.");
             }
 
             _restored = true;
@@ -334,8 +335,9 @@
                         await JS.InvokeVoidAsync("listenPlayback.clearState");
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Logger.LogDebug(ex, "Could not persist listen playback state to browser storage.");
                 }
             }
 

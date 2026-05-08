@@ -1,6 +1,8 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
 @inject IEngineApiClient ApiClient
 @inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
+@inject ILogger<ProviderPriorityTab> Logger
+@inject ISnackbar Snackbar
 @using MediaEngine.Domain.Enums
 @using MediaEngine.Contracts.Settings
 @using MediaEngine.Web.Models.ViewDTOs
@@ -688,7 +690,10 @@
                 return;
             }
         }
-        catch {  }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not load provider priority configuration from Engine; using dashboard defaults");
+        }
 
         ResetToDefaults();
     }
@@ -808,7 +813,10 @@
                 _healthData[h.ProviderId] = h;
             }
         }
-        catch {  }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not load provider health data for provider priority tab");
+        }
     }
 
     private List<ProviderAssignment> GetChain(string mediaType)
@@ -1034,8 +1042,10 @@
             await ApiClient.SavePipelinesAsync(pipelines);
             _pipelineConfiguration = pipelines;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Could not save provider priority settings.");
+            Snackbar.Add("Provider priority settings could not be saved.", Severity.Error);
         }
         finally
         {

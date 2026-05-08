@@ -49,11 +49,11 @@ public interface IEntityTimelineRepository
     /// </summary>
     Task<IReadOnlyList<EntityFieldChange>> GetFileOriginalsForEventAsync(Guid eventId, CancellationToken ct = default);
 
-    // ── Queries for Vault List ─────────────────────────────────────────
+    // ── Queries for library list surfaces ──────────────────────────────
 
     /// <summary>
     /// Returns the most recent Stage 2 (Wikidata) event for each entity in the given list.
-    /// Used by the Vault list view to populate the "Resolution" column efficiently.
+    /// Used by library list surfaces to populate the "Resolution" column efficiently.
     /// </summary>
     Task<IReadOnlyDictionary<Guid, EntityEvent>> GetLatestStage2EventsAsync(
         IReadOnlyList<Guid> entityIds, CancellationToken ct = default);

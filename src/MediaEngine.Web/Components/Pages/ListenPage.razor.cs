@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
@@ -34,6 +35,7 @@ public partial class ListenPage
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
+    [Inject] private ILogger<ListenPage> Logger { get; set; } = default!;
 
     [Parameter] public string? Section { get; set; }
     [Parameter] public Guid? CollectionId { get; set; }
@@ -458,8 +460,9 @@ public partial class ListenPage
             _restoredMode = await JS.InvokeAsync<string?>("listenUi.getMode");
             _restoredArtistName = await JS.InvokeAsync<string?>("listenUi.getSelectedArtist");
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not restore listen UI state from browser storage.");
         }
 
         _lastPersistedMode = _restoredMode;
@@ -496,8 +499,9 @@ public partial class ListenPage
                 _restoredArtistName = _selectedArtistName;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not persist listen UI state to browser storage.");
         }
     }
 
@@ -998,8 +1002,9 @@ public partial class ListenPage
             _lastPersistedArtistName = artistName;
             _restoredArtistName = artistName;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not persist selected listen artist {ArtistName}.", artistName);
         }
     }
 
@@ -1131,8 +1136,9 @@ public partial class ListenPage
             await JS.InvokeVoidAsync("listenUi.setMode", mode);
             _lastPersistedMode = mode;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not persist listen mode {Mode}.", mode);
         }
     }
 

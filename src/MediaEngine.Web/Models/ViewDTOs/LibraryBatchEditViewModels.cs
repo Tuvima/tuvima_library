@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
-/// <summary>Result of a batch edit operation from GET /vault/batch-edit.</summary>
+/// <summary>Result of a batch edit operation from POST /library/batch-edit.</summary>
 public sealed class LibraryBatchEditResultViewModel
 {
     [JsonPropertyName("updated_count")]

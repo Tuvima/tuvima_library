@@ -2,7 +2,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
 /// Shared static property data for Wikidata universe properties.
-/// Used by both <c>WikidataVaultPanel</c> and <c>UniverseSettingsTab</c>
+/// Used by the Wikidata property editor and <c>UniverseSettingsTab</c>
 /// to eliminate duplication of hardcoded property lists.
 /// </summary>
 public static class WikidataPropertyDefaults

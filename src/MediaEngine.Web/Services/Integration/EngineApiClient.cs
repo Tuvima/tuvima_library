@@ -1976,7 +1976,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Vault item preferences (/vault/items/{entityId}/preferences) ────
+    // ── Item preferences (/library/items/{entityId}/preferences) ────
 
     public async Task<bool> SaveItemPreferencesAsync(
         Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default)
@@ -2853,8 +2853,10 @@ public sealed class EngineApiClient : IEngineApiClient
 
             return result;
         }
-        catch
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "GET /persons/{PersonId}/aliases failed", personId);
             return null;
         }
     }
@@ -3328,7 +3330,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Vault items (/vault/items) ───────────────────────────────────────────
+    // ── Library items (/library/items) ───────────────────────────────────────────
 
     public async Task<LibraryCatalogPageResponse?> GetLibraryCatalogItemsAsync(
         int offset = 0, int limit = 50,
@@ -3527,7 +3529,12 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!response.IsSuccessStatusCode) return new();
             return await response.Content.ReadFromJsonAsync<Dictionary<string, int>>(cancellationToken: ct) ?? new();
         }
-        catch { return new(); }
+        catch (OperationCanceledException) { return new(); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /library/items/type-counts failed");
+            return new();
+        }
     }
 
     /// <inheritdoc/>
@@ -4633,7 +4640,11 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!response.IsSuccessStatusCode) return null;
             return await response.Content.ReadFromJsonAsync<SubmitReportResponseDto>(cancellationToken: ct);
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /reports failed");
+            return null;
+        }
     }
 
     public async Task<List<ReportEntryDto>> GetReportsForEntityAsync(Guid entityId, CancellationToken ct = default)
@@ -4642,7 +4653,12 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             return await _http.GetFromJsonAsync<List<ReportEntryDto>>($"/reports/entity/{entityId}", ct) ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /reports/entity/{EntityId} failed", entityId);
+            return [];
+        }
     }
 
     public async Task<bool> ResolveReportAsync(long activityId, CancellationToken ct = default)
@@ -4652,7 +4668,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var response = await _http.PostAsync($"/reports/{activityId}/resolve", null, ct);
             return response.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /reports/{ActivityId}/resolve failed", activityId);
+            return false;
+        }
     }
 
     public async Task<bool> DismissReportAsync(long activityId, CancellationToken ct = default)
@@ -4662,7 +4683,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var response = await _http.PostAsync($"/reports/{activityId}/dismiss", null, ct);
             return response.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /reports/{ActivityId}/dismiss failed", activityId);
+            return false;
+        }
     }
 
     // ── Raw response shapes (mirror API Dtos.cs) ──────────────────────────────
@@ -4918,7 +4944,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Collection Group Detail (Vault drill-down sub-pages) ─────────────────────────
+    // ── Collection Group Detail (collection drill-down sub-pages) ─────────────────────────
 
     public async Task<CollectionGroupDetailViewModel?> GetCollectionGroupDetailAsync(Guid collectionId, CancellationToken ct = default)
     {
@@ -4997,7 +5023,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Managed Collections (Vault Collections tab) ────────────────────────────────────────
+    // ── Managed Collections (managed collections surface) ────────────────────────────────────────
 
     private static string AppendCollectionProfileQuery(string url, Guid? profileId)
     {
@@ -5807,7 +5833,7 @@ public sealed class EngineApiClient : IEngineApiClient
         [JsonPropertyName("created_at")] public DateTimeOffset? CreatedAt { get; set; }
     }
 
-    // ── Vault Preferences ─────────────────────────────────────────────────────
+    // ── Library Preferences ─────────────────────────────────────────────────────
 
     public async Task<LibraryPreferencesSettings?> GetLibraryPreferencesAsync()
     {
@@ -5815,7 +5841,11 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             return await _http.GetFromJsonAsync<LibraryPreferencesSettings>("settings/ui/library-preferences");
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/ui/library-preferences failed");
+            return null;
+        }
     }
 
     public async Task SaveLibraryPreferencesAsync(LibraryPreferencesSettings settings)
@@ -5824,10 +5854,13 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             await _http.PutAsJsonAsync("settings/ui/library-preferences", settings);
         }
-        catch { /* swallow — preferences are non-critical */ }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/ui/library-preferences failed");
+        }
     }
 
-    // ── Vault Overview ──
+    // ── Library Overview ──
 
     public async Task<LibraryOverviewViewModel?> GetLibraryOverviewAsync(CancellationToken ct = default)
     {
@@ -5858,8 +5891,10 @@ public sealed class EngineApiClient : IEngineApiClient
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<LibraryBatchEditResultViewModel>(ct);
         }
-        catch
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "POST /library/batch-edit failed");
             return null;
         }
     }
@@ -5872,7 +5907,12 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             return await _http.GetFromJsonAsync<List<UniverseCandidateViewModel>>("library/universe-candidates", ct) ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /library/universe-candidates failed");
+            return [];
+        }
     }
 
     public async Task<bool> AcceptUniverseCandidateAsync(Guid workId, string targetCollectionQid, CancellationToken ct = default)
@@ -5883,7 +5923,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 new { target_collection_qid = targetCollectionQid }, ct);
             return response.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /library/universe-candidates/{WorkId}/accept failed", workId);
+            return false;
+        }
     }
 
     public async Task<bool> RejectUniverseCandidateAsync(Guid workId, CancellationToken ct = default)
@@ -5893,7 +5938,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var response = await _http.PostAsJsonAsync($"library/universe-candidates/{workId}/reject", new { }, ct);
             return response.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /library/universe-candidates/{WorkId}/reject failed", workId);
+            return false;
+        }
     }
 
     public async Task<int> BatchAcceptUniverseCandidatesAsync(List<Guid> workIds, CancellationToken ct = default)
@@ -5906,7 +5956,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var result = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
             return result.TryGetProperty("accepted_count", out var count) ? count.GetInt32() : 0;
         }
-        catch { return 0; }
+        catch (OperationCanceledException) { return 0; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /library/universe-candidates/batch-accept failed");
+            return 0;
+        }
     }
 
     public async Task<List<UnlinkedWorkViewModel>> GetUniverseUnlinkedAsync(CancellationToken ct = default)
@@ -5915,7 +5970,12 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             return await _http.GetFromJsonAsync<List<UnlinkedWorkViewModel>>("library/universe-unlinked", ct) ?? [];
         }
-        catch { return []; }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /library/universe-unlinked failed");
+            return [];
+        }
     }
 
     public async Task<bool> ManualUniverseAssignAsync(Guid workId, Guid collectionId, CancellationToken ct = default)
@@ -5926,7 +5986,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 new { work_id = workId, collection_id = collectionId }, ct);
             return response.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /library/universe-assign failed for work {WorkId}", workId);
+            return false;
+        }
     }
 }
 

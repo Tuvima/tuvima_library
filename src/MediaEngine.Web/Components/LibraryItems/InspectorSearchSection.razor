@@ -6,6 +6,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer StateContainer
 @inject IJSRuntime JS
+@inject ILogger<InspectorSearchSection> Logger
 
 @if (IsAlreadyMatched)
 {
@@ -648,8 +649,9 @@ else
             }
             _candidates = _candidates.OrderByDescending(c => c.CompositeScore).ToList();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Inspector search failed for {Query} ({MediaType}).", _query, _mediaType);
         }
 
         _searching = false;

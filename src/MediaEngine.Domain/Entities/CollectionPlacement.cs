@@ -2,7 +2,7 @@ namespace MediaEngine.Domain.Entities;
 
 /// <summary>
 /// Maps a Collection to a UI location with display constraints.
-/// A collection can appear in multiple locations (home, media lane, vault) with different limits.
+/// A collection can appear in multiple locations (home, media lane, detail, collections) with different limits.
 /// Maps to <c>collection_placements</c> table.
 /// </summary>
 public sealed class CollectionPlacement
@@ -10,7 +10,7 @@ public sealed class CollectionPlacement
     public Guid Id { get; set; }
     public Guid CollectionId { get; set; }
 
-    /// <summary>UI location: "home", "vault:tv", "media_lane:Movie", "collections", "my_library", etc.</summary>
+    /// <summary>UI location: "home", "media_lane:Movie", "collections", "my_library", etc.</summary>
     public string Location { get; set; } = "";
 
     /// <summary>Sort order within the location (lower = higher on page).</summary>

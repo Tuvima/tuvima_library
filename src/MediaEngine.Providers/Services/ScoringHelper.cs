@@ -417,7 +417,7 @@ public static class ScoringHelper
         // Always attempt title synthesis — even when parentClaims is empty,
         // because for standalone media (Books, Audiobooks, Movies) the Work
         // row itself receives no claims at all (self-scope → asset, no
-        // parent-scope claims), leaving the Work as "Untitled" in the Vault.
+        // parent-scope claims), leaving the Work as "Untitled" in library views.
         MaybeSynthesizeParentTitle(claims, parentClaims, lineage, logger);
 
         if (parentClaims.Count > 0)

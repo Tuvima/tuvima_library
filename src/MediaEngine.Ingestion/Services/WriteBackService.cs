@@ -142,7 +142,7 @@ public sealed class WriteBackService : IWriteBackService
         var mediaType = lineage?.MediaType.ToString();
 
         // Load the per-media-type field catalogue (single source of truth for
-        // both display in the Vault drawer and file write-back).
+        // both display in the library detail drawer and file write-back).
         var fieldsConfig = _configLoader.LoadConfig<WritebackFieldsConfiguration>("", "writeback-fields")
                            ?? new WritebackFieldsConfiguration();
         var allowedFields = new HashSet<string>(

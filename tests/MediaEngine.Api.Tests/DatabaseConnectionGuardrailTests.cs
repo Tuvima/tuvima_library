@@ -10,6 +10,7 @@ public sealed class DatabaseConnectionGuardrailTests
         var repoRoot = FindRepoRoot();
         var endpointDir = Path.Combine(repoRoot, "src", "MediaEngine.Api", "Endpoints");
         var offenders = Directory.EnumerateFiles(endpointDir, "*.cs", SearchOption.AllDirectories)
+            .Where(path => IsActiveSourcePath(repoRoot, path))
             .Select(path => new
             {
                 Path = path,
@@ -29,6 +30,7 @@ public sealed class DatabaseConnectionGuardrailTests
     {
         var repoRoot = FindRepoRoot();
         var offenders = Directory.EnumerateFiles(Path.Combine(repoRoot, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(path => IsActiveSourcePath(repoRoot, path))
             .Where(path => !AllowedOpenUsageFiles.Contains(ToRelativePath(repoRoot, path), StringComparer.OrdinalIgnoreCase))
             .Where(path =>
             {
@@ -51,6 +53,7 @@ public sealed class DatabaseConnectionGuardrailTests
         var repoRoot = FindRepoRoot();
         var offenders = Directory.EnumerateFiles(Path.Combine(repoRoot, "src"), "*.cs", SearchOption.AllDirectories)
             .Concat(Directory.EnumerateFiles(Path.Combine(repoRoot, "src"), "*.razor", SearchOption.AllDirectories))
+            .Where(path => IsActiveSourcePath(repoRoot, path))
             .Where(path =>
             {
                 var relative = ToRelativePath(repoRoot, path);
@@ -75,6 +78,16 @@ public sealed class DatabaseConnectionGuardrailTests
     private static string ToRelativePath(string repoRoot, string path) =>
         Path.GetRelativePath(repoRoot, path).Replace('\\', '/');
 
+    private static bool IsActiveSourcePath(string repoRoot, string path)
+    {
+        var segments = ToRelativePath(repoRoot, path)
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return !segments.Any(segment =>
+            segment.Equals("bin", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("obj", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static readonly string[] AllowedOpenUsageFiles =
     [
         // Startup/schema lifecycle owns the shared connection.
@@ -86,36 +99,6 @@ public sealed class DatabaseConnectionGuardrailTests
 
     private static readonly string[] AllowedSilentCatchFiles =
     [
-        // TODO Phase 5: replace these legacy best-effort catches with logged degraded states.
-        "src/MediaEngine.Api/Program.cs",
-        "src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs",
-        "src/MediaEngine.Api/Services/Plugins/PluginSegmentDetectionService.cs",
-        "src/MediaEngine.Api/Services/Plugins/PluginToolRuntime.cs",
-        "src/MediaEngine.AI/Features/AudioSimilarityService.cs",
-        "src/MediaEngine.AI/Infrastructure/ResourceMonitorService.cs",
-        "src/MediaEngine.AI/Llama/LlamaInferenceService.cs",
-        "src/MediaEngine.Ingestion/AutoOrganizeService.cs",
-        "src/MediaEngine.Ingestion/IngestionEngine.cs",
-        "src/MediaEngine.Storage/ConfigurationDirectoryLoader.cs",
-        "src/MediaEngine.Storage/DatabaseConnection.cs",
-        "src/MediaEngine.Storage/Models/CoreConfiguration.cs",
-        "src/MediaEngine.Web/Components/Collections/CollectionEditorShell.razor",
-        "src/MediaEngine.Web/Components/Discovery/DiscoveryCard.razor",
-        "src/MediaEngine.Web/Components/Library/LibraryColumnPicker.razor",
-        "src/MediaEngine.Web/Components/LibraryItems/InspectorCoverPicker.razor",
-        "src/MediaEngine.Web/Components/LibraryItems/InspectorSearchSection.razor",
-        "src/MediaEngine.Web/Components/Listen/ListenNowPlayingBar.razor",
-        "src/MediaEngine.Web/Components/Listen/ListenTrackDataGrid.razor",
-        "src/MediaEngine.Web/Components/Pages/ChronicleExplorer.razor",
-        "src/MediaEngine.Web/Components/Pages/EpubReader.razor",
-        "src/MediaEngine.Web/Components/Pages/ListenPage.razor.cs",
-        "src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor",
-        "src/MediaEngine.Web/Components/Pages/WatchPlayerPage.razor",
-        "src/MediaEngine.Web/Components/Settings/MediaItemEditor.razor",
-        "src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor",
-        "src/MediaEngine.Web/Components/Settings/UniverseSettingsTab.razor",
-        "src/MediaEngine.Web/Components/Universe/BookDetailContent.razor",
-        "src/MediaEngine.Web/Components/Universe/SwimlaneSection.razor",
     ];
 
     private static readonly Regex SilentCatchRegex =

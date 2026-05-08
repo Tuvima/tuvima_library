@@ -4,6 +4,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 @inject IJSRuntime JS
+@inject ILogger<ListenTrackDataGrid> Logger
 
 <div class="listen-track-grid">
     <MudDataGrid T="LibraryItemViewModel"
@@ -440,8 +441,9 @@
 
             await InvokeAsync(StateHasChanged);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not restore listen track grid columns for {ViewKey}.", ViewKey);
         }
     }
 
@@ -469,8 +471,9 @@
             var json = System.Text.Json.JsonSerializer.Serialize(visibleColumns);
             await JS.InvokeVoidAsync("listenUi.setTrackGridColumns", ViewKey, json);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not persist listen track grid columns for {ViewKey}.", ViewKey);
         }
     }
 

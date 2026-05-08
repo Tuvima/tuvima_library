@@ -28,7 +28,7 @@ public static class MediaTypeFieldCatalog
 
     /// <summary>
     /// Returns the search result display configuration for a given media type.
-    /// Drives the SearchResultCard component layout in the Vault resolution overlay.
+    /// Drives the SearchResultCard component layout in metadata resolution overlays.
     /// </summary>
     public static SearchDisplayConfig GetSearchDisplay(MediaType type) => type switch
     {
@@ -49,7 +49,7 @@ public static class MediaTypeFieldCatalog
 
     /// <summary>
     /// Returns the list of fields available for the search field picker in the
-    /// Vault resolution overlay. These are the fields a user can search by
+    /// Metadata resolution overlays. These are the fields a user can search by
     /// when manually matching a retail provider.
     /// </summary>
     public static IReadOnlyList<SearchableField> GetSearchableFields(MediaType type) => type switch
@@ -271,7 +271,7 @@ public static class MediaTypeFieldCatalog
 }
 
 /// <summary>
-/// Defines how search results are rendered in the Vault resolution overlay.
+/// Defines how search results are rendered in metadata resolution overlays.
 /// One component reads this config and renders the appropriate layout for
 /// both retail provider results and Wikidata results.
 /// </summary>

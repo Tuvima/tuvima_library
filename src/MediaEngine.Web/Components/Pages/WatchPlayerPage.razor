@@ -14,6 +14,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject ILogger<WatchPlayerPage> Logger
 
 <PageTitle>@((_detail?.Title ?? "Player")) - Tuvima</PageTitle>
 
@@ -271,8 +272,9 @@ else
             if (_module is not null)
                 await _module.InvokeVoidAsync("detachPlayer", _videoRef);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Could not detach watch player during disposal for {AssetId}.", AssetId);
         }
 
         if (_module is not null)

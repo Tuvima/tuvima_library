@@ -1,6 +1,7 @@
 ﻿@namespace MediaEngine.Web.Components.Universe
 
 @inject IJSRuntime JS
+@inject ILogger<SwimlaneSection> Logger
 @if (Items is { Count: > 0 })
 {
     <div class="swimlane-section @Class">
@@ -81,7 +82,10 @@
                 _atEnd = state.AtEnd;
                 await InvokeAsync(StateHasChanged);
             }
-            catch {  }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Could not read swimlane scroll state for {Title}", Title);
+            }
         }
     }
 
