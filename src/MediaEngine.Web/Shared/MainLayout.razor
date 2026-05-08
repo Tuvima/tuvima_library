@@ -140,10 +140,12 @@
                         }
                     }
                     <MudDivider />
-                    <MudMenuItem Href="/settings/review" ForceLoad="true" Target="_self" Icon="@Icons.Material.Outlined.RateReview">
+                    <MudMenuItem Icon="@Icons.Material.Outlined.RateReview"
+                                 OnClick="@OpenReviewQueueAsync">
                         @(_reviewCount > 0 ? L["Nav_ReviewPending", _reviewCount] : L["Nav_ReviewQueue"])
                     </MudMenuItem>
-                    <MudMenuItem Href="/settings" ForceLoad="true" Target="_self" Icon="@Icons.Material.Outlined.Settings">
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Settings"
+                                 OnClick="@OpenSettingsAsync">
                         @L["Nav_Settings"]
                     </MudMenuItem>
                     <MudDivider />
@@ -234,6 +236,7 @@
         await SyncCultureAsync();
         await LoadActiveProfileAsync();
         await LoadReviewCountAsync();
+        await Orchestrator.StartSignalRAsync();
         await LoadEngineStatusAsync();
 
         Orchestrator.OnReviewCountChanged += OnReviewCountChanged;

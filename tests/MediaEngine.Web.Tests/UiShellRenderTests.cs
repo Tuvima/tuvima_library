@@ -77,6 +77,18 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
+    public void MainLayout_StartsLiveUpdatesAndUsesClickHandlersForProfileMenuNavigation()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor"));
+
+        Assert.Contains("await Orchestrator.StartSignalRAsync();", source);
+        Assert.Contains("OnClick=\"@OpenReviewQueueAsync\"", source);
+        Assert.Contains("OnClick=\"@OpenSettingsAsync\"", source);
+        Assert.DoesNotContain("Href=\"/settings/review\"", source);
+        Assert.DoesNotContain("Href=\"/settings\"", source);
+    }
+
+    [Fact]
     public void SettingsPage_RendersSharedSidebarAndAdminOverviewContent()
     {
         var cut = Render(builder =>
