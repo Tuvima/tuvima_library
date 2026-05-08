@@ -86,6 +86,7 @@ The Dashboard is organized around the way people use their media:
 - **Detail pages** are where a user views an item and fixes its metadata inline.
 - **Review Queue** is only for blocked or uncertain items that need human confirmation.
 - **Settings/Admin** is for folders, providers, profiles, ingestion status, system health, and configuration.
+- **Library Operations** (`/settings/ingestion`) is the admin view for active ingestion, recent batches, source folder health, provider health, pipeline counts, organization rules, and grouped review reasons.
 
 The old Library Vault workspace has been removed. Normal media corrections now happen inline from the page, row, card, album, track, movie, show, book, comic, or detail view where the issue appears.
 When Tuvima is uncertain, it sends only that exception to the Review Queue instead of making the whole library feel like an admin workspace.

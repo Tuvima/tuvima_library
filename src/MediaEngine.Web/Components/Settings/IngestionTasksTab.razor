@@ -1,185 +1,599 @@
 @namespace MediaEngine.Web.Components.Settings
+@using System.Globalization
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject UniverseStateContainer StateContainer
+@implements IDisposable
+@implements IAsyncDisposable
 
-<div class="tl-page">
-    <MudPaper Elevation="0" Class="tl-card pa-4 mb-4">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-            <div>
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Current Run</MudText>
-                <MudText Typo="Typo.h6">@_currentRun.Status</MudText>
+<div class="tl-page library-operations">
+    <div class="library-operations__header">
+        <div>
+            <MudText Typo="Typo.h4" Class="library-operations__title">Library Operations</MudText>
+            <MudText Typo="Typo.body2" Class="library-operations__subtitle">
+                Track scans, matches, enrichment, organization, and review work across your library.
+            </MudText>
+            <MudText Typo="Typo.caption" Class="@StaleClass">
+                Last updated @FormatRelative(_lastUpdated)
+                @if (_stale)
+                {
+                    <span> - engine status may be stale</span>
+                }
+            </MudText>
+        </div>
+        <div class="library-operations__actions">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Outlined.Refresh"
+                       Disabled="@_loading"
+                       OnClick="LoadAsync"
+                       aria-label="Refresh Library Operations">
+                Refresh
+            </MudButton>
+            <MudButton Href="/settings/review"
+                       Variant="Variant.Outlined"
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Outlined.RateReview">
+                Review Queue
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.PlayArrow"
+                       Disabled="@(_scanStarting || _loading)"
+                       OnClick="ScanNowAsync"
+                       aria-label="Scan watched folders now">
+                Scan Now
+            </MudButton>
+        </div>
+    </div>
+
+    @if (_loading && _snapshot is null)
+    {
+        <MudPaper Elevation="0" Class="tl-card library-operations__loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+            <MudText Typo="Typo.body2">Loading library operations...</MudText>
+        </MudPaper>
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+            @_error
+        </MudAlert>
+    }
+
+    @if (_snapshot is { } snapshot)
+    {
+        <MudPaper Elevation="0" Class="tl-card ops-hero">
+            <div class="ops-hero__status">
+                <div class="ops-hero__orb @StatusToneClass(snapshot.Summary.EngineStatus)">
+                    <MudIcon Icon="@StatusIcon(snapshot.Summary.EngineStatus)" />
+                </div>
+                <div>
+                    <MudText Typo="Typo.overline">Engine @snapshot.Summary.EngineStatus</MudText>
+                    <MudText Typo="Typo.h5">@snapshot.Summary.HealthLabel</MudText>
+                    <MudText Typo="Typo.body2">Last successful scan @FormatRelative(snapshot.Summary.LastSuccessfulScanTime)</MudText>
+                </div>
             </div>
-            <MudChip T="string" Color="@(_currentRun.IsActive ? Color.Info : Color.Default)" Size="Size.Small">@(_currentRun.IsActive ? "Active" : "Idle")</MudChip>
-        </MudStack>
+            <div class="ops-metric-grid">
+                @HeroMetric("Total Items", snapshot.Summary.TotalItems, Icons.Material.Outlined.Inventory2, "neutral")
+                @HeroMetric("Registered", snapshot.Summary.RegisteredItems, Icons.Material.Outlined.Verified, "success")
+                @HeroMetric("Provisional", snapshot.Summary.ProvisionalItems, Icons.Material.Outlined.EditNote, "info")
+                @HeroMetric("Needs Review", snapshot.Summary.ItemsNeedingReview, Icons.Material.Outlined.RateReview, "warning")
+                @HeroMetric("Active Jobs", ActiveJobs.Count, Icons.Material.Outlined.Sync, "primary")
+                @HeroMetric("Provider Issues", snapshot.Summary.ProviderWarnings, Icons.Material.Outlined.CloudOff, snapshot.Summary.ProviderWarnings > 0 ? "danger" : "success")
+            </div>
+        </MudPaper>
 
-        <MudProgressLinear Value="@_currentRun.Progress" Color="Color.Primary" Rounded="false" Class="mb-3" />
-        <MudGrid Spacing="3">
-            <MudItem xs="6" md="3">@Metric("Processed", $"{_currentRun.Processed:N0} / {_currentRun.Total:N0}")</MudItem>
-            <MudItem xs="6" md="3">@Metric("Library", _currentRun.Library)</MudItem>
-            <MudItem xs="12" md="6">@Metric("Current item", _currentRun.CurrentItem)</MudItem>
-            <MudItem xs="6" md="3">@Metric("Media type", _currentRun.MediaType)</MudItem>
-            <MudItem xs="6" md="3">@Metric("Stage", _currentRun.Stage)</MudItem>
-            <MudItem xs="6" md="3">@Metric("Elapsed", _currentRun.Elapsed)</MudItem>
-            <MudItem xs="6" md="3">@Metric("Remaining", _currentRun.Remaining)</MudItem>
-            <MudItem xs="6" md="3">@Metric("Started by", _currentRun.Trigger)</MudItem>
-        </MudGrid>
+        <MudPaper Elevation="0" Class="tl-card ops-section">
+            <div class="ops-section__header">
+                <div>
+                    <MudText Typo="Typo.h6">Active Ingestion</MudText>
+                    <MudText Typo="Typo.body2">Current scans, matching, enrichment, and registration work.</MudText>
+                </div>
+                <span class="@StatusBadgeClass(ActiveJobs.Count > 0 ? "running" : "idle")">
+                    @(ActiveJobs.Count > 0 ? $"{ActiveJobs.Count} running" : "Idle")
+                </span>
+            </div>
 
-        <MudStack Row="true" Spacing="2" Class="mt-4 flex-wrap">
-            <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.Pause" Disabled="@(!_currentRun.IsActive)">Pause</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.PlayArrow" Disabled="@_currentRun.IsActive">Resume</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Cancel" Disabled="@(!_currentRun.IsActive)">Cancel</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.ReportProblem">View failed</MudButton>
-            <MudButton Href="/settings/review" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.RateReview">Open review queue</MudButton>
-        </MudStack>
-        @* TODO: Replace sample monitor state with live ingestion/task APIs when available. *@
-    </MudPaper>
-
-    <MudGrid Spacing="4">
-        <MudItem xs="12">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Pipeline Stages</MudText>
-                <MudGrid Spacing="2" Class="mt-2">
-                    @foreach (var stage in _stages)
+            @if (ActiveJobs.Count == 0)
+            {
+                <div class="ops-empty-state">
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">No ingestion jobs are currently running.</MudText>
+                        <MudText Typo="Typo.body2">Your watched folders will continue to be monitored.</MudText>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="ops-job-grid">
+                    @foreach (var job in ActiveJobs)
                     {
-                        <MudItem xs="12" sm="6" lg="3">
-                            <MudPaper Elevation="0" Class="pa-3 app-section-card">
-                                <MudText Typo="Typo.subtitle2">@stage.Name</MudText>
-                                <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap">
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">@stage.Completed complete</MudChip>
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Info">@stage.Active active</MudChip>
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Error">@stage.Failed failed</MudChip>
-                                    @if (stage.NeedsReview > 0)
-                                    {
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning">@stage.NeedsReview review</MudChip>
-                                    }
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
+                        <article class="ops-job-card">
+                            <div class="ops-job-card__top">
+                                <div class="ops-job-card__icon"><MudIcon Icon="@MediaIcon(job.MediaType)" /></div>
+                                <div>
+                                    <strong>@FirstNonBlank(job.MediaType, job.JobType, "Ingestion")</strong>
+                                    <span>@FirstNonBlank(job.SourceFolder, "Watch folder")</span>
+                                </div>
+                                <span class="@StatusBadgeClass(job.Status)">@FormatStatus(job.Status)</span>
+                            </div>
+                            <div class="ops-job-card__stage">@FirstNonBlank(job.CurrentStage, "Processing")</div>
+                            <div class="ops-progress">
+                                <span style="@ProgressStyle(job.PercentComplete)"></span>
+                            </div>
+                            <div class="ops-job-card__facts">
+                                <span>@FormatCount(job.ProcessedCount) / @FormatCount(job.TotalCount) files</span>
+                                <span>@job.PercentComplete.ToString("0", CultureInfo.CurrentCulture)%</span>
+                                <span>@FormatDuration(job.Elapsed)</span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(job.CurrentItem))
+                            {
+                                <div class="ops-current-item">Current: @job.CurrentItem</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(job.WarningSummary))
+                            {
+                                <div class="ops-warning-line">@job.WarningSummary</div>
+                            }
+                        </article>
                     }
-                </MudGrid>
-            </MudPaper>
-        </MudItem>
+                </div>
+            }
+        </MudPaper>
 
-        <MudItem xs="12">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Running Log</MudText>
-                <div style="max-height: 320px; overflow: auto;">
-                    <MudTable Items="_logEntries" Dense="true" Hover="true">
-                        <HeaderContent><MudTh>Time</MudTh><MudTh>Item/file</MudTh><MudTh>Stage</MudTh><MudTh>Action</MudTh><MudTh>Provider</MudTh><MudTh>Result</MudTh><MudTh>Confidence</MudTh><MudTh>Failure reason</MudTh></HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="Time">@context.Time</MudTd>
-                            <MudTd DataLabel="Item">@context.Item</MudTd>
-                            <MudTd DataLabel="Stage">@context.Stage</MudTd>
-                            <MudTd DataLabel="Action">@context.Action</MudTd>
-                            <MudTd DataLabel="Provider">@context.Provider</MudTd>
-                            <MudTd DataLabel="Result">@context.Result</MudTd>
-                            <MudTd DataLabel="Confidence">@context.Confidence</MudTd>
-                            <MudTd DataLabel="Failure reason">@context.FailureReason</MudTd>
-                        </RowTemplate>
-                    </MudTable>
+        <div class="ops-dashboard-grid">
+            <MudPaper Elevation="0" Class="tl-card ops-section ops-section--wide">
+                <div class="ops-section__header">
+                    <div>
+                        <MudText Typo="Typo.h6">Source Folders</MudText>
+                        <MudText Typo="Typo.body2">Configured Watch, Listen, and Read folders. Multiple folders per library are supported.</MudText>
+                    </div>
+                </div>
+
+                @if (snapshot.SourceGroups.All(group => group.Libraries.Count == 0))
+                {
+                    <div class="ops-empty-state">
+                        <MudIcon Icon="@Icons.Material.Outlined.FolderOff" />
+                        <div>
+                            <MudText Typo="Typo.subtitle2">No source folders configured</MudText>
+                            <MudText Typo="Typo.body2">Add folders in Settings > Library Folders.</MudText>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="ops-source-groups">
+                        @foreach (var group in snapshot.SourceGroups)
+                        {
+                            <section class="ops-source-group">
+                                <h3>@group.Intent</h3>
+                                @foreach (var library in group.Libraries)
+                                {
+                                    <div class="ops-source-library">
+                                        <div class="ops-source-library__label">@library.Label</div>
+                                        @foreach (var folder in library.Folders)
+                                        {
+                                            <div class="ops-folder-row">
+                                                <MudIcon Icon="@MediaIcon(folder.MediaType)" />
+                                                <div class="ops-folder-row__path">
+                                                    <strong>@folder.Path</strong>
+                                                    <span>@folder.MediaType - @folder.Purpose - @folder.ScanMode</span>
+                                                    @if (!string.IsNullOrWhiteSpace(folder.MusicNote))
+                                                    {
+                                                        <small>@folder.MusicNote</small>
+                                                    }
+                                                </div>
+                                                <div class="ops-folder-row__metrics">
+                                                    <span>@FormatCount(folder.ItemCount) items</span>
+                                                    <span>@FormatCount(folder.UnresolvedCount) unresolved</span>
+                                                    <span class="@ReachabilityClass(folder)">@folder.Status</span>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </section>
+                        }
+                    </div>
+                }
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="tl-card ops-section">
+                <div class="ops-section__header">
+                    <div>
+                        <MudText Typo="Typo.h6">Pipeline Health</MudText>
+                        <MudText Typo="Typo.body2">How files are moving through ingestion.</MudText>
+                    </div>
+                </div>
+                <div class="ops-pipeline-grid">
+                    @foreach (var stage in snapshot.PipelineStages)
+                    {
+                        <div class="ops-stage-card @StageTone(stage.Key)">
+                            <span>@stage.Label</span>
+                            <strong>@FormatCount(stage.Count)</strong>
+                            <small>@stage.Helper</small>
+                        </div>
+                    }
                 </div>
             </MudPaper>
-        </MudItem>
 
-        <MudItem xs="12" lg="6">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Active Tasks</MudText>
-                <MudTable Items="_activeTasks" Dense="true" Hover="true">
-                    <HeaderContent><MudTh>Task type</MudTh><MudTh>Item/file</MudTh><MudTh>Action</MudTh><MudTh>Progress</MudTh><MudTh>Started</MudTh><MudTh>Worker</MudTh><MudTh></MudTh></HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Type">@context.Type</MudTd>
-                        <MudTd DataLabel="Item">@context.Item</MudTd>
-                        <MudTd DataLabel="Action">@context.Action</MudTd>
-                        <MudTd DataLabel="Progress"><MudProgressLinear Value="@context.Progress" Rounded="false" /></MudTd>
-                        <MudTd DataLabel="Started">@context.Started</MudTd>
-                        <MudTd DataLabel="Worker">@context.Worker</MudTd>
-                        <MudTd><MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(!context.CanCancel)">Cancel</MudButton></MudTd>
-                    </RowTemplate>
-                </MudTable>
-            </MudPaper>
-        </MudItem>
-
-        <MudItem xs="12" lg="6">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Queue</MudText>
-                <MudTable Items="_queueGroups" Dense="true" Hover="true">
-                    <HeaderContent><MudTh>Group</MudTh><MudTh>Count</MudTh><MudTh>Highest priority</MudTh><MudTh>Next task</MudTh></HeaderContent>
-                    <RowTemplate><MudTd>@context.Group</MudTd><MudTd>@context.Count</MudTd><MudTd>@context.Priority</MudTd><MudTd>@context.NextTask</MudTd></RowTemplate>
-                </MudTable>
-            </MudPaper>
-        </MudItem>
-
-        <MudItem xs="12">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Needs Attention</MudText>
-                <MudGrid Spacing="2" Class="mt-2">
-                    @foreach (var item in _attentionItems)
+            <MudPaper Elevation="0" Class="tl-card ops-section">
+                <div class="ops-section__header">
+                    <div>
+                        <MudText Typo="Typo.h6">Needs Review</MudText>
+                        <MudText Typo="Typo.body2">Grouped by actionable reason.</MudText>
+                    </div>
+                </div>
+                <div class="ops-review-list">
+                    @foreach (var reason in snapshot.ReviewReasons)
                     {
-                        <MudItem xs="12" md="4">
-                            <MudPaper Elevation="0" Class="pa-3 app-section-card">
-                                <MudText Typo="Typo.subtitle2">@item.Label</MudText>
-                                <MudText Typo="Typo.h6">@item.Count</MudText>
-                                <MudStack Row="true" Spacing="1" Class="mt-2">
-                                    <MudButton Size="Size.Small" Variant="Variant.Outlined">Retry</MudButton>
-                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Href="/settings/review">Open review</MudButton>
-                                    <MudButton Size="Size.Small" Variant="Variant.Text">Dismiss</MudButton>
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
+                        <div class="ops-review-row">
+                            <div>
+                                <strong>@reason.Label</strong>
+                                <span>@reason.Explanation</span>
+                            </div>
+                            <div>
+                                <span class="@StatusBadgeClass(reason.Count > 0 ? "warning" : "complete")">@FormatCount(reason.Count)</span>
+                                <MudButton Href="/settings/review" Size="Size.Small" Variant="Variant.Outlined" Disabled="@(reason.Count == 0)">Review</MudButton>
+                            </div>
+                        </div>
                     }
-                </MudGrid>
+                </div>
             </MudPaper>
-        </MudItem>
 
-        <MudItem xs="12">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Compact Maintenance Actions</MudText>
-                <MudStack Row="true" Spacing="2" Class="mt-3 flex-wrap">
-                    @foreach (var action in _maintenanceActions)
+            <MudPaper Elevation="0" Class="tl-card ops-section">
+                <div class="ops-section__header">
+                    <div>
+                        <MudText Typo="Typo.h6">Provider Health</MudText>
+                        <MudText Typo="Typo.body2">Metadata providers used during matching and enrichment.</MudText>
+                    </div>
+                </div>
+                <div class="ops-provider-list">
+                    @foreach (var provider in snapshot.ProviderHealth)
                     {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Default">@action</MudButton>
+                        <div class="ops-provider-row">
+                            <div>
+                                <strong>@provider.DisplayName</strong>
+                                <span>@FirstNonBlank(provider.Warning, provider.LastError, $"Last success {FormatRelative(provider.LastSuccessfulCall)}")</span>
+                            </div>
+                            <span class="@StatusBadgeClass(provider.Status)">@provider.Status</span>
+                        </div>
                     }
-                </MudStack>
+                    @if (snapshot.ProviderHealth.Count == 0)
+                    {
+                        <div class="ops-empty-state">
+                            <MudIcon Icon="@Icons.Material.Outlined.CloudOff" />
+                            <div>
+                                <MudText Typo="Typo.subtitle2">No ingestion providers configured</MudText>
+                                <MudText Typo="Typo.body2">Provider health will appear after providers are configured.</MudText>
+                            </div>
+                        </div>
+                    }
+                </div>
             </MudPaper>
-        </MudItem>
-    </MudGrid>
+
+            <MudPaper Elevation="0" Class="tl-card ops-section ops-section--wide">
+                <div class="ops-section__header">
+                    <div>
+                        <MudText Typo="Typo.h6">Recent Batches</MudText>
+                        <MudText Typo="Typo.body2">Recent scans and library outcomes.</MudText>
+                    </div>
+                </div>
+                @if (snapshot.RecentBatches.Count == 0)
+                {
+                    <div class="ops-empty-state">
+                        <MudIcon Icon="@Icons.Material.Outlined.History" />
+                        <div>
+                            <MudText Typo="Typo.subtitle2">No recent ingestion batches</MudText>
+                            <MudText Typo="Typo.body2">Batches will appear after a scan processes files.</MudText>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="ops-batch-table">
+                        <div class="ops-batch-table__head">
+                            <span>Time</span><span>Source</span><span>Media</span><span>Total</span><span>Registered</span><span>Review</span><span>Failed</span><span>Status</span>
+                        </div>
+                        @foreach (var batch in snapshot.RecentBatches)
+                        {
+                            <div class="ops-batch-table__row">
+                                <span>@FormatRelative(batch.StartedAt)</span>
+                                <span>@FirstNonBlank(batch.Source, "Library scan")</span>
+                                <span>@FirstNonBlank(batch.MediaType, "Mixed")</span>
+                                <span>@FormatCount(batch.TotalFiles)</span>
+                                <span>@FormatCount(batch.RegisteredCount)</span>
+                                <span>@FormatCount(batch.ReviewCount)</span>
+                                <span>@FormatCount(batch.FailedCount)</span>
+                                <span><span class="@StatusBadgeClass(batch.Status)">@FormatStatus(batch.Status)</span></span>
+                            </div>
+                        }
+                    </div>
+                }
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="tl-card ops-section">
+                <div class="ops-section__header">
+                    <div>
+                        <MudText Typo="Typo.h6">Organization Rules</MudText>
+                        <MudText Typo="Typo.body2">Current file and folder safety behavior.</MudText>
+                    </div>
+                </div>
+                <div class="ops-rules-grid">
+                    @Rule("Rename", snapshot.Organization.RenameEnabled ? "Enabled" : "Disabled")
+                    @Rule("Move", snapshot.Organization.MoveEnabled ? "Enabled" : "Disabled")
+                    @Rule("Preview", snapshot.Organization.PreviewRequired ? "Required" : "Not required")
+                    @Rule("Folder template", snapshot.Organization.FolderTemplateSummary)
+                    @Rule("Filename template", snapshot.Organization.FilenameTemplateSummary)
+                    @Rule("Music", snapshot.Organization.MusicBehavior)
+                </div>
+            </MudPaper>
+        </div>
+    }
 </div>
 
 @code {
-    private static RenderFragment Metric(string label, string value) => @<div>
-        <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
-        <MudText Typo="Typo.body2">@value</MudText>
+    private IngestionOperationsSnapshotViewModel? _snapshot;
+    private CancellationTokenSource? _pollCts;
+    private bool _loading;
+    private bool _scanStarting;
+    private bool _stale;
+    private string? _error;
+    private DateTimeOffset? _lastUpdated;
+
+    private string StaleClass => _stale ? "library-operations__stale is-stale" : "library-operations__stale";
+
+    private List<IngestionOperationsJobViewModel> ActiveJobs
+    {
+        get
+        {
+            var jobs = _snapshot?.ActiveJobs.ToList() ?? [];
+            var batch = StateContainer.BatchProgress;
+            if (batch is { IsComplete: false })
+            {
+                var existing = jobs.FirstOrDefault(job => job.JobId == batch.BatchId);
+                var liveJob = new IngestionOperationsJobViewModel
+                {
+                    JobId = batch.BatchId,
+                    JobType = "Ingestion batch",
+                    MediaType = "Current batch",
+                    SourceFolder = "Watch folder",
+                    CurrentStage = FirstNonBlank(batch.CurrentStage, batch.LifecycleStage, "Processing"),
+                    CurrentItem = FirstNonBlank(batch.CurrentFileTitle, batch.RecentTitles?.FirstOrDefault()),
+                    ProcessedCount = batch.FilesProcessed,
+                    TotalCount = batch.FilesTotal,
+                    PercentComplete = batch.ProgressPercent,
+                    Status = "running",
+                    Elapsed = existing?.Elapsed,
+                    LastUpdatedTime = DateTimeOffset.UtcNow,
+                    WarningSummary = batch.FilesFailed > 0 ? $"{batch.FilesFailed:N0} failed" : null,
+                };
+
+                if (existing is null)
+                {
+                    jobs.Insert(0, liveJob);
+                }
+                else
+                {
+                    jobs[jobs.IndexOf(existing)] = liveJob;
+                }
+            }
+
+            var progress = StateContainer.IngestionProgress;
+            if (progress is not null && !string.Equals(progress.Stage, "Complete", StringComparison.OrdinalIgnoreCase))
+            {
+                jobs.Insert(0, new IngestionOperationsJobViewModel
+                {
+                    JobId = Guid.Empty,
+                    JobType = "Folder scan",
+                    MediaType = "Watched folders",
+                    SourceFolder = "Watch folder",
+                    CurrentStage = progress.Stage,
+                    CurrentItem = progress.CurrentFile,
+                    ProcessedCount = progress.ProcessedCount,
+                    TotalCount = progress.TotalCount,
+                    PercentComplete = progress.TotalCount > 0 ? progress.ProcessedCount * 100d / progress.TotalCount : 0,
+                    Status = "running",
+                    LastUpdatedTime = DateTimeOffset.UtcNow,
+                });
+            }
+
+            return jobs
+                .GroupBy(job => job.JobId)
+                .Select(group => group.First())
+                .ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        StateContainer.OnStateChanged += OnRealtimeStateChanged;
+        await Orchestrator.StartSignalRAsync();
+        await LoadAsync();
+        StartPolling();
+    }
+
+    public void Dispose()
+    {
+        StateContainer.OnStateChanged -= OnRealtimeStateChanged;
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        await Task.CompletedTask;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var snapshot = await ApiClient.GetIngestionOperationsSnapshotAsync();
+            if (snapshot is null)
+            {
+                _stale = true;
+                _error = "Library Operations could not reach the Engine.";
+                return;
+            }
+
+            _snapshot = snapshot;
+            _lastUpdated = DateTimeOffset.Now;
+            _stale = false;
+        }
+        catch (Exception ex)
+        {
+            _stale = true;
+            _error = $"Library Operations could not load: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ScanNowAsync()
+    {
+        _scanStarting = true;
+        try
+        {
+            await Orchestrator.TriggerRescanAsync();
+            await LoadAsync();
+        }
+        finally
+        {
+            _scanStarting = false;
+        }
+    }
+
+    private void StartPolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts = new CancellationTokenSource();
+        _ = PollLoopAsync(_pollCts.Token);
+    }
+
+    private async Task PollLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            var delay = ActiveJobs.Count > 0 ? TimeSpan.FromSeconds(3) : TimeSpan.FromSeconds(45);
+            try
+            {
+                await Task.Delay(delay, ct);
+                if (!ct.IsCancellationRequested)
+                {
+                    await InvokeAsync(LoadAsync);
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private void OnRealtimeStateChanged()
+    {
+        _lastUpdated = DateTimeOffset.Now;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static RenderFragment HeroMetric(string label, int value, string icon, string tone) => @<div class="ops-hero-metric @($"ops-hero-metric--{tone}")">
+        <MudIcon Icon="@icon" />
+        <span>@label</span>
+        <strong>@FormatCount(value)</strong>
     </div>;
 
-    private sealed record CurrentRun(string Status, bool IsActive, double Progress, int Processed, int Total, string Library, string CurrentItem, string MediaType, string Stage, string Elapsed, string Remaining, string Trigger);
-    private sealed record StageRow(string Name, int Completed, int Active, int Failed, int NeedsReview);
-    private sealed record LogRow(string Time, string Item, string Stage, string Action, string Provider, string Result, string Confidence, string FailureReason);
-    private sealed record TaskRow(string Type, string Item, string Action, double Progress, string Started, string Worker, bool CanCancel);
-    private sealed record QueueRow(string Group, int Count, string Priority, string NextTask);
-    private sealed record AttentionRow(string Label, int Count);
+    private static RenderFragment Rule(string label, string value) => @<div class="ops-rule">
+        <span>@label</span>
+        <strong>@value</strong>
+    </div>;
 
-    private readonly CurrentRun _currentRun = new("Processing", true, 62, 124, 200, "Books", "Dune Messiah.epub", "Book", "Retail provider match", "00:18:42", "00:11:00", "manual scan");
-    private readonly StageRow[] _stages =
-    [
-        new("Discovery", 200, 0, 0, 0),
-        new("File metadata", 165, 2, 1, 0),
-        new("Retail provider match", 124, 1, 3, 8),
-        new("Wikidata reconciliation", 82, 0, 2, 3),
-        new("Artwork", 78, 1, 4, 5),
-        new("Universe enrichment", 44, 0, 0, 2),
-        new("Complete", 72, 0, 0, 0),
-        new("Needs review", 0, 0, 0, 8),
-    ];
-    private readonly LogRow[] _logEntries =
-    [
-        new("10:41", "Dune Messiah.epub", "Discovery", "Found file in Books folder", "", "Queued", "", ""),
-        new("10:42", "Dune Messiah.epub", "File metadata", "Extracted ISBN and embedded title", "", "Complete", "", ""),
-        new("10:43", "Dune Messiah.epub", "Retail provider match", "Matched Apple Books edition", "Apple Books", "Matched", "96%", ""),
-        new("10:43", "Dune Messiah.epub", "Wikidata reconciliation", "Linked Wikidata QID", "Wikidata", "Linked", "94%", ""),
-        new("10:44", "Dune Messiah.epub", "Artwork", "Downloaded cover art", "Apple Books", "Complete", "", ""),
-        new("10:45", "Dune Messiah.epub", "Universe enrichment", "Added item to Dune universe", "Wikidata", "Complete", "", ""),
-        new("10:46", "Dune Messiah audiobook.m4b", "Retail provider match", "Conflicting audiobook narrator match", "Audible", "Needs review", "61%", "Conflicting narrator"),
-    ];
-    private readonly TaskRow[] _activeTasks = [new("provider lookup", "Dune Messiah.epub", "Matching editions", 62, "10:41", "worker-2", true), new("artwork download", "Foundation.epub", "Fetching cover", 38, "10:44", "worker-4", true)];
-    private readonly QueueRow[] _queueGroups = [new("scans", 1, "Normal", "Movies root"), new("provider lookups", 12, "High", "Foundation.epub"), new("artwork downloads", 7, "Normal", "Children of Dune.epub"), new("AI enrichment", 3, "Low", "The Expanse"), new("transcodes", 0, "None", "None"), new("cleanup jobs", 2, "Low", "Temp files")];
-    private readonly AttentionRow[] _attentionItems = [new("Failed tasks", 4), new("Unmatched items", 8), new("Low-confidence matches", 6), new("Duplicate candidates", 2), new("Missing artwork", 5), new("Provider timeouts", 3)];
-    private readonly string[] _maintenanceActions = ["Retry failed tasks", "Rescan library", "Recheck missing files", "Cleanup temp files", "Prune orphan artwork", "Rebuild search/index"];
+    private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
+
+    private static string FormatStatus(string status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return "Unknown";
+        }
+
+        var text = status.Replace("_", " ").Replace("-", " ");
+        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(text);
+    }
+
+    private static string FormatDuration(TimeSpan? duration)
+    {
+        if (duration is null)
+        {
+            return "In progress";
+        }
+
+        var value = duration.Value.Duration();
+        return value.TotalHours >= 1
+            ? $"{(int)value.TotalHours}h {value.Minutes}m"
+            : $"{value.Minutes}m {value.Seconds}s";
+    }
+
+    private static string FormatRelative(DateTimeOffset? value)
+    {
+        if (value is null)
+        {
+            return "not tracked yet";
+        }
+
+        var elapsed = DateTimeOffset.UtcNow - value.Value.ToUniversalTime();
+        return elapsed.TotalMinutes switch
+        {
+            < 1 => "just now",
+            < 60 => $"{(int)elapsed.TotalMinutes}m ago",
+            < 1440 => $"{(int)elapsed.TotalHours}h ago",
+            _ => value.Value.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture),
+        };
+    }
+
+    private static string ProgressStyle(double percent) =>
+        $"width: {Math.Clamp(percent, 0, 100).ToString("0.###", CultureInfo.InvariantCulture)}%;";
+
+    private static string MediaIcon(string? mediaType) =>
+        string.IsNullOrWhiteSpace(mediaType)
+            ? Icons.Material.Outlined.Inventory2
+            : LibraryHelpers.GetMediaTypeIcon(mediaType);
+
+    private static string StatusIcon(string status) => status.ToLowerInvariant() switch
+    {
+        var s when s.Contains("offline") => Icons.Material.Outlined.CloudOff,
+        var s when s.Contains("degraded") => Icons.Material.Outlined.WarningAmber,
+        _ => Icons.Material.Outlined.CheckCircle,
+    };
+
+    private static string StatusToneClass(string status) => status.ToLowerInvariant() switch
+    {
+        var s when s.Contains("offline") || s.Contains("failed") => "is-danger",
+        var s when s.Contains("degraded") || s.Contains("warning") => "is-warning",
+        var s when s.Contains("running") || s.Contains("active") => "is-primary",
+        _ => "is-success",
+    };
+
+    private static string StatusBadgeClass(string status) => $"ops-status {StatusToneClass(status)}";
+
+    private static string StageTone(string key) => key is "needs_review" ? "is-warning" : key is "failed" ? "is-danger" : "";
+
+    private static string ReachabilityClass(IngestionSourceFolderViewModel folder) =>
+        folder.IsReachable == true && folder.PermissionsValid != false
+            ? "ops-folder-status is-success"
+            : "ops-folder-status is-warning";
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 }

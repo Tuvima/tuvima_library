@@ -21,7 +21,18 @@ Use SQLite for records created or changed by product workflows:
 - profiles, profile external logins, and API keys.
 - provider health and recent failures.
 - review queue entries and resolution history.
+- ingestion batches, ingestion logs, identity jobs, and Library Operations status inputs.
 - system activity, encode jobs, and playback/reading progress.
+
+## Library Operations
+
+The Settings/Admin ingestion route is now the **Library Operations** page. It is a read-heavy operational dashboard, not a configuration editor and not a raw background-job log. Its Engine snapshot (`GET /ingestion/operations`) combines JSON-owned configuration with SQLite-owned state:
+
+- JSON supplies configured source folders, provider definitions, and organization templates.
+- SQLite supplies lifecycle counts, active/recent ingestion batches, review reasons, provider health records, and pipeline progress.
+- SignalR supplies live `BatchProgress` and `IngestionProgress` updates between snapshot refreshes.
+
+When a backing signal does not exist yet, the UI should show an unavailable or not-tracked state instead of static sample data.
 
 ## Deprecated Public Settings
 

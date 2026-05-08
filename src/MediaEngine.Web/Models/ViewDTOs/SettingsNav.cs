@@ -91,7 +91,7 @@ public static class SettingsNav
 
         new(SettingsSection.AdminOverview, "admin", "admin", Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, [], "json+sqlite"),
         new(SettingsSection.Libraries, "admin", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"]),
-        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Ingestion & Tasks", true, null, ["activity", "activity-log", "tasks", "maintenance"]),
+        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Library Operations", true, null, ["activity", "activity-log", "tasks", "maintenance"]),
         new(SettingsSection.Metadata, "admin", "metadata", Icons.Material.Outlined.Schema, "Metadata & Matching", true, null, ["wikidata"], "json"),
         new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, []),
         new(SettingsSection.LocalAi, "admin", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "vocabulary", "schedule"]),

@@ -729,6 +729,7 @@ builder.Services.AddHostedService<WhisperSyncBackgroundService>();
 builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepository>();
 builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>();
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
+builder.Services.AddSingleton<IIngestionOperationsStatusService, IngestionOperationsStatusService>();
 builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<RejectedFileCleanupService>();
 builder.Services.AddHostedService<RetagSweepWorker>();

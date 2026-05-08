@@ -25,6 +25,7 @@ The Engine is configured with one or more **Library Folders**, each declaring:
 | `category` | The content category: Books, TV, Movies, Music, Comics |
 | `media_types` | The expected media types within this folder (e.g. `["Epub", "Audiobook"]`) |
 | `source_path` | The folder the Engine monitors or imports from |
+| `source_paths` | Optional multi-path form for multiple folders in one logical library |
 | `library_root` | The destination root where organised files are placed |
 | `intake_mode` | `watch` (ongoing monitoring) or `import` (one-time scan) |
 | `import_action` | For import mode only: `move` or `copy` |
@@ -55,6 +56,24 @@ Configuration lives in `config/libraries.json`. When this file is absent, the En
 ```
 
 The `category` tells the Engine where to organise files on disk. The `media_types` tell it how to process them â€” which processor to use, which metadata providers to query, and what confidence prior to apply during identification. A library folder designated for Movies gives any MP4 it finds an 0.80 prior confidence for that media type, skipping much of the heuristic disambiguation that would otherwise be needed.
+
+---
+
+## Library Operations Snapshot
+
+The Dashboard's Library Operations page uses `GET /ingestion/operations`, backed by `IIngestionOperationsStatusService`, as the application-facing ingestion status model. The service aggregates existing persisted state rather than keeping a separate demo task model:
+
+- `ILibraryItemRepository` for total, registered, provisional, and review lifecycle counts
+- `IIngestionBatchRepository` for active and recent batches
+- `identity_jobs` and `ingestion_log` for pipeline stage counts
+- `review_queue` for actionable review reason groups
+- `config/libraries.json` for Watch, Listen, and Read source folders, including multi-path libraries
+- `provider_health` and provider config files for provider status
+- runtime `IngestionOptions` and `core.json` for organization rule summaries
+
+Live Dashboard updates come from existing SignalR Intercom events (`BatchProgress` and `IngestionProgress`) plus bounded polling of the snapshot endpoint. Polling is faster while jobs are active and slower while idle.
+
+Music remains a conservative organization lane. The status surface emphasizes tag/fingerprint-first handling and preserving album folders instead of implying aggressive rename/move behavior.
 
 ---
 

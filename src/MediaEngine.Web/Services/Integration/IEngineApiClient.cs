@@ -774,6 +774,9 @@ public interface IEngineApiClient
     Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
         int limit = 20, CancellationToken ct = default);
 
+    /// <summary>GET /ingestion/operations — Library Operations dashboard snapshot.</summary>
+    Task<IngestionOperationsSnapshotViewModel?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default);
+
     /// <summary>GET /ingestion/batches/{id} — single batch detail.</summary>
     Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(
         Guid id, CancellationToken ct = default);

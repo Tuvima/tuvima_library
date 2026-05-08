@@ -20,6 +20,18 @@ public static class IngestionEndpoints
         var group = app.MapGroup("/ingestion")
                        .WithTags("Ingestion");
 
+        group.MapGet("/operations", async (
+            IIngestionOperationsStatusService statusService,
+            CancellationToken ct) =>
+        {
+            var snapshot = await statusService.GetSnapshotAsync(ct);
+            return Results.Ok(snapshot);
+        })
+        .WithName("GetIngestionOperationsSnapshot")
+        .WithSummary("Aggregated Library Operations status for scans, review, providers, folders, and recent batches.")
+        .Produces<IngestionOperationsSnapshotDto>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
         group.MapPost("/scan", async (
             ScanRequest? request,
             IIngestionEngine engine,

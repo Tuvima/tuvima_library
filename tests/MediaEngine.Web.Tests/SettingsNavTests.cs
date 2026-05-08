@@ -193,7 +193,7 @@ public sealed class SettingsNavTests
         Assert.Equal([
             "Admin Overview",
             "Libraries",
-            "Ingestion & Tasks",
+            "Library Operations",
             "Metadata & Matching",
             "Providers",
             "Local AI",

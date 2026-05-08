@@ -3556,6 +3556,23 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     /// <inheritdoc/>
+    public async Task<IngestionOperationsSnapshotViewModel?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<IngestionOperationsSnapshotViewModel>(
+                "ingestion/operations", ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch ingestion operations snapshot");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(
         Guid id, CancellationToken ct = default)
     {

@@ -158,6 +158,24 @@ The pipeline is designed to fail safely:
 - if the file never settles, it is not processed prematurely
 - if the processor cannot read it cleanly, the system falls back to weaker signals
 - if Retail cannot find a safe match, the item goes to review
+
+---
+
+## Watching Operations
+
+The **Library Operations** page in Settings is the admin view for this pipeline. It keeps the existing `/settings/ingestion` route but presents ingestion as operational library health rather than a raw task log.
+
+It shows real application state from the Engine:
+
+- active scans and ingestion batches
+- registered, provisional, and review lifecycle counts
+- recent batches and their registered/review/failed outcomes
+- Watch, Listen, and Read source folders from `config/libraries.json`
+- provider health without exposing secrets
+- pipeline counts from durable identity jobs and ingestion logs
+- grouped review reasons from pending Review Queue records
+
+While work is active, the Dashboard updates from SignalR `BatchProgress` and `IngestionProgress` events and polls the operations snapshot more frequently. When idle, it polls less often. If a signal is not tracked yet, the page says so instead of inventing a count.
 - if Wikidata finds no QID, the item can still remain usable without forcing a bad identity
 - if artwork is still unresolved, the item stays out of the main browse surfaces until that question is settled
 
