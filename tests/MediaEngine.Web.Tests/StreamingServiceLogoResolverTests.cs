@@ -119,6 +119,27 @@ public sealed class StreamingServiceLogoResolverTests
 
 public sealed class StreamingServiceHeroRenderTests : TestContext
 {
+    private static readonly DetailEntityType[] EditableMediaTypes =
+    [
+        DetailEntityType.Work,
+        DetailEntityType.Movie,
+        DetailEntityType.MovieSeries,
+        DetailEntityType.TvShow,
+        DetailEntityType.TvSeason,
+        DetailEntityType.TvEpisode,
+        DetailEntityType.Book,
+        DetailEntityType.BookSeries,
+        DetailEntityType.Audiobook,
+        DetailEntityType.ComicIssue,
+        DetailEntityType.ComicSeries,
+        DetailEntityType.MusicAlbum,
+        DetailEntityType.MusicArtist,
+        DetailEntityType.MusicTrack,
+    ];
+
+    public static IEnumerable<object[]> EditableMediaTypeData
+        => EditableMediaTypes.Select(entityType => new object[] { entityType });
+
     public StreamingServiceHeroRenderTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
@@ -151,7 +172,7 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
             },
         };
 
-        var cut = Render(builder =>
+        using var cut = Render(builder =>
         {
             builder.OpenComponent<MudPopoverProvider>(0);
             builder.CloseComponent();
@@ -164,4 +185,113 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         Assert.Equal("/images/streaming-services/hulu.png", cut.Find(".tl-detail-hero-brand img").GetAttribute("src"));
         Assert.Empty(cut.FindAll(".tl-detail-hero-brand-badge img"));
     }
+
+    [Theory]
+    [MemberData(nameof(EditableMediaTypeData))]
+    public void DetailHero_PutsEditInWorkingOverflowMenuForEditableMediaTypes(DetailEntityType entityType)
+    {
+        using var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<DetailHero>(1);
+            builder.AddAttribute(2, "Model", CreateEditableModel(entityType));
+            builder.CloseComponent();
+        });
+
+        Assert.Empty(cut.FindAll(".tl-detail-inline-edit"));
+        Assert.NotNull(cut.Find("button[aria-label='More actions']"));
+
+        var overflow = Assert.Single(cut.FindComponents<OverflowActionMenu>());
+        var editAction = Assert.Single(overflow.Instance.Actions, action => action.Key == "edit-media");
+        Assert.Equal("Edit", editAction.Label);
+
+        var overflowMenuSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src/MediaEngine.Web/Components/Details/OverflowActionMenu.razor"));
+        Assert.Contains("@onclick=\"@menuContext.ToggleAsync\"", overflowMenuSource);
+    }
+
+    private static string FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            directory = directory.Parent;
+
+        return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+    }
+
+    private static DetailPageViewModel CreateEditableModel(DetailEntityType entityType)
+        => new()
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            EntityType = entityType,
+            PresentationContext = PresentationContextFor(entityType),
+            Title = $"{entityType} title",
+            Artwork = new ArtworkSet(),
+            PrimaryActions =
+            [
+                new DetailAction
+                {
+                    Key = PrimaryActionKeyFor(entityType),
+                    Label = PrimaryActionLabelFor(entityType),
+                    Icon = PrimaryActionIconFor(entityType),
+                    IsPrimary = true,
+                },
+            ],
+            SecondaryActions =
+            [
+                new DetailAction
+                {
+                    Key = "add-to-collection",
+                    Label = AddActionLabelFor(entityType),
+                    Icon = "add",
+                    Tooltip = AddActionLabelFor(entityType),
+                    DisplayStyle = entityType is DetailEntityType.Book or DetailEntityType.ComicIssue ? "button" : "icon",
+                },
+            ],
+        };
+
+    private static DetailPresentationContext PresentationContextFor(DetailEntityType entityType)
+        => entityType switch
+        {
+            DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => DetailPresentationContext.Watch,
+            DetailEntityType.Audiobook or DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => DetailPresentationContext.Listen,
+            DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => DetailPresentationContext.Comics,
+            _ => DetailPresentationContext.Read,
+        };
+
+    private static string PrimaryActionKeyFor(DetailEntityType entityType)
+        => PresentationContextFor(entityType) switch
+        {
+            DetailPresentationContext.Watch => "watch",
+            DetailPresentationContext.Listen => entityType is DetailEntityType.Audiobook ? "listen" : "play-album",
+            _ => "read",
+        };
+
+    private static string PrimaryActionLabelFor(DetailEntityType entityType)
+        => PrimaryActionKeyFor(entityType) switch
+        {
+            "watch" => "Watch",
+            "listen" => "Listen",
+            "play-album" => "Play",
+            _ => "Read",
+        };
+
+    private static string PrimaryActionIconFor(DetailEntityType entityType)
+        => PrimaryActionKeyFor(entityType) switch
+        {
+            "watch" or "play-album" => "play_arrow",
+            "listen" => "headphones",
+            _ => "menu_book",
+        };
+
+    private static string AddActionLabelFor(DetailEntityType entityType)
+        => entityType switch
+        {
+            DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
+            DetailEntityType.Audiobook => "Want to Listen",
+            DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Watchlist",
+            _ => "Add to collection",
+        };
 }

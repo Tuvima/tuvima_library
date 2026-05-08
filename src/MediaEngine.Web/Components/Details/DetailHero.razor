@@ -126,19 +126,6 @@
                            UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
                            OnActionSelected="OnActionSelected" />
 
-            @if (CanInlineEdit && !Presentation.IsWatchHero)
-            {
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Outlined.Edit"
-                           Class="tl-detail-inline-edit"
-                           aria-label="@InlineEditLabel"
-                           OnClick="OpenInlineEditorAsync">
-                    @InlineEditLabel
-                </MudButton>
-            }
-
             <HeroProgressBlock Progress="Presentation.Progress" />
 
             @if (!string.IsNullOrWhiteSpace(Presentation.HeroCopy))
@@ -173,30 +160,13 @@
         or DetailEntityType.MusicAlbum
         or DetailEntityType.MusicArtist
         or DetailEntityType.MusicTrack;
-    private string InlineEditLabel => Model.EntityType switch
-    {
-        DetailEntityType.Movie => "Edit movie",
-        DetailEntityType.MovieSeries => "Edit series",
-        DetailEntityType.TvShow => "Edit show",
-        DetailEntityType.TvSeason => "Edit season",
-        DetailEntityType.TvEpisode => "Edit episode",
-        DetailEntityType.Book => "Edit book",
-        DetailEntityType.BookSeries => "Edit series",
-        DetailEntityType.Audiobook => "Edit audiobook",
-        DetailEntityType.ComicIssue => "Edit issue",
-        DetailEntityType.ComicSeries => "Edit series",
-        DetailEntityType.MusicAlbum => "Edit album",
-        DetailEntityType.MusicArtist => "Edit artist",
-        DetailEntityType.MusicTrack => "Edit track",
-        _ => "Edit media",
-    };
     private DetailAction? InlineEditAction => CanInlineEdit
         ? new DetailAction
         {
             Key = "edit-media",
             Label = "Edit",
             Icon = "edit",
-            Tooltip = InlineEditLabel,
+            Tooltip = "Edit",
         }
         : null;
 
@@ -244,15 +214,6 @@
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-
-    private Task OpenInlineEditorAsync()
-        => OnActionSelected.InvokeAsync(new DetailAction
-        {
-            Key = "edit-media",
-            Label = "Edit",
-            Icon = "edit",
-            Tooltip = InlineEditLabel,
-        });
 
     private static string PersonExternalIcon(PersonExternalLink link) =>
         link.Key.ToLowerInvariant() switch
