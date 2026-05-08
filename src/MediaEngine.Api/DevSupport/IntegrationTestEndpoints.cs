@@ -622,7 +622,6 @@ public static class IntegrationTestEndpoints
         var ingestionSw = Stopwatch.StartNew();
         bool ingestionComplete = await WaitForIngestionAsync(
             db,
-            identityJobRepo,
             logger,
             ingestionTimeout,
             report.TotalFilesSeeded,
@@ -838,7 +837,6 @@ public static class IntegrationTestEndpoints
 
     private static async Task<bool> WaitForIngestionAsync(
         IDatabaseConnection db,
-        IIdentityJobRepository identityJobRepo,
         ILogger logger,
         TimeSpan timeout,
         int expectedCount,
@@ -894,7 +892,7 @@ public static class IntegrationTestEndpoints
                 jobStateSummary = string.Join(", ", jobStates.Select(s => $"{s.State}:{s.Count}"));
             }
 
-            int activeIdentityJobs = await CountActiveIdentityJobsAsync(db, identityJobRepo, stages, ct);
+            int activeIdentityJobs = await CountActiveIdentityJobsAsync(db, stages, ct);
             sawExpectedAssetCount |= assetCount >= expectedCount;
 
             bool snapshotStable =
@@ -3002,12 +3000,34 @@ public static class IntegrationTestEndpoints
 
     private static async Task<int> CountActiveIdentityJobsAsync(
         IDatabaseConnection db,
-        IIdentityJobRepository identityJobRepo,
         int stages,
         CancellationToken ct)
     {
         if (stages >= 123)
-            return await identityJobRepo.CountActiveAsync(ct);
+        {
+            ct.ThrowIfCancellationRequested();
+            using var stage3Conn = db.CreateConnection();
+            return await stage3Conn.ExecuteScalarAsync<int>("""
+                SELECT COUNT(*)
+                FROM identity_jobs j
+                LEFT JOIN canonical_values stage3_enhanced
+                       ON stage3_enhanced.entity_id = j.entity_id
+                      AND stage3_enhanced.key = 'stage3_enhanced_at'
+                WHERE j.state NOT IN (
+                    'Ready',
+                    'ReadyWithoutUniverse',
+                    'Completed',
+                    'Failed',
+                    'RetailNoMatch',
+                    'QidNoMatch',
+                    'QidNeedsReview'
+                )
+                AND (
+                    j.state <> 'UniverseEnriching'
+                    OR stage3_enhanced.entity_id IS NULL
+                );
+                """);
+        }
 
         ct.ThrowIfCancellationRequested();
         using var conn = db.CreateConnection();
