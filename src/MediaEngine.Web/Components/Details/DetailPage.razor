@@ -131,9 +131,29 @@
             return;
         }
 
-        if (action.Key == "edit-media")
+        if (action.Key is "edit-media" or "edit")
         {
             await OpenInlineEditorAsync();
+            return;
+        }
+
+        if (action.Key == "details")
+        {
+            SetActiveTab("details");
+            return;
+        }
+
+        if (action.Key == "sync-settings")
+        {
+            if (Model?.Tabs.Any(tab => tab.Key == "sync" && (!tab.IsAdminOnly || Model.IsAdminView)) == true)
+                SetActiveTab("sync");
+
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(action.Route))
+        {
+            Nav.NavigateTo(action.Route);
             return;
         }
 

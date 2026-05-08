@@ -3,7 +3,12 @@
 
 @if (Actions.Count > 0)
 {
-    <MudMenu Class="tl-detail-overflow" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+    <MudMenu Class="tl-detail-overflow"
+             PopoverClass="tl-detail-overflow-popover"
+             ListClass="tl-detail-overflow-list"
+             Dense="true"
+             AnchorOrigin="Origin.BottomRight"
+             TransformOrigin="Origin.TopRight">
         <ActivatorContent Context="menuContext">
             <button type="button"
                     class="@ButtonClass"

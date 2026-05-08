@@ -233,9 +233,22 @@ public sealed class UnifiedDetailComponentTests
     {
         var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
         var actions = ReadSource("src/MediaEngine.Web/Components/Details/HeroActionRow.razor");
+        var menu = ReadSource("src/MediaEngine.Web/Components/Details/OverflowActionMenu.razor");
+        var menuItems = ReadSource("src/MediaEngine.Web/Components/Details/ManageActionsMenu.razor");
+        var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var appStyles = ReadSource("src/MediaEngine.Web/wwwroot/app.css");
 
         Assert.Contains("OverflowActions=\"Model.OverflowActions\"", hero);
         Assert.Contains("OverflowActionMenu", actions);
+        Assert.Contains("PopoverClass=\"tl-detail-overflow-popover\"", menu);
+        Assert.Contains("ListClass=\"tl-detail-overflow-list\"", menu);
+        Assert.Contains("@onclick=\"@menuContext.ToggleAsync\"", menu);
+        Assert.Contains("Disabled=\"@action.IsDisabled\"", menuItems);
+        Assert.Contains("action.Key is \"edit-media\" or \"edit\"", detailPage);
+        Assert.Contains("action.Key == \"details\"", detailPage);
+        Assert.Contains("SetActiveTab(\"details\")", detailPage);
+        Assert.Contains(".tl-detail-overflow-popover.mud-popover", appStyles);
+        Assert.Contains("border: 0 !important", appStyles);
     }
 
     [Fact]
@@ -307,8 +320,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-item__current-badge", styles);
         Assert.DoesNotContain("tl-series-item__owned-badge", styles);
         Assert.Contains("tl-series-owned-summary", styles);
-        Assert.Contains("minmax(2.45rem, auto)", styles);
-        Assert.Contains("-webkit-line-clamp: 2", styles);
+        Assert.Contains("minmax(3.25rem, auto)", styles);
+        Assert.Contains("-webkit-line-clamp: 3", styles);
+        Assert.Contains("padding-bottom: 1.4rem", styles);
     }
 
     [Fact]

@@ -4,7 +4,8 @@
 @foreach (var action in Actions)
 {
     <MudMenuItem Icon="@HeroActionRow.IconFor(action)"
-                 OnClick="@(() => OnActionSelected.InvokeAsync(action))"
+                 Disabled="@action.IsDisabled"
+                 OnClick="@(() => SelectAsync(action))"
                  Class="@(action.IsDestructive ? "tl-menu-danger" : null)">
         @action.Label
     </MudMenuItem>
@@ -13,4 +14,7 @@
 @code {
     [Parameter] public IReadOnlyList<DetailAction> Actions { get; set; } = [];
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+
+    private Task SelectAsync(DetailAction action)
+        => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);
 }

@@ -3181,6 +3181,39 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     box-shadow: none !important;
 }
 
+.tl-detail-overflow-popover.mud-popover,
+.tl-detail-overflow-popover.mud-popover .mud-paper,
+.tl-detail-overflow-list.mud-list {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+.tl-detail-overflow-popover .mud-paper {
+    padding: 0 !important;
+    overflow: visible !important;
+}
+
+.tl-detail-overflow-list.mud-list {
+    min-width: 10.5rem;
+    padding: 0.55rem !important;
+    border: 1px solid rgba(106, 137, 195, 0.42) !important;
+    border-radius: 0.42rem !important;
+    background: #1d2a42 !important;
+    box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.34) !important;
+}
+
+.tl-detail-overflow-list .mud-list-item {
+    min-height: 2.25rem;
+    border-radius: 0.32rem !important;
+    color: #f4f7fb !important;
+}
+
+.tl-detail-overflow-list .mud-list-item:hover,
+.tl-detail-overflow-list .mud-list-item:focus-visible {
+    background: rgba(255, 255, 255, 0.10) !important;
+}
+
 .layout-shell__profile-menu.mud-menu {
     color: var(--app-text-primary, #aab8c5) !important;
     background: transparent !important;

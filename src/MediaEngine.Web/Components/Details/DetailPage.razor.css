@@ -2295,7 +2295,7 @@
     gap: clamp(0.7rem, 1.2vw, 1rem);
     justify-content: center;
     overflow: hidden;
-    padding: clamp(1.55rem, 2.7vw, 2.15rem) 0 0.5rem;
+    padding: clamp(1.55rem, 2.7vw, 2.15rem) 0 1.25rem;
     scrollbar-width: none;
 }
 
@@ -2314,6 +2314,7 @@
     gap: clamp(1rem, 1.8vw, 1.35rem);
     overflow: hidden;
     padding-top: clamp(1.2rem, 2vw, 1.7rem);
+    padding-bottom: 1.4rem;
 }
 
 ::deep .tl-series-placement--long .tl-series-strip::before {
@@ -2332,7 +2333,7 @@
     position: relative;
     min-width: clamp(5.8rem, 7.2vw, 7.3rem);
     display: grid;
-    grid-template-rows: auto auto minmax(2.45rem, auto);
+    grid-template-rows: auto auto minmax(3.25rem, auto);
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -2454,9 +2455,9 @@
     font-weight: 820;
     line-height: 1.22;
     text-align: center;
-    min-height: 2.45rem;
+    min-height: 3.25rem;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
