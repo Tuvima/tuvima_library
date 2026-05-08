@@ -122,10 +122,11 @@
             <HeroActionRow PrimaryActions="Model.PrimaryActions"
                            SecondaryActions="Model.SecondaryActions"
                            OverflowActions="Model.OverflowActions"
+                           InlineEditAction="InlineEditAction"
                            UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
                            OnActionSelected="OnActionSelected" />
 
-            @if (CanInlineEdit)
+            @if (CanInlineEdit && !Presentation.IsWatchHero)
             {
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Default"
@@ -189,6 +190,15 @@
         DetailEntityType.MusicTrack => "Edit track",
         _ => "Edit media",
     };
+    private DetailAction? InlineEditAction => CanInlineEdit
+        ? new DetailAction
+        {
+            Key = "edit-media",
+            Label = "Edit",
+            Icon = "edit",
+            Tooltip = InlineEditLabel,
+        }
+        : null;
 
     private string? PersonEyebrow => FirstNonBlank(PersonRoleLabel, Model.PersonDetails?.Occupation);
 
@@ -239,8 +249,9 @@
         => OnActionSelected.InvokeAsync(new DetailAction
         {
             Key = "edit-media",
-            Label = InlineEditLabel,
-            Icon = Icons.Material.Outlined.Edit,
+            Label = "Edit",
+            Icon = "edit",
+            Tooltip = InlineEditLabel,
         });
 
     private static string PersonExternalIcon(PersonExternalLink link) =>

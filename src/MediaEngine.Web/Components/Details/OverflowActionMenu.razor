@@ -5,7 +5,7 @@
 {
     <MudMenu Class="tl-detail-overflow" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
         <ActivatorContent>
-            <button type="button" class="tl-detail-icon-button" aria-label="More actions">
+            <button type="button" class="@ButtonClass" aria-label="More actions">
                 <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
             </button>
         </ActivatorContent>
@@ -17,5 +17,6 @@
 
 @code {
     [Parameter] public IReadOnlyList<DetailAction> Actions { get; set; } = [];
+    [Parameter] public string ButtonClass { get; set; } = "tl-detail-icon-button";
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 }

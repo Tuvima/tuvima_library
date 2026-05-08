@@ -185,10 +185,18 @@
             }
         }
 
-        @if (!IsPrimaryHeroActionRow && OverflowActions.Count > 0)
+        @if (IsPrimaryHeroActionRow && OverflowMenuActions.Count > 0)
+        {
+            <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
+                <OverflowActionMenu Actions="OverflowMenuActions"
+                                    ButtonClass="tl-detail-watch-secondary tl-detail-watch-secondary--icon"
+                                    OnActionSelected="OnActionSelected" />
+            </div>
+        }
+        else if (!IsPrimaryHeroActionRow && OverflowMenuActions.Count > 0)
         {
             <div class="tl-detail-secondary-action">
-                <OverflowActionMenu Actions="OverflowActions" OnActionSelected="OnActionSelected" />
+                <OverflowActionMenu Actions="OverflowMenuActions" OnActionSelected="OnActionSelected" />
                 <span>More</span>
             </div>
         }
@@ -199,11 +207,14 @@
     [Parameter] public IReadOnlyList<DetailAction> PrimaryActions { get; set; } = [];
     [Parameter] public IReadOnlyList<DetailAction> SecondaryActions { get; set; } = [];
     [Parameter] public IReadOnlyList<DetailAction> OverflowActions { get; set; } = [];
+    [Parameter] public DetailAction? InlineEditAction { get; set; }
     [Parameter] public bool UsePrimaryHeroChrome { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private bool IsWatchActionRow => PrimaryActions.Any(action => action.Key == "watch");
     private bool IsPrimaryHeroActionRow => IsWatchActionRow || UsePrimaryHeroChrome;
+    private IReadOnlyList<DetailAction> OverflowMenuActions
+        => InlineEditAction is null ? OverflowActions : OverflowActions.Concat([InlineEditAction]).ToList();
 
     private Task Select(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);

@@ -4,6 +4,8 @@ using Bunit;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Web.Components.Details;
 using MediaEngine.Web.Services.Branding;
+using MudBlazor;
+using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
 
@@ -117,6 +119,12 @@ public sealed class StreamingServiceLogoResolverTests
 
 public sealed class StreamingServiceHeroRenderTests : TestContext
 {
+    public StreamingServiceHeroRenderTests()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddMudServices();
+    }
+
     [Fact]
     public void DetailHero_RendersStreamingServiceLogoSeparatelyFromShowLogo()
     {
@@ -143,7 +151,14 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
             },
         };
 
-        var cut = RenderComponent<DetailHero>(parameters => parameters.Add(component => component.Model, model));
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<DetailHero>(1);
+            builder.AddAttribute(2, "Model", model);
+            builder.CloseComponent();
+        });
 
         Assert.Equal("/images/show-title-logos/shogun.png", cut.Find(".tl-detail-hero__logo").GetAttribute("src"));
         Assert.Equal("/images/streaming-services/hulu.png", cut.Find(".tl-detail-hero-brand img").GetAttribute("src"));
