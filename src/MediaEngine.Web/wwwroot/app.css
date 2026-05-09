@@ -776,6 +776,9 @@ body {
 
 .settings-admin-panel .settings-tab-strip {
     background: transparent !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar,
@@ -788,6 +791,7 @@ body {
     border-radius: var(--app-radius-md, 8px) !important;
     background: rgba(10, 13, 22, 0.76) !important;
     box-shadow: none !important;
+    width: 100% !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-wrapper,
@@ -796,24 +800,22 @@ body {
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
     width: 100% !important;
     max-width: 100% !important;
+    transform: none !important;
+}
+
+.settings-admin-panel .settings-tab-strip .mud-tabs-panels {
+    width: 100% !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: stretch !important;
-    width: 100% !important;
-    transform: none !important;
-}
-
-.settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-wrapper,
-.settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper {
-    display: block !important;
-    transform: none !important;
+    flex: 1 1 auto !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tabs-scroll-button,
@@ -1415,19 +1417,18 @@ body {
 
 @media (max-width: 720px) {
     .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-wrapper,
-    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper {
-        display: block !important;
-    }
-
+    .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content,
     .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner,
-    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner,
-    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content {
-        flex-direction: column !important;
+    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper,
+    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content,
+    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner {
+        flex-direction: row !important;
     }
 
     .settings-admin-panel .settings-tab-strip .mud-tab {
-        justify-content: flex-start !important;
+        justify-content: center !important;
         min-height: 48px !important;
+        padding: 0 12px !important;
     }
 
     .settings-admin-panel .settings-experience-grid {

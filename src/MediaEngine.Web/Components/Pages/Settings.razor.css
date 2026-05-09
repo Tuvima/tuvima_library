@@ -122,6 +122,9 @@
 }
 
 .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
     width: 100%;
 }
 
@@ -792,12 +795,17 @@
     }
 
     .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
-        flex-direction: column;
+        flex-direction: row;
+    }
+
+    .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content {
+        flex-direction: row;
     }
 
     .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
-        justify-content: flex-start !important;
+        justify-content: center !important;
         min-height: 48px !important;
+        padding: 0 12px !important;
     }
 
     .settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-grid {

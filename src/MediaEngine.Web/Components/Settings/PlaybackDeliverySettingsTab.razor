@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page">
-    <MudTabs Rounded="true" Elevation="0" Color="Color.Primary" Class="settings-tab-strip">
+    <MudTabs Rounded="true" Elevation="0" Color="Color.Primary" Position="Position.Top" Class="settings-tab-strip">
         <MudTabPanel Text="Direct Play" Icon="@Icons.Material.Outlined.PlayArrow">
             <MudPaper Elevation="0" Class="tl-card pa-4">
                 <MudSwitch T="bool" @bind-Value="_allowDirectPlay" Color="Color.Primary" Label="Allow direct play" />
