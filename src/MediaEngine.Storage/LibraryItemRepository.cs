@@ -745,6 +745,22 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         return Task.FromResult(rows.ToDictionary(r => r.MediaType, r => r.Count));
     }
 
+    public Task<Dictionary<string, int>> GetOwnedMediaTypeCountsAsync(CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<(string MediaType, int Count)>("""
+            SELECT w.media_type AS MediaType, COUNT(DISTINCT ma.id) AS Count
+            FROM media_assets ma
+            INNER JOIN editions e ON e.id = ma.edition_id
+            INNER JOIN works w ON w.id = e.work_id
+            WHERE w.media_type IS NOT NULL
+              AND w.media_type != ''
+              AND w.media_type != 'Unknown'
+            GROUP BY w.media_type;
+            """);
+        return Task.FromResult(rows.ToDictionary(r => r.MediaType, r => r.Count));
+    }
+
     private static string BuildProjectionSql()
     {
         var wikidataId = WellKnownProviders.Wikidata.ToString();

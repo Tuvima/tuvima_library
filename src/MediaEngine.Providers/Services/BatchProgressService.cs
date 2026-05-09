@@ -17,11 +17,9 @@ public sealed class BatchProgressService
     [
         "RetailSearching",
         "RetailMatched",
-        "RetailMatchedNeedsReview",
         "BridgeSearching",
         "QidResolved",
         "Hydrating",
-        "UniverseEnriching",
     ];
 
     private readonly IIngestionBatchRepository _batchRepo;
@@ -110,10 +108,10 @@ public sealed class BatchProgressService
                     WHERE status = 'Pending'
                 )
                 SELECT
-                    COALESCE(SUM(CASE WHEN js.state IN ('Ready', 'Completed') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
+                    COALESCE(SUM(CASE WHEN js.state IN ('Ready', 'Completed', 'UniverseEnriching') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
                     COALESCE(SUM(CASE WHEN js.state = 'ReadyWithoutUniverse' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReadyWithoutUniverse,
                     COALESCE(SUM(CASE
-                        WHEN js.state = 'QidNeedsReview' THEN 1
+                        WHEN js.state IN ('QidNeedsReview', 'RetailMatchedNeedsReview') THEN 1
                         WHEN pr.entity_id IS NOT NULL
                              AND js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'Failed')
                             THEN 1
@@ -124,11 +122,11 @@ public sealed class BatchProgressService
                     COALESCE(SUM(CASE WHEN js.state = 'Queued' THEN 1 ELSE 0 END), 0) AS QueuedJobs,
                     COALESCE(SUM(CASE WHEN js.state = 'RetailSearching' THEN 1 ELSE 0 END), 0) AS RetailSearching,
                     COALESCE(SUM(CASE WHEN js.state = 'RetailMatched' THEN 1 ELSE 0 END), 0) AS RetailMatched,
-                    COALESCE(SUM(CASE WHEN js.state = 'RetailMatchedNeedsReview' THEN 1 ELSE 0 END), 0) AS RetailMatchedNeedsReview,
+                    0 AS RetailMatchedNeedsReview,
                     COALESCE(SUM(CASE WHEN js.state = 'BridgeSearching' THEN 1 ELSE 0 END), 0) AS BridgeSearching,
                     COALESCE(SUM(CASE WHEN js.state = 'QidResolved' THEN 1 ELSE 0 END), 0) AS QidResolved,
                     COALESCE(SUM(CASE WHEN js.state = 'Hydrating' THEN 1 ELSE 0 END), 0) AS Hydrating,
-                    COALESCE(SUM(CASE WHEN js.state = 'UniverseEnriching' THEN 1 ELSE 0 END), 0) AS UniverseEnriching
+                    0 AS UniverseEnriching
                 FROM job_states js
                 LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
                 """,
@@ -206,11 +204,7 @@ public sealed class BatchProgressService
                     SELECT
                         js.entity_id,
                         CASE
-                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'Failed') THEN 100.0
-                            WHEN js.state = 'UniverseEnriching' THEN
-                                80.0
-                                + CASE WHEN COALESCE(cf.stage3_core_done, 0) = 1 THEN 10.0 ELSE 0.0 END
-                                + CASE WHEN COALESCE(cf.stage3_enhancers_done, 0) = 1 THEN 10.0 ELSE 0.0 END
+                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'RetailMatchedNeedsReview', 'UniverseEnriching', 'Failed') THEN 100.0
                             WHEN js.state = 'Hydrating' THEN
                                 50.0
                                 + CASE
@@ -226,22 +220,15 @@ public sealed class BatchProgressService
                         END AS progress_percent,
                         CASE
                             WHEN js.state = 'Hydrating' THEN MAX(COALESCE(pc.total_people, 0), 1)
-                            WHEN js.state = 'UniverseEnriching' THEN 2
                             ELSE 1
                         END AS work_units_total,
                         CASE
-                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'Failed') THEN
-                                CASE
-                                    WHEN js.state = 'UniverseEnriching' THEN 2
-                                    ELSE 1
-                                END
+                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'RetailMatchedNeedsReview', 'UniverseEnriching', 'Failed') THEN 1
                             WHEN js.state = 'Hydrating' THEN
                                 CASE
                                     WHEN COALESCE(pc.total_people, 0) = 0 THEN 1
                                     ELSE COALESCE(pc.enriched_people, 0)
                                 END
-                            WHEN js.state = 'UniverseEnriching' THEN
-                                COALESCE(cf.stage3_core_done, 0) + COALESCE(cf.stage3_enhancers_done, 0)
                             WHEN js.state IN ('RetailSearching', 'RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved') THEN 0
                             ELSE 0
                         END AS work_units_completed
@@ -328,9 +315,6 @@ public sealed class BatchProgressService
         if (completed)
             return "Complete";
 
-        if (snapshot.UniverseEnriching > 0)
-            return "UniverseEnriching";
-
         if (snapshot.BridgeSearching > 0 || snapshot.QidResolved > 0 || snapshot.Hydrating > 0)
             return "ResolvingUniverse";
 
@@ -350,7 +334,6 @@ public sealed class BatchProgressService
         completed ? "Complete" :
         lifecycleStage switch
         {
-            "UniverseEnriching" => "Enriching universe",
             "ResolvingUniverse" => "Resolving universe",
             "Identifying" => "Identifying",
             "Review" => "Review",

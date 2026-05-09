@@ -35,8 +35,10 @@ public static class LibraryEndpoints
             // 2. Shared projection summary
             var projection = await libraryItemRepo.GetProjectionSummaryAsync(ct);
 
-            // 3. Media type counts
-            var mediaTypeCounts = await libraryItemRepo.GetMediaTypeCountsAsync(ct);
+            // 3. Admin overview media type counts should reflect owned media assets,
+            // not catalogue-only works discovered during enrichment.
+            var mediaTypeCounts = await libraryItemRepo.GetOwnedMediaTypeCountsAsync(ct);
+            var ownedTotal = mediaTypeCounts.Values.Sum();
 
             // 4. Review-ready count from the shared libraryItem projection
             var reviewTotal = fourState.InReview;
@@ -84,7 +86,7 @@ public static class LibraryEndpoints
 
             var dto = new LibraryOverviewDto
             {
-                TotalItems          = projection.TotalItems,
+                TotalItems          = ownedTotal,
                 Added24h            = added24h,
                 Added7d             = added7d,
                 Added30d            = added30d,

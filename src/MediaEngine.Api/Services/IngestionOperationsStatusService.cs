@@ -44,6 +44,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         ct.ThrowIfCancellationRequested();
 
         var recentBatches = await _batchRepository.GetRecentAsync(12, ct);
+        recentBatches = await ReconcileCompletedBatchesAsync(recentBatches, ct);
         var lifecycle = await _libraryItems.GetFourStateCountsAsync(ct: ct);
         var projection = await _libraryItems.GetProjectionSummaryAsync(ct);
         var providers = _configLoader.LoadAllProviders();
@@ -268,6 +269,118 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Review("provider_failures", "Provider Failures", SumMatching(allCounts, "WritebackFailed") + SumContains(allCounts, "provider", "timeout", "failure"), "A provider or writeback step could not complete."),
             Review("metadata_conflicts", "Metadata Conflicts", SumMatching(allCounts, "MetadataConflict", "UserFixMatch", "LanguageMismatch", "UserReport"), "Conflicting metadata requires a human decision."),
         ];
+    }
+
+    private async Task<IReadOnlyList<IngestionBatch>> ReconcileCompletedBatchesAsync(
+        IReadOnlyList<IngestionBatch> recentBatches,
+        CancellationToken ct)
+    {
+        var changed = false;
+
+        foreach (var batch in recentBatches)
+        {
+            if (!ActiveBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var snapshot = await ReadBatchTerminalSnapshotAsync(batch.Id, ct);
+            var identified = Math.Max(batch.FilesIdentified, snapshot.Identified);
+            var review = Math.Max(batch.FilesReview, snapshot.Review);
+            var noMatch = Math.Max(batch.FilesNoMatch, snapshot.NoMatch);
+            var failed = Math.Max(batch.FilesFailed, snapshot.Failed);
+            var terminal = identified + review + noMatch + failed;
+            var noActivePipelineWork = snapshot.Queued == 0 && snapshot.Active == 0;
+            var isStaleUntrackedBatch = batch.FilesTotal > 0
+                && terminal == 0
+                && batch.FilesProcessed == 0
+                && snapshot.TotalJobs == 0
+                && noActivePipelineWork
+                && DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime() > TimeSpan.FromMinutes(30);
+            var allFilesTerminal = batch.FilesTotal <= 0
+                ? noActivePipelineWork
+                : terminal >= batch.FilesTotal || (batch.FilesProcessed >= batch.FilesTotal && noActivePipelineWork);
+
+            if ((!allFilesTerminal && !isStaleUntrackedBatch) || !noActivePipelineWork)
+            {
+                continue;
+            }
+
+            var processed = isStaleUntrackedBatch
+                ? batch.FilesTotal
+                : Math.Max(batch.FilesProcessed, terminal);
+            if (batch.FilesTotal > 0)
+            {
+                processed = Math.Clamp(processed, 0, batch.FilesTotal);
+            }
+
+            await _batchRepository.UpdateCountsAsync(
+                batch.Id,
+                batch.FilesTotal,
+                processed,
+                identified,
+                review,
+                noMatch,
+                failed,
+                ct);
+
+            await _batchRepository.CompleteAsync(
+                batch.Id,
+                failed > 0 && failed >= Math.Max(1, batch.FilesTotal) ? "failed" : "completed",
+                ct);
+
+            changed = true;
+        }
+
+        return changed
+            ? await _batchRepository.GetRecentAsync(12, ct)
+            : recentBatches;
+    }
+
+    private async Task<BatchTerminalSnapshot> ReadBatchTerminalSnapshotAsync(Guid batchId, CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        return await conn.QueryFirstOrDefaultAsync<BatchTerminalSnapshot>(
+            """
+            WITH latest_jobs AS (
+                SELECT
+                    entity_id,
+                    state,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entity_id
+                        ORDER BY updated_at DESC, created_at DESC
+                    ) AS rn
+                FROM identity_jobs
+                WHERE ingestion_run_id = @batchId
+            ),
+            job_states AS (
+                SELECT entity_id, state
+                FROM latest_jobs
+                WHERE rn = 1
+            ),
+            pending_reviews AS (
+                SELECT DISTINCT entity_id
+                FROM review_queue
+                WHERE status = 'Pending'
+            )
+            SELECT
+                COALESCE(SUM(CASE WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'UniverseEnriching') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS Identified,
+                COALESCE(SUM(CASE
+                    WHEN js.state IN ('QidNeedsReview', 'RetailMatchedNeedsReview') THEN 1
+                    WHEN pr.entity_id IS NOT NULL
+                         AND js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'Failed')
+                        THEN 1
+                    ELSE 0
+                END), 0) AS Review,
+                COALESCE(SUM(CASE WHEN js.state IN ('RetailNoMatch', 'QidNoMatch') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS NoMatch,
+                COALESCE(SUM(CASE WHEN js.state = 'Failed' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS Failed,
+                COALESCE(SUM(CASE WHEN js.state = 'Queued' THEN 1 ELSE 0 END), 0) AS Queued,
+                COALESCE(SUM(CASE WHEN js.state IN ('RetailSearching', 'RetailMatched', 'BridgeSearching', 'QidResolved', 'Hydrating') THEN 1 ELSE 0 END), 0) AS Active,
+                COUNT(js.entity_id) AS TotalJobs
+            FROM job_states js
+            LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
+            """,
+            new { batchId = batchId.ToString() }) ?? new BatchTerminalSnapshot();
     }
 
     private static IngestionOperationsJobDto ToActiveJob(IngestionBatch batch)
@@ -541,5 +654,17 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public long ItemCount { get; set; }
         public long UnresolvedCount { get; set; }
     }
+
+    private sealed class BatchTerminalSnapshot
+    {
+        public int Identified { get; init; }
+        public int Review { get; init; }
+        public int NoMatch { get; init; }
+        public int Failed { get; init; }
+        public int Queued { get; init; }
+        public int Active { get; init; }
+        public int TotalJobs { get; init; }
+    }
+
     private sealed record FolderProbe(string Label, bool? IsReachable, bool? PermissionsValid);
 }

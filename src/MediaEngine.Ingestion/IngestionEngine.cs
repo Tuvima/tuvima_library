@@ -597,6 +597,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                             "Could not delete duplicate file {Path}", candidate.Path);
                     }
 
+                    await MarkBatchFileProcessedAsync(candidate.BatchId, ct).ConfigureAwait(false);
                     return;
                 }
 
@@ -604,6 +605,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 // enriched since first scan).
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                     .ConfigureAwait(false);
+                await MarkBatchFileProcessedAsync(candidate.BatchId, ct).ConfigureAwait(false);
                 return;
             }
         }
@@ -3031,6 +3033,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
     }
 
+    private async Task MarkBatchFileProcessedAsync(Guid? batchId, CancellationToken ct)
+    {
+        if (!batchId.HasValue)
+        {
+            return;
+        }
+
+        await SafeIncrementBatchCounterAsync(batchId.Value, BatchCounterColumn.FilesProcessed, ct)
+            .ConfigureAwait(false);
+        await PublishQueuedBatchSnapshotAsync(batchId.Value, ct).ConfigureAwait(false);
+    }
     private Task PublishInitialBatchProgressAsync(Guid batchId, int totalFiles)
         => SafePublishAsync(
             SignalREvents.BatchProgress,

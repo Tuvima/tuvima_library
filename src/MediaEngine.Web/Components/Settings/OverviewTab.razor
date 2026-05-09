@@ -56,14 +56,14 @@
         <div class="admin-library-banner__content">
             <div class="admin-library-banner__main">
                 <div class="admin-library-banner__icon">
-                    <MudIcon Icon="@Icons.Material.Outlined.Inventory2" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Layers" />
                 </div>
                 <div>
                     <MudText Typo="Typo.h4" Class="admin-library-banner__title">
-                        @FormatCount(_libraryTotal) items in your library
+                        <span>@FormatCount(_libraryTotal)</span> items in your library
                     </MudText>
                     <MudText Typo="Typo.body2" Class="admin-library-banner__subtitle">
-                        Books, movies, TV, music, audiobooks, comics, and podcasts
+                        Books, movies, TV, music, audiobooks, and comics
                     </MudText>
                 </div>
             </div>
@@ -71,10 +71,13 @@
             <div class="admin-library-breakdown" aria-label="Library media type breakdown">
                 @foreach (var media in MediaBreakdown)
                 {
-                    <div class="admin-library-media">
-                        <MudIcon Icon="@media.Icon" />
+                    <div class="admin-library-media" style="@media.AccentStyle">
+                        <span class="admin-library-media__icon">
+                            <MudIcon Icon="@media.Icon" />
+                        </span>
                         <span class="admin-library-media__label">@media.Label</span>
                         <span class="admin-library-media__count">@FormatCount(media.Count)</span>
+                        <span class="admin-library-media__percent">@FormatPercent(media.Percent)</span>
                     </div>
                 }
             </div>
@@ -92,6 +95,13 @@
                 else
                 {
                     <span class="admin-composition-bar__empty"></span>
+                }
+            </div>
+
+            <div class="admin-composition-labels" aria-hidden="true">
+                @foreach (var media in MediaBreakdown.Where(item => item.Count > 0))
+                {
+                    <span style="@CompositionLabelStyle(media)">@FormatPercent(media.Percent)</span>
                 }
             </div>
         </div>
@@ -344,8 +354,18 @@
     private double _directPlayPercent;
     private string _oldestReviewAge = "None";
 
-    private int _libraryTotal => _overview?.TotalItems
-        ?? (_overview?.MediaTypeCounts.Values.Sum() ?? 0);
+    private int _libraryTotal
+    {
+        get
+        {
+            if (_overview?.MediaTypeCounts.Count > 0)
+            {
+                return MediaBreakdown.Sum(item => item.Count);
+            }
+
+            return _overview?.TotalItems ?? 0;
+        }
+    }
 
     private List<EncodeJobDto> _activeEncodeJobs =>
         _encodeJobs
@@ -366,10 +386,14 @@
                 MediaItem("TV Episodes", Icons.Material.Outlined.LiveTv, counts),
                 MediaItem("Music", Icons.Material.Outlined.MusicNote, counts),
                 MediaItem("Comics", Icons.Material.Outlined.AutoStories, counts),
-                MediaItem("Podcasts", Icons.Material.Outlined.Podcasts, counts),
             };
 
-            var total = Math.Max(1, items.Sum(item => item.Count));
+            var total = items.Sum(item => item.Count);
+            if (total <= 0)
+            {
+                return items;
+            }
+
             return items
                 .Select(item => item with { Percent = item.Count * 100d / total })
                 .ToList();
@@ -520,7 +544,7 @@
                 IdleDetail: "");
         }
 
-        var activeRun = _recentRuns.FirstOrDefault(run => IsActiveRunStatus(run.Status));
+        var activeRun = _recentRuns.FirstOrDefault(run => IsActiveRunStatus(run.Status) && !IsRunEffectivelyComplete(run));
         if (activeRun is not null)
         {
             var progress = activeRun.FilesTotal > 0
@@ -580,23 +604,34 @@
             "TV Episodes" => new[] { "tv", "tv episode", "tv episodes", "episode", "episodes" },
             "Music" => new[] { "music", "track", "tracks", "song", "songs", "album" },
             "Comics" => new[] { "comic", "comics", "cbz", "cbr" },
-            "Podcasts" => new[] { "podcast", "podcasts" },
             _ => new[] { label },
         };
 
+        var normalizedAliases = aliases.Select(NormalizeMediaKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return counts
-            .Where(kv => aliases.Any(alias => kv.Key.Equals(alias, StringComparison.OrdinalIgnoreCase)
-                || kv.Key.Contains(alias, StringComparison.OrdinalIgnoreCase)))
+            .Where(kv => normalizedAliases.Contains(NormalizeMediaKey(kv.Key)))
             .Sum(kv => kv.Value);
     }
 
+    private static string NormalizeMediaKey(string value) =>
+        new(value
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
+
     private static string SegmentStyle(MediaBreakdownItem item) =>
         $"width: {Math.Max(item.Percent, 1).ToString("0.###", CultureInfo.InvariantCulture)}%; background: {item.Color};";
+
+    private static string CompositionLabelStyle(MediaBreakdownItem item) =>
+        $"flex-basis: {Math.Max(item.Percent, 1).ToString("0.###", CultureInfo.InvariantCulture)}%; color: {item.Color};";
 
     private static string ProgressStyle(double percent) =>
         $"width: {Math.Clamp(percent, 0, 100).ToString("0.###", CultureInfo.InvariantCulture)}%;";
 
     private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
+
+    private static string FormatPercent(double value) =>
+        value <= 0 ? "0%" : $"{Math.Round(value):0}%";
 
     private static string FormatClock(DateTimeOffset? value) =>
         value.HasValue ? value.Value.ToLocalTime().ToString("h:mm tt", CultureInfo.CurrentCulture) : "not yet";
@@ -691,6 +726,11 @@
         || status.Contains("queued", StringComparison.OrdinalIgnoreCase)
         || status.Contains("active", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsRunEffectivelyComplete(IngestionBatchViewModel run) =>
+        run.FilesTotal > 0
+        && run.FilesProcessed >= run.FilesTotal
+        && !run.Status.Contains("fail", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsActiveEncodeStatus(string status) =>
         status.Equals(EncodeJobStatuses.Running, StringComparison.OrdinalIgnoreCase)
         || status.Equals(EncodeJobStatuses.Queued, StringComparison.OrdinalIgnoreCase)
@@ -754,14 +794,15 @@
         public string Color => Label switch
         {
             "Books" => "#9a6dff",
-            "Audiobooks" => "#4f9dff",
-            "Movies" => "#f5a400",
-            "TV Episodes" => "#35d179",
-            "Music" => "#ff6b9a",
-            "Comics" => "#7dd3fc",
-            "Podcasts" => "#f97316",
+            "Audiobooks" => "#c065df",
+            "Movies" => "#72a5ff",
+            "TV Episodes" => "#5adcf5",
+            "Music" => "#50d6c4",
+            "Comics" => "#ff9a45",
             _ => "#94a3b8",
         };
+
+        public string AccentStyle => $"--media-color: {Color};";
     }
 
     private sealed record OverviewRun(
@@ -835,13 +876,27 @@
     .admin-library-banner {
         position: relative;
         overflow: hidden;
-        padding: 24px !important;
-        border-radius: 22px !important;
+        padding: 26px !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 154, 69, 0.42) !important;
         background:
-            radial-gradient(circle at 14% 0%, rgba(154, 109, 255, 0.34), transparent 34%),
-            radial-gradient(circle at 82% 8%, rgba(79, 157, 255, 0.24), transparent 30%),
-            radial-gradient(circle at 92% 82%, rgba(245, 164, 0, 0.18), transparent 28%),
-            linear-gradient(135deg, rgba(14, 20, 38, 0.95), rgba(7, 10, 20, 0.88)) !important;
+            radial-gradient(ellipse at 6% 18%, rgba(154, 109, 255, 0.46), transparent 28%),
+            radial-gradient(ellipse at 53% 12%, rgba(79, 157, 255, 0.34), transparent 34%),
+            radial-gradient(ellipse at 80% 4%, rgba(192, 101, 223, 0.32), transparent 30%),
+            radial-gradient(ellipse at 98% 32%, rgba(255, 154, 69, 0.46), transparent 26%),
+            linear-gradient(135deg, rgba(17, 20, 56, 0.97), rgba(5, 12, 33, 0.95) 48%, rgba(14, 14, 38, 0.96)) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 42px rgba(0, 0, 0, 0.28);
+    }
+
+    .admin-library-banner::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.08) 52%, transparent 72%),
+            radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.18) 0 1px, transparent 2px);
+        opacity: 0.38;
+        pointer-events: none;
     }
 
     .admin-library-banner__content {
@@ -853,30 +908,39 @@
     .admin-library-banner__main {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 18px;
         min-width: 0;
     }
 
     .admin-library-banner__icon {
         display: grid;
         place-items: center;
-        width: 52px;
-        height: 52px;
+        width: 74px;
+        height: 74px;
         flex: 0 0 auto;
-        border-radius: 16px;
+        border-radius: 50%;
         color: #fff;
-        background: rgba(255, 255, 255, 0.10);
-        border: 1px solid rgba(255, 255, 255, 0.14);
+        background:
+            radial-gradient(circle, rgba(154, 109, 255, 0.28), rgba(154, 109, 255, 0.10) 64%, rgba(154, 109, 255, 0.02));
+        border: 2px solid rgba(154, 109, 255, 0.78);
+        box-shadow: 0 0 24px rgba(154, 109, 255, 0.42), inset 0 0 18px rgba(255, 255, 255, 0.08);
     }
 
     .admin-library-banner__icon .mud-icon-root {
-        font-size: 28px;
+        width: 46px !important;
+        height: 46px !important;
+        font-size: 46px !important;
     }
 
     .admin-library-banner__title {
         color: rgba(255, 255, 255, 0.96) !important;
-        font-weight: 850 !important;
+        font-size: clamp(1.65rem, 2.8vw, 2.35rem) !important;
+        font-weight: 650 !important;
         line-height: 1.05 !important;
+    }
+
+    .admin-library-banner__title span {
+        font-weight: 900;
     }
 
     .admin-library-banner__subtitle {
@@ -886,8 +950,8 @@
 
     .admin-library-breakdown {
         display: grid;
-        grid-template-columns: repeat(7, minmax(100px, 1fr));
-        gap: 10px;
+        grid-template-columns: repeat(6, minmax(120px, 1fr));
+        gap: 14px;
     }
 
     .admin-library-media,
@@ -902,26 +966,51 @@
     .admin-library-media {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
-        gap: 2px 8px;
-        padding: 10px;
+        gap: 2px 10px;
+        padding: 0;
         align-items: center;
+        border: 0;
+        background: transparent;
+        border-radius: 0;
+    }
+
+    .admin-library-media__icon {
+        grid-row: span 2;
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        color: var(--media-color);
+        border: 1px solid color-mix(in srgb, var(--media-color) 36%, transparent);
+        background: color-mix(in srgb, var(--media-color) 17%, transparent);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .admin-library-media__icon .mud-icon-root {
+        font-size: 24px;
     }
 
     .admin-library-media .mud-icon-root {
         grid-row: span 2;
-        color: rgba(255, 255, 255, 0.76);
+        color: currentColor;
     }
 
     .admin-library-media__label {
-        color: rgba(225, 233, 255, 0.68);
-        font-size: 0.72rem;
+        color: rgba(235, 240, 255, 0.82);
+        font-size: 0.84rem;
         font-weight: 700;
     }
 
     .admin-library-media__count {
         color: #fff;
-        font-size: 1rem;
+        font-size: 1.12rem;
         font-weight: 850;
+        line-height: 1.1;
+    }
+
+    .admin-library-media__percent {
+        display: none;
     }
 
     .admin-composition-bar,
@@ -929,10 +1018,15 @@
     .admin-progress-track {
         display: flex;
         width: 100%;
-        height: 7px;
+        height: 12px;
         overflow: hidden;
-        border-radius: 999px;
+        border-radius: 6px;
         background: rgba(255, 255, 255, 0.10);
+    }
+
+    .admin-composition-bar {
+        gap: 3px;
+        padding: 1px;
     }
 
     .admin-composition-bar__segment,
@@ -944,9 +1038,31 @@
         height: 100%;
     }
 
+    .admin-composition-bar__segment {
+        border-radius: 4px;
+    }
+
     .admin-composition-bar__empty {
         width: 100%;
         background: rgba(255, 255, 255, 0.14);
+    }
+
+    .admin-composition-labels {
+        display: flex;
+        gap: 3px;
+        margin-top: -14px;
+        padding: 0 1px;
+        color: rgba(226, 232, 255, 0.72);
+        font-size: 0.76rem;
+        font-weight: 760;
+        text-align: center;
+    }
+
+    .admin-composition-labels span {
+        min-width: 28px;
+        overflow: hidden;
+        text-overflow: clip;
+        white-space: nowrap;
     }
 
     .admin-progress-fill {

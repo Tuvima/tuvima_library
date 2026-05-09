@@ -39,6 +39,11 @@ public interface ILibraryItemRepository
     Task<Dictionary<string, int>> GetMediaTypeCountsAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// Returns a dictionary of media type counts for owned media assets.
+    /// </summary>
+    Task<Dictionary<string, int>> GetOwnedMediaTypeCountsAsync(CancellationToken ct = default);
+
+    /// <summary>
     /// Returns aggregate counts derived from the shared libraryItem pipeline projection.
     /// </summary>
     Task<LibraryItemProjectionSummary> GetProjectionSummaryAsync(CancellationToken ct = default);
