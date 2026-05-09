@@ -14,6 +14,17 @@ public sealed class PluginCatalog
         ReadCommentHandling = JsonCommentHandling.Skip,
     };
 
+    private static readonly JsonDocumentOptions JsonDocumentOptions = new()
+    {
+        AllowTrailingCommas = true,
+        CommentHandling = JsonCommentHandling.Skip,
+    };
+
+    private static readonly JsonSerializerOptions WriteJsonOptions = new(JsonOptions)
+    {
+        WriteIndented = true,
+    };
+
     private readonly IReadOnlyList<ITuvimaPlugin> _builtInPlugins;
     private readonly PluginSettingsStore _settingsStore;
     private readonly ILogger<PluginCatalog> _logger;
@@ -72,6 +83,64 @@ public sealed class PluginCatalog
         Reload();
     }
 
+    public string GetManifestJson(string pluginId)
+    {
+        var registration = Get(pluginId)
+            ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
+
+        if (registration.IsBuiltIn || string.IsNullOrWhiteSpace(registration.ManifestPath))
+            throw new InvalidOperationException("Built-in plugin manifests are compiled into the application.");
+
+        return File.ReadAllText(registration.ManifestPath);
+    }
+
+    public void SaveManifestJson(string pluginId, string json)
+    {
+        var registration = Get(pluginId)
+            ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
+
+        if (registration.IsBuiltIn || string.IsNullOrWhiteSpace(registration.ManifestPath))
+            throw new InvalidOperationException("Built-in plugin manifests are compiled into the application.");
+
+        using var document = JsonDocument.Parse(json, JsonDocumentOptions);
+        var manifest = document.Deserialize<PluginManifest>(JsonOptions)
+            ?? throw new InvalidOperationException("Plugin manifest JSON is empty.");
+
+        if (string.IsNullOrWhiteSpace(manifest.Id))
+            throw new InvalidOperationException("Plugin manifest must include an id.");
+
+        if (!string.Equals(manifest.Id, registration.Manifest.Id, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Changing a plugin id from the JSON editor is not supported.");
+
+        if (string.IsNullOrWhiteSpace(manifest.EntryAssembly) || string.IsNullOrWhiteSpace(manifest.EntryType))
+            throw new InvalidOperationException("Plugin manifest must include entry_assembly and entry_type.");
+
+        File.WriteAllText(registration.ManifestPath, JsonSerializer.Serialize(manifest, WriteJsonOptions));
+        Reload();
+    }
+
+    public void DeletePlugin(string pluginId)
+    {
+        var registration = Get(pluginId)
+            ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
+
+        if (registration.IsBuiltIn || string.IsNullOrWhiteSpace(registration.ManifestPath))
+            throw new InvalidOperationException("Built-in plugins cannot be deleted.");
+
+        var pluginDirectory = Path.GetFullPath(Path.GetDirectoryName(registration.ManifestPath)!);
+        var pluginRoot = Path.GetFullPath(_pluginRoot);
+        var normalizedRoot = pluginRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? pluginRoot
+            : pluginRoot + Path.DirectorySeparatorChar;
+
+        if (!pluginDirectory.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Plugin directory is outside the configured plugin root.");
+
+        Directory.Delete(pluginDirectory, recursive: true);
+        _settingsStore.Delete(registration.Manifest.Id);
+        Reload();
+    }
+
     public IReadOnlyList<IPlaybackSegmentDetector> GetEnabledSegmentDetectors()
     {
         EnsureLoaded();
@@ -102,7 +171,7 @@ public sealed class PluginCatalog
 
             var registrations = new List<PluginRegistration>();
             foreach (var plugin in _builtInPlugins)
-                registrations.Add(BuildRegistration(plugin, isBuiltIn: true, loadError: null));
+                registrations.Add(BuildRegistration(plugin, plugin.Manifest, isBuiltIn: true, loadError: null, manifestPath: null));
 
             registrations.AddRange(LoadFilePlugins());
             _registrations = registrations
@@ -114,27 +183,33 @@ public sealed class PluginCatalog
         }
     }
 
-    private PluginRegistration BuildRegistration(ITuvimaPlugin plugin, bool isBuiltIn, string? loadError)
+    private PluginRegistration BuildRegistration(
+        ITuvimaPlugin plugin,
+        PluginManifest manifest,
+        bool isBuiltIn,
+        string? loadError,
+        string? manifestPath)
     {
-        var config = _settingsStore.Load(plugin.Manifest);
+        var config = _settingsStore.Load(manifest);
         IReadOnlyList<IPluginCapability> capabilities = [];
         if (loadError is null)
         {
             try { capabilities = plugin.CreateCapabilities(); }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Plugin {PluginId} failed to create capabilities", plugin.Manifest.Id);
+                _logger.LogWarning(ex, "Plugin {PluginId} failed to create capabilities", manifest.Id);
                 loadError = ex.Message;
             }
         }
 
         return new PluginRegistration(
-            plugin.Manifest,
+            manifest,
             config.Enabled,
             isBuiltIn,
             capabilities,
             config.Settings,
-            loadError);
+            loadError,
+            manifestPath);
     }
 
     private IEnumerable<PluginRegistration> LoadFilePlugins()
@@ -156,14 +231,15 @@ public sealed class PluginCatalog
                         false,
                         [],
                         new Dictionary<string, JsonElement>(),
-                        "Plugin manifest must include entry_assembly and entry_type."));
+                        "Plugin manifest must include entry_assembly and entry_type.",
+                        manifestPath));
                     continue;
                 }
 
                 var assemblyPath = Path.Combine(Path.GetDirectoryName(manifestPath)!, manifest.EntryAssembly);
                 if (!File.Exists(assemblyPath))
                 {
-                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry assembly was not found."));
+                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry assembly was not found.", manifestPath));
                     continue;
                 }
 
@@ -171,14 +247,14 @@ public sealed class PluginCatalog
                 var type = assembly.GetType(manifest.EntryType, throwOnError: false);
                 if (type is null || !typeof(ITuvimaPlugin).IsAssignableFrom(type))
                 {
-                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry type does not implement ITuvimaPlugin."));
+                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry type does not implement ITuvimaPlugin.", manifestPath));
                     continue;
                 }
 
                 var plugin = (ITuvimaPlugin?)Activator.CreateInstance(type);
                 results.Add(plugin is null
-                    ? new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry type could not be constructed.")
-                    : BuildRegistration(plugin, isBuiltIn: false, loadError: null));
+                    ? new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry type could not be constructed.", manifestPath)
+                    : BuildRegistration(plugin, manifest, isBuiltIn: false, loadError: null, manifestPath: manifestPath));
             }
             catch (Exception ex)
             {
@@ -189,7 +265,8 @@ public sealed class PluginCatalog
                     false,
                     [],
                     new Dictionary<string, JsonElement>(),
-                    ex.Message));
+                    ex.Message,
+                    manifestPath));
             }
         }
 
@@ -203,5 +280,6 @@ public sealed record PluginRegistration(
     bool IsBuiltIn,
     IReadOnlyList<IPluginCapability> Capabilities,
     IReadOnlyDictionary<string, JsonElement> Settings,
-    string? LoadError);
+    string? LoadError,
+    string? ManifestPath);
 

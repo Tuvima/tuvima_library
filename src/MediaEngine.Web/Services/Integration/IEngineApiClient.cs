@@ -55,6 +55,12 @@ public interface IEngineApiClient
 
     Task<bool> SavePluginSettingsAsync(string pluginId, Dictionary<string, JsonElement> settings, CancellationToken ct = default);
 
+    Task<string?> GetPluginManifestJsonAsync(string pluginId, CancellationToken ct = default);
+
+    Task<bool> SavePluginManifestJsonAsync(string pluginId, string json, CancellationToken ct = default);
+
+    Task<bool> DeletePluginAsync(string pluginId, CancellationToken ct = default);
+
     Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default);
 
     Task<IReadOnlyList<PluginJobViewModel>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default);

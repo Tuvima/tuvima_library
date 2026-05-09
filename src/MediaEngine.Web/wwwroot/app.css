@@ -1204,6 +1204,178 @@ body {
     color: var(--app-text-muted) !important;
 }
 
+.settings-admin-panel .settings-plugin-summary {
+    padding: 18px 22px !important;
+}
+
+.settings-admin-panel .settings-plugin-summary__grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(135px, 1fr)) minmax(140px, auto);
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+}
+
+.settings-admin-panel .settings-plugin-summary__metric {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 0 18px;
+    border-left: 1px solid var(--tl-divider);
+}
+
+.settings-admin-panel .settings-plugin-summary__metric:first-child {
+    border-left: 0;
+    padding-left: 0;
+}
+
+.settings-admin-panel .settings-plugin-summary__metric .mud-icon-root {
+    width: 30px;
+    height: 30px;
+    font-size: 30px;
+}
+
+.settings-admin-panel .settings-plugin-summary__metric .mud-typography-caption,
+.settings-admin-panel .settings-plugin-summary__metric .mud-typography-subtitle1 {
+    line-height: 1.2;
+}
+
+.settings-admin-panel .settings-plugin-summary__actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.settings-admin-panel .settings-plugin-manager {
+    display: grid;
+    grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.5fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.settings-admin-panel .settings-plugin-list-panel,
+.settings-admin-panel .settings-plugin-detail-panel {
+    padding: 18px !important;
+}
+
+.settings-admin-panel .settings-plugin-filter-row {
+    flex-wrap: wrap;
+}
+
+.settings-admin-panel .settings-plugin-list {
+    max-height: 620px;
+    overflow: auto;
+    padding-right: 2px;
+}
+
+.settings-admin-panel .settings-plugin-list-item {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 74px;
+    padding: 10px 12px;
+    color: var(--app-text-primary);
+    text-align: left;
+    border: 1px solid var(--tl-divider);
+    border-radius: 8px;
+    background: rgba(8, 13, 24, 0.38);
+    cursor: pointer;
+}
+
+.settings-admin-panel .settings-plugin-list-item:hover,
+.settings-admin-panel .settings-plugin-list-item--selected {
+    border-color: rgba(124, 77, 255, 0.75);
+    background: rgba(124, 77, 255, 0.14);
+}
+
+.settings-admin-panel .settings-plugin-list-item__icon,
+.settings-admin-panel .settings-plugin-detail-header__icon {
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(124, 77, 255, 0.18);
+    color: #a78bfa;
+}
+
+.settings-admin-panel .settings-plugin-list-item__icon {
+    width: 42px;
+    height: 42px;
+}
+
+.settings-admin-panel .settings-plugin-list-item__body {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.settings-admin-panel .settings-plugin-list-item__title {
+    overflow: hidden;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.settings-admin-panel .settings-plugin-list-item__meta {
+    overflow: hidden;
+    color: var(--app-text-muted);
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.settings-admin-panel .settings-plugin-list-item__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.settings-admin-panel .settings-plugin-list-item__chips span {
+    padding: 2px 7px;
+    color: var(--app-text-secondary);
+    font-size: 0.72rem;
+    line-height: 1.2;
+    border: 1px solid var(--tl-divider);
+    border-radius: 999px;
+}
+
+.settings-admin-panel .settings-plugin-list-item__chips .settings-plugin-list-item__chip--warning {
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.45);
+}
+
+.settings-admin-panel .settings-plugin-detail-header {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+}
+
+.settings-admin-panel .settings-plugin-detail-header__icon {
+    width: 56px;
+    height: 56px;
+}
+
+.settings-admin-panel .settings-plugin-detail-header__copy {
+    min-width: 0;
+}
+
+.settings-admin-panel .settings-plugin-chiprow {
+    flex-wrap: wrap;
+}
+
+.settings-admin-panel .settings-plugin-tabs .mud-tabs-panels {
+    padding-top: 18px;
+}
+
+.settings-admin-panel .settings-plugin-json-editor textarea {
+    font-family: Consolas, "Courier New", monospace !important;
+    font-size: 0.86rem !important;
+    line-height: 1.45 !important;
+}
+
 .settings-admin-panel .settings-glance-item {
     min-width: 0 !important;
 }
@@ -1228,6 +1400,15 @@ body {
         padding: 0 !important;
         border-left: 0 !important;
     }
+
+    .settings-admin-panel .settings-plugin-summary__grid,
+    .settings-admin-panel .settings-plugin-manager {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .settings-admin-panel .settings-plugin-summary__actions {
+        justify-content: flex-start;
+    }
 }
 
 @media (max-width: 720px) {
@@ -1242,6 +1423,25 @@ body {
 
     .settings-admin-panel .settings-experience-grid {
         grid-template-columns: 1fr !important;
+    }
+
+    .settings-admin-panel .settings-plugin-summary__grid,
+    .settings-admin-panel .settings-plugin-manager {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-admin-panel .settings-plugin-summary__metric {
+        padding: 0;
+        border-left: 0;
+    }
+
+    .settings-admin-panel .settings-plugin-detail-header {
+        grid-template-columns: 46px minmax(0, 1fr);
+    }
+
+    .settings-admin-panel .settings-plugin-detail-header > .mud-switch {
+        grid-column: 1 / -1;
+        justify-self: start;
     }
 }
 

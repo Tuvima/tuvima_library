@@ -288,6 +288,15 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> SavePluginSettingsAsync(string pluginId, Dictionary<string, JsonElement> settings, CancellationToken ct = default) =>
         _api.SavePluginSettingsAsync(pluginId, settings, ct);
 
+    public Task<string?> GetPluginManifestJsonAsync(string pluginId, CancellationToken ct = default) =>
+        _api.GetPluginManifestJsonAsync(pluginId, ct);
+
+    public Task<bool> SavePluginManifestJsonAsync(string pluginId, string json, CancellationToken ct = default) =>
+        _api.SavePluginManifestJsonAsync(pluginId, json, ct);
+
+    public Task<bool> DeletePluginAsync(string pluginId, CancellationToken ct = default) =>
+        _api.DeletePluginAsync(pluginId, ct);
+
     public Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default) =>
         _api.CheckPluginHealthAsync(pluginId, ct);
 

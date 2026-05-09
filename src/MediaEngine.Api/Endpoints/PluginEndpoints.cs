@@ -52,6 +52,57 @@ internal static class PluginEndpoints
         .WithName("SavePluginSettings")
         .RequireAdmin();
 
+        group.MapGet("/{pluginId}/manifest", (string pluginId, PluginCatalog catalog) =>
+        {
+            try
+            {
+                return Results.Ok(new { plugin_id = pluginId, json = catalog.GetManifestJson(pluginId) });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        })
+        .WithName("GetPluginManifestJson")
+        .RequireAdmin();
+
+        group.MapPut("/{pluginId}/manifest", (
+            string pluginId,
+            PluginJsonUpdateRequest request,
+            PluginCatalog catalog) =>
+        {
+            try
+            {
+                catalog.SaveManifestJson(pluginId, request.Json);
+                return Results.Ok(new { plugin_id = pluginId, saved = true });
+            }
+            catch (JsonException ex)
+            {
+                return Results.BadRequest($"Plugin manifest JSON is invalid: {ex.Message}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        })
+        .WithName("SavePluginManifestJson")
+        .RequireAdmin();
+
+        group.MapDelete("/{pluginId}", (string pluginId, PluginCatalog catalog) =>
+        {
+            try
+            {
+                catalog.DeletePlugin(pluginId);
+                return Results.Ok(new { plugin_id = pluginId, deleted = true });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        })
+        .WithName("DeletePlugin")
+        .RequireAdmin();
+
         group.MapPost("/{pluginId}/health", async (
             string pluginId,
             PluginCatalog catalog,
@@ -112,6 +163,9 @@ internal static class PluginEndpoints
         tool_requirements = registration.Manifest.ToolRequirements,
         ai_permissions = registration.Manifest.AiPermissions,
         settings = registration.Settings,
+        manifest_path = registration.ManifestPath,
     };
 }
+
+internal sealed record PluginJsonUpdateRequest(string Json);
 

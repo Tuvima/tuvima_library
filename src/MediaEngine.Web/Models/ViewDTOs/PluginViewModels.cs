@@ -26,6 +26,9 @@ public sealed class PluginViewModel
     [JsonPropertyName("load_error")]
     public string? LoadError { get; set; }
 
+    [JsonPropertyName("manifest_path")]
+    public string? ManifestPath { get; set; }
+
     [JsonPropertyName("capabilities")]
     public List<PluginCapabilityViewModel> Capabilities { get; set; } = [];
 
@@ -49,6 +52,15 @@ public sealed class PluginHealthViewModel
 
     [JsonPropertyName("checks")]
     public List<PluginHealthCheckViewModel> Checks { get; set; } = [];
+}
+
+public sealed class PluginJsonViewModel
+{
+    [JsonPropertyName("plugin_id")]
+    public string PluginId { get; set; } = "";
+
+    [JsonPropertyName("json")]
+    public string Json { get; set; } = "";
 }
 
 public sealed class PluginCapabilityViewModel

@@ -315,6 +315,54 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<string?> GetPluginManifestJsonAsync(string pluginId, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = Uri.EscapeDataString(pluginId);
+            var result = await _http.GetFromJsonAsync<PluginJsonViewModel>($"/plugins/{encoded}/manifest", ct);
+            return result?.Json;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /plugins/{PluginId}/manifest failed", pluginId);
+            return null;
+        }
+    }
+
+    public async Task<bool> SavePluginManifestJsonAsync(string pluginId, string json, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = Uri.EscapeDataString(pluginId);
+            using var response = await _http.PutAsJsonAsync($"/plugins/{encoded}/manifest", new { json }, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /plugins/{PluginId}/manifest failed", pluginId);
+            return false;
+        }
+    }
+
+    public async Task<bool> DeletePluginAsync(string pluginId, CancellationToken ct = default)
+    {
+        try
+        {
+            var encoded = Uri.EscapeDataString(pluginId);
+            using var response = await _http.DeleteAsync($"/plugins/{encoded}", ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /plugins/{PluginId} failed", pluginId);
+            return false;
+        }
+    }
+
     public async Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default)
     {
         try

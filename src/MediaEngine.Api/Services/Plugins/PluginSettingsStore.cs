@@ -72,6 +72,13 @@ public sealed class PluginSettingsStore
         Save(config);
     }
 
+    public void Delete(string pluginId)
+    {
+        var path = GetPath(pluginId);
+        if (File.Exists(path))
+            File.Delete(path);
+    }
+
     private string GetPath(string pluginId)
     {
         var safe = string.Concat(pluginId.Select(ch => char.IsLetterOrDigit(ch) || ch is '.' or '-' or '_' ? ch : '_'));
