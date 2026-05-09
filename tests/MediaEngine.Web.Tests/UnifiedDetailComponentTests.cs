@@ -228,7 +228,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Split([\"\\n\\n\"]", source);
         Assert.Contains("Replace(\"\\\\n\", \"\\n\", StringComparison.Ordinal)", source);
         Assert.Contains("DescriptionAttribution Attribution=\"Model.DescriptionAttribution\" Compact=\"true\"", source);
-        Assert.Contains("grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr)", styles);
+        Assert.Contains("width: min(90vw, calc(100% - clamp(2rem, 4vw, 4rem)))", styles);
+        Assert.Contains("grid-template-columns: minmax(18rem, 0.36fr) minmax(0, 0.64fr)", styles);
         Assert.Contains(".tl-media-overview-credits > .tl-detail-panel", styles);
         Assert.Contains("white-space: pre-line", styles);
         Assert.Contains(".tl-detail-copy p", styles);
