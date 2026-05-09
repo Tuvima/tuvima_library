@@ -803,9 +803,9 @@ body {
 .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content {
-    display: grid !important;
-    grid-auto-columns: minmax(0, 1fr) !important;
-    grid-auto-flow: column !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
     width: 100% !important;
     transform: none !important;
 }
@@ -824,7 +824,8 @@ body {
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tooltip-root {
-    display: block !important;
+    display: flex !important;
+    flex: 1 1 0 !important;
     min-width: 0 !important;
 }
 
@@ -1421,9 +1422,7 @@ body {
     .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner,
     .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner,
     .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content {
-        grid-auto-flow: row !important;
-        grid-auto-rows: minmax(48px, auto) !important;
-        grid-template-columns: 1fr !important;
+        flex-direction: column !important;
     }
 
     .settings-admin-panel .settings-tab-strip .mud-tab {
