@@ -72,7 +72,7 @@ else
                                 </span>
                                 <span class="settings-plugin-list-item__body">
                                     <span class="settings-plugin-list-item__title">@plugin.Name</span>
-                                    <span class="settings-plugin-list-item__meta">@plugin.Id · v@(plugin.Version)</span>
+                                    <span class="settings-plugin-list-item__meta">@plugin.Id - v@(plugin.Version)</span>
                                     <span class="settings-plugin-list-item__chips">
                                         <span>@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")</span>
                                         @if (plugin.ToolRequirements.Count > 0)
@@ -155,7 +155,10 @@ else
                             }
                         </MudStack>
 
-                        <MudTabs Rounded="true" Class="settings-plugin-tabs">
+                        <MudTabs Rounded="true"
+                                 Elevation="0"
+                                 Color="Color.Primary"
+                                 Class="settings-tab-strip settings-plugin-tabs">
                             <MudTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
                                 <MudStack Spacing="3">
                                     @if (plugin.Settings.Count == 0)

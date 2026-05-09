@@ -114,7 +114,7 @@
 }
 
 .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar {
-    min-height: 58px !important;
+    min-height: 60px !important;
     padding: 0 10px !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: var(--app-radius-md, 8px) !important;
@@ -127,13 +127,14 @@
 
 .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
     width: 100%;
 }
 
 .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
     max-width: none !important;
-    min-height: 56px !important;
+    min-height: 58px !important;
     justify-content: center !important;
     gap: 10px !important;
     padding: 0 18px !important;
@@ -141,7 +142,7 @@
 }
 
 .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-inkbar {
-    height: 2px !important;
+    height: 3px !important;
     border-radius: 999px;
     background: var(--tl-accent-primary) !important;
 }
@@ -785,11 +786,14 @@
     }
 
     .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
+        grid-auto-flow: row;
+        grid-auto-rows: minmax(48px, auto);
         grid-template-columns: 1fr;
     }
 
     .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
         justify-content: flex-start !important;
+        min-height: 48px !important;
     }
 
     .settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-grid {

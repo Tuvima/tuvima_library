@@ -782,7 +782,7 @@ body {
 .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-primary,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-primary {
-    min-height: 58px !important;
+    min-height: 60px !important;
     padding: 0 10px !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: var(--app-radius-md, 8px) !important;
@@ -803,15 +803,16 @@ body {
 .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content {
-    display: block !important;
+    display: grid !important;
+    grid-auto-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: column !important;
+    width: 100% !important;
     transform: none !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-wrapper,
 .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper {
-    display: grid !important;
-    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-    align-items: stretch !important;
+    display: block !important;
     transform: none !important;
 }
 
@@ -831,7 +832,7 @@ body {
     width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
-    min-height: 56px !important;
+    min-height: 58px !important;
     justify-content: center !important;
     gap: 10px !important;
     padding: 0 18px !important;
@@ -884,7 +885,7 @@ body {
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tabs-inkbar {
-    height: 2px !important;
+    height: 3px !important;
     border-radius: 999px !important;
     background: var(--app-primary) !important;
 }
@@ -1414,11 +1415,20 @@ body {
 @media (max-width: 720px) {
     .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-wrapper,
     .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-wrapper {
+        display: block !important;
+    }
+
+    .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner,
+    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-inner,
+    .settings-admin-panel .settings-tab-strip .mud-tabs-tabbar-content {
+        grid-auto-flow: row !important;
+        grid-auto-rows: minmax(48px, auto) !important;
         grid-template-columns: 1fr !important;
     }
 
     .settings-admin-panel .settings-tab-strip .mud-tab {
         justify-content: flex-start !important;
+        min-height: 48px !important;
     }
 
     .settings-admin-panel .settings-experience-grid {
