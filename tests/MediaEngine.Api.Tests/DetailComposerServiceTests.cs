@@ -152,10 +152,10 @@ public sealed class DetailComposerServiceTests
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
-        Assert.Contains("DetailEntityType.Movie when hasSeries => [\"series\", \"overview\", \"universe\", \"related\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Movie => [\"overview\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Movie when hasSeries => [\"series\", \"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Movie => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"people\"", source);
-        Assert.Contains("\"people\" => \"Cast\"", source);
+        Assert.Contains("DetailEntityType.TvShow => [\"episodes\", \"overview\", \"cast\", \"universe\", \"details\"]", source);
         Assert.Contains("sync-settings", source);
     }
 

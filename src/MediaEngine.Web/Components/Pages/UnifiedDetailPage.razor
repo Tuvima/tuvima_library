@@ -1,4 +1,5 @@
 @page "/details/{EntityType}/{Id:guid}"
+@page "/details/{EntityType}/{Id:guid}/{Tab}"
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Details
 @using MediaEngine.Web.Services.Integration
@@ -28,18 +29,24 @@ else if (_detail is null)
 }
 else
 {
-    <DetailPage Model="_detail" OnActionSelected="HandleActionAsync" />
+    <DetailPage Model="_detail" ActiveTab="@_activeTab" ActiveTabChanged="HandleTabChangedAsync" OnActionSelected="HandleActionAsync" />
 }
 
 @code {
     [Parameter] public string EntityType { get; set; } = string.Empty;
     [Parameter] public Guid Id { get; set; }
+    [Parameter] public string? Tab { get; set; }
 
     [SupplyParameterFromQuery(Name = "context")]
     public string? Context { get; set; }
 
     private DetailPageViewModel? _detail;
     private bool _loading = true;
+    private string? _activeTab;
+    private static readonly HashSet<string> PreservedQueryKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "context",
+    };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -54,6 +61,7 @@ else
 
         var context = ParseContext(Context);
         _detail = await ApiClient.GetDetailPageAsync(entityType, Id, context);
+        ApplyDetailTabRoute();
         _loading = false;
     }
 
@@ -64,6 +72,29 @@ else
 
         return Task.CompletedTask;
     }
+
+    private Task HandleTabChangedAsync(string tab)
+    {
+        Nav.NavigateTo(BuildTabUrl(tab));
+        return Task.CompletedTask;
+    }
+
+    private void ApplyDetailTabRoute()
+    {
+        if (_detail is null)
+            return;
+
+        var resolution = DetailTabNavigation.Resolve(_detail, Tab);
+        _activeTab = resolution.ActiveTab;
+
+        if (resolution.ShouldRedirect)
+        {
+            Nav.NavigateTo(BuildTabUrl(resolution.ActiveTab), replace: true);
+        }
+    }
+
+    private string BuildTabUrl(string? tab) =>
+        DetailTabNavigation.BuildUrl($"/details/{Uri.EscapeDataString(EntityType)}/{Id:D}", tab, Nav.ToAbsoluteUri(Nav.Uri), PreservedQueryKeys);
 
     private static bool TryParseEntityType(string value, out DetailEntityType entityType)
     {

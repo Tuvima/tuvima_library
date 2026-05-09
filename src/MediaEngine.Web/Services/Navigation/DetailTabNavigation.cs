@@ -1,0 +1,90 @@
+using MediaEngine.Contracts.Details;
+using Microsoft.AspNetCore.WebUtilities;
+
+namespace MediaEngine.Web.Services.Navigation;
+
+public sealed record DetailTabRouteResolution(
+    string ActiveTab,
+    bool HasRequestedTab,
+    bool IsRequestedTabValid,
+    bool ShouldRedirect);
+
+public static class DetailTabNavigation
+{
+    public static DetailTabRouteResolution Resolve(DetailPageViewModel model, string? requestedTab)
+    {
+        var visibleTabs = GetVisibleTabs(model).ToList();
+        var fallback = visibleTabs.FirstOrDefault()?.Key ?? "overview";
+        var hasRequested = !string.IsNullOrWhiteSpace(requestedTab);
+
+        if (!hasRequested)
+        {
+            return new DetailTabRouteResolution(fallback, false, true, false);
+        }
+
+        var requested = Normalize(requestedTab!);
+        var match = visibleTabs.FirstOrDefault(tab => string.Equals(Normalize(tab.Key), requested, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            return new DetailTabRouteResolution(fallback, true, false, true);
+        }
+
+        var isCanonical = string.Equals(requestedTab, match.Key, StringComparison.Ordinal);
+        return new DetailTabRouteResolution(match.Key, true, true, !isCanonical);
+    }
+
+    public static IReadOnlyList<DetailTab> GetVisibleTabs(DetailPageViewModel model) =>
+        model.Tabs
+            .Where(tab => !tab.IsAdminOnly || model.IsAdminView)
+            .Where(tab => HasRenderableContent(model, tab.Key))
+            .ToList();
+
+    public static string BuildUrl(string basePath, string? tab, Uri currentUri, IReadOnlySet<string>? preserveQueryKeys = null)
+    {
+        var path = string.IsNullOrWhiteSpace(tab)
+            ? basePath
+            : $"{basePath.TrimEnd('/')}/{Uri.EscapeDataString(tab)}";
+
+        var query = QueryHelpers.ParseQuery(currentUri.Query);
+        var preserved = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (key, values) in query)
+        {
+            if (preserveQueryKeys is not null && !preserveQueryKeys.Contains(key))
+            {
+                continue;
+            }
+
+            if (values.Count > 0)
+            {
+                preserved[key] = values[0];
+            }
+        }
+
+        return preserved.Count == 0
+            ? path
+            : QueryHelpers.AddQueryString(path, preserved);
+    }
+
+    private static string Normalize(string value)
+    {
+        var chars = value
+            .Trim()
+            .Where(char.IsLetterOrDigit)
+            .ToArray();
+
+        return new string(chars).ToLowerInvariant();
+    }
+
+    private static bool HasRenderableContent(DetailPageViewModel model, string key)
+    {
+        return key switch
+        {
+            "cast" or "people" or "credits" or "contributors" =>
+                model.ContributorGroups.Count > 0 || model.CharacterGroups.Count > 0,
+            "characters" or "portrayals" =>
+                model.CharacterGroups.Count > 0,
+            _ => true,
+        };
+    }
+}

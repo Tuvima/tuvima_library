@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Net.Sockets;
 using MediaEngine.Domain;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Settings;
@@ -1022,7 +1023,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             return;
         }
 
-        var baseUrl = _config["Engine:BaseUrl"] ?? "http://localhost:61495";
+        var baseUrl = Environment.GetEnvironmentVariable("TUVIMA_ENGINE_URL")
+            ?? _config["Engine:BaseUrl"]
+            ?? "http://localhost:61495";
         var apiKey  = _config["Engine:ApiKey"]  ?? string.Empty;
         var collectionUrl  = $"{baseUrl.TrimEnd('/')}{SignalREvents.IntercomPath}";
 
@@ -1266,9 +1269,32 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         catch (Exception ex)
         {
             // Non-fatal: degrade gracefully to HTTP-only mode. A later call can retry.
-            _logger.LogWarning(ex, "Could not connect to Intercom collection — real-time updates disabled.");
+            if (IsConnectionRefused(ex))
+            {
+                _logger.LogWarning(
+                    "Could not connect to Intercom collection at {Url}; real-time updates are disabled until the Engine is reachable.",
+                    collectionUrl ?? "configured Engine URL");
+                _logger.LogDebug(ex, "Intercom connection refused.");
+            }
+            else
+            {
+                _logger.LogWarning(ex, "Could not connect to Intercom collection; real-time updates disabled.");
+            }
             SetEngineConnectionState(EngineConnectionState.LiveUpdatesDisconnected);
         }
+    }
+
+    private static bool IsConnectionRefused(Exception ex)
+    {
+        for (var current = ex; current is not null; current = current.InnerException!)
+        {
+            if (current is SocketException { SocketErrorCode: SocketError.ConnectionRefused })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

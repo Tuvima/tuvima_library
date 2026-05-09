@@ -55,56 +55,65 @@
     <ChildContent>
         <div class="settings-admin-style-scope">
             <MudPaper Elevation="0" Class="settings-admin-panel">
-                @switch (_activeSection)
+                @if (ShouldDeferForRoleResolution)
                 {
-                    case SettingsSection.Overview:
-                        <UserOverviewTab />
-                        break;
-                    case SettingsSection.AdminOverview:
-                        <OverviewTab ReviewCount="_reviewCount" />
-                        break;
-                    case SettingsSection.Playback:
-                        <PlaybackTab />
-                        break;
-                    case SettingsSection.Privacy:
-                        <PrivacyHistoryTab />
-                        break;
-                    case SettingsSection.Libraries:
-                        <LibrariesTab />
-                        break;
-                    case SettingsSection.Ingestion:
-                        <IngestionTasksTab />
-                        break;
-                    case SettingsSection.Metadata:
-                        <MetadataMatchingTab />
-                        break;
-                    case SettingsSection.Providers:
-                        <ProviderPriorityTab />
-                        break;
-                    case SettingsSection.LocalAi:
-                        <LocalAiSettingsTab />
-                        break;
-                    case SettingsSection.Plugins:
-                        <PluginSettingsTab />
-                        break;
-                    case SettingsSection.Delivery:
-                        <PlaybackDeliverySettingsTab />
-                        break;
-                    case SettingsSection.Access:
-                        <UsersAccessSettingsTab />
-                        break;
-                    case SettingsSection.Review:
-                        <SettingsReviewQueueTab />
-                        break;
-                    case SettingsSection.Setup:
-                        <SetupTab />
-                        break;
-                    case SettingsSection.ProviderTester:
-                        <ProviderTesterToolTab />
-                        break;
-                    case SettingsSection.EnrichmentTester:
-                        <EnrichmentTesterToolTab />
-                        break;
+                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-8">
+                        <MudProgressCircular Indeterminate="true" />
+                    </MudStack>
+                }
+                else
+                {
+                    @switch (_activeSection)
+                    {
+                        case SettingsSection.Overview:
+                            <UserOverviewTab />
+                            break;
+                        case SettingsSection.AdminOverview:
+                            <OverviewTab ReviewCount="_reviewCount" />
+                            break;
+                        case SettingsSection.Playback:
+                            <PlaybackTab />
+                            break;
+                        case SettingsSection.Privacy:
+                            <PrivacyHistoryTab />
+                            break;
+                        case SettingsSection.Libraries:
+                            <LibrariesTab />
+                            break;
+                        case SettingsSection.Ingestion:
+                            <IngestionTasksTab />
+                            break;
+                        case SettingsSection.Metadata:
+                            <MetadataMatchingTab />
+                            break;
+                        case SettingsSection.Providers:
+                            <ProviderPriorityTab />
+                            break;
+                        case SettingsSection.LocalAi:
+                            <LocalAiSettingsTab />
+                            break;
+                        case SettingsSection.Plugins:
+                            <PluginSettingsTab />
+                            break;
+                        case SettingsSection.Delivery:
+                            <PlaybackDeliverySettingsTab />
+                            break;
+                        case SettingsSection.Access:
+                            <UsersAccessSettingsTab />
+                            break;
+                        case SettingsSection.Review:
+                            <SettingsReviewQueueTab />
+                            break;
+                        case SettingsSection.Setup:
+                            <SetupTab />
+                            break;
+                        case SettingsSection.ProviderTester:
+                            <ProviderTesterToolTab />
+                            break;
+                        case SettingsSection.EnrichmentTester:
+                            <EnrichmentTesterToolTab />
+                            break;
+                    }
                 }
             </MudPaper>
         </div>
@@ -123,6 +132,7 @@
     private SettingsSection _activeSection = SettingsSection.Overview;
     private string _currentRole = "Administrator";
     private ProfileViewModel? _activeProfile;
+    private bool _profileRoleLoaded;
 
     private int _reviewCount;
     private SystemStatusViewModel? _systemStatus;
@@ -137,6 +147,8 @@
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
     private string BrowserTitle => $"{GetHeroTitle()} - Tuvima Library";
+    private bool ShouldDeferForRoleResolution =>
+        !_profileRoleLoaded && SettingsNav.GetItem(_activeSection).AdminOnly;
 
     protected override async Task OnInitializedAsync()
     {
@@ -148,6 +160,7 @@
             return;
         }
 
+        ResolveSectionAndNormalize();
         await LoadActiveProfileRoleAsync();
         ResolveSectionAndNormalize();
         await LoadShellStateAsync();
@@ -213,6 +226,10 @@
         {
             _activeProfile = null;
             _currentRole = "Consumer";
+        }
+        finally
+        {
+            _profileRoleLoaded = true;
         }
     }
 

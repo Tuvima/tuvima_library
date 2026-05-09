@@ -4,17 +4,17 @@ namespace MediaEngine.Web.Services.Navigation;
 
 public static class MediaNavigation
 {
-    public static string ForWork(WorkViewModel work)
-        => ForMedia(work.MediaType, work.Id, work.CollectionId);
+    public static string ForWork(WorkViewModel work, string? tab = null)
+        => ForMedia(work.MediaType, work.Id, work.CollectionId, tab);
 
-    public static string ForJourney(JourneyItemViewModel item)
-        => ForMedia(item.MediaType, item.WorkId, item.CollectionId);
+    public static string ForJourney(JourneyItemViewModel item, string? tab = null)
+        => ForMedia(item.MediaType, item.WorkId, item.CollectionId, tab);
 
-    public static string ForSearchResult(SearchResultViewModel result)
-        => ForMedia(result.MediaType, result.WorkId, result.CollectionId);
+    public static string ForSearchResult(SearchResultViewModel result, string? tab = null)
+        => ForMedia(result.MediaType, result.WorkId, result.CollectionId, tab);
 
-    public static string ForLibraryItem(LibraryItemViewModel item)
-        => ForMedia(item.MediaType, item.EntityId, null);
+    public static string ForLibraryItem(LibraryItemViewModel item, string? tab = null)
+        => ForMedia(item.MediaType, item.EntityId, null, tab);
 
     public static string ForCollection(CollectionViewModel collection)
     {
@@ -23,12 +23,12 @@ public static class MediaNavigation
         return ForCollectionMedia(primaryMediaType, collection.Id, firstWorkId);
     }
 
-    public static string ForContentGroup(ContentGroupViewModel group)
-        => ForCollectionMedia(group.PrimaryMediaType, group.CollectionId);
+    public static string ForContentGroup(ContentGroupViewModel group, string? tab = null)
+        => ForCollectionMedia(group.PrimaryMediaType, group.CollectionId, tab: tab);
 
-    public static string ForCollectionMedia(string? mediaType, Guid collectionId, Guid? workId = null)
+    public static string ForCollectionMedia(string? mediaType, Guid collectionId, Guid? workId = null, string? tab = null)
     {
-        return NormalizeBucket(mediaType) switch
+        var route = NormalizeBucket(mediaType) switch
         {
             MediaBucket.Television => $"/watch/tv/show/{collectionId}",
             MediaBucket.Music => $"/listen/music/albums/{collectionId}",
@@ -36,11 +36,13 @@ public static class MediaNavigation
             MediaBucket.Read when workId.HasValue => ForMedia(mediaType, workId.Value, collectionId),
             _ => $"/collection/{collectionId}",
         };
+
+        return AppendTab(route, tab);
     }
 
-    public static string ForMedia(string? mediaType, Guid workId, Guid? collectionId = null)
+    public static string ForMedia(string? mediaType, Guid workId, Guid? collectionId = null, string? tab = null)
     {
-        return NormalizeBucket(mediaType) switch
+        var route = NormalizeBucket(mediaType) switch
         {
             MediaBucket.Television when collectionId.HasValue => $"/watch/tv/show/{collectionId.Value}/episode/{workId}",
             MediaBucket.Television => $"/book/{workId}",
@@ -54,6 +56,21 @@ public static class MediaNavigation
             MediaBucket.Read => $"/book/{workId}?mode=read",
             _ => $"/book/{workId}",
         };
+
+        return AppendTab(route, tab);
+    }
+
+    private static string AppendTab(string route, string? tab)
+    {
+        if (string.IsNullOrWhiteSpace(tab))
+        {
+            return route;
+        }
+
+        var queryStart = route.IndexOf('?', StringComparison.Ordinal);
+        var path = queryStart >= 0 ? route[..queryStart] : route;
+        var query = queryStart >= 0 ? route[queryStart..] : string.Empty;
+        return $"{path.TrimEnd('/')}/{Uri.EscapeDataString(tab)}{query}";
     }
 
     private static MediaBucket NormalizeBucket(string? mediaType)

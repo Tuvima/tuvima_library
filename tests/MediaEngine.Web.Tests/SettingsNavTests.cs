@@ -32,6 +32,8 @@ public sealed class SettingsNavTests
 
         Assert.Contains("await LoadActiveProfileRoleAsync()", settingsSource, StringComparison.Ordinal);
         Assert.Contains("SettingsNav.ResolveRoute(Section, _currentRole)", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("private string _currentRole = \"Administrator\"", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("ShouldDeferForRoleResolution", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("private readonly string _currentRole = \"Administrator\"", settingsSource, StringComparison.Ordinal);
         Assert.Contains("SetActiveProfileAsync", orchestratorSource, StringComparison.Ordinal);
         Assert.Contains("tuvima-active-profile-id", sessionSource, StringComparison.Ordinal);

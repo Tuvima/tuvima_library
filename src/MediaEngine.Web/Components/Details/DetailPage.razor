@@ -16,18 +16,18 @@
     <article class="tl-detail-page">
         <DetailHero Model="Model" OnActionSelected="HandleDetailActionAsync" />
 
-        <DetailTabs Tabs="Model.Tabs" ActiveTab="@_activeTab" ActiveTabChanged="SetActiveTab" />
+        <DetailTabs Tabs="VisibleTabs" ActiveTab="@CurrentActiveTab" ActiveTabChanged="SetActiveTabAsync" />
 
         <section class="tl-detail-body">
-            @if (_activeTab is "overview")
+            @if (CurrentActiveTab is "overview")
             {
                 <MediaEngine.Web.Components.Details.OverviewTab Model="Model" />
             }
-            else if (_activeTab is "episodes")
+            else if (CurrentActiveTab is "episodes")
             {
                 <EpisodesTab Groups="Model.MediaGroups" />
             }
-            else if (_activeTab is "series")
+            else if (CurrentActiveTab is "series")
             {
                 @if (Model.SeriesPlacement is not null)
                 {
@@ -38,9 +38,9 @@
                     <ChildrenListTab Groups="Model.MediaGroups" />
                 }
             }
-            else if (_activeTab is "tracks" or "items" or "media" or "works" or "albums")
+            else if (CurrentActiveTab is "tracks" or "items" or "media" or "works" or "albums")
             {
-                @if (Model.EntityType == DetailEntityType.MusicAlbum && _activeTab == "tracks")
+                @if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
                 {
                     <MusicTrackList Groups="Model.MediaGroups"
                                     AlbumTitle="@Model.Title"
@@ -51,32 +51,32 @@
                     <ChildrenListTab Groups="Model.MediaGroups" />
                 }
             }
-            else if (_activeTab is "contributors" or "people" or "credits" or "cast")
+            else if (CurrentActiveTab is "contributors" or "people" or "credits" or "cast")
             {
                 <PeopleAndCharactersTab ContributorGroups="Model.ContributorGroups"
                                         CharacterGroups="Model.CharacterGroups" />
             }
-            else if (_activeTab is "characters" or "portrayals")
+            else if (CurrentActiveTab is "characters" or "portrayals")
             {
                 <CharactersSection Groups="Model.CharacterGroups" />
             }
-            else if (_activeTab is "universe" or "timeline" or "relationships" or "related")
+            else if (CurrentActiveTab is "universe" or "timeline" or "relationships" or "related")
             {
                 <UniverseTab Relationships="Model.RelationshipStrip" Groups="Model.MediaGroups" />
             }
-            else if (_activeTab is "formats")
+            else if (CurrentActiveTab is "formats")
             {
                 <FormatsTab Formats="Model.OwnedFormats" />
             }
-            else if (_activeTab is "sync")
+            else if (CurrentActiveTab is "sync")
             {
                 <SyncTab Sync="Model.ReadingListeningSync" Capability="Model.SyncCapability" />
             }
-            else if (_activeTab is "editions")
+            else if (CurrentActiveTab is "editions")
             {
                 <EditionsTab Formats="Model.OwnedFormats" />
             }
-            else if (_activeTab is "registry")
+            else if (CurrentActiveTab is "registry")
             {
                 <RegistryTab Model="Model" />
             }
@@ -90,28 +90,19 @@
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel? Model { get; set; }
+    [Parameter] public string? ActiveTab { get; set; }
+    [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
-    private string _activeTab = "overview";
-    private string? _loadedModelKey;
+    private IReadOnlyList<DetailTab> VisibleTabs =>
+        Model is null ? [] : DetailTabNavigation.GetVisibleTabs(Model);
 
-    protected override void OnParametersSet()
-    {
-        var firstVisible = Model?.Tabs.FirstOrDefault(tab => !tab.IsAdminOnly || Model.IsAdminView);
-        var modelKey = Model is null ? null : $"{Model.EntityType}:{Model.Id}:{Model.PresentationContext}";
+    private string CurrentActiveTab =>
+        VisibleTabs.Any(tab => string.Equals(tab.Key, ActiveTab, StringComparison.OrdinalIgnoreCase))
+            ? VisibleTabs.First(tab => string.Equals(tab.Key, ActiveTab, StringComparison.OrdinalIgnoreCase)).Key
+            : VisibleTabs.FirstOrDefault()?.Key ?? "overview";
 
-        if (firstVisible is not null && modelKey != _loadedModelKey)
-        {
-            _activeTab = firstVisible.Key;
-            _loadedModelKey = modelKey;
-        }
-        else if (firstVisible is not null && !Model!.Tabs.Any(tab => tab.Key == _activeTab && (!tab.IsAdminOnly || Model.IsAdminView)))
-        {
-            _activeTab = firstVisible.Key;
-        }
-    }
-
-    private void SetActiveTab(string key) => _activeTab = key;
+    private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
 
     private async Task HandleSeriesSelectedAsync(SeriesOptionViewModel option)
     {
@@ -139,14 +130,14 @@
 
         if (action.Key == "details")
         {
-            SetActiveTab("details");
+            await SetActiveTabAsync("details");
             return;
         }
 
         if (action.Key == "sync-settings")
         {
             if (Model?.Tabs.Any(tab => tab.Key == "sync" && (!tab.IsAdminOnly || Model.IsAdminView)) == true)
-                SetActiveTab("sync");
+                await SetActiveTabAsync("sync");
 
             return;
         }

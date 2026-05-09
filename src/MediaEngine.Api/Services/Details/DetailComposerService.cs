@@ -2152,10 +2152,11 @@ public sealed class DetailComposerService
     {
         string[] keys = entityType switch
         {
-            DetailEntityType.TvShow => ["episodes", "overview", "universe", "details"],
+            DetailEntityType.TvShow => ["episodes", "overview", "cast", "universe", "details"],
             DetailEntityType.TvSeason => ["episodes", "overview", "details"],
-            DetailEntityType.Movie when hasSeries => ["series", "overview", "universe", "related", "details"],
-            DetailEntityType.Movie => ["overview", "universe", "related", "details"],
+            DetailEntityType.Movie when hasSeries => ["series", "overview", "cast", "universe", "related", "details"],
+            DetailEntityType.Movie => ["overview", "cast", "universe", "related", "details"],
+            DetailEntityType.TvEpisode => ["overview", "cast", "characters", "universe", "details"],
             DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["series", "overview", "chapters", "universe", "editions", "details"],
             DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "chapters", "universe", "editions", "details"],
             DetailEntityType.Work when hasSeries => ["series", "overview", "formats", "chapters", "universe", "editions", "details"],

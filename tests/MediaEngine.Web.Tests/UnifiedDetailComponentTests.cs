@@ -256,7 +256,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("MudMenuItem", menuItems);
         Assert.Contains("action.Key is \"edit-media\" or \"edit\"", detailPage);
         Assert.Contains("action.Key == \"details\"", detailPage);
-        Assert.Contains("SetActiveTab(\"details\")", detailPage);
+        Assert.Contains("SetActiveTabAsync(\"details\")", detailPage);
         Assert.Contains(".tl-detail-overflow-popover", appStyles);
         Assert.Contains(".tl-detail-overflow-item", appStyles);
         Assert.Contains("border: 0;", appStyles);
@@ -358,6 +358,22 @@ public sealed class UnifiedDetailComponentTests
             Assert.DoesNotContain("BackdropUrl", source);
             Assert.DoesNotContain("CoverUrl", source);
         }
+    }
+
+    [Fact]
+    public void RoutePages_AcceptOptionalDetailTabSegments()
+    {
+        var book = ReadSource("src/MediaEngine.Web/Components/Pages/BookDetail.razor");
+        var unified = ReadSource("src/MediaEngine.Web/Components/Pages/UnifiedDetailPage.razor");
+        var movie = ReadSource("src/MediaEngine.Web/Components/Pages/WatchMoviePage.razor");
+        var show = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvShowPage.razor");
+        var episode = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvEpisodePage.razor");
+
+        Assert.Contains("@page \"/book/{Id:guid}/{Tab}\"", book);
+        Assert.Contains("@page \"/details/{EntityType}/{Id:guid}/{Tab}\"", unified);
+        Assert.Contains("@page \"/watch/movie/{WorkId:guid}/{Tab}\"", movie);
+        Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}/{Tab}\"", show);
+        Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}/{Tab}\"", episode);
     }
 
     [Fact]
