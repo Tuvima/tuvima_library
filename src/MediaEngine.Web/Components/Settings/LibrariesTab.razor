@@ -31,6 +31,21 @@ else
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
         <MudText Typo="Typo.h6">@L["Libraries_LibraryPaths"]</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   Size="Size.Small"
+                   Href="/settings/setup"
+                   StartIcon="@Icons.Material.Outlined.RocketLaunch">
+            Setup checklist
+        </MudButton>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   Size="Size.Small"
+                   Href="/settings/ingestion"
+                   StartIcon="@Icons.Material.Outlined.PendingActions">
+            Library Operations
+        </MudButton>
         @if (readOnly)
         {
             <MudChip T="string" Size="Size.Small" Color="Color.Default"
@@ -45,6 +60,9 @@ else
             <div class="health-dot @HealthClass(_libraryHealthy, _libValidating, _libraryRoot)" />
             <MudText Typo="Typo.subtitle2" Class="tl-font-semibold">@L["Libraries_LibraryFolder"]</MudText>
         </MudStack>
+        <MudText Typo="Typo.caption" Class="folder-path-help">
+            The Library Root is where Tuvima keeps organized media after files are accepted.
+        </MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_libraryRoot"
                           @bind-Value:after="@(() => OnPathChanged(nameof(_libraryRoot)))"
@@ -70,6 +88,9 @@ else
             <div class="health-dot @HealthClass(_watchHealthy, _watchValidating, _watchDir)" />
             <MudText Typo="Typo.subtitle2" Class="tl-font-semibold">@L["Libraries_WatchFolder"]</MudText>
         </MudStack>
+        <MudText Typo="Typo.caption" Class="folder-path-help">
+            The Watch Folder is where new files are detected when you scan or drop media in.
+        </MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_watchDir"
                           @bind-Value:after="@(() => OnPathChanged(nameof(_watchDir)))"
@@ -250,6 +271,11 @@ else
 <style>
     .folder-path-row {
         position: relative;
+    }
+    .folder-path-help {
+        display: block;
+        margin: 0 0 6px 14px;
+        color: var(--tl-text-muted);
     }
     .health-dot {
         width: 8px;
@@ -634,7 +660,7 @@ else
 
         if (success)
         {
-            Snackbar.Add($"{L["Libraries_SettingsSaved"]} {_watchDir}", Severity.Success);
+            Snackbar.Add($"{L["Libraries_SettingsSaved"]} Return to Setup or open Library Operations to scan.", Severity.Success);
             SnapSavedValues();
         }
         else

@@ -70,6 +70,25 @@
     color: rgba(248, 248, 248, 0.56);
 }
 
+.home-discovery-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    max-width: 760px;
+}
+
+.home-discovery-dev-tools {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 16px;
+    width: min(100%, 460px);
+    border-top: 1px solid rgba(248, 248, 248, 0.12);
+}
+
 .home-discovery-seed-button {
     font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-weight: 600;

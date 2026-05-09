@@ -122,6 +122,8 @@ dotnet run --project src/MediaEngine.Web    # Dashboard at localhost:5016
 
 On first startup the Engine downloads AI models (~9 GB), benchmarks your hardware, and begins watching your folders.
 
+For a first library, open the Dashboard and use **Settings > Setup**. The checklist confirms the Engine connection, Library Root, Watch Folder, provider readiness, optional Local AI status, scan state, and pending Review Queue work. Configure folders first, run **Scan Now**, then open **Library Operations** to watch ingestion progress and resolve any uncertain items in the Review Queue.
+
 [Full setup guide](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) Â· [Docker instructions](https://tuvima.github.io/tuvima_library/tutorials/getting-started/#docker) Â· [Configuration reference](https://tuvima.github.io/tuvima_library/reference/configuration/)
 
 ---

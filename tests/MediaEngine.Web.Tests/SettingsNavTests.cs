@@ -194,6 +194,7 @@ public sealed class SettingsNavTests
 
         Assert.Equal([
             "Admin Overview",
+            "Setup",
             "Libraries",
             "Library Operations",
             "Metadata & Matching",
@@ -209,7 +210,6 @@ public sealed class SettingsNavTests
         Assert.DoesNotContain("Maintenance", adminLabels);
         Assert.DoesNotContain("Provider Tester", adminLabels);
         Assert.DoesNotContain("Enrichment Tester", adminLabels);
-        Assert.DoesNotContain("Setup", adminLabels);
         Assert.DoesNotContain("Wikidata", adminLabels);
         Assert.DoesNotContain("AI Models", adminLabels);
         Assert.DoesNotContain("AI Features", adminLabels);
@@ -226,7 +226,7 @@ public sealed class SettingsNavTests
     [InlineData("setup", SettingsSection.Setup, "/settings/setup")]
     [InlineData("provider-tester", SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData("enrichment-tester", SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
-    public void ResolveRoute_HiddenRoutes_StillResolveForAdmins(string segment, SettingsSection expectedSection, string expectedRoute)
+    public void ResolveRoute_SecondaryRoutes_StillResolveForAdmins(string segment, SettingsSection expectedSection, string expectedRoute)
     {
         var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
 

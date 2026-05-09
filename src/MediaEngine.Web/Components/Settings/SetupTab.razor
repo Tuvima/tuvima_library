@@ -1,226 +1,512 @@
-﻿@namespace MediaEngine.Web.Components.Settings
-@inject IStringLocalizer<SharedStrings> L
-@inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
+@namespace MediaEngine.Web.Components.Settings
+@inject SetupReadinessService ReadinessService
 @inject UIOrchestratorService Orchestrator
-@inject IEngineApiClient ApiClient
-<div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+@inject ISnackbar Snackbar
+
+<div class="tl-page setup-checklist">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudIcon Icon="@Icons.Material.Outlined.RocketLaunch" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Setup_PageTitle"]</MudText>
+        <MudText Typo="Typo.h6">Setup checklist</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Default"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.Refresh"
+                   Disabled="@_loading"
+                   OnClick="LoadReadinessAsync">
+            Refresh readiness
+        </MudButton>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["Setup_PageDescription"]
-    </MudText>
-<MudPaper Elevation="0" Class="tl-card mb-6">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-            <MudIcon Icon="@Icons.Material.Outlined.AutoFixHigh"
-                     Color="Color.Primary" Style="font-size: 2rem;" />
-            <MudStack Spacing="1" Style="flex: 1;">
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@L["Setup_RerunTitle"]</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    @L["Setup_RerunDescription"]
-                </MudText>
-            </MudStack>
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       Size="Size.Large"
-                       StartIcon="@Icons.Material.Outlined.PlayArrow">
-                @L["Setup_RunWizard"]
-            </MudButton>
-        </MudStack>
-    </MudPaper>
-
-    <MudDivider Class="my-6" />
-<MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
-        @L["Setup_CurrentConfiguration"]
+        Confirm the Engine, folders, providers, optional local AI, scan state, and Review Queue before importing your first media.
     </MudText>
 
-    @* Server name *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Outlined.Dns"
-                 Color="Color.Secondary" Style="min-width: 24px;" />
-        <MudStack Spacing="0" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Setup_ServerName"]</MudText>
-            <MudTextField Value="@_serverName"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          ReadOnly="true"
-                          FullWidth="true" />
-        </MudStack>
-        <MudButton Variant="Variant.Text" Size="Size.Small"
-                   StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/system">
-            @L["Setup_Reconfigure"]
-        </MudButton>
-    </MudStack>
+    @if (_loading && _snapshot is null)
+    {
+        <MudPaper Elevation="0" Class="tl-card setup-loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+            <MudText Typo="Typo.body2">Checking setup readiness...</MudText>
+        </MudPaper>
+    }
+    else if (_snapshot is { } snapshot)
+    {
+        @if (!string.IsNullOrWhiteSpace(snapshot.Error))
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                @snapshot.Error
+            </MudAlert>
+        }
 
-    @* Language *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Outlined.Language"
-                 Color="Color.Secondary" Style="min-width: 24px;" />
-        <MudStack Spacing="0" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Setup_Language"]</MudText>
-            <MudTextField Value="@_language"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          ReadOnly="true"
-                          FullWidth="true" />
-        </MudStack>
-        <MudButton Variant="Variant.Text" Size="Size.Small"
-                   StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings">
-            @L["Setup_Reconfigure"]
-        </MudButton>
-    </MudStack>
+        @if (_scanStarted)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4">
+                Scan request sent. Open Library Operations to watch progress and review any items that need confirmation.
+            </MudAlert>
+        }
 
-    @* Library Root *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Outlined.Folder"
-                 Color="Color.Secondary" Style="min-width: 24px;" />
-        <MudStack Spacing="0" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Setup_LibraryRoot"]</MudText>
-            <MudTextField Value="@_libraryRoot"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          ReadOnly="true"
-                          FullWidth="true"
-                          Style="font-family: monospace; font-size: 0.825rem;" />
-        </MudStack>
-        <MudButton Variant="Variant.Text" Size="Size.Small"
-                   StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/folders">
-            @L["Setup_Reconfigure"]
-        </MudButton>
-    </MudStack>
+        <div class="setup-checklist-grid">
+            @ReadinessRow(
+                "Engine connection",
+                EngineStatus(snapshot),
+                snapshot.EngineReachable
+                    ? "The Dashboard can reach the Engine."
+                    : "The Dashboard cannot reach the Engine. Start the Engine, then retry readiness.",
+                Icons.Material.Outlined.Dns,
+                "Retry",
+                LoadReadinessAsync,
+                "Open Library Operations",
+                "/settings/ingestion")
 
-    @* Configured providers *@
-    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="3" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Outlined.Collections"
-                 Color="Color.Secondary" Style="min-width: 24px; margin-top: 20px;" />
-        <MudStack Spacing="1" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
-                @L["Setup_ConfiguredProviders"]
-            </MudText>
-            <MudStack Row="true" Style="flex-wrap: wrap; gap: 6px;">
-                @foreach (var provider in _configuredProviders)
-                {
-                    <MudChip T="string"
-                             Variant="Variant.Outlined"
-                             Size="Size.Small"
-                             Color="Color.Default"
-                             Style="margin: 0;">
-                        @provider.Name
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-left: 4px;">
-                            (@provider.LangLabel)
-                        </MudText>
-                    </MudChip>
-                }
-            </MudStack>
-        </MudStack>
-        <MudButton Variant="Variant.Text" Size="Size.Small"
-                   StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/providers"
-                   Style="margin-top: 16px;">
-            @L["Setup_Reconfigure"]
-        </MudButton>
-    </MudStack>
+            @ReadinessRow(
+                "Folders",
+                FolderStatus(snapshot),
+                FolderDescription(snapshot),
+                Icons.Material.Outlined.FolderOpen,
+                "Configure folders",
+                null,
+                "Open folder settings",
+                "/settings/folders")
 
-    @* AI Models *@
-    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="3" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Psychology"
-                 Color="Color.Secondary" Style="min-width: 24px; margin-top: 20px;" />
-        <MudStack Spacing="1" Style="flex: 1;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">@L["Setup_AiModels"]</MudText>
-            @foreach (var model in _aiModels)
-            {
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@(model.Downloaded ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)"
-                             Color="@(model.Downloaded ? Color.Success : Color.Default)"
-                             Style="font-size: 1rem;" />
-                    <MudText Typo="Typo.body2">@model.Role</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@model.Label</MudText>
-                    @if (!model.Downloaded)
-                    {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                 Style="margin: 0;">@L["Setup_NotDownloaded"]</MudChip>
-                    }
-                </MudStack>
-            }
-        </MudStack>
-        <MudButton Variant="Variant.Text" Size="Size.Small"
-                   StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/models"
-                   Style="margin-top: 16px;">
-            @L["Setup_Reconfigure"]
-        </MudButton>
-    </MudStack>
+            @FolderDetail(snapshot.LibraryRoot)
+            @FolderDetail(snapshot.WatchFolder)
 
+            @ReadinessRow(
+                "Providers",
+                ProviderStatus(snapshot),
+                ProviderDescription(snapshot),
+                Icons.Material.Outlined.Collections,
+                "Open provider settings",
+                null,
+                null,
+                "/settings/providers")
+
+            @ReadinessRow(
+                "Local AI",
+                AiStatus(snapshot),
+                AiDescription(snapshot),
+                Icons.Material.Outlined.Memory,
+                "Open Local AI settings",
+                null,
+                null,
+                "/settings/ai")
+
+            @ReadinessRow(
+                "Scan and ingestion",
+                ScanStatus(snapshot),
+                ScanDescription(snapshot),
+                Icons.Material.Outlined.PlayCircle,
+                ScanPrimaryLabel(snapshot),
+                ScanNowAsync,
+                "Open Library Operations",
+                "/settings/ingestion",
+                primaryDisabled: !snapshot.CanScan || _scanStarting)
+
+            @ReadinessRow(
+                "Review Queue",
+                ReviewStatus(snapshot),
+                snapshot.PendingReviewCount > 0
+                    ? $"{snapshot.PendingReviewCount:N0} item(s) need confirmation before they can be fully added."
+                    : "No review work is waiting right now.",
+                Icons.Material.Outlined.RateReview,
+                "Open Review Queue",
+                null,
+                null,
+                "/settings/review")
+        </div>
+    }
 </div>
 
+<style>
+    .setup-checklist-grid {
+        display: grid;
+        gap: 14px;
+    }
+
+    .setup-row,
+    .setup-folder-detail,
+    .setup-loading {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .setup-row {
+        justify-content: space-between;
+    }
+
+    .setup-row__content,
+    .setup-folder-detail__content {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .setup-row__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .setup-folder-detail {
+        margin-left: 28px;
+        padding: 12px 16px;
+        border: 1px solid var(--tl-divider);
+        border-radius: 8px;
+        background: var(--app-glass-inner-bg);
+    }
+
+    .setup-folder-detail__path {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--tl-font-mono);
+        color: var(--tl-text-muted);
+    }
+
+    @@media (max-width: 720px) {
+        .setup-row,
+        .setup-folder-detail {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .setup-row__actions {
+            justify-content: flex-start;
+        }
+    }
+</style>
+
 @code {
-
-    private const string InnerCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 24px;";
-
-    private sealed record AiModelSummary(string Role, string Label, bool Downloaded);
-
-    private string _serverName  = "Tuvima Library";
-    private string _language    = "English";
-    private string _libraryRoot = "/media/library";
-
-    private sealed record ProviderSummary(string Name, string LangLabel);
-
-    private ProviderSummary[] _configuredProviders = [];
+    private SetupReadinessSnapshot? _snapshot;
+    private bool _loading = true;
+    private bool _scanStarting;
+    private bool _scanStarted;
 
     protected override async Task OnInitializedAsync()
     {
-        var serverGeneral = await Orchestrator.GetServerGeneralAsync();
-        if (serverGeneral is not null)
-        {
-            _serverName = serverGeneral.ServerName;
-            _language = serverGeneral.DisplayLanguage;
-        }
+        await LoadReadinessAsync();
+    }
 
-        var folderSettings = await ApiClient.GetFolderSettingsAsync();
-        if (folderSettings is not null && !string.IsNullOrWhiteSpace(folderSettings.LibraryRoot))
+    private async Task LoadReadinessAsync()
+    {
+        _loading = true;
+        try
         {
-            _libraryRoot = folderSettings.LibraryRoot;
+            _snapshot = await ReadinessService.GetSnapshotAsync();
         }
-
-        var catalogue = await CatalogueService.GetCatalogueAsync();
-        _configuredProviders = catalogue
-            .Where(p => p.Name != "local_filesystem" && p.Enabled)
-            .Select(p => new ProviderSummary(
-                p.DisplayName,
-                p.LanguageStrategy switch
-                {
-                    "localized" => "Localized",
-                    "both"      => "Both",
-                    _           => "Source",
-                }))
-            .ToArray();
-        if (_configuredProviders.Length == 0)
+        finally
         {
-            _configuredProviders =
-            [
-                new("Wikidata", "Both"),
-                new("Apple API", "Localized"),
-                new("Open Library", "Source"),
-                new("TMDB", "Localized"),
-                new("MusicBrainz", "Source"),
-                new("Metron", "Source"),
-                new("Fanart.tv", "Source"),
-            ];
+            _loading = false;
         }
     }
 
-    private readonly AiModelSummary[] _aiModels =
-    [
-        new AiModelSummary("Fast (text)",    "Llama 3.2 1B Q4_K_M  -  ~750 MB",  Downloaded: true),
-        new AiModelSummary("Quality (text)", "Llama 3.2 3B Q4_K_M  -  ~2 GB",    Downloaded: true),
-        new AiModelSummary("Audio",          "Whisper Medium  -  ~1.5 GB",        Downloaded: false),
-    ];
+    private async Task ScanNowAsync()
+    {
+        _scanStarting = true;
+        _scanStarted = false;
+
+        try
+        {
+            var started = await Orchestrator.TriggerRescanAsync();
+            if (started)
+            {
+                _scanStarted = true;
+                Snackbar.Add("Scan started. Library Operations will show progress as the Engine reports it.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(Orchestrator.LastApiError ?? "Scan could not be started.", Severity.Error);
+            }
+
+            await LoadReadinessAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Scan could not be started: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _scanStarting = false;
+        }
+    }
+
+    private static SetupReadinessStatus EngineStatus(SetupReadinessSnapshot snapshot) =>
+        snapshot.EngineReachable ? SetupReadinessStatus.Complete : SetupReadinessStatus.Unavailable;
+
+    private static SetupReadinessStatus FolderStatus(SetupReadinessSnapshot snapshot)
+    {
+        if (!snapshot.EngineReachable)
+        {
+            return SetupReadinessStatus.Unavailable;
+        }
+
+        return snapshot.FoldersReady ? SetupReadinessStatus.Complete : SetupReadinessStatus.NeedsAttention;
+    }
+
+    private static SetupReadinessStatus ProviderStatus(SetupReadinessSnapshot snapshot)
+    {
+        if (!snapshot.EngineReachable || !snapshot.Providers.StatusLoaded)
+        {
+            return SetupReadinessStatus.Unavailable;
+        }
+
+        if (snapshot.Providers.EnabledProviders.Count == 0)
+        {
+            return SetupReadinessStatus.NeedsAttention;
+        }
+
+        return snapshot.Providers.HasUsableZeroKeyProvider
+               || snapshot.Providers.EnabledProviders.Any(provider => provider.RequiresApiKey && provider.HasApiKey)
+            ? SetupReadinessStatus.Complete
+            : SetupReadinessStatus.NeedsAttention;
+    }
+
+    private static SetupReadinessStatus AiStatus(SetupReadinessSnapshot snapshot)
+    {
+        if (!snapshot.EngineReachable)
+        {
+            return SetupReadinessStatus.Unavailable;
+        }
+
+        return snapshot.LocalAi.ProfileLoaded || snapshot.LocalAi.ResourcesLoaded
+            ? SetupReadinessStatus.Optional
+            : SetupReadinessStatus.Unavailable;
+    }
+
+    private static SetupReadinessStatus ScanStatus(SetupReadinessSnapshot snapshot)
+    {
+        if (snapshot.IsIngestionActive)
+        {
+            return SetupReadinessStatus.InProgress;
+        }
+
+        if (snapshot.HasScanEverRun)
+        {
+            return SetupReadinessStatus.Complete;
+        }
+
+        if (!snapshot.EngineReachable)
+        {
+            return SetupReadinessStatus.Unavailable;
+        }
+
+        return snapshot.FoldersReady ? SetupReadinessStatus.NeedsAttention : SetupReadinessStatus.Unavailable;
+    }
+
+    private static SetupReadinessStatus ReviewStatus(SetupReadinessSnapshot snapshot) =>
+        snapshot.PendingReviewCount > 0 ? SetupReadinessStatus.NeedsAttention : SetupReadinessStatus.Complete;
+
+    private static string FolderDescription(SetupReadinessSnapshot snapshot)
+    {
+        if (!snapshot.LibraryRoot.IsConfigured && !snapshot.WatchFolder.IsConfigured)
+        {
+            return "Choose where organized media should live and where new files are detected.";
+        }
+
+        if (!snapshot.LibraryRoot.IsReady)
+        {
+            return "The Library Root needs to exist and allow read/write access so Tuvima can organize files.";
+        }
+
+        if (!snapshot.WatchFolder.IsReady)
+        {
+            return "The Watch Folder needs to exist and allow read/write access before scans can start.";
+        }
+
+        return "The Library Root and Watch Folder are configured and accessible.";
+    }
+
+    private static string ProviderDescription(SetupReadinessSnapshot snapshot)
+    {
+        if (!snapshot.Providers.StatusLoaded)
+        {
+            return "Provider status is unavailable. Open provider settings or retry readiness.";
+        }
+
+        if (snapshot.Providers.EnabledProviders.Count == 0)
+        {
+            return "No metadata providers are enabled yet. Enable at least one provider before scanning.";
+        }
+
+        if (snapshot.Providers.MissingCredentialProviders.Count > 0)
+        {
+            var names = string.Join(", ", snapshot.Providers.MissingCredentialProviders.Select(provider => provider.DisplayName));
+            if (snapshot.Providers.HasUsableZeroKeyProvider)
+            {
+                return $"At least one provider can run without secrets. These providers still need API keys: {names}.";
+            }
+
+            return $"Some enabled providers require API keys before they can enrich metadata: {names}.";
+        }
+
+        return $"{snapshot.Providers.EnabledProviders.Count:N0} provider(s) are enabled for metadata enrichment.";
+    }
+
+    private static string AiDescription(SetupReadinessSnapshot snapshot)
+    {
+        if (snapshot.LocalAi.ProfileLoaded && snapshot.LocalAi.HardwareProfile is { } profile)
+        {
+            return $"Local AI profile is readable ({profile.Tier}, {profile.Backend}). Local AI is optional for first ingestion.";
+        }
+
+        if (snapshot.LocalAi.ResourcesLoaded)
+        {
+            return "Local AI resource status is readable. Local AI is optional for first ingestion.";
+        }
+
+        return "Local AI status is unavailable or not configured. This does not block first ingestion when folders and providers are ready.";
+    }
+
+    private static string ScanDescription(SetupReadinessSnapshot snapshot)
+    {
+        if (snapshot.IsIngestionActive)
+        {
+            return "A scan or ingestion job is already running. Open Library Operations to follow progress.";
+        }
+
+        if (snapshot.HasScanEverRun)
+        {
+            return "A scan has already run. You can run another scan or watch progress in Library Operations.";
+        }
+
+        return snapshot.FoldersReady
+            ? "Your folders are ready. Scan now to import media from the Watch Folder."
+            : "Configure reachable folders before starting a scan.";
+    }
+
+    private static string ScanPrimaryLabel(SetupReadinessSnapshot snapshot) =>
+        snapshot.IsIngestionActive ? "Scan running" : "Scan Now";
+
+    private RenderFragment ReadinessRow(
+        string title,
+        SetupReadinessStatus status,
+        string description,
+        string icon,
+        string primaryLabel,
+        Func<Task>? primaryAction,
+        string? secondaryLabel,
+        string? href,
+        bool primaryDisabled = false) => @<MudPaper Elevation="0" Class="tl-card setup-row">
+        <MudIcon Icon="@icon" Color="@StatusColor(status)" />
+        <div class="setup-row__content">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+                <MudText Typo="Typo.subtitle2">@title</MudText>
+                @StatusChip(status)
+            </MudStack>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@description</MudText>
+        </div>
+        <div class="setup-row__actions">
+            @if (primaryAction is not null)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.PlayArrow"
+                           Disabled="@primaryDisabled"
+                           OnClick="@(() => primaryAction.Invoke())">
+                    @if (_scanStarting && primaryLabel.Contains("Scan", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+                        <text>Starting...</text>
+                    }
+                    else
+                    {
+                        @primaryLabel
+                    }
+                </MudButton>
+            }
+            else if (!string.IsNullOrWhiteSpace(href))
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           Href="@href">
+                    @primaryLabel
+                </MudButton>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(secondaryLabel) && !string.IsNullOrWhiteSpace(href))
+            {
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           Href="@href">
+                    @secondaryLabel
+                </MudButton>
+            }
+        </div>
+    </MudPaper>;
+
+    private static RenderFragment FolderDetail(SetupPathReadiness folder) => @<div class="setup-folder-detail">
+        <MudIcon Icon="@(folder.IsReady ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.WarningAmber)"
+                 Color="@(folder.IsReady ? Color.Success : Color.Warning)" />
+        <div class="setup-folder-detail__content">
+            <MudText Typo="Typo.subtitle2">@folder.Label</MudText>
+            <MudText Typo="Typo.caption" Class="setup-folder-detail__path">
+                @(folder.IsConfigured ? folder.Path : "Not configured")
+            </MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                @FolderProbeText(folder)
+            </MudText>
+        </div>
+    </div>;
+
+    private static string FolderProbeText(SetupPathReadiness folder)
+    {
+        if (!folder.IsConfigured)
+        {
+            return folder.Label == "Library Root"
+                ? "This is where organized media should live."
+                : "This is where new files are detected.";
+        }
+
+        if (folder.Probe is null)
+        {
+            return "Folder access has not been confirmed.";
+        }
+
+        if (!folder.Exists)
+        {
+            return "Folder was not found by the Engine.";
+        }
+
+        if (!folder.HasRead)
+        {
+            return "The Engine cannot read this folder.";
+        }
+
+        if (folder.RequiresWriteAccess && !folder.HasWrite)
+        {
+            return "The Engine can read this folder but cannot write to it.";
+        }
+
+        return "Read/write access confirmed.";
+    }
+
+    private static RenderFragment StatusChip(SetupReadinessStatus status) => @<MudChip T="string"
+        Size="Size.Small"
+        Variant="Variant.Outlined"
+        Color="@StatusColor(status)">
+        @StatusLabel(status)
+    </MudChip>;
+
+    private static string StatusLabel(SetupReadinessStatus status) => status switch
+    {
+        SetupReadinessStatus.Complete => "Complete",
+        SetupReadinessStatus.NeedsAttention => "Needs attention",
+        SetupReadinessStatus.Optional => "Optional",
+        SetupReadinessStatus.Unavailable => "Unavailable",
+        SetupReadinessStatus.InProgress => "In progress",
+        _ => "Unavailable",
+    };
+
+    private static Color StatusColor(SetupReadinessStatus status) => status switch
+    {
+        SetupReadinessStatus.Complete => Color.Success,
+        SetupReadinessStatus.NeedsAttention => Color.Warning,
+        SetupReadinessStatus.Optional => Color.Info,
+        SetupReadinessStatus.Unavailable => Color.Default,
+        SetupReadinessStatus.InProgress => Color.Primary,
+        _ => Color.Default,
+    };
 }

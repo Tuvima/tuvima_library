@@ -1,9 +1,11 @@
 ﻿@page "/"
 @inject DiscoveryComposerService Discovery
 @inject UIOrchestratorService Orchestrator
+@inject SetupReadinessService ReadinessService
 @inject UniverseStateContainer State
 @inject IWebHostEnvironment Env
 @inject IStringLocalizer<SharedStrings> L
+@inject ISnackbar Snackbar
 @implements IDisposable
 
 <PageTitle>Tuvima Library</PageTitle>
@@ -16,28 +18,76 @@ else if (IsEmpty)
 {
     <div class="home-discovery-empty">
         <img src="/images/tuvima-icon.svg" alt="Tuvima" class="home-discovery-empty-icon" />
-        <h2 class="home-discovery-empty-title">@L["Home_EmptyTitle"]</h2>
-        <p class="home-discovery-empty-subtitle">@L["Home_EmptySubtitle"]</p>
+        <h2 class="home-discovery-empty-title">Set up your first library</h2>
+        <p class="home-discovery-empty-subtitle">
+            Tuvima needs a Library Root, a Watch Folder, and a scan before Home can show your media.
+        </p>
+
+        <div class="home-discovery-empty-actions">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="MudBlazor.Size.Large"
+                       StartIcon="@Icons.Material.Outlined.RocketLaunch"
+                       Href="/settings/setup">
+                Open setup checklist
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       Size="MudBlazor.Size.Large"
+                       StartIcon="@Icons.Material.Outlined.FolderOpen"
+                       Href="/settings/folders">
+                Configure folders
+            </MudButton>
+            @if (_readiness?.CanScan == true)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="MudBlazor.Size.Large"
+                           StartIcon="@Icons.Material.Outlined.PlayArrow"
+                           Disabled="@_scanStarting"
+                           OnClick="HandleScanNowAsync">
+                    @if (_scanStarting)
+                    {
+                        <MudProgressCircular Size="MudBlazor.Size.Small" Indeterminate="true" Class="mr-2" />
+                        <text>Starting scan...</text>
+                    }
+                    else
+                    {
+                        <text>Scan now</text>
+                    }
+                </MudButton>
+            }
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       Size="MudBlazor.Size.Large"
+                       StartIcon="@Icons.Material.Outlined.PendingActions"
+                       Href="/settings/ingestion">
+                Open Library Operations
+            </MudButton>
+        </div>
 
         @if (Env.IsDevelopment())
         {
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Warning"
-                       StartIcon="@Icons.Material.Filled.AutoStories"
-                       Size="MudBlazor.Size.Large"
-                       OnClick="HandleSeedLibraryAsync"
-                       Disabled="@_seeding"
-                       Class="home-discovery-seed-button">
-                @if (_seeding)
-                {
-                    <MudProgressCircular Size="MudBlazor.Size.Small" Indeterminate="true" Class="mr-2" />
-                    <text>@L["Home_Seeding"]</text>
-                }
-                else
-                {
-                    <text>@L["Home_SeedLibrary"]</text>
-                }
-            </MudButton>
+            <div class="home-discovery-dev-tools">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Development tools</MudText>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Warning"
+                           StartIcon="@Icons.Material.Filled.AutoStories"
+                           Size="MudBlazor.Size.Medium"
+                           OnClick="HandleSeedLibraryAsync"
+                           Disabled="@_seeding"
+                           Class="home-discovery-seed-button">
+                    @if (_seeding)
+                    {
+                        <MudProgressCircular Size="MudBlazor.Size.Small" Indeterminate="true" Class="mr-2" />
+                        <text>@L["Home_Seeding"]</text>
+                    }
+                    else
+                    {
+                        <text>@L["Home_SeedLibrary"]</text>
+                    }
+                </MudButton>
+            </div>
         }
     </div>
 }
@@ -72,6 +122,8 @@ else
 @code {
     private bool _loading = true;
     private bool _seeding;
+    private bool _scanStarting;
+    private SetupReadinessSnapshot? _readiness;
     private DiscoveryPageViewModel _page = new() { Key = "home" };
 
     private bool IsEmpty =>
@@ -94,6 +146,10 @@ else
         try
         {
             _page = await Discovery.BuildHomeAsync();
+            if (IsEmpty)
+            {
+                _readiness = await ReadinessService.GetSnapshotAsync();
+            }
         }
         catch
         {
@@ -103,10 +159,36 @@ else
                 EmptyTitle = "Your home screen is waiting for its first story.",
                 EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own."
             };
+            _readiness = await ReadinessService.GetSnapshotAsync();
         }
         finally
         {
             _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandleScanNowAsync()
+    {
+        _scanStarting = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var started = await Orchestrator.TriggerRescanAsync();
+            if (started)
+            {
+                Snackbar.Add("Scan started. Open Library Operations to watch progress.", Severity.Success);
+                _readiness = await ReadinessService.GetSnapshotAsync();
+            }
+            else
+            {
+                Snackbar.Add(Orchestrator.LastApiError ?? "Scan could not be started.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _scanStarting = false;
             await InvokeAsync(StateHasChanged);
         }
     }

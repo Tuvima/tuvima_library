@@ -25,6 +25,20 @@ internal class EngineApiClientStub : DispatchProxy
         return proxy;
     }
 
+    public static IEngineApiClient Create(Action<EngineApiClientStub> configure)
+    {
+        var proxy = Create<IEngineApiClient, EngineApiClientStub>();
+        var stub = (EngineApiClientStub)(object)proxy;
+        stub.RegisterDefaults();
+        configure(stub);
+        return proxy;
+    }
+
+    public void SetHandler(string methodName, Func<object?[]?, object?> handler)
+    {
+        _handlers[methodName] = handler;
+    }
+
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
         ArgumentNullException.ThrowIfNull(targetMethod);
@@ -239,6 +253,69 @@ internal class EngineApiClientStub : DispatchProxy
                 Version = "10.0.0-test",
                 Language = "en",
             });
+
+        _handlers[nameof(IEngineApiClient.GetFolderSettingsAsync)] =
+            _ => Task.FromResult<FolderSettingsDto?>(new FolderSettingsDto(
+                WatchDirectory: @"C:\Tuvima\Incoming",
+                LibraryRoot: @"C:\Tuvima\Library"));
+
+        _handlers[nameof(IEngineApiClient.TestPathAsync)] =
+            args =>
+            {
+                var path = args?[0]?.ToString() ?? string.Empty;
+                return Task.FromResult<PathTestResultDto?>(new PathTestResultDto(path, true, true, true));
+            };
+
+        _handlers[nameof(IEngineApiClient.GetProviderStatusAsync)] =
+            _ => Task.FromResult<IReadOnlyList<ProviderStatusDto>>([
+                new ProviderStatusDto(
+                    Name: "open_library",
+                    DisplayName: "Open Library",
+                    Enabled: true,
+                    IsZeroKey: true,
+                    IsReachable: true),
+                new ProviderStatusDto(
+                    Name: "tmdb",
+                    DisplayName: "TMDB",
+                    Enabled: true,
+                    IsZeroKey: false,
+                    IsReachable: false,
+                    RequiresApiKey: true,
+                    HasApiKey: false),
+            ]);
+
+        _handlers[nameof(IEngineApiClient.GetAiProfileAsync)] =
+            _ => Task.FromResult<HardwareProfileDto?>(new HardwareProfileDto
+            {
+                Tier = "starter",
+                Backend = "cpu",
+                AvailableRamMb = 8192,
+                TokensPerSecond = 8,
+            });
+
+        _handlers[nameof(IEngineApiClient.GetResourceSnapshotAsync)] =
+            _ => Task.FromResult<ResourceSnapshotDto?>(new ResourceSnapshotDto
+            {
+                TotalRamMb = 16384,
+                FreeRamMb = 8192,
+                EngineRamMb = 512,
+                CpuPressure = 10,
+            });
+
+        _handlers[nameof(IEngineApiClient.GetIngestionOperationsSnapshotAsync)] =
+            _ => Task.FromResult<IngestionOperationsSnapshotViewModel?>(new IngestionOperationsSnapshotViewModel
+            {
+                Summary = new IngestionOperationsSummaryViewModel
+                {
+                    EngineStatus = "Online",
+                    HealthLabel = "Ready",
+                    LastSuccessfulScanTime = null,
+                },
+                GeneratedAt = DateTimeOffset.UtcNow,
+            });
+
+        _handlers[nameof(IEngineApiClient.TriggerRescanAsync)] =
+            _ => Task.FromResult(true);
 
         _handlers[nameof(IEngineApiClient.GetServerGeneralAsync)] =
             _ => Task.FromResult<ServerGeneralSettingsDto?>(new ServerGeneralSettingsDto(

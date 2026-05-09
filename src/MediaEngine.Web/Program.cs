@@ -176,6 +176,7 @@ builder.Services.AddHttpClient("EngineApi", client =>
 builder.Services.AddScoped<UniverseStateContainer>();
 builder.Services.AddScoped<ActiveProfileSessionService>();
 builder.Services.AddScoped<UIOrchestratorService>();
+builder.Services.AddScoped<SetupReadinessService>();
 builder.Services.AddScoped<MediaEditorLauncherService>();
 builder.Services.AddScoped<CollectionEditorLauncherService>();
 builder.Services.AddScoped<DiscoveryComposerService>();
