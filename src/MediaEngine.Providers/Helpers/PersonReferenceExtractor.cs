@@ -46,28 +46,6 @@ public static class PersonReferenceExtractor
             }
         }
 
-        // Collective pseudonym constituent members.
-        if (byKey.TryGetValue("collective_members_qid", out var collectiveValues))
-        {
-            foreach (var segment in collectiveValues)
-            {
-                var colonIndex = segment.IndexOf("::", StringComparison.Ordinal);
-                if (colonIndex > 0)
-                {
-                    var qid   = segment[..colonIndex].Trim();
-                    var label = segment[(colonIndex + 2)..].Trim();
-                    if (!string.IsNullOrEmpty(label) && !string.IsNullOrEmpty(qid))
-                    {
-                        var alreadyPresent = refs.Any(r =>
-                            string.Equals(r.WikidataQid, qid, StringComparison.OrdinalIgnoreCase)
-                            || (r.IsCollectivePseudonym && string.Equals(r.Name, label, StringComparison.OrdinalIgnoreCase)));
-                        if (!alreadyPresent)
-                            refs.Add(new PersonReference("Author", label, qid));
-                    }
-                }
-            }
-        }
-
         // QID-first: only emit references with a confirmed Wikidata QID.
         return CollapseEquivalentRoles(refs
             .Where(r => !string.IsNullOrEmpty(r.WikidataQid))
@@ -127,27 +105,6 @@ public static class PersonReferenceExtractor
         AddPersonRefsFromCanonicals(refs, "Producer",     canonicals, "producer",                      "producer_qid");
         AddPersonRefsFromCanonicals(refs, "Actor",        canonicals, "cast_member",                   "cast_member_qid");
 
-        // Collective pseudonym constituent members from canonical values.
-        var collectiveValue = canonicals.FirstOrDefault(c => c.Key == "collective_members_qid")?.Value;
-        if (!string.IsNullOrEmpty(collectiveValue))
-        {
-            foreach (var segment in collectiveValue.Split("|||",
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                var colonIndex = segment.IndexOf("::", StringComparison.Ordinal);
-                if (colonIndex > 0)
-                {
-                    var qid   = segment[..colonIndex].Trim();
-                    var label = segment[(colonIndex + 2)..].Trim();
-                    if (!string.IsNullOrEmpty(label) && !string.IsNullOrEmpty(qid))
-                    {
-                        if (!refs.Any(r => string.Equals(r.WikidataQid, qid, StringComparison.OrdinalIgnoreCase)))
-                            refs.Add(new PersonReference("Author", label, qid));
-                    }
-                }
-            }
-        }
-
         return refs;
     }
 
@@ -187,24 +144,30 @@ public static class PersonReferenceExtractor
 
         byKey.TryGetValue(qidKey, out var qids);
 
-        for (int i = 0; i < names.Count; i++)
+        var maxCount = Math.Max(names.Count, qids?.Count ?? 0);
+        for (int i = 0; i < maxCount; i++)
         {
-            var name = names[i];
-            if (string.IsNullOrWhiteSpace(name))
-                continue;
-
+            var name = i < names.Count ? names[i] : null;
             string? qid = null;
+            string? qidLabel = null;
             if (qids is not null && i < qids.Count)
             {
                 var segment = qids[i];
                 var colonIdx = segment.IndexOf("::", StringComparison.Ordinal);
                 if (colonIdx > 0)
+                {
                     qid = segment[..colonIdx].Trim();
+                    qidLabel = segment[(colonIdx + 2)..].Trim();
+                }
                 else if (!string.IsNullOrWhiteSpace(segment))
                     qid = segment.Trim();
             }
 
-            refs.Add(new PersonReference(role, name, string.IsNullOrEmpty(qid) ? null : qid));
+            var displayName = FirstNonBlank(qidLabel, name, qid);
+            if (string.IsNullOrWhiteSpace(displayName))
+                continue;
+
+            refs.Add(new PersonReference(role, displayName, string.IsNullOrEmpty(qid) ? null : qid));
         }
     }
 
@@ -230,21 +193,42 @@ public static class PersonReferenceExtractor
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             ?? [];
 
-        for (int i = 0; i < names.Length; i++)
+        var maxCount = Math.Max(names.Length, qidParts.Length);
+        for (int i = 0; i < maxCount; i++)
         {
+            var name = i < names.Length ? names[i] : null;
             string? qid = null;
+            string? qidLabel = null;
             if (i < qidParts.Length)
             {
                 var segment = qidParts[i];
                 var colonIdx = segment.IndexOf("::", StringComparison.Ordinal);
                 if (colonIdx > 0)
+                {
                     qid = segment[..colonIdx].Trim();
+                    qidLabel = segment[(colonIdx + 2)..].Trim();
+                }
                 else if (!string.IsNullOrWhiteSpace(segment))
                     qid = segment.Trim();
             }
 
-            refs.Add(new PersonReference(role, names[i], string.IsNullOrEmpty(qid) ? null : qid));
+            var displayName = FirstNonBlank(qidLabel, name, qid);
+            if (string.IsNullOrWhiteSpace(displayName))
+                continue;
+
+            refs.Add(new PersonReference(role, displayName, string.IsNullOrEmpty(qid) ? null : qid));
         }
+    }
+
+    private static string? FirstNonBlank(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+
+        return null;
     }
 
     private static IReadOnlyList<PersonReference> CollapseEquivalentRoles(IReadOnlyList<PersonReference> refs)

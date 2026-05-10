@@ -217,6 +217,19 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_PrefersOwnedFormatArtworkForWorkHero()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("var foregroundArtworkUrl = FirstNonBlank(", source);
+        Assert.Contains("ownedCoverUrls.FirstOrDefault(),", source);
+        Assert.Contains("detail.CoverUrl,", source);
+        Assert.Contains("WHERE entity_id = AssetId AND key IN ('cover_url', 'cover', 'poster_url', 'poster')", source);
+        Assert.Contains("WHERE entity_id = WorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster')", source);
+        Assert.Contains("WHERE entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster')", source);
+    }
+
+    [Fact]
     public void DetailComposer_PopulatesCastCharactersAndRelationshipsForCollectionSurfaces()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));

@@ -135,12 +135,11 @@ public sealed class PersonExtractionTests
     // ── Collective pseudonym constituent members ───────────────────────────────
 
     [Fact]
-    public void CollectiveMembers_Extracted()
+    public void CollectiveMembers_WithoutPseudonymQid_AreNotDirectAuthors()
     {
         // The production code applies a QID-first filter: refs without a confirmed Wikidata
-        // QID are dropped before the list is returned. "James S.A. Corey" has no author_qid
-        // companion, so it is dropped. The two constituent members from collective_members_qid
-        // both carry QIDs and are retained.
+        // QID are dropped before the list is returned. Collective-member QIDs describe
+        // the people behind the pseudonym, not the direct displayed author credit.
         var claims = new List<ProviderClaim>
         {
             new("author",                "James S.A. Corey",            0.95),
@@ -150,11 +149,7 @@ public sealed class PersonExtractionTests
 
         var refs = Extract(claims);
 
-        Assert.Equal(2, refs.Count);
-        Assert.Contains(refs, r =>
-            r.Name == "Daniel Abraham" && r.Role == "Author" && r.WikidataQid == "Q453384");
-        Assert.Contains(refs, r =>
-            r.Name == "Ty Franck" && r.Role == "Author" && r.WikidataQid == "Q2076935");
+        Assert.Empty(refs);
     }
 
     // ── QID parsed correctly from "QID::Label" segment ───────────────────────

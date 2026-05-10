@@ -129,14 +129,14 @@ public sealed class DetailComposerService
             .Cast<string>()
             .ToList();
         var foregroundArtworkUrl = FirstNonBlank(
+            ownedCoverUrls.FirstOrDefault(),
             detail.CoverUrl,
             GetValue(values, "cover_url"),
             GetValue(values, "cover"),
             GetValue(values, "poster_url"),
             GetValue(values, "poster"),
             artworkFallback.CoverUrl,
-            artworkFallback.SquareUrl,
-            ownedCoverUrls.FirstOrDefault());
+            artworkFallback.SquareUrl);
         var backdropUrl = FirstNonBlank(
             detail.BackgroundUrl,
             detail.HeroUrl,
@@ -825,6 +825,7 @@ public sealed class DetailComposerService
                     NormalizeQid(entry.ValueQid),
                     entry.Ordinal))
                 .ToList());
+            entries = await PreferCollectivePseudonymContributorAsync(canonicalArrayKey, entries, ct);
             if (entries.Count > 0)
                 return entries;
         }
@@ -832,6 +833,7 @@ public sealed class DetailComposerService
         foreach (var targetId in targetIds)
         {
             var claimEntries = await LoadContributorEntriesFromClaimsAsync(targetId, canonicalArrayKey, ct);
+            claimEntries = await PreferCollectivePseudonymContributorAsync(canonicalArrayKey, claimEntries, ct);
             if (claimEntries.Count > 0)
                 return claimEntries;
         }
@@ -847,6 +849,33 @@ public sealed class DetailComposerService
             .ToList();
 
         return DeduplicateContributorEntries(fallbackEntries);
+    }
+
+    private async Task<IReadOnlyList<ContributorEntry>> PreferCollectivePseudonymContributorAsync(
+        string canonicalArrayKey,
+        IReadOnlyList<ContributorEntry> entries,
+        CancellationToken ct)
+    {
+        if (!canonicalArrayKey.Equals("author", StringComparison.OrdinalIgnoreCase) || entries.Count <= 1)
+            return entries;
+
+        foreach (var entry in entries.OrderBy(entry => entry.SortOrder))
+        {
+            var qid = NormalizeQid(entry.Qid);
+            if (string.IsNullOrWhiteSpace(qid))
+                continue;
+
+            var person = await _persons.FindByQidAsync(qid, ct);
+            if (person?.IsPseudonym != true)
+                continue;
+
+            return entries
+                .Where(candidate => string.Equals(NormalizeQid(candidate.Qid), qid, StringComparison.OrdinalIgnoreCase))
+                .Select((candidate, index) => candidate with { SortOrder = index })
+                .ToList();
+        }
+
+        return entries;
     }
 
     private async Task<IReadOnlyList<Guid>> LoadContributorTargetIdsAsync(Guid workId, CancellationToken ct)
@@ -1783,17 +1812,33 @@ public sealed class DetailComposerService
             )
             SELECT
                 CAST(AssetId AS TEXT) AS AssetId,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster') LIMIT 1) AS CoverUrl,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('square_url', 'square') LIMIT 1) AS SquareUrl,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url', 'background') LIMIT 1) AS BackgroundUrl,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('banner_url', 'banner') LIMIT 1) AS BannerUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('cover_url', 'cover', 'poster_url', 'poster') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster') LIMIT 1)) AS CoverUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('square_url', 'square') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('square_url', 'square') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('square_url', 'square') LIMIT 1)) AS SquareUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('background_url', 'background') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('background_url', 'background') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url', 'background') LIMIT 1)) AS BackgroundUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('banner_url', 'banner') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('banner_url', 'banner') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('banner_url', 'banner') LIMIT 1)) AS BannerUrl,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'cover_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'cover_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'cover_state' LIMIT 1)) AS CoverState,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'square_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'square_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_state' LIMIT 1)) AS SquareState,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'background_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'background_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'background_state' LIMIT 1)) AS BackgroundState,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'banner_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'banner_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_state' LIMIT 1)) AS BannerState
             FROM ranked_assets
             WHERE AssetRank = 1

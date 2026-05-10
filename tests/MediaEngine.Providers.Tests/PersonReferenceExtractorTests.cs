@@ -115,7 +115,7 @@ public sealed class PersonReferenceExtractorTests
     }
 
     [Fact]
-    public void FromRawClaims_CollectiveMembers_AddedAsAuthors()
+    public void FromRawClaims_CollectiveMembers_NotAddedAsDirectAuthors()
     {
         var claims = new List<ProviderClaim>
         {
@@ -128,9 +128,10 @@ public sealed class PersonReferenceExtractorTests
 
         var refs = PersonReferenceExtractor.FromRawClaims(claims);
 
-        Assert.Equal(3, refs.Count);
-        Assert.Contains(refs, r => r.Name == "Daniel Abraham" && r.WikidataQid == "Q123456");
-        Assert.Contains(refs, r => r.Name == "Ty Franck" && r.WikidataQid == "Q789012");
+        Assert.Single(refs);
+        Assert.Contains(refs, r => r.Name == "James S.A. Corey" && r.WikidataQid == "Q6142591");
+        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q123456");
+        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q789012");
     }
 
     // ── FromRawClaims: performer role mapping ───────────────────────────────
@@ -289,7 +290,7 @@ public sealed class PersonReferenceExtractorTests
     }
 
     [Fact]
-    public void FromCanonicals_CollectiveMembers_AddedFromTriplePipe()
+    public void FromCanonicals_CollectiveMembers_NotAddedAsDirectAuthors()
     {
         var canonicals = new List<CanonicalValue>
         {
@@ -300,9 +301,30 @@ public sealed class PersonReferenceExtractorTests
 
         var refs = PersonReferenceExtractor.FromCanonicals(canonicals);
 
-        Assert.Equal(3, refs.Count);
+        Assert.Single(refs);
         Assert.Contains(refs, r => r.WikidataQid == "Q6142591");
-        Assert.Contains(refs, r => r.WikidataQid == "Q123456" && r.Name == "Daniel Abraham");
-        Assert.Contains(refs, r => r.WikidataQid == "Q789012" && r.Name == "Ty Franck");
+        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q123456");
+        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q789012");
+    }
+
+    [Fact]
+    public void FromRawClaims_MismatchedAuthorNamesAndQids_UsesQidLabels()
+    {
+        var claims = new List<ProviderClaim>
+        {
+            new(MetadataFieldConstants.Author, "James S.A. Corey", 0.90),
+            new(MetadataFieldConstants.Author, "James S. A. Corey", 0.90),
+            new(MetadataFieldConstants.Author, "James S. A. Corey", 0.90),
+            new("author_qid", "Q6142591::James S. A. Corey", 0.90),
+            new("author_qid", "Q1159871::Daniel Abraham", 0.90),
+            new("author_qid", "Q18608460::Ty Franck", 0.90),
+        };
+
+        var refs = PersonReferenceExtractor.FromRawClaims(claims);
+
+        Assert.Contains(refs, r => r.WikidataQid == "Q6142591" && r.Name == "James S. A. Corey");
+        Assert.Contains(refs, r => r.WikidataQid == "Q1159871" && r.Name == "Daniel Abraham");
+        Assert.Contains(refs, r => r.WikidataQid == "Q18608460" && r.Name == "Ty Franck");
+        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q18608460" && r.Name == "James S. A. Corey");
     }
 }

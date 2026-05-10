@@ -1,62 +1,82 @@
-// ──────────────────────────────────────────────────────────────────────────────
-// GenerateTestEpubs — Creates exactly 30 test files (EPUBs + M4Bs) that
-// exercise every major ingestion edge case.
+﻿// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// GenerateTestEpubs â€” Creates a full test library spanning the configured
+// watch roots and exercising every major ingestion edge case.
 //
 // Scenario groups:
-//   EPUBs  1– 8  : Confidence gates, Collection? grouping, person records, pseudonyms
-//   EPUB   9     : Corrupt file → quarantine
-//   EPUB  10     : Duplicate hash → skip
-//   M4Bs 11–16   : Cross-format Collection? link, narrators, orphanage, pseudonym
-//   M4Bs 17–18   : Ingestion hinting — hp-series/ folder (sibling files)
-//   M4Bs 19–20   : Ingestion hinting — expanse-audio/ folder (sibling files)
-//   EPUBs 21–23  : Pseudonym (individual), no-ISBN search, title mismatch
-//   EPUBs 24–26  : Foreign language metadata (Russian, Spanish, French)
+//   EPUBs  1â€“ 8  : Confidence gates, Collection? grouping, person records, pseudonyms
+//   EPUB   9     : Corrupt file â†’ quarantine
+//   EPUB  10     : Duplicate hash â†’ skip
+//   M4Bs 11â€“16   : Cross-format Collection? link, narrators, orphanage, pseudonym
+//   M4Bs 17â€“18   : Ingestion hinting â€” hp-series/ folder (sibling files)
+//   M4Bs 19â€“20   : Ingestion hinting â€” expanse-audio/ folder (sibling files)
+//   EPUBs 21â€“23  : Pseudonym (individual), no-ISBN search, title mismatch
+//   EPUBs 24â€“26  : Foreign language metadata (Russian, Spanish, French)
 //   EPUB  27     : Same-author different-work
 //   EPUB  28     : Same-title different-edition disambiguation
-//   EPUBs 29–30  : Multi-author works
+//   EPUBs 29â€“30  : Multi-author works
 //
 // Usage:
-//   dotnet run --project tools/GenerateTestEpubs [output-directory] [--clean]
+//   dotnet run --project tools/GenerateTestEpubs [watch-root-or-books-directory] [--clean]
 //
-// Default output : C:\temp\tuvima-watch\books
-// --clean        : Wipes the output directory before generating
-// ──────────────────────────────────────────────────────────────────────────────
+// Default output : C:\temp\tuvima-watch
+// --clean        : Wipes the watch root before generating
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 
-// ── Args ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Args â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 bool clean = args.Any(a => a.Equals("--clean", StringComparison.OrdinalIgnoreCase));
-var outputDir = args.FirstOrDefault(a => !a.StartsWith("--")) ?? @"C:\temp\tuvima-watch\books";
+var requestedOutputDir = args.FirstOrDefault(a => !a.StartsWith("--")) ?? @"C:\temp\tuvima-watch";
+var normalizedRequestedOutputDir = Path.GetFullPath(requestedOutputDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+var watchRoot = string.Equals(Path.GetFileName(normalizedRequestedOutputDir), "books", StringComparison.OrdinalIgnoreCase)
+    ? Directory.GetParent(normalizedRequestedOutputDir)?.FullName ?? normalizedRequestedOutputDir
+    : normalizedRequestedOutputDir;
+var booksDir = Path.Combine(watchRoot, "books");
+var moviesDir = Path.Combine(watchRoot, "movies");
+var tvDir = Path.Combine(watchRoot, "tv");
+var musicDir = Path.Combine(watchRoot, "music");
+var comicsDir = Path.Combine(watchRoot, "comics");
+var generalDir = watchRoot;
 var tempDir   = Path.Combine(Path.GetTempPath(), "tuvima-test-gen");
 var ffmpegPath = FindFfmpeg();
 
-// ── Clean ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Clean â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-if (clean && Directory.Exists(outputDir))
+if (clean && Directory.Exists(watchRoot))
 {
-    Console.WriteLine($"  --clean  Wiping {outputDir}");
-    Directory.Delete(outputDir, recursive: true);
+    Console.WriteLine($"  --clean  Wiping {watchRoot}");
+    Directory.Delete(watchRoot, recursive: true);
     Console.WriteLine();
 }
 
-Directory.CreateDirectory(outputDir);
+Directory.CreateDirectory(booksDir);
+Directory.CreateDirectory(moviesDir);
+Directory.CreateDirectory(tvDir);
+Directory.CreateDirectory(musicDir);
+Directory.CreateDirectory(comicsDir);
+Directory.CreateDirectory(generalDir);
 Directory.CreateDirectory(tempDir);
 
-Console.WriteLine($"Output directory : {outputDir}");
-Console.WriteLine($"FFmpeg           : {ffmpegPath ?? "NOT FOUND — M4B files will be skipped"}");
+Console.WriteLine($"Watch root       : {watchRoot}");
+Console.WriteLine($"Books/Audiobooks: {booksDir}");
+Console.WriteLine($"Movies           : {moviesDir}");
+Console.WriteLine($"TV               : {tvDir}");
+Console.WriteLine($"Music            : {musicDir}");
+Console.WriteLine($"Comics           : {comicsDir}");
+Console.WriteLine($"FFmpeg           : {ffmpegPath ?? "NOT FOUND â€” M4B files will be skipped"}");
 Console.WriteLine();
 
-// ── EPUB definitions ─────────────────────────────────────────────────────────
+// â”€â”€ EPUB definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
-// Scenarios 1–8. Output to root of outputDir.
+// Scenarios 1-8. Output to the configured Books watch folder.
 //
 var epubs = new EpubSpec[]
 {
-    // Scenario 1 — Fully tagged: title, author, ISBN, series, embedded cover.
+    // Scenario 1 â€” Fully tagged: title, author, ISBN, series, embedded cover.
     //   Expected: auto-organized into library; "Dune" Collection? created; cover from file.
     new("dune.epub",
         "Dune",
@@ -68,7 +88,7 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#B5651D"),
 
-    // Scenario 2 — Rich metadata, no embedded cover art.
+    // Scenario 2 â€” Rich metadata, no embedded cover art.
     //   Expected: Hub created; cover fetched from provider (Apple Books / Open Library).
     new("neuromancer.epub",
         "Neuromancer",
@@ -80,7 +100,7 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: false,
         CoverHex: "#2C6B3E"),
 
-    // Scenario 3 — Author tagged as "Asimov, Isaac" (Last, First reversed format).
+    // Scenario 3 â€” Author tagged as "Asimov, Isaac" (Last, First reversed format).
     //   Expected: author conflict flagged; two Person records may be created
     //   (one per format variant until Wikidata normalises to canonical name).
     new("foundation.epub",
@@ -93,7 +113,7 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: false,
         CoverHex: "#1A237E"),
 
-    // Scenario 4 — Series + series_pos present in OPF metadata.
+    // Scenario 4 â€” Series + series_pos present in OPF metadata.
     //   Expected: `series` and `series_pos` canonical values correctly set on Work.
     new("the-name-of-the-wind.epub",
         "The Name of the Wind",
@@ -105,7 +125,7 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#8B4513"),
 
-    // Scenario 5 — Author is a collective pen name: "James S.A. Corey" resolves
+    // Scenario 5 â€” Author is a collective pen name: "James S.A. Corey" resolves
     //   to two real people (Daniel Abraham + Ty Franck) via Wikidata P1773.
     //   Expected: collective pseudonym link; two real-author Person records.
     new("leviathan-wakes.epub",
@@ -118,8 +138,8 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#1A237E"),
 
-    // Scenario 6 — PSEUDONYM: "Richard Bachman" is Stephen King's pen name
-    //   (Wikidata Q3324300 → P1773 → Q39829).
+    // Scenario 6 â€” PSEUDONYM: "Richard Bachman" is Stephen King's pen name
+    //   (Wikidata Q3324300 â†’ P1773 â†’ Q39829).
     //   Expected: Person record for Bachman linked to King via pseudonym.
     new("the-running-man.epub",
         "The Running Man",
@@ -131,8 +151,8 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#8B0000"),
 
-    // Scenario 7 — PSEUDONYM: "Robert Galbraith" is J.K. Rowling's pen name
-    //   (Wikidata Q16308388 → P1773 → Q34660).
+    // Scenario 7 â€” PSEUDONYM: "Robert Galbraith" is J.K. Rowling's pen name
+    //   (Wikidata Q16308388 â†’ P1773 â†’ Q34660).
     //   Expected: Person record for Galbraith linked to Rowling via pseudonym.
     new("the-cuckoos-calling.epub",
         "The Cuckoo's Calling",
@@ -144,8 +164,8 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#2F4F4F"),
 
-    // Scenario 8 — Filename only: OPF contains no usable metadata (all fields empty).
-    //   Expected: overall confidence < 0.40 → file moved to .orphans/; review queue entry.
+    // Scenario 8 â€” Filename only: OPF contains no usable metadata (all fields empty).
+    //   Expected: overall confidence < 0.40 â†’ file moved to .orphans/; review queue entry.
     new("phantom-signal-filename-only.epub",
         Title: "",                        Author: "",
         SecondAuthor: null,
@@ -155,8 +175,8 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: false,
         CoverHex: "#212121"),
 
-    // Scenario 21 — INDIVIDUAL PEN NAME: "J.D. Robb" is Nora Roberts's crime-fiction pen name
-    //   (Wikidata Q4808063 is the pseudonym entity, P1773 → Q231811 Nora Roberts).
+    // Scenario 21 â€” INDIVIDUAL PEN NAME: "J.D. Robb" is Nora Roberts's crime-fiction pen name
+    //   (Wikidata Q4808063 is the pseudonym entity, P1773 â†’ Q231811 Nora Roberts).
     //   Unlike the collective pseudonym (James S.A. Corey), this is one real author behind one name.
     //   Expected: author audit finds pseudonym entity, emits "J.D. Robb" at confidence 1.0.
     //   The "author" canonical value should stay "J.D. Robb" (the published name on the cover).
@@ -170,7 +190,7 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#1B1B2F"),
 
-    // Scenario 22 — NO ISBN: forces Tier 2 structured SPARQL title+author search.
+    // Scenario 22 â€” NO ISBN: forces Tier 2 structured SPARQL title+author search.
     //   "Frankenstein" by Mary Shelley is a well-known work with a clear Wikidata entry
     //   (Q192676) but an 1818 publication date means no ISBN exists in most embedded metadata.
     //   Expected: Tier 2 search resolves Q192676; no bridge lookup used.
@@ -184,11 +204,11 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: false,
         CoverHex: "#1A1A1A"),
 
-    // Scenario 23 — TITLE MISMATCH / DISAMBIGUATION: EPUB title is "1984" but Wikidata
-    //   calls the work "Nineteen Eighty-Four" (Q208592). No ISBN — forces title search.
+    // Scenario 23 â€” TITLE MISMATCH / DISAMBIGUATION: EPUB title is "1984" but Wikidata
+    //   calls the work "Nineteen Eighty-Four" (Q208592). No ISBN â€” forces title search.
     //   "1984" as a search term returns many candidates (year references, other works).
     //   Expected: Tier 2 search with author cross-check finds Q208592; no ISBN bridge used.
-    //   Verifies that the search service matches "1984" ↔ "Nineteen Eighty-Four" correctly.
+    //   Verifies that the search service matches "1984" â†” "Nineteen Eighty-Four" correctly.
     new("nineteen-eighty-four.epub",
         "1984",
         Author: "George Orwell",         SecondAuthor: null,
@@ -199,35 +219,35 @@ var epubs = new EpubSpec[]
         Language: "en",                  IncludeCover: true,
         CoverHex: "#0A0A0A"),
 
-    // ── Foreign Language Metadata ────────────────────────────────────────
+    // â”€â”€ Foreign Language Metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    // Scenario 24 — FOREIGN LANGUAGE: Russian title and author in Cyrillic.
+    // Scenario 24 â€” FOREIGN LANGUAGE: Russian title and author in Cyrillic.
     //   <dc:language>ru</dc:language> triggers LanguageMismatch review.
     //   Expected: routed to review queue with "File metadata is in Russian" detail.
     new("war-and-peace.epub",
-        "Война и мир",
-        Author: "Лев Толстой",              SecondAuthor: null,
+        "Ð’Ð¾Ð¹Ð½Ð° Ð¸ Ð¼Ð¸Ñ€",
+        Author: "Ð›ÐµÐ² Ð¢Ð¾Ð»ÑÑ‚Ð¾Ð¹",              SecondAuthor: null,
         Isbn: "9780140447934",               Year: "1869",
         Publisher: "Penguin Classics",
-        Description: "Эпический роман о русском обществе во время наполеоновских войн.",
+        Description: "Ð­Ð¿Ð¸Ñ‡ÐµÑÐºÐ¸Ð¹ Ñ€Ð¾Ð¼Ð°Ð½ Ð¾ Ñ€ÑƒÑÑÐºÐ¾Ð¼ Ð¾Ð±Ñ‰ÐµÑÑ‚Ð²Ðµ Ð²Ð¾ Ð²Ñ€ÐµÐ¼Ñ Ð½Ð°Ð¿Ð¾Ð»ÐµÐ¾Ð½Ð¾Ð²ÑÐºÐ¸Ñ… Ð²Ð¾Ð¹Ð½.",
         Series: null,                        SeriesPosition: null,
         Language: "ru",                      IncludeCover: true,
         CoverHex: "#8D6E63"),
 
-    // Scenario 25 — FOREIGN LANGUAGE: Spanish title.
+    // Scenario 25 â€” FOREIGN LANGUAGE: Spanish title.
     //   <dc:language>es</dc:language> triggers LanguageMismatch review.
     //   Expected: routed to review queue with "File metadata is in Spanish" detail.
     new("don-quijote.epub",
         "Don Quijote de la Mancha",
         Author: "Miguel de Cervantes",       SecondAuthor: null,
         Isbn: "9788420412146",               Year: "1605",
-        Publisher: "Real Academia Española",
+        Publisher: "Real Academia EspaÃ±ola",
         Description: "La historia del ingenioso hidalgo Don Quijote de la Mancha.",
         Series: null,                        SeriesPosition: null,
         Language: "es",                      IncludeCover: true,
         CoverHex: "#D84315"),
 
-    // Scenario 26 — FOREIGN LANGUAGE: French title.
+    // Scenario 26 â€” FOREIGN LANGUAGE: French title.
     //   <dc:language>fr</dc:language> triggers LanguageMismatch review.
     //   Expected: routed to review queue with "File metadata is in French" detail.
     new("les-trois-mousquetaires.epub",
@@ -240,9 +260,9 @@ var epubs = new EpubSpec[]
         Language: "fr",                      IncludeCover: true,
         CoverHex: "#1565C0"),
 
-    // ── Same-Author Different-Work ───────────────────────────────────────
+    // â”€â”€ Same-Author Different-Work â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    // Scenario 27 — SAME AUTHOR: George Orwell also wrote #23 (1984).
+    // Scenario 27 â€” SAME AUTHOR: George Orwell also wrote #23 (1984).
     //   Expected: separate Work, same Person record as scenario 23.
     new("animal-farm.epub",
         "Animal Farm",
@@ -254,9 +274,9 @@ var epubs = new EpubSpec[]
         Language: "en",                      IncludeCover: true,
         CoverHex: "#33691E"),
 
-    // ── Title Disambiguation ─────────────────────────────────────────────
+    // â”€â”€ Title Disambiguation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    // Scenario 28 — SAME TITLE DIFFERENT EDITION: "Foundation" with different ISBN than #3.
+    // Scenario 28 â€” SAME TITLE DIFFERENT EDITION: "Foundation" with different ISBN than #3.
     //   Expected: different Edition under same Work; ISBN mismatch may trigger review.
     new("foundation-del-rey.epub",
         "Foundation",
@@ -268,9 +288,9 @@ var epubs = new EpubSpec[]
         Language: "en",                      IncludeCover: false,
         CoverHex: "#283593"),
 
-    // ── Multi-Author ─────────────────────────────────────────────────────
+    // â”€â”€ Multi-Author â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    // Scenario 29 — MULTI-AUTHOR: Two <dc:creator> entries in OPF.
+    // Scenario 29 â€” MULTI-AUTHOR: Two <dc:creator> entries in OPF.
     //   Expected: two Person records created (Pratchett + Gaiman), both linked.
     new("good-omens.epub",
         "Good Omens",
@@ -282,7 +302,7 @@ var epubs = new EpubSpec[]
         Language: "en",                      IncludeCover: true,
         CoverHex: "#FFD54F"),
 
-    // Scenario 30 — MULTI-AUTHOR: Stephen King + Peter Straub collaboration.
+    // Scenario 30 â€” MULTI-AUTHOR: Stephen King + Peter Straub collaboration.
     //   Expected: two Person records; King already exists from #6 (Bachman pseudonym).
     new("the-talisman.epub",
         "The Talisman",
@@ -295,29 +315,82 @@ var epubs = new EpubSpec[]
         CoverHex: "#4A148C"),
 };
 
-// ── Generate EPUBs 1–8, 21–30 ────────────────────────────────────────────────
+// â”€â”€ Generate EPUBs 1â€“8, 21â€“30 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 int total = 0, failed = 0;
 var manifest = new List<ManifestEntry>();
 var generatedFiles = new List<(string Temp, string Final)>();
+var expectedPeople = new[]
+{
+    new ExpectedPersonEntry(
+        "Frank Herbert",
+        ExpectedWikidataQid: "Q7934",
+        MinimumOwnedCredits: 4,
+        MinimumMediaItems: 4,
+        ExpectedMediaTypes: ["Books", "Audiobooks"],
+        ExpectedTitles: ["Dune", "Dune Messiah", "Children of Dune"],
+        RequireBiography: true,
+        RequireHeadshot: true,
+        Note: "Author appears across Dune EPUBs and the Dune audiobook."),
+    new ExpectedPersonEntry(
+        "George Orwell",
+        ExpectedWikidataQid: "Q3335",
+        MinimumOwnedCredits: 2,
+        MinimumMediaItems: 2,
+        ExpectedMediaTypes: ["Books"],
+        ExpectedTitles: ["1984", "Animal Farm"],
+        RequireBiography: true,
+        RequireHeadshot: true,
+        Note: "Same author, different works."),
+    new ExpectedPersonEntry(
+        "J.K. Rowling",
+        ExpectedWikidataQid: "Q34660",
+        MinimumOwnedCredits: 2,
+        MinimumMediaItems: 2,
+        ExpectedMediaTypes: ["Audiobooks"],
+        ExpectedTitles: ["Harry Potter and the Philosopher's Stone", "Harry Potter and the Chamber of Secrets"],
+        RequireBiography: true,
+        RequireHeadshot: true,
+        Note: "Same author across sibling audiobook files."),
+    new ExpectedPersonEntry(
+        "James S.A. Corey",
+        ExpectedWikidataQid: "Q6142591",
+        MinimumOwnedCredits: 2,
+        MinimumMediaItems: 2,
+        ExpectedMediaTypes: ["Audiobooks"],
+        ExpectedTitles: ["Leviathan Wakes", "Caliban's War"],
+        RequireBiography: true,
+        RequireHeadshot: false,
+        Note: "Collective pen name appears across EPUB and audiobook fixtures."),
+    new ExpectedPersonEntry(
+        "Jefferson Mays",
+        ExpectedWikidataQid: null,
+        MinimumOwnedCredits: 2,
+        MinimumMediaItems: 2,
+        ExpectedMediaTypes: ["Audiobooks"],
+        ExpectedTitles: ["Leviathan Wakes", "Caliban's War"],
+        RequireBiography: true,
+        RequireHeadshot: true,
+        Note: "Narrator appears across multiple Expanse audiobooks."),
+};
 
-Console.WriteLine($"━━━ EPUBs (scenarios 1–8, 21–30) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"â”â”â” EPUBs (scenarios 1â€“8, 21â€“30) â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
 string? duneEpubPath = null;
 
-// Scenarios 1–8 are indices 0–7; scenarios 21–23 are indices 8–10; scenarios 24–30 are indices 11–17.
-// Map index → scenario number for the manifest and console output.
+// Scenarios 1â€“8 are indices 0â€“7; scenarios 21â€“23 are indices 8â€“10; scenarios 24â€“30 are indices 11â€“17.
+// Map index â†’ scenario number for the manifest and console output.
 static int EpubScenarioNum(int index) => index switch
 {
-    < 8 => index + 1,         // 0–7  → scenarios 1–8
-    < 11 => 21 + (index - 8), // 8–10 → scenarios 21–23
-    _ => 24 + (index - 11),   // 11–17 → scenarios 24–30
+    < 8 => index + 1,         // 0â€“7  â†’ scenarios 1â€“8
+    < 11 => 21 + (index - 8), // 8â€“10 â†’ scenarios 21â€“23
+    _ => 24 + (index - 11),   // 11â€“17 â†’ scenarios 24â€“30
 };
 
 for (int i = 0; i < epubs.Length; i++)
 {
     var spec    = epubs[i];
     var outPath = Path.Combine(tempDir, spec.FileName);
-    var finalPath = Path.Combine(outputDir, spec.FileName);
+    var finalPath = Path.Combine(booksDir, spec.FileName);
     var num     = EpubScenarioNum(i);
     try
     {
@@ -330,24 +403,24 @@ for (int i = 0; i < epubs.Length; i++)
         generatedFiles.Add((outPath, finalPath));
 
         var label = $"[{num,2}] {spec.FileName,-46}";
-        Console.WriteLine($"  ✓  {label} {(cover is not null ? "[cover]" : "[no cover]")}");
+        Console.WriteLine($"  âœ“  {label} {(cover is not null ? "[cover]" : "[no cover]")}");
         manifest.Add(new(num, spec.FileName, "epub", $"Scenario {num}"));
         total++;
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"  ✗  [{num,2}] {spec.FileName}: {ex.Message}");
+        Console.WriteLine($"  âœ—  [{num,2}] {spec.FileName}: {ex.Message}");
         failed++;
     }
 }
 
-// ── Scenario 9 — Corrupt EPUB ────────────────────────────────────────────────
+// â”€â”€ Scenario 9 â€” Corrupt EPUB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //   File has .epub extension but contains garbage bytes (not a valid ZIP).
 //   Expected: processor returns IsCorrupt=true; no asset in DB; MediaFailed activity.
 {
     const int num = 9;
     var outPath = Path.Combine(tempDir, "corrupt-epub.epub");
-    var finalPath = Path.Combine(outputDir, "corrupt-epub.epub");
+    var finalPath = Path.Combine(booksDir, "corrupt-epub.epub");
     try
     {
         // Valid ZIP magic is PK\x03\x04; we write garbage that will fail ZIP parsing.
@@ -357,48 +430,48 @@ for (int i = 0; i < epubs.Length; i++)
         File.WriteAllBytes(outPath, garbage);
         generatedFiles.Add((outPath, finalPath));
 
-        Console.WriteLine($"  ✓  [{num,2}] {"corrupt-epub.epub",-46} [corrupt bytes — not a valid ZIP]");
-        manifest.Add(new(num, "corrupt-epub.epub", "epub", "Scenario 9 — corrupt"));
+        Console.WriteLine($"  âœ“  [{num,2}] {"corrupt-epub.epub",-46} [corrupt bytes â€” not a valid ZIP]");
+        manifest.Add(new(num, "corrupt-epub.epub", "epub", "Scenario 9 â€” corrupt"));
         total++;
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"  ✗  [{num,2}] corrupt-epub.epub: {ex.Message}");
+        Console.WriteLine($"  âœ—  [{num,2}] corrupt-epub.epub: {ex.Message}");
         failed++;
     }
 }
 
-// ── Scenario 10 — Duplicate (byte-identical copy of dune.epub) ───────────────
+// â”€â”€ Scenario 10 â€” Duplicate (byte-identical copy of dune.epub) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //   Expected: hash check catches duplicate before processor runs; DuplicateSkipped
 //   activity logged; no second asset created in DB.
 {
     const int num = 10;
     var outPath = Path.Combine(tempDir, "dune-duplicate.epub");
-    var finalPath = Path.Combine(outputDir, "dune-duplicate.epub");
+    var finalPath = Path.Combine(booksDir, "dune-duplicate.epub");
     try
     {
         if (duneEpubPath is not null && File.Exists(duneEpubPath))
         {
             File.Copy(duneEpubPath, outPath, overwrite: true);
             generatedFiles.Add((outPath, finalPath));
-            Console.WriteLine($"  ✓  [{num,2}] {"dune-duplicate.epub",-46} [byte-identical copy of dune.epub]");
-            manifest.Add(new(num, "dune-duplicate.epub", "epub", "Scenario 10 — duplicate"));
+            Console.WriteLine($"  âœ“  [{num,2}] {"dune-duplicate.epub",-46} [byte-identical copy of dune.epub]");
+            manifest.Add(new(num, "dune-duplicate.epub", "epub", "Scenario 10 â€” duplicate"));
             total++;
         }
         else
         {
-            Console.WriteLine($"  ✗  [{num,2}] dune-duplicate.epub: dune.epub was not generated — cannot copy");
+            Console.WriteLine($"  âœ—  [{num,2}] dune-duplicate.epub: dune.epub was not generated â€” cannot copy");
             failed++;
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"  ✗  [{num,2}] dune-duplicate.epub: {ex.Message}");
+        Console.WriteLine($"  âœ—  [{num,2}] dune-duplicate.epub: {ex.Message}");
         failed++;
     }
 }
 
-// ── Extra linked book-series fixtures ───────────────────────────────────────
+// â”€â”€ Extra linked book-series fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Scenarios 31-32 expand the Dune book series so collection ordering can be
 // tested across several books, while scenario 11 remains the matching audiobook
 // for scenario 1.
@@ -426,11 +499,11 @@ var extraBookSeries = new (int Scenario, EpubSpec Spec)[]
 };
 
 Console.WriteLine();
-Console.WriteLine($"━━━ Extra EPUB series fixtures (scenarios 31-32) ━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"â”â”â” Extra EPUB series fixtures (scenarios 31-32) â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
 foreach (var (num, spec) in extraBookSeries)
 {
     var outPath = Path.Combine(tempDir, spec.FileName);
-    var finalPath = Path.Combine(outputDir, spec.FileName);
+    var finalPath = Path.Combine(booksDir, spec.FileName);
     try
     {
         byte[]? cover = null;
@@ -439,28 +512,28 @@ foreach (var (num, spec) in extraBookSeries)
 
         CreateEpub(outPath, spec, cover);
         generatedFiles.Add((outPath, finalPath));
-        Console.WriteLine($"  ✓  [{num,2}] {spec.FileName,-46} {(cover is not null ? "[cover]" : "[no cover]")}");
-        manifest.Add(new(num, spec.FileName, "epub", $"Scenario {num} — Dune book series"));
+        Console.WriteLine($"  âœ“  [{num,2}] {spec.FileName,-46} {(cover is not null ? "[cover]" : "[no cover]")}");
+        manifest.Add(new(num, spec.FileName, "epub", $"Scenario {num} â€” Dune book series"));
         total++;
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"  ✗  [{num,2}] {spec.FileName}: {ex.Message}");
+        Console.WriteLine($"  âœ—  [{num,2}] {spec.FileName}: {ex.Message}");
         failed++;
     }
 }
-// ── M4B definitions ──────────────────────────────────────────────────────────
+// â”€â”€ M4B definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
-// Scenarios 11–16 output to root of outputDir.
-// Scenarios 17–18 output to hp-series/ subfolder  (ingestion hinting).
-// Scenarios 19–20 output to expanse-audio/ subfolder (ingestion hinting).
+// Scenarios 11-16 output to the configured Books/Audiobooks watch folder.
+// Scenarios 17â€“18 output to hp-series/ subfolder  (ingestion hinting).
+// Scenarios 19â€“20 output to expanse-audio/ subfolder (ingestion hinting).
 //
 // Audiobook covers MUST be square (1:1 aspect ratio).
 
 var m4bsFlat = new M4bSpec[]
 {
-    // Scenario 11 — Same title, author, and series as dune.epub (#1).
-    //   Expected: joins the existing Dune Collection? — no new Collection created.
+    // Scenario 11 â€” Same title, author, and series as dune.epub (#1).
+    //   Expected: joins the existing Dune Collection? â€” no new Collection created.
     new("dune-audiobook.m4b",
         Title: "Dune",
         Artist: "Frank Herbert",         AlbumArtist: "Frank Herbert",
@@ -471,7 +544,7 @@ var m4bsFlat = new M4bSpec[]
         Series: "Dune Chronicles",       SeriesPos: "1",
         IncludeCover: false,             CoverHex: "#B5651D"),
 
-    // Scenario 12 — Narrator credited in ID3 comment tag.
+    // Scenario 12 â€” Narrator credited in ID3 comment tag.
     //   Expected: Narrator Person record created for Stephen Fry.
     new("hitchhikers-guide.m4b",
         Title: "The Hitchhiker's Guide to the Galaxy",
@@ -485,7 +558,7 @@ var m4bsFlat = new M4bSpec[]
         SeriesPos: "1",
         IncludeCover: true,              CoverHex: "#0097A7"),
 
-    // Scenario 13 — Narrator field contains two names joined by " and ".
+    // Scenario 13 â€” Narrator field contains two names joined by " and ".
     //   Expected: two separate Narrator Person records (one per name).
     new("wool-omnibus.m4b",
         Title: "Wool",
@@ -497,7 +570,7 @@ var m4bsFlat = new M4bSpec[]
         Series: "Silo",                  SeriesPos: "1",
         IncludeCover: true,              CoverHex: "#4E342E"),
 
-    // Scenario 14 — Audiobook with series, no embedded cover.
+    // Scenario 14 â€” Audiobook with series, no embedded cover.
     //   Expected: Hub created; cover fetched from provider (Audnexus / Apple Books).
     new("enders-game.m4b",
         Title: "Ender's Game",
@@ -509,8 +582,8 @@ var m4bsFlat = new M4bSpec[]
         Series: "Ender's Saga",          SeriesPos: "1",
         IncludeCover: false,             CoverHex: "#006064"),
 
-    // Scenario 15 — No ID3 tags at all (filename-only audiobook).
-    //   Expected: overall confidence < 0.40 → .orphans/ quarantine; review entry.
+    // Scenario 15 â€” No ID3 tags at all (filename-only audiobook).
+    //   Expected: overall confidence < 0.40 â†’ .orphans/ quarantine; review entry.
     new("echoes-filename-only.m4b",
         Title: "",                        Artist: "",
         AlbumArtist: "",                 Album: "",
@@ -520,8 +593,8 @@ var m4bsFlat = new M4bSpec[]
         Series: null,                    SeriesPos: null,
         IncludeCover: false,             CoverHex: "#212121"),
 
-    // Scenario 16 — PSEUDONYM: "Iain Banks" has pen name "Iain M. Banks"
-    //   (Wikidata Q14469 → P742 → Q214540).
+    // Scenario 16 â€” PSEUDONYM: "Iain Banks" has pen name "Iain M. Banks"
+    //   (Wikidata Q14469 â†’ P742 â†’ Q214540).
     //   Expected: pseudonym link discovered; both Person records linked.
     new("the-wasp-factory.m4b",
         Title: "The Wasp Factory",
@@ -534,18 +607,18 @@ var m4bsFlat = new M4bSpec[]
         IncludeCover: true,              CoverHex: "#4A0E0E"),
 };
 
-// ── Ingestion hinting — hp-series/ subdirectory ───────────────────────────────
+// â”€â”€ Ingestion hinting â€” hp-series/ subdirectory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Both files go into the same source subfolder.  The Engine primes a FolderHint
-// when the first file is ingested, then applies it to the second — skipping a
+// when the first file is ingested, then applies it to the second â€” skipping a
 // redundant Stage 1 SPARQL query and pre-assigning the second file to the same Collection.
 
-var hpSubdir = Path.Combine(outputDir, "hp-series");
+var hpSubdir = Path.Combine(booksDir, "hp-series");
 var tempHpSubdir = Path.Combine(tempDir, "hp-series");
 Directory.CreateDirectory(tempHpSubdir);
 var m4bsHpSeries = new M4bSpec[]
 {
-    // Scenario 17 — Harry Potter #1. First file in hp-series/ folder.
+    // Scenario 17 â€” Harry Potter #1. First file in hp-series/ folder.
     //   Expected: full three-stage pipeline; ingestion hint primed with HP Collection? ID + QID.
     new("harry-potter-philosophers-stone.m4b",
         Title: "Harry Potter and the Philosopher's Stone",
@@ -557,7 +630,7 @@ var m4bsHpSeries = new M4bSpec[]
         Series: "Harry Potter",          SeriesPos: "1",
         IncludeCover: true,              CoverHex: "#7B1FA2"),
 
-    // Scenario 18 — Harry Potter #2. Sibling in hp-series/ folder.
+    // Scenario 18 â€” Harry Potter #2. Sibling in hp-series/ folder.
     //   Expected: FolderHint applied from #17; Collection? pre-assigned; Stage 1 SPARQL skipped.
     new("harry-potter-chamber-of-secrets.m4b",
         Title: "Harry Potter and the Chamber of Secrets",
@@ -570,14 +643,14 @@ var m4bsHpSeries = new M4bSpec[]
         IncludeCover: true,              CoverHex: "#558B2F"),
 };
 
-// ── Ingestion hinting — expanse-audio/ subdirectory ──────────────────────────
+// â”€â”€ Ingestion hinting â€” expanse-audio/ subdirectory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-var expanseSubdir = Path.Combine(outputDir, "expanse-audio");
+var expanseSubdir = Path.Combine(booksDir, "expanse-audio");
 var tempExpanseSubdir = Path.Combine(tempDir, "expanse-audio");
 Directory.CreateDirectory(tempExpanseSubdir);
 var m4bsExpanse = new M4bSpec[]
 {
-    // Scenario 19 — The Expanse #1. First file in expanse-audio/ folder.
+    // Scenario 19 â€” The Expanse #1. First file in expanse-audio/ folder.
     //   Expected: full pipeline; hint primed with Expanse Collection? ID + bridge IDs.
     new("leviathan-wakes-audio.m4b",
         Title: "Leviathan Wakes",
@@ -589,7 +662,7 @@ var m4bsExpanse = new M4bSpec[]
         Series: "The Expanse",           SeriesPos: "1",
         IncludeCover: true,              CoverHex: "#0D47A1"),
 
-    // Scenario 20 — The Expanse #2. Sibling in expanse-audio/ folder.
+    // Scenario 20 â€” The Expanse #2. Sibling in expanse-audio/ folder.
     //   Expected: FolderHint applied from #19; same Collection; Stage 1 SPARQL skipped.
     new("calibans-war-audio.m4b",
         Title: "Caliban's War",
@@ -602,14 +675,14 @@ var m4bsExpanse = new M4bSpec[]
         IncludeCover: true,              CoverHex: "#1565C0"),
 };
 
-// ── Generate M4Bs ─────────────────────────────────────────────────────────────
+// â”€â”€ Generate M4Bs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 Console.WriteLine();
-Console.WriteLine($"━━━ M4Bs flat (scenarios 11–16) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"â”â”â” M4Bs flat (scenarios 11â€“16) â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
 
 if (ffmpegPath is null)
 {
-    Console.WriteLine("  ✗  FFmpeg not found — cannot create M4B files.");
+    Console.WriteLine("  âœ—  FFmpeg not found â€” cannot create M4B files.");
     Console.WriteLine("     Run: powershell -ExecutionPolicy Bypass -File tools/Download-FFmpeg.ps1");
     failed += m4bsFlat.Length + m4bsHpSeries.Length + m4bsExpanse.Length;
 }
@@ -619,25 +692,25 @@ else
     {
         var num      = 11 + idx;
         var outPath  = Path.Combine(tempDir, spec.FileName);
-        var finalPath = Path.Combine(outputDir, spec.FileName);
+        var finalPath = Path.Combine(booksDir, spec.FileName);
         try
         {
             byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
             generatedFiles.Add((outPath, finalPath));
-            Console.WriteLine($"  ✓  [{num,2}] {spec.FileName,-46} {(cover is not null ? "[sq cover]" : "[no cover]")}");
+            Console.WriteLine($"  âœ“  [{num,2}] {spec.FileName,-46} {(cover is not null ? "[sq cover]" : "[no cover]")}");
             manifest.Add(new(num, spec.FileName, "m4b", $"Scenario {num}"));
             total++;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  ✗  [{num,2}] {spec.FileName}: {ex.Message}");
+            Console.WriteLine($"  âœ—  [{num,2}] {spec.FileName}: {ex.Message}");
             failed++;
         }
     }
 
     Console.WriteLine();
-    Console.WriteLine($"━━━ M4Bs hp-series/ (scenarios 17–18, ingestion hinting) ━━━━━━━━━━━━━━━━━━━");
+    Console.WriteLine($"â”â”â” M4Bs hp-series/ (scenarios 17â€“18, ingestion hinting) â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
     Directory.CreateDirectory(hpSubdir);
 
     foreach (var (spec, idx) in m4bsHpSeries.Select((s, i) => (s, i)))
@@ -650,19 +723,19 @@ else
             byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
             generatedFiles.Add((outPath, finalPath));
-            Console.WriteLine($"  ✓  [{num,2}] hp-series/{spec.FileName,-38} {(cover is not null ? "[sq cover]" : "[no cover]")}");
+            Console.WriteLine($"  âœ“  [{num,2}] hp-series/{spec.FileName,-38} {(cover is not null ? "[sq cover]" : "[no cover]")}");
             manifest.Add(new(num, $"hp-series/{spec.FileName}", "m4b", $"Scenario {num}"));
             total++;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  ✗  [{num,2}] hp-series/{spec.FileName}: {ex.Message}");
+            Console.WriteLine($"  âœ—  [{num,2}] hp-series/{spec.FileName}: {ex.Message}");
             failed++;
         }
     }
 
     Console.WriteLine();
-    Console.WriteLine($"━━━ M4Bs expanse-audio/ (scenarios 19–20, ingestion hinting) ━━━━━━━━━━━━━━");
+    Console.WriteLine($"â”â”â” M4Bs expanse-audio/ (scenarios 19â€“20, ingestion hinting) â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
     Directory.CreateDirectory(expanseSubdir);
 
     foreach (var (spec, idx) in m4bsExpanse.Select((s, i) => (s, i)))
@@ -675,36 +748,36 @@ else
             byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
             generatedFiles.Add((outPath, finalPath));
-            Console.WriteLine($"  ✓  [{num,2}] expanse-audio/{spec.FileName,-34} {(cover is not null ? "[sq cover]" : "[no cover]")}");
+            Console.WriteLine($"  âœ“  [{num,2}] expanse-audio/{spec.FileName,-34} {(cover is not null ? "[sq cover]" : "[no cover]")}");
             manifest.Add(new(num, $"expanse-audio/{spec.FileName}", "m4b", $"Scenario {num}"));
             total++;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  ✗  [{num,2}] expanse-audio/{spec.FileName}: {ex.Message}");
+            Console.WriteLine($"  âœ—  [{num,2}] expanse-audio/{spec.FileName}: {ex.Message}");
             failed++;
         }
     }
 }
 
-// ── Movie-series fixtures ──────────────────────────────────────────────────
+// â”€â”€ Movie-series fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Scenarios 33-37 add real movie-series shapes with IMDb bridge IDs in the
 // path. The video processor reads filename/year, and OrganizationHintParser
 // seeds the bridge identifiers for provider matching.
 var movieSeries = new VideoSpec[]
 {
-    new(33, Path.Combine("movies", "dune-films"), "Dune Part One (2021) {imdb-tt1160419}.mp4", "Dune: Part One", "2021", "Science Fiction", "#6D4C41"),
-    new(34, Path.Combine("movies", "dune-films"), "Dune Part Two (2024) {imdb-tt15239678}.mp4", "Dune: Part Two", "2024", "Science Fiction", "#A66A2E"),
-    new(35, Path.Combine("movies", "middle-earth"), "The Lord of the Rings The Fellowship of the Ring (2001) {imdb-tt0120737}.mp4", "The Lord of the Rings: The Fellowship of the Ring", "2001", "Fantasy", "#2E5E3F"),
-    new(36, Path.Combine("movies", "middle-earth"), "The Lord of the Rings The Two Towers (2002) {imdb-tt0167261}.mp4", "The Lord of the Rings: The Two Towers", "2002", "Fantasy", "#455A64"),
-    new(37, Path.Combine("movies", "middle-earth"), "The Lord of the Rings The Return of the King (2003) {imdb-tt0167260}.mp4", "The Lord of the Rings: The Return of the King", "2003", "Fantasy", "#795548"),
+    new(33, "dune-films", "Dune Part One (2021) {imdb-tt1160419}.mp4", "Dune: Part One", "2021", "Science Fiction", "#6D4C41"),
+    new(34, "dune-films", "Dune Part Two (2024) {imdb-tt15239678}.mp4", "Dune: Part Two", "2024", "Science Fiction", "#A66A2E"),
+    new(35, "middle-earth", "The Lord of the Rings The Fellowship of the Ring (2001) {imdb-tt0120737}.mp4", "The Lord of the Rings: The Fellowship of the Ring", "2001", "Fantasy", "#2E5E3F"),
+    new(36, "middle-earth", "The Lord of the Rings The Two Towers (2002) {imdb-tt0167261}.mp4", "The Lord of the Rings: The Two Towers", "2002", "Fantasy", "#455A64"),
+    new(37, "middle-earth", "The Lord of the Rings The Return of the King (2003) {imdb-tt0167260}.mp4", "The Lord of the Rings: The Return of the King", "2003", "Fantasy", "#795548"),
 };
 
 Console.WriteLine();
-Console.WriteLine($"━━━ MP4 movie-series fixtures (scenarios 33-37) ━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"â”â”â” MP4 movie-series fixtures (scenarios 33-37) â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
 if (ffmpegPath is null)
 {
-    Console.WriteLine("  ✗  FFmpeg not found — cannot create MP4 files.");
+    Console.WriteLine("  âœ—  FFmpeg not found â€” cannot create MP4 files.");
     failed += movieSeries.Length;
 }
 else
@@ -712,7 +785,7 @@ else
     foreach (var spec in movieSeries)
     {
         var tempMovieDir = Path.Combine(tempDir, spec.Subdir);
-        var finalMovieDir = Path.Combine(outputDir, spec.Subdir);
+        var finalMovieDir = Path.Combine(moviesDir, spec.Subdir);
         Directory.CreateDirectory(tempMovieDir);
         var outPath = Path.Combine(tempMovieDir, spec.FileName);
         var finalPath = Path.Combine(finalMovieDir, spec.FileName);
@@ -721,49 +794,195 @@ else
             CreateMp4(ffmpegPath, outPath, spec);
             generatedFiles.Add((outPath, finalPath));
             var displayPath = Path.Combine(spec.Subdir, spec.FileName).Replace('\\', '/');
-            Console.WriteLine($"  ✓  [{spec.Scenario,2}] {displayPath}");
-            manifest.Add(new(spec.Scenario, displayPath, "mp4", $"Scenario {spec.Scenario} — movie series"));
+            Console.WriteLine($"  âœ“  [{spec.Scenario,2}] {displayPath}");
+            manifest.Add(new(spec.Scenario, displayPath, "mp4", $"Scenario {spec.Scenario} â€” movie series"));
             total++;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  ✗  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
+            Console.WriteLine($"  âœ—  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
             failed++;
         }
     }
 }
-// ── Batch copy to output ───────────────────────────────────────────────
+// â”€â”€ Batch copy to output â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+var tvSeries = new VideoSpec[]
+{
+    new(38, Path.Combine("breaking-bad", "Season 01"), "Breaking Bad S01E01 Pilot (2008) {imdb-tt0959621}.mp4", "Breaking Bad: Pilot", "2008", "Drama", "#2E7D32"),
+    new(39, Path.Combine("breaking-bad", "Season 01"), "Breaking Bad S01E02 Cat's in the Bag (2008) {imdb-tt1054724}.mp4", "Breaking Bad: Cat's in the Bag", "2008", "Drama", "#33691E"),
+};
+
+var musicTracks = new MusicSpec[]
+{
+    new(40, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "01 Five Years.mp3", "Five Years", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "1"),
+    new(41, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "02 Soul Love.mp3", "Soul Love", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "2"),
+};
+
+var comics = new ComicSpec[]
+{
+    new(42, "watchmen", "Watchmen 001 (1986).cbz", "Watchmen", "1", "Alan Moore", "Dave Gibbons", "1986"),
+    new(43, "watchmen", "Watchmen 002 (1986).cbz", "Watchmen", "2", "Alan Moore", "Dave Gibbons", "1986"),
+};
+
 Console.WriteLine();
-Console.WriteLine($"━━━ Copying {generatedFiles.Count} files to watch folder ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine("TV fixtures (scenarios 38-39)");
+if (ffmpegPath is null)
+{
+    Console.WriteLine("  FFmpeg not found - cannot create TV MP4 files.");
+    failed += tvSeries.Length;
+}
+else
+{
+    foreach (var spec in tvSeries)
+    {
+        var tempTvDir = Path.Combine(tempDir, "tv", spec.Subdir);
+        var finalTvDir = Path.Combine(tvDir, spec.Subdir);
+        Directory.CreateDirectory(tempTvDir);
+        var outPath = Path.Combine(tempTvDir, spec.FileName);
+        var finalPath = Path.Combine(finalTvDir, spec.FileName);
+        try
+        {
+            CreateMp4(ffmpegPath, outPath, spec);
+            generatedFiles.Add((outPath, finalPath));
+            var displayPath = Path.Combine("tv", spec.Subdir, spec.FileName).Replace('\\', '/');
+            Console.WriteLine($"  [{spec.Scenario,2}] {displayPath}");
+            manifest.Add(new(spec.Scenario, displayPath, "mp4", $"Scenario {spec.Scenario} - TV episode"));
+            total++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
+            failed++;
+        }
+    }
+}
+
+Console.WriteLine();
+Console.WriteLine("Music fixtures (scenarios 40-41)");
+if (ffmpegPath is null)
+{
+    Console.WriteLine("  FFmpeg not found - cannot create MP3 files.");
+    failed += musicTracks.Length;
+}
+else
+{
+    foreach (var spec in musicTracks)
+    {
+        var tempMusicDir = Path.Combine(tempDir, "music", spec.Subdir);
+        var finalMusicDir = Path.Combine(musicDir, spec.Subdir);
+        Directory.CreateDirectory(tempMusicDir);
+        var outPath = Path.Combine(tempMusicDir, spec.FileName);
+        var finalPath = Path.Combine(finalMusicDir, spec.FileName);
+        try
+        {
+            CreateMp3(ffmpegPath, outPath, spec);
+            generatedFiles.Add((outPath, finalPath));
+            var displayPath = Path.Combine("music", spec.Subdir, spec.FileName).Replace('\\', '/');
+            Console.WriteLine($"  [{spec.Scenario,2}] {displayPath}");
+            manifest.Add(new(spec.Scenario, displayPath, "mp3", $"Scenario {spec.Scenario} - music track"));
+            total++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
+            failed++;
+        }
+    }
+}
+
+Console.WriteLine();
+Console.WriteLine("Comic fixtures (scenarios 42-43)");
+foreach (var spec in comics)
+{
+    var tempComicDir = Path.Combine(tempDir, "comics", spec.Subdir);
+    var finalComicDir = Path.Combine(comicsDir, spec.Subdir);
+    Directory.CreateDirectory(tempComicDir);
+    var outPath = Path.Combine(tempComicDir, spec.FileName);
+    var finalPath = Path.Combine(finalComicDir, spec.FileName);
+    try
+    {
+        CreateCbz(outPath, spec);
+        generatedFiles.Add((outPath, finalPath));
+        var displayPath = Path.Combine("comics", spec.Subdir, spec.FileName).Replace('\\', '/');
+        Console.WriteLine($"  [{spec.Scenario,2}] {displayPath}");
+        manifest.Add(new(spec.Scenario, displayPath, "cbz", $"Scenario {spec.Scenario} - comic issue"));
+        total++;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
+        failed++;
+    }
+}
+
+Console.WriteLine();
+Console.WriteLine("General drop fixture (scenario 44)");
+{
+    const int num = 44;
+    var outPath = Path.Combine(tempDir, "unsorted-field-note.txt");
+    var finalPath = Path.Combine(generalDir, "unsorted-field-note.txt");
+    try
+    {
+        File.WriteAllText(outPath, "Tuvima Library general drop-zone smoke fixture.");
+        generatedFiles.Add((outPath, finalPath));
+        Console.WriteLine($"  [{num,2}] unsorted-field-note.txt");
+        manifest.Add(new(num, "unsorted-field-note.txt", "txt", "Scenario 44 - general drop zone"));
+        total++;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  [{num,2}] unsorted-field-note.txt: {ex.Message}");
+        failed++;
+    }
+}
+
+Console.WriteLine();
+Console.WriteLine($"â”â”â” Copying {generatedFiles.Count} files to watch folder â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
 foreach (var (src, dst) in generatedFiles)
 {
     var dir = Path.GetDirectoryName(dst);
     if (dir is not null) Directory.CreateDirectory(dir);
     File.Copy(src, dst, overwrite: true);
 }
-Console.WriteLine($"  ✓  {generatedFiles.Count} files copied to {outputDir}");
+Console.WriteLine($"  âœ“  {generatedFiles.Count} files copied to {watchRoot}");
 
-// ── Clean up temp ─────────────────────────────────────────────────────────────
+// â”€â”€ Clean up temp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 try { Directory.Delete(tempDir, recursive: true); } catch { }
 
-// ── Write MANIFEST.json ───────────────────────────────────────────────────────
+// â”€â”€ Write MANIFEST.json â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Write MANIFEST.json one level above the watch directory so it is not
 // picked up as a media file by the Engine's watch folder monitor.
-var manifestParent = Directory.GetParent(outputDir)?.FullName ?? outputDir;
-var manifestPath = Path.Combine(manifestParent, "MANIFEST.json");
+var manifestPath = Path.Combine(watchRoot, "MANIFEST.json");
 var manifestJson = JsonSerializer.Serialize(new
 {
     generated_at = DateTimeOffset.UtcNow.ToString("O"),
-    output_directory = outputDir,
+    watch_root = watchRoot,
+    books_directory = booksDir,
+    movies_directory = moviesDir,
+    tv_directory = tvDir,
+    music_directory = musicDir,
+    comics_directory = comicsDir,
     total_files = total,
-    files = manifest.Select(m => new { scenario = m.Scenario, path = m.Path, type = m.Type, note = m.Note })
+    files = manifest.Select(m => new { scenario = m.Scenario, path = m.Path, type = m.Type, note = m.Note }),
+    expected_person_enrichment = expectedPeople.Select(p => new
+    {
+        name = p.Name,
+        expected_wikidata_qid = p.ExpectedWikidataQid,
+        minimum_owned_credits = p.MinimumOwnedCredits,
+        minimum_media_items = p.MinimumMediaItems,
+        expected_media_types = p.ExpectedMediaTypes,
+        expected_titles = p.ExpectedTitles,
+        require_biography = p.RequireBiography,
+        require_headshot = p.RequireHeadshot,
+        note = p.Note
+    })
 }, new JsonSerializerOptions { WriteIndented = true });
 File.WriteAllText(manifestPath, manifestJson);
 
-// ── Summary ───────────────────────────────────────────────────────────────────
+// â”€â”€ Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Console.WriteLine();
-Console.WriteLine($"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-Console.WriteLine($"  Generated : {total} / 37");
+Console.WriteLine($"â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
+Console.WriteLine($"  Generated : {total} / 44");
 if (failed > 0) Console.WriteLine($"  Failed    : {failed}");
 Console.WriteLine($"  Manifest  : {manifestPath}");
 Console.WriteLine();
@@ -772,7 +991,7 @@ Console.WriteLine("  1. Ensure the Engine is running  (dotnet run --project src/
 Console.WriteLine("  2. The Engine watches the output directory automatically.");
 Console.WriteLine("  3. Check results at http://localhost:61495/swagger or the Dashboard.");
 Console.WriteLine();
-Console.WriteLine($"━━━ Test Coverage Summary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+Console.WriteLine($"â”â”â” Test Coverage Summary â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
 Console.WriteLine($"  Confidence gates     : 4 scenarios (1, 2, 8, 15)");
 Console.WriteLine($"  Series & position    : 4 scenarios (4, 5, 17, 18)");
 Console.WriteLine($"  Pseudonyms           : 5 scenarios (5, 6, 7, 16, 21)");
@@ -784,14 +1003,16 @@ Console.WriteLine($"  Title disambiguation : 4 scenarios (3, 22, 23, 28)");
 Console.WriteLine($"  Foreign language     : 3 scenarios (24, 25, 26)");
 Console.WriteLine($"  Multi-author         : 2 scenarios (29, 30)");
 Console.WriteLine($"  Same-author diff-work: 1 scenario  (27)");
-Console.WriteLine($"  Total: 37 files covering 13 test categories");
+Console.WriteLine($"  All media watch roots: 7 scenarios (38-44)");
+Console.WriteLine($"  Repeated-person checks: {expectedPeople.Length} people declared in MANIFEST.json");
+Console.WriteLine($"  Total: 44 files covering 14 test categories");
 Console.WriteLine();
 
 return failed > 0 ? 1 : 0;
 
-// ═════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Helpers
-// ═════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 static string? FindFfmpeg()
 {
@@ -911,6 +1132,46 @@ static void CreateMp4(string ffmpegPath, string outPath, VideoSpec spec)
         $"\"{outPath}\"";
     RunFfmpeg(ffmpegPath, args);
 }
+
+static void CreateMp3(string ffmpegPath, string outPath, MusicSpec spec)
+{
+    var args =
+        $"-y -f lavfi -i \"anullsrc=r=44100:cl=stereo\" -t 12 " +
+        "-c:a libmp3lame -b:a 128k " +
+        $"-metadata title={Q(spec.Title)} " +
+        $"-metadata artist={Q(spec.Artist)} " +
+        $"-metadata album={Q(spec.Album)} " +
+        $"-metadata date={Q(spec.Year)} " +
+        $"-metadata genre={Q(spec.Genre)} " +
+        $"-metadata track={Q(spec.TrackNum)} " +
+        $"\"{outPath}\"";
+    RunFfmpeg(ffmpegPath, args);
+}
+
+static void CreateCbz(string outPath, ComicSpec spec)
+{
+    if (File.Exists(outPath)) File.Delete(outPath);
+
+    using var fs = new FileStream(outPath, FileMode.Create);
+    using var zip = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: false);
+    AddText(zip, "ComicInfo.xml", $"""
+        <?xml version="1.0" encoding="utf-8"?>
+        <ComicInfo>
+          <Series>{Esc(spec.Series)}</Series>
+          <Number>{Esc(spec.IssueNumber)}</Number>
+          <Title>{Esc(spec.Series)} #{Esc(spec.IssueNumber)}</Title>
+          <Writer>{Esc(spec.Writer)}</Writer>
+          <Penciller>{Esc(spec.Artist)}</Penciller>
+          <Year>{Esc(spec.Year)}</Year>
+          <Publisher>DC Comics</Publisher>
+        </ComicInfo>
+        """);
+
+    var pageEntry = zip.CreateEntry("page-001.png", CompressionLevel.Optimal);
+    using var pageStream = pageEntry.Open();
+    pageStream.Write(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGNkYGBgAAAABAABJzQnCgAAAABJRU5ErkJggg=="));
+}
+
 static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
 {
     if (File.Exists(outputPath)) File.Delete(outputPath);
@@ -1032,7 +1293,7 @@ static void CreateEpub(string outputPath, EpubSpec spec, byte[]? coverBytes)
           <body>
             <h1>{Esc(spec.Title)}</h1>
             <p>Test EPUB for Tuvima Library pipeline validation.</p>
-            <p>Author: {authorLine} — Year: {Esc(spec.Year ?? "Unknown")}</p>
+            <p>Author: {authorLine} â€” Year: {Esc(spec.Year ?? "Unknown")}</p>
           </body>
         </html>
         """);
@@ -1049,7 +1310,7 @@ static string Esc(string? s) =>
     (s ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;")
              .Replace("\"", "&quot;").Replace("'", "&apos;");
 
-// ── Record types ──────────────────────────────────────────────────────────────
+// â”€â”€ Record types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 record EpubSpec(
     string FileName,
@@ -1091,4 +1352,36 @@ record VideoSpec(
     string Genre,
     string ColorHex);
 
+record MusicSpec(
+    int Scenario,
+    string Subdir,
+    string FileName,
+    string Title,
+    string Artist,
+    string Album,
+    string Year,
+    string Genre,
+    string TrackNum);
+
+record ComicSpec(
+    int Scenario,
+    string Subdir,
+    string FileName,
+    string Series,
+    string IssueNumber,
+    string Writer,
+    string Artist,
+    string Year);
+
 record ManifestEntry(int Scenario, string Path, string Type, string Note);
+
+record ExpectedPersonEntry(
+    string Name,
+    string? ExpectedWikidataQid,
+    int MinimumOwnedCredits,
+    int MinimumMediaItems,
+    string[] ExpectedMediaTypes,
+    string[] ExpectedTitles,
+    bool RequireBiography,
+    bool RequireHeadshot,
+    string Note);

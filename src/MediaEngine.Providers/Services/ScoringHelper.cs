@@ -181,6 +181,12 @@ public static class ScoringHelper
                                  && c.ClaimKey.Equals(qidKey, StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
+                    qidClaims = FilterCollectivePseudonymMemberQids(
+                        fieldScore.Key,
+                        allClaims,
+                        fieldScore.WinningProviderId,
+                        qidClaims);
+
                     var entries = BuildCanonicalArrayEntries(winningClaims, qidClaims);
                     if (entries.Count == 0)
                         continue;
@@ -217,6 +223,43 @@ public static class ScoringHelper
         }
 
         return scored;
+    }
+
+    private static List<MetadataClaim> FilterCollectivePseudonymMemberQids(
+        string key,
+        IReadOnlyList<MetadataClaim> allClaims,
+        Guid? winningProviderId,
+        IReadOnlyList<MetadataClaim> qidClaims)
+    {
+        if (!key.Equals(MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase)
+            || qidClaims.Count <= 1)
+            return qidClaims.ToList();
+
+        var isCollectivePseudonym = allClaims.Any(c =>
+            c.ProviderId == winningProviderId
+            && c.ClaimKey.Equals("author_is_collective_pseudonym", StringComparison.OrdinalIgnoreCase)
+            && c.ClaimValue.Equals("true", StringComparison.OrdinalIgnoreCase));
+        if (!isCollectivePseudonym)
+            return qidClaims.ToList();
+
+        var memberQids = allClaims
+            .Where(c => c.ProviderId == winningProviderId
+                && c.ClaimKey.Equals("collective_members_qid", StringComparison.OrdinalIgnoreCase))
+            .Select(c => ParseQidLabel(c.ClaimValue).Qid)
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (memberQids.Count == 0)
+            return qidClaims.ToList();
+
+        var filtered = qidClaims
+            .Where(claim =>
+            {
+                var parsed = ParseQidLabel(claim.ClaimValue);
+                return string.IsNullOrWhiteSpace(parsed.Qid) || !memberQids.Contains(parsed.Qid);
+            })
+            .ToList();
+
+        return filtered.Count > 0 ? filtered : qidClaims.ToList();
     }
 
     private static List<CanonicalArrayEntry> BuildCanonicalArrayEntries(
