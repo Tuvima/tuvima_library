@@ -62,6 +62,7 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         {
             var router = new MediaProcessorRouter();
             router.Register(new EpubProcessor());
+            router.Register(new PdfProcessor());
             router.Register(new AudioProcessor());
             router.Register(new VideoProcessor(sp.GetRequiredService<IVideoMetadataExtractor>()));
             router.Register(new ComicProcessor());

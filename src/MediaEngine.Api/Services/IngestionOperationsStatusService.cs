@@ -236,7 +236,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         Stage("organized", "Organized", Count(ingestionRows, "registered"), "Rename and folder operations completed"),
         Stage("registered", "Registered", lifecycle.Identified, "Ready in the library"),
         Stage("needs_review", "Needs Review", lifecycle.InReview, "Waiting for a curator decision"),
-        Stage("failed", "Failed", Count(pipelineRows, nameof(IdentityJobState.Failed)) + Count(ingestionRows, "failed"), "Could not finish automatically"),
+        Stage("duplicate", "Duplicates", Count(ingestionRows, "duplicate") + Count(ingestionRows, "same_path_redetected"), "Files already tracked or identical to an existing item"),
+        Stage("skipped", "Skipped", Count(ingestionRows, "skipped_non_media"), "Non-media sidecars ignored"),
+        Stage("failed", "Failed", Count(pipelineRows, nameof(IdentityJobState.Failed)) + Count(ingestionRows, "failed") + Count(ingestionRows, "missing"), "Could not finish automatically"),
     ];
 
     private static List<IngestionReviewReasonDto> BuildReviewReasons(

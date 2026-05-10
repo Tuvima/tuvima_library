@@ -112,7 +112,7 @@ for fields that vary in quality (descriptions, genres).
     "api_key_param_name": null         // Query param name when delivery = "query_param"
   },
 
-  "requires_api_key": false       // Shown in Setup Wizard
+  "requires_api_key": false       // Shown in setup/provider readiness
 }
 ```
 
@@ -526,7 +526,7 @@ GET http://localhost:61495/swagger  â†’ Providers section â†’ GET /set
 | `throttle_ms` | int | no | 250 | Min ms between requests |
 | `max_concurrency` | int | no | 1 | Parallel request cap |
 | `cache_ttl_hours` | int? | no | null | null = no caching |
-| `requires_api_key` | bool | no | false | Shown in Setup Wizard |
+| `requires_api_key` | bool | no | false | Shown in setup/provider readiness |
 | `language_strategy` | string | no | `"source"` | source / localized / both |
 | `preferred_bridge_ids` | object | no | â€” | Keys used by Wikidata Stage 2 |
 

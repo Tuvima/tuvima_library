@@ -7,7 +7,7 @@ namespace MediaEngine.Processors.Processors;
 
 /// <summary>
 /// Identifies and extracts metadata from audio container formats
-/// (MP3, M4A/M4B, FLAC, OGG, WAV).
+/// (MP3, M4A/M4B, FLAC, OGG, WAV, AAC).
 ///
 /// ──────────────────────────────────────────────────────────────────
 /// Format detection (magic bytes)
@@ -42,7 +42,7 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
     // ── Magic-byte detection ─────────────────────────────────────────────
 
-    private enum AudioContainer { Unknown, Mp3, M4a, M4b, Flac, Ogg, Wav }
+    private enum AudioContainer { Unknown, Mp3, M4a, M4b, Flac, Ogg, Wav, Aac }
 
     /// <inheritdoc/>
     public bool CanProcess(string filePath)
@@ -132,6 +132,12 @@ public sealed partial class AudioProcessor : IMediaProcessor
             // MP3: ID3v2 header (49 44 33 = "ID3")
             if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33)
                 return AudioContainer.Mp3;
+
+            // AAC ADTS: sync word FF F1/F9.
+            if (string.Equals(Path.GetExtension(filePath), ".aac", StringComparison.OrdinalIgnoreCase)
+                && header[0] == 0xFF
+                && (header[1] & 0xF6) == 0xF0)
+                return AudioContainer.Aac;
 
             // MP3: MPEG sync word (FF Fx where x >= B0)
             if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0)
@@ -303,6 +309,7 @@ public sealed partial class AudioProcessor : IMediaProcessor
             AudioContainer.Flac => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "FLAC format (lossless music)" }],
             AudioContainer.Ogg  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "OGG format (music)" }],
             AudioContainer.Wav  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "WAV format (uncompressed audio)" }],
+            AudioContainer.Aac  => [new() { Type = MediaType.Music,      Confidence = 0.90, Reason = "AAC audio stream" }],
 
             // MP3 and M4A are ambiguous (could be audiobook or music).
             // Use tag-based heuristics to produce candidates when signals are present.

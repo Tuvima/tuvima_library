@@ -914,19 +914,19 @@
   </data>
   <!-- â”€â”€ Setup Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
   <data name="Setup_PageTitle" xml:space="preserve">
-    <value>Setup Wizard</value>
+    <value>Setup checklist</value>
   </data>
   <data name="Setup_PageDescription" xml:space="preserve">
-    <value>Revisit the initial setup steps or review your current server configuration at a glance.</value>
+    <value>Review Engine connection, folders, providers, optional Local AI status, scan state, and review work.</value>
   </data>
   <data name="Setup_RerunTitle" xml:space="preserve">
-    <value>Re-run Setup Wizard</value>
+    <value>Setup checklist</value>
   </data>
   <data name="Setup_RerunDescription" xml:space="preserve">
-    <value>Walk through library path selection, provider configuration, and AI model download again. Your existing library data is never touched.</value>
+    <value>Review library paths, provider readiness, and optional AI status. The guided setup checklist is planned for a later phase.</value>
   </data>
   <data name="Setup_RunWizard" xml:space="preserve">
-    <value>Run Wizard</value>
+    <value>Setup checklist planned</value>
   </data>
   <data name="Setup_CurrentConfiguration" xml:space="preserve">
     <value>Current Configuration</value>

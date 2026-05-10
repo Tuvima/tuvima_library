@@ -80,7 +80,7 @@ public sealed class Phase1SetupReadinessTests : TestContext
     }
 
     [Fact]
-    public void SetupPage_DoesNotUseFakeProviderFallback()
+    public void SetupPage_DoesNotShowFakeProviderFallbackAsConfigured()
     {
         Services.AddSingleton<IEngineApiClient>(EngineApiClientStub.Create(stub =>
         {
@@ -96,6 +96,28 @@ public sealed class Phase1SetupReadinessTests : TestContext
             Assert.DoesNotContain("Apple API", cut.Markup);
             Assert.DoesNotContain("MusicBrainz", cut.Markup);
             Assert.DoesNotContain("Fanart.tv", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void SetupPage_DoesNotShowFakeAiReadiness()
+    {
+        Services.AddSingleton<IEngineApiClient>(EngineApiClientStub.Create(stub =>
+        {
+            stub.SetHandler(nameof(IEngineApiClient.GetAiProfileAsync),
+                _ => Task.FromResult<HardwareProfileDto?>(null));
+            stub.SetHandler(nameof(IEngineApiClient.GetResourceSnapshotAsync),
+                _ => Task.FromResult<ResourceSnapshotDto?>(null));
+        }));
+
+        var cut = RenderComponent<SetupTab>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Local AI status is unavailable or not configured", cut.Markup);
+            Assert.DoesNotContain("Llama", cut.Markup);
+            Assert.DoesNotContain("Whisper", cut.Markup);
+            Assert.DoesNotContain("Run Wizard", cut.Markup);
         });
     }
 

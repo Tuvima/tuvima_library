@@ -315,10 +315,14 @@
             ? _reviewCount
             : 0;
 
-    private static string? GetItemMeta(SettingsItemDef item)
+    private static string? GetItemMeta(SettingsItemDef item) => item.Value switch
     {
-        return item.Placeholder ? "Planned" : null;
-    }
+        SettingsSection.LocalAi => "Partial",
+        SettingsSection.Delivery => "Partial",
+        SettingsSection.Plugins => "Planned",
+        SettingsSection.Access => "Partial",
+        _ => item.Placeholder ? "Planned" : null,
+    };
 
     private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
 

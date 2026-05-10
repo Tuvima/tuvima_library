@@ -187,6 +187,50 @@ public class MediaProcessorRouterTests : IDisposable
 
         Assert.Equal(MediaType.Unknown, result1.DetectedType);
     }
+
+    [Fact]
+    public async Task ProcessAsync_RoutesPdfToBooks()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"phase2_{Guid.NewGuid():N}.pdf");
+        await File.WriteAllBytesAsync(file, "%PDF-1.7\n%%EOF"u8.ToArray());
+
+        try
+        {
+            _libraryItem.Register(new PdfProcessor());
+            _libraryItem.Register(new GenericFileProcessor());
+
+            var result = await _libraryItem.ProcessAsync(file);
+
+            Assert.Equal(MediaType.Books, result.DetectedType);
+            Assert.Contains(result.Claims, c => c.Key == "container" && c.Value == "PDF");
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
+    public async Task ProcessAsync_RoutesAacToMusicCandidate()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"phase2_{Guid.NewGuid():N}.aac");
+        await File.WriteAllBytesAsync(file, [0xFF, 0xF1, 0x50, 0x80, 0x00, 0x1F, 0xFC]);
+
+        try
+        {
+            _libraryItem.Register(new AudioProcessor());
+            _libraryItem.Register(new GenericFileProcessor());
+
+            var result = await _libraryItem.ProcessAsync(file);
+
+            Assert.Equal(MediaType.Music, result.DetectedType);
+            Assert.Contains(result.MediaTypeCandidates, c => c.Type == MediaType.Music);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
 }
 
 // ════════════════════════════════════════════════════════════════════════

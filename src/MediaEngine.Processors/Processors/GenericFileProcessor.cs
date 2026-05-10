@@ -35,7 +35,8 @@ public sealed class GenericFileProcessor : IMediaProcessor
     private static readonly HashSet<string> KnownFormatExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".epub",
-        ".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".wav",
+        ".pdf",
+        ".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".wav", ".aac",
         ".mp4", ".mkv", ".avi", ".webm",
         ".cbz", ".cbr",
     };

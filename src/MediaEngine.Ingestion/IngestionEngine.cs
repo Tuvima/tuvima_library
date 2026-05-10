@@ -433,7 +433,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         await folderLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-        await ProcessCandidateCoreAsync(candidate, ct).ConfigureAwait(false);
+            await ProcessCandidateCoreAsync(candidate, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await RecordUnhandledCandidateFailureAsync(candidate, ex, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -460,6 +464,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             if (candidate.BatchId.HasValue)
             {
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
+                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
                 await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
             }
             return;
@@ -474,7 +479,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         if (!File.Exists(candidate.Path))
         {
-            _logger.LogWarning("Ingestion skipped — file missing: \"{FileName}\"", Path.GetFileName(candidate.Path));
+            var reason = "The file was detected but is no longer available. It may have been moved, deleted, or locked before ingestion could read it.";
+            _logger.LogWarning("Ingestion skipped - file missing: \"{FileName}\"", Path.GetFileName(candidate.Path));
+            await RecordTerminalLogAsync(
+                candidate,
+                ingestionRunId,
+                "missing",
+                reason,
+                ct).ConfigureAwait(false);
+            if (candidate.BatchId.HasValue)
+            {
+                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
+                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
+                await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
+            }
             return;
         }
 
@@ -539,7 +557,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // (e.g. it scored below the confidence gate on first pass, or LibraryRoot
         // was not configured at that time), attempt to organize it now — metadata
         // may have been enriched by external providers since the initial scan.
-        // Hash lock scope: covers duplicate check ? DB insert ? organization.
+        // Hash lock scope: covers duplicate check, DB insert, and organization.
         // Prevents race conditions when identical files arrive simultaneously.
         // Defense-in-depth: DB uses INSERT OR IGNORE on content_hash UNIQUE constraint.
         var hashLock = _concurrencyGuard.GetHashLock(hash.Hex);
@@ -588,6 +606,29 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                     try
                     {
+                        await _ingestionLog.UpdateStatusAsync(
+                            logEntryId,
+                            "duplicate",
+                            contentHash: hash.Hex,
+                            mediaAssetId: existing.Id,
+                            errorDetail: $"Duplicate of existing file: {existing.FilePathRoot}",
+                            ct: ct).ConfigureAwait(false);
+                        await PublishItemProgressAsync(
+                            candidate,
+                            logEntryId,
+                            "duplicate",
+                            100,
+                            true,
+                            ct,
+                            existing.Id).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Ingestion duplicate log update failed - continuing");
+                    }
+
+                    try
+                    {
                         if (File.Exists(candidate.Path))
                             File.Delete(candidate.Path);
                     }
@@ -605,6 +646,28 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 // enriched since first scan).
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                     .ConfigureAwait(false);
+                try
+                {
+                    await _ingestionLog.UpdateStatusAsync(
+                        logEntryId,
+                        "same_path_redetected",
+                        contentHash: hash.Hex,
+                        mediaAssetId: existing.Id,
+                        errorDetail: "The file is already tracked at this path, so no duplicate library item was created.",
+                        ct: ct).ConfigureAwait(false);
+                    await PublishItemProgressAsync(
+                        candidate,
+                        logEntryId,
+                        "same_path_redetected",
+                        100,
+                        true,
+                        ct,
+                        existing.Id).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Ingestion same-path log update failed - continuing");
+                }
                 await MarkBatchFileProcessedAsync(candidate.BatchId, ct).ConfigureAwait(false);
                 return;
             }
@@ -837,6 +900,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             if (candidate.BatchId.HasValue)
             {
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
+                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
                 await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
             }
             return;
@@ -1505,10 +1569,19 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     assetId,
                     resolvedTitle,
                     resolvedMediaType.ToString()).ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed - continuing"); }
+
+            if (candidate.BatchId.HasValue)
+            {
+                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesReview, ct).ConfigureAwait(false);
+            }
+        }
+        else if (candidate.BatchId.HasValue)
+        {
+            await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesIdentified, ct).ConfigureAwait(false);
         }
 
-        // Phase 9?Pipeline: enqueue non-blocking three-stage hydration pipeline.
+        // Phase 9 pipeline: enqueue non-blocking three-stage hydration pipeline.
         // IMPORTANT: placed AFTER the organization gate so that any LowConfidence review
         // item created above already exists in the database before the hydration pipeline's
         // TryAutoResolveAndOrganizeAsync runs. This prevents a race condition where the
@@ -2950,9 +3023,84 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     }
 
     /// <summary>
-    /// Writes a <see cref="Domain.Entities.SystemActivityEntry"/> to the activity ledger
-    /// without propagating exceptions.  Activity logging must never abort the pipeline.
+    /// Records a terminal failure when an unexpected exception escapes the per-file pipeline.
     /// </summary>
+    private async Task RecordUnhandledCandidateFailureAsync(
+        IngestionCandidate candidate,
+        Exception exception,
+        CancellationToken ct)
+    {
+        var reason = $"Ingestion failed while processing {Path.GetFileName(candidate.Path)}: {exception.Message}";
+        _logger.LogError(exception, "Ingestion failed for {Path}", candidate.Path);
+
+        await RecordTerminalLogAsync(
+            candidate,
+            candidate.BatchId,
+            "failed",
+            reason,
+            ct).ConfigureAwait(false);
+
+        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+        {
+            ActionType = Domain.Enums.SystemActionType.MediaFailed,
+            EntityType = "MediaAsset",
+            Detail = reason,
+            ChangesJson = JsonSerializer.Serialize(new
+            {
+                source_path = candidate.Path,
+                source_file = Path.GetFileName(candidate.Path),
+                error_type = exception.GetType().Name,
+                message = exception.Message,
+            }),
+            IngestionRunId = candidate.BatchId,
+        }, ct).ConfigureAwait(false);
+
+        await SafePublishAsync(SignalREvents.IngestionFailed, new IngestionFailedEvent(
+            candidate.Path,
+            reason,
+            DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
+
+        if (candidate.BatchId.HasValue)
+        {
+            await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
+            await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
+            await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RecordTerminalLogAsync(
+        IngestionCandidate candidate,
+        Guid? ingestionRunId,
+        string status,
+        string detail,
+        CancellationToken ct)
+    {
+        try
+        {
+            var logEntryId = Guid.NewGuid();
+            await _ingestionLog.InsertAsync(new Domain.Entities.IngestionLogEntry
+            {
+                Id = logEntryId,
+                FilePath = candidate.Path,
+                Status = status,
+                ErrorDetail = detail,
+                IngestionRunId = ingestionRunId,
+            }, ct).ConfigureAwait(false);
+
+            await PublishItemProgressAsync(
+                candidate,
+                logEntryId,
+                status,
+                100,
+                true,
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Terminal ingestion log write failed for {Path}", candidate.Path);
+        }
+    }
+
     private Task PublishItemProgressAsync(
         IngestionCandidate candidate,
         Guid logEntryId,
@@ -2995,6 +3143,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         "hydrating" => 6,
         "complete" => 7,
         "needs_review" => 7,
+        "duplicate" => 7,
+        "same_path_redetected" => 7,
+        "missing" => 7,
+        "skipped_non_media" => 7,
         "failed" => 7,
         _ => 0,
     };
@@ -3070,8 +3222,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
             if (batch is null) return;
 
-            var queue = Math.Max(0, batch.FilesTotal - batch.FilesFailed);
-            var progressed = batch.FilesTotal - queue;
+            var terminal = Math.Max(
+                batch.FilesProcessed,
+                batch.FilesIdentified + batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed);
+            var progressed = batch.FilesTotal > 0
+                ? Math.Clamp(terminal, 0, batch.FilesTotal)
+                : terminal;
+            var queue = Math.Max(0, batch.FilesTotal - progressed);
             var completed = batch.FilesTotal > 0 && queue == 0;
 
             await SafePublishAsync(

@@ -9,6 +9,9 @@
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["Models_AiModelsDescription"]
     </MudText>
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+        Partial. Hardware and resource status come from the Engine when available. Model entries and actions are catalogue-only and are not connected to download, load, unload, or delete APIs yet.
+    </MudAlert>
 <MudPaper Class="pa-4 mb-4 app-section-card">
         <div class="d-flex align-center justify-space-between mb-3">
             <MudText Typo="Typo.h6" Style="color: var(--tl-accent-primary);">@L["Models_HardwareProfile"]</MudText>
@@ -169,30 +172,30 @@
                         {
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Filled"
-                                       Color="Color.Primary"
+                                       Color="Color.Default"
                                        StartIcon="@Icons.Material.Outlined.Download"
-                                       OnClick="@(() => SimulateDownload(m))">
-                                @L["Models_Download"]
+                                       Disabled="true">
+                                Download not connected
                             </MudButton>
                         }
 @if (m.Status == ModelStatus.Downloaded)
                         {
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Outlined"
-                                       Color="Color.Info"
+                                       Color="Color.Default"
                                        StartIcon="@Icons.Material.Outlined.PlayCircleOutline"
-                                       OnClick="@(() => ChangeStatus(m, ModelStatus.Loaded))">
-                                @L["Models_Load"]
+                                       Disabled="true">
+                                Load not connected
                             </MudButton>
                         }
 @if (m.Status is ModelStatus.Loaded or ModelStatus.Active)
                         {
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Outlined"
-                                       Color="Color.Warning"
+                                       Color="Color.Default"
                                        StartIcon="@Icons.Material.Outlined.PauseCircleOutline"
-                                       OnClick="@(() => ChangeStatus(m, ModelStatus.Downloaded))">
-                                @L["Models_Unload"]
+                                       Disabled="true">
+                                Unload not connected
                             </MudButton>
                         }
 
@@ -203,8 +206,8 @@
                             <MudTooltip Text="@L["Models_DeleteModelFiles"]">
                                 <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
                                                Size="Size.Small"
-                                               Color="Color.Error"
-                                               OnClick="@(() => ChangeStatus(m, ModelStatus.NotDownloaded))" />
+                                               Color="Color.Default"
+                                               Disabled="true" />
                             </MudTooltip>
                         }
 
@@ -237,11 +240,13 @@
                          Max="3600"
                          Step="60"
                          HelperText="@L["Models_IdleAutoUnloadTimeoutHelper"]"
+                         Disabled="true"
                          Class="mb-4" />
 
         <MudSwitch @bind-Value="_gpuEnabled"
                    Label="@L["Models_GpuAcceleration"]"
-                   Color="Color.Primary" />
+                   Color="Color.Primary"
+                   Disabled="true" />
         <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-top: 4px;">
             @if (_profile is not null && _profile.Backend != "cpu")
             {
@@ -414,25 +419,4 @@
         _                         => "Unknown",
     };
 
-    private void ChangeStatus(ModelInfo model, ModelStatus newStatus)
-    {
-        model.Status = newStatus;
-        StateHasChanged();
-    }
-
-    private async Task SimulateDownload(ModelInfo model)
-    {
-        model.Status = ModelStatus.Downloading;
-        model.DownloadProgress = 0;
-        StateHasChanged();
-        while (model.DownloadProgress < 100)
-        {
-            await Task.Delay(80);
-            model.DownloadProgress = Math.Min(100, model.DownloadProgress + 10);
-            StateHasChanged();
-        }
-
-        model.Status = ModelStatus.Downloaded;
-        StateHasChanged();
-    }
 }

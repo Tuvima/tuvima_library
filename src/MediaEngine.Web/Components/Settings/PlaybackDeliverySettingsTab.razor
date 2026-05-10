@@ -4,15 +4,17 @@
     <MudTabs Rounded="true" Elevation="0" Color="Color.Primary" Position="Position.Top" Class="settings-tab-strip">
         <MudTabPanel Text="Direct Play" Icon="@Icons.Material.Outlined.PlayArrow">
             <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudSwitch T="bool" @bind-Value="_allowDirectPlay" Color="Color.Primary" Label="Allow direct play" />
-                <MudTextField @bind-Value="_allowedLocalNetworks" Label="Allowed local networks" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
-                <MudSwitch T="bool" @bind-Value="_fallbackToHls" Color="Color.Primary" Label="Fallback to HLS" />
-                <MudSelect T="string" @bind-Value="_defaultStreamingMode" Label="Default streaming mode" Variant="Variant.Outlined" Class="mt-3">
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                    Not connected. Direct Play settings are planned, but there is no persistence API yet. These values are shown as intended defaults only.
+                </MudAlert>
+                <MudSwitch T="bool" @bind-Value="_allowDirectPlay" Color="Color.Primary" Label="Allow direct play" Disabled="true" />
+                <MudTextField @bind-Value="_allowedLocalNetworks" Label="Allowed local networks" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" ReadOnly="true" Disabled="true" />
+                <MudSwitch T="bool" @bind-Value="_fallbackToHls" Color="Color.Primary" Label="Fallback to HLS" Disabled="true" />
+                <MudSelect T="string" @bind-Value="_defaultStreamingMode" Label="Default streaming mode" Variant="Variant.Outlined" Class="mt-3" Disabled="true">
                     <MudSelectItem T="string" Value="@("auto")">Auto</MudSelectItem>
                     <MudSelectItem T="string" Value="@("direct")">Direct play</MudSelectItem>
                     <MudSelectItem T="string" Value="@("hls")">HLS</MudSelectItem>
                 </MudSelect>
-                @* TODO: Persist direct play settings when delivery settings APIs exist. *@
             </MudPaper>
         </MudTabPanel>
         <MudTabPanel Text="Transcoding" Icon="@Icons.Material.Outlined.VideoSettings">
@@ -23,18 +25,20 @@
         </MudTabPanel>
         <MudTabPanel Text="Subtitles & Audio Delivery" Icon="@Icons.Material.Outlined.Subtitles">
             <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudSwitch T="bool" @bind-Value="_extractSubtitles" Color="Color.Primary" Label="Subtitle extraction" />
-                <MudSelect T="string" @bind-Value="_subtitleBurnInPolicy" Label="Subtitle burn-in policy" Variant="Variant.Outlined" Class="mt-3">
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                    Not connected. Subtitle and audio delivery settings are planned, but there is no persistence API yet.
+                </MudAlert>
+                <MudSwitch T="bool" @bind-Value="_extractSubtitles" Color="Color.Primary" Label="Subtitle extraction" Disabled="true" />
+                <MudSelect T="string" @bind-Value="_subtitleBurnInPolicy" Label="Subtitle burn-in policy" Variant="Variant.Outlined" Class="mt-3" Disabled="true">
                     <MudSelectItem T="string" Value="@("never")">Never</MudSelectItem>
                     <MudSelectItem T="string" Value="@("forced-only")">Forced only</MudSelectItem>
                     <MudSelectItem T="string" Value="@("when-required")">When required</MudSelectItem>
                 </MudSelect>
-                <MudSwitch T="bool" @bind-Value="_audioPassthrough" Color="Color.Primary" Label="Default audio passthrough" />
-                <MudSelect T="string" @bind-Value="_languageFallback" Label="Language fallback" Variant="Variant.Outlined" Class="mt-3">
+                <MudSwitch T="bool" @bind-Value="_audioPassthrough" Color="Color.Primary" Label="Default audio passthrough" Disabled="true" />
+                <MudSelect T="string" @bind-Value="_languageFallback" Label="Language fallback" Variant="Variant.Outlined" Class="mt-3" Disabled="true">
                     <MudSelectItem T="string" Value="@("profile")">Profile language</MudSelectItem>
                     <MudSelectItem T="string" Value="@("original")">Original language</MudSelectItem>
                 </MudSelect>
-                @* TODO: Persist subtitle and audio delivery settings when APIs exist. *@
             </MudPaper>
         </MudTabPanel>
     </MudTabs>

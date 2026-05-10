@@ -1,4 +1,4 @@
----
+﻿---
 title: "Getting Started"
 summary: "Install Tuvima Library, create your local configuration, and launch the Engine and Dashboard for the first time."
 audience: "user"
@@ -14,7 +14,7 @@ tags:
 
 This tutorial walks you through installing and running Tuvima Library for the first time. By the end, you will have the Engine and Dashboard running on your machine, ready to receive your media.
 
-**Time required:** 15â€“30 minutes (plus download time for AI models on first startup).
+**Time required:** 15Ã¢â‚¬â€œ30 minutes (plus download time for AI models on first startup).
 
 ---
 
@@ -22,13 +22,13 @@ This tutorial walks you through installing and running Tuvima Library for the fi
 
 You will need:
 
-- **.NET 10 SDK** â€” download from [dot.net](https://dotnet.microsoft.com/en-us/download). Run `dotnet --version` to confirm it is installed. You need version 10.0 or later.
-- **10 GB of free disk space** â€” about 9 GB is used by the local AI models that download on first startup. The rest is for your library data.
+- **.NET 10 SDK** Ã¢â‚¬â€ download from [dot.net](https://dotnet.microsoft.com/en-us/download). Run `dotnet --version` to confirm it is installed. You need version 10.0 or later.
+- **10 GB of free disk space** Ã¢â‚¬â€ about 9 GB is used by the local AI models that download on first startup. The rest is for your library data.
 - A copy of the Tuvima Library source code (see step 1 below).
 
 ---
 
-## Step 1 â€” Get the code
+## Step 1 Ã¢â‚¬â€ Get the code
 
 Open a terminal and clone the repository:
 
@@ -39,7 +39,7 @@ cd tuvima-library
 
 ---
 
-## Step 2 â€” Create your local configuration
+## Step 2 Ã¢â‚¬â€ Create your local configuration
 
 The repository includes all configuration files directly in the `config/` directory. You only need to add secret files for any providers that require API keys:
 
@@ -52,7 +52,7 @@ Provider secrets go in `config/secrets/` which is never committed to version con
 
 ---
 
-## Step 3 â€” Set your data paths
+## Step 3 Ã¢â‚¬â€ Set your data paths
 
 Open `config/core.json` in any text editor. You will see something like this:
 
@@ -63,8 +63,8 @@ Open `config/core.json` in any text editor. You will see something like this:
 }
 ```
 
-- **`database_path`** â€” where Tuvima Library stores its data store. The default (`.data/database/library.db`) keeps it inside the project folder. You can change this to any path on your machine.
-- **`data_root`** â€” the root directory for all internally managed files: cover art, staging files, and generated thumbnails. The default keeps everything under `.data/` inside the project folder.
+- **`database_path`** Ã¢â‚¬â€ where Tuvima Library stores its data store. The default (`.data/database/library.db`) keeps it inside the project folder. You can change this to any path on your machine.
+- **`data_root`** Ã¢â‚¬â€ the root directory for all internally managed files: cover art, staging files, and generated thumbnails. The default keeps everything under `.data/` inside the project folder.
 
 If you are happy with the defaults, you do not need to change anything. If you want your data store or images on a different drive, update these paths now.
 
@@ -72,9 +72,9 @@ Save the file when you are done.
 
 ---
 
-## Step 4 â€” Start the Engine
+## Step 4 Ã¢â‚¬â€ Start the Engine
 
-The Engine is the intelligence layer â€” it watches your folders, processes files, and manages your library data.
+The Engine is the intelligence layer Ã¢â‚¬â€ it watches your folders, processes files, and manages your library data.
 
 Open a terminal window and run:
 
@@ -84,9 +84,9 @@ dotnet run --project src/MediaEngine.Api
 
 The first time you start the Engine, several things happen automatically:
 
-- **Hardware benchmark** â€” the Engine checks your CPU and RAM to decide which AI features to enable. This takes about 10â€“30 seconds.
-- **AI model download** â€” the local AI models download in the background. The total size is roughly 9 GB. You will see progress messages in the terminal. The Engine is usable immediately â€” the models download while you work and activate as they become available.
-- **File watcher starts** â€” once the Engine is running, it is ready to watch folders for new media.
+- **Hardware/resource check** - the Engine reports local runtime status when available.
+- **Local AI status** - AI model management is still being connected. The Dashboard marks model actions and runtime limits as partial or not connected.
+- **File watcher starts** Ã¢â‚¬â€ once the Engine is running, it is ready to watch folders for new media.
 
 You will see a line like this when the Engine is ready:
 
@@ -98,7 +98,7 @@ Leave this terminal window open.
 
 ---
 
-## Step 5 â€” Start the Dashboard
+## Step 5 Ã¢â‚¬â€ Start the Dashboard
 
 The Dashboard is the browser interface. It asks the Engine for data and displays it.
 
@@ -118,7 +118,7 @@ Leave this terminal window open too.
 
 ---
 
-## Step 6 â€” Open the Dashboard
+## Step 6 Ã¢â‚¬â€ Open the Dashboard
 
 Open your browser and go to:
 
@@ -126,13 +126,9 @@ Open your browser and go to:
 http://localhost:5016
 ```
 
-If this is your first time, the First-Run Wizard will appear. It walks you through:
+For Phase 0 builds, open **Settings > Setup**. The setup checklist shows Engine connection, folder readiness, provider readiness, optional Local AI status, scan state, and pending Review Queue work. The full First-Run Wizard is planned for a later phase and is not currently implemented.
 
-1. Setting a library name
-2. Choosing your AI feature preferences
-3. Adding your first watch folder
-
-You can skip the wizard and configure everything later in Settings if you prefer.
+Configure folders in Settings, then use **Scan Now** from the checklist when the Engine and folders are ready.
 
 ---
 
@@ -140,7 +136,7 @@ You can skip the wizard and configure everything later in Settings if you prefer
 
 Now that Tuvima Library is running, add your media:
 
-- [Your First Library](first-library.md) â€” Add a watch folder and see your files appear in the Dashboard.
+- [Your First Library](first-library.md) Ã¢â‚¬â€ Add a watch folder and see your files appear in the Dashboard.
 
 ---
 
@@ -152,15 +148,15 @@ If you prefer to run Tuvima Library in a container rather than installing .NET d
 docker compose up
 ```
 
-This starts both the Engine and Dashboard in containers. The Dashboard is accessible at `http://localhost:5016` and the Engine at `http://localhost:61495`. Configuration and data directories are mounted from your machine as volumes â€” edit `docker-compose.yml` to point them at the right paths before starting.
+This starts both the Engine and Dashboard in containers. The Dashboard is accessible at `http://localhost:5016` and the Engine at `http://localhost:61495`. Configuration and data directories are mounted from your machine as volumes Ã¢â‚¬â€ edit `docker-compose.yml` to point them at the right paths before starting.
 
-Note: AI model downloads still happen on first startup and require internet access from inside the container. Subsequent starts are instant once models are cached.
+Note: AI model management is not a live Dashboard action in Phase 0. Container startup still needs access to any configured provider or model paths you enable manually.
 
 ---
 
 ## Stopping Tuvima Library
 
-Press `Ctrl+C` in each terminal window to stop the Engine and Dashboard. Your library data is saved to the data store automatically â€” there is nothing to manually save.
+Press `Ctrl+C` in each terminal window to stop the Engine and Dashboard. Your library data is saved to the data store automatically Ã¢â‚¬â€ there is nothing to manually save.
 
 ## Related
 

@@ -258,6 +258,106 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
+    public void DeliverySettings_MarksUnpersistedControlsAsNotConnected()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "PlaybackDeliverySettingsTab.razor"));
+
+        Assert.Contains("Not connected. Direct Play settings are planned", source);
+        Assert.Contains("Not connected. Subtitle and audio delivery settings are planned", source);
+        Assert.Contains("Label=\"Allow direct play\" Disabled=\"true\"", source);
+        Assert.Contains("Label=\"Subtitle extraction\" Disabled=\"true\"", source);
+        Assert.DoesNotContain("TODO: Persist direct play settings", source);
+        Assert.DoesNotContain("TODO: Persist subtitle and audio delivery settings", source);
+    }
+
+    [Fact]
+    public void AiFeatures_DisplaysAsNotConnectedWhenNoSavePathExists()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "AiFeaturesTab.razor"));
+
+        Assert.Contains("Toggle persistence is not wired to the Engine yet", source);
+        Assert.Contains("Not connected", source);
+        Assert.Contains("Disabled=\"true\"", source);
+        Assert.DoesNotContain("Save", source);
+        Assert.DoesNotContain("SaveAsync", source);
+    }
+
+    [Fact]
+    public void ModelsTab_DoesNotExposeSimulatedActionsAsLive()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ModelsTab.razor"));
+
+        Assert.Contains("catalogue-only", source);
+        Assert.Contains("Download not connected", source);
+        Assert.Contains("Load not connected", source);
+        Assert.Contains("Unload not connected", source);
+        Assert.Contains("Disabled=\"true\"", source);
+        Assert.DoesNotContain("SimulateDownload", source);
+        Assert.DoesNotContain("Task.Delay", source);
+        Assert.DoesNotContain("ChangeStatus", source);
+    }
+
+    [Fact]
+    public void LocalAiLimits_AreMarkedNotConnectedAndModelsAreNotDuplicated()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "LocalAiSettingsTab.razor"));
+
+        Assert.Contains("Runtime limit controls are not persisted yet", source);
+        Assert.Contains("Disabled=\"true\"", source);
+        Assert.Single(Regex.Matches(source, "<ModelsTab />"));
+        Assert.DoesNotContain("TODO: Persist AI limits", source);
+    }
+
+    [Fact]
+    public void ProviderPriority_DoesNotFallBackToHardcodedDefaultsAsConfiguredState()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ProviderPriorityTab.razor"));
+
+        Assert.Contains("unavailable state instead of sample defaults", source);
+        Assert.Contains("_loadError", source);
+        Assert.Contains("InitializeEmptyAssignments", source);
+        Assert.Contains("Load sample chain", source);
+        Assert.DoesNotContain("using dashboard defaults", source);
+        Assert.DoesNotContain("ResetToDefaults", source);
+    }
+
+    [Fact]
+    public void SettingsNavigation_LabelsPartialAndPlannedAdminSections()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "Settings.razor"));
+
+        Assert.Contains("SettingsSection.LocalAi => \"Partial\"", source);
+        Assert.Contains("SettingsSection.Delivery => \"Partial\"", source);
+        Assert.Contains("SettingsSection.Plugins => \"Planned\"", source);
+        Assert.Contains("SettingsSection.Access => \"Partial\"", source);
+    }
+
+    [Fact]
+    public void Source_DoesNotReintroduceVaultWorkflow()
+    {
+        var componentRoot = GetRepoFile("src", "MediaEngine.Web");
+        var files = Directory.EnumerateFiles(componentRoot, "*.*", SearchOption.AllDirectories)
+            .Where(file => file.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)
+                           || file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                           || file.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+
+        foreach (var file in files)
+        {
+            var source = File.ReadAllText(file);
+            Assert.DoesNotContain("@page \"/vault", source, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotMatch(@"Href\s*=\s*""/vault\b", source);
+            Assert.DoesNotMatch(@"class=""[^""]*\bvault-", source);
+            Assert.DoesNotContain("LibrarySurfacePreset", source);
+            Assert.DoesNotContain("LibraryPage", source);
+        }
+
+        var readme = File.ReadAllText(GetRepoFile("README.md"));
+        Assert.Contains("Library Vault workspace has been removed", readme);
+    }
+
+    [Fact]
     public void CollectionsPage_RendersMudTabsAndTableRows()
     {
         var cut = Render(builder =>

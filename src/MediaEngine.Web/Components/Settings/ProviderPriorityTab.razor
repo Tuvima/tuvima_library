@@ -129,10 +129,20 @@
         <MudText Typo="Typo.h6">Providers</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
-        Build a priority chain for each media type. Choose a strategy to control
-        how providers interact - waterfall stops at the first match, cascade
-        merges results from all, sequential chains providers together.
+        Configure the Engine-backed provider chain for each media type. If Engine configuration cannot load, this page shows an unavailable state instead of sample defaults.
     </MudText>
+    @if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+            @_loadError
+        </MudAlert>
+    }
+    else if (_usingSampleProviderCatalogue)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+            Sample provider catalogue. Live provider catalogue data is unavailable, so unassigned provider lists may show examples rather than configured Engine state.
+        </MudAlert>
+    }
 <div class="category-strip">
         @foreach (var mt in _mediaTypes)
         {
@@ -157,6 +167,7 @@
                    Variant="Variant.Outlined"
                    Margin="Margin.Dense"
                    Dense="true"
+                   Disabled="@_engineConfigurationUnavailable"
                    Style="max-width: 220px;">
             <MudSelectItem T="string" Value="@("Waterfall")">
                 Waterfall - first match wins
@@ -250,6 +261,7 @@
                    Style="border-radius: 8px;
                           border: 1px dashed var(--app-glass-inner-border);
                           color: var(--mud-palette-text-secondary);"
+                   Disabled="@_engineConfigurationUnavailable"
                    OnClick="@(() => OpenAddDialog(_activeTab))">
             Add
         </MudButton>
@@ -267,15 +279,16 @@
                    Color="Color.Default"
                    Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.RestartAlt"
-                   OnClick="@ResetToDefaults">
-            Reset to Defaults
+                   OnClick="@LoadSampleDefaults"
+                   Disabled="@_engineConfigurationUnavailable">
+            Load sample chain
         </MudButton>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Save"
                    OnClick="@SaveAsync"
-                   Disabled="@_saving">
+                   Disabled="@(_saving || _engineConfigurationUnavailable)">
             @if (_saving)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
@@ -670,10 +683,23 @@
     private Dictionary<string, ProviderHealthDto> _healthData = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<ProviderCatalogueDto> _liveCatalogue = [];
     private Dictionary<string, ProviderStatusDto> _providerStatusByKey = new(StringComparer.OrdinalIgnoreCase);
+    private string? _loadError;
+    private bool _engineConfigurationUnavailable;
+    private bool _usingSampleProviderCatalogue;
 
     protected override async Task OnInitializedAsync()
     {
-        _liveCatalogue = await CatalogueService.GetCatalogueAsync();
+        try
+        {
+            _liveCatalogue = await CatalogueService.GetCatalogueAsync();
+            _usingSampleProviderCatalogue = _liveCatalogue.Count == 0;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not load live provider catalogue.");
+            _liveCatalogue = [];
+            _usingSampleProviderCatalogue = true;
+        }
         await LoadFromEngineAsync();
         await LoadHealthDataAsync();
     }
@@ -687,15 +713,22 @@
             if (pipelines?.Pipelines is { Count: > 0 })
             {
                 ApplyPipelineConfiguration(pipelines);
+                _loadError = null;
+                _engineConfigurationUnavailable = false;
                 return;
             }
+
+            _loadError = "Provider priority configuration is unavailable from the Engine.";
+            _engineConfigurationUnavailable = true;
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Could not load provider priority configuration from Engine; using dashboard defaults");
+            Logger.LogWarning(ex, "Could not load provider priority configuration from Engine.");
+            _loadError = "Provider priority configuration is unavailable. Start the Engine or retry before editing provider order.";
+            _engineConfigurationUnavailable = true;
         }
 
-        ResetToDefaults();
+        InitializeEmptyAssignments();
     }
 
     private void ApplyPipelineConfiguration(PipelineConfiguration pipelines)
@@ -979,7 +1012,7 @@
         _addDialogOpen = false;
     }
 
-    private void ResetToDefaults()
+    private void LoadSampleDefaults()
     {
         _assignments = DefaultAssignments.ToDictionary(
             kv => kv.Key,
@@ -992,6 +1025,15 @@
                 Retries          = a.Retries,
                 LanguageStrategy = a.LanguageStrategy,
             }).ToList());
+        _strategies = new Dictionary<string, string>(DefaultStrategies, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void InitializeEmptyAssignments()
+    {
+        _assignments = _mediaTypes.ToDictionary(
+            mediaType => mediaType,
+            _ => new List<ProviderAssignment>(),
+            StringComparer.OrdinalIgnoreCase);
         _strategies = new Dictionary<string, string>(DefaultStrategies, StringComparer.OrdinalIgnoreCase);
     }
 

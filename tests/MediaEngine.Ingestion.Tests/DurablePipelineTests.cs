@@ -241,6 +241,45 @@ public sealed class DurablePipelineTests : IDisposable
     }
 
     [Fact]
+    public async Task IngestionEngine_DuplicateDifferentPath_RecordsDuplicateOutcome()
+    {
+        var firstPath = CreateWatchFile("Dune.epub", "same bytes");
+        var secondPath = CreateWatchFile("Dune Copy.epub", "same bytes");
+
+        _processors.QueueResult(new ProcessorResult
+        {
+            FilePath = firstPath,
+            DetectedType = MediaType.Books,
+            Claims = [new ExtractedClaim { Key = "title", Value = "Dune", Confidence = 0.95 }],
+        });
+
+        await RunPipelineAsync();
+
+        using var conn = _dbFactory.Connection.CreateConnection();
+        Assert.Equal(1, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM media_assets;"));
+        Assert.Equal(1, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM ingestion_log WHERE status = 'duplicate';"));
+        Assert.Equal(1, conn.ExecuteScalar<int>("SELECT COALESCE(SUM(files_registered), 0) FROM ingestion_batches;"));
+        Assert.Equal(2, conn.ExecuteScalar<int>("SELECT COALESCE(SUM(files_processed), 0) FROM ingestion_batches;"));
+    }
+
+    [Fact]
+    public async Task IngestionEngine_UnknownMediaType_RecordsReviewOutcome()
+    {
+        var filePath = CreateWatchFile("mystery.bin");
+        _processors.SetNextResult(new ProcessorResult
+        {
+            FilePath = filePath,
+            DetectedType = MediaType.Unknown,
+            Claims = [new ExtractedClaim { Key = "title", Value = "mystery", Confidence = 0.95 }],
+        });
+
+        await RunPipelineAsync();
+
+        using var conn = _dbFactory.Connection.CreateConnection();
+        Assert.True(conn.ExecuteScalar<int>("SELECT COUNT(*) FROM review_queue WHERE status = 'Pending';") >= 1);
+    }
+
+    [Fact]
     public async Task IngestionEngine_EmbeddedCover_PersistsToCentralAssetStore()
     {
         var filePath = CreateWatchFile("Children of Dune.epub");

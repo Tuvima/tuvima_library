@@ -153,7 +153,7 @@ The Engine is ready when you see:
 Now listening on: http://localhost:61495
 ```
 
-To run without AI model downloads (useful for UI-only development):
+To run without optional AI startup work (useful for UI-only development):
 
 ```json
 // config/ai.json

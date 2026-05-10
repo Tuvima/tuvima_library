@@ -145,6 +145,7 @@ public sealed class UiCompositionGuardrailTests
             "docs/design-system/README.md",
             "docs/design-system/SKILL.md",
             "docs/guides/running-tests.md",
+            "docs/product/feature-truth-inventory.md",
             ".agent/FIX-PLAN.md",
             ".agent/features/LIBRARY-DASHBOARD.md",
             ".agent/skills/DASHBOARD-UI.md",

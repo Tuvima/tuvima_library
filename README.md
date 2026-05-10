@@ -58,7 +58,7 @@ Drop a file into a watched folder. The Engine reads it, cleans the filename with
 
 ### Built-in AI
 
-Four local AI models (~9 GB total) handle filename parsing, media classification, vibe tagging, and audiobook transcription. Everything runs on your CPU/GPU â€” no cloud, no subscription. The Engine benchmarks your hardware on first startup and adapts: gaming PCs run enrichment continuously, quieter machines schedule it overnight.
+Local AI support is part of the product direction, and current builds can report hardware/resource status where the Engine exposes it. Model management, feature toggles, and runtime limits are still being connected; the Dashboard labels those controls as partial or not connected instead of presenting them as live configuration.
 
 [Learn more about the AI.](https://tuvima.github.io/tuvima_library/explanation/how-ai-works/)
 
@@ -120,9 +120,11 @@ dotnet run --project src/MediaEngine.Api    # Engine at localhost:61495
 dotnet run --project src/MediaEngine.Web    # Dashboard at localhost:5016
 ```
 
-On first startup the Engine downloads AI models (~9 GB), benchmarks your hardware, and begins watching your folders.
+On first startup the Engine initializes local configuration and begins watching your folders. Local AI readiness is shown as optional status; Phase 0 intentionally labels incomplete AI model and runtime controls instead of treating them as live actions.
 
 For a first library, open the Dashboard and use **Settings > Setup**. The checklist confirms the Engine connection, Library Root, Watch Folder, provider readiness, optional Local AI status, scan state, and pending Review Queue work. Configure folders first, run **Scan Now**, then open **Library Operations** to watch ingestion progress and resolve any uncertain items in the Review Queue.
+
+For a concise product-truth baseline, see [`docs/product/feature-truth-inventory.md`](docs/product/feature-truth-inventory.md).
 
 [Full setup guide](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) Â· [Docker instructions](https://tuvima.github.io/tuvima_library/tutorials/getting-started/#docker) Â· [Configuration reference](https://tuvima.github.io/tuvima_library/reference/configuration/)
 

@@ -9,6 +9,9 @@
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
         @L["AiFeatures_AiFeaturesDescription"]
     </MudText>
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+        Not connected. These feature descriptions are a read-only catalogue. Toggle persistence is not wired to the Engine yet.
+    </MudAlert>
 <MudExpansionPanels MultiExpansion="true">
 <MudExpansionPanel @bind-Expanded="_panel1Open"
                            Style="@PanelStyle">
@@ -23,9 +26,9 @@
                              Style="font-size: 0.7rem;">
                         @L["AiFeatures_Automatic"]
                     </MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
                              Style="font-size: 0.7rem;">
-                        @EnabledCount(_ingestionFeatures) / @_ingestionFeatures.Count @L["AiFeatures_On"]
+                        Not connected
                     </MudChip>
                 </MudStack>
             </TitleContent>
@@ -64,7 +67,8 @@
                             }
                             <MudSwitch @bind-Value="feature.Enabled"
                                        Color="Color.Primary"
-                                       Style="flex-shrink: 0;" />
+                                       Style="flex-shrink: 0;"
+                                       Disabled="true" />
                         </div>
                         @if (!IsFeatureAvailable(feature.Key))
                         {
@@ -89,9 +93,9 @@
                              Style="font-size: 0.7rem;">
                         @L["AiFeatures_Background"]
                     </MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Info"
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
                              Style="font-size: 0.7rem;">
-                        @EnabledCount(_enrichmentFeatures) / @_enrichmentFeatures.Count @L["AiFeatures_On"]
+                        Not connected
                     </MudChip>
                 </MudStack>
             </TitleContent>
@@ -130,7 +134,8 @@
                             }
                             <MudSwitch @bind-Value="feature.Enabled"
                                        Color="Color.Primary"
-                                       Style="flex-shrink: 0;" />
+                                       Style="flex-shrink: 0;"
+                                       Disabled="true" />
                         </div>
                         @if (!IsFeatureAvailable(feature.Key))
                         {
@@ -155,9 +160,9 @@
                              Style="font-size: 0.7rem;">
                         @L["AiFeatures_UserTriggered"]
                     </MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
                              Style="font-size: 0.7rem;">
-                        @EnabledCount(_onDemandFeatures) / @_onDemandFeatures.Count @L["AiFeatures_On"]
+                        Not connected
                     </MudChip>
                 </MudStack>
             </TitleContent>
@@ -196,7 +201,8 @@
                             }
                             <MudSwitch @bind-Value="feature.Enabled"
                                        Color="Color.Primary"
-                                       Style="flex-shrink: 0;" />
+                                       Style="flex-shrink: 0;"
+                                       Disabled="true" />
                         </div>
                         @if (!IsFeatureAvailable(feature.Key))
                         {
@@ -221,9 +227,9 @@
                              Style="font-size: 0.7rem;">
                         @L["AiFeatures_Background"]
                     </MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Secondary"
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
                              Style="font-size: 0.7rem;">
-                        @EnabledCount(_scheduledFeatures) / @_scheduledFeatures.Count @L["AiFeatures_On"]
+                        Not connected
                     </MudChip>
                 </MudStack>
             </TitleContent>
@@ -262,7 +268,8 @@
                             }
                             <MudSwitch @bind-Value="feature.Enabled"
                                        Color="Color.Primary"
-                                       Style="flex-shrink: 0;" />
+                                       Style="flex-shrink: 0;"
+                                       Disabled="true" />
                         </div>
                         @if (!IsFeatureAvailable(feature.Key))
                         {
