@@ -25,7 +25,11 @@
                 Id = "books",
                 Label = "Books",
                 MediaType = "Books",
-                GroupingOptions = [new("all", "All Books", Icons.Material.Outlined.AutoStories)],
+                GroupingOptions =
+                [
+                    new("all", "All Books", Icons.Material.Outlined.AutoStories),
+                    new("series", "Series", Icons.Material.Outlined.CollectionsBookmark),
+                ],
                 DefaultGrouping = "all",
                 DefaultLayout = LibraryLayoutMode.Card,
             },

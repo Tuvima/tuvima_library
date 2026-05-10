@@ -673,11 +673,19 @@ public sealed class EngineApiClient : IEngineApiClient
         string query,
         CancellationToken ct = default)
     {
+        var endpoint = "GET /collections/search";
         try
         {
             var encoded = WebUtility.UrlEncode(query);
-            var raw = await _http.GetFromJsonAsync<List<SearchRawResult>>(
-                $"/collections/search?q={encoded}", ct);
+            var response = await _http.GetAsync($"/collections/search?q={encoded}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return [];
+            }
+
+            var raw = await response.Content.ReadFromJsonAsync<List<SearchRawResult>>(cancellationToken: ct);
+            ClearFailure(endpoint);
             return raw?.Select(r => new SearchResultViewModel
             {
                 WorkId         = r.WorkId,
@@ -692,6 +700,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /collections/search failed");
+            RecordExceptionFailure(endpoint, ex);
             return [];
         }
     }

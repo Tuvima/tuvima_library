@@ -167,8 +167,17 @@
     {
         <div class="browse-shell__empty">
             <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 52px; opacity: 0.16;" />
-            <h3>No items match this view</h3>
-            <p>Try a different tab, search, or browse mode.</p>
+            <h3>@EmptyStateTitle</h3>
+            <p>@EmptyStateMessage</p>
+            @if (string.IsNullOrWhiteSpace(_searchText))
+            {
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Outlined.PendingActions"
+                           Href="/settings/ingestion">
+                    Open Library Operations
+                </MudButton>
+            }
         </div>
     }
     else
@@ -236,6 +245,19 @@
     private bool IsContainerGrouping => BrowseQueryBuilder.IsContainerGrouping(_grouping);
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
+    private string EmptyStateTitle =>
+        !string.IsNullOrWhiteSpace(_searchText)
+            ? "No matches found"
+            : IsContainerGrouping
+                ? $"No {CurrentTab.Label.ToLowerInvariant()} groups yet"
+                : $"No {CurrentTab.Label.ToLowerInvariant()} in your library yet";
+
+    private string EmptyStateMessage =>
+        !string.IsNullOrWhiteSpace(_searchText)
+            ? "Try a different search term or clear the search box."
+            : IsContainerGrouping
+                ? "Groups appear only when the Engine has real series, collection, artist, album, or show data."
+                : $"Once supported {CurrentTab.Label.ToLowerInvariant()} files are ingested, they will appear here.";
 
     private async Task OnBrowseTabChanged(int index)
     {

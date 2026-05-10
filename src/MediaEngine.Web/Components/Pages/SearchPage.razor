@@ -1,7 +1,8 @@
 @page "/search"
 @namespace MediaEngine.Web.Components.Pages
 @using MediaEngine.Web.Services.Navigation
-@inject UniverseStateContainer State
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
 
@@ -17,54 +18,222 @@
         <p class="search-page-subtitle">@L["Search_Subtitle"]</p>
     </div>
 
-    @if (State.IsLoaded && VisibleCollections.Count > 0)
+    <MudTextField T="string"
+                  Value="@_query"
+                  ValueChanged="OnQueryInputChanged"
+                  Placeholder="Search title, author, artist, album, or creator"
+                  Variant="Variant.Outlined"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Outlined.Search"
+                  Immediate="true"
+                  DebounceInterval="250"
+                  OnDebounceIntervalElapsed="OnSearchDebouncedAsync"
+                  Class="search-input" />
+
+    @if (_loading)
     {
-        <section class="search-recent">
-            <h3 class="search-recent-title">@L["Search_AllTitles"]</h3>
-            <div class="search-recent-grid">
-                @foreach (var collection in VisibleCollections)
+        <div class="search-state">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudPaper Elevation="0" Class="search-empty search-empty--error">
+            <MudIcon Icon="@Icons.Material.Outlined.CloudOff" Class="search-empty-icon" />
+            <MudText Typo="Typo.h6">Search is unavailable</MudText>
+            <MudText Typo="Typo.body2" Class="search-empty-copy">
+                The Dashboard could not reach the Engine search endpoint. Try again after the Engine is online.
+            </MudText>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Outlined.Refresh"
+                       OnClick="SearchAsync">
+                Try again
+            </MudButton>
+        </MudPaper>
+    }
+    else if (string.IsNullOrWhiteSpace(_query))
+    {
+        <MudPaper Elevation="0" Class="search-empty">
+            <MudIcon Icon="@Icons.Material.Outlined.Search" Class="search-empty-icon" />
+            <MudText Typo="Typo.h6">Search your library</MudText>
+            <MudText Typo="Typo.body2" Class="search-empty-copy">
+                Enter a title, creator, author, artist, album, or track name.
+            </MudText>
+        </MudPaper>
+    }
+    else if (_query.Trim().Length < MinimumQueryLength)
+    {
+        <MudPaper Elevation="0" Class="search-empty">
+            <MudIcon Icon="@Icons.Material.Outlined.ManageSearch" Class="search-empty-icon" />
+            <MudText Typo="Typo.h6">Keep typing</MudText>
+            <MudText Typo="Typo.body2" Class="search-empty-copy">
+                Use at least @MinimumQueryLength characters so search can return useful matches.
+            </MudText>
+        </MudPaper>
+    }
+    else if (_results.Count == 0)
+    {
+        <MudPaper Elevation="0" Class="search-empty">
+            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="search-empty-icon" />
+            <MudText Typo="Typo.h6">No results found</MudText>
+            <MudText Typo="Typo.body2" Class="search-empty-copy">
+                No ingested media matched "@_query".
+            </MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <section class="search-results">
+            <h3 class="search-recent-title">@($"{_results.Count} result{(_results.Count == 1 ? "" : "s")}")</h3>
+            <div class="search-results-list">
+                @foreach (var result in _results)
                 {
-                    <MudLink Href="@MediaNavigation.ForCollection(collection)"
+                    <MudLink Href="@MediaNavigation.ForSearchResult(result)"
                              Underline="Underline.None"
-                             Class="search-recent-link">
-                        <MudPaper Elevation="0" Class="search-recent-item">
-                            @if (!string.IsNullOrEmpty(collection.CoverUrl))
-                            {
-                                <img src="@collection.CoverUrl" alt="@collection.DisplayName" class="search-recent-cover" loading="lazy" />
-                            }
-                            else
-                            {
-                                <div class="search-recent-cover search-recent-cover-placeholder">
-                                    <MudIcon Icon="@Icons.Material.Filled.MenuBook" Class="search-recent-placeholder-icon" />
-                                </div>
-                            }
-                            <span class="search-recent-name">@collection.DisplayName</span>
+                             Class="search-result-link">
+                        <MudPaper Elevation="0" Class="search-result-row">
+                            <div class="search-result-art @GetMediaClass(result.MediaType)">
+                                <MudIcon Icon="@GetMediaIcon(result.MediaType)" Class="search-result-art-icon" />
+                            </div>
+                            <div class="search-result-body">
+                                <div class="search-result-title">@DisplayTitle(result)</div>
+                                <div class="search-result-meta">@BuildResultMeta(result)</div>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="search-result-chevron" />
                         </MudPaper>
                     </MudLink>
                 }
             </div>
         </section>
     }
-    else if (State.IsLoaded)
-    {
-        <MudPaper Elevation="0" Class="search-empty">
-            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="search-empty-icon" />
-            <MudText Typo="Typo.h6">No titles matched</MudText>
-            <MudText Typo="Typo.body2" Class="search-empty-copy">
-                Try a different search term or return to the library browse page.
-            </MudText>
-        </MudPaper>
-    }
 </div>
 
 @code {
+    private const int MinimumQueryLength = 2;
+
     [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
 
-    private IReadOnlyList<CollectionViewModel> VisibleCollections =>
-        State.FilteredCollections
-            .Where(collection =>
-                string.IsNullOrWhiteSpace(Query)
-                || collection.DisplayName.Contains(Query, StringComparison.OrdinalIgnoreCase))
-            .Take(24)
-            .ToList();
+    private string _query = string.Empty;
+    private bool _loading;
+    private string? _error;
+    private List<SearchResultViewModel> _results = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var incoming = Query?.Trim() ?? string.Empty;
+        if (string.Equals(incoming, _query, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _query = incoming;
+        await SearchAsync();
+    }
+
+    private Task OnQueryInputChanged(string value)
+    {
+        _query = value;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSearchDebouncedAsync(string value)
+    {
+        _query = value?.Trim() ?? string.Empty;
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("q", string.IsNullOrWhiteSpace(_query) ? null : _query), replace: true);
+        await SearchAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        _error = null;
+        _results = [];
+
+        if (string.IsNullOrWhiteSpace(_query) || _query.Trim().Length < MinimumQueryLength)
+        {
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            _results = await ApiClient.SearchWorksAsync(_query.Trim());
+            if (_results.Count == 0 && !string.IsNullOrWhiteSpace(ApiClient.LastError))
+            {
+                _error = ApiClient.LastError;
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string DisplayTitle(SearchResultViewModel result) =>
+        FirstNonBlank(result.Title, result.OriginalTitle, "Untitled item");
+
+    private static string BuildResultMeta(SearchResultViewModel result)
+    {
+        var parts = new[]
+        {
+            FormatMediaType(result.MediaType),
+            result.Author,
+            result.CollectionDisplayName,
+        }.Where(part => !string.IsNullOrWhiteSpace(part));
+
+        return string.Join(" - ", parts);
+    }
+
+    private static string GetMediaIcon(string? mediaType)
+    {
+        var value = mediaType ?? string.Empty;
+        if (value.Contains("movie", StringComparison.OrdinalIgnoreCase) || value.Contains("video", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.LocalMovies;
+        if (value.Contains("tv", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.LiveTv;
+        if (value.Contains("music", StringComparison.OrdinalIgnoreCase) || value.Equals("audio", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.MusicNote;
+        if (value.Contains("audio", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.Headphones;
+        if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.CollectionsBookmark;
+
+        return Icons.Material.Outlined.AutoStories;
+    }
+
+    private static string GetMediaClass(string? mediaType)
+    {
+        var value = mediaType ?? string.Empty;
+        if (value.Contains("movie", StringComparison.OrdinalIgnoreCase) || value.Contains("tv", StringComparison.OrdinalIgnoreCase) || value.Contains("video", StringComparison.OrdinalIgnoreCase))
+            return "is-watch";
+        if (value.Contains("music", StringComparison.OrdinalIgnoreCase) || value.Contains("audio", StringComparison.OrdinalIgnoreCase))
+            return "is-listen";
+        if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
+            return "is-comic";
+
+        return "is-read";
+    }
+
+    private static string FormatMediaType(string? mediaType)
+    {
+        var value = mediaType ?? string.Empty;
+        if (value.Contains("tv", StringComparison.OrdinalIgnoreCase))
+            return "TV";
+        if (value.Contains("movie", StringComparison.OrdinalIgnoreCase))
+            return "Movie";
+        if (value.Contains("music", StringComparison.OrdinalIgnoreCase))
+            return "Music";
+        if (value.Contains("audiobook", StringComparison.OrdinalIgnoreCase))
+            return "Audiobook";
+        if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
+            return "Comic";
+        if (value.Contains("book", StringComparison.OrdinalIgnoreCase))
+            return "Book";
+
+        return string.IsNullOrWhiteSpace(mediaType) ? "Library item" : mediaType;
+    }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 }

@@ -589,33 +589,21 @@ public sealed class UiShellRenderTests : TestContext
     [Fact]
     public void SearchPage_RendersMudSearchResultsWithoutRawCards()
     {
-        var state = Services.GetRequiredService<UniverseStateContainer>();
-        state.SetCollections([
-            CollectionViewModel.FromApiDto(
-                id: Guid.Parse("30000000-0000-0000-0000-000000000001"),
-                universeId: null,
-                createdAt: DateTimeOffset.UtcNow,
-                works:
-                [
-                    new WorkViewModel
-                    {
-                        Id = Guid.Parse("30000000-0000-0000-0000-000000000101"),
-                        CollectionId = Guid.Parse("30000000-0000-0000-0000-000000000001"),
-                        MediaType = "Book",
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        CanonicalValues =
-                        [
-                            new CanonicalValueViewModel
-                            {
-                                Key = "title",
-                                Value = "Dune",
-                                LastScoredAt = DateTimeOffset.UtcNow,
-                            },
-                        ],
-                    },
-                ],
-                displayName: "Dune")
-        ]);
+        Services.AddSingleton<IEngineApiClient>(EngineApiClientStub.Create(stub =>
+        {
+            stub.SetHandler(nameof(IEngineApiClient.SearchWorksAsync), _ => Task.FromResult(new List<SearchResultViewModel>
+            {
+                new()
+                {
+                    WorkId = Guid.Parse("30000000-0000-0000-0000-000000000101"),
+                    CollectionId = Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                    Title = "Dune",
+                    Author = "Frank Herbert",
+                    MediaType = "Book",
+                    CollectionDisplayName = "Dune",
+                },
+            }));
+        }));
 
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter("q", "dune"));
@@ -625,7 +613,8 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Dune", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".search-recent-grid"));
+            Assert.Contains("Frank Herbert", cut.Markup);
+            Assert.NotEmpty(cut.FindAll(".search-results-list"));
             Assert.NotEmpty(cut.FindAll(".mud-paper"));
             Assert.NotEmpty(cut.FindAll(".mud-link"));
         });

@@ -45,7 +45,7 @@ public static class MediaNavigation
         var route = NormalizeBucket(mediaType) switch
         {
             MediaBucket.Television when collectionId.HasValue => $"/watch/tv/show/{collectionId.Value}/episode/{workId}",
-            MediaBucket.Television => $"/book/{workId}",
+            MediaBucket.Television => $"/details/TvEpisode/{workId}?context=Watch",
             MediaBucket.Movie => collectionId.HasValue
                 ? $"/watch/movie/{workId}?collectionId={collectionId.Value}"
                 : $"/watch/movie/{workId}",
