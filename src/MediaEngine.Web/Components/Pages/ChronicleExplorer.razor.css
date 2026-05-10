@@ -10,6 +10,24 @@
     max-width: 160px;
 }
 
+.chronicle-explorer-timeline {
+    max-width: 300px;
+    min-width: 200px;
+    flex: 1;
+}
+
+.chronicle-explorer-empty {
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    background: rgba(17, 17, 17, 0.94);
+    border: 1px solid var(--tl-border-default);
+}
+
 .chronicle-explorer-graph {
     width: 100%;
     height: 600px;

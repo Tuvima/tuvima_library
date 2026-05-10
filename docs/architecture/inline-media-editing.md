@@ -5,7 +5,7 @@ summary: "How Tuvima lets users correct media from the surface where they find t
 
 # Inline Media Editing
 
-Tuvima no longer uses a separate Review Queue or media management workbench. Users browse through Home, Read, Watch, Listen, Search, and detail pages. When a media item needs correction, the edit action appears on that same surface and opens the shared media editor.
+Tuvima no longer uses a separate media management workbench. Users browse through Home, Read, Watch, Listen, Search, and detail pages. When a media item needs correction, the edit action appears on that same surface and opens the shared media editor.
 
 ## Product model
 
@@ -30,12 +30,14 @@ The launch request should include the current context:
 - `HeaderSubtitle`
 - `CoverUrl`
 - `PreviewItems`
-- Review-specific trigger/context when opened from Review Queue
+- `ReviewItemId` plus the review-specific trigger/context when opened from Review Queue
 
 Use `SharedMediaEditorMode.Normal` from media surfaces, `SharedMediaEditorMode.Review` from Review Queue, and `SharedMediaEditorMode.Batch` only when a real list/table selection exists.
 
 ## After save
 
 After an edit is applied, the current surface should refresh its data, keep the user in the same context, and show a clear success or failure message. Editing should not navigate away to a management workspace.
+
+In Review mode, resolving a row is explicit. Saving field changes, applying a provider/canonical match, or approving the current metadata must call the Engine review API for the concrete review item. If that call fails, the item stays in the Review Queue.
 
 

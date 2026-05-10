@@ -118,6 +118,7 @@ public partial class SharedMediaEditorShell
     private bool _confirmDiscard;
     private bool _showQuarantineConfirm;
     private string? _dragTargetArtworkType;
+    private string? _loadError;
     private string _reviewSummary = "Review the item identity.";
     private string _lastNonFileTab = "details";
     private bool _showArtworkUrlInput;
@@ -236,6 +237,7 @@ public partial class SharedMediaEditorShell
     private async Task LoadSingleItemAsync(Guid? targetEntityId = null, bool resetEditorState = false)
     {
         _loading = true;
+        _loadError = null;
         StateHasChanged();
 
         try
@@ -314,7 +316,12 @@ public partial class SharedMediaEditorShell
                 _activeTab = "file";
 
             EnsureActiveTabVisible();
-            _canonicalSearchQuery = BuildSuggestedSearchQuery();
+                _canonicalSearchQuery = BuildSuggestedSearchQuery();
+        }
+        catch
+        {
+            _loadError = "This item could not be loaded for editing.";
+            Snackbar.Add(_loadError, Severity.Error);
         }
         finally
         {
@@ -617,6 +624,12 @@ public partial class SharedMediaEditorShell
     {
         if (!IsDirty && (!applyMembershipMove || _pendingMembershipPreview is null))
         {
+            if (Request.Mode == SharedMediaEditorMode.Review)
+            {
+                await ResolveReviewWithoutChangesAsync();
+                return;
+            }
+
             MudDialog.Cancel();
             return;
         }
@@ -743,7 +756,25 @@ public partial class SharedMediaEditorShell
 
             if (!savedAnything)
             {
+                if (Request.Mode == SharedMediaEditorMode.Review)
+                {
+                    await ResolveReviewWithoutChangesAsync();
+                    return;
+                }
+
                 MudDialog.Cancel();
+                return;
+            }
+
+            if (Request.Mode == SharedMediaEditorMode.Review)
+            {
+                if (!await ResolveReviewCoreAsync())
+                    return;
+
+                Snackbar.Add(applyMembershipMove && _pendingMembershipPreview is not null
+                    ? "Changes saved, membership updated, and review resolved."
+                    : "Changes saved and review resolved.", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
                 return;
             }
 
@@ -757,6 +788,70 @@ public partial class SharedMediaEditorShell
             _saving = false;
         }
     }
+
+    protected async Task ResolveReviewWithoutChangesAsync()
+    {
+        if (Request.Mode != SharedMediaEditorMode.Review)
+            return;
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            if (!await ResolveReviewCoreAsync())
+                return;
+
+            Snackbar.Add("Review resolved.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<bool> ResolveReviewCoreAsync(string? providerName = null, string? providerItemId = null, string? selectedQid = null)
+    {
+        if (Request.ReviewItemId is not { } reviewItemId)
+        {
+            Snackbar.Add("Review was not resolved because this editor was not opened from a review item.", Severity.Error);
+            return false;
+        }
+
+        var overrides = BuildReviewFieldOverrides();
+        var resolved = await Orchestrator.ResolveReviewAsync(
+            reviewItemId,
+            new ReviewResolveRequestDto
+            {
+                SelectedQid = selectedQid,
+                ProviderName = providerName,
+                ProviderItemId = providerItemId,
+                FieldOverrides = overrides.Count == 0 ? null : overrides,
+            });
+
+        if (!resolved)
+        {
+            Snackbar.Add("Review was not resolved because changes could not be saved.", Severity.Error);
+            return false;
+        }
+
+        _editedValues.Clear();
+        _pendingArtworkFiles.Clear();
+        _pendingArtworkPreviewUrls.Clear();
+        _pendingMembershipPreview = null;
+        return true;
+    }
+
+    private List<FieldOverrideDto> BuildReviewFieldOverrides() =>
+        _editedValues
+            .Select(entry => (Key: ParseScopedKey(entry.Key).Key, entry.Value))
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Key))
+            .GroupBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Last())
+            .Select(entry => new FieldOverrideDto { Key = entry.Key, Value = entry.Value })
+            .ToList();
 
     protected void HandleClose()
     {
@@ -1490,6 +1585,16 @@ public partial class SharedMediaEditorShell
         if (response is null)
         {
             Snackbar.Add("Canonical apply failed.", Severity.Error);
+            return;
+        }
+
+        if (Request.Mode == SharedMediaEditorMode.Review)
+        {
+            if (!await ResolveReviewCoreAsync(providerName, providerItemId, qidFields.Values.FirstOrDefault()))
+                return;
+
+            Snackbar.Add($"{response.Message} Review resolved.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
             return;
         }
 

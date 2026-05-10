@@ -16,6 +16,8 @@ Most media software organizes by format: books in one app, movies in another, mu
 
 This page explains how the grouping model works, what the terminology means, and how the Engine figures out which items belong together.
 
+Phase 8 note: Universe, Series, graph, people, entity, and related-media surfaces are conservative. They show only sections backed by stored library data or local enrichment output. If Tuvima has not found real graph relationships yet, Chronicle Explorer shows an unavailable state instead of sample nodes. Related media shelves require a grounded reason such as Same Series, Same Creator, or shared metadata; they are not filled with random items.
+
 ---
 
 ## The Idea Behind Universes

@@ -247,6 +247,7 @@ else
     [Parameter] public string? GroupName { get; set; }
     [Parameter] public string? GroupField { get; set; }
     [Parameter] public string? MediaType { get; set; }
+    [Parameter] public int RefreshVersion { get; set; }
     [Parameter] public EventCallback<Guid> OnAlbumTileClicked { get; set; }
     [Parameter] public EventCallback<string> OnAlbumNameClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnPersonClicked { get; set; }
@@ -257,7 +258,7 @@ else
     private HashSet<int> _collapsedSeasons = [];
     private string? _lastLoadedCacheKey;
     private string GetCacheKey() =>
-        $"{GroupId}|{GroupType}|{ArtistName}|{GroupName}|{GroupField}|{string.Join(",", ArtistAlbumCollectionIds ?? [])}";
+        $"{GroupId}|{GroupType}|{ArtistName}|{GroupName}|{GroupField}|{string.Join(",", ArtistAlbumCollectionIds ?? [])}|{RefreshVersion}";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -473,16 +474,19 @@ else
             builder.CloseElement(); // td
             builder.OpenElement(seq++, "td");
             builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--actions");
-            builder.OpenElement(seq++, "button");
-            builder.AddAttribute(seq++, "class", "mgp-edit-btn");
-            builder.AddAttribute(seq++, "title", "Edit");
-            builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => OnItemEditClicked.InvokeAsync(workId)));
-            builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
-            builder.OpenComponent<MudIcon>(seq++);
-            builder.AddComponentParameter(seq++, "Icon", Icons.Material.Outlined.Edit);
-            builder.AddComponentParameter(seq++, "Size", Size.Small);
-            builder.CloseComponent(); // MudIcon
-            builder.CloseElement(); // button
+            if (isOwned && OnItemEditClicked.HasDelegate)
+            {
+                builder.OpenElement(seq++, "button");
+                builder.AddAttribute(seq++, "class", "mgp-edit-btn");
+                builder.AddAttribute(seq++, "title", "Edit metadata");
+                builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => OnItemEditClicked.InvokeAsync(workId)));
+                builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+                builder.OpenComponent<MudIcon>(seq++);
+                builder.AddComponentParameter(seq++, "Icon", Icons.Material.Outlined.Edit);
+                builder.AddComponentParameter(seq++, "Size", Size.Small);
+                builder.CloseComponent(); // MudIcon
+                builder.CloseElement(); // button
+            }
             builder.CloseElement(); // td
 
             builder.CloseElement(); // tr

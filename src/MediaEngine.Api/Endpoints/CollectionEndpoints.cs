@@ -331,8 +331,8 @@ public static class CollectionEndpoints
 
             var result   = new List<CollectionDto>();
             var seen     = new HashSet<Guid> { id };
-            string reason = "explore";
-            string title  = "Explore Your Library";
+            string reason = string.Empty;
+            string title  = string.Empty;
 
             // Stage 1: same series
             if (!string.IsNullOrWhiteSpace(targetSeries))
@@ -347,7 +347,7 @@ public static class CollectionEndpoints
                 {
                     result.AddRange(matches);
                     matches.ForEach(h => seen.Add(h.Id));
-                    reason = "series";
+                    reason = "Same Series";
                     title  = $"More in {targetSeries}";
                 }
             }
@@ -363,7 +363,7 @@ public static class CollectionEndpoints
                     .ToList();
                 if (matches.Count > 0)
                 {
-                    if (result.Count == 0) { reason = "author"; title = $"More by {targetAuthor}"; }
+                    if (result.Count == 0) { reason = "Same Creator"; title = $"More by {targetAuthor}"; }
                     result.AddRange(matches);
                     matches.ForEach(h => seen.Add(h.Id));
                 }
@@ -381,21 +381,15 @@ public static class CollectionEndpoints
                     .ToList();
                 if (matches.Count > 0)
                 {
-                    if (result.Count == 0) { reason = "genre"; title = $"More {targetGenreFirst}"; }
+                    if (result.Count == 0) { reason = "Shared Metadata"; title = $"More {targetGenreFirst}"; }
                     result.AddRange(matches);
                     matches.ForEach(h => seen.Add(h.Id));
                 }
             }
 
-            // Stage 4: random fill
-            if (result.Count < take)
+            if (result.Count == 0)
             {
-                var fill = dtos
-                    .Where(h => !seen.Contains(h.Id))
-                    .OrderBy(_ => Guid.NewGuid())
-                    .Take(take - result.Count)
-                    .ToList();
-                result.AddRange(fill);
+                title = "Related media";
             }
 
             return Results.Ok(new RelatedCollectionsResponse

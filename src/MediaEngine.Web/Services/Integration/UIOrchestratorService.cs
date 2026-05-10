@@ -1372,6 +1372,30 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // -- AI Hardware Profile ---------------------------------------------------
 
+    public Task<AiHealthStatusDto?> GetAiStatusAsync(CancellationToken ct = default)
+        => _api.GetAiStatusAsync(ct);
+
+    public Task<IReadOnlyList<AiModelStatusDto>> GetAiModelStatusesAsync(CancellationToken ct = default)
+        => _api.GetAiModelStatusesAsync(ct);
+
+    public Task<bool> StartAiModelDownloadAsync(string role, CancellationToken ct = default)
+        => _api.StartAiModelDownloadAsync(role, ct);
+
+    public Task<bool> CancelAiModelDownloadAsync(string role, CancellationToken ct = default)
+        => _api.CancelAiModelDownloadAsync(role, ct);
+
+    public Task<bool> LoadAiModelAsync(string role, CancellationToken ct = default)
+        => _api.LoadAiModelAsync(role, ct);
+
+    public Task<bool> UnloadAiModelAsync(string role, CancellationToken ct = default)
+        => _api.UnloadAiModelAsync(role, ct);
+
+    public Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default)
+        => _api.GetAiConfigAsync(ct);
+
+    public Task<bool> SaveAiConfigAsync(AiConfigDto config, CancellationToken ct = default)
+        => _api.SaveAiConfigAsync(config, ct);
+
     public Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default)
         => _api.GetAiProfileAsync(ct);
 

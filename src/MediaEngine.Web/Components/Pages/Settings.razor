@@ -41,6 +41,7 @@
                            Status="@GetStatusLabel()"
                            Healthy="@(_systemStatus?.IsHealthy == true)">
             <Actions>
+                <SettingsStatusBadge Status="@GetCurrentStatus()" />
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Default"
                            Size="Size.Small"
@@ -63,6 +64,21 @@
                 }
                 else
                 {
+                    @if (IsEngineUnavailableForCurrentSection)
+                    {
+                        <MudAlert Severity="Severity.Error"
+                                  Variant="Variant.Outlined"
+                                  Icon="@Icons.Material.Outlined.CloudOff"
+                                  Class="mb-4">
+                            Engine state could not be loaded. This Settings section is shown in a degraded read-only state, and saved values are not being replaced with sample defaults.
+                        </MudAlert>
+                    }
+                    @if (SettingsNav.GetItem(_activeSection).AdminOnly && !_profileRoleLoaded)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                            Checking profile permissions before showing administrator settings.
+                        </MudAlert>
+                    }
                     @switch (_activeSection)
                     {
                         case SettingsSection.Overview:
@@ -149,6 +165,10 @@
     private string BrowserTitle => $"{GetHeroTitle()} - Tuvima Library";
     private bool ShouldDeferForRoleResolution =>
         !_profileRoleLoaded && SettingsNav.GetItem(_activeSection).AdminOnly;
+    private bool IsEngineUnavailableForCurrentSection =>
+        !_shellStateLoading
+        && _systemStatus is null
+        && SettingsNav.GetItem(_activeSection).AdminOnly;
 
     protected override async Task OnInitializedAsync()
     {
@@ -317,14 +337,15 @@
 
     private static string? GetItemMeta(SettingsItemDef item) => item.Value switch
     {
-        SettingsSection.LocalAi => "Partial",
-        SettingsSection.Delivery => "Partial",
-        SettingsSection.Plugins => "Planned",
-        SettingsSection.Access => "Partial",
-        _ => item.Placeholder ? "Planned" : null,
+        _ => item.Placeholder ? "Planned" : SettingsStatus.Label(item.Status),
     };
 
     private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
+
+    private SettingsStatusKind GetCurrentStatus() =>
+        IsEngineUnavailableForCurrentSection
+            ? SettingsStatusKind.EngineUnavailable
+            : SettingsNav.GetStatus(_activeSection);
 
     private string GetStatusLabel()
     {

@@ -35,6 +35,9 @@ else
                 </div>
             </div>
         </MudPaper>
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+            Partial. Plugin list, enable/disable, settings JSON, manifest editing for dynamic plugins, health checks, jobs, and delete actions use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
+        </MudAlert>
 
         @if (!string.IsNullOrWhiteSpace(_error))
         {

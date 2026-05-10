@@ -182,6 +182,13 @@
                         <MudProgressCircular Indeterminate="true" Size="Size.Medium" />
                     </div>
                 }
+                else if (!string.IsNullOrWhiteSpace(_loadError))
+                {
+                    <div class="sme-empty-panel">
+                        <MudIcon Icon="@Icons.Material.Outlined.CloudOff" Style="font-size: 24px; opacity: 0.18;" />
+                        <span>@_loadError</span>
+                    </div>
+                }
                 else if (_activeTab == "details")
                 {
                     <div class="sme-details sme-details--single">
@@ -1061,7 +1068,17 @@
                             {
                                 <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                             }
-                            @(IsBatchMode ? $"Apply ({Request.EntityIds.Count})" : "Save")
+                            @(IsBatchMode ? $"Apply ({Request.EntityIds.Count})" : Request.Mode == SharedMediaEditorMode.Review ? "Save and Resolve Review" : "Save")
+                        </MudButton>
+                    }
+                    else if (Request.Mode == SharedMediaEditorMode.Review)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Class="sme-footer-btn sme-footer-btn--primary"
+                                   OnClick="ResolveReviewWithoutChangesAsync"
+                                   Disabled="@_saving">
+                            @(_saving ? "Resolving..." : "Approve Current Metadata")
                         </MudButton>
                     }
                 }

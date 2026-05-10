@@ -11,6 +11,9 @@
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
             @L["Security_SecurityDescription"]
         </MudText>
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+            Sign-in settings below are loaded from Engine configuration. Connection and rate-limit controls are read-only in this phase; edit the config source of truth until a save endpoint is available.
+        </MudAlert>
 <MudPaper Elevation="0" Class="tl-card mb-4">
 
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
@@ -30,6 +33,7 @@
                 </MudStack>
                 <MudSwitch @bind-Value="_localhostBypass"
                            Color="Color.Primary"
+                           Disabled="true"
                            T="bool" />
             </MudStack>
 
@@ -48,6 +52,7 @@
                 </MudStack>
                 <MudSwitch @bind-Value="_requireHttpsRemote"
                            Color="Color.Primary"
+                           Disabled="true"
                            T="bool" />
             </MudStack>
 

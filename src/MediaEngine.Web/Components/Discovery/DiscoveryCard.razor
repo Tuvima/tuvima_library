@@ -1,4 +1,5 @@
 ﻿@namespace MediaEngine.Web.Components.Discovery
+@using MediaEngine.Web.Models.ViewDTOs
 @inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject IJSRuntime JS
@@ -113,6 +114,18 @@
                                 <MudIcon Icon="@Icons.Material.Outlined.Add" />
                             </button>
                         }
+
+                        @if (CanEdit)
+                        {
+                            <button type="button"
+                                    class="discovery-card-icon-button"
+                                    aria-label="Edit metadata"
+                                    title="Edit metadata"
+                                    @onclick="OpenEditorAsync"
+                                    @onclick:stopPropagation="true">
+                                <MudIcon Icon="@Icons.Material.Outlined.Edit" />
+                            </button>
+                        }
                     </div>
 
                 </div>
@@ -200,6 +213,7 @@
 
 @code {
     [Parameter, EditorRequired] public DiscoveryCardViewModel Item { get; set; } = default!;
+    [Parameter] public EventCallback<DiscoveryCardViewModel> OnEditClicked { get; set; }
 
     private bool _expanded;
     private bool _hoverRegistered;
@@ -348,6 +362,8 @@
 
     private string DisplaySubtitle => Item.Subtitle ?? Item.Creator ?? string.Empty;
 
+    private bool CanEdit => OnEditClicked.HasDelegate && Item.WorkId.HasValue && !Item.IsCollection;
+
     private string HoverMetaDisplay
     {
         get
@@ -422,6 +438,17 @@
         var dialog = await DialogService.ShowAsync<AddToCollectionDialog>("Add to collection", parameters, options);
         await dialog.Result;
         _expanded = false;
+    }
+
+    private async Task OpenEditorAsync()
+    {
+        if (!CanEdit)
+        {
+            return;
+        }
+
+        _expanded = false;
+        await OnEditClicked.InvokeAsync(Item);
     }
 
     private void HandleKeyDown(KeyboardEventArgs args)

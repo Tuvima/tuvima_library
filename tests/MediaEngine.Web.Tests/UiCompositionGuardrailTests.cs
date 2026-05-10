@@ -215,7 +215,8 @@ public sealed class UiCompositionGuardrailTests
 
         Assert.Contains("request.EntityIds.Count == 0", launcher);
         Assert.Contains("return false", launcher);
-        Assert.Contains("request.Mode == SharedMediaEditorMode.Batch && request.EntityIds.Count > 1", launcher);
+        Assert.Contains("request.Mode == SharedMediaEditorMode.Batch && request.EntityIds.Count <= 1", launcher);
+        Assert.Contains("request.Mode == SharedMediaEditorMode.Batch", launcher);
         Assert.Contains("SharedMediaBatchConfirmDialog", launcher);
         Assert.Contains("confirmResult is null || confirmResult.Canceled", launcher);
     }

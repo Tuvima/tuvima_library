@@ -1,422 +1,175 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
-@inject IStringLocalizer<SharedStrings> L
+
 <div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Memory" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Models_AiModels"]</MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+        <MudText Typo="Typo.h6">Models</MudText>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="RefreshAsync" Disabled="_loading">Refresh</MudButton>
     </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["Models_AiModelsDescription"]
-    </MudText>
-    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-        Partial. Hardware and resource status come from the Engine when available. Model entries and actions are catalogue-only and are not connected to download, load, unload, or delete APIs yet.
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@_messageSeverity" Variant="Variant.Outlined" Class="mb-3">@_message</MudAlert>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Rounded="false" />
+    }
+    else if (_models.Count == 0)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">Model status unavailable.</MudAlert>
+    }
+    else
+    {
+        <MudGrid Spacing="3">
+            @foreach (var model in _models.OrderBy(m => m.Role))
+            {
+                <MudItem xs="12" md="6" lg="4">
+                    <MudPaper Elevation="0" Class="tl-card pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@model.Role</MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="@StateColor(model)">@StateLabel(model)</MudChip>
+                        </MudStack>
+                        <MudText Typo="Typo.subtitle2">@(!string.IsNullOrWhiteSpace(model.Description) ? model.Description : "Configured model")</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">@model.ModelFile</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Size: @FormatMb(model.SizeMB). Source: @(model.DownloadUrlHost ?? "not configured"). Required tier: @model.RequiredHardwareTier.</MudText>
+
+                        @if (model.State.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <MudProgressLinear Value="@model.DownloadProgressPercent" Color="Color.Primary" Rounded="false" Class="mt-3" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@model.DownloadProgressPercent% downloaded</MudText>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(model.ErrorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="mt-3">@model.ErrorMessage</MudAlert>
+                        }
+
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-3">Used by enabled features: @UsedBy(model.Role)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Memory footprint: @(model.MemoryFootprintMB > 0 ? FormatMb(model.MemoryFootprintMB) : "not loaded").</MudText>
+
+                        @if (!model.Supported)
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-3">Configured, but lifecycle endpoints do not support this role.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudStack Row="true" Spacing="1" Class="mt-3" Style="flex-wrap: wrap;">
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Download"
+                                           Disabled="@(!CanDownload(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Download))">Download</MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.Cancel"
+                                           Disabled="@(!CanCancel(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Cancel))">Cancel</MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Outlined.PlayArrow"
+                                           Disabled="@(!CanLoad(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Load))">Load</MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Stop"
+                                           Disabled="@(!CanUnload(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Unload))">Unload</MudButton>
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-4">
+        Delete is not shown because the Engine has no public model deletion endpoint. Local model downloads do not imply cloud inference.
     </MudAlert>
-<MudPaper Class="pa-4 mb-4 app-section-card">
-        <div class="d-flex align-center justify-space-between mb-3">
-            <MudText Typo="Typo.h6" Style="color: var(--tl-accent-primary);">@L["Models_HardwareProfile"]</MudText>
-            <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
-                       OnClick="RunBenchmark" Disabled="@_benchmarking">
-                @if (_benchmarking)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                }
-                @L["Models_ReRunBenchmark"]
-            </MudButton>
-        </div>
-
-        @if (_profile is not null)
-        {
-            <div class="d-flex gap-6 flex-wrap">
-                @* Tier Badge *@
-                <div>
-                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_PerformanceTier"]</MudText>
-                    <MudChip T="string" Color="@GetTierColor(_profile.Tier)" Size="Size.Large"
-                             Style="font-weight: 600; font-size: 1.1rem; text-transform: uppercase;">
-                        @_profile.Tier
-                    </MudChip>
-                </div>
-
-                @* Backend *@
-                <div>
-                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_ComputeBackend"]</MudText>
-                    <MudText Typo="Typo.body1">
-                        @(_profile.GpuName ?? (_profile.Backend == "cpu" ? L["Models_CpuOnly"].Value : _profile.Backend.ToUpper()))
-                    </MudText>
-                </div>
-
-                @* Speed *@
-                <div>
-                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_InferenceSpeed"]</MudText>
-                    <MudText Typo="Typo.body1">@_profile.TokensPerSecond.ToString("F1") tok/s</MudText>
-                </div>
-
-                @* RAM *@
-                <div>
-                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_AvailableMemory"]</MudText>
-                    <MudText Typo="Typo.body1">@FormatRam(_profile.AvailableRamMb)</MudText>
-                </div>
-
-                @* Last Benchmark *@
-                @if (_profile.BenchmarkedAt.HasValue)
-                {
-                    <div>
-                        <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_LastBenchmark"]</MudText>
-                        <MudText Typo="Typo.body1">@_profile.BenchmarkedAt.Value.ToLocalTime().ToString("g")</MudText>
-                    </div>
-                }
-            </div>
-        }
-        else
-        {
-            <MudText Typo="Typo.body2" Style="opacity: 0.5;">
-                @L["Models_NoBenchmarkData"]
-            </MudText>
-        }
-    </MudPaper>
-<MudPaper Class="pa-4 mb-4 app-section-card">
-        <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 12px;">@L["Models_ResourceMonitor"]</MudText>
-        <div class="d-flex gap-6 flex-wrap">
-            <div>
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_EngineRam"]</MudText>
-                <MudText Typo="Typo.body1">@FormatRam(_resources?.EngineRamMb ?? 0)</MudText>
-            </div>
-            <div>
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_FreeRam"]</MudText>
-                <MudText Typo="Typo.body1">@FormatRam(_resources?.FreeRamMb ?? 0)</MudText>
-            </div>
-            <div>
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_CpuPressure"]</MudText>
-                <MudChip T="string" Size="Size.Small" Color="@CpuPressureColor(_resources?.CpuPressure ?? 1)">
-                    @CpuPressureLabel(_resources?.CpuPressure ?? 1)
-                </MudChip>
-            </div>
-            <div>
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">@L["Models_Transcoding"]</MudText>
-                <MudChip T="string" Size="Size.Small"
-                         Color="@(_resources?.TranscodingActive == true ? Color.Error : Color.Success)">
-                    @(_resources?.TranscodingActive == true ? L["Models_TranscodingActive"].Value : L["Models_TranscodingIdle"].Value)
-                </MudChip>
-            </div>
-        </div>
-    </MudPaper>
-<MudGrid Spacing="3" Class="mb-6">
-        @foreach (var model in _models)
-        {
-            var m = model; @* capture for lambda *@
-            <MudItem xs="12" md="3">
-                <div style="@ModelCardStyle">
-
-                    @* Role badge *@
-                    <MudChip T="string"
-                             Size="Size.Small"
-                             Color="@RoleBadgeColor(m.Role)"
-                             Style="margin-bottom: 12px; font-family: monospace; font-size: 0.75rem;">
-                        @m.Role
-                    </MudChip>
-
-                    @* Model name *@
-                    <MudText Typo="Typo.subtitle1"
-                             Style="font-weight: 700; margin-bottom: 4px;">
-                        @m.ModelName
-                    </MudText>
-
-                    @* Purpose *@
-                    <MudText Typo="Typo.body2"
-                             Color="Color.Secondary"
-                             Style="margin-bottom: 16px; min-height: 38px;">
-                        @m.Purpose
-                    </MudText>
-
-                    @* Status indicator *@
-                    <MudStack Row="true" AlignItems="AlignItems.Center"
-                              Spacing="2" Style="margin-bottom: 12px;">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Models_Status"]</MudText>
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Color="@StatusChipColor(m.Status)">
-                            @m.Status
-                        </MudChip>
-                    </MudStack>
-
-                    @* Metrics row *@
-                    <MudStack Row="true" Spacing="4" Style="margin-bottom: 16px;">
-                        <MudStack Spacing="0">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Models_Ram"]</MudText>
-                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@m.RamUsage</MudText>
-                        </MudStack>
-                        <MudStack Spacing="0">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Models_Size"]</MudText>
-                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@m.FileSize</MudText>
-                        </MudStack>
-                    </MudStack>
-
-                    @* Download progress bar (shown only when downloading) *@
-                    @if (m.Status == ModelStatus.Downloading)
-                    {
-                        <MudProgressLinear Value="@m.DownloadProgress"
-                                           Color="Color.Primary"
-                             Rounded="false"
-                                           Size="Size.Small"
-                                           Style="margin-bottom: 12px;" />
-                        <MudText Typo="Typo.caption" Color="Color.Secondary"
-                                 Style="margin-bottom: 12px;">
-                            @L["Models_Downloading"] @m.DownloadProgress%
-                        </MudText>
-                    }
-
-                    @* Action buttons *@
-                    <MudStack Row="true" AlignItems="AlignItems.Center"
-                              Spacing="1" Style="flex-wrap: wrap; gap: 4px;">
-@if (m.Status == ModelStatus.NotDownloaded)
-                        {
-                            <MudButton Size="Size.Small"
-                                       Variant="Variant.Filled"
-                                       Color="Color.Default"
-                                       StartIcon="@Icons.Material.Outlined.Download"
-                                       Disabled="true">
-                                Download not connected
-                            </MudButton>
-                        }
-@if (m.Status == ModelStatus.Downloaded)
-                        {
-                            <MudButton Size="Size.Small"
-                                       Variant="Variant.Outlined"
-                                       Color="Color.Default"
-                                       StartIcon="@Icons.Material.Outlined.PlayCircleOutline"
-                                       Disabled="true">
-                                Load not connected
-                            </MudButton>
-                        }
-@if (m.Status is ModelStatus.Loaded or ModelStatus.Active)
-                        {
-                            <MudButton Size="Size.Small"
-                                       Variant="Variant.Outlined"
-                                       Color="Color.Default"
-                                       StartIcon="@Icons.Material.Outlined.PauseCircleOutline"
-                                       Disabled="true">
-                                Unload not connected
-                            </MudButton>
-                        }
-
-                        @* Spacer *@
-                        <MudSpacer />
-@if (m.Status is ModelStatus.Downloaded or ModelStatus.Loaded)
-                        {
-                            <MudTooltip Text="@L["Models_DeleteModelFiles"]">
-                                <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
-                                               Size="Size.Small"
-                                               Color="Color.Default"
-                                               Disabled="true" />
-                            </MudTooltip>
-                        }
-
-                    </MudStack>
-
-                </div>
-            </MudItem>
-        }
-    </MudGrid>
-<div style="@ModelCardStyle">
-
-        <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 16px;">
-            @L["Models_StorageAndRuntimeSettings"]
-        </MudText>
-
-        <MudTextField Value="@_modelsDirectory"
-                      Label="@L["Models_ModelsDirectory"]"
-                      Variant="Variant.Outlined"
-                      ReadOnly="true"
-                      FullWidth="true"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Outlined.FolderOpen"
-                      Class="mb-4" />
-
-        <MudNumericField @bind-Value="_idleTimeoutSeconds"
-                         Label="@L["Models_IdleAutoUnloadTimeout"]"
-                         Variant="Variant.Outlined"
-                         FullWidth="true"
-                         Min="60"
-                         Max="3600"
-                         Step="60"
-                         HelperText="@L["Models_IdleAutoUnloadTimeoutHelper"]"
-                         Disabled="true"
-                         Class="mb-4" />
-
-        <MudSwitch @bind-Value="_gpuEnabled"
-                   Label="@L["Models_GpuAcceleration"]"
-                   Color="Color.Primary"
-                   Disabled="true" />
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-top: 4px;">
-            @if (_profile is not null && _profile.Backend != "cpu")
-            {
-                <span style="color: rgba(100,200,100,0.8);">@L["Models_GpuActive"] @(_profile.Backend.ToUpper()) @L["Models_GpuOn"] @(_profile.GpuName ?? L["Models_GpuFallback"].Value)</span>
-            }
-            else
-            {
-                <span>@L["Models_CpuInferenceActive"]</span>
-            }
-        </MudText>
-
-    </div>
-
 </div>
 
 @code {
+    private List<AiModelStatusDto> _models = [];
+    private AiConfigDto? _config;
+    private bool _loading;
+    private string? _message;
+    private Severity _messageSeverity = Severity.Info;
 
-    private HardwareProfileDto?  _profile;
-    private bool                 _benchmarking;
-    private ResourceSnapshotDto? _resources;
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
 
-    protected override async Task OnInitializedAsync()
+    private async Task RefreshAsync()
     {
-        await base.OnInitializedAsync();
-        _profile   = await Orchestrator.GetAiProfileAsync();
-        _resources = await Orchestrator.GetResourceSnapshotAsync();
+        _loading = true;
+        _models = (await Orchestrator.GetAiModelStatusesAsync()).ToList();
+        _config = await Orchestrator.GetAiConfigAsync();
+        _loading = false;
     }
 
-    private async Task RunBenchmark()
+    private async Task RunAction(string role, AiModelAction action)
     {
-        _benchmarking = true;
-        StateHasChanged();
-        _profile      = await Orchestrator.RunBenchmarkAsync();
-        _benchmarking = false;
-        StateHasChanged();
+        _message = null;
+        var ok = action switch
+        {
+            AiModelAction.Download => await Orchestrator.StartAiModelDownloadAsync(role),
+            AiModelAction.Cancel => await Orchestrator.CancelAiModelDownloadAsync(role),
+            AiModelAction.Load => await Orchestrator.LoadAiModelAsync(role),
+            AiModelAction.Unload => await Orchestrator.UnloadAiModelAsync(role),
+            _ => false,
+        };
+
+        _messageSeverity = ok ? Severity.Success : Severity.Error;
+        _message = ok ? $"{action} requested for {role}." : $"{action} failed for {role}. State was not changed locally.";
+        await RefreshAsync();
     }
 
-    private static Color GetTierColor(string tier) => tier.ToLowerInvariant() switch
+    private string UsedBy(string role)
     {
-        "high"   => Color.Success,
-        "medium" => Color.Warning,
-        "low"    => Color.Error,
-        _        => Color.Default,
+        if (_config is null)
+            return "unknown";
+
+        var names = FeatureDefinitions()
+            .Where(f => string.Equals(f.RequiredModelRole, role, StringComparison.OrdinalIgnoreCase))
+            .Where(f => _config.Features.TryGetValue(f.Key, out var enabled) && enabled)
+            .Select(f => f.Name)
+            .ToList();
+
+        return names.Count == 0 ? "none currently enabled" : string.Join(", ", names);
+    }
+
+    private static bool CanDownload(AiModelStatusDto m) =>
+        m.Supported && IsState(m, "NotDownloaded", "Error") && !string.IsNullOrWhiteSpace(m.ModelFile);
+
+    private static bool CanCancel(AiModelStatusDto m) => m.Supported && IsState(m, "Downloading");
+
+    private static bool CanLoad(AiModelStatusDto m) => m.Supported && IsState(m, "Ready") && !m.Loaded;
+
+    private static bool CanUnload(AiModelStatusDto m) => m.Supported && (m.Loaded || m.Active || IsState(m, "Loaded"));
+
+    private static bool IsState(AiModelStatusDto m, params string[] states) =>
+        states.Any(s => string.Equals(m.State, s, StringComparison.OrdinalIgnoreCase));
+
+    private static string StateLabel(AiModelStatusDto model) => model.Active ? "Active" : model.Loaded ? "Loaded" : model.State;
+
+    private static Color StateColor(AiModelStatusDto model) => StateLabel(model).ToLowerInvariant() switch
+    {
+        "active" or "loaded" or "ready" => Color.Success,
+        "downloading" => Color.Info,
+        "error" => Color.Error,
+        _ => Color.Warning,
     };
 
-    private static string FormatRam(long mb) =>
-        mb >= 1024 ? $"{mb / 1024.0:F1} GB" : $"{mb} MB";
+    private static string FormatMb(long mb) => mb >= 1024 ? $"{mb / 1024.0:F1} GB" : $"{mb} MB";
 
-    private static Color CpuPressureColor(int pressure) => pressure switch
-    {
-        >= 3 => Color.Error,
-        >= 2 => Color.Warning,
-        _    => Color.Success,
-    };
+    private enum AiModelAction { Download, Cancel, Load, Unload }
 
-    private static string CpuPressureLabel(int pressure) => pressure switch
-    {
-        >= 3 => "High",
-        >= 2 => "Moderate",
-        _    => "Low",
-    };
+    private sealed record FeatureDefinition(string Key, string Name, string RequiredModelRole);
 
-    private const string ModelCardStyle =
-        "background: var(--app-surface-2); " +
-        "border: 1px solid var(--app-border); " +
-        "border-radius: 8px; " +
-        "padding: 20px; " +
-        "height: 100%;";
-
-    private enum ModelStatus
-    {
-        NotDownloaded,
-        Downloading,
-        Downloaded,
-        Loaded,
-        Active
-    }
-
-    private sealed class ModelInfo
-    {
-        public string      Role             { get; init; } = string.Empty;
-        public string      ModelName        { get; init; } = string.Empty;
-        public string      Purpose          { get; init; } = string.Empty;
-        public ModelStatus Status           { get; set; }
-        public string      RamUsage         { get; init; } = string.Empty;
-        public string      FileSize         { get; init; } = string.Empty;
-        public int         DownloadProgress { get; set; }
-    }
-
-    private readonly List<ModelInfo> _models =
+    private static IReadOnlyList<FeatureDefinition> FeatureDefinitions() =>
     [
-        new()
-        {
-            Role      = "text_fast",
-            ModelName = "Llama 3.2 1B Q4_K_M",
-            Purpose   = "Powers search and quick tasks",
-            Status    = ModelStatus.Active,
-            RamUsage  = "~750MB",
-            FileSize  = "~750MB",
-        },
-        new()
-        {
-            Role      = "text_quality",
-            ModelName = "Llama 3.2 3B Q4_K_M",
-            Purpose   = "Powers ingestion and metadata",
-            Status    = ModelStatus.Loaded,
-            RamUsage  = "~2.4GB",
-            FileSize  = "~2GB",
-        },
-        new()
-        {
-            Role      = "text_scholar",
-            ModelName = "Llama 3.1 8B Q4_K_M",
-            Purpose   = "Deep enrichment - themes, mood, people extraction",
-            Status    = ModelStatus.Downloaded,
-            RamUsage  = "~4.9GB",
-            FileSize  = "~4.6GB",
-        },
-        new()
-        {
-            Role      = "text_cjk",
-            ModelName = "Qwen 2.5 3B Instruct Q4_K_M",
-            Purpose   = "CJK content analysis - Chinese, Japanese, Korean",
-            Status    = ModelStatus.NotDownloaded,
-            RamUsage  = "~2.4GB",
-            FileSize  = "~2GB",
-        },
-        new()
-        {
-            Role      = "audio",
-            ModelName = "Whisper Medium",
-            Purpose   = "Transcription and language detection",
-            Status    = ModelStatus.Downloaded,
-            RamUsage  = "~1.5GB",
-            FileSize  = "~1.5GB",
-        },
+        new("smart_labeling", "Smart labeling", "text_fast"),
+        new("type_logic", "Type logic", "text_fast"),
+        new("audio_language_detection", "Audio language detection", "audio"),
+        new("qid_disambiguation", "QID disambiguation", "text_quality"),
+        new("series_alignment", "Series alignment", "text_quality"),
+        new("watching_order", "Watching order", "text_fast"),
+        new("vibe_tags", "Vibe tags", "text_quality"),
+        new("tldr", "TL;DR", "text_fast"),
+        new("cover_art_validation", "Cover art validation", "text_quality"),
+        new("whisper_alignment", "Whisper alignment", "audio"),
+        new("subtitle_sync", "Subtitle sync", "audio"),
+        new("taste_profiling", "Taste profiling", "text_quality"),
+        new("why_factor", "Why factor", "text_fast"),
+        new("intent_search", "Intent search", "text_fast"),
+        new("url_paste", "URL paste", "text_quality"),
+        new("description_intelligence", "Description intelligence", "text_scholar"),
     ];
-
-    private string _modelsDirectory    = "/models";
-    private int    _idleTimeoutSeconds = 300;
-    private bool   _gpuEnabled;
-
-    private static Color RoleBadgeColor(string role) => role switch
-    {
-        "text_fast"    => Color.Info,
-        "text_quality" => Color.Primary,
-        "text_scholar" => Color.Warning,
-        "text_cjk"     => Color.Tertiary,
-        "audio"        => Color.Secondary,
-        _              => Color.Default,
-    };
-
-    private static Color StatusChipColor(ModelStatus status) => status switch
-    {
-        ModelStatus.Active        => Color.Success,
-        ModelStatus.Loaded        => Color.Info,
-        ModelStatus.Downloaded    => Color.Default,
-        ModelStatus.Downloading   => Color.Warning,
-        ModelStatus.NotDownloaded => Color.Warning,
-        _                         => Color.Default,
-    };
-
-    private static string StatusLabel(ModelStatus status) => status switch
-    {
-        ModelStatus.Active        => "Active",
-        ModelStatus.Loaded        => "Loaded",
-        ModelStatus.Downloaded    => "Downloaded",
-        ModelStatus.Downloading   => "Downloading",
-        ModelStatus.NotDownloaded => "Not Downloaded",
-        _                         => "Unknown",
-    };
-
 }

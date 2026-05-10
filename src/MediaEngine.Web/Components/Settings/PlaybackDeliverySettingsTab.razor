@@ -1,6 +1,13 @@
 @namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudText Typo="Typo.h6">Playback & Delivery</MudText>
+        <SettingsStatusBadge Status="SettingsStatusKind.Partial" />
+    </MudStack>
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+        Transcoding and offline variant policy are Engine-backed where the section exposes save controls. Direct Play, subtitle burn-in, and audio passthrough controls are visible as planned behavior and remain disabled until persistence exists.
+    </MudAlert>
     <MudTabs Rounded="true" Elevation="0" Color="Color.Primary" Position="Position.Top" Class="settings-tab-strip">
         <MudTabPanel Text="Direct Play" Icon="@Icons.Material.Outlined.PlayArrow">
             <MudPaper Elevation="0" Class="tl-card pa-4">

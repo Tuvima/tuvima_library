@@ -271,27 +271,29 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void AiFeatures_DisplaysAsNotConnectedWhenNoSavePathExists()
+    public void AiFeatures_UsesEngineBackedConfigSavePath()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "AiFeaturesTab.razor"));
 
-        Assert.Contains("Toggle persistence is not wired to the Engine yet", source);
+        Assert.Contains("Save feature flags", source);
+        Assert.Contains("SaveAiConfigAsync", source);
+        Assert.Contains("GetAiConfigAsync", source);
+        Assert.Contains("GetAiModelStatusesAsync", source);
         Assert.Contains("Not connected", source);
-        Assert.Contains("Disabled=\"true\"", source);
-        Assert.DoesNotContain("Save", source);
-        Assert.DoesNotContain("SaveAsync", source);
+        Assert.DoesNotContain("Toggle persistence is not wired to the Engine yet", source);
     }
 
     [Fact]
-    public void ModelsTab_DoesNotExposeSimulatedActionsAsLive()
+    public void ModelsTab_UsesEngineBackedLifecycleActions()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ModelsTab.razor"));
 
-        Assert.Contains("catalogue-only", source);
-        Assert.Contains("Download not connected", source);
-        Assert.Contains("Load not connected", source);
-        Assert.Contains("Unload not connected", source);
-        Assert.Contains("Disabled=\"true\"", source);
+        Assert.Contains("GetAiModelStatusesAsync", source);
+        Assert.Contains("StartAiModelDownloadAsync", source);
+        Assert.Contains("CancelAiModelDownloadAsync", source);
+        Assert.Contains("LoadAiModelAsync", source);
+        Assert.Contains("UnloadAiModelAsync", source);
+        Assert.Contains("State was not changed locally", source);
         Assert.DoesNotContain("SimulateDownload", source);
         Assert.DoesNotContain("Task.Delay", source);
         Assert.DoesNotContain("ChangeStatus", source);
@@ -302,8 +304,9 @@ public sealed class UiShellRenderTests : TestContext
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "LocalAiSettingsTab.razor"));
 
-        Assert.Contains("Runtime limit controls are not persisted yet", source);
-        Assert.Contains("Disabled=\"true\"", source);
+        Assert.Contains("GetAiConfigAsync", source);
+        Assert.Contains("SaveAiConfigAsync", source);
+        Assert.Contains("Local AI runs on this server", source);
         Assert.Single(Regex.Matches(source, "<ModelsTab />"));
         Assert.DoesNotContain("TODO: Persist AI limits", source);
     }
@@ -316,7 +319,8 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("unavailable state instead of sample defaults", source);
         Assert.Contains("_loadError", source);
         Assert.Contains("InitializeEmptyAssignments", source);
-        Assert.Contains("Load sample chain", source);
+        Assert.Contains("sample data is not presented as live configuration", source);
+        Assert.DoesNotContain("Load sample chain", source);
         Assert.DoesNotContain("using dashboard defaults", source);
         Assert.DoesNotContain("ResetToDefaults", source);
     }
@@ -326,10 +330,13 @@ public sealed class UiShellRenderTests : TestContext
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "Settings.razor"));
 
-        Assert.Contains("SettingsSection.LocalAi => \"Partial\"", source);
-        Assert.Contains("SettingsSection.Delivery => \"Partial\"", source);
-        Assert.Contains("SettingsSection.Plugins => \"Planned\"", source);
-        Assert.Contains("SettingsSection.Access => \"Partial\"", source);
+        var nav = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Models", "ViewDTOs", "SettingsNav.cs"));
+
+        Assert.Contains("SettingsSection.LocalAi", nav);
+        Assert.Contains("SettingsSection.Delivery", nav);
+        Assert.Contains("SettingsSection.Plugins", nav);
+        Assert.Contains("SettingsSection.Access", nav);
+        Assert.Contains("SettingsStatusKind.Partial", nav);
     }
 
     [Fact]

@@ -1,500 +1,174 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
-@inject IStringLocalizer<SharedStrings> L
+
 <div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.ToggleOn" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["AiFeatures_AiFeatures"]</MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+        <MudText Typo="Typo.h6">Features</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(_config is null || _saving)">Save feature flags</MudButton>
     </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["AiFeatures_AiFeaturesDescription"]
-    </MudText>
-    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-        Not connected. These feature descriptions are a read-only catalogue. Toggle persistence is not wired to the Engine yet.
-    </MudAlert>
-<MudExpansionPanels MultiExpansion="true">
-<MudExpansionPanel @bind-Expanded="_panel1Open"
-                           Style="@PanelStyle">
-            <TitleContent>
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Outlined.Input"
-                             Size="Size.Small" Color="Color.Primary" />
-                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                        @L["AiFeatures_Ingestion"]
-                    </MudText>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                             Style="font-size: 0.7rem;">
-                        @L["AiFeatures_Automatic"]
-                    </MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                             Style="font-size: 0.7rem;">
-                        Not connected
-                    </MudChip>
-                </MudStack>
-            </TitleContent>
-            <ChildContent>
-                <MudText Typo="Typo.body2" Color="Color.Secondary"
-                         Style="margin-bottom: 16px; margin-top: 4px;">
-                    @L["AiFeatures_IngestionDescription"]
-                </MudText>
-                @foreach (var f in _ingestionFeatures)
-                {
-                    var feature = f;
-                    <div>
-                        <div style="@FeatureRowStyle">
-                            <div style="flex: 1; min-width: 0;">
-                                <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
-                                    @feature.Name
-                                </MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @feature.Description
-                                </MudText>
-                            </div>
-                            @if (!string.IsNullOrEmpty(feature.ModelRole))
-                            {
-                                <MudChip T="string" Size="Size.Small"
-                                         Color="@ModelRoleColor(feature.ModelRole)"
-                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
-                                    @feature.ModelRole
-                                </MudChip>
-                            }
-                            else
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                    @L["AiFeatures_BuiltIn"]
-                                </MudChip>
-                            }
-                            <MudSwitch @bind-Value="feature.Enabled"
-                                       Color="Color.Primary"
-                                       Style="flex-shrink: 0;"
-                                       Disabled="true" />
-                        </div>
-                        @if (!IsFeatureAvailable(feature.Key))
-                        {
-                            <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] - @GetUpgradeHint(feature.Key)
-                            </MudText>
-                        }
-                    </div>
-                }
-            </ChildContent>
-        </MudExpansionPanel>
-<MudExpansionPanel @bind-Expanded="_panel2Open"
-                           Style="@PanelStyle">
-            <TitleContent>
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome"
-                             Size="Size.Small" Color="Color.Info" />
-                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                        @L["AiFeatures_Enrichment"]
-                    </MudText>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                             Style="font-size: 0.7rem;">
-                        @L["AiFeatures_Background"]
-                    </MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                             Style="font-size: 0.7rem;">
-                        Not connected
-                    </MudChip>
-                </MudStack>
-            </TitleContent>
-            <ChildContent>
-                <MudText Typo="Typo.body2" Color="Color.Secondary"
-                         Style="margin-bottom: 16px; margin-top: 4px;">
-                    @L["AiFeatures_EnrichmentDescription"]
-                </MudText>
-                @foreach (var f in _enrichmentFeatures)
-                {
-                    var feature = f;
-                    <div>
-                        <div style="@FeatureRowStyle">
-                            <div style="flex: 1; min-width: 0;">
-                                <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
-                                    @feature.Name
-                                </MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @feature.Description
-                                </MudText>
-                            </div>
-                            @if (!string.IsNullOrEmpty(feature.ModelRole))
-                            {
-                                <MudChip T="string" Size="Size.Small"
-                                         Color="@ModelRoleColor(feature.ModelRole)"
-                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
-                                    @feature.ModelRole
-                                </MudChip>
-                            }
-                            else
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                    @L["AiFeatures_BuiltIn"]
-                                </MudChip>
-                            }
-                            <MudSwitch @bind-Value="feature.Enabled"
-                                       Color="Color.Primary"
-                                       Style="flex-shrink: 0;"
-                                       Disabled="true" />
-                        </div>
-                        @if (!IsFeatureAvailable(feature.Key))
-                        {
-                            <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] - @GetUpgradeHint(feature.Key)
-                            </MudText>
-                        }
-                    </div>
-                }
-            </ChildContent>
-        </MudExpansionPanel>
-<MudExpansionPanel @bind-Expanded="_panel3Open"
-                           Style="@PanelStyle">
-            <TitleContent>
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Outlined.TouchApp"
-                             Size="Size.Small" Color="Color.Warning" />
-                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                        @L["AiFeatures_OnDemand"]
-                    </MudText>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                             Style="font-size: 0.7rem;">
-                        @L["AiFeatures_UserTriggered"]
-                    </MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                             Style="font-size: 0.7rem;">
-                        Not connected
-                    </MudChip>
-                </MudStack>
-            </TitleContent>
-            <ChildContent>
-                <MudText Typo="Typo.body2" Color="Color.Secondary"
-                         Style="margin-bottom: 16px; margin-top: 4px;">
-                    @L["AiFeatures_OnDemandDescription"]
-                </MudText>
-                @foreach (var f in _onDemandFeatures)
-                {
-                    var feature = f;
-                    <div>
-                        <div style="@FeatureRowStyle">
-                            <div style="flex: 1; min-width: 0;">
-                                <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
-                                    @feature.Name
-                                </MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @feature.Description
-                                </MudText>
-                            </div>
-                            @if (!string.IsNullOrEmpty(feature.ModelRole))
-                            {
-                                <MudChip T="string" Size="Size.Small"
-                                         Color="@ModelRoleColor(feature.ModelRole)"
-                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
-                                    @feature.ModelRole
-                                </MudChip>
-                            }
-                            else
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                    @L["AiFeatures_BuiltIn"]
-                                </MudChip>
-                            }
-                            <MudSwitch @bind-Value="feature.Enabled"
-                                       Color="Color.Primary"
-                                       Style="flex-shrink: 0;"
-                                       Disabled="true" />
-                        </div>
-                        @if (!IsFeatureAvailable(feature.Key))
-                        {
-                            <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] - @GetUpgradeHint(feature.Key)
-                            </MudText>
-                        }
-                    </div>
-                }
-            </ChildContent>
-        </MudExpansionPanel>
-<MudExpansionPanel @bind-Expanded="_panel4Open"
-                           Style="@PanelStyle">
-            <TitleContent>
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Outlined.Schedule"
-                             Size="Size.Small" Color="Color.Secondary" />
-                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                        @L["AiFeatures_Scheduled"]
-                    </MudText>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                             Style="font-size: 0.7rem;">
-                        @L["AiFeatures_Background"]
-                    </MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                             Style="font-size: 0.7rem;">
-                        Not connected
-                    </MudChip>
-                </MudStack>
-            </TitleContent>
-            <ChildContent>
-                <MudText Typo="Typo.body2" Color="Color.Secondary"
-                         Style="margin-bottom: 16px; margin-top: 4px;">
-                    @L["AiFeatures_ScheduledDescription"]
-                </MudText>
-                @foreach (var f in _scheduledFeatures)
-                {
-                    var feature = f;
-                    <div>
-                        <div style="@FeatureRowStyle">
-                            <div style="flex: 1; min-width: 0;">
-                                <MudText Typo="Typo.body1" Style="font-weight: 600; margin-bottom: 2px;">
-                                    @feature.Name
-                                </MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @feature.Description
-                                </MudText>
-                            </div>
-                            @if (!string.IsNullOrEmpty(feature.ModelRole))
-                            {
-                                <MudChip T="string" Size="Size.Small"
-                                         Color="@ModelRoleColor(feature.ModelRole)"
-                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0;">
-                                    @feature.ModelRole
-                                </MudChip>
-                            }
-                            else
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                         Style="font-family: monospace; font-size: 0.7rem; flex-shrink: 0; opacity: 0.5;">
-                                    @L["AiFeatures_BuiltIn"]
-                                </MudChip>
-                            }
-                            <MudSwitch @bind-Value="feature.Enabled"
-                                       Color="Color.Primary"
-                                       Style="flex-shrink: 0;"
-                                       Disabled="true" />
-                        </div>
-                        @if (!IsFeatureAvailable(feature.Key))
-                        {
-                            <MudText Typo="Typo.caption" Style="color: rgba(255,150,50,0.7); padding-bottom: 6px;">
-                                @L["AiFeatures_Requires"] @GetRequiredTier(feature.Key) @L["AiFeatures_Tier"] - @GetUpgradeHint(feature.Key)
-                            </MudText>
-                        }
-                    </div>
-                }
-            </ChildContent>
-        </MudExpansionPanel>
 
-    </MudExpansionPanels>
+    @if (_config is null)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI config unavailable. Feature toggles are not shown as live.</MudAlert>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
+            Feature toggles persist to config/ai.json. A feature is active only when it is enabled, connected, the Engine is healthy, and required model/hardware checks pass.
+        </MudAlert>
 
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <MudAlert Severity="@_messageSeverity" Variant="Variant.Outlined" Class="mb-3">@_message</MudAlert>
+        }
+
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Config key</th>
+                    <th>Dependency</th>
+                    <th>Status</th>
+                    <th>Enabled</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var feature in FeatureDefinitions())
+                {
+                    var enabled = IsEnabled(feature.Key);
+                    var dependency = GetDependency(feature);
+                    <tr>
+                        <td>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@feature.Name</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@feature.Description</MudText>
+                        </td>
+                        <td><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@feature.Key</MudChip></td>
+                        <td>
+                            <MudText Typo="Typo.caption">Model: @(feature.RequiredModelRole ?? "none")</MudText><br />
+                            <MudText Typo="Typo.caption">Tier: @feature.RequiredHardwareTier</MudText>
+                        </td>
+                        <td>
+                            <MudChip T="string" Size="Size.Small" Color="@dependency.Color">@dependency.Label</MudChip>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">@dependency.Explanation</MudText>
+                        </td>
+                        <td>
+                            <MudSwitch T="bool" Value="@enabled" ValueChanged="@((bool value) => SetEnabled(feature.Key, value))" Color="Color.Primary" Disabled="@(!feature.Connected)" />
+                            @if (!feature.Connected)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Saved setting is not connected to Engine behavior yet.</MudText>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
 </div>
 
 @code {
-
-    private const string PanelStyle =
-        "background: var(--app-surface-2); " +
-        "border: 1px solid var(--app-border); " +
-        "border-radius: 8px; " +
-        "margin-bottom: 12px;";
-    private const string FeatureRowStyle =
-        "display: flex; align-items: center; gap: 12px; " +
-        "padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);";
-
-    private bool _panel1Open = true;
-    private bool _panel2Open = true;
-    private bool _panel3Open = true;
-    private bool _panel4Open = true;
-
-    private HardwareProfileDto? _profile;
+    private AiConfigDto? _config;
+    private AiHealthStatusDto? _status;
+    private List<AiModelStatusDto> _models = [];
+    private bool _saving;
+    private string? _message;
+    private Severity _messageSeverity = Severity.Info;
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
-        _profile = await Orchestrator.GetAiProfileAsync();
+        _config = await Orchestrator.GetAiConfigAsync();
+        _status = await Orchestrator.GetAiStatusAsync();
+        _models = (await Orchestrator.GetAiModelStatusesAsync()).ToList();
     }
 
-    private string GetTier() => _profile?.Tier ?? "unknown";
+    private bool IsEnabled(string key) => _config?.Features.TryGetValue(key, out var enabled) == true && enabled;
 
-    private bool IsFeatureAvailable(string key) => GetTier().ToLowerInvariant() switch
+    private void SetEnabled(string key, bool enabled)
     {
-        "high"   => true,
-        "medium" => key is not "whisper_sync",
-        "low"    => key is "smart_labeling" or "media_type_classification",
-        _        => false,
-    };
+        if (_config is null)
+            return;
 
-    private static string GetRequiredTier(string key) => key switch
-    {
-        "smart_labeling" or "media_type_classification" => "Low",
-        "whisper_sync"                                  => "High",
-        _                                               => "Medium",
-    };
-
-    private static string GetUpgradeHint(string key) => key switch
-    {
-        "smart_labeling" or "media_type_classification" => "add more RAM or a GPU",
-        _                                               => "a GPU will significantly improve performance",
-    };
-
-    private sealed class AiFeature
-    {
-        public string Key         { get; init; } = string.Empty;   // machine-readable key for tier checks
-        public string Name        { get; init; } = string.Empty;
-        public string Description { get; init; } = string.Empty;
-        public string ModelRole   { get; init; } = string.Empty;   // "text_quality" | "text_fast" | "audio" | ""
-        public bool   Enabled     { get; set; }
+        _config.Features[key] = enabled;
     }
 
-    private readonly List<AiFeature> _ingestionFeatures =
-    [
-        new()
-        {
-            Key         = "smart_labeling",
-            Name        = "Smart Labeling",
-            Description = "AI cleans filenames and extracts metadata from messy names",
-            ModelRole   = "text_quality",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "media_type_classification",
-            Name        = "Media Type Classification",
-            Description = "Determines if an MP3 is music or an audiobook",
-            ModelRole   = "text_quality",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "audio_language_detection",
-            Name        = "Audio Language Detection",
-            Description = "Detects the spoken language in audiobooks",
-            ModelRole   = "audio",
-            Enabled     = true,
-        },
-    ];
-
-    private readonly List<AiFeature> _enrichmentFeatures =
-    [
-        new()
-        {
-            Key         = "vibe_tags",
-            Name        = "Vibe Tags",
-            Description = "Mood and atmosphere tags derived from metadata and descriptions",
-            ModelRole   = "text_quality",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "tldr",
-            Name        = "TL;DR Descriptions",
-            Description = "Short one-sentence summaries generated from full descriptions",
-            ModelRole   = "text_fast",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "cover_art_validation",
-            Name        = "Cover Art Validation",
-            Description = "Checks whether the cover image matches the content of the file",
-            ModelRole   = "text_quality",
-            Enabled     = false,
-        },
-        new()
-        {
-            Key         = "audio_similarity",
-            Name        = "Audio Similarity",
-            Description = "Chromaprint fingerprint matching to detect duplicate audio files",
-            ModelRole   = "",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "qid_disambiguation",
-            Name        = "QID Disambiguation",
-            Description = "Picks the best Wikidata match when multiple candidates exist",
-            ModelRole   = "text_quality",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "series_alignment",
-            Name        = "Series Alignment",
-            Description = "Detects reading/watching order across multi-volume series",
-            ModelRole   = "text_quality",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "description_intelligence",
-            Name        = "Description Intelligence",
-            Description = "Extracts themes, mood, setting, pace, and character names from descriptions using the 8B Scholar model",
-            ModelRole   = "text_scholar",
-            Enabled     = true,
-        },
-    ];
-
-    private readonly List<AiFeature> _onDemandFeatures =
-    [
-        new()
-        {
-            Key         = "intent_search",
-            Name        = "Intent Search",
-            Description = "Converts natural language queries into structured library filters",
-            ModelRole   = "text_fast",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "watching_order",
-            Name        = "Watching Order",
-            Description = "Suggests cross-media consumption order for a franchise or universe",
-            ModelRole   = "text_fast",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "why_factor",
-            Name        = "\"Why\" Factor",
-            Description = "Explains in plain English why a title was recommended to you",
-            ModelRole   = "text_fast",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "url_paste",
-            Name        = "URL Paste",
-            Description = "Extracts and imports metadata from a URL pasted by the user",
-            ModelRole   = "text_quality",
-            Enabled     = true,
-        },
-    ];
-
-    private readonly List<AiFeature> _scheduledFeatures =
-    [
-        new()
-        {
-            Key         = "taste_profiling",
-            Name        = "Taste Profiling",
-            Description = "Builds a personal preference model from your play history",
-            ModelRole   = "text_quality",
-            Enabled     = true,
-        },
-        new()
-        {
-            Key         = "whisper_sync",
-            Name        = "Subtitle Sync",
-            Description = "Aligns subtitle timing to the audio track in video files",
-            ModelRole   = "audio",
-            Enabled     = false,
-        },
-    ];
-
-    private static int EnabledCount(List<AiFeature> features) =>
-        features.Count(f => f.Enabled);
-
-    private static Color ModelRoleColor(string role) => role switch
+    private async Task SaveAsync()
     {
-        "text_quality"  => Color.Primary,
-        "text_fast"     => Color.Info,
-        "text_scholar"  => Color.Warning,
-        "audio"         => Color.Secondary,
-        _               => Color.Default,
+        if (_config is null)
+            return;
+
+        _saving = true;
+        var ok = await Orchestrator.SaveAiConfigAsync(_config);
+        _saving = false;
+        _messageSeverity = ok ? Severity.Success : Severity.Error;
+        _message = ok ? "AI feature flags saved." : "AI feature flags could not be saved.";
+    }
+
+    private DependencyStatus GetDependency(FeatureDefinition feature)
+    {
+        if (!feature.Connected)
+            return new("Not connected", "This setting is saved but the Engine does not use it yet.", Color.Default);
+
+        if (_status is null)
+            return new("Engine unavailable", "AI status could not be loaded.", Color.Warning);
+
+        if (!IsEnabled(feature.Key))
+            return new("Disabled", "Enable the feature and save config.", Color.Default);
+
+        if (!string.IsNullOrWhiteSpace(feature.RequiredModelRole))
+        {
+            var model = _models.FirstOrDefault(m => string.Equals(m.Role, feature.RequiredModelRole, StringComparison.OrdinalIgnoreCase));
+            if (model is null)
+                return new("Missing model", $"{feature.RequiredModelRole} is not configured.", Color.Error);
+
+            if (model.State.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
+                return new("Downloading model", $"{feature.RequiredModelRole} is still downloading.", Color.Info);
+
+            if (!model.State.Equals("Ready", StringComparison.OrdinalIgnoreCase) && !model.Loaded && !model.Active)
+                return new("Missing model", $"{feature.RequiredModelRole} is not downloaded.", Color.Error);
+        }
+
+        if (!HardwareAdequate(feature.RequiredHardwareTier))
+            return new("Hardware limited", $"This feature is best on {feature.RequiredHardwareTier} tier hardware.", Color.Warning);
+
+        if (!_status.IsReady && feature.RequiredModelRole is not null)
+            return new("Enabled but blocked", "AI subsystem is not fully ready.", Color.Warning);
+
+        return new("Ready", $"{feature.RequiredModelRole ?? "No model"} dependency is available.", Color.Success);
+    }
+
+    private bool HardwareAdequate(string tier)
+    {
+        var current = _config?.HardwareProfile.Tier ?? "unknown";
+        return TierRank(current) >= TierRank(tier);
+    }
+
+    private static int TierRank(string tier) => tier.ToLowerInvariant() switch
+    {
+        "high" => 3,
+        "medium" => 2,
+        "low" or "starter" => 1,
+        _ => 0,
     };
+
+    private sealed record DependencyStatus(string Label, string Explanation, Color Color);
+    private sealed record FeatureDefinition(string Key, string Name, string Description, string? RequiredModelRole, string RequiredHardwareTier, bool Connected);
+
+    private static IReadOnlyList<FeatureDefinition> FeatureDefinitions() =>
+    [
+        new("smart_labeling", "Smart labeling", "Cleans filenames and extracts initial metadata during ingestion.", "text_fast", "low", true),
+        new("type_logic", "Type logic", "Classifies ambiguous media types during ingestion.", "text_fast", "low", true),
+        new("audio_language_detection", "Audio language detection", "Uses Whisper to detect audio language.", "audio", "medium", true),
+        new("qid_disambiguation", "QID disambiguation", "Ranks ambiguous Wikidata candidates.", "text_quality", "medium", true),
+        new("series_alignment", "Series alignment", "Assists order and grouping checks for multi-part works.", "text_quality", "medium", true),
+        new("watching_order", "Watching order", "Optional on-demand order advice.", "text_fast", "low", true),
+        new("vibe_tags", "Vibe tags", "Generates controlled vocabulary mood tags.", "text_quality", "medium", true),
+        new("tldr", "TL;DR", "Generates short summaries from descriptions.", "text_fast", "low", true),
+        new("cover_art_validation", "Cover art validation", "Checks whether cover images appear to match content.", "text_quality", "medium", true),
+        new("whisper_alignment", "Whisper alignment", "Bakes transcript timing when audio models are available.", "audio", "medium", true),
+        new("subtitle_sync", "Subtitle sync", "Subtitle alignment is saved as a flag but is not connected to Engine behavior yet.", "audio", "medium", false),
+        new("taste_profiling", "Taste profiling", "Builds local preference signals from usage history.", "text_quality", "medium", true),
+        new("why_factor", "Why factor", "Explains why an item matches a local taste profile.", "text_fast", "low", true),
+        new("intent_search", "Intent search", "Parses natural-language search into structured filters.", "text_fast", "low", true),
+        new("url_paste", "URL paste", "Extracts metadata from a pasted URL.", "text_quality", "medium", true),
+        new("description_intelligence", "Description intelligence", "Extracts themes, mood, setting, and entities from descriptions.", "text_scholar", "high", true),
+    ];
 }

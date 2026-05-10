@@ -633,13 +633,26 @@ else
 
                                     case ColumnRenderType.ManageActions:
                                         <div class="vmt-manage-actions">
-                                            <span @onclick:stopPropagation="true">
-                                                <MudIconButton Icon="@Icons.Material.Outlined.Delete"
-                                                               Color="Color.Error"
-                                                               Class="vmt-manage-btn vmt-manage-btn--delete"
-                                                               aria-label="Delete"
-                                                               OnClick="() => OnDeleteClicked.InvokeAsync(item.EntityId)" />
-                                            </span>
+                                            @if (OnEditClicked.HasDelegate)
+                                            {
+                                                <span @onclick:stopPropagation="true">
+                                                    <MudIconButton Icon="@Icons.Material.Outlined.Edit"
+                                                                   Color="Color.Default"
+                                                                   Class="vmt-manage-btn"
+                                                                   aria-label="Edit metadata"
+                                                                   OnClick="() => OnEditClicked.InvokeAsync(item.EntityId)" />
+                                                </span>
+                                            }
+                                            @if (OnDeleteClicked.HasDelegate)
+                                            {
+                                                <span @onclick:stopPropagation="true">
+                                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete"
+                                                                   Color="Color.Error"
+                                                                   Class="vmt-manage-btn vmt-manage-btn--delete"
+                                                                   aria-label="Delete"
+                                                                   OnClick="() => OnDeleteClicked.InvokeAsync(item.EntityId)" />
+                                                </span>
+                                            }
                                         </div>
                                         break;
 

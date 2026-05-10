@@ -25,7 +25,15 @@ internal static class AiEndpoints
             IModelLifecycleManager lifecycle) =>
         {
             var status = lifecycle.GetHealthStatus();
-            return Results.Ok(status);
+            return Results.Ok(new
+            {
+                models = status.Models.Select(ToModelStatusResponse),
+                memoryUsedMB = status.MemoryUsedMB,
+                memoryLimitMB = status.MemoryLimitMB,
+                gpuAvailable = status.GpuAvailable,
+                memoryProfile = status.MemoryProfile,
+                isReady = status.IsReady,
+            });
         })
         .WithName("GetAiStatus")
         .WithSummary("Returns overall AI subsystem health status.")
@@ -34,9 +42,17 @@ internal static class AiEndpoints
 
         // ── GET /ai/models ───────────────────────────────────────────────────
         group.MapGet("/models", (
-            IModelDownloadManager downloadManager) =>
+            IModelDownloadManager downloadManager,
+            IModelLifecycleManager lifecycle,
+            IConfigurationLoader configLoader) =>
         {
-            var statuses = downloadManager.GetAllStatuses();
+            var settings = configLoader.LoadAi<AiSettings>() ?? new AiSettings();
+            var statuses = downloadManager.GetAllStatuses()
+                .Select(status =>
+                {
+                    return ToModelStatusResponse(status, settings, lifecycle.CurrentlyLoadedRole);
+                })
+                .ToList();
             return Results.Ok(statuses);
         })
         .WithName("GetAiModelStatuses")
@@ -50,11 +66,18 @@ internal static class AiEndpoints
             IModelDownloadManager downloadManager,
             CancellationToken ct) =>
         {
-            if (!Enum.TryParse<AiModelRole>(role, ignoreCase: true, out var modelRole))
-                return Results.BadRequest($"Unknown model role: '{role}'. Valid values: TextFast, TextQuality, Audio.");
+            if (!TryParseModelRole(role, out var modelRole))
+                return Results.BadRequest(UnknownRoleMessage(role));
 
-            await downloadManager.StartDownloadAsync(modelRole, ct);
-            return Results.Accepted();
+            try
+            {
+                await downloadManager.StartDownloadAsync(modelRole, ct);
+                return Results.Accepted();
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Could not start model download for {ToRoleKey(modelRole)}: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
+            }
         })
         .WithName("StartAiModelDownload")
         .WithSummary("Starts downloading the model for the specified role. Returns 202 Accepted immediately; progress is reported via SignalR.")
@@ -68,11 +91,18 @@ internal static class AiEndpoints
             IModelDownloadManager downloadManager,
             CancellationToken ct) =>
         {
-            if (!Enum.TryParse<AiModelRole>(role, ignoreCase: true, out var modelRole))
-                return Results.BadRequest($"Unknown model role: '{role}'. Valid values: TextFast, TextQuality, Audio.");
+            if (!TryParseModelRole(role, out var modelRole))
+                return Results.BadRequest(UnknownRoleMessage(role));
 
-            await downloadManager.CancelDownloadAsync(modelRole, ct);
-            return Results.Ok(new { cancelled = true, role });
+            try
+            {
+                await downloadManager.CancelDownloadAsync(modelRole, ct);
+                return Results.Ok(new { cancelled = true, role = ToRoleKey(modelRole) });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Could not cancel model download for {ToRoleKey(modelRole)}: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
+            }
         })
         .WithName("CancelAiModelDownload")
         .WithSummary("Cancels an in-progress model download for the specified role.")
@@ -86,11 +116,18 @@ internal static class AiEndpoints
             IModelLifecycleManager lifecycle,
             CancellationToken ct) =>
         {
-            if (!Enum.TryParse<AiModelRole>(role, ignoreCase: true, out var modelRole))
-                return Results.BadRequest($"Unknown model role: '{role}'. Valid values: TextFast, TextQuality, Audio.");
+            if (!TryParseModelRole(role, out var modelRole))
+                return Results.BadRequest(UnknownRoleMessage(role));
 
-            await lifecycle.LoadModelAsync(modelRole, ct);
-            return Results.Ok(new { loaded = true, role });
+            try
+            {
+                await lifecycle.LoadModelAsync(modelRole, ct);
+                return Results.Ok(new { loaded = true, role = ToRoleKey(modelRole) });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Could not load model {ToRoleKey(modelRole)}: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
+            }
         })
         .WithName("LoadAiModel")
         .WithSummary("Loads the model for the specified role into memory. Unloads any currently loaded model first.")
@@ -104,14 +141,21 @@ internal static class AiEndpoints
             IModelLifecycleManager lifecycle,
             CancellationToken ct) =>
         {
-            if (!Enum.TryParse<AiModelRole>(role, ignoreCase: true, out var modelRole))
-                return Results.BadRequest($"Unknown model role: '{role}'. Valid values: TextFast, TextQuality, Audio.");
+            if (!TryParseModelRole(role, out var modelRole))
+                return Results.BadRequest(UnknownRoleMessage(role));
 
-            // Only unload if the requested role is currently loaded.
-            if (lifecycle.CurrentlyLoadedRole == modelRole)
-                await lifecycle.UnloadCurrentAsync(ct);
+            try
+            {
+                // Only unload if the requested role is currently loaded.
+                if (lifecycle.CurrentlyLoadedRole == modelRole)
+                    await lifecycle.UnloadCurrentAsync(ct);
 
-            return Results.Ok(new { unloaded = true, role });
+                return Results.Ok(new { unloaded = true, role = ToRoleKey(modelRole) });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Could not unload model {ToRoleKey(modelRole)}: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
+            }
         })
         .WithName("UnloadAiModel")
         .WithSummary("Unloads the model for the specified role from memory, freeing resources.")
@@ -136,6 +180,10 @@ internal static class AiEndpoints
             AiSettings settings,
             IConfigurationLoader configLoader) =>
         {
+            var errors = ValidateAiSettings(settings);
+            if (errors.Count > 0)
+                return Results.ValidationProblem(errors.ToDictionary(e => e.Key, e => e.Value));
+
             configLoader.SaveAi(settings);
             return Results.Ok(new { saved = true });
         })
@@ -227,4 +275,146 @@ internal static class AiEndpoints
 
         return group;
     }
+
+    private static bool TryParseModelRole(string value, out AiModelRole role)
+    {
+        var normalized = value.Replace("_", "", StringComparison.Ordinal).Replace("-", "", StringComparison.Ordinal);
+        return Enum.TryParse(normalized, ignoreCase: true, out role);
+    }
+
+    private static string UnknownRoleMessage(string role) =>
+        $"Unknown model role: '{role}'. Valid values: {string.Join(", ", Enum.GetValues<AiModelRole>().Select(ToRoleKey))}.";
+
+    private static string ToRoleKey(AiModelRole role) => role switch
+    {
+        AiModelRole.TextFast => "text_fast",
+        AiModelRole.TextQuality => "text_quality",
+        AiModelRole.TextScholar => "text_scholar",
+        AiModelRole.Audio => "audio",
+        AiModelRole.TextCjk => "text_cjk",
+        _ => role.ToString(),
+    };
+
+    private static string GetRequiredHardwareTier(AiModelRole role) => role switch
+    {
+        AiModelRole.TextScholar => "high",
+        AiModelRole.TextQuality or AiModelRole.TextCjk or AiModelRole.Audio => "medium",
+        _ => "low",
+    };
+
+    private static string? TryGetUriHost(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : null;
+    }
+
+    private static AiModelStatusResponse ToModelStatusResponse(AiModelStatus status) =>
+        new(
+            Role: ToRoleKey(status.Role),
+            RoleName: status.Role.ToString(),
+            Supported: true,
+            ModelType: status.ModelType.ToString(),
+            State: status.State.ToString(),
+            Description: "",
+            ModelFile: status.ModelFile,
+            SizeMB: status.SizeMB,
+            DownloadUrlHost: null,
+            DownloadProgressPercent: status.DownloadProgressPercent,
+            BytesDownloaded: status.BytesDownloaded,
+            TotalBytes: status.TotalBytes,
+            Loaded: status.State == AiModelState.Loaded,
+            Active: status.State == AiModelState.Loaded,
+            MemoryFootprintMB: status.State == AiModelState.Loaded ? status.SizeMB : 0,
+            RequiredHardwareTier: GetRequiredHardwareTier(status.Role),
+            ErrorMessage: status.ErrorMessage);
+
+    private static AiModelStatusResponse ToModelStatusResponse(AiModelStatus status, AiSettings settings, AiModelRole? currentRole)
+    {
+        var definition = settings.Models.GetByRole(status.Role);
+        var isLoaded = currentRole == status.Role || status.State == AiModelState.Loaded;
+        return new AiModelStatusResponse(
+            Role: ToRoleKey(status.Role),
+            RoleName: status.Role.ToString(),
+            Supported: true,
+            ModelType: status.ModelType.ToString(),
+            State: status.State.ToString(),
+            Description: definition.Description,
+            ModelFile: status.ModelFile,
+            SizeMB: status.SizeMB,
+            DownloadUrlHost: TryGetUriHost(definition.DownloadUrl),
+            DownloadProgressPercent: status.DownloadProgressPercent,
+            BytesDownloaded: status.BytesDownloaded,
+            TotalBytes: status.TotalBytes,
+            Loaded: isLoaded,
+            Active: currentRole == status.Role,
+            MemoryFootprintMB: isLoaded ? definition.SizeMB : 0,
+            RequiredHardwareTier: GetRequiredHardwareTier(status.Role),
+            ErrorMessage: status.ErrorMessage);
+    }
+
+    private static IReadOnlyDictionary<string, string[]> ValidateAiSettings(AiSettings settings)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        void Add(string key, string message) => errors[key] = [message];
+
+        if (string.IsNullOrWhiteSpace(settings.ModelsDirectory))
+            Add("models_directory", "Models directory is required.");
+        if (settings.IdleUnloadSeconds <= 0)
+            Add("idle_unload_seconds", "Idle unload seconds must be positive.");
+        if (settings.InferenceTimeoutSeconds <= 0)
+            Add("inference_timeout_seconds", "Inference timeout seconds must be positive.");
+        if (settings.EnrichmentBatchSize <= 0)
+            Add("enrichment_batch_size", "Enrichment batch size must be positive.");
+
+        foreach (var role in Enum.GetValues<AiModelRole>())
+        {
+            var key = ToRoleKey(role);
+            var model = settings.Models.GetByRole(role);
+            if (string.IsNullOrWhiteSpace(model.File))
+                Add($"models.{key}.file", "Model file is required.");
+            if (model.SizeMB <= 0)
+                Add($"models.{key}.size_mb", "Model size must be positive.");
+            if (model.ContextLength <= 0)
+                Add($"models.{key}.context_length", "Context length must be positive.");
+            if (model.MaxTokens <= 0)
+                Add($"models.{key}.max_tokens", "Max tokens must be positive.");
+            if (model.Temperature < 0 || model.Temperature > 2)
+                Add($"models.{key}.temperature", "Temperature must be between 0 and 2.");
+            if (model.GpuLayers < 0)
+                Add($"models.{key}.gpu_layers", "GPU layers cannot be negative.");
+            if (model.Threads <= 0)
+                Add($"models.{key}.threads", "Threads must be positive.");
+            if (!string.IsNullOrWhiteSpace(model.DownloadUrl)
+                && !Uri.TryCreate(model.DownloadUrl, UriKind.Absolute, out _))
+            {
+                Add($"models.{key}.download_url", "Download URL must be an absolute URI.");
+            }
+        }
+
+        if (settings.Scheduling.WhisperBakeWindowHours <= 0)
+            Add("scheduling.whisper_bake_window_hours", "Whisper bake window must be positive.");
+
+        return errors;
+    }
+
+    private sealed record AiModelStatusResponse(
+        string Role,
+        string RoleName,
+        bool Supported,
+        string ModelType,
+        string State,
+        string Description,
+        string ModelFile,
+        int SizeMB,
+        string? DownloadUrlHost,
+        int DownloadProgressPercent,
+        long BytesDownloaded,
+        long TotalBytes,
+        bool Loaded,
+        bool Active,
+        int MemoryFootprintMB,
+        string RequiredHardwareTier,
+        string? ErrorMessage);
 }

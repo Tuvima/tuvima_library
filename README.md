@@ -85,7 +85,7 @@ The Dashboard is organized around the way people use their media:
 - **Search** finds media across the whole library.
 - **Detail pages** are where a user views an item and fixes its metadata inline.
 - **Review Queue** is only for blocked or uncertain items that need human confirmation.
-- **Settings/Admin** is for folders, providers, profiles, ingestion status, system health, and configuration.
+- **Settings/Admin** is for folders, providers, profiles/API keys, delivery policy, diagnostics, ingestion status, system health, and configuration. Settings are labelled Live, Partial, Planned, Not connected, Read-only, Engine unavailable, or with specific requirements such as restart, provider credentials, or admin role.
 - **Library Operations** (`/settings/ingestion`) is the admin view for active ingestion, recent batches, source folder health, provider health, pipeline counts, organization rules, and grouped review reasons.
 
 The old Library Vault workspace has been removed. Normal media corrections now happen inline from the page, row, card, album, track, movie, show, book, comic, or detail view where the issue appears.
@@ -122,7 +122,7 @@ dotnet run --project src/MediaEngine.Web    # Dashboard at localhost:5016
 
 On first startup the Engine initializes local configuration and begins watching your folders. Local AI readiness is shown as optional status; Phase 0 intentionally labels incomplete AI model and runtime controls instead of treating them as live actions.
 
-For a first library, open the Dashboard and use **Settings > Setup**. The checklist confirms the Engine connection, Library Root, Watch Folder, provider readiness, optional Local AI status, scan state, and pending Review Queue work. Configure folders first, run **Scan Now**, then open **Library Operations** to watch ingestion progress and resolve any uncertain items in the Review Queue.
+For a first library, open the Dashboard and use **Settings > Setup**. The checklist confirms the Engine connection, Library Root, Watch Folder, provider readiness, optional Local AI status, scan state, and pending Review Queue work. Configure folders first, run **Scan Now**, then open **Library Operations** to watch ingestion progress and resolve any uncertain items in the Review Queue. When a setting is marked partial, read-only, planned, or not connected, it is intentionally not presented as saved live Engine behavior.
 
 For a concise product-truth baseline, see [`docs/product/feature-truth-inventory.md`](docs/product/feature-truth-inventory.md).
 

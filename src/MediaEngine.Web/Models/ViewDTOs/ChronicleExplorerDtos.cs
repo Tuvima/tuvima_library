@@ -112,6 +112,30 @@ public sealed class NarrativeRootDto
 
     [JsonPropertyName("parent_qid")]
     public string? ParentQid { get; set; }
+
+    [JsonPropertyName("entity_count")]
+    public int EntityCount { get; set; }
+
+    [JsonPropertyName("character_count")]
+    public int CharacterCount { get; set; }
+
+    [JsonPropertyName("location_count")]
+    public int LocationCount { get; set; }
+
+    [JsonPropertyName("organization_count")]
+    public int OrganizationCount { get; set; }
+
+    [JsonPropertyName("event_count")]
+    public int EventCount { get; set; }
+
+    [JsonPropertyName("relationship_count")]
+    public int RelationshipCount { get; set; }
+
+    [JsonPropertyName("has_graph")]
+    public bool HasGraph { get; set; }
+
+    [JsonPropertyName("enrichment_status")]
+    public string? EnrichmentStatus { get; set; }
 }
 
 /// <summary>Response from the on-demand deep enrichment endpoint.</summary>

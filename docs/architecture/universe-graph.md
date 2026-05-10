@@ -18,6 +18,8 @@ The Universe Graph connects fictional characters, locations, organizations, and 
 
 The graph is populated automatically during hydration using Wikidata as the data source. It is stored in SQLite and loaded into an in-memory EntityGraph for graph queries and pathfinding.
 
+Phase 8 serving rule: graph APIs and UI must remain truthful. `GET /universes` returns narrative roots with real entity and relationship counts plus an enrichment status. Chronicle Explorer loads graph data lazily only when opened, renders a graph only when real nodes and edges exist, disables the explorer on mobile, and disables the timeline control on television devices. Empty, partial, and pending graph states are surfaced as data lifecycle states rather than replaced with fake entities or links.
+
 ---
 
 ## Narrative Root Resolution

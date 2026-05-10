@@ -23,16 +23,43 @@ public static class UniverseGraphEndpoints
         // GET /universes — list all known narrative roots.
         group.MapGet("/universes", async (
             INarrativeRootRepository rootRepo,
+            IFictionalEntityRepository entityRepo,
+            IEntityRelationshipRepository relRepo,
             CancellationToken ct) =>
         {
             var roots = await rootRepo.ListAllAsync(ct);
-            return Results.Ok(roots.Select(r => new
+            var results = new List<object>();
+            foreach (var root in roots)
             {
-                qid   = r.Qid,
-                label = r.Label,
-                level = r.Level,
-                parent_qid = r.ParentQid,
-            }));
+                var entities = await entityRepo.GetByUniverseAsync(root.Qid, ct);
+                var entityQids = entities.Select(e => e.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                IReadOnlyList<MediaEngine.Domain.Entities.EntityRelationship> relationships =
+                    entityQids.Count == 0
+                        ? []
+                        : await relRepo.GetByUniverseAsync(entityQids, ct);
+
+                results.Add(new
+                {
+                    qid   = root.Qid,
+                    label = root.Label,
+                    level = root.Level,
+                    parent_qid = root.ParentQid,
+                    entity_count = entities.Count,
+                    character_count = entities.Count(e => e.EntitySubType == "Character"),
+                    location_count = entities.Count(e => e.EntitySubType == "Location"),
+                    organization_count = entities.Count(e => e.EntitySubType == "Organization"),
+                    event_count = entities.Count(e => e.EntitySubType == "Event"),
+                    relationship_count = relationships.Count,
+                    has_graph = entities.Count > 0 && relationships.Count > 0,
+                    enrichment_status = entities.Count == 0
+                        ? "Enrichment pending"
+                        : relationships.Count == 0
+                            ? "Partial"
+                            : "Live",
+                });
+            }
+
+            return Results.Ok(results);
         });
 
         // GET /universe/{qid} — universe detail with entity counts.

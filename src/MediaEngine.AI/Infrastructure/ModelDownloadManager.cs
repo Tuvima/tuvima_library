@@ -53,7 +53,8 @@ public sealed class ModelDownloadManager : IModelDownloadManager
         lock (_lock) { _activeDownloads[role] = cts; }
 
         _inventory.SetState(role, AiModelState.Downloading);
-        _logger.LogInformation("Starting download for {Role}: {Url}", role, definition.DownloadUrl);
+        var host = Uri.TryCreate(definition.DownloadUrl, UriKind.Absolute, out var uri) ? uri.Host : "configured URL";
+        _logger.LogInformation("Starting download for {Role} from {Host}", role, host);
 
         _ = Task.Run(async () =>
         {

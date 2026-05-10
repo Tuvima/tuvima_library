@@ -46,7 +46,8 @@ public sealed record SettingsItemDef(
     string? BadgeKey,
     IReadOnlyList<string> Aliases,
     string Source = "mixed",
-    bool Placeholder = false);
+    bool Placeholder = false,
+    SettingsStatusKind Status = SettingsStatusKind.Live);
 
 /// <summary>A grouped sidebar node with expandable child settings routes.</summary>
 public sealed record SettingsTreeGroupDef(
@@ -89,15 +90,15 @@ public static class SettingsNav
         new(SettingsSection.Playback, "user", "playback", Icons.Material.Outlined.MenuBook, "Playback & Reading", false, null, [], "sqlite"),
         new(SettingsSection.Privacy, "user", "privacy", Icons.Material.Outlined.PrivacyTip, "Privacy & History", false, null, [], "sqlite"),
 
-        new(SettingsSection.AdminOverview, "admin", "admin", Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, [], "json+sqlite"),
-        new(SettingsSection.Libraries, "admin", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"]),
-        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Library Operations", true, null, ["activity", "activity-log", "tasks", "maintenance"]),
-        new(SettingsSection.Metadata, "admin", "metadata", Icons.Material.Outlined.Schema, "Metadata & Matching", true, null, ["wikidata"], "json"),
-        new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, []),
-        new(SettingsSection.LocalAi, "admin", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "vocabulary", "schedule"]),
-        new(SettingsSection.Plugins, "admin", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, ["extensions", "commercial-skip", "intro-skip", "credits"], "sqlite"),
-        new(SettingsSection.Delivery, "admin", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"]),
-        new(SettingsSection.Access, "admin", "access", Icons.Material.Outlined.AdminPanelSettings, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"]),
+        new(SettingsSection.AdminOverview, "admin", "admin", Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live),
+        new(SettingsSection.Libraries, "admin", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Library Operations", true, null, ["activity", "activity-log", "tasks", "maintenance"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Metadata, "admin", "metadata", Icons.Material.Outlined.Schema, "Metadata & Matching", true, null, ["wikidata"], "json", Status: SettingsStatusKind.Partial),
+        new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.LocalAi, "admin", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "runtime", "vocabulary", "schedule", "enrichment"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Plugins, "admin", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, ["extensions", "commercial-skip", "intro-skip", "credits"], "sqlite", Status: SettingsStatusKind.Partial),
+        new(SettingsSection.Delivery, "admin", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"], Status: SettingsStatusKind.Partial),
+        new(SettingsSection.Access, "admin", "access", Icons.Material.Outlined.AdminPanelSettings, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"], Status: SettingsStatusKind.Partial),
 
         new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
         new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, []),
@@ -172,6 +173,8 @@ public static class SettingsNav
     }
 
     public static SettingsItemDef GetItem(SettingsSection section) => _itemsBySection[section];
+
+    public static SettingsStatusKind GetStatus(SettingsSection section) => GetItem(section).Status;
 
     public static SettingsGroupDef GetGroup(SettingsSection section) => _groupsByKey[GetItem(section).GroupKey];
 

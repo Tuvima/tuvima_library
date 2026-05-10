@@ -127,6 +127,7 @@
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
         <MudIcon Icon="@Icons.Material.Outlined.Collections" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">Providers</MudText>
+        <SettingsStatusBadge Status="@(_engineConfigurationUnavailable ? SettingsStatusKind.EngineUnavailable : SettingsStatusKind.Live)" />
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
         Configure the Engine-backed provider chain for each media type. If Engine configuration cannot load, this page shows an unavailable state instead of sample defaults.
@@ -137,10 +138,10 @@
             @_loadError
         </MudAlert>
     }
-    else if (_usingSampleProviderCatalogue)
+    else if (_liveCatalogue.Count == 0)
     {
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-            Sample provider catalogue. Live provider catalogue data is unavailable, so unassigned provider lists may show examples rather than configured Engine state.
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+            Provider catalogue metadata is unavailable from the Engine. Existing configured chains can still be viewed, but adding providers is disabled so sample data is not presented as live configuration.
         </MudAlert>
     }
 <div class="category-strip">
@@ -167,7 +168,7 @@
                    Variant="Variant.Outlined"
                    Margin="Margin.Dense"
                    Dense="true"
-                   Disabled="@_engineConfigurationUnavailable"
+                   Disabled="@(_engineConfigurationUnavailable || _liveCatalogue.Count == 0)"
                    Style="max-width: 220px;">
             <MudSelectItem T="string" Value="@("Waterfall")">
                 Waterfall - first match wins
@@ -275,20 +276,12 @@
         </MudText>
     }
 <div class="save-bar">
-        <MudButton Variant="Variant.Text"
-                   Color="Color.Default"
-                   Size="Size.Small"
-                   StartIcon="@Icons.Material.Outlined.RestartAlt"
-                   OnClick="@LoadSampleDefaults"
-                   Disabled="@_engineConfigurationUnavailable">
-            Load sample chain
-        </MudButton>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Save"
                    OnClick="@SaveAsync"
-                   Disabled="@(_saving || _engineConfigurationUnavailable)">
+                   Disabled="@(_saving || _engineConfigurationUnavailable || !HasProviderChanges)">
             @if (_saving)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
@@ -373,7 +366,7 @@
                              Size="Size.Small"
                              Style="@($"color: {(_drawerAssignment.Enabled ? "var(--tl-status-success)" : "var(--tl-status-danger)")}; flex-shrink: 0;")" />
                     <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
-                        @(_drawerAssignment.Enabled ? "Provider is active and will be queried" : "Provider is disabled and will be skipped")
+                        @ProviderStatusDescription(_drawerAssignment)
                     </MudText>
                 </div>
             </div>
@@ -431,10 +424,20 @@
                            Style="border-radius: 8px;">
                     Test Connection
                 </MudButton>
-                <MudText Typo="Typo.caption"
-                         Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 8px;">
-                    Last tested: -
-                </MudText>
+                @if (_lastProviderTests.TryGetValue(_drawerAssignment.Name, out var test))
+                {
+                    <MudText Typo="Typo.caption"
+                             Style="@($"color: {(test.Success ? "var(--tl-status-success)" : "var(--tl-status-danger)")}; display: block; margin-top: 8px;")">
+                        Last tested @test.TestedAt.LocalDateTime.ToString("MMM d, HH:mm"): @test.Message
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption"
+                             Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 8px;">
+                        Not tested in this session.
+                    </MudText>
+                }
             </div>
 <div class="drawer-section">
                 <span class="drawer-section-label">BEHAVIOUR</span>
@@ -471,8 +474,8 @@
                 <MudText Typo="Typo.caption"
                          Style="color: var(--mud-palette-text-secondary); display: block; margin-top: 8px;">
                     Failed requests will retry up to @(_drawerAssignment.Retries) time@(_drawerAssignment.Retries == 1 ? "" : "s")
-                    before moving to the next provider. Language strategy controls whether queries use
-                    your metadata language, English, or both.
+                    before moving to the next provider. These values are saved to Engine provider config.
+                    Language strategy controls whether queries use your metadata language, English, or both.
                 </MudText>
             </div>
 <div class="drawer-section">
@@ -553,7 +556,7 @@
         @if (!filtered.Any())
         {
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
-                No providers available for this media type.
+                No Engine-backed providers are available for this media type.
             </MudText>
         }
         else
@@ -629,6 +632,8 @@
         public string LanguageStrategy { get; set; } = "source";
     }
 
+    private sealed record ProviderTestSessionResult(bool Success, DateTimeOffset TestedAt, string Message);
+
     private static readonly Dictionary<string, string> DefaultStrategies = new()
     {
         ["Books"]      = "Cascade",
@@ -685,20 +690,25 @@
     private Dictionary<string, ProviderStatusDto> _providerStatusByKey = new(StringComparer.OrdinalIgnoreCase);
     private string? _loadError;
     private bool _engineConfigurationUnavailable;
-    private bool _usingSampleProviderCatalogue;
+    private Dictionary<string, List<ProviderAssignment>> _savedAssignments = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _savedStrategies = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ProviderTestSessionResult> _lastProviderTests = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool HasProviderChanges =>
+        !SerializeAssignments(_assignments).Equals(SerializeAssignments(_savedAssignments), StringComparison.Ordinal)
+        || !_strategies.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .SequenceEqual(_savedStrategies.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _liveCatalogue = await CatalogueService.GetCatalogueAsync();
-            _usingSampleProviderCatalogue = _liveCatalogue.Count == 0;
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Could not load live provider catalogue.");
             _liveCatalogue = [];
-            _usingSampleProviderCatalogue = true;
         }
         await LoadFromEngineAsync();
         await LoadHealthDataAsync();
@@ -713,6 +723,7 @@
             if (pipelines?.Pipelines is { Count: > 0 })
             {
                 ApplyPipelineConfiguration(pipelines);
+                SnapshotProviderBaseline();
                 _loadError = null;
                 _engineConfigurationUnavailable = false;
                 return;
@@ -729,6 +740,7 @@
         }
 
         InitializeEmptyAssignments();
+        SnapshotProviderBaseline();
     }
 
     private void ApplyPipelineConfiguration(PipelineConfiguration pipelines)
@@ -913,6 +925,10 @@
                 _drawerSaveMessage = result.Success
                     ? $"Connected in {result.ResponseTimeMs}ms - {result.SampleFields?.Count ?? 0} fields returned"
                     : $"Test failed: {result.Message}";
+                _lastProviderTests[_drawerAssignment.Name] = new ProviderTestSessionResult(
+                    result.Success,
+                    DateTimeOffset.Now,
+                    result.Success ? _drawerSaveMessage : result.Message);
             }
             else
             {
@@ -960,6 +976,8 @@
             var success = await ApiClient.SaveProviderConfigAsync(providerName, config);
             _drawerSaveSuccess = success;
             _drawerSaveMessage = success ? "Saved successfully" : "Failed to save - check Engine connection";
+            if (success)
+                SnapshotProviderBaseline();
         }
         catch (Exception ex)
         {
@@ -1000,32 +1018,13 @@
                     AuthType:    p.AuthType))
                 .ToList();
         }
-        return AllProviderCatalogue
-            .Where(p => !inChain.Contains(p.Name) &&
-                        (p.Supports.Contains(mediaType) || p.Name == "Wikidata"))
-            .ToList();
+        return [];
     }
 
     private void AddProviderToChain(string name)
     {
         GetChain(_addDialogMediaType).Add(CreateAssignmentFromProviderName(name));
         _addDialogOpen = false;
-    }
-
-    private void LoadSampleDefaults()
-    {
-        _assignments = DefaultAssignments.ToDictionary(
-            kv => kv.Key,
-            kv => kv.Value.Select(a => new ProviderAssignment
-            {
-                Name             = a.Name,
-                TimeoutMs        = a.TimeoutMs,
-                ApiKey           = a.ApiKey,
-                Enabled          = a.Enabled,
-                Retries          = a.Retries,
-                LanguageStrategy = a.LanguageStrategy,
-            }).ToList());
-        _strategies = new Dictionary<string, string>(DefaultStrategies, StringComparer.OrdinalIgnoreCase);
     }
 
     private void InitializeEmptyAssignments()
@@ -1053,6 +1052,7 @@
         _saving = true;
         try
         {
+            var providerConfigSaved = true;
             var savedProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var (_, chain) in _assignments)
             {
@@ -1076,13 +1076,26 @@
                         ApiKey         = apiKeyValue,
                         LanguageStrategy = assignment.LanguageStrategy,
                     };
-                    await ApiClient.SaveProviderConfigAsync(providerName, config);
+                    providerConfigSaved &= await ApiClient.SaveProviderConfigAsync(providerName, config);
                 }
             }
 
+            if (!providerConfigSaved)
+            {
+                Snackbar.Add("One or more provider configs could not be saved. Your edits are still visible.", Severity.Error);
+                return;
+            }
+
             var pipelines = BuildPipelineConfigurationForSave();
-            await ApiClient.SavePipelinesAsync(pipelines);
+            var pipelinesSaved = await ApiClient.SavePipelinesAsync(pipelines);
+            if (!pipelinesSaved)
+            {
+                Snackbar.Add("Provider priority order could not be saved. Your edits are still visible.", Severity.Error);
+                return;
+            }
             _pipelineConfiguration = pipelines;
+            SnapshotProviderBaseline();
+            Snackbar.Add("Provider settings saved to Engine configuration.", Severity.Success);
         }
         catch (Exception ex)
         {
@@ -1205,7 +1218,7 @@
         if (_healthData.TryGetValue(key, out var h) && h.LastSuccessAt is not null)
             return h.Status;
         var info = GetProviderInfo(providerName);
-        return info is not null ? $"{info.LatencyMs} ms" : "-";
+        return info is not null && _liveCatalogue.Count > 0 ? $"{info.LatencyMs} ms" : "No health yet";
     }
     private string GetSuccessRateDisplay(string providerName)
     {
@@ -1220,15 +1233,20 @@
                 _          => h.Status,
             };
         }
-        var info = GetProviderInfo(providerName);
-        return info is not null ? $"{(info.SuccessRate * 100):F0}%" : "-";
+        var status = _providerStatusByKey.GetValueOrDefault(providerName)
+                     ?? _providerStatusByKey.GetValueOrDefault(providerName.Replace(" ", "_"));
+        if (status is not null)
+            return status.IsReachable ? "Reachable" : "Unavailable";
+        return "No status";
     }
     private bool IsProviderHealthy(string providerName)
     {
         var key = providerName.Replace(" ", "_").ToLowerInvariant();
         if (_healthData.TryGetValue(key, out var h))
             return !string.Equals(h.Status, "Down", StringComparison.OrdinalIgnoreCase);
-        return true; // assume healthy if no health data
+        var status = _providerStatusByKey.GetValueOrDefault(providerName)
+                     ?? _providerStatusByKey.GetValueOrDefault(providerName.Replace(" ", "_"));
+        return status?.IsReachable == true;
     }
 
     private string[] GetProviderMediaTypes(string provider)
@@ -1240,4 +1258,39 @@
             return [.. live.MediaTypes];
         return ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];
     }
+
+    private string ProviderStatusDescription(ProviderAssignment assignment)
+    {
+        var status = _providerStatusByKey.GetValueOrDefault(assignment.Name)
+                     ?? _providerStatusByKey.GetValueOrDefault(assignment.Name.Replace(" ", "_"));
+        if (!assignment.Enabled)
+            return "Provider is disabled and will be skipped.";
+        if (status?.RequiresApiKey == true && !status.HasApiKey)
+            return "Provider is enabled but requires credentials before live matching will work.";
+        return "Provider is enabled and saved through Engine configuration.";
+    }
+
+    private void SnapshotProviderBaseline()
+    {
+        _savedAssignments = _assignments.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value.Select(a => new ProviderAssignment
+            {
+                Name = a.Name,
+                TimeoutMs = a.TimeoutMs,
+                ApiKey = a.ApiKey,
+                Username = a.Username,
+                Password = a.Password,
+                Enabled = a.Enabled,
+                Retries = a.Retries,
+                LanguageStrategy = a.LanguageStrategy,
+            }).ToList(),
+            StringComparer.OrdinalIgnoreCase);
+        _savedStrategies = new Dictionary<string, string>(_strategies, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string SerializeAssignments(Dictionary<string, List<ProviderAssignment>> assignments) =>
+        string.Join("|", assignments
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => $"{kv.Key}:{string.Join(",", kv.Value.Select(a => $"{a.Name}:{a.Enabled}:{a.TimeoutMs}:{a.Retries}:{a.LanguageStrategy}"))}"));
 }

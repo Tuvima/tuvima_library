@@ -1,10 +1,13 @@
 @page "/search"
 @namespace MediaEngine.Web.Components.Pages
 @using MediaEngine.Web.Services.Navigation
+@using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
+@inject MediaEditorLauncherService MediaEditorLauncher
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
+@inject ISnackbar Snackbar
 
 @using MediaEngine.Web.Models.ViewDTOs
 
@@ -89,10 +92,11 @@
             <div class="search-results-list">
                 @foreach (var result in _results)
                 {
-                    <MudLink Href="@MediaNavigation.ForSearchResult(result)"
-                             Underline="Underline.None"
-                             Class="search-result-link">
-                        <MudPaper Elevation="0" Class="search-result-row">
+                    <div class="search-result-shell">
+                        <MudLink Href="@MediaNavigation.ForSearchResult(result)"
+                                 Underline="Underline.None"
+                                 Class="search-result-link">
+                            <MudPaper Elevation="0" Class="search-result-row">
                             <div class="search-result-art @GetMediaClass(result.MediaType)">
                                 <MudIcon Icon="@GetMediaIcon(result.MediaType)" Class="search-result-art-icon" />
                             </div>
@@ -101,8 +105,14 @@
                                 <div class="search-result-meta">@BuildResultMeta(result)</div>
                             </div>
                             <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="search-result-chevron" />
-                        </MudPaper>
-                    </MudLink>
+                            </MudPaper>
+                        </MudLink>
+                        <MudIconButton Icon="@Icons.Material.Outlined.Edit"
+                                       Size="Size.Small"
+                                       Class="search-result-edit"
+                                       aria-label="Edit metadata"
+                                       OnClick="@(() => OpenSearchResultEditorAsync(result))" />
+                    </div>
                 }
             </div>
         </section>
@@ -170,6 +180,43 @@
         }
     }
 
+    private async Task OpenSearchResultEditorAsync(SearchResultViewModel result)
+    {
+        if (result.WorkId == Guid.Empty)
+        {
+            return;
+        }
+
+        var title = DisplayTitle(result);
+        var mediaType = NormalizeEditorMediaType(result.MediaType);
+        var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+        {
+            EntityIds = [result.WorkId],
+            LaunchEntityId = result.WorkId,
+            LaunchEntityKind = "search",
+            Mode = SharedMediaEditorMode.Normal,
+            InitialTab = "details",
+            MediaType = mediaType,
+            HeaderTitle = title,
+            HeaderSubtitle = BuildResultMeta(result),
+            PreviewItems =
+            [
+                new MediaEditorPreviewItem
+                {
+                    EntityId = result.WorkId,
+                    Title = title,
+                    MediaType = mediaType,
+                },
+            ],
+        });
+
+        if (applied)
+        {
+            await SearchAsync();
+            Snackbar.Add("Media details updated.", Severity.Success);
+        }
+    }
+
     private static string DisplayTitle(SearchResultViewModel result) =>
         FirstNonBlank(result.Title, result.OriginalTitle, "Untitled item");
 
@@ -232,6 +279,22 @@
             return "Book";
 
         return string.IsNullOrWhiteSpace(mediaType) ? "Library item" : mediaType;
+    }
+
+    private static string NormalizeEditorMediaType(string? mediaType)
+    {
+        var value = mediaType ?? string.Empty;
+        if (value.Contains("movie", StringComparison.OrdinalIgnoreCase))
+            return "Movies";
+        if (value.Contains("tv", StringComparison.OrdinalIgnoreCase))
+            return "TV";
+        if (value.Contains("music", StringComparison.OrdinalIgnoreCase))
+            return "Music";
+        if (value.Contains("audio", StringComparison.OrdinalIgnoreCase))
+            return "Audiobooks";
+        if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
+            return "Comics";
+        return "Books";
     }
 
     private static string FirstNonBlank(params string?[] values) =>

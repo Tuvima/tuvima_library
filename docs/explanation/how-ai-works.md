@@ -27,6 +27,8 @@ Every AI model in Tuvima Library runs on your hardware:
 
 Models download automatically on first startup (about 9 GB total for a standard setup). After that, the AI works offline indefinitely.
 
+Download URLs are for retrieving model files only. They do not enable cloud inference, remote prompts, telemetry, or usage tracking.
+
 This isn't just a privacy nicety â€” it's what makes the AI viable for enriching a large personal collection over time. Cloud AI APIs have rate limits, costs, and latency. Local inference has none of those constraints. The Engine can process your entire library continuously in the background without you ever seeing a bill.
 
 ---
@@ -45,6 +47,25 @@ The AI layer uses multiple specialized models rather than one model doing everyt
 There's also an optional fifth model: **Qwen 2.5 3B** for CJK (Chinese, Japanese, Korean) language processing. It downloads automatically if you have CJK languages configured in your preferences â€” you don't need to think about it.
 
 The 1B model handles anything that needs to be fast and on-demand. The 3B handles batch work during ingestion. The 8B handles the deep enrichment that runs in the background over time. Whisper is in its own category entirely â€” it's a speech-to-text model rather than a language model.
+
+---
+
+## Model Lifecycle And Status
+
+Settings > Local AI reports model state from the Engine instead of guessing:
+
+- **Configured**: a role exists in `config/ai.json`.
+- **Missing**: the configured file is not present in the local model directory.
+- **Downloading**: the Engine has an active download and may report progress.
+- **Downloaded / ready**: the file exists and can be loaded.
+- **Loaded / active**: the Engine has the model in memory for inference.
+- **Failed**: download or load failed; the UI shows the Engine error instead of marking the model ready.
+
+Supported roles can be downloaded, cancelled, loaded, and unloaded from Local AI settings. Unsupported configured roles are shown as configured-only. Model deletion is not exposed because there is no public Engine endpoint for it.
+
+## Feature Availability
+
+AI feature flags save to `config/ai.json`, but a saved flag is not the same as active behavior. The Dashboard explains whether a feature is ready, disabled, blocked by a missing/downloading model, limited by hardware, blocked by the AI subsystem, or not connected to Engine behavior yet. Some changes require an Engine restart, scheduler reload, model reload, rescan, or future enrichment run before they affect existing items.
 
 ---
 

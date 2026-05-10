@@ -18,6 +18,7 @@ public sealed class MediaEditorLaunchRequest
     public string? InitialScope { get; init; }
     public string? InitialTab { get; init; }
     public string? InitialCanonicalTargetGroup { get; init; }
+    public Guid? ReviewItemId { get; init; }
     public string? ReviewTrigger { get; init; }
     public string? MediaType { get; init; }
     public string? HeaderTitle { get; init; }

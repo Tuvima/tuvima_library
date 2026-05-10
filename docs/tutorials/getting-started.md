@@ -85,7 +85,7 @@ dotnet run --project src/MediaEngine.Api
 The first time you start the Engine, several things happen automatically:
 
 - **Hardware/resource check** - the Engine reports local runtime status when available.
-- **Local AI status** - AI model management is still being connected. The Dashboard marks model actions and runtime limits as partial or not connected.
+- **Local AI status** - the Dashboard reads AI health, model inventory, hardware profile, resource usage, and enrichment progress from the Engine. Supported model actions are real; unavailable actions are hidden or labelled.
 - **File watcher starts** Ã¢â‚¬â€ once the Engine is running, it is ready to watch folders for new media.
 
 You will see a line like this when the Engine is ready:
@@ -150,7 +150,7 @@ docker compose up
 
 This starts both the Engine and Dashboard in containers. The Dashboard is accessible at `http://localhost:5016` and the Engine at `http://localhost:61495`. Configuration and data directories are mounted from your machine as volumes Ã¢â‚¬â€ edit `docker-compose.yml` to point them at the right paths before starting.
 
-Note: AI model management is not a live Dashboard action in Phase 0. Container startup still needs access to any configured provider or model paths you enable manually.
+Note: Local AI model downloads store files in the configured local model directory. Download URLs retrieve model files only; inference remains local and no telemetry is sent.
 
 ---
 

@@ -1,6 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudText Typo="Typo.h6">Users & Access</MudText>
+        <SettingsStatusBadge Status="SettingsStatusKind.Partial" />
+    </MudStack>
     <MudTabs Rounded="true" Elevation="0" Color="Color.Primary" Position="Position.Top" Class="settings-tab-strip">
         <MudTabPanel Text="Profiles & Roles" Icon="@Icons.Material.Outlined.Group">
             <UsersTab />
@@ -9,30 +13,18 @@
             <SecurityTab />
         </MudTabPanel>
         <MudTabPanel Text="API Keys" Icon="@Icons.Material.Outlined.Key">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Create, revoke, scope, expire, and audit server API keys.</MudText>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" Disabled="true">Create API key</MudButton>
-                <MudTable Items="_apiKeys" Dense="true" Hover="true" Class="mt-4">
-                    <HeaderContent><MudTh>Owner profile</MudTh><MudTh>Scopes</MudTh><MudTh>Expiration</MudTh><MudTh>Last used</MudTh><MudTh></MudTh></HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Owner">@context.Owner</MudTd>
-                        <MudTd DataLabel="Scopes">@context.Scopes</MudTd>
-                        <MudTd DataLabel="Expiration">@context.Expiration</MudTd>
-                        <MudTd DataLabel="Last used">@context.LastUsed</MudTd>
-                        <MudTd><MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Disabled="true">Revoke</MudButton></MudTd>
-                    </RowTemplate>
-                </MudTable>
-                @* TODO: Wire API key management when access APIs exist. *@
-            </MudPaper>
+            <ApiKeysTab />
         </MudTabPanel>
         <MudTabPanel Text="Access Rules" Icon="@Icons.Material.Outlined.Policy">
             <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudTextField @bind-Value="_allowedNetworks" Label="Allowed local networks" Variant="Variant.Outlined" FullWidth="true" />
-                <MudSwitch T="bool" @bind-Value="_remoteAccessEnabled" Color="Color.Primary" Label="Remote access enabled" />
-                <MudNumericField T="int" @bind-Value="_rateLimitPerMinute" Label="Rate limit per minute" Variant="Variant.Outlined" Min="10" Max="1000" />
-                <MudNumericField T="int" @bind-Value="_streamingLimit" Label="Streaming limits" Variant="Variant.Outlined" Min="1" Max="20" />
-                <MudSwitch T="bool" @bind-Value="_adminOnlyActions" Color="Color.Primary" Label="Restrict sensitive actions to admins" />
-                @* TODO: Persist access rules when security configuration APIs exist. *@
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                    Not connected. Local network, remote access, and rate-limit controls are read-only here until the Engine exposes persisted access-rule settings.
+                </MudAlert>
+                <MudTextField @bind-Value="_allowedNetworks" Label="Allowed local networks" Variant="Variant.Outlined" FullWidth="true" ReadOnly="true" Disabled="true" />
+                <MudSwitch T="bool" @bind-Value="_remoteAccessEnabled" Color="Color.Primary" Label="Remote access enabled" Disabled="true" />
+                <MudNumericField T="int" @bind-Value="_rateLimitPerMinute" Label="Rate limit per minute" Variant="Variant.Outlined" Min="10" Max="1000" Disabled="true" />
+                <MudNumericField T="int" @bind-Value="_streamingLimit" Label="Streaming limits" Variant="Variant.Outlined" Min="1" Max="20" Disabled="true" />
+                <MudSwitch T="bool" @bind-Value="_adminOnlyActions" Color="Color.Primary" Label="Restrict sensitive actions to admins" Disabled="true" />
             </MudPaper>
         </MudTabPanel>
         <MudTabPanel Text="Sessions" Icon="@Icons.Material.Outlined.Devices">
@@ -46,19 +38,18 @@
                         <MudTd><MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Disabled="true">Revoke</MudButton></MudTd>
                     </RowTemplate>
                 </MudTable>
-                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.Logout" Disabled="true" Class="mt-4">Revoke all sessions for profile</MudButton>
-                @* TODO: Wire session listing and revocation when session APIs exist. *@
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4">
+                    Planned. Session listing and revocation are not persisted by the Engine yet.
+                </MudAlert>
             </MudPaper>
         </MudTabPanel>
     </MudTabs>
 </div>
 
 @code {
-    private sealed record ApiKeyRow(string Owner, string Scopes, string Expiration, string LastUsed);
     private sealed record SessionRow(string Profile, string Device, string LastActive);
 
-    private readonly ApiKeyRow[] _apiKeys = [new("Owner Administrator", "library:read, ingest:write", "None", "Not available")];
-    private readonly SessionRow[] _sessions = [new("Owner Administrator", "This browser", "Current session")];
+    private readonly SessionRow[] _sessions = [];
     private string _allowedNetworks = "192.168.0.0/16, 10.0.0.0/8";
     private bool _remoteAccessEnabled;
     private int _rateLimitPerMinute = 120;

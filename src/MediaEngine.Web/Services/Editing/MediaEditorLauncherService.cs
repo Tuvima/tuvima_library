@@ -19,7 +19,10 @@ public sealed class MediaEditorLauncherService
         if (request.EntityIds.Count == 0)
             return false;
 
-        if (request.Mode == SharedMediaEditorMode.Batch && request.EntityIds.Count > 1)
+        if (request.Mode == SharedMediaEditorMode.Batch && request.EntityIds.Count <= 1)
+            return false;
+
+        if (request.Mode == SharedMediaEditorMode.Batch)
         {
             var confirmDialog = await _dialogService.ShowAsync<SharedMediaBatchConfirmDialog>(
                 "Edit Items",

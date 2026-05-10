@@ -4951,6 +4951,105 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── GET /ai/profile ───────────────────────────────────────────────────────
 
+    public async Task<AiHealthStatusDto?> GetAiStatusAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<AiHealthStatusDto>("/ai/status", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /ai/status failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<AiModelStatusDto>> GetAiModelStatusesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<AiModelStatusDto>>("/ai/models", ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /ai/models failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    public Task<bool> StartAiModelDownloadAsync(string role, CancellationToken ct = default) =>
+        SendAiActionAsync(HttpMethod.Post, $"/ai/models/{Uri.EscapeDataString(role)}/download", "start download", ct);
+
+    public Task<bool> CancelAiModelDownloadAsync(string role, CancellationToken ct = default) =>
+        SendAiActionAsync(HttpMethod.Delete, $"/ai/models/{Uri.EscapeDataString(role)}/download", "cancel download", ct);
+
+    public Task<bool> LoadAiModelAsync(string role, CancellationToken ct = default) =>
+        SendAiActionAsync(HttpMethod.Post, $"/ai/models/{Uri.EscapeDataString(role)}/load", "load model", ct);
+
+    public Task<bool> UnloadAiModelAsync(string role, CancellationToken ct = default) =>
+        SendAiActionAsync(HttpMethod.Post, $"/ai/models/{Uri.EscapeDataString(role)}/unload", "unload model", ct);
+
+    private async Task<bool> SendAiActionAsync(HttpMethod method, string endpoint, string action, CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, endpoint);
+            var response = await _http.SendAsync(request, ct);
+            if (response.IsSuccessStatusCode)
+                return true;
+
+            LastError = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogWarning("AI {Action} failed for {Endpoint}: {Status} {Message}", action, endpoint, response.StatusCode, LastError);
+            return false;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AI {Action} failed for {Endpoint}", action, endpoint);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<AiConfigDto>("/ai/config", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /ai/config failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<bool> SaveAiConfigAsync(AiConfigDto config, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync("/ai/config", config, ct);
+            if (response.IsSuccessStatusCode)
+                return true;
+
+            LastError = await response.Content.ReadAsStringAsync(ct);
+            return false;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /ai/config failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     public async Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default)
     {
         try

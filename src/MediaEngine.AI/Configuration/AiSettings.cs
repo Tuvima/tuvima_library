@@ -260,6 +260,15 @@ public sealed class AiVibeVocabulary
 /// <summary>Scheduling configuration for background AI tasks.</summary>
 public sealed class AiScheduling
 {
+    [JsonPropertyName("vibe_batch_cron")]
+    public string VibeBatchCron { get; set; } = "0 4 * * *";
+
+    [JsonPropertyName("series_check_cron")]
+    public string SeriesCheckCron { get; set; } = "0 3 * * *";
+
+    [JsonPropertyName("whisper_bake_cron")]
+    public string WhisperBakeCron { get; set; } = "0 2 * * *";
+
     /// <summary>
     /// Number of hours within which a Whisper bake job may be deferred
     /// after the scheduled start time. Jobs triggered outside this window
@@ -267,4 +276,10 @@ public sealed class AiScheduling
     /// </summary>
     [JsonPropertyName("whisper_bake_window_hours")]
     public int WhisperBakeWindowHours { get; set; } = 4;
+
+    [JsonPropertyName("taste_profile_update_cron")]
+    public string TasteProfileUpdateCron { get; set; } = "0 5 * * 0";
+
+    [JsonPropertyName("description_intelligence")]
+    public string DescriptionIntelligence { get; set; } = "*/15 * * * *";
 }

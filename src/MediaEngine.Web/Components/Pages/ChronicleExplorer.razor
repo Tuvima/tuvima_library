@@ -1,13 +1,44 @@
 ﻿@page "/universe/{Qid}/explore"
 @using MediaEngine.Web.Components.Universe
+@using MediaEngine.Web.Services.Theming
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 @inject ILogger<ChronicleExplorer> Logger
+@inject DeviceContextService DeviceContext
 @implements IAsyncDisposable
 
 <PageTitle>Chronicle Explorer - @(_graph?.Universe.Label ?? Qid)</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+@if (DeviceContext.IsMobile)
+{
+    <MudPaper Class="chronicle-explorer-empty pa-6" Elevation="0">
+        <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Large" Color="Color.Default" />
+        <MudText Typo="Typo.h5">Chronicle Explorer is unavailable on mobile</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            The relationship graph needs a larger workspace. Open this Universe from a desktop or tablet-sized web view.
+        </MudText>
+    </MudPaper>
+}
+else if (_loading)
+{
+    <MudPaper Class="chronicle-explorer-empty pa-6" Elevation="0">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Loading Universe Graph data...</MudText>
+    </MudPaper>
+}
+else if (_graph is null || !_hasGraphData)
+{
+    <MudPaper Class="chronicle-explorer-empty pa-6" Elevation="0">
+        <MudIcon Icon="@Icons.Material.Filled.Hub" Size="Size.Large" Color="Color.Default" />
+        <MudText Typo="Typo.h5">Universe Graph unavailable</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Tuvima has not found enough real character, location, organization, event, or relationship data for this Universe yet.
+        </MudText>
+    </MudPaper>
+}
+else
+{
 <MudText Typo="Typo.h4" Class="chronicle-explorer-title mb-2">
         @(_graph?.Universe.Label ?? "Loading...")
     </MudText>
@@ -64,14 +95,20 @@
 @if (_activeMode == 0)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="chronicle-explorer-controls mb-3">
-                @if (_hasTemporalData)
+                @if (_hasTemporalData && !DeviceContext.IsTelevision)
                 {
-                    <div style="max-width: 300px; min-width: 200px; flex: 1;">
+                    <div class="chronicle-explorer-timeline">
                         <MudSlider T="int" Value="@_timelineYear" ValueChanged="OnTimelineYearChanged"
                                    Min="@_minYear" Max="@_maxYear">
                             Timeline: @_timelineYear
                         </MudSlider>
                     </div>
+                }
+                else if (_hasTemporalData && DeviceContext.IsTelevision)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                        Timeline available on desktop
+                    </MudChip>
                 }
 
                 <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
@@ -165,6 +202,7 @@
             <AdaptationTree UniverseQid="@Qid" />
         </MudPaper>
     }
+}
 </MudContainer>
 <MudDrawer @bind-Open="_drawerOpen" Anchor="Anchor.End" Width="400px"
            Elevation="2" Variant="@DrawerVariant.Temporary">
@@ -235,6 +273,8 @@
     private bool _showCharacters = true;
     private bool _showLocations = true;
     private bool _showOrganizations = true;
+    private bool _loading = true;
+    private bool _hasGraphData;
 
     private IEnumerable<GraphNodeDto> FilteredEntities =>
         _graph?.Nodes.Where(n =>
@@ -243,7 +283,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _graph is not null)
+        if (firstRender && _graph is not null && _hasGraphData && !DeviceContext.IsMobile)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("CytoscapeInterop.initGraph",
@@ -255,7 +295,7 @@
         }
         var needsGraph = _activeMode is 0 or 1 or 2;
         var prevNeedsGraph = _previousMode is 0 or 1 or 2;
-        if (!firstRender && needsGraph && !prevNeedsGraph && _graph is not null)
+        if (!firstRender && needsGraph && !prevNeedsGraph && _graph is not null && _hasGraphData && !DeviceContext.IsMobile)
         {
             _previousMode = _activeMode;
             _dotNetRef ??= DotNetObjectReference.Create(this);
@@ -274,9 +314,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _loading = true;
         _graph = await ApiClient.GetUniverseGraphAsync(Qid);
         if (_graph is not null)
         {
+            _hasGraphData = _graph.Nodes.Count > 0 && _graph.Edges.Count > 0;
             _characterCount = _graph.Nodes.Count(n =>
                 string.Equals(n.Type, "Character", StringComparison.OrdinalIgnoreCase));
             _locationCount = _graph.Nodes.Count(n =>
@@ -313,6 +355,10 @@
         {
             Logger.LogDebug(ex, "Could not check lore delta for universe {Qid}.", Qid);
         }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     private async Task OnTimelineYearChanged(int year)
@@ -339,6 +385,7 @@
         _graph = await ApiClient.GetUniverseGraphAsync(Qid, types: types);
         if (_graph is not null)
         {
+            _hasGraphData = _graph.Nodes.Count > 0 && _graph.Edges.Count > 0;
             _characterCount = _graph.Nodes.Count(n =>
                 string.Equals(n.Type, "Character", StringComparison.OrdinalIgnoreCase));
             _locationCount = _graph.Nodes.Count(n =>
@@ -346,9 +393,12 @@
             _orgCount = _graph.Nodes.Count(n =>
                 string.Equals(n.Type, "Organization", StringComparison.OrdinalIgnoreCase));
 
-            await JS.InvokeVoidAsync("CytoscapeInterop.updateGraph",
-                System.Text.Json.JsonSerializer.Serialize(_graph.Nodes),
-                System.Text.Json.JsonSerializer.Serialize(_graph.Edges));
+            if (_hasGraphData)
+            {
+                await JS.InvokeVoidAsync("CytoscapeInterop.updateGraph",
+                    System.Text.Json.JsonSerializer.Serialize(_graph.Nodes),
+                    System.Text.Json.JsonSerializer.Serialize(_graph.Edges));
+            }
         }
     }
 

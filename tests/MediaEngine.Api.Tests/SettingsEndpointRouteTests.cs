@@ -33,6 +33,26 @@ public sealed class SettingsEndpointRouteTests
         Assert.Contains("UpdateAsync(id, request", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SettingsEndpoints_ExposePhase6AdminControlRoutes()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\SettingsEndpoints.cs"));
+
+        Assert.Contains("grp.MapGet(\"/folders\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapPut(\"/folders\"", source, StringComparison.Ordinal);
+        Assert.Contains("fileWatcher.UpdateDirectory", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapPost(\"/test-path\"", source, StringComparison.Ordinal);
+        Assert.Contains("HasRead", source, StringComparison.Ordinal);
+        Assert.Contains("HasWrite", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapGet(\"/providers\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapGet(\"/providers/health\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapPost(\"/providers/{name}/test\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapPut(\"/providers/{name}/config\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapGet(\"/pipelines\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapPut(\"/pipelines\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapGet(\"/media-types\"", source, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

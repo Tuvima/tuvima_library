@@ -293,6 +293,96 @@ internal class EngineApiClientStub : DispatchProxy
                 TokensPerSecond = 8,
             });
 
+        _handlers[nameof(IEngineApiClient.GetAiStatusAsync)] =
+            _ => Task.FromResult<AiHealthStatusDto?>(new AiHealthStatusDto
+            {
+                IsReady = false,
+                MemoryProfile = "conservative",
+                MemoryLimitMB = 3000,
+                Models =
+                [
+                    new AiModelStatusDto
+                    {
+                        Role = "text_fast",
+                        Supported = true,
+                        State = "Ready",
+                        Description = "Fast local text model",
+                        ModelFile = "fast.gguf",
+                        SizeMB = 750,
+                        RequiredHardwareTier = "low",
+                    },
+                ],
+            });
+
+        _handlers[nameof(IEngineApiClient.GetAiModelStatusesAsync)] =
+            _ => Task.FromResult<IReadOnlyList<AiModelStatusDto>>([
+                new AiModelStatusDto
+                {
+                    Role = "text_fast",
+                    Supported = true,
+                    State = "Ready",
+                    Description = "Fast local text model",
+                    ModelFile = "fast.gguf",
+                    SizeMB = 750,
+                    DownloadUrlHost = "huggingface.co",
+                    RequiredHardwareTier = "low",
+                },
+                new AiModelStatusDto
+                {
+                    Role = "text_cjk",
+                    Supported = false,
+                    State = "NotDownloaded",
+                    Description = "Configured optional CJK model",
+                    ModelFile = "cjk.gguf",
+                    SizeMB = 2048,
+                    RequiredHardwareTier = "medium",
+                },
+            ]);
+
+        _handlers[nameof(IEngineApiClient.StartAiModelDownloadAsync)] = _ => Task.FromResult(true);
+        _handlers[nameof(IEngineApiClient.CancelAiModelDownloadAsync)] = _ => Task.FromResult(true);
+        _handlers[nameof(IEngineApiClient.LoadAiModelAsync)] = _ => Task.FromResult(true);
+        _handlers[nameof(IEngineApiClient.UnloadAiModelAsync)] = _ => Task.FromResult(true);
+
+        _handlers[nameof(IEngineApiClient.GetAiConfigAsync)] =
+            _ => Task.FromResult<AiConfigDto?>(new AiConfigDto
+            {
+                ModelsDirectory = @"C:\Tuvima\Models",
+                IdleUnloadSeconds = 300,
+                InferenceTimeoutSeconds = 60,
+                EnrichmentBatchSize = 10,
+                Models = new Dictionary<string, AiModelDefinitionDto>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["text_fast"] = new() { Description = "Fast local text model", File = "fast.gguf", SizeMB = 750, DownloadUrl = "https://huggingface.co/example/fast.gguf" },
+                },
+                Features = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["smart_labeling"] = true,
+                    ["intent_search"] = true,
+                    ["subtitle_sync"] = false,
+                },
+                VibeVocabulary = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["books"] = ["atmospheric", "cozy"],
+                    ["movies_tv"] = ["tense"],
+                    ["music"] = ["mellow"],
+                    ["comics"] = ["noir"],
+                },
+                Scheduling = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["vibe_batch_cron"] = "0 4 * * *",
+                    ["series_check_cron"] = "0 3 * * *",
+                    ["whisper_bake_cron"] = "0 2 * * *",
+                    ["whisper_bake_window_hours"] = 4,
+                    ["taste_profile_update_cron"] = "0 5 * * 0",
+                    ["description_intelligence"] = "*/15 * * * *",
+                },
+                HardwareProfile = new HardwareProfileDto { Tier = "starter", Backend = "cpu" },
+            });
+
+        _handlers[nameof(IEngineApiClient.SaveAiConfigAsync)] =
+            _ => Task.FromResult(true);
+
         _handlers[nameof(IEngineApiClient.GetResourceSnapshotAsync)] =
             _ => Task.FromResult<ResourceSnapshotDto?>(new ResourceSnapshotDto
             {

@@ -6,13 +6,16 @@
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Discovery
+@using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Navigation
 
 @implements IDisposable
 
 @inject IEngineApiClient ApiClient
+@inject MediaEditorLauncherService MediaEditorLauncher
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
 <div class="browse-shell">
     @if (!_isGroupDrilldown && _hero is not null)
@@ -84,6 +87,17 @@
                                   Class="browse-shell__search" />
 
                     <div class="browse-shell__controls">
+                        @if (UseListLayout && _selectedItems.Count > 1 && !IsContainerGrouping)
+                        {
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Default"
+                                       StartIcon="@Icons.Material.Outlined.Edit"
+                                       OnClick="OpenBatchEditorAsync"
+                                       Class="browse-shell__batch-edit">
+                                Edit @_selectedItems.Count
+                            </MudButton>
+                        }
+
                         <MudSelect T="string"
                                    Value="_sortBy"
                                    ValueChanged="OnSortChanged"
@@ -138,9 +152,10 @@
                         GroupName="@_activeGroupName"
                         GroupField="@_activeGroupField"
                         MediaType="@_activeGroupMediaType"
+                        RefreshVersion="@_groupRefreshVersion"
                         OnBack="NavigateBackFromGroup"
                         OnItemClicked="OpenItem"
-                        OnItemEditClicked="OpenItem"
+                        OnItemEditClicked="OpenItemEditorAsync"
                         OnAlbumTileClicked="OpenAlbumGroup"
                         OnAlbumNameClicked="OpenAlbumGroupByName"
                         OnPersonClicked="OpenPerson" />
@@ -161,6 +176,7 @@
                                   PosterSize="56"
                                   SelectedItems="@_selectedItems"
                                   SelectedItemsChanged="OnSelectionChanged"
+                                  OnEditClicked="OpenItemEditorAsync"
                                   OnRowClicked="HandleTableRowClicked" />
     }
     else if (_cards.Count == 0)
@@ -185,7 +201,7 @@
         <div class="browse-shell__grid">
             @foreach (var card in _cards)
             {
-                <DiscoveryCard Item="@card" @key="card.Id" />
+                <DiscoveryCard Item="@card" @key="card.Id" OnEditClicked="OpenCardEditorAsync" />
             }
         </div>
     }
@@ -235,6 +251,7 @@
     private string? _activeGroupMediaType;
     private string? _activeArtistName;
     private List<Guid>? _artistAlbumCollectionIds;
+    private int _groupRefreshVersion;
 
     private BrowseTabPreset CurrentTab =>
         Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, _activeTabId, StringComparison.OrdinalIgnoreCase))
@@ -912,6 +929,144 @@
             ? MediaNavigation.ForLibraryItem(displayItem)
             : $"/book/{entityId}");
         return Task.CompletedTask;
+    }
+
+    private Task OpenCardEditorAsync(DiscoveryCardViewModel card)
+    {
+        var item = _items.FirstOrDefault(candidate => candidate.EntityId == card.WorkId);
+        return OpenEditorAsync(
+            card.WorkId ?? card.Id,
+            card.Title,
+            card.Subtitle,
+            card.CoverUrl,
+            item?.MediaType ?? card.MediaKind,
+            reloadGroup: false);
+    }
+
+    private async Task OpenItemEditorAsync(Guid entityId)
+    {
+        var item = ActiveTableItems.FirstOrDefault(candidate => candidate.EntityId == entityId)
+                   ?? _items.FirstOrDefault(candidate => candidate.EntityId == entityId);
+
+        await OpenEditorAsync(
+            entityId,
+            item?.Title,
+            item?.Creator ?? item?.ContextLabel,
+            item?.CoverUrl,
+            item?.MediaType,
+            reloadGroup: _isGroupDrilldown);
+    }
+
+    private async Task OpenBatchEditorAsync()
+    {
+        if (_selectedItems.Count <= 1)
+        {
+            return;
+        }
+
+        var selected = ActiveTableItems
+            .Where(item => _selectedItems.Contains(item.EntityId))
+            .ToList();
+
+        var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+        {
+            EntityIds = _selectedItems.ToList(),
+            Mode = SharedMediaEditorMode.Batch,
+            MediaType = selected.Select(item => item.MediaType).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? CurrentTab.MediaType,
+            HeaderTitle = $"Edit {_selectedItems.Count} items",
+            HeaderSubtitle = CurrentTab.Label,
+            PreviewItems = selected
+                .Select(item => new MediaEditorPreviewItem
+                {
+                    EntityId = item.EntityId,
+                    Title = item.Title,
+                    CoverUrl = item.CoverUrl,
+                    MediaType = item.MediaType,
+                })
+                .ToList(),
+        });
+
+        if (applied)
+        {
+            _selectedItems.Clear();
+            await RefreshOriginAsync();
+            Snackbar.Add("Selected items updated.", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditorAsync(
+        Guid entityId,
+        string? title,
+        string? subtitle,
+        string? coverUrl,
+        string? mediaType,
+        bool reloadGroup)
+    {
+        if (entityId == Guid.Empty)
+        {
+            return;
+        }
+
+        var resolvedTitle = string.IsNullOrWhiteSpace(title) ? "Untitled item" : title!;
+        var normalizedMediaType = NormalizeEditorMediaType(mediaType ?? CurrentTab.MediaType);
+        var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+        {
+            EntityIds = [entityId],
+            LaunchEntityId = entityId,
+            LaunchEntityKind = "browse",
+            Mode = SharedMediaEditorMode.Normal,
+            InitialTab = "details",
+            MediaType = normalizedMediaType,
+            HeaderTitle = resolvedTitle,
+            HeaderSubtitle = subtitle,
+            CoverUrl = coverUrl,
+            PreviewItems =
+            [
+                new MediaEditorPreviewItem
+                {
+                    EntityId = entityId,
+                    Title = resolvedTitle,
+                    CoverUrl = coverUrl,
+                    MediaType = normalizedMediaType,
+                },
+            ],
+        });
+
+        if (!applied)
+        {
+            return;
+        }
+
+        await RefreshOriginAsync(reloadGroup);
+        Snackbar.Add("Media details updated.", Severity.Success);
+    }
+
+    private async Task RefreshOriginAsync(bool reloadGroup = false)
+    {
+        if (reloadGroup)
+        {
+            _groupRefreshVersion++;
+            StateHasChanged();
+            return;
+        }
+
+        await LoadBrowseContentAsync();
+    }
+
+    private static string NormalizeEditorMediaType(string? mediaType)
+    {
+        var value = mediaType ?? string.Empty;
+        if (value.Contains("movie", StringComparison.OrdinalIgnoreCase))
+            return "Movies";
+        if (value.Contains("tv", StringComparison.OrdinalIgnoreCase))
+            return "TV";
+        if (value.Contains("music", StringComparison.OrdinalIgnoreCase))
+            return "Music";
+        if (value.Contains("audio", StringComparison.OrdinalIgnoreCase))
+            return "Audiobooks";
+        if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
+            return "Comics";
+        return "Books";
     }
 
     private Task OpenPerson(Guid personId)

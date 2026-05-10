@@ -31,7 +31,15 @@ else
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
         <MudText Typo="Typo.h6">@L["Libraries_LibraryPaths"]</MudText>
+        <SettingsStatusBadge Status="@(_engineUnavailable ? SettingsStatusKind.EngineUnavailable : SettingsStatusKind.Live)" />
         <MudSpacer />
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   Size="Size.Small"
+                   OnClick="@CheckInitialHealthAsync"
+                   StartIcon="@Icons.Material.Outlined.Refresh">
+            Folder health
+        </MudButton>
         <MudButton Variant="Variant.Text"
                    Color="Color.Default"
                    Size="Size.Small"
@@ -55,6 +63,18 @@ else
             </MudChip>
         }
     </MudStack>
+@if (_engineUnavailable)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+        The Engine is unavailable, so folder settings cannot be validated or saved. Existing values are not replaced with defaults.
+    </MudAlert>
+}
+else if (!string.IsNullOrWhiteSpace(_loadError))
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+        @_loadError
+    </MudAlert>
+}
 <div class="folder-path-row mb-5">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
             <div class="health-dot @HealthClass(_libraryHealthy, _libValidating, _libraryRoot)" />
@@ -65,17 +85,17 @@ else
         </MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_libraryRoot"
-                          @bind-Value:after="@(() => OnPathChanged(nameof(_libraryRoot)))"
+                      @bind-Value:after="@(() => OnPathChanged(nameof(_libraryRoot)))"
                           Placeholder="/path/to/library"
                           Variant="Variant.Text"
                           FullWidth="true"
                           Immediate="true"
-                          ReadOnly="@readOnly"
+                          ReadOnly="@(readOnly || _engineUnavailable)"
                           Margin="Margin.Dense" />
             <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
                            Size="Size.Medium"
                            Color="Color.Default"
-                           Disabled="@readOnly"
+                           Disabled="@(readOnly || _engineUnavailable)"
                            OnClick="@(() => BrowseAsync(nameof(_libraryRoot)))"
                            title="@L["Libraries_BrowseFolders"]" />
         </MudStack>
@@ -93,17 +113,17 @@ else
         </MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudTextField @bind-Value="_watchDir"
-                          @bind-Value:after="@(() => OnPathChanged(nameof(_watchDir)))"
+                      @bind-Value:after="@(() => OnPathChanged(nameof(_watchDir)))"
                           Placeholder="/path/to/watch"
                           Variant="Variant.Text"
                           FullWidth="true"
                           Immediate="true"
-                          ReadOnly="@readOnly"
+                          ReadOnly="@(readOnly || _engineUnavailable)"
                           Margin="Margin.Dense" />
             <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
                            Size="Size.Medium"
                            Color="Color.Default"
-                           Disabled="@readOnly"
+                           Disabled="@(readOnly || _engineUnavailable)"
                            OnClick="@(() => BrowseAsync(nameof(_watchDir)))"
                            title="@L["Libraries_BrowseFolders"]" />
         </MudStack>
@@ -199,7 +219,7 @@ else
                       Variant="Variant.Text"
                       FullWidth="true"
                       Immediate="true"
-                      ReadOnly="@readOnly"
+                      ReadOnly="@(readOnly || _engineUnavailable)"
                       Margin="Margin.Dense" />
         @if (!readOnly)
         {
@@ -207,6 +227,7 @@ else
                            Size="Size.Small"
                            Color="Color.Default"
                            OnClick="@ResetTemplateToDefault"
+                           Disabled="@_engineUnavailable"
                            title="@L["Libraries_ResetPathToDefault"]" />
         }
     </MudStack>
@@ -248,7 +269,26 @@ else
 
     @if (!readOnly)
     {
+        @if (!string.IsNullOrWhiteSpace(_templateValidationError))
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3">
+                @_templateValidationError
+            </MudAlert>
+        }
         <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-4">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       Href="/settings/ingestion"
+                       StartIcon="@Icons.Material.Outlined.PendingActions">
+                Open Library Operations
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       OnClick="@ScanAfterSaveAsync"
+                       StartIcon="@Icons.Material.Outlined.ManageSearch"
+                       Disabled="@(_engineUnavailable || HasUnsavedChanges || string.IsNullOrWhiteSpace(_watchDir))">
+                Scan saved watch folder
+            </MudButton>
             <MudButton Variant="Variant.Text"
                        Color="Color.Default"
                        OnClick="@ResetAllChanges"
@@ -259,7 +299,7 @@ else
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        OnClick="@SaveFoldersAsync"
-                       Disabled="@_savingFolders">
+                       Disabled="@(_savingFolders || _engineUnavailable || !HasUnsavedChanges)">
                 @(_savingFolders ? L["Libraries_Saving"] : L["Libraries_SaveChanges"])
             </MudButton>
         </MudStack>
@@ -390,6 +430,9 @@ else
     private bool                _libraryHealthy;
     private string              _organizationTemplate  = string.Empty;
     private List<LibraryFolderDto>? _libraries;
+    private bool                _engineUnavailable;
+    private string?             _loadError;
+    private string?             _templateValidationError;
     private string              _savedWatchDir         = string.Empty;
     private string              _savedLibraryRoot      = string.Empty;
     private string              _savedOrganizationTemplate = string.Empty;
@@ -426,6 +469,11 @@ else
             _watchDir    = settings.WatchDirectory;
             _libraryRoot = settings.LibraryRoot;
         }
+        else
+        {
+            _engineUnavailable = true;
+            _loadError = Orchestrator.LastApiError ?? "Folder settings could not be loaded from the Engine.";
+        }
         var tmpl = await Orchestrator.GetOrganizationTemplateAsync();
         _organizationTemplate = tmpl?.Template ?? DefaultOrganizationTemplate;
         _libraries = await Orchestrator.GetLibrariesAsync();
@@ -459,6 +507,7 @@ else
         _organizationTemplate = _savedOrganizationTemplate;
         _watchTestResult  = null;
         _libTestResult    = null;
+        _templateValidationError = null;
         _watchHealthy   = false;
         _libraryHealthy = false;
         _ = CheckInitialHealthAsync();
@@ -483,6 +532,7 @@ else
             var r = await Orchestrator.TestPathAsync(_watchDir);
             _watchTestResult = r;
             _watchHealthy    = r is { Exists: true, HasRead: true, HasWrite: true };
+            _engineUnavailable = r is null;
         }
 
         if (!string.IsNullOrWhiteSpace(_libraryRoot))
@@ -490,6 +540,7 @@ else
             var r = await Orchestrator.TestPathAsync(_libraryRoot);
             _libTestResult  = r;
             _libraryHealthy = r is { Exists: true, HasRead: true, HasWrite: true };
+            _engineUnavailable = _engineUnavailable || r is null;
         }
 
     }
@@ -526,6 +577,7 @@ else
         _libValidating = true;
         StateHasChanged();
         _libTestResult  = await Orchestrator.TestPathAsync(_libraryRoot);
+        _engineUnavailable = _libTestResult is null;
         _libraryHealthy = _libTestResult is { Exists: true, HasRead: true, HasWrite: true };
         _libValidating  = false;
         StateHasChanged();
@@ -536,6 +588,7 @@ else
         _watchValidating = true;
         StateHasChanged();
         _watchTestResult = await Orchestrator.TestPathAsync(_watchDir);
+        _engineUnavailable = _watchTestResult is null;
         _watchHealthy    = _watchTestResult is { Exists: true, HasRead: true, HasWrite: true };
         _watchValidating = false;
         StateHasChanged();
@@ -585,14 +638,17 @@ else
     private void ResetTemplateToDefault()
     {
         _organizationTemplate = DefaultOrganizationTemplate;
+        _templateValidationError = null;
     }
 
     private async Task SaveFoldersAsync()
     {
         _savingFolders = true;
+        _templateValidationError = null;
         var engineStatus = await Orchestrator.GetSystemStatusAsync();
         if (engineStatus is null)
         {
+            _engineUnavailable = true;
             Snackbar.Add(L["Libraries_CannotReachEngine"], Severity.Error);
             _savingFolders = false;
             return;
@@ -642,8 +698,9 @@ else
             var previewResult = await ApiClient.PreviewOrganizationTemplateAsync(_organizationTemplate);
             if (previewResult is null)
             {
+                _templateValidationError = ApiClient.LastError ?? L["Libraries_InvalidTemplate"];
                 Snackbar.Add(
-                    ApiClient.LastError ?? L["Libraries_InvalidTemplate"],
+                    _templateValidationError,
                     Severity.Warning);
                 _savingFolders = false;
                 return;
@@ -660,7 +717,7 @@ else
 
         if (success)
         {
-            Snackbar.Add($"{L["Libraries_SettingsSaved"]} Return to Setup or open Library Operations to scan.", Severity.Success);
+            Snackbar.Add($"{L["Libraries_SettingsSaved"]} Watcher hot-swap was requested. A rescan is recommended if files already exist in the watch folder.", Severity.Success);
             SnapSavedValues();
         }
         else
@@ -674,6 +731,16 @@ else
         }
 
         _savingFolders = false;
+    }
+
+    private async Task ScanAfterSaveAsync()
+    {
+        var result = await Orchestrator.ScanAndRefreshAsync(_watchDir);
+        Snackbar.Add(
+            result is null
+                ? "Scan could not be started. Check Engine status in Library Operations."
+                : "Scan started for the saved watch folder.",
+            result is null ? Severity.Error : Severity.Success);
     }
 
     private static string HealthClass(bool healthy, bool validating, string path) =>
@@ -695,10 +762,10 @@ else
     {
         if (string.IsNullOrWhiteSpace(path))   return " ";
         if (validating)                        return L["Libraries_Checking"];
-        if (result is null)                    return " ";
-        if (!result.Exists)                    return L["Libraries_FolderNotFound"];
-        if (result.HasRead && result.HasWrite) return L["Libraries_ReadWriteConfirmed"];
-        if (result.HasRead)                    return L["Libraries_ReadOnly"];
-        return L["Libraries_AccessDenied"];
+        if (result is null)                    return "Engine unavailable - path could not be checked.";
+        if (!result.Exists)                    return $"{L["Libraries_FolderNotFound"]} Create the folder or choose an existing path.";
+        if (result.HasRead && result.HasWrite) return $"{L["Libraries_ReadWriteConfirmed"]} Live after save; rescan may be needed.";
+        if (result.HasRead)                    return $"{L["Libraries_ReadOnly"]} Tuvima can read this path but organization/writeback will be limited.";
+        return $"{L["Libraries_AccessDenied"]} Grant the Engine service account read access.";
     }
 }

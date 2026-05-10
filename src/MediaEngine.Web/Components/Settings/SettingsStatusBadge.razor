@@ -1,0 +1,30 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+
+<MudChip T="string"
+         Size="@Size"
+         Color="@SettingsStatus.Color(Status)"
+         Variant="Variant.Outlined"
+         Icon="@Icon">
+    @SettingsStatus.Label(Status)
+</MudChip>
+
+@code {
+    [Parameter] public SettingsStatusKind Status { get; set; } = SettingsStatusKind.Live;
+    [Parameter] public MudBlazor.Size Size { get; set; } = MudBlazor.Size.Small;
+
+    private string Icon => Status switch
+    {
+        SettingsStatusKind.Live => Icons.Material.Outlined.CheckCircle,
+        SettingsStatusKind.Partial => Icons.Material.Outlined.Pending,
+        SettingsStatusKind.Planned => Icons.Material.Outlined.Event,
+        SettingsStatusKind.Experimental => Icons.Material.Outlined.Science,
+        SettingsStatusKind.NotConnected => Icons.Material.Outlined.LinkOff,
+        SettingsStatusKind.EngineUnavailable => Icons.Material.Outlined.CloudOff,
+        SettingsStatusKind.ReadOnly => Icons.Material.Outlined.Visibility,
+        SettingsStatusKind.RequiresRestart => Icons.Material.Outlined.RestartAlt,
+        SettingsStatusKind.RequiresProviderCredentials => Icons.Material.Outlined.VpnKey,
+        SettingsStatusKind.RequiresAdminRole => Icons.Material.Outlined.AdminPanelSettings,
+        _ => Icons.Material.Outlined.Info,
+    };
+}

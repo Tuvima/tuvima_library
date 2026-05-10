@@ -74,7 +74,19 @@
 }
 
 .search-result-link {
+    min-width: 0;
     color: inherit;
+}
+
+.search-result-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.5rem;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.search-result-edit {
+    color: var(--tl-text-muted);
 }
 
 .search-result-row {

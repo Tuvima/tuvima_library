@@ -127,7 +127,7 @@ Once you resolve an item, the Engine re-runs enrichment with your input. The sta
 
 > **Items that are still uncertain are not forced into the main browse surfaces.** They remain visible in Review, Activity, and the Review Queue until they either pass the browse readiness gate or you resolve them manually.
 
-Browsing surfaces only show data that exists in the library. Home can show Continue/Resume, Recently Added, and Read/Watch/Listen shelves when the Engine returns matching data, but it does not invent recommendations, progress, or groupings. Detail pages are the normal place to view media, while the Review Queue remains only for uncertain or blocked items; the old Vault workflow is not part of the current Dashboard.
+Browsing surfaces only show data that exists in the library. Home can show Continue/Resume, Recently Added, and Read/Watch/Listen shelves when the Engine returns matching data, but it does not invent recommendations, progress, or groupings. Detail pages are the normal place to view media, while the Review Queue remains only for uncertain or blocked items; there is no separate media-management workspace in the current Dashboard.
 
 ---
 

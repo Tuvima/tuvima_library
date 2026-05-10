@@ -3,6 +3,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Discovery;
+using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Web.Tests.Support;
@@ -20,6 +21,7 @@ public sealed class Phase3BrowseFoundationTests : TestContext
         Services.AddLocalization();
         Services.AddLogging();
         Services.AddMudServices();
+        Services.AddScoped<MediaEditorLauncherService>();
     }
 
     [Fact]

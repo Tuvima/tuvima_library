@@ -846,6 +846,32 @@ public interface IEngineApiClient
     /// <summary>Dismiss a problem report.</summary>
     Task<bool> DismissReportAsync(long activityId, CancellationToken ct = default);
 
+    // ── Local AI (/ai) ───────────────────────────────────────────────────────
+
+    /// <summary>GET /ai/status — returns AI subsystem health.</summary>
+    Task<AiHealthStatusDto?> GetAiStatusAsync(CancellationToken ct = default);
+
+    /// <summary>GET /ai/models — returns configured model inventory and lifecycle status.</summary>
+    Task<IReadOnlyList<AiModelStatusDto>> GetAiModelStatusesAsync(CancellationToken ct = default);
+
+    /// <summary>POST /ai/models/{role}/download — starts model download.</summary>
+    Task<bool> StartAiModelDownloadAsync(string role, CancellationToken ct = default);
+
+    /// <summary>DELETE /ai/models/{role}/download — cancels model download.</summary>
+    Task<bool> CancelAiModelDownloadAsync(string role, CancellationToken ct = default);
+
+    /// <summary>POST /ai/models/{role}/load — loads model into memory.</summary>
+    Task<bool> LoadAiModelAsync(string role, CancellationToken ct = default);
+
+    /// <summary>POST /ai/models/{role}/unload — unloads model from memory.</summary>
+    Task<bool> UnloadAiModelAsync(string role, CancellationToken ct = default);
+
+    /// <summary>GET /ai/config — returns persisted AI configuration.</summary>
+    Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /ai/config — saves persisted AI configuration.</summary>
+    Task<bool> SaveAiConfigAsync(AiConfigDto config, CancellationToken ct = default);
+
     // ── AI Hardware Profile (/ai/profile, /ai/benchmark) ────────────────────
 
     /// <summary>GET /ai/profile — returns the cached hardware profile and performance tier.</summary>

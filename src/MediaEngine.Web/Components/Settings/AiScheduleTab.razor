@@ -1,240 +1,164 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
-@inject IStringLocalizer<SharedStrings> L
+
 <div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Schedule" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Schedule_AiSchedule"]</MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+        <MudText Typo="Typo.h6">Schedule</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(_config is null || _saving)">Save schedules</MudButton>
     </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["Schedule_AiScheduleDescription"]
-    </MudText>
-<MudPaper Class="pa-4 mb-4 app-section-card">
-        <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--tl-accent-primary);">@L["Schedule_EnrichmentProgress"]</MudText>
 
-        @if (_enrichmentProgress is not null && _enrichmentProgress.Total > 0)
-        {
-            var pct = _enrichmentProgress.Total > 0
-                ? (double)_enrichmentProgress.CompletedCount / _enrichmentProgress.Total * 100
-                : 0;
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
+        These values are persisted in AI config. Last-run and next-run times are not shown because the Engine does not provide job-run metadata here. Schedule changes can require Engine restart or scheduler reload.
+    </MudAlert>
 
-            <div class="d-flex align-center gap-4 mb-2">
-                <MudText Typo="Typo.body1" Style="min-width: 200px;">
-                    <strong>@_enrichmentProgress.CompletedCount</strong> / @_enrichmentProgress.Total @L["Schedule_ItemsEnriched"]
-                </MudText>
-            <MudProgressLinear Value="@pct" Color="Color.Warning" Rounded="false" Size="Size.Large"
-                                  Style="flex: 1;" />
-                <MudText Typo="Typo.body2" Style="opacity: 0.6;">@pct.ToString("F0")%</MudText>
-            </div>
+    @if (_progress is not null)
+    {
+        <MudPaper Elevation="0" Class="tl-card pa-4 mb-3">
+            <MudText Typo="Typo.subtitle2">Enrichment progress</MudText>
+            <MudText Typo="Typo.body2">@_progress.PendingCount pending, @_progress.CompletedCount completed, @_progress.Total total.</MudText>
+            <MudProgressLinear Value="@ProgressPercent" Color="Color.Primary" Rounded="false" Class="mt-2" />
+        </MudPaper>
+    }
 
-            @if (_enrichmentProgress.PendingCount > 0)
-            {
-                <MudText Typo="Typo.caption" Style="opacity: 0.5;">
-                    @_enrichmentProgress.PendingCount @L["Schedule_ItemsPending"]
-                </MudText>
-            }
-            else
-            {
-                <MudText Typo="Typo.caption" Style="color: rgba(100,200,100,0.8);">
-                    @L["Schedule_AllItemsEnriched"]
-                </MudText>
-            }
-        }
-        else
-        {
-            <MudText Typo="Typo.body2" Style="opacity: 0.5;">
-                @L["Schedule_NoItemsInQueue"]
-            </MudText>
-        }
-    </MudPaper>
-<MudSimpleTable Dense="true" Hover="true" Style="background: transparent;">
-        <thead>
-            <tr>
-                <th style="padding: 10px 16px; text-align: left;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_Job"]</MudText>
-                </th>
-                <th style="padding: 10px 16px; text-align: left; min-width: 170px;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_CronExpression"]</MudText>
-                </th>
-                <th style="padding: 10px 16px; text-align: left; min-width: 160px;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_Schedule"]</MudText>
-                </th>
-                <th style="padding: 10px 16px; text-align: left;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_LastRun"]</MudText>
-                </th>
-                <th style="padding: 10px 16px; text-align: left;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_NextRun"]</MudText>
-                </th>
-                <th style="padding: 10px 16px; text-align: center;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Schedule_Enabled"]</MudText>
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var job in _jobs)
-            {
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@_messageSeverity" Variant="Variant.Outlined" Class="mb-3">@_message</MudAlert>
+    }
+
+    @if (_config is null)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI config unavailable. Schedule settings cannot be edited.</MudAlert>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead>
                 <tr>
-                    @* Job name + description *@
-                    <td style="padding: 12px 16px; vertical-align: top;">
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@job.Name</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@job.Description</MudText>
-                    </td>
-<td style="padding: 12px 16px; vertical-align: top;">
-                        <MudTextField @bind-Value="@job.CronExpression"
-                                      Variant="Variant.Outlined"
-                                      Margin="Margin.Dense"
-                                      Style="font-family: monospace; font-size: 0.825rem; max-width: 150px;"
-                                      Immediate="true"
-                                      OnBlur="@StateHasChanged" />
-                    </td>
-
-                    @* Human-readable cron preview *@
-                    <td style="padding: 12px 16px; vertical-align: top;">
-                        <MudText Typo="Typo.caption" Color="Color.Default">
-                            @CronToHuman(job.CronExpression)
-                        </MudText>
-                    </td>
-
-                    @* Last run (placeholder) *@
-                    <td style="padding: 12px 16px; vertical-align: top;">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@job.LastRun</MudText>
-                    </td>
-
-                    @* Next run (placeholder) *@
-                    <td style="padding: 12px 16px; vertical-align: top;">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@job.NextRun</MudText>
-                    </td>
-
-                    @* Enabled toggle *@
-                    <td style="padding: 12px 16px; vertical-align: top; text-align: center;">
-                        <MudSwitch @bind-Value="@job.Enabled"
-                                   Color="Color.Primary"
-                                   Size="Size.Small" />
-                    </td>
+                    <th>Job</th>
+                    <th>Config key</th>
+                    <th>Value</th>
+                    <th>Validation</th>
                 </tr>
-            }
-        </tbody>
-    </MudSimpleTable>
-<MudStack Row="true" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center"
-              Spacing="2" Class="mt-6">
-        <MudText Typo="Typo.caption" Color="Color.Secondary">
-            @L["Schedule_ChangesRequireRestart"]
-        </MudText>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Size="Size.Small"
-                   OnClick="@SaveSchedules">
-            @L["Schedule_SaveSchedules"]
-        </MudButton>
-    </MudStack>
-
+            </thead>
+            <tbody>
+                @foreach (var job in Jobs)
+                {
+                    <tr>
+                        <td>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@job.Name</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@job.Description</MudText>
+                        </td>
+                        <td><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@job.Key</MudChip></td>
+                        <td>
+                            @if (job.IsNumber)
+                            {
+                                <MudNumericField T="int" Value="@GetScheduleInt(job.Key)" ValueChanged="@((int value) => SetSchedule(job.Key, value))" Min="1" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            }
+                            else
+                            {
+                                <MudTextField Value="@GetScheduleString(job.Key)" ValueChanged="@((string value) => SetSchedule(job.Key, value))" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            }
+                        </td>
+                        <td><MudText Typo="Typo.caption">@ValidationLabel(job)</MudText></td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
 </div>
 
 @code {
+    private AiConfigDto? _config;
+    private EnrichmentProgressDto? _progress;
+    private bool _saving;
+    private string? _message;
+    private Severity _messageSeverity = Severity.Info;
 
-    private EnrichmentProgressDto? _enrichmentProgress;
+    private double ProgressPercent => _progress is { Total: > 0 } ? (double)_progress.CompletedCount / _progress.Total * 100 : 0;
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
-        _enrichmentProgress = await Orchestrator.GetEnrichmentProgressAsync();
+        _config = await Orchestrator.GetAiConfigAsync();
+        _progress = await Orchestrator.GetEnrichmentProgressAsync();
     }
 
-    private sealed class AiJob
+    private string GetScheduleString(string key)
     {
-        public string Name           { get; init; } = string.Empty;
-        public string Description    { get; init; } = string.Empty;
-        public string CronExpression { get; set;  } = string.Empty;
-        public string LastRun        { get; init; } = "Never";
-        public string NextRun        { get; init; } = "-";
-        public bool   Enabled        { get; set;  } = true;
-    }
-
-    private readonly List<AiJob> _jobs =
-    [
-        new AiJob
+        var value = _config?.Scheduling.GetValueOrDefault(key);
+        return value switch
         {
-            Name           = "Vibe Tag Batch",
-            Description    = "Generate vibe tags for untagged items",
-            CronExpression = "0 4 * * *",
-            LastRun        = "Yesterday, 04:00",
-            NextRun        = "Tomorrow, 04:00",
-            Enabled        = true,
-        },
-        new AiJob
-        {
-            Name           = "Series Alignment",
-            Description    = "Verify series groupings and ordering",
-            CronExpression = "0 3 * * *",
-            LastRun        = "Yesterday, 03:00",
-            NextRun        = "Tomorrow, 03:00",
-            Enabled        = true,
-        },
-        new AiJob
-        {
-            Name           = "Taste Profile Rebuild",
-            Description    = "Rebuild personal preference model",
-            CronExpression = "0 5 * * 0",
-            LastRun        = "Last Sunday, 05:00",
-            NextRun        = "Next Sunday, 05:00",
-            Enabled        = false,
-        },
-        new AiJob
-        {
-            Name           = "Deep Enrichment Sweep",
-            Description    = "Process remaining Stage 2 items",
-            CronExpression = "0 2 * * *",
-            LastRun        = "Yesterday, 02:00",
-            NextRun        = "Tomorrow, 02:00",
-            Enabled        = true,
-        },
-        new AiJob
-        {
-            Name           = "Description Intelligence",
-            Description    = "Extract themes, mood, people from descriptions (8B Scholar)",
-            CronExpression = "*/15 * * * *",
-            LastRun        = "Never",
-            NextRun        = "-",
-            Enabled        = true,
-        },
-    ];
-
-    private static string CronToHuman(string cron)
-    {
-        return cron.Trim() switch
-        {
-            "0 4 * * *" => "Daily at 4:00 AM",
-            "0 3 * * *" => "Daily at 3:00 AM",
-            "0 2 * * *" => "Daily at 2:00 AM",
-            "0 5 * * *" => "Daily at 5:00 AM",
-            "0 0 * * *" => "Daily at midnight",
-            "0 5 * * 0" => "Sundays at 5:00 AM",
-            "0 5 * * 1" => "Mondays at 5:00 AM",
-            "*/5 * * * *"  => "Every 5 minutes",
-            "*/15 * * * *" => "Every 15 minutes",
-            "0 * * * *"    => "Every hour",
-            "0 0 * * 1"  => "Mondays at midnight",
-            "0 0 1 * *"  => "1st of each month",
-            _ => ParseCronFallback(cron),
+            System.Text.Json.JsonElement e when e.ValueKind == System.Text.Json.JsonValueKind.String => e.GetString() ?? "",
+            string s => s,
+            null => "",
+            _ => value.ToString() ?? "",
         };
     }
 
-    private static string ParseCronFallback(string cron)
+    private int GetScheduleInt(string key)
     {
-        var parts = cron.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 2) return cron;
-
-        if (int.TryParse(parts[0], out var min) && int.TryParse(parts[1], out var hour))
+        var value = _config?.Scheduling.GetValueOrDefault(key);
+        return value switch
         {
-            var dow = parts.Length >= 5 ? parts[4] : "*";
-            var prefix = dow == "*" ? "Daily" : $"Day {dow}";
-            return $"{prefix} at {hour:D2}:{min:D2}";
+            System.Text.Json.JsonElement e when e.TryGetInt32(out var n) => n,
+            int n => n,
+            long n => (int)n,
+            string s when int.TryParse(s, out var n) => n,
+            _ => 1,
+        };
+    }
+
+    private void SetSchedule(string key, object value)
+    {
+        if (_config is not null)
+            _config.Scheduling[key] = value;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_config is null)
+            return;
+
+        foreach (var job in Jobs.Where(j => !j.IsNumber))
+        {
+            if (!LooksLikeCron(GetScheduleString(job.Key)))
+            {
+                SetMessage($"{job.Name} does not look like a five-field cron expression.", Severity.Error);
+                return;
+            }
         }
 
-        return cron; // unrecognised - show raw expression
+        _saving = true;
+        var ok = await Orchestrator.SaveAiConfigAsync(_config);
+        _saving = false;
+        SetMessage(ok ? "AI schedules saved." : "AI schedules could not be saved.", ok ? Severity.Success : Severity.Error);
     }
 
-    private void SaveSchedules()
+    private string ValidationLabel(ScheduleJob job)
     {
+        if (job.IsNumber)
+            return GetScheduleInt(job.Key) > 0 ? "Positive number" : "Must be positive";
+
+        return LooksLikeCron(GetScheduleString(job.Key)) ? "Five-field cron shape" : "Not validated by UI";
     }
+
+    private static bool LooksLikeCron(string value) =>
+        value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length == 5;
+
+    private void SetMessage(string message, Severity severity)
+    {
+        _message = message;
+        _messageSeverity = severity;
+    }
+
+    private sealed record ScheduleJob(string Key, string Name, string Description, bool IsNumber = false);
+
+    private static IReadOnlyList<ScheduleJob> Jobs =>
+    [
+        new("vibe_batch_cron", "Vibe batch", "Generates vibe tags for eligible items."),
+        new("series_check_cron", "Series check", "Runs series alignment checks."),
+        new("whisper_bake_cron", "Whisper bake", "Runs transcript/audio alignment work."),
+        new("whisper_bake_window_hours", "Whisper bake window", "Hours after the scheduled time where a Whisper bake can still run.", true),
+        new("taste_profile_update_cron", "Taste profile update", "Refreshes local taste profile signals."),
+        new("description_intelligence", "Description intelligence", "Runs description intelligence enrichment."),
+    ];
 }

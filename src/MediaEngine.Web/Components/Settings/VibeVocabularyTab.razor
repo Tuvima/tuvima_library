@@ -1,152 +1,123 @@
-﻿@namespace MediaEngine.Web.Components.Settings
-@inject IStringLocalizer<SharedStrings> L
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+
 <div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Style" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Vibes_PageTitle"]</MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+        <MudText Typo="Typo.h6">Vibe vocabulary</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(_config is null || _saving)">Save vocabulary</MudButton>
     </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-        @L["Vibes_PageDescription"]
-    </MudText>
-    <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true" Class="mb-6">
-        @L["Vibes_InfoAlert"]
+
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
+        Vocabulary is loaded from AI config and affects AI tagging only when the vibe tags feature is enabled. Existing items are not retagged immediately because no Local AI retag endpoint exists.
     </MudAlert>
-<MudExpansionPanels MultiExpansion="true">
 
-        @foreach (var category in _vocabulary.Keys)
-        {
-            var tags      = _vocabulary[category];
-            var tagCount  = tags.Count;
-            var key       = category; // capture for closures
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@_messageSeverity" Variant="Variant.Outlined" Class="mb-3">@_message</MudAlert>
+    }
 
-            <MudExpansionPanel>
-                <TitleContent>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@key</MudText>
-                        <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                 Style="opacity: 0.75;">
-                            @tagCount @(tagCount == 1 ? L["Vibes_TagSingular"] : L["Vibes_TagPlural"])
-                        </MudChip>
-                    </MudStack>
-                </TitleContent>
-                <ChildContent>
-                    @* Current tags rendered as closeable chips *@
-                    <MudStack Row="true" Style="flex-wrap: wrap; gap: 8px;" Class="mb-4">
-                        @foreach (var tag in tags.ToList())
-                        {
-                            var capturedTag = tag;
-                            <MudChip T="string"
-                                     Variant="Variant.Outlined"
-                                     Size="Size.Small"
-                                     OnClose="@(() => RemoveTag(key, capturedTag))"
-                                     Style="margin: 0;">
-                                @capturedTag
-                            </MudChip>
-                        }
-                        @if (tags.Count == 0)
-                        {
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                @L["Vibes_NoTags"]
-                            </MudText>
-                        }
-                    </MudStack>
-
-                    @* Add new tag row *@
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudTextField @bind-Value="_newTagInputs[key]"
-                                      Placeholder="@L["Vibes_NewTagPlaceholder"]"
-                                      Variant="Variant.Outlined"
-                                      Margin="Margin.Dense"
-                                      MaxLength="40"
-                                      Style="max-width: 260px;"
-                                      OnKeyDown="@(e => OnTagInputKeyDown(e, key))"
-                                      Immediate="true" />
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"
-                                   OnClick="@(() => AddTag(key))"
-                                   Disabled="@string.IsNullOrWhiteSpace(_newTagInputs[key])">
-                            @L["Vibes_Add"]
-                        </MudButton>
-                    </MudStack>
-                </ChildContent>
-            </MudExpansionPanel>
-        }
-
-    </MudExpansionPanels>
-<MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-6">
-        <MudButton Variant="Variant.Text"
-                   Color="Color.Default"
-                   Size="Size.Small"
-                   OnClick="@ResetToDefaults">
-            @L["Vibes_ResetToDefaults"]
-        </MudButton>
-    </MudStack>
-
+    @if (_config is null)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI config unavailable. Vocabulary cannot be edited.</MudAlert>
+    }
+    else
+    {
+        <MudExpansionPanels MultiExpansion="true">
+            @foreach (var category in _config.VibeVocabulary.Keys.OrderBy(k => k).ToList())
+            {
+                var key = category;
+                var tags = _config.VibeVocabulary[key];
+                <MudExpansionPanel Expanded="true">
+                    <TitleContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudText Typo="Typo.subtitle2">@key</MudText>
+                            <MudChip T="string" Size="Size.Small">@tags.Count tags</MudChip>
+                        </MudStack>
+                    </TitleContent>
+                    <ChildContent>
+                        <MudStack Row="true" Style="flex-wrap: wrap; gap: 8px;" Class="mb-4">
+                            @foreach (var tag in tags.ToList())
+                            {
+                                var captured = tag;
+                                <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" OnClose="@(() => RemoveTag(key, captured))">@captured</MudChip>
+                            }
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudTextField @bind-Value="_newTags[key]" Placeholder="New tag" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" />
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => AddTag(key))">Add</MudButton>
+                        </MudStack>
+                    </ChildContent>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    }
 </div>
 
 @code {
+    private AiConfigDto? _config;
+    private Dictionary<string, string> _newTags = new(StringComparer.OrdinalIgnoreCase);
+    private bool _saving;
+    private string? _message;
+    private Severity _messageSeverity = Severity.Info;
 
-    private static Dictionary<string, List<string>> BuildDefaults() => new()
+    protected override async Task OnInitializedAsync()
     {
-        ["Books"] =
-        [
-            "atmospheric", "page-turner", "philosophical", "lyrical",
-            "haunting", "whimsical", "dense", "accessible", "experimental", "cozy"
-        ],
-        ["Movies & TV"] =
-        [
-            "cinematic", "slow-burn", "ensemble", "gritty", "stylized", "dialogue-driven"
-        ],
-        ["Music"] =
-        [
-            "ambient", "energetic", "melancholic", "groovy", "ethereal", "raw"
-        ],
-        ["Comics"] =
-        [
-            "noir", "dynamic", "minimalist", "splash-heavy"
-        ],
-    };
-
-    private Dictionary<string, List<string>> _vocabulary = BuildDefaults();
-    private Dictionary<string, string> _newTagInputs = [];
-
-    protected override void OnInitialized()
-    {
-        foreach (var key in _vocabulary.Keys)
-            _newTagInputs[key] = string.Empty;
+        _config = await Orchestrator.GetAiConfigAsync();
+        if (_config is not null)
+            _newTags = _config.VibeVocabulary.Keys.ToDictionary(k => k, _ => "", StringComparer.OrdinalIgnoreCase);
     }
 
     private void AddTag(string category)
     {
-        var raw = _newTagInputs[category]?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(raw)) return;
+        if (_config is null)
+            return;
 
-        var tag = raw.ToLowerInvariant();
-        if (!_vocabulary[category].Contains(tag, StringComparer.OrdinalIgnoreCase))
-            _vocabulary[category].Add(tag);
+        var raw = _newTags.GetValueOrDefault(category)?.Trim().ToLowerInvariant() ?? "";
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            SetMessage("Empty tags are not allowed.", Severity.Warning);
+            return;
+        }
 
-        _newTagInputs[category] = string.Empty;
+        var tags = _config.VibeVocabulary[category];
+        if (tags.Any(t => t.Equals(raw, StringComparison.OrdinalIgnoreCase)))
+        {
+            SetMessage($"Duplicate tag '{raw}' was not added.", Severity.Warning);
+            return;
+        }
+
+        tags.Add(raw);
+        _newTags[category] = "";
     }
 
     private void RemoveTag(string category, string tag)
     {
-        _vocabulary[category].RemoveAll(t =>
-            t.Equals(tag, StringComparison.OrdinalIgnoreCase));
+        _config?.VibeVocabulary[category].RemoveAll(t => t.Equals(tag, StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task OnTagInputKeyDown(KeyboardEventArgs e, string category)
+    private async Task SaveAsync()
     {
-        if (e.Key == "Enter")
+        if (_config is null)
+            return;
+
+        foreach (var (category, tags) in _config.VibeVocabulary)
         {
-            AddTag(category);
-            await Task.CompletedTask;
+            if (tags.Any(string.IsNullOrWhiteSpace) || tags.Count != tags.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+            {
+                SetMessage($"Fix empty or duplicate tags in {category}.", Severity.Error);
+                return;
+            }
         }
+
+        _saving = true;
+        var ok = await Orchestrator.SaveAiConfigAsync(_config);
+        _saving = false;
+        SetMessage(ok ? "Vocabulary saved." : "Vocabulary could not be saved.", ok ? Severity.Success : Severity.Error);
     }
 
-    private void ResetToDefaults()
+    private void SetMessage(string message, Severity severity)
     {
-        _vocabulary    = BuildDefaults();
-        _newTagInputs  = _vocabulary.Keys.ToDictionary(k => k, _ => string.Empty);
+        _message = message;
+        _messageSeverity = severity;
     }
 }
