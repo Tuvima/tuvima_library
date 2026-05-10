@@ -1,0 +1,197 @@
+@namespace MediaEngine.Web.Components.Settings
+@using System.Globalization
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (Snapshot is not null)
+{
+    <MudExpansionPanels Class="ingestion-diagnostics" MultiExpansion="true" Elevation="0">
+        <MudExpansionPanel Text="Source folders">
+            @if (Snapshot.SourceGroups.All(group => group.Libraries.Count == 0))
+            {
+                @Empty(Icons.Material.Outlined.FolderOff, "No source folders configured", "Add folders in Settings > Library Folders.")
+            }
+            else
+            {
+                <div class="ops-source-groups">
+                    @foreach (var group in Snapshot.SourceGroups)
+                    {
+                        <section class="ops-source-group">
+                            <h3>@group.Intent</h3>
+                            @foreach (var library in group.Libraries)
+                            {
+                                <div class="ops-source-library">
+                                    <div class="ops-source-library__label">@library.Label</div>
+                                    @foreach (var folder in library.Folders)
+                                    {
+                                        <div class="ops-folder-row">
+                                            <MudIcon Icon="@MediaIcon(folder.MediaType)" />
+                                            <div class="ops-folder-row__path">
+                                                <strong>@folder.Path</strong>
+                                                <span>@folder.MediaType - @folder.Purpose - @folder.ScanMode</span>
+                                                @if (!string.IsNullOrWhiteSpace(folder.MusicNote))
+                                                {
+                                                    <small>@folder.MusicNote</small>
+                                                }
+                                            </div>
+                                            <div class="ops-folder-row__metrics">
+                                                <span>@FormatCount(folder.ItemCount) items</span>
+                                                <span>@FormatCount(folder.UnresolvedCount) unresolved</span>
+                                                <span class="@ReachabilityClass(folder)">@folder.Status</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </section>
+                    }
+                </div>
+            }
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Provider health">
+            <div class="ops-provider-list">
+                @foreach (var provider in Snapshot.ProviderHealth)
+                {
+                    <div class="ops-provider-row">
+                        <div>
+                            <strong>@provider.DisplayName</strong>
+                            <span>@FirstNonBlank(provider.Warning, provider.LastError, $"Last success {FormatRelative(provider.LastSuccessfulCall)}")</span>
+                        </div>
+                        <span class="@StatusBadgeClass(provider.Status)">@provider.Status</span>
+                    </div>
+                }
+                @if (Snapshot.ProviderHealth.Count == 0)
+                {
+                    @Empty(Icons.Material.Outlined.CloudOff, "No ingestion providers configured", "Provider health will appear after providers are configured.")
+                }
+            </div>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Review reasons">
+            <div class="ops-review-list">
+                @foreach (var reason in Snapshot.ReviewReasons)
+                {
+                    <div class="ops-review-row">
+                        <div>
+                            <strong>@reason.Label</strong>
+                            <span>@reason.Explanation</span>
+                        </div>
+                        <div>
+                            <span class="@StatusBadgeClass(reason.Count > 0 ? "warning" : "complete")">@FormatCount(reason.Count)</span>
+                            <MudButton Href="/settings/review" Size="Size.Small" Variant="Variant.Outlined" Disabled="@(reason.Count == 0)">Review</MudButton>
+                        </div>
+                    </div>
+                }
+            </div>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Recent batches">
+            @if (Snapshot.RecentBatches.Count == 0)
+            {
+                @Empty(Icons.Material.Outlined.History, "No recent ingestion batches", "Batches will appear after a scan processes files.")
+            }
+            else
+            {
+                <div class="ops-batch-table">
+                    <div class="ops-batch-table__head">
+                        <span>Time</span><span>Source</span><span>Media</span><span>Total</span><span>Registered</span><span>Review</span><span>Failed</span><span>Status</span>
+                    </div>
+                    @foreach (var batch in Snapshot.RecentBatches)
+                    {
+                        <div class="ops-batch-table__row">
+                            <span>@FormatRelative(batch.StartedAt)</span>
+                            <span>@FirstNonBlank(batch.Source, "Library scan")</span>
+                            <span>@FirstNonBlank(batch.MediaType, "Mixed")</span>
+                            <span>@FormatCount(batch.TotalFiles)</span>
+                            <span>@FormatCount(batch.RegisteredCount)</span>
+                            <span>@FormatCount(batch.ReviewCount)</span>
+                            <span>@FormatCount(batch.FailedCount)</span>
+                            <span><span class="@StatusBadgeClass(batch.Status)">@FormatStatus(batch.Status)</span></span>
+                        </div>
+                    }
+                </div>
+            }
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Organization rules">
+            <div class="ops-rules-grid">
+                @Rule("Rename", Snapshot.Organization.RenameEnabled ? "Enabled" : "Disabled")
+                @Rule("Move", Snapshot.Organization.MoveEnabled ? "Enabled" : "Disabled")
+                @Rule("Preview", Snapshot.Organization.PreviewRequired ? "Required" : "Not required")
+                @Rule("Folder template", Snapshot.Organization.FolderTemplateSummary)
+                @Rule("Filename template", Snapshot.Organization.FilenameTemplateSummary)
+                @Rule("Music", Snapshot.Organization.MusicBehavior)
+            </div>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+}
+
+@code {
+    [Parameter] public IngestionOperationsSnapshotViewModel? Snapshot { get; set; }
+
+    private static RenderFragment Empty(string icon, string title, string detail) => @<div class="ops-empty-state">
+        <MudIcon Icon="@icon" />
+        <div>
+            <MudText Typo="Typo.subtitle2">@title</MudText>
+            <MudText Typo="Typo.body2">@detail</MudText>
+        </div>
+    </div>;
+
+    private static RenderFragment Rule(string label, string value) => @<div class="ops-rule">
+        <span>@label</span>
+        <strong>@value</strong>
+    </div>;
+
+    private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
+
+    private static string FormatStatus(string status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return "Unknown";
+
+        var text = status.Replace("_", " ").Replace("-", " ");
+        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(text);
+    }
+
+    private static string FormatRelative(DateTimeOffset? value)
+    {
+        if (value is null)
+            return "not tracked yet";
+
+        var elapsed = DateTimeOffset.UtcNow - value.Value.ToUniversalTime();
+        return elapsed.TotalMinutes switch
+        {
+            < 1 => "just now",
+            < 60 => $"{(int)elapsed.TotalMinutes}m ago",
+            < 1440 => $"{(int)elapsed.TotalHours}h ago",
+            _ => value.Value.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture),
+        };
+    }
+
+    private static string MediaIcon(string? mediaType) => (mediaType ?? string.Empty).ToLowerInvariant() switch
+    {
+        var s when s.Contains("movie") || s.Contains("tv") => Icons.Material.Outlined.Movie,
+        var s when s.Contains("audio") || s.Contains("music") => Icons.Material.Outlined.Headphones,
+        var s when s.Contains("comic") => Icons.Material.Outlined.AutoStories,
+        var s when s.Contains("book") => Icons.Material.Outlined.MenuBook,
+        _ => Icons.Material.Outlined.Inventory2,
+    };
+
+    private static string StatusToneClass(string status) => status.ToLowerInvariant() switch
+    {
+        var s when s.Contains("offline") || s.Contains("failed") => "is-danger",
+        var s when s.Contains("degraded") || s.Contains("warning") => "is-warning",
+        var s when s.Contains("running") || s.Contains("active") => "is-primary",
+        _ => "is-success",
+    };
+
+    private static string StatusBadgeClass(string status) => $"ops-status {StatusToneClass(status)}";
+
+    private static string ReachabilityClass(IngestionSourceFolderViewModel folder) =>
+        folder.IsReachable == true && folder.PermissionsValid != false
+            ? "ops-folder-status is-success"
+            : "ops-folder-status is-warning";
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+}

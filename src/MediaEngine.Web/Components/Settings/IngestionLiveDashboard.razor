@@ -1,0 +1,132 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+
+<MudPaper Elevation="0" Class="tl-card ingestion-live">
+    <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Class="ingestion-live__header">
+        <div>
+            <MudText Typo="Typo.h4" Class="ingestion-live__title">Active Ingestion</MudText>
+            <MudText Typo="Typo.body2" Class="ingestion-live__subtitle">
+                Current scans, matching, enrichment, and registration work.
+            </MudText>
+            @if (LastUpdated is not null)
+            {
+                <MudText Typo="Typo.caption" Class="ingestion-live__updated">Updated @FormatRelative(LastUpdated)</MudText>
+            }
+        </div>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="ingestion-live__actions">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Class="@LiveBadgeClass">
+                <span class="ingestion-live__dot"></span>@LiveLabel
+            </MudChip>
+            <MudTooltip Text="Refresh ingestion status">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.Refresh"
+                           Disabled="@Loading"
+                           OnClick="OnRefresh">
+                    Refresh
+                </MudButton>
+            </MudTooltip>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Outlined.PlayArrow"
+                       Disabled="@(Loading || ScanStarting)"
+                       OnClick="OnScanNow">
+                Scan Now
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    @if (!string.IsNullOrWhiteSpace(Error))
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mb-4">
+            @Error
+        </MudAlert>
+    }
+
+    @if (Loading && Snapshot is null)
+    {
+        <MudGrid Class="ingestion-live__skeleton">
+            @for (var i = 0; i < 4; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSkeleton Height="86px" Animation="Animation.Wave" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <IngestionMetricStrip Metrics="Metrics" />
+        <IngestionStageRail Stages="Stages" />
+        <IngestionActivityList Jobs="Jobs" Activities="Activities" />
+    }
+
+    <div class="ingestion-live__footer">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudIcon Icon="@Icons.Material.Outlined.Storage" Size="Size.Small" />
+            <span>Ingestion engine</span>
+            <span class="@EngineHealthClass">@EngineHealth</span>
+        </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudText Typo="Typo.caption">Updating in real time</MudText>
+            <MudButton Href="/settings/activity" Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Outlined.ChevronRight">Full logs</MudButton>
+            <MudButton Href="/settings/review" Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Outlined.ChevronRight">Review queue</MudButton>
+        </MudStack>
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter] public IngestionOperationsSnapshotViewModel? Snapshot { get; set; }
+    [Parameter] public IngestionDashboardMetrics Metrics { get; set; } = new(0, 0, 0, 0);
+    [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
+    [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
+    [Parameter] public IngestionLiveMode LiveMode { get; set; }
+    [Parameter] public EngineConnectionState ConnectionState { get; set; }
+    [Parameter] public DateTimeOffset? LastUpdated { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool ScanStarting { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    [Parameter] public EventCallback OnScanNow { get; set; }
+
+    private string LiveLabel => LiveMode switch
+    {
+        IngestionLiveMode.Live => "Live",
+        IngestionLiveMode.Reconnecting => "Reconnecting",
+        _ => "Polling",
+    };
+
+    private string LiveBadgeClass => $"ingestion-live__badge ingestion-live__badge--{LiveLabel.ToLowerInvariant()}";
+
+    private string EngineHealth => ConnectionState switch
+    {
+        EngineConnectionState.Online => "Healthy",
+        EngineConnectionState.LiveUpdatesDisconnected => "Live updates disconnected",
+        EngineConnectionState.Offline => "Offline",
+        EngineConnectionState.Degraded => "Degraded",
+        _ => Snapshot?.Summary.EngineStatus ?? "Checking",
+    };
+
+    private string EngineHealthClass => ConnectionState == EngineConnectionState.Online
+        ? "ingestion-live__health is-success"
+        : "ingestion-live__health is-warning";
+
+    private static string FormatRelative(DateTimeOffset? value)
+    {
+        if (value is null)
+            return "not tracked yet";
+
+        var elapsed = DateTimeOffset.UtcNow - value.Value.ToUniversalTime();
+        return elapsed.TotalMinutes switch
+        {
+            < 1 => "just now",
+            < 60 => $"{(int)elapsed.TotalMinutes}m ago",
+            < 1440 => $"{(int)elapsed.TotalHours}h ago",
+            _ => value.Value.ToLocalTime().ToString("MMM d, h:mm tt"),
+        };
+    }
+}

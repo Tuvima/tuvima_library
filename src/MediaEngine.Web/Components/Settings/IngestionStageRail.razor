@@ -1,0 +1,25 @@
+@namespace MediaEngine.Web.Components.Settings
+@using System.Globalization
+@using MediaEngine.Web.Services.Integration
+
+<div class="ingestion-stage-rail" aria-label="Ingestion pipeline stages">
+    @foreach (var stage in Stages)
+    {
+        <div class="@StageClass(stage)">
+            <div class="ingestion-stage__label">@stage.Label</div>
+            <div class="ingestion-stage__node">
+                <MudIcon Icon="@stage.Icon" />
+            </div>
+            <div class="ingestion-stage__count">@stage.Count.ToString("N0", CultureInfo.CurrentCulture) / @stage.Total.ToString("N0", CultureInfo.CurrentCulture)</div>
+            <strong>@stage.Percent.ToString("0.#", CultureInfo.CurrentCulture)%</strong>
+            <span>@stage.Status</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
+
+    private static string StageClass(IngestionDashboardStage stage) =>
+        $"ingestion-stage ingestion-stage--{stage.Key} {(stage.Status == "Active" ? "is-active" : stage.Status == "Complete" ? "is-complete" : "is-pending")}";
+}

@@ -1,0 +1,197 @@
+@namespace MediaEngine.Web.Components.Settings
+@using System.Globalization
+@using MediaEngine.Web.Models.ViewDTOs
+
+<section class="ingestion-activity">
+    <div class="ingestion-activity__header">
+        <MudText Typo="Typo.subtitle2">Current activity</MudText>
+        <span><span class="ingestion-live__dot"></span>Live updates</span>
+    </div>
+
+    @if (Rows.Count == 0)
+    {
+        <div class="ingestion-activity__empty">
+            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+            <div>
+                <strong>No active ingestion work</strong>
+                <span>Watched folders are still being monitored.</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var row in Rows.Take(5))
+        {
+            <article class="ingestion-activity-row">
+                <div class="ingestion-activity-row__media">
+                    @if (!string.IsNullOrWhiteSpace(row.CoverUrl))
+                    {
+                        <img src="@row.CoverUrl" alt="" loading="lazy" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@row.Icon" />
+                    }
+                </div>
+                <div class="ingestion-activity-row__title">
+                    <strong>@row.Title</strong>
+                    <span>@row.Subtitle</span>
+                    <small>@row.Path</small>
+                </div>
+                <div class="ingestion-activity-row__stage">
+                    <MudIcon Icon="@row.StageIcon" />
+                    <div>
+                        <strong>@row.Stage</strong>
+                        <span>@row.StageDetail</span>
+                    </div>
+                </div>
+                <div class="ingestion-activity-row__progress">
+                    <MudProgressLinear Value="@row.Percent" Color="@row.ProgressColor" Rounded="true" Size="Size.Small" />
+                    <span>@row.Percent.ToString("0", CultureInfo.CurrentCulture)%</span>
+                </div>
+                <div class="ingestion-activity-row__facts">
+                    <span><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /> @row.Files</span>
+                    <span><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" /> @row.Elapsed</span>
+                    <span><MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small" /> @row.Source</span>
+                </div>
+            </article>
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
+    [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
+
+    private IReadOnlyList<ActivityRow> Rows
+    {
+        get
+        {
+            var rows = Jobs.Select(ActivityRow.FromJob).ToList();
+            rows.AddRange(Activities
+                .Where(activity => rows.All(row => !string.Equals(row.Title, ActivityRow.TitleFromActivity(activity), StringComparison.OrdinalIgnoreCase)))
+                .Take(Math.Max(0, 5 - rows.Count))
+                .Select(ActivityRow.FromActivity));
+            return rows;
+        }
+    }
+
+    private sealed record ActivityRow(
+        string Title,
+        string Subtitle,
+        string Path,
+        string Stage,
+        string StageDetail,
+        string Files,
+        string Elapsed,
+        string Source,
+        string Icon,
+        string StageIcon,
+        string? CoverUrl,
+        double Percent,
+        Color ProgressColor)
+    {
+        public static ActivityRow FromJob(IngestionOperationsJobViewModel job)
+        {
+            var title = FirstNonBlank(job.CurrentItem, job.MediaType, job.JobType, "Ingestion work");
+            var percent = Math.Clamp(job.PercentComplete, 0, 100);
+            return new ActivityRow(
+                title,
+                FirstNonBlank(job.MediaType, job.JobType, "Mixed media"),
+                ShortPath(job.SourceFolder),
+                FirstNonBlank(job.CurrentStage, "Processing"),
+                ResolveStageDetail(job.CurrentStage),
+                $"{job.ProcessedCount.ToString("N0", CultureInfo.CurrentCulture)} / {job.TotalCount.ToString("N0", CultureInfo.CurrentCulture)}",
+                FormatDuration(job.Elapsed),
+                ShortPath(job.SourceFolder),
+                MediaIcon(job.MediaType),
+                ResolveStageIcon(job.CurrentStage),
+                null,
+                percent,
+                ResolveProgressColor(job.CurrentStage));
+        }
+
+        public static ActivityRow FromActivity(ActivityEntryViewModel activity)
+        {
+            var rich = activity.RichData;
+            var title = TitleFromActivity(activity);
+            return new ActivityRow(
+                title,
+                FirstNonBlank(rich?.MediaType, activity.ActionType),
+                FirstNonBlank(rich?.SourceFile, rich?.ResolvedOrganizedTo, activity.Detail),
+                FormatAction(activity.ActionType),
+                FirstNonBlank(rich?.MatchMethodLabel, activity.Detail, "Recently updated"),
+                "Done",
+                activity.RelativeTime,
+                FirstNonBlank(rich?.CollectionName, rich?.MediaType, activity.CollectionName, "Library"),
+                MediaIcon(rich?.MediaType),
+                ResolveStageIcon(activity.ActionType),
+                rich?.ResolvedCoverUrl,
+                100,
+                Color.Success);
+        }
+
+        public static string TitleFromActivity(ActivityEntryViewModel activity) =>
+            FirstNonBlank(activity.RichData?.Title, activity.CollectionName, activity.Detail, activity.ActionType);
+
+        private static string FormatAction(string action) =>
+            action.Replace("_", " ").Replace("-", " ");
+
+        private static string ResolveStageDetail(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
+        {
+            var s when s.Contains("match") => "Finding the best match",
+            var s when s.Contains("enrich") || s.Contains("hydrate") => "Adding metadata and relationships",
+            var s when s.Contains("scan") => "Reading watched folders",
+            var s when s.Contains("review") => "Checking unresolved items",
+            _ => "Processing library data",
+        };
+
+        private static Color ResolveProgressColor(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
+        {
+            var s when s.Contains("review") => Color.Warning,
+            var s when s.Contains("enrich") || s.Contains("hydrate") => Color.Warning,
+            var s when s.Contains("match") => Color.Success,
+            _ => Color.Info,
+        };
+
+        private static string ResolveStageIcon(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
+        {
+            var s when s.Contains("scan") => Icons.Material.Outlined.Radar,
+            var s when s.Contains("match") => Icons.Material.Outlined.Extension,
+            var s when s.Contains("enrich") || s.Contains("hydrate") => Icons.Material.Outlined.DataObject,
+            var s when s.Contains("review") => Icons.Material.Outlined.WarningAmber,
+            _ => Icons.Material.Outlined.Search,
+        };
+
+        private static string MediaIcon(string? mediaType) => (mediaType ?? string.Empty).ToLowerInvariant() switch
+        {
+            var s when s.Contains("movie") || s.Contains("tv") => Icons.Material.Outlined.Movie,
+            var s when s.Contains("audio") || s.Contains("music") => Icons.Material.Outlined.Headphones,
+            var s when s.Contains("comic") => Icons.Material.Outlined.AutoStories,
+            var s when s.Contains("book") => Icons.Material.Outlined.MenuBook,
+            _ => Icons.Material.Outlined.Inventory2,
+        };
+
+        private static string FormatDuration(TimeSpan? duration)
+        {
+            if (duration is null)
+                return "Running";
+
+            var value = duration.Value.Duration();
+            return value.TotalHours >= 1 ? $"{(int)value.TotalHours}h {value.Minutes}m" : $"{value.Minutes}m {value.Seconds}s";
+        }
+
+        private static string ShortPath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return "Watch folders";
+
+            var trimmed = path.TrimEnd('\\', '/');
+            var index = Math.Max(trimmed.LastIndexOf('\\'), trimmed.LastIndexOf('/'));
+            return index >= 0 ? trimmed[(index + 1)..] : trimmed;
+        }
+
+        private static string FirstNonBlank(params string?[] values) =>
+            values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+}

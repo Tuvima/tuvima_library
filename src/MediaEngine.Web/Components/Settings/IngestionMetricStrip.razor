@@ -1,0 +1,40 @@
+@namespace MediaEngine.Web.Components.Settings
+@using System.Globalization
+@using MediaEngine.Web.Services.Integration
+
+<MudGrid Class="ingestion-metrics">
+    <MudItem xs="12" sm="6" md="3">
+        <div class="ingestion-metric ingestion-metric--files">
+            <div class="ingestion-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.Inventory2" /></div>
+            <div><span>Total Files</span><strong>@FormatCount(Metrics.TotalFiles)</strong><small>Across all sources</small></div>
+        </div>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <div class="ingestion-metric ingestion-metric--processed">
+            <div class="ingestion-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></div>
+            <div><span>Processed Files</span><strong>@FormatCount(Metrics.ProcessedFiles)</strong><small>@ProcessedHelper</small></div>
+        </div>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <div class="ingestion-metric ingestion-metric--active">
+            <div class="ingestion-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.GraphicEq" /></div>
+            <div><span>Active Files</span><strong>@FormatCount(Metrics.ActiveFiles)</strong><small>Currently processing</small></div>
+        </div>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <div class="ingestion-metric ingestion-metric--review">
+            <div class="ingestion-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></div>
+            <div><span>Unresolved Items</span><strong>@FormatCount(Metrics.UnresolvedItems)</strong><small>Require attention</small></div>
+        </div>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter] public IngestionDashboardMetrics Metrics { get; set; } = new(0, 0, 0, 0);
+
+    private string ProcessedHelper => Metrics.TotalFiles > 0
+        ? $"{Math.Clamp(Metrics.ProcessedFiles * 100d / Metrics.TotalFiles, 0, 100).ToString("0.#", CultureInfo.CurrentCulture)}% of total"
+        : "Waiting for files";
+
+    private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
+}
