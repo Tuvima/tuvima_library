@@ -21,6 +21,7 @@ public enum SettingsSection
     Delivery,
     Access,
 
+    ActivityLogs,
     Review,
     Setup,
     ProviderTester,
@@ -92,7 +93,7 @@ public static class SettingsNav
 
         new(SettingsSection.AdminOverview, "admin", "admin", Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Libraries, "admin", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Library Operations", true, null, ["activity", "activity-log", "tasks", "maintenance"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Library Operations", true, null, ["tasks", "maintenance"], Status: SettingsStatusKind.Live),
         new(SettingsSection.Metadata, "admin", "metadata", Icons.Material.Outlined.Schema, "Metadata & Matching", true, null, ["wikidata"], "json", Status: SettingsStatusKind.Partial),
         new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.LocalAi, "admin", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "runtime", "vocabulary", "schedule", "enrichment"], Status: SettingsStatusKind.Live),
@@ -100,6 +101,7 @@ public static class SettingsNav
         new(SettingsSection.Delivery, "admin", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"], Status: SettingsStatusKind.Partial),
         new(SettingsSection.Access, "admin", "access", Icons.Material.Outlined.AdminPanelSettings, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"], Status: SettingsStatusKind.Partial),
 
+        new(SettingsSection.ActivityLogs, "admin", "activity", Icons.Material.Outlined.Timeline, "Activity Logs", true, null, ["activity-log"], "sqlite"),
         new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
         new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, []),
         new(SettingsSection.ProviderTester, "admin", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal"),

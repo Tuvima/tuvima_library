@@ -37,6 +37,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
     public IReadOnlyList<IngestionOperationsJobViewModel> ActiveJobs => BuildActiveJobs(Snapshot, _stateContainer);
     public IngestionDashboardMetrics Metrics => BuildMetrics(Snapshot, ActiveJobs);
     public IReadOnlyList<IngestionDashboardStage> Stages => BuildStages(Snapshot, ActiveJobs, Metrics.TotalFiles);
+    public IngestionOverallProgress OverallProgress => BuildOverallProgress(Metrics, Stages, _stateContainer.BatchProgress);
     public IngestionLiveMode LiveMode => ResolveLiveMode(_orchestrator.EngineConnectionState);
 
     public async Task InitializeAsync(CancellationToken ct = default)
@@ -268,35 +269,140 @@ public sealed class IngestionLiveDashboardState : IDisposable
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
         int totalFiles)
     {
-        var stages = new[]
+        var activeKey = ResolveActiveStage(activeJobs);
+        var reviewCount = snapshot?.Summary.ItemsNeedingReview ?? 0;
+        var registeredCount = snapshot?.Summary.RegisteredItems ?? 0;
+        var retailMatched = Math.Max(Count(snapshot, "matched"), Count(snapshot, "identified") - reviewCount);
+        var retailTotal = Math.Max(0, retailMatched + reviewCount);
+        var canonicalized = Count(snapshot, "canonicalized");
+        var enriched = Count(snapshot, "enriched");
+        var scanningJobs = activeJobs
+            .Where(job => ResolveActiveStage([job]) == "scanning")
+            .ToList();
+        var scanningTotal = scanningJobs.Sum(job => Math.Max(0, job.TotalCount));
+        var scanningDone = scanningJobs.Sum(job => Math.Max(0, job.ProcessedCount));
+        var summaryTotal = Math.Max(0, registeredCount + reviewCount);
+
+        var stages = new List<IngestionDashboardStage>
         {
-            ("scanning", "Scanning", Icons.Material.Outlined.Radar, Count(snapshot, "detected") + Count(snapshot, "parsed")),
-            ("identifying", "Identifying", Icons.Material.Outlined.Search, Count(snapshot, "identified")),
-            ("matching", "Matching", Icons.Material.Outlined.Extension, Count(snapshot, "matched")),
-            ("enrichment", "Enrichment", Icons.Material.Outlined.DataObject, Count(snapshot, "enriched")),
-            ("registration", "Registration", Icons.Material.Outlined.Security, Count(snapshot, "registered")),
+            CreateStage(
+                "scanning",
+                "Ingestion_StageScanning",
+                "Ingestion_StageScanningDetail",
+                Icons.Material.Outlined.Radar,
+                scanningDone,
+                scanningTotal,
+                totalFiles,
+                activeKey,
+                hideCountWhenIdle: true),
+            CreateStage(
+                "retail",
+                "Ingestion_StageRetailIdentification",
+                "Ingestion_StageRetailIdentificationDetail",
+                Icons.Material.Outlined.Search,
+                retailTotal,
+                totalFiles,
+                totalFiles,
+                activeKey,
+                matchedCount: retailMatched,
+                reviewCount: reviewCount),
+            CreateStage(
+                "wikidata",
+                "Ingestion_StageWikidataMatch",
+                "Ingestion_StageWikidataMatchDetail",
+                Icons.Material.Outlined.TravelExplore,
+                canonicalized,
+                totalFiles,
+                totalFiles,
+                activeKey),
+            CreateStage(
+                "enrichment",
+                "Ingestion_StageEnrichment",
+                "Ingestion_StageEnrichmentDetail",
+                Icons.Material.Outlined.DataObject,
+                enriched,
+                totalFiles,
+                totalFiles,
+                activeKey),
+            CreateStage(
+                "summary",
+                "Ingestion_StageSummary",
+                "Ingestion_StageSummaryDetail",
+                Icons.Material.Outlined.AssignmentTurnedIn,
+                summaryTotal,
+                totalFiles,
+                totalFiles,
+                activeKey,
+                matchedCount: registeredCount,
+                reviewCount: reviewCount,
+                isSummary: true),
         };
 
-        var activeKey = ResolveActiveStage(activeJobs);
-        return stages.Select((stage, index) =>
+        return stages;
+
+        static IngestionDashboardStage CreateStage(
+            string key,
+            string labelKey,
+            string detailKey,
+            string icon,
+            int count,
+            int total,
+            int globalTotal,
+            string activeKey,
+            bool hideCountWhenIdle = false,
+            int matchedCount = 0,
+            int reviewCount = 0,
+            bool isSummary = false)
         {
-            var percent = totalFiles > 0 ? Math.Clamp(stage.Item4 * 100d / totalFiles, 0, 100) : 0;
-            var status = activeKey == stage.Item1
-                ? "Active"
-                : percent >= 100
-                    ? "Complete"
-                    : index == 0 && activeJobs.Count == 0
-                        ? "Idle"
-                        : "Pending";
+            var percent = total > 0
+                ? Math.Clamp(count * 100d / total, 0, 100)
+                : globalTotal <= 0 && isSummary
+                    ? 100
+                    : 0;
+            var isActive = activeKey == key;
+            var hideCount = hideCountWhenIdle && !isActive && total <= 0;
+            var status = isActive
+                ? "Ingestion_StatusActive"
+                : hideCount
+                    ? "Ingestion_StatusIdle"
+                    : percent >= 100
+                        ? "Ingestion_StatusComplete"
+                        : "Ingestion_StatusPending";
             return new IngestionDashboardStage(
-                stage.Item1,
-                stage.Item2,
-                stage.Item3,
-                stage.Item4,
-                totalFiles,
+                key,
+                labelKey,
+                detailKey,
+                icon,
+                count,
+                total,
                 percent,
-                status);
-        }).ToList();
+                status,
+                percent,
+                hideCount,
+                matchedCount,
+                reviewCount,
+                isSummary);
+        }
+    }
+
+    public static IngestionOverallProgress BuildOverallProgress(
+        IngestionDashboardMetrics metrics,
+        IReadOnlyList<IngestionDashboardStage> stages,
+        BatchProgressEvent? batch)
+    {
+        var percent = metrics.TotalFiles > 0
+            ? Math.Clamp(metrics.ProcessedFiles * 100d / metrics.TotalFiles, 0, 100)
+            : 0;
+        var activeStage = stages.FirstOrDefault(stage => stage.StatusKey == "Ingestion_StatusActive")
+            ?? stages.FirstOrDefault(stage => !stage.HideCount && stage.Percent < 100)
+            ?? stages.LastOrDefault();
+
+        return new IngestionOverallProgress(
+            metrics.ProcessedFiles,
+            metrics.TotalFiles,
+            percent,
+            activeStage?.LabelKey ?? "Ingestion_StageScanning",
+            batch?.EstimatedSecondsRemaining);
     }
 
     public static string ResolveActiveStage(IReadOnlyList<IngestionOperationsJobViewModel> activeJobs)
@@ -308,15 +414,15 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
         if (stage.Contains("scan") || stage.Contains("queue") || stage.Contains("detect") || stage.Contains("parse"))
             return "scanning";
-        if (stage.Contains("identify") || stage.Contains("hash") || stage.Contains("fingerprint"))
-            return "identifying";
-        if (stage.Contains("match") || stage.Contains("retail") || stage.Contains("bridge") || stage.Contains("qid"))
-            return "matching";
+        if (stage.Contains("bridge") || stage.Contains("qid") || stage.Contains("wikidata") || stage.Contains("canonical"))
+            return "wikidata";
+        if (stage.Contains("identify") || stage.Contains("hash") || stage.Contains("fingerprint") || stage.Contains("match") || stage.Contains("retail"))
+            return "retail";
         if (stage.Contains("enrich") || stage.Contains("hydrate") || stage.Contains("metadata") || stage.Contains("universe"))
             return "enrichment";
         if (stage.Contains("register") || stage.Contains("organize") || stage.Contains("review") || stage.Contains("complete"))
-            return "registration";
-        return activeJobs.Count > 0 ? "matching" : "scanning";
+            return "summary";
+        return activeJobs.Count > 0 ? "retail" : "scanning";
     }
 
     public static IngestionLiveMode ResolveLiveMode(EngineConnectionState state) => state switch
@@ -353,11 +459,24 @@ public sealed record IngestionDashboardMetrics(
     int ActiveFiles,
     int UnresolvedItems);
 
+public sealed record IngestionOverallProgress(
+    int ProcessedFiles,
+    int TotalFiles,
+    double Percent,
+    string ActiveStageLabelKey,
+    int? EstimatedSecondsRemaining);
+
 public sealed record IngestionDashboardStage(
     string Key,
-    string Label,
+    string LabelKey,
+    string DetailKey,
     string Icon,
     int Count,
     int Total,
     double Percent,
-    string Status);
+    string StatusKey,
+    double RingPercent,
+    bool HideCount,
+    int MatchedCount,
+    int ReviewCount,
+    bool IsSummary);
