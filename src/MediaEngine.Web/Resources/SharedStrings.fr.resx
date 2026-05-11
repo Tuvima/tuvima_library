@@ -1393,5 +1393,164 @@
   <data name="Listen_LibraryAudio" xml:space="preserve">
     <value>Library audio</value>
   </data>
+  <!-- Ingestion dashboard -->
+  <data name="Ingestion_Title" xml:space="preserve">
+    <value>Active Ingestion</value>
+  </data>
+  <data name="Ingestion_Subtitle" xml:space="preserve">
+    <value>Current scans, retail identification, Wikidata matching, enrichment, and summary outcomes.</value>
+  </data>
+  <data name="Ingestion_Updated" xml:space="preserve">
+    <value>Updated {0}</value>
+  </data>
+  <data name="Ingestion_RefreshTooltip" xml:space="preserve">
+    <value>Refresh ingestion status</value>
+  </data>
+  <data name="Ingestion_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Ingestion_ScanNow" xml:space="preserve">
+    <value>Scan Now</value>
+  </data>
+  <data name="Ingestion_Engine" xml:space="preserve">
+    <value>Ingestion engine</value>
+  </data>
+  <data name="Ingestion_FullLogs" xml:space="preserve">
+    <value>Full logs</value>
+  </data>
+  <data name="Ingestion_ReviewQueue" xml:space="preserve">
+    <value>Review queue</value>
+  </data>
+  <data name="Ingestion_HealthHealthy" xml:space="preserve">
+    <value>Healthy</value>
+  </data>
+  <data name="Ingestion_HealthDisconnected" xml:space="preserve">
+    <value>Live updates disconnected</value>
+  </data>
+  <data name="Ingestion_HealthOffline" xml:space="preserve">
+    <value>Offline</value>
+  </data>
+  <data name="Ingestion_HealthDegraded" xml:space="preserve">
+    <value>Degraded</value>
+  </data>
+  <data name="Ingestion_HealthChecking" xml:space="preserve">
+    <value>Checking</value>
+  </data>
+  <data name="Ingestion_MetricTotalFiles" xml:space="preserve">
+    <value>Total Files</value>
+  </data>
+  <data name="Ingestion_MetricAcrossSources" xml:space="preserve">
+    <value>Across all sources</value>
+  </data>
+  <data name="Ingestion_MetricProcessedFiles" xml:space="preserve">
+    <value>Processed Files</value>
+  </data>
+  <data name="Ingestion_MetricPercentOfTotal" xml:space="preserve">
+    <value>{0}% of total</value>
+  </data>
+  <data name="Ingestion_MetricWaitingForFiles" xml:space="preserve">
+    <value>Waiting for files</value>
+  </data>
+  <data name="Ingestion_MetricActiveFiles" xml:space="preserve">
+    <value>Active Files</value>
+  </data>
+  <data name="Ingestion_MetricCurrentlyProcessing" xml:space="preserve">
+    <value>Currently processing</value>
+  </data>
+  <data name="Ingestion_MetricUnresolvedItems" xml:space="preserve">
+    <value>Unresolved Items</value>
+  </data>
+  <data name="Ingestion_MetricRequireAttention" xml:space="preserve">
+    <value>Require attention</value>
+  </data>
+  <data name="Ingestion_OverallTitle" xml:space="preserve">
+    <value>Overall ingestion progress</value>
+  </data>
+  <data name="Ingestion_OverallSubtitle" xml:space="preserve">
+    <value>Across scanning, retail identification, Wikidata matching, enrichment, and summary outcomes.</value>
+  </data>
+  <data name="Ingestion_OverallProcessed" xml:space="preserve">
+    <value>{0} of {1} files processed</value>
+  </data>
+  <data name="Ingestion_OverallComplete" xml:space="preserve">
+    <value>complete</value>
+  </data>
+  <data name="Ingestion_OverallActiveStage" xml:space="preserve">
+    <value>{0} is currently active</value>
+  </data>
+  <data name="Ingestion_OverallRemaining" xml:space="preserve">
+    <value>Est. {0} remaining</value>
+  </data>
+  <data name="Ingestion_StageRailLabel" xml:space="preserve">
+    <value>Ingestion pipeline stages</value>
+  </data>
+  <data name="Ingestion_StageScanning" xml:space="preserve">
+    <value>Scanning</value>
+  </data>
+  <data name="Ingestion_StageScanningDetail" xml:space="preserve">
+    <value>New files queued from watched folders and scanned for embedded metadata.</value>
+  </data>
+  <data name="Ingestion_StageRetailIdentification" xml:space="preserve">
+    <value>Retail Identification</value>
+  </data>
+  <data name="Ingestion_StageRetailIdentificationDetail" xml:space="preserve">
+    <value>Provider lookup, cover art discovery, edition matching, and review routing.</value>
+  </data>
+  <data name="Ingestion_StageWikidataMatch" xml:space="preserve">
+    <value>Wikidata Match</value>
+  </data>
+  <data name="Ingestion_StageWikidataMatchDetail" xml:space="preserve">
+    <value>Canonical identity matching using bridge IDs such as ISBN, ASIN, and TMDB.</value>
+  </data>
+  <data name="Ingestion_StageEnrichment" xml:space="preserve">
+    <value>Enrichment</value>
+  </data>
+  <data name="Ingestion_StageEnrichmentDetail" xml:space="preserve">
+    <value>People, series, universe, relationships, artwork, and supporting metadata.</value>
+  </data>
+  <data name="Ingestion_StageSummary" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="Ingestion_StageSummaryDetail" xml:space="preserve">
+    <value>Terminal matched and review outcomes for completed ingestion work.</value>
+  </data>
+  <data name="Ingestion_StageRetailSplit" xml:space="preserve">
+    <value>{0} matched, {1} need review</value>
+  </data>
+  <data name="Ingestion_StageOutcomeSummary" xml:space="preserve">
+    <value>{0} matched, {1} need review</value>
+  </data>
+  <data name="Ingestion_StatusActive" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="Ingestion_StatusIdle" xml:space="preserve">
+    <value>Idle</value>
+  </data>
+  <data name="Ingestion_StatusComplete" xml:space="preserve">
+    <value>Complete</value>
+  </data>
+  <data name="Ingestion_StatusPending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Ingestion_CurrentActivity" xml:space="preserve">
+    <value>Current activity</value>
+  </data>
+  <data name="Ingestion_NoActiveWork" xml:space="preserve">
+    <value>No active ingestion work</value>
+  </data>
+  <data name="Ingestion_WatchedFoldersMonitored" xml:space="preserve">
+    <value>Watched folders are still being monitored.</value>
+  </data>
+  <data name="Ingestion_ActivityReview" xml:space="preserve">
+    <value>Needs review</value>
+  </data>
+  <data name="Ingestion_ActivityReviewDetail" xml:space="preserve">
+    <value>This item requires a curator decision before it is fully complete.</value>
+  </data>
+  <data name="Ingestion_ActivityProcessing" xml:space="preserve">
+    <value>Processing</value>
+  </data>
+  <data name="Ingestion_ActivityProcessingDetail" xml:space="preserve">
+    <value>Processing library data.</value>
+  </data>
 </root>
-

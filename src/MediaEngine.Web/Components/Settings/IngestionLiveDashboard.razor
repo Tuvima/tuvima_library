@@ -1,40 +1,37 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
+@inject IStringLocalizer<SharedStrings> L
 
 <MudPaper Elevation="0" Class="tl-card ingestion-live">
     <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Class="ingestion-live__header">
         <div>
-            <MudText Typo="Typo.h4" Class="ingestion-live__title">Active Ingestion</MudText>
+            <MudText Typo="Typo.h4" Class="ingestion-live__title">@L["Ingestion_Title"]</MudText>
             <MudText Typo="Typo.body2" Class="ingestion-live__subtitle">
-                Current scans, matching, enrichment, and registration work.
+                @L["Ingestion_Subtitle"]
             </MudText>
             @if (LastUpdated is not null)
             {
-                <MudText Typo="Typo.caption" Class="ingestion-live__updated">Updated @FormatRelative(LastUpdated)</MudText>
+                <MudText Typo="Typo.caption" Class="ingestion-live__updated">@L["Ingestion_Updated", FormatRelative(LastUpdated)]</MudText>
             }
         </div>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="ingestion-live__actions">
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Class="@LiveBadgeClass">
-                <span class="ingestion-live__dot"></span>@LiveLabel
-            </MudChip>
-            <MudTooltip Text="Refresh ingestion status">
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Outlined.Refresh"
-                           Disabled="@Loading"
-                           OnClick="OnRefresh">
-                    Refresh
-                </MudButton>
-            </MudTooltip>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Outlined.Refresh"
+                       Disabled="@Loading"
+                       OnClick="OnRefresh"
+                       aria-label="@L["Ingestion_RefreshTooltip"]">
+                @L["Ingestion_Refresh"]
+            </MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        Size="Size.Small"
                        StartIcon="@Icons.Material.Outlined.PlayArrow"
                        Disabled="@(Loading || ScanStarting)"
                        OnClick="OnScanNow">
-                Scan Now
+                @L["Ingestion_ScanNow"]
             </MudButton>
         </MudStack>
     </MudStack>
@@ -60,20 +57,20 @@
     else
     {
         <IngestionMetricStrip Metrics="Metrics" />
+        <IngestionOverallProgressBand Progress="OverallProgress" Stages="Stages" />
         <IngestionStageRail Stages="Stages" />
-        <IngestionActivityList Jobs="Jobs" Activities="Activities" />
+        <IngestionActivityList Jobs="Jobs" Activities="Activities" ReviewReasons="ReviewReasons" />
     }
 
     <div class="ingestion-live__footer">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             <MudIcon Icon="@Icons.Material.Outlined.Storage" Size="Size.Small" />
-            <span>Ingestion engine</span>
+            <span>@L["Ingestion_Engine"]</span>
             <span class="@EngineHealthClass">@EngineHealth</span>
         </MudStack>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-            <MudText Typo="Typo.caption">Updating in real time</MudText>
-            <MudButton Href="/settings/activity" Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Outlined.ChevronRight">Full logs</MudButton>
-            <MudButton Href="/settings/review" Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Outlined.ChevronRight">Review queue</MudButton>
+            <MudButton Href="/settings/activity" Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Outlined.ChevronRight">@L["Ingestion_FullLogs"]</MudButton>
+            <MudButton Href="/settings/review" Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Outlined.ChevronRight">@L["Ingestion_ReviewQueue"]</MudButton>
         </MudStack>
     </div>
 </MudPaper>
@@ -81,9 +78,11 @@
 @code {
     [Parameter] public IngestionOperationsSnapshotViewModel? Snapshot { get; set; }
     [Parameter] public IngestionDashboardMetrics Metrics { get; set; } = new(0, 0, 0, 0);
+    [Parameter] public IngestionOverallProgress OverallProgress { get; set; } = new(0, 0, 0, "Ingestion_StageScanning", null);
     [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
     [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
     [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionReviewReasonViewModel> ReviewReasons { get; set; } = [];
     [Parameter] public IngestionLiveMode LiveMode { get; set; }
     [Parameter] public EngineConnectionState ConnectionState { get; set; }
     [Parameter] public DateTimeOffset? LastUpdated { get; set; }
@@ -93,22 +92,13 @@
     [Parameter] public EventCallback OnRefresh { get; set; }
     [Parameter] public EventCallback OnScanNow { get; set; }
 
-    private string LiveLabel => LiveMode switch
-    {
-        IngestionLiveMode.Live => "Live",
-        IngestionLiveMode.Reconnecting => "Reconnecting",
-        _ => "Polling",
-    };
-
-    private string LiveBadgeClass => $"ingestion-live__badge ingestion-live__badge--{LiveLabel.ToLowerInvariant()}";
-
     private string EngineHealth => ConnectionState switch
     {
-        EngineConnectionState.Online => "Healthy",
-        EngineConnectionState.LiveUpdatesDisconnected => "Live updates disconnected",
-        EngineConnectionState.Offline => "Offline",
-        EngineConnectionState.Degraded => "Degraded",
-        _ => Snapshot?.Summary.EngineStatus ?? "Checking",
+        EngineConnectionState.Online => L["Ingestion_HealthHealthy"],
+        EngineConnectionState.LiveUpdatesDisconnected => L["Ingestion_HealthDisconnected"],
+        EngineConnectionState.Offline => L["Ingestion_HealthOffline"],
+        EngineConnectionState.Degraded => L["Ingestion_HealthDegraded"],
+        _ => Snapshot?.Summary.EngineStatus ?? L["Ingestion_HealthChecking"],
     };
 
     private string EngineHealthClass => ConnectionState == EngineConnectionState.Online

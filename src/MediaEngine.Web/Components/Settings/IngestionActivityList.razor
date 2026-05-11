@@ -1,11 +1,11 @@
 @namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
 @using MediaEngine.Web.Models.ViewDTOs
+@inject IStringLocalizer<SharedStrings> L
 
 <section class="ingestion-activity">
     <div class="ingestion-activity__header">
-        <MudText Typo="Typo.subtitle2">Current activity</MudText>
-        <span><span class="ingestion-live__dot"></span>Live updates</span>
+        <MudText Typo="Typo.subtitle2">@L["Ingestion_CurrentActivity"]</MudText>
     </div>
 
     @if (Rows.Count == 0)
@@ -13,8 +13,8 @@
         <div class="ingestion-activity__empty">
             <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
             <div>
-                <strong>No active ingestion work</strong>
-                <span>Watched folders are still being monitored.</span>
+                <strong>@L["Ingestion_NoActiveWork"]</strong>
+                <span>@L["Ingestion_WatchedFoldersMonitored"]</span>
             </div>
         </div>
     }
@@ -39,10 +39,16 @@
                     <small>@row.Path</small>
                 </div>
                 <div class="ingestion-activity-row__stage">
-                    <MudIcon Icon="@row.StageIcon" />
+                    <div class="ingestion-activity-row__stage-node" style="@RingStyle(row.Percent)">
+                        <MudIcon Icon="@row.StageIcon" />
+                    </div>
                     <div>
-                        <strong>@row.Stage</strong>
-                        <span>@row.StageDetail</span>
+                        <strong>@L[row.StageKey]</strong>
+                        <span>@L[row.StageDetailKey]</span>
+                        @if (!string.IsNullOrWhiteSpace(row.Warning))
+                        {
+                            <small>@row.Warning</small>
+                        }
                     </div>
                 </div>
                 <div class="ingestion-activity-row__progress">
@@ -62,6 +68,7 @@
 @code {
     [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
     [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionReviewReasonViewModel> ReviewReasons { get; set; } = [];
 
     private IReadOnlyList<ActivityRow> Rows
     {
@@ -71,7 +78,7 @@
             rows.AddRange(Activities
                 .Where(activity => rows.All(row => !string.Equals(row.Title, ActivityRow.TitleFromActivity(activity), StringComparison.OrdinalIgnoreCase)))
                 .Take(Math.Max(0, 5 - rows.Count))
-                .Select(ActivityRow.FromActivity));
+                .Select(activity => ActivityRow.FromActivity(activity, ReviewReasons)));
             return rows;
         }
     }
@@ -80,14 +87,15 @@
         string Title,
         string Subtitle,
         string Path,
-        string Stage,
-        string StageDetail,
+        string StageKey,
+        string StageDetailKey,
         string Files,
         string Elapsed,
         string Source,
         string Icon,
         string StageIcon,
         string? CoverUrl,
+        string? Warning,
         double Percent,
         Color ProgressColor)
     {
@@ -99,51 +107,62 @@
                 title,
                 FirstNonBlank(job.MediaType, job.JobType, "Mixed media"),
                 ShortPath(job.SourceFolder),
-                FirstNonBlank(job.CurrentStage, "Processing"),
-                ResolveStageDetail(job.CurrentStage),
+                ResolveStageKey(job.CurrentStage),
+                ResolveStageDetailKey(job.CurrentStage),
                 $"{job.ProcessedCount.ToString("N0", CultureInfo.CurrentCulture)} / {job.TotalCount.ToString("N0", CultureInfo.CurrentCulture)}",
                 FormatDuration(job.Elapsed),
                 ShortPath(job.SourceFolder),
                 MediaIcon(job.MediaType),
                 ResolveStageIcon(job.CurrentStage),
                 null,
+                job.WarningSummary,
                 percent,
                 ResolveProgressColor(job.CurrentStage));
         }
 
-        public static ActivityRow FromActivity(ActivityEntryViewModel activity)
+        public static ActivityRow FromActivity(ActivityEntryViewModel activity, IReadOnlyList<IngestionReviewReasonViewModel> reviewReasons)
         {
             var rich = activity.RichData;
             var title = TitleFromActivity(activity);
+            var needsReview = rich?.NeedsReview == true || activity.ActionType.Contains("Review", StringComparison.OrdinalIgnoreCase);
             return new ActivityRow(
                 title,
                 FirstNonBlank(rich?.MediaType, activity.ActionType),
                 FirstNonBlank(rich?.SourceFile, rich?.ResolvedOrganizedTo, activity.Detail),
-                FormatAction(activity.ActionType),
-                FirstNonBlank(rich?.MatchMethodLabel, activity.Detail, "Recently updated"),
+                needsReview ? "Ingestion_ActivityReview" : ResolveStageKey(activity.ActionType),
+                needsReview ? "Ingestion_ActivityReviewDetail" : ResolveStageDetailKey(activity.ActionType),
                 "Done",
                 activity.RelativeTime,
                 FirstNonBlank(rich?.CollectionName, rich?.MediaType, activity.CollectionName, "Library"),
                 MediaIcon(rich?.MediaType),
                 ResolveStageIcon(activity.ActionType),
                 rich?.ResolvedCoverUrl,
+                needsReview ? ReviewSummary(reviewReasons) : null,
                 100,
-                Color.Success);
+                needsReview ? Color.Warning : Color.Success);
         }
 
         public static string TitleFromActivity(ActivityEntryViewModel activity) =>
             FirstNonBlank(activity.RichData?.Title, activity.CollectionName, activity.Detail, activity.ActionType);
 
-        private static string FormatAction(string action) =>
-            action.Replace("_", " ").Replace("-", " ");
-
-        private static string ResolveStageDetail(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
+        private static string ResolveStageKey(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
         {
-            var s when s.Contains("match") => "Finding the best match",
-            var s when s.Contains("enrich") || s.Contains("hydrate") => "Adding metadata and relationships",
-            var s when s.Contains("scan") => "Reading watched folders",
-            var s when s.Contains("review") => "Checking unresolved items",
-            _ => "Processing library data",
+            var s when s.Contains("scan") => "Ingestion_StageScanning",
+            var s when s.Contains("bridge") || s.Contains("qid") || s.Contains("wikidata") || s.Contains("canonical") => "Ingestion_StageWikidataMatch",
+            var s when s.Contains("match") || s.Contains("identify") || s.Contains("retail") => "Ingestion_StageRetailIdentification",
+            var s when s.Contains("enrich") || s.Contains("hydrate") || s.Contains("metadata") || s.Contains("universe") => "Ingestion_StageEnrichment",
+            var s when s.Contains("review") => "Ingestion_ActivityReview",
+            _ => "Ingestion_ActivityProcessing",
+        };
+
+        private static string ResolveStageDetailKey(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
+        {
+            var s when s.Contains("scan") => "Ingestion_StageScanningDetail",
+            var s when s.Contains("bridge") || s.Contains("qid") || s.Contains("wikidata") || s.Contains("canonical") => "Ingestion_StageWikidataMatchDetail",
+            var s when s.Contains("match") || s.Contains("identify") || s.Contains("retail") => "Ingestion_StageRetailIdentificationDetail",
+            var s when s.Contains("enrich") || s.Contains("hydrate") || s.Contains("metadata") || s.Contains("universe") => "Ingestion_StageEnrichmentDetail",
+            var s when s.Contains("review") => "Ingestion_ActivityReviewDetail",
+            _ => "Ingestion_ActivityProcessingDetail",
         };
 
         private static Color ResolveProgressColor(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
@@ -162,6 +181,21 @@
             var s when s.Contains("review") => Icons.Material.Outlined.WarningAmber,
             _ => Icons.Material.Outlined.Search,
         };
+
+        private static string? ReviewSummary(IReadOnlyList<IngestionReviewReasonViewModel> reviewReasons)
+        {
+            var total = reviewReasons.Sum(reason => Math.Max(0, reason.Count));
+            if (total <= 0)
+                return null;
+
+            var top = reviewReasons
+                .Where(reason => reason.Count > 0)
+                .OrderByDescending(reason => reason.Count)
+                .FirstOrDefault();
+            return top is null
+                ? $"{total.ToString("N0", CultureInfo.CurrentCulture)} need review"
+                : $"{total.ToString("N0", CultureInfo.CurrentCulture)} need review: {top.Label}";
+        }
 
         private static string MediaIcon(string? mediaType) => (mediaType ?? string.Empty).ToLowerInvariant() switch
         {
@@ -194,4 +228,7 @@
         private static string FirstNonBlank(params string?[] values) =>
             values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
     }
+
+    private static string RingStyle(double percent) =>
+        $"--stage-progress: {Math.Clamp(percent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
 }

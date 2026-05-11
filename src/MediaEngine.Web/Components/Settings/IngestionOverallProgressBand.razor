@@ -1,0 +1,64 @@
+@namespace MediaEngine.Web.Components.Settings
+@using System.Globalization
+@using MediaEngine.Web.Services.Integration
+@inject IStringLocalizer<SharedStrings> L
+
+<section class="ingestion-overall" aria-label="@L["Ingestion_OverallTitle"]">
+    <div>
+        <MudText Typo="Typo.subtitle1" Class="ingestion-overall__title">@L["Ingestion_OverallTitle"]</MudText>
+        <MudText Typo="Typo.body2" Class="ingestion-overall__subtitle">@L["Ingestion_OverallSubtitle"]</MudText>
+    </div>
+    <div class="ingestion-overall__center">
+        <strong>@L["Ingestion_OverallProcessed", FormatCount(Progress.ProcessedFiles), FormatCount(Progress.TotalFiles)]</strong>
+        <div class="ingestion-overall__bar" style="@SegmentStyle">
+            <span style="@($"width: {Progress.Percent.ToString("0.##", CultureInfo.InvariantCulture)}%;")"></span>
+        </div>
+    </div>
+    <div class="ingestion-overall__meta">
+        <strong>@Progress.Percent.ToString("0.#", CultureInfo.CurrentCulture)%</strong>
+        <span>@L["Ingestion_OverallComplete"]</span>
+        <small>@L["Ingestion_OverallActiveStage", L[Progress.ActiveStageLabelKey]]</small>
+        @if (Progress.EstimatedSecondsRemaining is > 0)
+        {
+            <small>@L["Ingestion_OverallRemaining", FormatRemaining(Progress.EstimatedSecondsRemaining.Value)]</small>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter] public IngestionOverallProgress Progress { get; set; } = new(0, 0, 0, "Ingestion_StageScanning", null);
+    [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
+
+    private string SegmentStyle
+    {
+        get
+        {
+            var percentages = Stages.Count == 0
+                ? [0d, 0d, 0d, 0d, 0d]
+                : Stages.Take(5).Select(stage => Math.Clamp(stage.RingPercent, 0, 100)).ToArray();
+            while (percentages.Length < 5)
+            {
+                percentages = [..percentages, 0d];
+            }
+
+            var p1 = percentages[0] * 0.20;
+            var p2 = 20 + percentages[1] * 0.20;
+            var p3 = 40 + percentages[2] * 0.20;
+            var p4 = 60 + percentages[3] * 0.20;
+            var p5 = 80 + percentages[4] * 0.20;
+
+            return string.Create(CultureInfo.InvariantCulture,
+                $"--seg1:{p1:0.##}%;--seg2:{p2:0.##}%;--seg3:{p3:0.##}%;--seg4:{p4:0.##}%;--seg5:{p5:0.##}%;");
+        }
+    }
+
+    private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
+
+    private static string FormatRemaining(int seconds)
+    {
+        var duration = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}h {duration.Minutes}m"
+            : $"{Math.Max(1, (int)Math.Ceiling(duration.TotalMinutes))}m";
+    }
+}

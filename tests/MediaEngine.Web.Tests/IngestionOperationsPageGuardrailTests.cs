@@ -94,7 +94,44 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal(100, metrics.TotalFiles);
         Assert.Equal(42, metrics.ProcessedFiles);
         Assert.Equal(1, metrics.ActiveFiles);
-        Assert.Contains(stages, stage => stage.Key == "enrichment" && stage.Status == "Active");
+        Assert.Contains(stages, stage => stage.Key == "enrichment" && stage.StatusKey == "Ingestion_StatusActive");
+        Assert.Contains(stages, stage => stage.Key == "retail" && stage.LabelKey == "Ingestion_StageRetailIdentification");
+        Assert.Contains(stages, stage => stage.Key == "wikidata" && stage.LabelKey == "Ingestion_StageWikidataMatch");
+        Assert.DoesNotContain(stages, stage => stage.LabelKey == "Matching");
+        Assert.Contains(stages, stage => stage.Key == "summary" && stage.IsSummary);
+    }
+
+    [Fact]
+    public void LiveDashboardState_HidesScanningCountWhenIdle()
+    {
+        var stages = IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 10);
+
+        var scanning = Assert.Single(stages, stage => stage.Key == "scanning");
+        Assert.True(scanning.HideCount);
+        Assert.Equal("Ingestion_StatusIdle", scanning.StatusKey);
+    }
+
+    [Fact]
+    public void LiveDashboardState_ShowsScanningQueueWhenActive()
+    {
+        var jobs = new List<IngestionOperationsJobViewModel>
+        {
+            new()
+            {
+                CurrentStage = "Scanning",
+                TotalCount = 10,
+                ProcessedCount = 4,
+                PercentComplete = 40,
+            },
+        };
+
+        var stages = IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), jobs, 10);
+
+        var scanning = Assert.Single(stages, stage => stage.Key == "scanning");
+        Assert.False(scanning.HideCount);
+        Assert.Equal(4, scanning.Count);
+        Assert.Equal(10, scanning.Total);
+        Assert.Equal(40, scanning.RingPercent);
     }
 
     private static string GetRepoFilePath(string relativePath) =>
@@ -105,6 +142,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
 {
     public IngestionDashboardRenderTests()
     {
+        Services.AddLocalization();
         Services.AddMudServices();
     }
 
@@ -154,5 +192,20 @@ public sealed class IngestionDashboardRenderTests : TestContext
 
         Assert.Contains("Dune Part One", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("<img", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void LiveDashboard_DoesNotRenderRedundantLiveLabelsAndLinksToActivityLogs()
+    {
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 4, 1, 0))
+            .Add(component => component.OverallProgress, new IngestionOverallProgress(4, 10, 40, "Ingestion_StageRetailIdentification", null))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 10))
+            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.DoesNotContain("Live updates", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ingestion-live__badge", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("href=\"/settings/activity\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
 }

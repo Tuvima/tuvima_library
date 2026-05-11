@@ -407,6 +407,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     public static string ResolveActiveStage(IReadOnlyList<IngestionOperationsJobViewModel> activeJobs)
     {
+        if (activeJobs.Count == 0)
+            return string.Empty;
+
         var stage = activeJobs
             .Select(job => FirstNonBlank(job.CurrentStage, job.JobType))
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
@@ -422,7 +425,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             return "enrichment";
         if (stage.Contains("register") || stage.Contains("organize") || stage.Contains("review") || stage.Contains("complete"))
             return "summary";
-        return activeJobs.Count > 0 ? "retail" : "scanning";
+        return "retail";
     }
 
     public static IngestionLiveMode ResolveLiveMode(EngineConnectionState state) => state switch

@@ -1,30 +1,31 @@
 @namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
 @using MediaEngine.Web.Services.Integration
+@inject IStringLocalizer<SharedStrings> L
 
 <MudGrid Class="ingestion-metrics">
     <MudItem xs="12" sm="6" md="3">
         <div class="ingestion-metric ingestion-metric--files">
             <div class="ingestion-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.Inventory2" /></div>
-            <div><span>Total Files</span><strong>@FormatCount(Metrics.TotalFiles)</strong><small>Across all sources</small></div>
+            <div><span>@L["Ingestion_MetricTotalFiles"]</span><strong>@FormatCount(Metrics.TotalFiles)</strong><small>@L["Ingestion_MetricAcrossSources"]</small></div>
         </div>
     </MudItem>
     <MudItem xs="12" sm="6" md="3">
         <div class="ingestion-metric ingestion-metric--processed">
             <div class="ingestion-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></div>
-            <div><span>Processed Files</span><strong>@FormatCount(Metrics.ProcessedFiles)</strong><small>@ProcessedHelper</small></div>
+            <div><span>@L["Ingestion_MetricProcessedFiles"]</span><strong>@FormatCount(Metrics.ProcessedFiles)</strong><small>@ProcessedHelper</small></div>
         </div>
     </MudItem>
     <MudItem xs="12" sm="6" md="3">
         <div class="ingestion-metric ingestion-metric--active">
             <div class="ingestion-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.GraphicEq" /></div>
-            <div><span>Active Files</span><strong>@FormatCount(Metrics.ActiveFiles)</strong><small>Currently processing</small></div>
+            <div><span>@L["Ingestion_MetricActiveFiles"]</span><strong>@FormatCount(Metrics.ActiveFiles)</strong><small>@L["Ingestion_MetricCurrentlyProcessing"]</small></div>
         </div>
     </MudItem>
     <MudItem xs="12" sm="6" md="3">
         <div class="ingestion-metric ingestion-metric--review">
             <div class="ingestion-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></div>
-            <div><span>Unresolved Items</span><strong>@FormatCount(Metrics.UnresolvedItems)</strong><small>Require attention</small></div>
+            <div><span>@L["Ingestion_MetricUnresolvedItems"]</span><strong>@FormatCount(Metrics.UnresolvedItems)</strong><small>@L["Ingestion_MetricRequireAttention"]</small></div>
         </div>
     </MudItem>
 </MudGrid>
@@ -33,8 +34,8 @@
     [Parameter] public IngestionDashboardMetrics Metrics { get; set; } = new(0, 0, 0, 0);
 
     private string ProcessedHelper => Metrics.TotalFiles > 0
-        ? $"{Math.Clamp(Metrics.ProcessedFiles * 100d / Metrics.TotalFiles, 0, 100).ToString("0.#", CultureInfo.CurrentCulture)}% of total"
-        : "Waiting for files";
+        ? L["Ingestion_MetricPercentOfTotal", Math.Clamp(Metrics.ProcessedFiles * 100d / Metrics.TotalFiles, 0, 100).ToString("0.#", CultureInfo.CurrentCulture)]
+        : L["Ingestion_MetricWaitingForFiles"];
 
     private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
 }

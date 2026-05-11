@@ -61,13 +61,6 @@
     justify-content: flex-end;
 }
 
-::deep .ingestion-live__badge {
-    gap: 7px;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    background: rgba(9, 16, 38, 0.76) !important;
-    color: #dbeafe !important;
-}
-
 ::deep .ingestion-live__dot {
     display: inline-block;
     width: 8px;
@@ -78,18 +71,78 @@
     animation: ingestion-pulse 1.8s ease-in-out infinite;
 }
 
-::deep .ingestion-live__badge--reconnecting .ingestion-live__dot {
-    background: #fbbf24;
-    box-shadow: 0 0 14px rgba(251, 191, 36, 0.65);
-}
-
-::deep .ingestion-live__badge--polling .ingestion-live__dot {
-    background: #60a5fa;
-    box-shadow: 0 0 14px rgba(96, 165, 250, 0.65);
-}
-
 ::deep .ingestion-metrics {
+    margin-bottom: 14px;
+}
+
+::deep .ingestion-overall {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(280px, 2fr) minmax(160px, auto);
+    gap: 22px;
+    align-items: center;
     margin-bottom: 26px;
+    padding: 18px;
+    border: 1px solid rgba(176, 190, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(8, 15, 36, 0.58);
+}
+
+::deep .ingestion-overall__title {
+    color: #f8fbff;
+    font-weight: 760;
+}
+
+::deep .ingestion-overall__subtitle,
+::deep .ingestion-overall__meta span,
+::deep .ingestion-overall__meta small {
+    color: rgba(226, 232, 255, 0.66);
+}
+
+::deep .ingestion-overall__center {
+    display: grid;
+    gap: 14px;
+}
+
+::deep .ingestion-overall__center strong {
+    color: #f8fbff;
+    text-align: center;
+}
+
+::deep .ingestion-overall__bar {
+    height: 16px;
+    overflow: hidden;
+    border-radius: 999px;
+    background:
+        linear-gradient(90deg,
+            #a78bfa 0 var(--seg1),
+            rgba(167, 139, 250, 0.18) var(--seg1) 20%,
+            #60a5fa 20% var(--seg2),
+            rgba(96, 165, 250, 0.18) var(--seg2) 40%,
+            #34d399 40% var(--seg3),
+            rgba(52, 211, 153, 0.18) var(--seg3) 60%,
+            #f59e0b 60% var(--seg4),
+            rgba(245, 158, 11, 0.18) var(--seg4) 80%,
+            #f472b6 80% var(--seg5),
+            rgba(244, 114, 182, 0.18) var(--seg5) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 22px rgba(96, 165, 250, 0.16);
+}
+
+::deep .ingestion-overall__bar span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0.08));
+}
+
+::deep .ingestion-overall__meta {
+    display: grid;
+    gap: 2px;
+    justify-items: end;
+}
+
+::deep .ingestion-overall__meta strong {
+    color: #34d399;
+    font-size: 1.8rem;
+    line-height: 1;
 }
 
 ::deep .ingestion-metric {
@@ -153,7 +206,7 @@
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0;
-    padding: 8px 8px 28px;
+    padding: 10px 8px 30px;
     margin-bottom: 8px;
 }
 
@@ -169,9 +222,9 @@
 ::deep .ingestion-stage:not(:last-child)::after {
     content: "";
     position: absolute;
-    top: 54px;
-    left: calc(50% + 34px);
-    right: calc(-50% + 34px);
+    top: 64px;
+    left: calc(50% + 43px);
+    right: calc(-50% + 43px);
     height: 4px;
     border-radius: 999px;
     background: linear-gradient(90deg, currentColor, rgba(148, 163, 184, 0.25));
@@ -186,12 +239,20 @@
 ::deep .ingestion-stage__node {
     display: grid;
     place-items: center;
-    width: 66px;
-    height: 66px;
-    border: 2px solid currentColor;
+    width: 82px;
+    height: 82px;
+    border: 0;
     border-radius: 999px;
-    background: rgba(8, 15, 36, 0.86);
+    background:
+        radial-gradient(circle at center, rgba(8, 15, 36, 0.94) 0 58%, transparent 60%),
+        conic-gradient(currentColor var(--stage-progress), rgba(148, 163, 184, 0.22) 0);
     box-shadow: 0 0 24px color-mix(in srgb, currentColor 34%, transparent);
+}
+
+::deep .ingestion-stage__node .mud-icon-root {
+    width: 30px;
+    height: 30px;
+    font-size: 30px;
 }
 
 ::deep .ingestion-stage strong {
@@ -206,9 +267,10 @@
 
 ::deep .ingestion-stage--scanning { color: #a78bfa; }
 ::deep .ingestion-stage--identifying { color: #60a5fa; }
-::deep .ingestion-stage--matching { color: #34d399; }
+::deep .ingestion-stage--retail { color: #60a5fa; }
+::deep .ingestion-stage--wikidata { color: #34d399; }
 ::deep .ingestion-stage--enrichment { color: #f59e0b; }
-::deep .ingestion-stage--registration { color: #f472b6; }
+::deep .ingestion-stage--summary { color: #f472b6; }
 
 ::deep .ingestion-stage.is-active .ingestion-stage__node {
     animation: ingestion-active-ring 2s ease-in-out infinite;
@@ -230,7 +292,6 @@
 }
 
 ::deep .ingestion-activity__header {
-    justify-content: space-between;
     gap: 12px;
     border-bottom: 1px solid rgba(176, 190, 255, 0.13);
     padding-bottom: 10px;
@@ -239,7 +300,7 @@
 
 ::deep .ingestion-activity-row {
     display: grid;
-    grid-template-columns: 132px minmax(180px, 1.2fr) minmax(190px, 1fr) minmax(160px, 0.8fr) minmax(220px, 1fr);
+    grid-template-columns: 132px minmax(220px, 1.25fr) minmax(260px, 1.1fr) minmax(170px, 0.8fr) minmax(240px, 1fr);
     gap: 16px;
     align-items: center;
     padding: 10px 12px;
@@ -280,12 +341,30 @@
 }
 
 ::deep .ingestion-activity-row__stage {
-    grid-template-columns: 36px 1fr;
+    grid-template-columns: 58px 1fr;
     align-items: center;
 }
 
-::deep .ingestion-activity-row__stage > .mud-icon-root {
+::deep .ingestion-activity-row__stage-node {
+    display: grid;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    border-radius: 999px;
+    background:
+        radial-gradient(circle at center, rgba(8, 15, 36, 0.96) 0 56%, transparent 58%),
+        conic-gradient(currentColor var(--stage-progress), rgba(148, 163, 184, 0.22) 0);
     color: #34d399;
+}
+
+::deep .ingestion-activity-row__stage-node .mud-icon-root {
+    width: 22px;
+    height: 22px;
+    font-size: 22px;
+}
+
+::deep .ingestion-activity-row__stage small {
+    color: #fde68a;
 }
 
 ::deep .ingestion-activity-row__progress {
@@ -542,6 +621,18 @@
 }
 
 @media (max-width: 1180px) {
+    ::deep .ingestion-overall {
+        grid-template-columns: 1fr;
+    }
+
+    ::deep .ingestion-overall__center strong {
+        text-align: left;
+    }
+
+    ::deep .ingestion-overall__meta {
+        justify-items: start;
+    }
+
     ::deep .ingestion-activity-row {
         grid-template-columns: 100px 1fr 1fr;
     }

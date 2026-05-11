@@ -1,18 +1,34 @@
 @namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
 @using MediaEngine.Web.Services.Integration
+@inject IStringLocalizer<SharedStrings> L
 
-<div class="ingestion-stage-rail" aria-label="Ingestion pipeline stages">
+<div class="ingestion-stage-rail" aria-label="@L["Ingestion_StageRailLabel"]">
     @foreach (var stage in Stages)
     {
-        <div class="@StageClass(stage)">
-            <div class="ingestion-stage__label">@stage.Label</div>
-            <div class="ingestion-stage__node">
+        <div class="@StageClass(stage)" title="@L[stage.DetailKey]">
+            <div class="ingestion-stage__label">@L[stage.LabelKey]</div>
+            <div class="ingestion-stage__node" style="@RingStyle(stage.RingPercent)">
                 <MudIcon Icon="@stage.Icon" />
             </div>
-            <div class="ingestion-stage__count">@stage.Count.ToString("N0", CultureInfo.CurrentCulture) / @stage.Total.ToString("N0", CultureInfo.CurrentCulture)</div>
+            @if (stage.IsSummary)
+            {
+                <div class="ingestion-stage__count">@L["Ingestion_StageOutcomeSummary", FormatCount(stage.MatchedCount), FormatCount(stage.ReviewCount)]</div>
+            }
+            else if (stage.Key == "retail")
+            {
+                <div class="ingestion-stage__count">@L["Ingestion_StageRetailSplit", FormatCount(stage.MatchedCount), FormatCount(stage.ReviewCount)]</div>
+            }
+            else if (stage.HideCount)
+            {
+                <div class="ingestion-stage__count">@L["Ingestion_StatusIdle"]</div>
+            }
+            else
+            {
+                <div class="ingestion-stage__count">@FormatCount(stage.Count) / @FormatCount(stage.Total)</div>
+            }
             <strong>@stage.Percent.ToString("0.#", CultureInfo.CurrentCulture)%</strong>
-            <span>@stage.Status</span>
+            <span>@L[stage.StatusKey]</span>
         </div>
     }
 </div>
@@ -21,5 +37,10 @@
     [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
 
     private static string StageClass(IngestionDashboardStage stage) =>
-        $"ingestion-stage ingestion-stage--{stage.Key} {(stage.Status == "Active" ? "is-active" : stage.Status == "Complete" ? "is-complete" : "is-pending")}";
+        $"ingestion-stage ingestion-stage--{stage.Key} {(stage.StatusKey == "Ingestion_StatusActive" ? "is-active" : stage.StatusKey == "Ingestion_StatusComplete" ? "is-complete" : "is-pending")}";
+
+    private static string RingStyle(double percent) =>
+        $"--stage-progress: {Math.Clamp(percent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
+
+    private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
 }

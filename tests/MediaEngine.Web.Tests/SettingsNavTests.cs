@@ -57,6 +57,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Plugins, "/settings/plugins")]
     [InlineData(SettingsSection.Delivery, "/settings/delivery")]
     [InlineData(SettingsSection.Access, "/settings/access")]
+    [InlineData(SettingsSection.ActivityLogs, "/settings/activity")]
     [InlineData(SettingsSection.Review, "/settings/review")]
     [InlineData(SettingsSection.Setup, "/settings/setup")]
     [InlineData(SettingsSection.ProviderTester, "/settings/provider-tester")]
@@ -127,8 +128,6 @@ public sealed class SettingsNavTests
 
     [Theory]
     [InlineData("folders", SettingsSection.Libraries, "/settings/libraries")]
-    [InlineData("activity", SettingsSection.Ingestion, "/settings/ingestion")]
-    [InlineData("activity-log", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("tasks", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("maintenance", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("wikidata", SettingsSection.Metadata, "/settings/metadata")]
@@ -223,6 +222,8 @@ public sealed class SettingsNavTests
 
     [Theory]
     [InlineData("review", SettingsSection.Review, "/settings/review")]
+    [InlineData("activity", SettingsSection.ActivityLogs, "/settings/activity")]
+    [InlineData("activity-log", SettingsSection.ActivityLogs, "/settings/activity")]
     [InlineData("setup", SettingsSection.Setup, "/settings/setup")]
     [InlineData("provider-tester", SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData("enrichment-tester", SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
