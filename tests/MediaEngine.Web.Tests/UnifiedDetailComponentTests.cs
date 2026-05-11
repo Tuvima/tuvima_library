@@ -22,7 +22,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-media-stage__foreground", source);
         Assert.Contains("@onerror=\"HandleImageError\"", source);
         Assert.Contains("DetailEntityType.Book or DetailEntityType.Work => HeroForegroundTreatment.Book", source);
-        Assert.Contains("DetailEntityType.Audiobook => \"tl-detail-media-stage--poster\"", source);
+        Assert.Contains("DetailEntityType.Audiobook => HeroForegroundTreatment.Cover", source);
+        Assert.Contains("DetailEntityType.Audiobook => \"tl-detail-media-stage--audiobook\"", source);
 
         Assert.Contains("tl-detail-media-stage--background .tl-detail-media-stage__overlay", styles);
         Assert.Contains("tl-detail-media-stage--artwork-fallback .tl-detail-media-stage__overlay", styles);
@@ -36,6 +37,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("opacity: 0.78", styles);
         Assert.Contains("transform: scale(1.08)", styles);
         Assert.Contains("object-fit: contain", styles);
+        Assert.Contains("tl-detail-media-stage__foreground--cover .tl-detail-media-stage__cover", styles);
         Assert.Contains("opacity: 1", styles);
         Assert.DoesNotContain("opacity: 0.58", styles);
         Assert.Contains("width: fit-content", styles);

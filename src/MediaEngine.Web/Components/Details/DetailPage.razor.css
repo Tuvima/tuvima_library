@@ -216,7 +216,7 @@
     position: absolute;
     z-index: 2;
     right: clamp(3.5rem, 8vw, 8.75rem);
-    top: 50%;
+    top: calc(50% - clamp(4rem, 9vh, 5.5rem));
     width: fit-content;
     max-width: clamp(18rem, 30vw, 30rem);
     height: min(42rem, 76vh);
@@ -3666,6 +3666,13 @@
 ::deep .tl-detail-media-stage__foreground--portrait .tl-detail-media-stage__cover {
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 0.72rem;
+    box-shadow: 0 2rem 4.5rem rgba(0,0,0,0.62);
+}
+
+::deep .tl-detail-media-stage__foreground--cover .tl-detail-media-stage__cover {
+    border: 0;
+    background: transparent;
+    border-radius: 0.38rem;
     box-shadow: 0 2rem 4.5rem rgba(0,0,0,0.62);
 }
 
