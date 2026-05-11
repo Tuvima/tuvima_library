@@ -92,6 +92,19 @@
                 <h1>@Presentation.Title</h1>
             }
 
+            @if (HeroCreditLines.Count > 0)
+            {
+                <div class="tl-detail-hero-credit-stack" aria-label="Primary credits">
+                    @foreach (var line in HeroCreditLines)
+                    {
+                        <div class="tl-detail-hero-credit-stack__line">
+                            <span class="tl-detail-hero-credit-stack__label">@line.Label</span>
+                            <span class="tl-detail-hero-credit-stack__value">@line.Value</span>
+                        </div>
+                    }
+                </div>
+            }
+
             @if (!string.IsNullOrWhiteSpace(Presentation.Subtitle))
             {
                 <p class="tl-detail-hero__subtitle">@Presentation.Subtitle</p>
@@ -141,6 +154,7 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
+    private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
     private bool HasHeroBrand => Model.HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
     private bool CanInlineEdit => Model.EntityType is DetailEntityType.Work
@@ -213,6 +227,64 @@
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private IReadOnlyList<(string Label, string Value)> BuildHeroCreditLines()
+    {
+        var lines = new List<(string Label, string Value)>();
+        switch (Model.EntityType)
+        {
+            case DetailEntityType.Book:
+            case DetailEntityType.Work:
+                AddCreditLine(lines, "Author", CreditGroupType.Authors);
+                break;
+            case DetailEntityType.Audiobook:
+                AddCreditLine(lines, "Author", CreditGroupType.Authors);
+                AddCreditLine(lines, "Narrator", CreditGroupType.Narrators);
+                break;
+            case DetailEntityType.ComicIssue:
+            case DetailEntityType.ComicSeries:
+                AddCreditLine(lines, "Writer", CreditGroupType.Writers);
+                AddCreditLine(lines, "Art", CreditGroupType.Illustrators, CreditGroupType.CreativeTeam);
+                break;
+            case DetailEntityType.MusicAlbum:
+                AddCreditLine(lines, "Artist", CreditGroupType.PrimaryArtists);
+                AddCreditLine(lines, "Featuring", CreditGroupType.FeaturedArtists);
+                break;
+            case DetailEntityType.MusicTrack:
+                AddCreditLine(lines, "Artist", CreditGroupType.PrimaryArtists);
+                if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+                    lines.Add(("Album", Model.Subtitle!));
+                break;
+        }
+
+        return lines
+            .Where(line => !string.IsNullOrWhiteSpace(line.Value))
+            .DistinctBy(line => $"{line.Label}:{line.Value}", StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+    }
+
+    private void AddCreditLine(List<(string Label, string Value)> lines, string label, params CreditGroupType[] groupTypes)
+    {
+        var value = CreditNames(groupTypes);
+        if (!string.IsNullOrWhiteSpace(value))
+            lines.Add((label, value));
+    }
+
+    private string? CreditNames(params CreditGroupType[] groupTypes)
+    {
+        var names = Model.ContributorGroups
+            .Where(group => groupTypes.Contains(group.GroupType))
+            .SelectMany(group => group.Credits)
+            .OrderBy(credit => credit.SortOrder)
+            .Select(credit => credit.DisplayName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+
+        return names.Count == 0 ? null : string.Join(", ", names);
+    }
 
     private static string PersonExternalIcon(PersonExternalLink link) =>
         link.Key.ToLowerInvariant() switch

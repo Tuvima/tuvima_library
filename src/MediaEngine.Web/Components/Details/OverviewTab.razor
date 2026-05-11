@@ -73,6 +73,11 @@
             }
         </section>
 
+        @if (Model.SeriesPlacement is not null)
+        {
+            <SeriesPlacementPanel Placement="Model.SeriesPlacement" OnSeriesSelected="OnSeriesSelected" />
+        }
+
         <section class="tl-detail-panel tl-media-overview-credits-panel">
             <div class="tl-section-heading"><h2>@CreditPanelTitle</h2></div>
             @if (Model.ContributorGroups.Count == 0 && Model.CharacterGroups.Count == 0)
@@ -81,10 +86,36 @@
             }
             else
             {
-                <div class="tl-media-overview-credits">
-                    <ContributorsSection Groups="Model.ContributorGroups" />
-                    <CharactersSection Groups="Model.CharacterGroups" />
+                <div class="tl-media-overview-credits-list">
+                    @foreach (var group in OverviewCreditGroups)
+                    {
+                        <div class="tl-overview-credit-group">
+                            <div class="tl-overview-credit-group__heading">
+                                <h3>@group.Title</h3>
+                                <span>@group.TotalCount</span>
+                            </div>
+                            <div class="tl-overview-credit-grid">
+                                @foreach (var credit in group.Credits)
+                                {
+                                    <PersonCreditCard Credit="credit" Compact="true" />
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
+
+                @if (ShowCastTabLink)
+                {
+                    <button type="button" class="tl-credit-group__toggle" @onclick="@(() => OnTabRequested.InvokeAsync("cast"))">
+                        View all cast
+                    </button>
+                }
+                else if (ShowInlineCreditsToggle)
+                {
+                    <button type="button" class="tl-credit-group__toggle" @onclick="ToggleCreditsExpanded">
+                        @(_creditsExpanded ? "Show fewer credits" : "View all credits")
+                    </button>
+                }
             }
         </section>
     }
@@ -92,6 +123,12 @@
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+    [Parameter] public EventCallback<string> OnTabRequested { get; set; }
+    [Parameter] public EventCallback<SeriesOptionViewModel> OnSeriesSelected { get; set; }
+
+    private bool _creditsExpanded;
+
+    private sealed record OverviewCreditGroup(string Title, IReadOnlyList<EntityCreditViewModel> Credits, int TotalCount);
 
     private string CreditPanelTitle => Model.EntityType switch
     {
@@ -132,6 +169,106 @@
                 .ToList();
         }
     }
+
+    private IReadOnlyList<OverviewCreditGroup> OverviewCreditGroups
+    {
+        get
+        {
+            if (IsVideo)
+                return BuildVideoCreditGroups();
+            if (IsBookish)
+                return BuildPrimaryThenExpandableGroups(
+                    new HashSet<CreditGroupType> { CreditGroupType.Authors, CreditGroupType.Narrators },
+                    new HashSet<CreditGroupType> { CreditGroupType.Authors, CreditGroupType.Narrators });
+            if (IsComic)
+                return BuildPrimaryThenExpandableGroups(
+                    new HashSet<CreditGroupType> { CreditGroupType.Writers, CreditGroupType.Illustrators },
+                    new HashSet<CreditGroupType> { CreditGroupType.Writers, CreditGroupType.Illustrators, CreditGroupType.CreativeTeam });
+
+            return Model.ContributorGroups
+                .Select(group => ToOverviewGroup(group, group.Credits.Take(group.InitialVisibleCount).ToList()))
+                .Where(group => group.Credits.Count > 0)
+                .ToList();
+        }
+    }
+
+    private bool IsVideo => Model.EntityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+    private bool IsBookish => Model.EntityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work;
+    private bool IsComic => Model.EntityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries;
+
+    private bool ShowCastTabLink => IsVideo
+        && (TotalCredits(CreditGroupType.Cast) > 0 || Model.CharacterGroups.Count > 0);
+
+    private bool ShowInlineCreditsToggle => !IsVideo && HiddenOverviewCreditCount > 0;
+
+    private int HiddenOverviewCreditCount
+    {
+        get
+        {
+            if (_creditsExpanded)
+                return 0;
+
+            if (IsBookish)
+                return Model.ContributorGroups.Where(group => group.GroupType is not CreditGroupType.Authors and not CreditGroupType.Narrators).Sum(group => group.Credits.Count);
+            if (IsComic)
+                return Model.ContributorGroups.Where(group => group.GroupType is not CreditGroupType.Writers and not CreditGroupType.Illustrators).Sum(group => group.Credits.Count);
+
+            return Model.ContributorGroups.Sum(group => Math.Max(0, group.Credits.Count - group.InitialVisibleCount));
+        }
+    }
+
+    private IReadOnlyList<OverviewCreditGroup> BuildVideoCreditGroups()
+    {
+        var groups = new List<OverviewCreditGroup>();
+        var directors = CreditsFor(CreditGroupType.Directors).Take(2).ToList();
+        if (directors.Count > 0)
+            groups.Add(new OverviewCreditGroup("Director", directors, TotalCredits(CreditGroupType.Directors)));
+
+        var cast = CreditsFor(CreditGroupType.Cast).Take(8).ToList();
+        if (cast.Count > 0)
+            groups.Add(new OverviewCreditGroup("Top Cast", cast, TotalCredits(CreditGroupType.Cast)));
+
+        return groups;
+    }
+
+    private IReadOnlyList<OverviewCreditGroup> BuildPrimaryThenExpandableGroups(
+        IReadOnlySet<CreditGroupType> primaryTypes,
+        IReadOnlySet<CreditGroupType> collapsedTypes)
+    {
+        IReadOnlySet<CreditGroupType> visibleTypes = _creditsExpanded
+            ? Model.ContributorGroups.Select(group => group.GroupType).ToHashSet()
+            : collapsedTypes;
+
+        return Model.ContributorGroups
+            .Where(group => visibleTypes.Contains(group.GroupType))
+            .OrderBy(group => primaryTypes.Contains(group.GroupType) ? 0 : 1)
+            .ThenBy(group => group.DisplayPriority)
+            .ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var count = _creditsExpanded || primaryTypes.Contains(group.GroupType)
+                    ? group.Credits.Count
+                    : group.InitialVisibleCount;
+                return ToOverviewGroup(group, group.Credits.Take(count).ToList());
+            })
+            .Where(group => group.Credits.Count > 0)
+            .ToList();
+    }
+
+    private OverviewCreditGroup ToOverviewGroup(CreditGroupViewModel group, IReadOnlyList<EntityCreditViewModel> credits)
+        => new(group.Title, credits, group.Credits.Count);
+
+    private IReadOnlyList<EntityCreditViewModel> CreditsFor(CreditGroupType type)
+        => Model.ContributorGroups
+            .Where(group => group.GroupType == type)
+            .SelectMany(group => group.Credits)
+            .OrderBy(credit => credit.SortOrder)
+            .ToList();
+
+    private int TotalCredits(CreditGroupType type)
+        => Model.ContributorGroups.Where(group => group.GroupType == type).Sum(group => group.Credits.Count);
+
+    private void ToggleCreditsExpanded() => _creditsExpanded = !_creditsExpanded;
 
     private static void AddFact(List<(string Label, string Value)> facts, string label, string? value)
     {

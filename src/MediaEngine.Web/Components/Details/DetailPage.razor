@@ -21,7 +21,9 @@
         <section class="tl-detail-body">
             @if (CurrentActiveTab is "overview")
             {
-                <MediaEngine.Web.Components.Details.OverviewTab Model="Model" />
+                <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
+                                                                 OnTabRequested="SetActiveTabAsync"
+                                                                 OnSeriesSelected="HandleSeriesSelectedAsync" />
             }
             else if (CurrentActiveTab is "episodes")
             {

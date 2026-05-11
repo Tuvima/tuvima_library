@@ -21,6 +21,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-media-stage__cover-wrap", source);
         Assert.Contains("tl-detail-media-stage__foreground", source);
         Assert.Contains("@onerror=\"HandleImageError\"", source);
+        Assert.Contains("DetailEntityType.Book or DetailEntityType.Work => HeroForegroundTreatment.Book", source);
+        Assert.Contains("DetailEntityType.Audiobook => \"tl-detail-media-stage--poster\"", source);
 
         Assert.Contains("tl-detail-media-stage--background .tl-detail-media-stage__overlay", styles);
         Assert.Contains("tl-detail-media-stage--artwork-fallback .tl-detail-media-stage__overlay", styles);
@@ -81,6 +83,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("--hero-shadow-rgb:0, 3, 5", presentation);
         Assert.Contains("isWatchHero ? null : model.Subtitle", presentation);
         Assert.Contains("<HeroProgressBlock Progress=\"Presentation.Progress\" />", hero);
+        Assert.Contains("HeroCreditLines", hero);
+        Assert.Contains("CreditGroupType.Narrators", hero);
+        Assert.Contains("CreditGroupType.Illustrators", hero);
+        Assert.Contains("CreditGroupType.PrimaryArtists", hero);
         Assert.Contains("IsWatchHero=\"Presentation.IsWatchHero\"", hero);
         Assert.Contains("UsePrimaryHeroChrome=\"Presentation.UsePrimaryHeroChrome\"", hero);
         Assert.Contains("usePrimaryHeroChrome ? string.Empty : FormatEntityType", presentation);
@@ -221,8 +227,14 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-media-overview-panel", source);
         Assert.Contains("tl-media-overview-about-panel", source);
         Assert.Contains("tl-media-overview-credits-panel", source);
-        Assert.Contains("ContributorsSection", source);
-        Assert.Contains("CharactersSection", source);
+        Assert.Contains("SeriesPlacementPanel", source);
+        Assert.Contains("BuildVideoCreditGroups", source);
+        Assert.Contains("View all cast", source);
+        Assert.Contains("View all credits", source);
+        Assert.Contains("CreditGroupType.Authors", source);
+        Assert.Contains("CreditGroupType.Narrators", source);
+        Assert.Contains("CreditGroupType.Writers", source);
+        Assert.Contains("CreditGroupType.Illustrators", source);
         Assert.DoesNotContain("RelatedEntityChip", source);
         Assert.Contains("OverviewParagraphs(Model.Description)", source);
         Assert.Contains("Split([\"\\n\\n\"]", source);
@@ -230,7 +242,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("DescriptionAttribution Attribution=\"Model.DescriptionAttribution\" Compact=\"true\"", source);
         Assert.Contains("width: min(90vw, calc(100% - clamp(2rem, 4vw, 4rem)))", styles);
         Assert.Contains("grid-template-columns: minmax(18rem, 0.36fr) minmax(0, 0.64fr)", styles);
-        Assert.Contains(".tl-media-overview-credits > .tl-detail-panel", styles);
+        Assert.Contains(".tl-media-overview-panel > .tl-series-placement", styles);
+        Assert.Contains(".tl-overview-credit-grid", styles);
         Assert.Contains("white-space: pre-line", styles);
         Assert.Contains(".tl-detail-copy p", styles);
     }

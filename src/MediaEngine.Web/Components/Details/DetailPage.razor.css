@@ -438,6 +438,33 @@
     max-width: 42rem;
 }
 
+::deep .tl-detail-hero-credit-stack {
+    display: grid;
+    gap: 0.34rem;
+    max-width: 38rem;
+    color: rgba(246, 240, 232, 0.86);
+    font-size: clamp(0.92rem, 1.25vw, 1.08rem);
+    line-height: 1.35;
+}
+
+::deep .tl-detail-hero-credit-stack__line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+::deep .tl-detail-hero-credit-stack__label {
+    color: color-mix(in srgb, var(--tl-detail-primary, #dca53e) 86%, #fff);
+    font-size: 0.74em;
+    font-weight: 780;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+::deep .tl-detail-hero-credit-stack__value {
+    font-weight: 650;
+}
+
 ::deep .tl-metadata-pills,
 ::deep .tl-detail-pills {
     display: flex;
@@ -656,6 +683,12 @@
     min-height: 100%;
 }
 
+::deep .tl-media-overview-panel > .tl-series-placement {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin: 0;
+}
+
 ::deep .tl-media-overview-copy {
     display: grid;
     gap: 1rem;
@@ -673,6 +706,45 @@
 ::deep .tl-media-overview-credits {
     display: grid;
     gap: 1rem;
+}
+
+::deep .tl-media-overview-credits-list,
+::deep .tl-overview-credit-group {
+    display: grid;
+    gap: 1rem;
+}
+
+::deep .tl-overview-credit-group:not(:first-child) {
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+::deep .tl-overview-credit-group__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+::deep .tl-overview-credit-group__heading h3 {
+    margin: 0;
+    color: rgba(246, 240, 232, 0.92);
+    font-size: 0.82rem;
+    font-weight: 840;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+::deep .tl-overview-credit-group__heading span {
+    color: rgba(246, 240, 232, 0.48);
+    font-size: 0.76rem;
+    font-weight: 760;
+}
+
+::deep .tl-overview-credit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: 0.95rem;
 }
 
 ::deep .tl-media-overview-credits > .tl-detail-panel {

@@ -68,7 +68,7 @@
     private bool IsArtworkFallbackMode => EffectiveMode == HeroArtworkMode.ArtworkFallback;
     private HeroForegroundTreatment ForegroundTreatment => EntityType switch
     {
-        DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work => HeroForegroundTreatment.Book,
+        DetailEntityType.Book or DetailEntityType.Work => HeroForegroundTreatment.Book,
         DetailEntityType.MusicAlbum => HeroForegroundTreatment.Album,
         DetailEntityType.MusicArtist or DetailEntityType.Person or DetailEntityType.Character => HeroForegroundTreatment.Portrait,
         _ => HeroForegroundTreatment.Poster,
@@ -90,7 +90,8 @@
             {
                 DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-detail-media-stage--landscape",
                 DetailEntityType.MusicAlbum => "tl-detail-media-stage--square",
-                DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work => "tl-detail-media-stage--book",
+                DetailEntityType.Book or DetailEntityType.Work => "tl-detail-media-stage--book",
+                DetailEntityType.Audiobook => "tl-detail-media-stage--poster",
                 DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "tl-detail-media-stage--poster",
                 DetailEntityType.Person or DetailEntityType.MusicArtist or DetailEntityType.Character => "tl-detail-media-stage--portrait",
                 _ => "tl-detail-media-stage--poster",
