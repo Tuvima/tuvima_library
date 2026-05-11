@@ -4,7 +4,10 @@
 <section class="@SectionClass">
     <div class="tl-section-heading tl-credit-group__heading">
         <h2>@Group.Title</h2>
-        <span class="tl-credit-group__count">@Group.Credits.Count</span>
+        @if (!Embedded)
+        {
+            <span class="tl-credit-group__count">@Group.Credits.Count</span>
+        }
     </div>
     <div class="tl-credit-grid">
         @foreach (var credit in VisibleCredits)
