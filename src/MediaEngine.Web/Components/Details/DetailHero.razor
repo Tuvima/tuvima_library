@@ -246,8 +246,8 @@
                 break;
             case DetailEntityType.ComicIssue:
             case DetailEntityType.ComicSeries:
-                AddCreditLine(lines, "Writer", CreditGroupType.Writers);
-                AddCreditLine(lines, "Art", CreditGroupType.Illustrators, CreditGroupType.CreativeTeam);
+                AddCreditLine(lines, "Author", CreditGroupType.Authors, CreditGroupType.Writers);
+                AddCreditLine(lines, "Illustrator", CreditGroupType.Illustrators, CreditGroupType.CreativeTeam);
                 break;
             case DetailEntityType.MusicAlbum:
                 AddCreditLine(lines, "Artist", CreditGroupType.PrimaryArtists);

@@ -854,6 +854,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             FieldOverrides = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["description"] = new() { Priority = ["wikidata_reconciliation", "apple_api", "google_books", "open_library", "tmdb"], Note = "Prefer rich Wikipedia descriptions from the reconciliation provider, then fall back to retail descriptions" },
+                ["short_description"] = new() { Priority = ["wikidata_reconciliation", "tmdb", "apple_api", "google_books", "open_library"], Note = "Prefer Wikidata entity descriptions for hero summaries; full Wikipedia extracts stay in description" },
                 ["biography"]   = new() { Priority = ["wikidata_reconciliation"], Note = "Rich Wikipedia bios for persons" },
                 ["cover"]       = new() { Priority = ["apple_api", "tmdb", "open_library", "google_books", "musicbrainz"], Note = "Retail providers have high-res commercial art" },
                 ["rating"]      = new() { Priority = ["apple_api", "tmdb"], Note = "Wikidata does not carry ratings" },

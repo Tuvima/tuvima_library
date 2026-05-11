@@ -319,6 +319,7 @@ public sealed class DetailComposerServiceTests
         var scoringSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/ScoringHelper.cs"));
         var retailWorker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/RetailMatchWorker.cs"));
         var bridgeWorker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/WikidataBridgeWorker.cs"));
+        var heroSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/DetailHero.razor"));
 
         Assert.Contains("ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values)", source);
         Assert.Contains("GetValue(rootValues, MetadataFieldConstants.Title)", source);
@@ -327,6 +328,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("CreditGroupType.PrimaryArtists", source);
         Assert.Contains("CreditGroupType.MusicCredits", source);
         Assert.Contains("CreditGroupType.Illustrators", source);
+        Assert.Contains("AddCreditLine(lines, \"Author\", CreditGroupType.Authors, CreditGroupType.Writers)", heroSource);
+        Assert.Contains("AddCreditLine(lines, \"Illustrator\", CreditGroupType.Illustrators, CreditGroupType.CreativeTeam)", heroSource);
         Assert.Contains("BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name)", source);
         Assert.Contains("ShouldShowContributorGroup(entityType, group)", source);
         Assert.Contains("return group.GroupType == CreditGroupType.Cast;", source);
