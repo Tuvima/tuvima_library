@@ -33,6 +33,7 @@
 
 @code {
     [Parameter, EditorRequired] public CreditGroupViewModel Group { get; set; } = default!;
+    [Parameter] public bool Embedded { get; set; }
 
     private bool _expanded;
     private string? _groupKey;
@@ -60,9 +61,15 @@
             : $"Show all {Group.Credits.Count}";
 
     private string SectionClass
-        => Group.IsInitiallyExpanded
-            ? "tl-detail-panel tl-credit-group tl-credit-group--primary"
-            : "tl-detail-panel tl-credit-group tl-credit-group--secondary";
+    {
+        get
+        {
+            var classes = Group.IsInitiallyExpanded
+                ? "tl-credit-group tl-credit-group--primary"
+                : "tl-credit-group tl-credit-group--secondary";
+            return Embedded ? classes : $"tl-detail-panel {classes}";
+        }
+    }
 
     private void ToggleExpanded() => _expanded = !_expanded;
 }

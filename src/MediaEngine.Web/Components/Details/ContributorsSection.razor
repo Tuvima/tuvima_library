@@ -3,9 +3,10 @@
 
 @foreach (var group in Groups)
 {
-    <CreditGroupSection Group="group" />
+    <CreditGroupSection Group="group" Embedded="Embedded" />
 }
 
 @code {
     [Parameter] public IReadOnlyList<CreditGroupViewModel> Groups { get; set; } = [];
+    [Parameter] public bool Embedded { get; set; }
 }

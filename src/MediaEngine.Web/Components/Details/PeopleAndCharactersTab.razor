@@ -1,9 +1,17 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-tab-panel">
-    <ContributorsSection Groups="ContributorGroups" />
-    <CharactersSection Groups="CharacterGroups" />
+<div class="tl-detail-tab-panel tl-credits-detail-tab-panel">
+    <section class="tl-detail-panel tl-credits-detail-card">
+        @if (ContributorGroups.Count > 0)
+        {
+            <ContributorsSection Groups="ContributorGroups" Embedded="true" />
+        }
+        @if (CharacterGroups.Count > 0)
+        {
+            <CharactersSection Groups="CharacterGroups" />
+        }
+    </section>
 </div>
 
 @code {

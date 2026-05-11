@@ -2556,15 +2556,92 @@
 }
 
 ::deep .tl-detail-tab-panel.tl-person-details-panel,
-::deep .tl-detail-tab-panel.tl-media-overview-panel {
+::deep .tl-detail-tab-panel.tl-media-overview-panel,
+::deep .tl-detail-tab-panel.tl-credits-detail-tab-panel {
     width: min(90vw, calc(100% - clamp(2rem, 4vw, 4rem)));
     max-width: none;
     grid-template-columns: minmax(18rem, 0.36fr) minmax(0, 0.64fr);
     gap: clamp(1rem, 1.6vw, 1.5rem);
 }
 
-::deep .tl-detail-tab-panel.tl-media-overview-panel {
+::deep .tl-detail-tab-panel.tl-media-overview-panel,
+::deep .tl-detail-tab-panel.tl-credits-detail-tab-panel {
     grid-template-columns: 1fr;
+}
+
+::deep .tl-credits-detail-card {
+    display: grid;
+    gap: clamp(1.25rem, 2.2vw, 2rem);
+    min-height: clamp(28rem, 54vh, 44rem);
+}
+
+::deep .tl-credits-detail-card .tl-credit-group {
+    gap: 0.7rem;
+}
+
+::deep .tl-credits-detail-card .tl-credit-group:not(:first-child) {
+    padding-top: clamp(0.75rem, 1.6vw, 1.2rem);
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+::deep .tl-credits-detail-card .tl-credit-group--secondary {
+    background: transparent;
+}
+
+::deep .tl-credits-detail-card .tl-credit-group__heading {
+    justify-content: flex-start;
+    gap: 0.7rem;
+}
+
+::deep .tl-credits-detail-card .tl-credit-group__heading h2 {
+    color: rgba(246, 240, 232, 0.84);
+    font-size: 0.86rem;
+    font-weight: 820;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+::deep .tl-credits-detail-card .tl-credit-group__count {
+    min-width: auto;
+    min-height: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(246, 240, 232, 0.48);
+    font-size: 0.8rem;
+}
+
+::deep .tl-credits-detail-card .tl-credit-group__count::before {
+    content: "(";
+}
+
+::deep .tl-credits-detail-card .tl-credit-group__count::after {
+    content: ")";
+}
+
+::deep .tl-credits-detail-card .tl-credit-grid {
+    grid-template-columns: repeat(auto-fill, minmax(8.75rem, 9.75rem));
+    gap: clamp(0.75rem, 1.25vw, 1rem);
+    justify-content: start;
+}
+
+::deep .tl-credits-detail-card .tl-credit-card {
+    width: 100%;
+    box-shadow: none;
+}
+
+::deep .tl-credits-detail-card .tl-credit-card__name {
+    font-size: 0.78rem;
+}
+
+::deep .tl-credits-detail-card .tl-credit-card__role {
+    font-size: 0.72rem;
+}
+
+::deep .tl-credits-detail-card .tl-credit-group__toggle {
+    justify-self: center;
+    min-width: 9rem;
+    margin-top: 0.25rem;
 }
 
 ::deep .tl-media-overview-card {
