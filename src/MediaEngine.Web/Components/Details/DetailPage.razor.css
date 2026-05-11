@@ -3672,8 +3672,12 @@
 ::deep .tl-detail-media-stage__foreground--cover .tl-detail-media-stage__cover {
     border: 0;
     background: transparent;
-    border-radius: 0.38rem;
-    box-shadow: 0 2rem 4.5rem rgba(0,0,0,0.62);
+    border-radius: 0;
+    box-shadow: none;
+}
+
+::deep .tl-detail-media-stage__foreground--cover {
+    filter: none;
 }
 
 ::deep .tl-detail-media-stage__foreground--portrait {
