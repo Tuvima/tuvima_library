@@ -10,6 +10,9 @@ public sealed class IngestionOperationsSnapshotViewModel
     [JsonPropertyName("active_jobs")]
     public List<IngestionOperationsJobViewModel> ActiveJobs { get; set; } = [];
 
+    [JsonPropertyName("current_activities")]
+    public List<IngestionCurrentActivityViewModel> CurrentActivities { get; set; } = [];
+
     [JsonPropertyName("pipeline_stages")]
     public List<IngestionPipelineStageViewModel> PipelineStages { get; set; } = [];
 
@@ -63,11 +66,25 @@ public sealed class IngestionOperationsJobViewModel
     [JsonPropertyName("warning_summary")] public string? WarningSummary { get; set; }
 }
 
+public sealed class IngestionCurrentActivityViewModel
+{
+    [JsonPropertyName("stage_key")] public string StageKey { get; set; } = "";
+    [JsonPropertyName("message")] public string Message { get; set; } = "";
+    [JsonPropertyName("detail")] public string Detail { get; set; } = "";
+    [JsonPropertyName("current_item")] public string? CurrentItem { get; set; }
+    [JsonPropertyName("source")] public string? Source { get; set; }
+    [JsonPropertyName("processed_count")] public int ProcessedCount { get; set; }
+    [JsonPropertyName("total_count")] public int TotalCount { get; set; }
+    [JsonPropertyName("percent_complete")] public double PercentComplete { get; set; }
+    [JsonPropertyName("last_updated_time")] public DateTimeOffset? LastUpdatedTime { get; set; }
+}
+
 public sealed class IngestionPipelineStageViewModel
 {
     [JsonPropertyName("key")] public string Key { get; set; } = "";
     [JsonPropertyName("label")] public string Label { get; set; } = "";
     [JsonPropertyName("count")] public int Count { get; set; }
+    [JsonPropertyName("total_count")] public int TotalCount { get; set; }
     [JsonPropertyName("helper")] public string Helper { get; set; } = "";
 }
 

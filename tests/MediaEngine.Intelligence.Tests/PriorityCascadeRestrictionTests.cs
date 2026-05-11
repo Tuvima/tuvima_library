@@ -15,6 +15,8 @@ namespace MediaEngine.Intelligence.Tests;
 public sealed class PriorityCascadeRestrictionTests
 {
     private static readonly Guid WikidataProviderId = Guid.Parse("b3000003-d000-4000-8000-000000000004");
+    private static readonly Guid LocalProcessorId = Guid.Parse("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f");
+    private static readonly Guid OpenLibraryProviderId = Guid.Parse("b4000004-0000-4000-8000-000000000005");
     private static readonly Guid ProviderA = Guid.Parse("aaaa0000-0000-0000-0000-000000000001");
     private static readonly Guid EntityId  = Guid.Parse("eeee0000-0000-0000-0000-000000000002");
 
@@ -278,12 +280,12 @@ public sealed class PriorityCascadeRestrictionTests
             EntityId = EntityId,
             Claims =
             [
-                MakeClaim("author", "James S.A. Corey", ProviderA, 0.95),          // pen name from file
+                MakeClaim("author", "James S.A. Corey", LocalProcessorId, 0.95),   // pen name from file
                 MakeClaim("author", "Daniel Abraham", WikidataProviderId, 0.75),    // P50 real name
             ],
             ProviderWeights = new Dictionary<Guid, double>
             {
-                [ProviderA]          = 1.0,
+                [LocalProcessorId]   = 1.0,
                 [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
@@ -293,7 +295,34 @@ public sealed class PriorityCascadeRestrictionTests
 
         var authorScore = result.FieldScores.First(f => f.Key == "author");
         Assert.Equal("James S.A. Corey", authorScore.WinningValue);
-        Assert.Equal(ProviderA, authorScore.WinningProviderId);
+        Assert.Equal(LocalProcessorId, authorScore.WinningProviderId);
+    }
+
+    [Fact]
+    public async Task Author_WikidataWinsOverHigherConfidenceRetail()
+    {
+        var engine = CreateEngine();
+        var context = new ScoringContext
+        {
+            EntityId = EntityId,
+            Claims =
+            [
+                MakeClaim("author", "Michael Dean", OpenLibraryProviderId, 0.80),
+                MakeClaim("author", "George Orwell", WikidataProviderId, 0.75),
+            ],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [OpenLibraryProviderId] = 1.0,
+                [WikidataProviderId]    = 1.0,
+            },
+            Configuration = DefaultConfig,
+        };
+
+        var result = await engine.ScoreEntityAsync(context);
+
+        var authorScore = result.FieldScores.First(f => f.Key == "author");
+        Assert.Equal("George Orwell", authorScore.WinningValue);
+        Assert.Equal(WikidataProviderId, authorScore.WinningProviderId);
     }
 
     [Fact]

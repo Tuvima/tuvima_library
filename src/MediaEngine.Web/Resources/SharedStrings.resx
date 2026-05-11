@@ -1475,8 +1475,14 @@
   <data name="Ingestion_OverallComplete" xml:space="preserve">
     <value>complete</value>
   </data>
+  <data name="Ingestion_OverallPipelineComplete" xml:space="preserve">
+    <value>pipeline complete</value>
+  </data>
   <data name="Ingestion_OverallActiveStage" xml:space="preserve">
     <value>{0} is currently active</value>
+  </data>
+  <data name="Ingestion_OverallStageProgress" xml:space="preserve">
+    <value>{0}: {1} of {2} ({3}%)</value>
   </data>
   <data name="Ingestion_OverallRemaining" xml:space="preserve">
     <value>Est. {0} remaining</value>
@@ -1517,8 +1523,14 @@
   <data name="Ingestion_StageRetailSplit" xml:space="preserve">
     <value>{0} matched, {1} need review</value>
   </data>
+  <data name="Ingestion_StageRetailSplitWithSkipped" xml:space="preserve">
+    <value>{0} matched, {1} need review, {2} skipped</value>
+  </data>
   <data name="Ingestion_StageOutcomeSummary" xml:space="preserve">
     <value>{0} matched, {1} need review</value>
+  </data>
+  <data name="Ingestion_StageOutcomeSummaryWithSkipped" xml:space="preserve">
+    <value>{0} matched, {1} need review, {2} skipped</value>
   </data>
   <data name="Ingestion_StatusActive" xml:space="preserve">
     <value>Active</value>

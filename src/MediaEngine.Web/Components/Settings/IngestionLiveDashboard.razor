@@ -59,7 +59,13 @@
         <IngestionMetricStrip Metrics="Metrics" />
         <IngestionOverallProgressBand Progress="OverallProgress" Stages="Stages" />
         <IngestionStageRail Stages="Stages" />
-        <IngestionActivityList Jobs="Jobs" Activities="Activities" ReviewReasons="ReviewReasons" />
+        <IngestionActivityList Jobs="Jobs"
+                               CurrentActivities="CurrentActivities"
+                               Activities="Activities"
+                               PendingReviews="PendingReviews"
+                               ReviewReasons="ReviewReasons"
+                               ReviewTotal="Metrics.UnresolvedItems"
+                               Stages="Stages" />
     }
 
     <div class="ingestion-live__footer">
@@ -78,10 +84,12 @@
 @code {
     [Parameter] public IngestionOperationsSnapshotViewModel? Snapshot { get; set; }
     [Parameter] public IngestionDashboardMetrics Metrics { get; set; } = new(0, 0, 0, 0);
-    [Parameter] public IngestionOverallProgress OverallProgress { get; set; } = new(0, 0, 0, "Ingestion_StageScanning", null);
+    [Parameter] public IngestionOverallProgress OverallProgress { get; set; } = new(0, 0, 0, "Ingestion_StageScanning", "Ingestion_StageScanningDetail", 0, 0, 0, null);
     [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
     [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities { get; set; } = [];
     [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
+    [Parameter] public IReadOnlyList<ReviewItemViewModel> PendingReviews { get; set; } = [];
     [Parameter] public IReadOnlyList<IngestionReviewReasonViewModel> ReviewReasons { get; set; } = [];
     [Parameter] public IngestionLiveMode LiveMode { get; set; }
     [Parameter] public EngineConnectionState ConnectionState { get; set; }

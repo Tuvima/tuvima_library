@@ -108,6 +108,11 @@
     text-align: center;
 }
 
+::deep .ingestion-overall__center small {
+    color: rgba(226, 232, 255, 0.72);
+    text-align: center;
+}
+
 ::deep .ingestion-overall__bar {
     height: 16px;
     overflow: hidden;
@@ -278,6 +283,209 @@
 
 ::deep .ingestion-activity {
     margin-top: 4px;
+}
+
+::deep .ingestion-activity-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.9fr);
+    gap: 12px;
+    margin-top: 4px;
+}
+
+::deep .ingestion-current,
+::deep .ingestion-review-preview {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid rgba(176, 190, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(7, 14, 34, 0.58);
+}
+
+::deep .ingestion-current__header,
+::deep .ingestion-review-preview__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+::deep .ingestion-current__header span,
+::deep .ingestion-review-preview__header span,
+::deep .ingestion-current-row__copy span,
+::deep .ingestion-current-row__copy small,
+::deep .ingestion-current-row__facts,
+::deep .ingestion-review-preview__item span {
+    color: rgba(226, 232, 255, 0.68);
+}
+
+::deep .ingestion-current__live {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    font-size: 0.82rem;
+}
+
+::deep .ingestion-current__live::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.72);
+}
+
+::deep .ingestion-current-row {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1.3fr) minmax(140px, 0.7fr) minmax(130px, auto);
+    gap: 12px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid rgba(176, 190, 255, 0.11);
+    border-radius: 8px;
+    background: rgba(10, 18, 43, 0.62);
+}
+
+::deep .ingestion-current-row + .ingestion-current-row {
+    margin-top: 8px;
+}
+
+::deep .ingestion-current-row__icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    background:
+        radial-gradient(circle at center, rgba(8, 15, 36, 0.96) 0 56%, transparent 58%),
+        conic-gradient(currentColor var(--stage-progress), rgba(148, 163, 184, 0.22) 0);
+    color: #22d3ee;
+}
+
+::deep .ingestion-current-row__copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+::deep .ingestion-current-row__copy strong,
+::deep .ingestion-review-preview__header strong,
+::deep .ingestion-review-preview__item strong {
+    color: #f8fbff;
+}
+
+::deep .ingestion-current-row__copy span,
+::deep .ingestion-current-row__copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .ingestion-current-row__progress {
+    display: grid;
+    grid-template-columns: minmax(70px, 1fr) 38px;
+    gap: 8px;
+    align-items: center;
+}
+
+::deep .ingestion-current-row__facts {
+    display: grid;
+    gap: 4px;
+    font-size: 0.8rem;
+}
+
+::deep .ingestion-current-row__facts span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+::deep .ingestion-review-preview__header strong {
+    color: #f472b6;
+    white-space: nowrap;
+}
+
+::deep .ingestion-review-preview__reasons {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 10px;
+    border: 1px solid rgba(176, 190, 255, 0.11);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+::deep .ingestion-review-preview__reasons div {
+    display: grid;
+    gap: 2px;
+    padding: 9px 10px;
+    background: rgba(10, 18, 43, 0.56);
+}
+
+::deep .ingestion-review-preview__reasons div + div {
+    border-left: 1px solid rgba(176, 190, 255, 0.11);
+}
+
+::deep .ingestion-review-preview__reasons strong {
+    color: #f8fbff;
+    font-size: 1.05rem;
+}
+
+::deep .ingestion-review-preview__reasons span {
+    color: rgba(226, 232, 255, 0.72);
+    font-size: 0.8rem;
+}
+
+::deep .ingestion-review-preview__item {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr) 18px;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    color: inherit;
+    text-decoration: none;
+    border-top: 1px solid rgba(176, 190, 255, 0.10);
+}
+
+::deep .ingestion-review-preview__cover {
+    display: grid;
+    place-items: center;
+    height: 42px;
+    border-radius: 6px;
+    overflow: hidden;
+    color: #f472b6;
+    background: rgba(244, 114, 182, 0.12);
+}
+
+::deep .ingestion-review-preview__cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+::deep .ingestion-review-preview__item div:nth-child(2) {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+::deep .ingestion-review-preview__item strong,
+::deep .ingestion-review-preview__item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .ingestion-current__empty,
+::deep .ingestion-review-preview__empty {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    min-height: 86px;
+    padding: 16px;
+    border: 1px dashed rgba(176, 190, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(4, 9, 24, 0.28);
 }
 
 ::deep .ingestion-activity__header,
@@ -614,6 +822,7 @@
     ::deep .ingestion-live__dot,
     ::deep .ingestion-stage.is-active .ingestion-stage__node,
     ::deep .ingestion-activity-row,
+    ::deep .ingestion-current-row,
     ::deep .ingestion-activity-row__progress .mud-progress-linear-bar {
         animation: none !important;
         transition: none !important;
@@ -640,6 +849,10 @@
     ::deep .ingestion-activity-row__progress,
     ::deep .ingestion-activity-row__facts {
         grid-column: 2 / -1;
+    }
+
+    ::deep .ingestion-activity-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -668,6 +881,15 @@
     ::deep .ops-source-groups {
         grid-template-columns: 1fr;
     }
+
+    ::deep .ingestion-current-row {
+        grid-template-columns: 46px minmax(0, 1fr);
+    }
+
+    ::deep .ingestion-current-row__progress,
+    ::deep .ingestion-current-row__facts {
+        grid-column: 2 / -1;
+    }
 }
 
 @media (max-width: 640px) {
@@ -681,6 +903,28 @@
 
     ::deep .ingestion-activity-row {
         grid-template-columns: 1fr;
+    }
+
+    ::deep .ingestion-current-row {
+        grid-template-columns: 1fr;
+    }
+
+    ::deep .ingestion-current-row__icon {
+        display: none;
+    }
+
+    ::deep .ingestion-current-row__progress,
+    ::deep .ingestion-current-row__facts {
+        grid-column: auto;
+    }
+
+    ::deep .ingestion-review-preview__reasons {
+        grid-template-columns: 1fr;
+    }
+
+    ::deep .ingestion-review-preview__reasons div + div {
+        border-left: 0;
+        border-top: 1px solid rgba(176, 190, 255, 0.11);
     }
 
     ::deep .ingestion-activity-row__media {

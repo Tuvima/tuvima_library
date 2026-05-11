@@ -28,6 +28,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     public IngestionOperationsSnapshotViewModel? Snapshot { get; private set; }
     public IReadOnlyList<ActivityEntryViewModel> RecentActivity { get; private set; } = [];
+    public IReadOnlyList<ReviewItemViewModel> PendingReviews { get; private set; } = [];
     public bool IsLoading { get; private set; }
     public bool IsScanStarting { get; private set; }
     public string? Error { get; private set; }
@@ -35,6 +36,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     public EngineConnectionState ConnectionState => _orchestrator.EngineConnectionState;
     public IReadOnlyList<IngestionOperationsJobViewModel> ActiveJobs => BuildActiveJobs(Snapshot, _stateContainer);
+    public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities => BuildCurrentActivities(Snapshot, ActiveJobs, Stages);
     public IngestionDashboardMetrics Metrics => BuildMetrics(Snapshot, ActiveJobs);
     public IReadOnlyList<IngestionDashboardStage> Stages => BuildStages(Snapshot, ActiveJobs, Metrics.TotalFiles);
     public IngestionOverallProgress OverallProgress => BuildOverallProgress(Metrics, Stages, _stateContainer.BatchProgress);
@@ -64,13 +66,15 @@ public sealed class IngestionLiveDashboardState : IDisposable
         {
             var snapshotTask = _api.GetIngestionOperationsSnapshotAsync(ct);
             var activityTask = _api.GetRecentActivityAsync(12, ct);
-            await Task.WhenAll(snapshotTask, activityTask);
+            var reviewTask = _api.GetPendingReviewsAsync(3, ct);
+            await Task.WhenAll(snapshotTask, activityTask, reviewTask);
 
             Snapshot = snapshotTask.Result;
             RecentActivity = activityTask.Result
                 .Where(IsUsefulActivity)
                 .Take(12)
                 .ToList();
+            PendingReviews = reviewTask.Result;
             LastUpdated = DateTimeOffset.Now;
         }
         catch (OperationCanceledException)
@@ -254,14 +258,44 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         var activeTotal = activeJobs.Sum(job => Math.Max(0, job.TotalCount));
         var activeProcessed = activeJobs.Sum(job => Math.Max(0, job.ProcessedCount));
-        var totalFiles = activeTotal > 0 ? activeTotal : snapshot?.Summary.TotalItems ?? 0;
-        var processedFiles = activeTotal > 0 ? activeProcessed : snapshot?.Summary.RegisteredItems ?? 0;
+        var totalFiles = activeTotal > 0
+            ? activeTotal
+            : Total(snapshot, "detected", snapshot?.Summary.TotalItems ?? 0);
+        var fallbackProcessed = (snapshot?.Summary.RegisteredItems ?? 0) + (snapshot?.Summary.ItemsNeedingReview ?? 0);
+        var processedFiles = activeTotal > 0
+            ? activeProcessed
+            : Count(snapshot, "detected", fallbackProcessed);
 
         return new IngestionDashboardMetrics(
             totalFiles,
             processedFiles,
-            activeJobs.Count,
+            activeJobs.Count > 0 ? activeJobs.Count : snapshot?.CurrentActivities.Count ?? 0,
             snapshot?.Summary.ItemsNeedingReview ?? 0);
+    }
+
+    public static IReadOnlyList<IngestionCurrentActivityViewModel> BuildCurrentActivities(
+        IngestionOperationsSnapshotViewModel? snapshot,
+        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IReadOnlyList<IngestionDashboardStage> stages)
+    {
+        var activities = snapshot?.CurrentActivities
+            .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
+            .Take(3)
+            .ToList() ?? [];
+
+        if (activities.Count > 0)
+        {
+            return activities;
+        }
+
+        return activeJobs
+            .Where(job => job.Status.Equals("running", StringComparison.OrdinalIgnoreCase)
+                || job.Status.Equals("processing", StringComparison.OrdinalIgnoreCase)
+                || job.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
+            .Take(3)
+            .Select(job => ToCurrentActivity(job, stages))
+            .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
+            .ToList();
     }
 
     public static IReadOnlyList<IngestionDashboardStage> BuildStages(
@@ -272,16 +306,37 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var activeKey = ResolveActiveStage(activeJobs);
         var reviewCount = snapshot?.Summary.ItemsNeedingReview ?? 0;
         var registeredCount = snapshot?.Summary.RegisteredItems ?? 0;
-        var retailMatched = Math.Max(Count(snapshot, "matched"), Count(snapshot, "identified") - reviewCount);
-        var retailTotal = Math.Max(0, retailMatched + reviewCount);
+        var duplicateCount = Count(snapshot, "duplicate");
+        var skippedCount = Count(snapshot, "skipped");
+        var failedCount = Count(snapshot, "failed");
+        var skippedOrDuplicate = duplicateCount + skippedCount;
+        var retailMatched = Count(snapshot, "matched");
+        var retailReview = Count(snapshot, "retail_review");
+        var retailTotal = Math.Max(totalFiles, Total(snapshot, "matched", Math.Max(0, retailMatched + retailReview + skippedOrDuplicate)));
+        var retailDone = retailMatched + retailReview + skippedOrDuplicate;
         var canonicalized = Count(snapshot, "canonicalized");
+        var wikidataReview = Count(snapshot, "wikidata_review");
+        var wikidataTotal = Total(snapshot, "canonicalized", Math.Max(0, canonicalized + wikidataReview));
+        var wikidataDone = canonicalized + wikidataReview;
         var enriched = Count(snapshot, "enriched");
+        var enrichmentTotal = Total(snapshot, "enriched", Math.Max(0, enriched));
         var scanningJobs = activeJobs
             .Where(job => ResolveActiveStage([job]) == "scanning")
             .ToList();
         var scanningTotal = scanningJobs.Sum(job => Math.Max(0, job.TotalCount));
         var scanningDone = scanningJobs.Sum(job => Math.Max(0, job.ProcessedCount));
-        var summaryTotal = Math.Max(0, registeredCount + reviewCount);
+        if (scanningTotal <= 0)
+        {
+            scanningTotal = Total(snapshot, "detected", totalFiles);
+            scanningDone = Count(snapshot, "detected", 0);
+        }
+
+        var summaryTerminal = registeredCount
+            + reviewCount
+            + duplicateCount
+            + skippedCount
+            + failedCount;
+        var summaryTotal = Math.Max(totalFiles, summaryTerminal);
 
         var stages = new List<IngestionDashboardStage>
         {
@@ -300,19 +355,20 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 "Ingestion_StageRetailIdentification",
                 "Ingestion_StageRetailIdentificationDetail",
                 Icons.Material.Outlined.Search,
+                retailDone,
                 retailTotal,
-                totalFiles,
                 totalFiles,
                 activeKey,
                 matchedCount: retailMatched,
-                reviewCount: reviewCount),
+                reviewCount: retailReview,
+                otherCount: skippedOrDuplicate),
             CreateStage(
                 "wikidata",
                 "Ingestion_StageWikidataMatch",
                 "Ingestion_StageWikidataMatchDetail",
                 Icons.Material.Outlined.TravelExplore,
-                canonicalized,
-                totalFiles,
+                wikidataDone,
+                wikidataTotal,
                 totalFiles,
                 activeKey),
             CreateStage(
@@ -321,7 +377,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 "Ingestion_StageEnrichmentDetail",
                 Icons.Material.Outlined.DataObject,
                 enriched,
-                totalFiles,
+                enrichmentTotal,
                 totalFiles,
                 activeKey),
             CreateStage(
@@ -329,12 +385,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 "Ingestion_StageSummary",
                 "Ingestion_StageSummaryDetail",
                 Icons.Material.Outlined.AssignmentTurnedIn,
+                summaryTerminal,
                 summaryTotal,
-                totalFiles,
                 totalFiles,
                 activeKey,
                 matchedCount: registeredCount,
                 reviewCount: reviewCount,
+                otherCount: skippedOrDuplicate,
                 isSummary: true),
         };
 
@@ -352,6 +409,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             bool hideCountWhenIdle = false,
             int matchedCount = 0,
             int reviewCount = 0,
+            int otherCount = 0,
             bool isSummary = false)
         {
             var percent = total > 0
@@ -381,6 +439,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 hideCount,
                 matchedCount,
                 reviewCount,
+                otherCount,
                 isSummary);
         }
     }
@@ -390,11 +449,19 @@ public sealed class IngestionLiveDashboardState : IDisposable
         IReadOnlyList<IngestionDashboardStage> stages,
         BatchProgressEvent? batch)
     {
-        var percent = metrics.TotalFiles > 0
-            ? Math.Clamp(metrics.ProcessedFiles * 100d / metrics.TotalFiles, 0, 100)
-            : 0;
+        var pipelineStages = stages.Take(5).ToList();
+        var hasPipelineWork = metrics.TotalFiles > 0 || pipelineStages.Any(stage => stage.Total > 0 || stage.Count > 0);
+        var percent = hasPipelineWork && pipelineStages.Count > 0
+            ? Math.Clamp(pipelineStages.Average(stage => Math.Clamp(stage.Percent, 0, 100)), 0, 100)
+            : metrics.TotalFiles > 0
+                ? Math.Clamp(metrics.ProcessedFiles * 100d / metrics.TotalFiles, 0, 100)
+                : 0;
+        if (metrics.ActiveFiles > 0 && percent >= 100)
+            percent = 99;
+
         var activeStage = stages.FirstOrDefault(stage => stage.StatusKey == "Ingestion_StatusActive")
             ?? stages.FirstOrDefault(stage => !stage.HideCount && stage.Percent < 100)
+            ?? stages.LastOrDefault(stage => !stage.HideCount)
             ?? stages.LastOrDefault();
 
         return new IngestionOverallProgress(
@@ -402,6 +469,10 @@ public sealed class IngestionLiveDashboardState : IDisposable
             metrics.TotalFiles,
             percent,
             activeStage?.LabelKey ?? "Ingestion_StageScanning",
+            activeStage?.DetailKey ?? "Ingestion_StageScanningDetail",
+            activeStage?.Count ?? 0,
+            activeStage?.Total ?? 0,
+            activeStage?.Percent ?? 0,
             batch?.EstimatedSecondsRemaining);
     }
 
@@ -428,6 +499,38 @@ public sealed class IngestionLiveDashboardState : IDisposable
         return "retail";
     }
 
+    private static IngestionCurrentActivityViewModel ToCurrentActivity(
+        IngestionOperationsJobViewModel job,
+        IReadOnlyList<IngestionDashboardStage> stages)
+    {
+        var stageKey = ResolveActiveStage([job]);
+        var stage = stages.FirstOrDefault(value => value.Key.Equals(stageKey, StringComparison.OrdinalIgnoreCase));
+        var total = Math.Max(0, stage?.Total ?? job.TotalCount);
+        var processed = Math.Clamp(Math.Max(0, stage?.Count ?? job.ProcessedCount), 0, Math.Max(0, total));
+        var message = stageKey switch
+        {
+            "retail" => "Matching metadata",
+            "wikidata" => "Checking Wikidata identity",
+            "enrichment" => "Enriching relationships",
+            "summary" => "Finishing library updates",
+            _ => "Scanning files",
+        };
+        var item = FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running");
+
+        return new IngestionCurrentActivityViewModel
+        {
+            StageKey = stageKey,
+            Message = message,
+            Detail = item,
+            CurrentItem = item,
+            Source = job.SourceFolder,
+            ProcessedCount = processed,
+            TotalCount = total,
+            PercentComplete = total > 0 ? Math.Clamp(processed * 100d / total, 0, 100) : Math.Clamp(job.PercentComplete, 0, 100),
+            LastUpdatedTime = job.LastUpdatedTime,
+        };
+    }
+
     public static IngestionLiveMode ResolveLiveMode(EngineConnectionState state) => state switch
     {
         EngineConnectionState.Online => IngestionLiveMode.Live,
@@ -437,6 +540,17 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     private static int Count(IngestionOperationsSnapshotViewModel? snapshot, string key) =>
         snapshot?.PipelineStages.FirstOrDefault(stage => stage.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Count ?? 0;
+
+    private static int Count(IngestionOperationsSnapshotViewModel? snapshot, string key, int fallback) =>
+        snapshot?.PipelineStages.FirstOrDefault(stage => stage.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Count ?? fallback;
+
+    private static int Total(IngestionOperationsSnapshotViewModel? snapshot, string key, int fallback)
+    {
+        var total = snapshot?.PipelineStages
+            .FirstOrDefault(stage => stage.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+            ?.TotalCount ?? 0;
+        return total > 0 ? total : fallback;
+    }
 
     private static bool IsUsefulActivity(ActivityEntryViewModel activity) =>
         activity.ActionType.Contains("Ingest", StringComparison.OrdinalIgnoreCase)
@@ -467,6 +581,10 @@ public sealed record IngestionOverallProgress(
     int TotalFiles,
     double Percent,
     string ActiveStageLabelKey,
+    string ActiveStageDetailKey,
+    int ActiveStageCount,
+    int ActiveStageTotal,
+    double ActiveStagePercent,
     int? EstimatedSecondsRemaining);
 
 public sealed record IngestionDashboardStage(
@@ -482,4 +600,5 @@ public sealed record IngestionDashboardStage(
     bool HideCount,
     int MatchedCount,
     int ReviewCount,
+    int OtherCount,
     bool IsSummary);

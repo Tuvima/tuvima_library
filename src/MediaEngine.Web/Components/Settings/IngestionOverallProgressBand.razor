@@ -10,14 +10,19 @@
     </div>
     <div class="ingestion-overall__center">
         <strong>@L["Ingestion_OverallProcessed", FormatCount(Progress.ProcessedFiles), FormatCount(Progress.TotalFiles)]</strong>
+        @if (Progress.ActiveStageTotal > 0)
+        {
+            <small>@L["Ingestion_OverallStageProgress", L[Progress.ActiveStageLabelKey], FormatCount(Progress.ActiveStageCount), FormatCount(Progress.ActiveStageTotal), Progress.ActiveStagePercent.ToString("0.#", CultureInfo.CurrentCulture)]</small>
+        }
         <div class="ingestion-overall__bar" style="@SegmentStyle">
             <span style="@($"width: {Progress.Percent.ToString("0.##", CultureInfo.InvariantCulture)}%;")"></span>
         </div>
     </div>
     <div class="ingestion-overall__meta">
         <strong>@Progress.Percent.ToString("0.#", CultureInfo.CurrentCulture)%</strong>
-        <span>@L["Ingestion_OverallComplete"]</span>
+        <span>@L["Ingestion_OverallPipelineComplete"]</span>
         <small>@L["Ingestion_OverallActiveStage", L[Progress.ActiveStageLabelKey]]</small>
+        <small>@L[Progress.ActiveStageDetailKey]</small>
         @if (Progress.EstimatedSecondsRemaining is > 0)
         {
             <small>@L["Ingestion_OverallRemaining", FormatRemaining(Progress.EstimatedSecondsRemaining.Value)]</small>
@@ -26,7 +31,7 @@
 </section>
 
 @code {
-    [Parameter] public IngestionOverallProgress Progress { get; set; } = new(0, 0, 0, "Ingestion_StageScanning", null);
+    [Parameter] public IngestionOverallProgress Progress { get; set; } = new(0, 0, 0, "Ingestion_StageScanning", "Ingestion_StageScanningDetail", 0, 0, 0, null);
     [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
 
     private string SegmentStyle

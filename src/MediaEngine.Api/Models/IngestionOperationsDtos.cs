@@ -10,6 +10,9 @@ public sealed class IngestionOperationsSnapshotDto
     [JsonPropertyName("active_jobs")]
     public List<IngestionOperationsJobDto> ActiveJobs { get; init; } = [];
 
+    [JsonPropertyName("current_activities")]
+    public List<IngestionCurrentActivityDto> CurrentActivities { get; init; } = [];
+
     [JsonPropertyName("pipeline_stages")]
     public List<IngestionPipelineStageDto> PipelineStages { get; init; } = [];
 
@@ -107,6 +110,36 @@ public sealed class IngestionOperationsJobDto
     public string? WarningSummary { get; init; }
 }
 
+public sealed class IngestionCurrentActivityDto
+{
+    [JsonPropertyName("stage_key")]
+    public string StageKey { get; init; } = "";
+
+    [JsonPropertyName("message")]
+    public string Message { get; init; } = "";
+
+    [JsonPropertyName("detail")]
+    public string Detail { get; init; } = "";
+
+    [JsonPropertyName("current_item")]
+    public string? CurrentItem { get; init; }
+
+    [JsonPropertyName("source")]
+    public string? Source { get; init; }
+
+    [JsonPropertyName("processed_count")]
+    public int ProcessedCount { get; init; }
+
+    [JsonPropertyName("total_count")]
+    public int TotalCount { get; init; }
+
+    [JsonPropertyName("percent_complete")]
+    public double PercentComplete { get; init; }
+
+    [JsonPropertyName("last_updated_time")]
+    public DateTimeOffset? LastUpdatedTime { get; init; }
+}
+
 public sealed class IngestionPipelineStageDto
 {
     [JsonPropertyName("key")]
@@ -117,6 +150,9 @@ public sealed class IngestionPipelineStageDto
 
     [JsonPropertyName("count")]
     public int Count { get; init; }
+
+    [JsonPropertyName("total_count")]
+    public int TotalCount { get; init; }
 
     [JsonPropertyName("helper")]
     public string Helper { get; init; } = "";

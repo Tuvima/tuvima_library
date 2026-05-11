@@ -38,6 +38,23 @@ public sealed class IngestionOperationsContractTests
         Assert.DoesNotContain("Dune Messiah", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void OperationsService_ReportsPipelineStagesAsFileCounts()
+    {
+        var repoRoot = FindRepoRoot();
+        var source = File.ReadAllText(Path.Combine(
+            repoRoot,
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("CurrentActivities", source, StringComparison.Ordinal);
+        Assert.Contains("EnrichmentCompleteStates", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("projection.EnrichedStage3", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnrichedStates", source, StringComparison.Ordinal);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

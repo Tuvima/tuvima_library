@@ -196,20 +196,20 @@ public sealed class PriorityCascadeEngine : IScoringEngine
                 // as designed — the higher-confidence claim wins.
                 if (string.Equals(group.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
                 {
-                    var bestNonWikidata = claimsForField
-                        .Where(c => c.ProviderId != WikidataProviderId)
+                    var bestEmbeddedOrManual = claimsForField
+                        .Where(c => WellKnownProviders.IsFileSource(c.ProviderId) || WellKnownProviders.IsUserSource(c.ProviderId))
                         .OrderByDescending(c => c.Confidence)
                         .ThenByDescending(c => c.ClaimedAt)
                         .FirstOrDefault();
 
-                    if (bestNonWikidata is not null && bestNonWikidata.Confidence > wikidataClaim.Confidence)
+                    if (bestEmbeddedOrManual is not null && bestEmbeddedOrManual.Confidence > wikidataClaim.Confidence)
                     {
                         fieldScores.Add(new FieldScore
                         {
                             Key               = group.Key,
-                            WinningValue      = bestNonWikidata.ClaimValue,
-                            Confidence        = bestNonWikidata.Confidence,
-                            WinningProviderId = bestNonWikidata.ProviderId,
+                            WinningValue      = bestEmbeddedOrManual.ClaimValue,
+                            Confidence        = bestEmbeddedOrManual.Confidence,
+                            WinningProviderId = bestEmbeddedOrManual.ProviderId,
                             IsConflicted      = false,
                         });
                         continue;

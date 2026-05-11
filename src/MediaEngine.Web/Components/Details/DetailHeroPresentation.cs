@@ -120,7 +120,7 @@ public sealed class DetailHeroPresentation
 
     private static string? ResolveSubtitle(DetailPageViewModel model, bool isWatchHero)
     {
-        if (isWatchHero || model.EntityType == DetailEntityType.Audiobook)
+        if (isWatchHero || UsesPrimaryHeroChrome(model.EntityType))
             return null;
 
         return model.Subtitle;

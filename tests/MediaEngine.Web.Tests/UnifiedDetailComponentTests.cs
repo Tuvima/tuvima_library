@@ -82,7 +82,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("(R: 220, G: 165, B: 62)", presentation);
         Assert.Contains("--hero-shadow-rgb:0, 3, 5", presentation);
         Assert.Contains("ResolveSubtitle(model, isWatchHero)", presentation);
-        Assert.Contains("model.EntityType == DetailEntityType.Audiobook", presentation);
+        Assert.Contains("isWatchHero || UsesPrimaryHeroChrome(model.EntityType)", presentation);
         Assert.Contains("<HeroProgressBlock Progress=\"Presentation.Progress\" />", hero);
         Assert.Contains("HeroCreditLines", hero);
         Assert.Contains("tl-detail-hero-credit-stack--audiobook", hero);
@@ -191,6 +191,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch)", styles);
         Assert.Contains("tl-detail-hero-credit-stack--audiobook", styles);
+        Assert.Contains("::deep .tl-detail-hero-credit-stack__line", styles);
+        Assert.Contains("letter-spacing: 0.42em", styles);
         Assert.Contains("tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback", styles);
         Assert.Contains("overflow: visible", styles);
         Assert.Contains("height: min(47rem, 78vh)", styles);

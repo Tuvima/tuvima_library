@@ -508,6 +508,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             RelationshipCount = linkedRelationshipCount,
             PortraitCount = linkedPortraitCount,
         };
+        var resolvedAuthor = ResolveAuthorForDetail(projection?.Author ?? Canonical("author"), canonicalValues, claims);
         var detail = new LibraryItemDetail
         {
             EntityId = entityId,
@@ -522,7 +523,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             Status = projection?.Status ?? "Confirmed",
             MatchSource = projection?.MatchSource,
             MatchMethod = projection?.PipelineStep,
-            Author = projection?.Author ?? Canonical("author"),
+            Author = resolvedAuthor,
             Director = projection?.Director ?? Canonical("director"),
             Artist = projection?.Artist ?? Canonical("artist"),
             Composer = Canonical("composer"),
@@ -1329,6 +1330,44 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
 
         if (!string.IsNullOrWhiteSpace(query.MatchSource))
             cmd.Parameters.AddWithValue("@matchSource", query.MatchSource);
+    }
+
+    private static string? ResolveAuthorForDetail(
+        string? currentAuthor,
+        IReadOnlyList<LibraryItemCanonicalValue> canonicalValues,
+        IReadOnlyList<LibraryItemClaimRecord> claims)
+    {
+        var wikidataClaim = claims
+            .Where(claim => string.Equals(claim.ClaimKey, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
+            .Where(claim => claim.ProviderId == WellKnownProviders.Wikidata)
+            .OrderByDescending(claim => claim.Confidence)
+            .ThenByDescending(claim => claim.ClaimedAt)
+            .FirstOrDefault();
+
+        if (wikidataClaim is null)
+            return currentAuthor;
+
+        var embeddedOrManualClaim = claims
+            .Where(claim => string.Equals(claim.ClaimKey, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
+            .Where(claim => WellKnownProviders.IsFileSource(claim.ProviderId) || WellKnownProviders.IsUserSource(claim.ProviderId))
+            .OrderByDescending(claim => claim.Confidence)
+            .ThenByDescending(claim => claim.ClaimedAt)
+            .FirstOrDefault();
+
+        if (embeddedOrManualClaim is not null && embeddedOrManualClaim.Confidence > wikidataClaim.Confidence)
+            return embeddedOrManualClaim.ClaimValue;
+
+        var currentProvider = canonicalValues
+            .FirstOrDefault(value => string.Equals(value.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
+            ?.WinningProviderId;
+
+        if (Guid.TryParse(currentProvider, out var currentProviderId)
+            && (WellKnownProviders.IsFileSource(currentProviderId) || WellKnownProviders.IsUserSource(currentProviderId)))
+        {
+            return currentAuthor;
+        }
+
+        return wikidataClaim.ClaimValue;
     }
 
     private static string NormalizeMediaType(string raw) => raw.ToUpperInvariant() switch

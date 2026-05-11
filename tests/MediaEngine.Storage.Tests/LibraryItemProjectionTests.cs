@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -170,6 +171,23 @@ public sealed class LibraryItemProjectionTests : IDisposable
         Assert.Contains(allPage.Items, item => item.EntityId == rejectedWorkId && item.Status == "Rejected");
     }
 
+    [Fact]
+    public async Task LibraryItemDetail_UsesWikidataAuthorWhenRetailCanonicalIsStale()
+    {
+        var (workId, _) = await BuildStandaloneWorkAsync("Books");
+        await InsertCanonicalAsync(workId, "title", "Nineteen Eighty-Four");
+        await InsertCanonicalAsync(workId, "author", "Michael Dean", WellKnownProviders.OpenLibrary);
+        await InsertClaimAsync(workId, "author", "Michael Dean", WellKnownProviders.OpenLibrary, 0.80);
+        await InsertClaimAsync(workId, "author", "George Orwell", WellKnownProviders.Wikidata, 0.75);
+
+        var repo = new LibraryItemRepository(_db);
+
+        var detail = await repo.GetDetailAsync(workId);
+
+        Assert.NotNull(detail);
+        Assert.Equal("George Orwell", detail!.Author);
+    }
+
     private async Task<(Guid WorkId, Guid AssetId)> BuildStandaloneWorkAsync(string mediaType)
     {
         using var conn = _db.CreateConnection();
@@ -192,17 +210,35 @@ public sealed class LibraryItemProjectionTests : IDisposable
         return (workId, assetId);
     }
 
-    private async Task InsertCanonicalAsync(Guid entityId, string key, string value)
+    private async Task InsertCanonicalAsync(Guid entityId, string key, string value, Guid? winningProviderId = null)
     {
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT OR REPLACE INTO canonical_values (entity_id, key, value, last_scored_at)
-            VALUES (@entityId, @key, @value, datetime('now'));
+            INSERT OR REPLACE INTO canonical_values (entity_id, key, value, last_scored_at, winning_provider_id)
+            VALUES (@entityId, @key, @value, datetime('now'), @winningProviderId);
             """;
         cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
         cmd.Parameters.AddWithValue("@key", key);
         cmd.Parameters.AddWithValue("@value", value);
+        cmd.Parameters.AddWithValue("@winningProviderId", winningProviderId?.ToString() ?? (object)DBNull.Value);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task InsertClaimAsync(Guid entityId, string key, string value, Guid providerId, double confidence)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+            VALUES (@id, @entityId, @providerId, @key, @value, @confidence, datetime('now'));
+            """;
+        cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
+        cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+        cmd.Parameters.AddWithValue("@providerId", providerId.ToString());
+        cmd.Parameters.AddWithValue("@key", key);
+        cmd.Parameters.AddWithValue("@value", value);
+        cmd.Parameters.AddWithValue("@confidence", confidence);
         await cmd.ExecuteNonQueryAsync();
     }
 

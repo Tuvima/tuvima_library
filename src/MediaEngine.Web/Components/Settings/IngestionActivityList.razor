@@ -1,233 +1,291 @@
 @namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
+@using System.Text.RegularExpressions
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
 @inject IStringLocalizer<SharedStrings> L
 
-<section class="ingestion-activity">
-    <div class="ingestion-activity__header">
-        <MudText Typo="Typo.subtitle2">@L["Ingestion_CurrentActivity"]</MudText>
-    </div>
-
-    @if (Rows.Count == 0)
-    {
-        <div class="ingestion-activity__empty">
-            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+<section class="ingestion-activity-grid">
+    <div class="ingestion-current">
+        <div class="ingestion-current__header">
             <div>
-                <strong>@L["Ingestion_NoActiveWork"]</strong>
-                <span>@L["Ingestion_WatchedFoldersMonitored"]</span>
+                <MudText Typo="Typo.subtitle2">@L["Ingestion_CurrentActivity"]</MudText>
+                <span>What the engine is working on right now</span>
             </div>
+            <span class="ingestion-current__live">Live updates</span>
         </div>
-    }
-    else
-    {
-        @foreach (var row in Rows.Take(5))
+
+        @if (CurrentRows.Count == 0)
         {
-            <article class="ingestion-activity-row">
-                <div class="ingestion-activity-row__media">
-                    @if (!string.IsNullOrWhiteSpace(row.CoverUrl))
-                    {
-                        <img src="@row.CoverUrl" alt="" loading="lazy" />
-                    }
-                    else
-                    {
+            <div class="ingestion-current__empty">
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+                <div>
+                    <strong>@L["Ingestion_NoActiveWork"]</strong>
+                    <span>@L["Ingestion_WatchedFoldersMonitored"]</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            @foreach (var row in CurrentRows.Take(3))
+            {
+                <article class="ingestion-current-row">
+                    <div class="ingestion-current-row__icon" style="@RingStyle(row.Percent)">
                         <MudIcon Icon="@row.Icon" />
-                    }
-                </div>
-                <div class="ingestion-activity-row__title">
-                    <strong>@row.Title</strong>
-                    <span>@row.Subtitle</span>
-                    <small>@row.Path</small>
-                </div>
-                <div class="ingestion-activity-row__stage">
-                    <div class="ingestion-activity-row__stage-node" style="@RingStyle(row.Percent)">
-                        <MudIcon Icon="@row.StageIcon" />
                     </div>
-                    <div>
-                        <strong>@L[row.StageKey]</strong>
-                        <span>@L[row.StageDetailKey]</span>
-                        @if (!string.IsNullOrWhiteSpace(row.Warning))
+                    <div class="ingestion-current-row__copy">
+                        <strong>@row.Message</strong>
+                        <span>@row.Detail</span>
+                        @if (!string.IsNullOrWhiteSpace(row.Source))
                         {
-                            <small>@row.Warning</small>
+                            <small>@row.Source</small>
                         }
                     </div>
-                </div>
-                <div class="ingestion-activity-row__progress">
-                    <MudProgressLinear Value="@row.Percent" Color="@row.ProgressColor" Rounded="true" Size="Size.Small" />
-                    <span>@row.Percent.ToString("0", CultureInfo.CurrentCulture)%</span>
-                </div>
-                <div class="ingestion-activity-row__facts">
-                    <span><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /> @row.Files</span>
-                    <span><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" /> @row.Elapsed</span>
-                    <span><MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small" /> @row.Source</span>
-                </div>
-            </article>
+                    <div class="ingestion-current-row__progress">
+                        <MudProgressLinear Value="@row.Percent" Color="@row.Color" Rounded="true" Size="Size.Small" />
+                        <span>@row.Percent.ToString("0", CultureInfo.CurrentCulture)%</span>
+                    </div>
+                    <div class="ingestion-current-row__facts">
+                        <span><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /> @row.Counts</span>
+                        <span><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" /> @row.Updated</span>
+                    </div>
+                </article>
+            }
         }
-    }
+    </div>
+
+    <aside class="ingestion-review-preview">
+        <div class="ingestion-review-preview__header">
+            <div>
+                <MudText Typo="Typo.subtitle2">@L["ReviewQueue_Title"]</MudText>
+                <span>Items waiting for confirmation or fixes</span>
+            </div>
+            <strong>@ReviewTotal.ToString("N0", CultureInfo.CurrentCulture) items</strong>
+        </div>
+
+        @if (ReviewTotal <= 0)
+        {
+            <div class="ingestion-review-preview__empty">
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+                <span>Review queue is clear</span>
+            </div>
+        }
+        else
+        {
+            <div class="ingestion-review-preview__reasons">
+                @foreach (var reason in TopReasons)
+                {
+                    <div>
+                        <strong>@reason.Count.ToString("N0", CultureInfo.CurrentCulture)</strong>
+                        <span>@reason.Label</span>
+                    </div>
+                }
+            </div>
+
+            @foreach (var item in PendingReviews.Take(3))
+            {
+                <a class="ingestion-review-preview__item" href="/settings/review">
+                    <div class="ingestion-review-preview__cover">
+                        @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                        {
+                            <img src="@item.CoverUrl" alt="" loading="lazy" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.RateReview" />
+                        }
+                    </div>
+                    <div>
+                        <strong>@DisplayReviewTitle(item)</strong>
+                        <span>@ReviewDetail(item)</span>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
+                </a>
+            }
+
+            <MudButton Href="/settings/review"
+                       Variant="Variant.Outlined"
+                       Color="Color.Warning"
+                       FullWidth="true"
+                       EndIcon="@Icons.Material.Outlined.ChevronRight">
+                @L["Ingestion_ReviewQueue"]
+            </MudButton>
+        }
+    </aside>
 </section>
 
 @code {
     [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities { get; set; } = [];
     [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
+    [Parameter] public IReadOnlyList<ReviewItemViewModel> PendingReviews { get; set; } = [];
     [Parameter] public IReadOnlyList<IngestionReviewReasonViewModel> ReviewReasons { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
+    [Parameter] public int ReviewTotal { get; set; }
 
-    private IReadOnlyList<ActivityRow> Rows
+    private IReadOnlyList<CurrentRow> CurrentRows
     {
         get
         {
-            var rows = Jobs.Select(ActivityRow.FromJob).ToList();
-            rows.AddRange(Activities
-                .Where(activity => rows.All(row => !string.Equals(row.Title, ActivityRow.TitleFromActivity(activity), StringComparison.OrdinalIgnoreCase)))
-                .Take(Math.Max(0, 5 - rows.Count))
-                .Select(activity => ActivityRow.FromActivity(activity, ReviewReasons)));
-            return rows;
+            var rows = CurrentActivities
+                .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
+                .Take(3)
+                .Select(CurrentRow.FromActivity)
+                .ToList();
+
+            if (rows.Count > 0)
+            {
+                return rows;
+            }
+
+            return Jobs
+                .Where(job => job.Status.Equals("running", StringComparison.OrdinalIgnoreCase)
+                    || job.Status.Equals("processing", StringComparison.OrdinalIgnoreCase)
+                    || job.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
+                .Take(3)
+                .Select(job => CurrentRow.FromJob(job, Stages))
+                .ToList();
         }
     }
 
-    private sealed record ActivityRow(
-        string Title,
-        string Subtitle,
-        string Path,
-        string StageKey,
-        string StageDetailKey,
-        string Files,
-        string Elapsed,
+    private IReadOnlyList<IngestionReviewReasonViewModel> TopReasons =>
+        ReviewReasons
+            .Where(reason => reason.Count > 0)
+            .OrderByDescending(reason => reason.Count)
+            .Take(3)
+            .ToList();
+
+    private sealed record CurrentRow(
+        string Message,
+        string Detail,
         string Source,
+        string Counts,
+        string Updated,
         string Icon,
-        string StageIcon,
-        string? CoverUrl,
-        string? Warning,
         double Percent,
-        Color ProgressColor)
+        Color Color)
     {
-        public static ActivityRow FromJob(IngestionOperationsJobViewModel job)
+        public static CurrentRow FromActivity(IngestionCurrentActivityViewModel activity)
         {
-            var title = FirstNonBlank(job.CurrentItem, job.MediaType, job.JobType, "Ingestion work");
-            var percent = Math.Clamp(job.PercentComplete, 0, 100);
-            return new ActivityRow(
-                title,
-                FirstNonBlank(job.MediaType, job.JobType, "Mixed media"),
-                ShortPath(job.SourceFolder),
-                ResolveStageKey(job.CurrentStage),
-                ResolveStageDetailKey(job.CurrentStage),
-                $"{job.ProcessedCount.ToString("N0", CultureInfo.CurrentCulture)} / {job.TotalCount.ToString("N0", CultureInfo.CurrentCulture)}",
-                FormatDuration(job.Elapsed),
-                ShortPath(job.SourceFolder),
-                MediaIcon(job.MediaType),
-                ResolveStageIcon(job.CurrentStage),
-                null,
-                job.WarningSummary,
+            var percent = Math.Clamp(activity.PercentComplete, 0, 100);
+            return new CurrentRow(
+                FirstNonBlank(activity.Message, "Processing files"),
+                FirstNonBlank(activity.Detail, activity.CurrentItem, "Working on the current item"),
+                ShortPath(activity.Source),
+                FormatCounts(activity.ProcessedCount, activity.TotalCount),
+                FormatUpdated(activity.LastUpdatedTime),
+                StageIcon(activity.StageKey),
                 percent,
-                ResolveProgressColor(job.CurrentStage));
+                StageColor(activity.StageKey));
         }
 
-        public static ActivityRow FromActivity(ActivityEntryViewModel activity, IReadOnlyList<IngestionReviewReasonViewModel> reviewReasons)
+        public static CurrentRow FromJob(IngestionOperationsJobViewModel job, IReadOnlyList<IngestionDashboardStage> stages)
         {
-            var rich = activity.RichData;
-            var title = TitleFromActivity(activity);
-            var needsReview = rich?.NeedsReview == true || activity.ActionType.Contains("Review", StringComparison.OrdinalIgnoreCase);
-            return new ActivityRow(
-                title,
-                FirstNonBlank(rich?.MediaType, activity.ActionType),
-                FirstNonBlank(rich?.SourceFile, rich?.ResolvedOrganizedTo, activity.Detail),
-                needsReview ? "Ingestion_ActivityReview" : ResolveStageKey(activity.ActionType),
-                needsReview ? "Ingestion_ActivityReviewDetail" : ResolveStageDetailKey(activity.ActionType),
-                "Done",
-                activity.RelativeTime,
-                FirstNonBlank(rich?.CollectionName, rich?.MediaType, activity.CollectionName, "Library"),
-                MediaIcon(rich?.MediaType),
-                ResolveStageIcon(activity.ActionType),
-                rich?.ResolvedCoverUrl,
-                needsReview ? ReviewSummary(reviewReasons) : null,
-                100,
-                needsReview ? Color.Warning : Color.Success);
+            var stage = stages.FirstOrDefault(value => value.Key == ResolveStageKey(job.CurrentStage));
+            var count = stage?.Count ?? job.ProcessedCount;
+            var total = stage?.Total ?? job.TotalCount;
+            var percent = total > 0
+                ? Math.Clamp(count * 100d / total, 0, 100)
+                : Math.Clamp(job.PercentComplete, 0, 100);
+            var stageKey = stage?.Key ?? ResolveStageKey(job.CurrentStage);
+            return new CurrentRow(
+                StageMessage(stageKey),
+                FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running"),
+                ShortPath(job.SourceFolder),
+                FormatCounts(count, total),
+                FormatUpdated(job.LastUpdatedTime),
+                StageIcon(stageKey),
+                percent,
+                StageColor(stageKey));
         }
-
-        public static string TitleFromActivity(ActivityEntryViewModel activity) =>
-            FirstNonBlank(activity.RichData?.Title, activity.CollectionName, activity.Detail, activity.ActionType);
 
         private static string ResolveStageKey(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
         {
-            var s when s.Contains("scan") => "Ingestion_StageScanning",
-            var s when s.Contains("bridge") || s.Contains("qid") || s.Contains("wikidata") || s.Contains("canonical") => "Ingestion_StageWikidataMatch",
-            var s when s.Contains("match") || s.Contains("identify") || s.Contains("retail") => "Ingestion_StageRetailIdentification",
-            var s when s.Contains("enrich") || s.Contains("hydrate") || s.Contains("metadata") || s.Contains("universe") => "Ingestion_StageEnrichment",
-            var s when s.Contains("review") => "Ingestion_ActivityReview",
-            _ => "Ingestion_ActivityProcessing",
+            var s when s.Contains("bridge") || s.Contains("qid") || s.Contains("wikidata") || s.Contains("canonical") => "wikidata",
+            var s when s.Contains("enrich") || s.Contains("hydrate") || s.Contains("metadata") || s.Contains("universe") => "enrichment",
+            var s when s.Contains("identify") || s.Contains("match") || s.Contains("retail") => "retail",
+            _ => "scanning",
         };
 
-        private static string ResolveStageDetailKey(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
+        private static string StageMessage(string stageKey) => stageKey switch
         {
-            var s when s.Contains("scan") => "Ingestion_StageScanningDetail",
-            var s when s.Contains("bridge") || s.Contains("qid") || s.Contains("wikidata") || s.Contains("canonical") => "Ingestion_StageWikidataMatchDetail",
-            var s when s.Contains("match") || s.Contains("identify") || s.Contains("retail") => "Ingestion_StageRetailIdentificationDetail",
-            var s when s.Contains("enrich") || s.Contains("hydrate") || s.Contains("metadata") || s.Contains("universe") => "Ingestion_StageEnrichmentDetail",
-            var s when s.Contains("review") => "Ingestion_ActivityReviewDetail",
-            _ => "Ingestion_ActivityProcessingDetail",
+            "retail" => "Matching metadata",
+            "wikidata" => "Checking Wikidata identity",
+            "enrichment" => "Enriching relationships",
+            "summary" => "Finishing library updates",
+            _ => "Scanning files",
         };
 
-        private static Color ResolveProgressColor(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
+        private static string StageIcon(string stageKey) => stageKey switch
         {
-            var s when s.Contains("review") => Color.Warning,
-            var s when s.Contains("enrich") || s.Contains("hydrate") => Color.Warning,
-            var s when s.Contains("match") => Color.Success,
+            "retail" => Icons.Material.Outlined.Extension,
+            "wikidata" => Icons.Material.Outlined.TravelExplore,
+            "enrichment" => Icons.Material.Outlined.DataObject,
+            "summary" => Icons.Material.Outlined.AssignmentTurnedIn,
+            _ => Icons.Material.Outlined.Radar,
+        };
+
+        private static Color StageColor(string stageKey) => stageKey switch
+        {
+            "enrichment" => Color.Warning,
+            "summary" => Color.Success,
             _ => Color.Info,
         };
-
-        private static string ResolveStageIcon(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
-        {
-            var s when s.Contains("scan") => Icons.Material.Outlined.Radar,
-            var s when s.Contains("match") => Icons.Material.Outlined.Extension,
-            var s when s.Contains("enrich") || s.Contains("hydrate") => Icons.Material.Outlined.DataObject,
-            var s when s.Contains("review") => Icons.Material.Outlined.WarningAmber,
-            _ => Icons.Material.Outlined.Search,
-        };
-
-        private static string? ReviewSummary(IReadOnlyList<IngestionReviewReasonViewModel> reviewReasons)
-        {
-            var total = reviewReasons.Sum(reason => Math.Max(0, reason.Count));
-            if (total <= 0)
-                return null;
-
-            var top = reviewReasons
-                .Where(reason => reason.Count > 0)
-                .OrderByDescending(reason => reason.Count)
-                .FirstOrDefault();
-            return top is null
-                ? $"{total.ToString("N0", CultureInfo.CurrentCulture)} need review"
-                : $"{total.ToString("N0", CultureInfo.CurrentCulture)} need review: {top.Label}";
-        }
-
-        private static string MediaIcon(string? mediaType) => (mediaType ?? string.Empty).ToLowerInvariant() switch
-        {
-            var s when s.Contains("movie") || s.Contains("tv") => Icons.Material.Outlined.Movie,
-            var s when s.Contains("audio") || s.Contains("music") => Icons.Material.Outlined.Headphones,
-            var s when s.Contains("comic") => Icons.Material.Outlined.AutoStories,
-            var s when s.Contains("book") => Icons.Material.Outlined.MenuBook,
-            _ => Icons.Material.Outlined.Inventory2,
-        };
-
-        private static string FormatDuration(TimeSpan? duration)
-        {
-            if (duration is null)
-                return "Running";
-
-            var value = duration.Value.Duration();
-            return value.TotalHours >= 1 ? $"{(int)value.TotalHours}h {value.Minutes}m" : $"{value.Minutes}m {value.Seconds}s";
-        }
-
-        private static string ShortPath(string? path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-                return "Watch folders";
-
-            var trimmed = path.TrimEnd('\\', '/');
-            var index = Math.Max(trimmed.LastIndexOf('\\'), trimmed.LastIndexOf('/'));
-            return index >= 0 ? trimmed[(index + 1)..] : trimmed;
-        }
-
-        private static string FirstNonBlank(params string?[] values) =>
-            values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
     }
+
+    private static string DisplayReviewTitle(ReviewItemViewModel item) =>
+        FirstNonBlank(item.EntityTitle, item.Detail, item.MediaType, "Review item");
+
+    private static string ReviewDetail(ReviewItemViewModel item) =>
+        FirstNonBlank(FormatTrigger(item.Trigger), item.Detail, "Needs review");
+
+    private static string FormatTrigger(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var spaced = Regex.Replace(value.Replace('_', ' '), "([a-z])([A-Z])", "$1 $2");
+        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(spaced.ToLowerInvariant());
+    }
+
+    private static string FormatCounts(int count, int total) =>
+        total > 0
+            ? $"{count.ToString("N0", CultureInfo.CurrentCulture)} / {total.ToString("N0", CultureInfo.CurrentCulture)} files"
+            : "Working";
+
+    private static string FormatUpdated(DateTimeOffset? value)
+    {
+        if (value is null)
+        {
+            return "now";
+        }
+
+        var elapsed = DateTimeOffset.UtcNow - value.Value.ToUniversalTime();
+        return elapsed.TotalMinutes switch
+        {
+            < 1 => "now",
+            < 60 => $"{(int)elapsed.TotalMinutes}m ago",
+            < 1440 => $"{(int)elapsed.TotalHours}h ago",
+            _ => value.Value.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture),
+        };
+    }
+
+    private static string ShortPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = path.TrimEnd('\\', '/');
+        var index = Math.Max(trimmed.LastIndexOf('\\'), trimmed.LastIndexOf('/'));
+        return index >= 0 ? trimmed[(index + 1)..] : trimmed;
+    }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private static string RingStyle(double percent) =>
         $"--stage-progress: {Math.Clamp(percent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
