@@ -225,9 +225,15 @@ public sealed class UnifiedDetailComponentTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("tl-media-overview-panel", source);
-        Assert.Contains("tl-media-overview-about-panel", source);
-        Assert.Contains("tl-media-overview-credits-panel", source);
+        Assert.Contains("tl-media-overview-card", source);
+        Assert.Contains("tl-media-overview-card__top", source);
+        Assert.Contains("tl-media-overview-card__summary", source);
+        Assert.Contains("tl-media-overview-card__credits", source);
         Assert.Contains("SeriesPlacementPanel", source);
+        Assert.Contains("Compact=\"true\"", source);
+        Assert.Contains("MoreLikeThisItems", source);
+        Assert.Contains("More Like This", source);
+        Assert.DoesNotContain("tl-media-overview-card__art", source);
         Assert.Contains("BuildVideoCreditGroups", source);
         Assert.Contains("View all cast", source);
         Assert.Contains("View all credits", source);
@@ -241,8 +247,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Replace(\"\\\\n\", \"\\n\", StringComparison.Ordinal)", source);
         Assert.Contains("DescriptionAttribution Attribution=\"Model.DescriptionAttribution\" Compact=\"true\"", source);
         Assert.Contains("width: min(90vw, calc(100% - clamp(2rem, 4vw, 4rem)))", styles);
-        Assert.Contains("grid-template-columns: minmax(18rem, 0.36fr) minmax(0, 0.64fr)", styles);
-        Assert.Contains(".tl-media-overview-panel > .tl-series-placement", styles);
+        Assert.Contains(".tl-detail-tab-panel.tl-media-overview-panel", styles);
+        Assert.Contains("grid-template-columns: 1fr", styles);
+        Assert.Contains(".tl-media-overview-card__top", styles);
+        Assert.Contains(".tl-media-overview-card__series .tl-series-placement--compact", styles);
+        Assert.Contains(".tl-overview-related-strip", styles);
         Assert.Contains(".tl-overview-credit-grid", styles);
         Assert.Contains("white-space: pre-line", styles);
         Assert.Contains(".tl-detail-copy p", styles);
@@ -312,6 +321,10 @@ public sealed class UnifiedDetailComponentTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("<h2>@SeriesTitleDisplay</h2>", source);
+        Assert.Contains("[Parameter] public bool Compact { get; set; }", source);
+        Assert.Contains("tl-series-placement--compact", source);
+        Assert.Contains("@(Compact ? SeriesTitleDisplay : \"Series\")", source);
+        Assert.Contains("item.IsCurrent && !Compact", source);
         Assert.DoesNotContain("Part of", source);
         Assert.Contains("TitleCaseDisplay(Placement.SeriesTitle)", source);
         Assert.Contains("VisibleItems", source);

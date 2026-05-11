@@ -10,9 +10,16 @@
         <div>
             <div class="tl-series-eyebrow">
                 <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
-                <span>Series</span>
+                <span>@(Compact ? SeriesTitleDisplay : "Series")</span>
+                @if (Compact)
+                {
+                    <small>@PositionSummary</small>
+                }
             </div>
-            <h2>@SeriesTitleDisplay</h2>
+            @if (!Compact)
+            {
+                <h2>@SeriesTitleDisplay</h2>
+            }
             @if (Placement.CanChooseSeries)
             {
                 <div class="tl-series-selector">
@@ -78,7 +85,7 @@
                                 <span>Not in library</span>
                             </div>
                         }
-                        @if (item.IsCurrent)
+                        @if (item.IsCurrent && !Compact)
                         {
                             <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
                         }
@@ -115,6 +122,7 @@
 @code {
     [Parameter, EditorRequired] public SeriesPlacementViewModel Placement { get; set; } = default!;
     [Parameter] public EventCallback<SeriesOptionViewModel> OnSeriesSelected { get; set; }
+    [Parameter] public bool Compact { get; set; }
 
     private const int LongSeriesThreshold = 9;
     private const int WindowSize = 7;
@@ -123,7 +131,7 @@
     private bool _canCurateSeries;
     private bool _settingDefault;
 
-    private string PanelClass => $"{MediaShapeClass}{(IsLongSeries ? " tl-series-placement--long" : string.Empty)}";
+    private string PanelClass => $"{MediaShapeClass}{(IsLongSeries ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
     private string MediaShapeClass => Placement.CurrentItem.EntityType switch
     {
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",

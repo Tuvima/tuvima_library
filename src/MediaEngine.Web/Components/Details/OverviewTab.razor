@@ -52,70 +52,110 @@
     }
     else
     {
-        <section class="tl-detail-panel tl-media-overview-about-panel">
-            <div class="tl-section-heading"><h2>Overview</h2></div>
+        <section class="tl-detail-panel tl-media-overview-card">
             @{
                 var paragraphs = OverviewParagraphs(Model.Description);
             }
-            @if (paragraphs.Count == 0)
-            {
-                <p class="tl-detail-empty">No overview is available yet.</p>
-            }
-            else
-            {
-                <div class="tl-detail-copy tl-media-overview-copy">
-                    @foreach (var paragraph in paragraphs)
+
+            <div class="tl-media-overview-card__top">
+                <div class="tl-media-overview-card__summary">
+                    <h2>@Model.Title</h2>
+                    @if (paragraphs.Count == 0)
                     {
-                        <p>@paragraph</p>
+                        <p class="tl-detail-empty">No overview is available yet.</p>
                     }
-                </div>
-                <DescriptionAttribution Attribution="Model.DescriptionAttribution" Compact="true" />
-            }
-        </section>
-
-        @if (Model.SeriesPlacement is not null)
-        {
-            <SeriesPlacementPanel Placement="Model.SeriesPlacement" OnSeriesSelected="OnSeriesSelected" />
-        }
-
-        <section class="tl-detail-panel tl-media-overview-credits-panel">
-            <div class="tl-section-heading"><h2>@CreditPanelTitle</h2></div>
-            @if (Model.ContributorGroups.Count == 0 && Model.CharacterGroups.Count == 0)
-            {
-                <p class="tl-detail-empty">No linked people are available yet.</p>
-            }
-            else
-            {
-                <div class="tl-media-overview-credits-list">
-                    @foreach (var group in OverviewCreditGroups)
+                    else
                     {
-                        <div class="tl-overview-credit-group">
-                            <div class="tl-overview-credit-group__heading">
-                                <h3>@group.Title</h3>
-                                <span>@group.TotalCount</span>
-                            </div>
-                            <div class="tl-overview-credit-grid">
-                                @foreach (var credit in group.Credits)
-                                {
-                                    <PersonCreditCard Credit="credit" Compact="true" />
-                                }
-                            </div>
+                        <div class="tl-detail-copy tl-media-overview-copy">
+                            @foreach (var paragraph in paragraphs)
+                            {
+                                <p>@paragraph</p>
+                            }
                         </div>
+                        <DescriptionAttribution Attribution="Model.DescriptionAttribution" Compact="true" />
                     }
                 </div>
 
-                @if (ShowCastTabLink)
-                {
-                    <button type="button" class="tl-credit-group__toggle" @onclick="@(() => OnTabRequested.InvokeAsync("cast"))">
-                        View all cast
-                    </button>
-                }
-                else if (ShowInlineCreditsToggle)
-                {
-                    <button type="button" class="tl-credit-group__toggle" @onclick="ToggleCreditsExpanded">
-                        @(_creditsExpanded ? "Show fewer credits" : "View all credits")
-                    </button>
-                }
+                <div class="tl-media-overview-card__credits">
+                    <div class="tl-media-overview-card__credits-heading">
+                        <h2>@CreditPanelTitle</h2>
+                        @if (ShowCastTabLink)
+                        {
+                            <button type="button" @onclick="@(() => OnTabRequested.InvokeAsync("cast"))">
+                                View all cast
+                            </button>
+                        }
+                    </div>
+
+                    @if (Model.ContributorGroups.Count == 0 && Model.CharacterGroups.Count == 0)
+                    {
+                        <p class="tl-detail-empty">No linked people are available yet.</p>
+                    }
+                    else
+                    {
+                        <div class="tl-media-overview-credits-list">
+                            @foreach (var group in OverviewCreditGroups)
+                            {
+                                <div class="tl-overview-credit-group">
+                                    <div class="tl-overview-credit-group__heading">
+                                        <h3>@group.Title</h3>
+                                        <span>@group.TotalCount</span>
+                                    </div>
+                                    <div class="tl-overview-credit-grid">
+                                        @foreach (var credit in group.Credits)
+                                        {
+                                            <PersonCreditCard Credit="credit" Compact="true" />
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        @if (ShowInlineCreditsToggle)
+                        {
+                            <button type="button" class="tl-credit-group__toggle" @onclick="ToggleCreditsExpanded">
+                                @(_creditsExpanded ? "Show fewer credits" : "View all credits")
+                            </button>
+                        }
+                    }
+                </div>
+            </div>
+
+            @if (Model.SeriesPlacement is not null)
+            {
+                <div class="tl-media-overview-card__series">
+                    <SeriesPlacementPanel Placement="Model.SeriesPlacement" OnSeriesSelected="OnSeriesSelected" Compact="true" />
+                </div>
+            }
+            else if (MoreLikeThisItems.Count > 0)
+            {
+                <div class="tl-media-overview-card__more-like-this">
+                    <div class="tl-media-overview-card__row-heading">
+                        <h2>More Like This</h2>
+                    </div>
+                    <div class="tl-overview-related-strip">
+                        @foreach (var item in MoreLikeThisItems)
+                        {
+                            <article class="tl-overview-related-item">
+                                <div class="tl-overview-related-item__art">
+                                    @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                                    {
+                                        <img src="@item.ArtworkUrl" alt="@item.Title" />
+                                    }
+                                    else
+                                    {
+                                        <GeneratedIdentity Name="@item.Title" />
+                                    }
+                                </div>
+                                <h3>@item.Title</h3>
+                                @if (!string.IsNullOrWhiteSpace(item.Description))
+                                {
+                                    <p>@item.Description</p>
+                                }
+                            </article>
+                        }
+                    </div>
+                </div>
             }
         </section>
     }
@@ -135,6 +175,16 @@
         DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Cast",
         _ => "Credits",
     };
+
+    private IReadOnlyList<MediaGroupingItemViewModel> MoreLikeThisItems =>
+        Model.MediaGroups
+            .Where(group => !string.Equals(group.Key, "series", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(group => group.Items)
+            .Where(item => !string.Equals(item.Id, Model.Id, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Take(8)
+            .ToList();
 
     private IReadOnlyList<(string Label, string Value)> QuickFacts
     {
