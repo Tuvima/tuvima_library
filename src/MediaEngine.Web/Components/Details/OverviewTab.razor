@@ -77,15 +77,26 @@
                 </div>
 
                 <div class="tl-media-overview-card__credits">
-                    <div class="tl-media-overview-card__credits-heading">
-                        <h2>@CreditPanelTitle</h2>
-                        @if (ShowCastTabLink)
-                        {
+                    @if (ShowCreditsHeader)
+                    {
+                        <div class="tl-media-overview-card__credits-heading">
+                            <h2>@CreditPanelTitle</h2>
+                            @if (ShowCastTabLink)
+                            {
+                                <button type="button" @onclick="@(() => OnTabRequested.InvokeAsync("cast"))">
+                                    View all cast
+                                </button>
+                            }
+                        </div>
+                    }
+                    else if (ShowCastTabLink)
+                    {
+                        <div class="tl-media-overview-card__credits-heading tl-media-overview-card__credits-heading--link-only">
                             <button type="button" @onclick="@(() => OnTabRequested.InvokeAsync("cast"))">
                                 View all cast
                             </button>
-                        }
-                    </div>
+                        </div>
+                    }
 
                     @if (Model.ContributorGroups.Count == 0 && Model.CharacterGroups.Count == 0)
                     {
@@ -93,13 +104,16 @@
                     }
                     else
                     {
-                        <div class="tl-media-overview-credits-list">
+                        <div class="@OverviewCreditsListClass">
                             @foreach (var group in OverviewCreditGroups)
                             {
-                                <div class="tl-overview-credit-group">
+                                <div class="@OverviewCreditGroupClass(group)">
                                     <div class="tl-overview-credit-group__heading">
                                         <h3>@group.Title</h3>
-                                        <span>@group.TotalCount</span>
+                                        @if (ShowCreditCounts)
+                                        {
+                                            <span>@group.TotalCount</span>
+                                        }
                                     </div>
                                     <div class="tl-overview-credit-grid">
                                         @foreach (var credit in group.Credits)
@@ -236,28 +250,38 @@
                     new HashSet<CreditGroupType> { CreditGroupType.Writers, CreditGroupType.Illustrators, CreditGroupType.CreativeTeam });
 
             return Model.ContributorGroups
-                .Select(group => ToOverviewGroup(group, group.Credits.Take(group.InitialVisibleCount).ToList()))
+                .Select(group =>
+                {
+                    var count = ShouldShowAllOverviewCredits ? group.Credits.Count : group.InitialVisibleCount;
+                    return ToOverviewGroup(group, group.Credits.Take(count).ToList());
+                })
                 .Where(group => group.Credits.Count > 0)
                 .ToList();
         }
     }
 
     private bool IsVideo => Model.EntityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+    private bool IsTv => Model.EntityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
     private bool IsBookish => Model.EntityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work;
     private bool IsComic => Model.EntityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries;
+    private bool ShowCreditsHeader => !IsBookish && !IsVideo;
+    private bool ShowCreditCounts => !IsBookish && !IsVideo;
+    private string OverviewCreditsListClass => $"tl-media-overview-credits-list{(IsBookish ? " tl-media-overview-credits-list--bookish" : string.Empty)}{(IsVideo ? " tl-media-overview-credits-list--video" : string.Empty)}";
 
     private bool ShowCastTabLink => IsVideo
         && (TotalCredits(CreditGroupType.Cast) > 0 || Model.CharacterGroups.Count > 0);
 
     private bool ShowInlineCreditsToggle => !IsVideo && HiddenOverviewCreditCount > 0;
 
+    private bool ShouldShowAllOverviewCredits => !IsVideo && RawHiddenOverviewCreditCount <= 1;
+
     private int HiddenOverviewCreditCount
+        => _creditsExpanded || ShouldShowAllOverviewCredits ? 0 : RawHiddenOverviewCreditCount;
+
+    private int RawHiddenOverviewCreditCount
     {
         get
         {
-            if (_creditsExpanded)
-                return 0;
-
             if (IsBookish)
                 return Model.ContributorGroups.Where(group => group.GroupType is not CreditGroupType.Authors and not CreditGroupType.Narrators).Sum(group => group.Credits.Count);
             if (IsComic)
@@ -270,22 +294,33 @@
     private IReadOnlyList<OverviewCreditGroup> BuildVideoCreditGroups()
     {
         var groups = new List<OverviewCreditGroup>();
-        var directors = CreditsFor(CreditGroupType.Directors).Take(2).ToList();
+        var directors = IsTv ? [] : CreditsFor(CreditGroupType.Directors).Take(2).ToList();
         if (directors.Count > 0)
             groups.Add(new OverviewCreditGroup("Director", directors, TotalCredits(CreditGroupType.Directors)));
 
         var cast = CreditsFor(CreditGroupType.Cast).Take(8).ToList();
         if (cast.Count > 0)
-            groups.Add(new OverviewCreditGroup("Top Cast", cast, TotalCredits(CreditGroupType.Cast)));
+            groups.Add(new OverviewCreditGroup("Cast", cast, TotalCredits(CreditGroupType.Cast)));
 
         return groups;
+    }
+
+    private string OverviewCreditGroupClass(OverviewCreditGroup group)
+    {
+        var classes = "tl-overview-credit-group";
+        if (IsVideo && string.Equals(group.Title, "Director", StringComparison.OrdinalIgnoreCase))
+            classes += " tl-overview-credit-group--director";
+        if (IsVideo && string.Equals(group.Title, "Cast", StringComparison.OrdinalIgnoreCase))
+            classes += " tl-overview-credit-group--cast";
+        return classes;
     }
 
     private IReadOnlyList<OverviewCreditGroup> BuildPrimaryThenExpandableGroups(
         IReadOnlySet<CreditGroupType> primaryTypes,
         IReadOnlySet<CreditGroupType> collapsedTypes)
     {
-        IReadOnlySet<CreditGroupType> visibleTypes = _creditsExpanded
+        var showAllCredits = _creditsExpanded || ShouldShowAllOverviewCredits;
+        IReadOnlySet<CreditGroupType> visibleTypes = showAllCredits
             ? Model.ContributorGroups.Select(group => group.GroupType).ToHashSet()
             : collapsedTypes;
 
@@ -296,7 +331,7 @@
             .ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
-                var count = _creditsExpanded || primaryTypes.Contains(group.GroupType)
+                var count = showAllCredits || primaryTypes.Contains(group.GroupType)
                     ? group.Credits.Count
                     : group.InitialVisibleCount;
                 return ToOverviewGroup(group, group.Credits.Take(count).ToList());
@@ -369,9 +404,10 @@
 
     private static IReadOnlyList<string> SplitLongParagraph(string value)
     {
-        var sentences = value
-            .Split(". ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select((sentence, index) => index == 0 || sentence.EndsWith(".", StringComparison.Ordinal) ? sentence : $". {sentence}")
+        var sentences = System.Text.RegularExpressions.Regex
+            .Split(value, @"(?<=\.)\s+")
+            .Select(sentence => sentence.Trim())
+            .Where(sentence => sentence.Length > 0)
             .ToList();
 
         var paragraphs = new List<string>();
@@ -384,7 +420,7 @@
                 current.Clear();
             }
 
-            if (current.Length > 0 && !sentence.StartsWith(".", StringComparison.Ordinal))
+            if (current.Length > 0)
                 current.Append(' ');
 
             current.Append(sentence);

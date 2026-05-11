@@ -94,7 +94,7 @@
 
             @if (HeroCreditLines.Count > 0)
             {
-                <div class="tl-detail-hero-credit-stack" aria-label="Primary credits">
+                <div class="@HeroCreditStackClass" aria-label="Primary credits">
                     @foreach (var line in HeroCreditLines)
                     {
                         <div class="tl-detail-hero-credit-stack__line">
@@ -155,6 +155,9 @@
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
     private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
+    private string HeroCreditStackClass => Model.EntityType == DetailEntityType.Audiobook
+        ? "tl-detail-hero-credit-stack tl-detail-hero-credit-stack--audiobook"
+        : "tl-detail-hero-credit-stack";
     private bool HasHeroBrand => Model.HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
     private bool CanInlineEdit => Model.EntityType is DetailEntityType.Work

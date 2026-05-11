@@ -156,6 +156,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.Movie => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"people\"", source);
         Assert.Contains("DetailEntityType.TvShow => [\"episodes\", \"overview\", \"cast\", \"universe\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.TvSeason => [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.ComicIssue => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("sync-settings", source);
     }
 
@@ -244,7 +248,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("private sealed class UniversePerformerRow", source);
         Assert.Contains("DetailEntityType.Movie => directors.Take(1).Concat(cast.Take(5)).ToList()", source);
         Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => cast.Take(5).ToList()", source);
-        Assert.Contains("Title = \"Primary Cast\"", source);
+        Assert.Contains("Title = \"Actors\"", source);
         Assert.Contains(") AS RootWorkQid", creditSource);
         Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, db, ct)", creditSource);
         Assert.Contains("BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, canonicalArrayRepo, personRepo, ct)", creditSource);
@@ -274,6 +278,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("FROM series_members", source);
         Assert.Contains("MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, workId, entityType, ct)", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
+        Assert.DoesNotContain("if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))", source);
         Assert.Contains("Missing from library", source);
     }
 
@@ -323,6 +328,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("CreditGroupType.MusicCredits", source);
         Assert.Contains("CreditGroupType.Illustrators", source);
         Assert.Contains("BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name)", source);
+        Assert.Contains("ShouldShowContributorGroup(entityType, group)", source);
+        Assert.Contains("return group.GroupType == CreditGroupType.Cast;", source);
+        Assert.Contains("Title = \"Actors\"", source);
+        Assert.Contains("CreditGroupType.Directors", source);
 
         Assert.Contains("BuildFallbackCreditsFromMetadataClaimsAsync", creditSource);
         Assert.Contains("mc.claim_key IN ('cast_member', 'cast_member_qid')", creditSource);

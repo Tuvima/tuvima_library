@@ -81,9 +81,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("(R: 4, G: 7, B: 12)", presentation);
         Assert.Contains("(R: 220, G: 165, B: 62)", presentation);
         Assert.Contains("--hero-shadow-rgb:0, 3, 5", presentation);
-        Assert.Contains("isWatchHero ? null : model.Subtitle", presentation);
+        Assert.Contains("ResolveSubtitle(model, isWatchHero)", presentation);
+        Assert.Contains("model.EntityType == DetailEntityType.Audiobook", presentation);
         Assert.Contains("<HeroProgressBlock Progress=\"Presentation.Progress\" />", hero);
         Assert.Contains("HeroCreditLines", hero);
+        Assert.Contains("tl-detail-hero-credit-stack--audiobook", hero);
         Assert.Contains("CreditGroupType.Narrators", hero);
         Assert.Contains("CreditGroupType.Illustrators", hero);
         Assert.Contains("CreditGroupType.PrimaryArtists", hero);
@@ -188,6 +190,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains(".tl-detail-actions--watch .tl-detail-action--primary", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch)", styles);
+        Assert.Contains("tl-detail-hero-credit-stack--audiobook", styles);
         Assert.Contains("tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback", styles);
         Assert.Contains("overflow: visible", styles);
         Assert.Contains("height: min(47rem, 78vh)", styles);
@@ -235,6 +238,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("More Like This", source);
         Assert.DoesNotContain("tl-media-overview-card__art", source);
         Assert.Contains("BuildVideoCreditGroups", source);
+        Assert.Contains("IsTv ? [] : CreditsFor(CreditGroupType.Directors)", source);
+        Assert.Contains("new OverviewCreditGroup(\"Cast\"", source);
+        Assert.Contains("tl-media-overview-credits-list--bookish", source);
+        Assert.Contains("tl-media-overview-credits-list--video", source);
         Assert.Contains("View all cast", source);
         Assert.Contains("View all credits", source);
         Assert.Contains("CreditGroupType.Authors", source);
@@ -253,6 +260,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains(".tl-media-overview-card__series .tl-series-placement--compact", styles);
         Assert.Contains(".tl-overview-related-strip", styles);
         Assert.Contains(".tl-overview-credit-grid", styles);
+        Assert.Contains(".tl-media-overview-credits-list--bookish", styles);
+        Assert.Contains(".tl-media-overview-credits-list--video", styles);
+        Assert.Contains("font-size: 0.96rem", styles);
         Assert.Contains("white-space: pre-line", styles);
         Assert.Contains(".tl-detail-copy p", styles);
     }
@@ -293,6 +303,7 @@ public sealed class UnifiedDetailComponentTests
         var card = ReadSource("src/MediaEngine.Web/Components/Details/PersonCreditCard.razor");
         var avatar = ReadSource("src/MediaEngine.Web/Components/Details/PersonAvatar.razor");
         var group = ReadSource("src/MediaEngine.Web/Components/Details/CreditGroupSection.razor");
+        var appStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
         Assert.DoesNotContain("<PeoplePreviewStrip", detailPage);
@@ -301,6 +312,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("PersonAvatar", card);
         Assert.Contains("@onerror=\"HandleImageError\"", avatar);
         Assert.Contains("tl-credit-group__toggle", group);
+        Assert.Contains(".tl-credit-card__image .tl-person-avatar", appStyles);
+        Assert.Contains("aspect-ratio: 1 / 1", appStyles);
+        Assert.Contains("linear-gradient(to top", appStyles);
     }
 
     [Fact]
@@ -342,6 +356,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Current position", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("tl-series-item__current-badge", source);
         Assert.Contains("tl-series-item__node", source);
+        Assert.Contains("SeriesItemRoute(item)", source);
+        Assert.Contains("href=\"@route\"", source);
+        Assert.Contains("private int TotalItems => Placement.OrderedItems.Count", source);
         Assert.Contains("tl-series-placement--long", source);
         Assert.Contains("LongSeriesThreshold = 9", source);
         Assert.DoesNotContain("tl-series-item__owned-badge", source);
@@ -357,8 +374,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-item__current-badge", styles);
         Assert.DoesNotContain("tl-series-item__owned-badge", styles);
         Assert.Contains("tl-series-owned-summary", styles);
-        Assert.Contains("minmax(3.25rem, auto)", styles);
-        Assert.Contains("-webkit-line-clamp: 3", styles);
+        Assert.Contains("minmax(3rem, auto)", styles);
+        Assert.Contains("-webkit-line-clamp: 4", styles);
+        Assert.Contains("a.tl-series-item", styles);
         Assert.Contains("padding-bottom: 1.4rem", styles);
     }
 

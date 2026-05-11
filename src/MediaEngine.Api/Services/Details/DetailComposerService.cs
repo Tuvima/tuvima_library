@@ -580,7 +580,7 @@ public sealed class DetailComposerService
 
     private async Task<WorkContributorResult> BuildWorkContributorsAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, CancellationToken ct)
     {
-        var cast = entityType is DetailEntityType.Movie or DetailEntityType.TvEpisode or DetailEntityType.TvShow
+        var cast = entityType is DetailEntityType.Movie or DetailEntityType.TvEpisode or DetailEntityType.TvSeason or DetailEntityType.TvShow
             ? await CastCreditQueries.BuildForWorkAsync(workId, _canonicalArrays, _persons, _db, ct)
             : [];
 
@@ -665,25 +665,13 @@ public sealed class DetailComposerService
                 IsCanonical = !string.IsNullOrWhiteSpace(credit.WikidataQid),
             }).ToList();
 
-            var primaryCast = castCredits.Take(8).ToList();
-            if (primaryCast.Count > 0)
+            if (castCredits.Count > 0)
             {
                 groups.Add(new CreditGroupViewModel
                 {
-                    Title = "Primary Cast",
+                    Title = "Actors",
                     GroupType = CreditGroupType.Cast,
-                    Credits = primaryCast,
-                });
-            }
-
-            var supportingCast = castCredits.Skip(8).ToList();
-            if (supportingCast.Count > 0)
-            {
-                groups.Add(new CreditGroupViewModel
-                {
-                    Title = "Supporting Cast",
-                    GroupType = CreditGroupType.Cast,
-                    Credits = supportingCast,
+                    Credits = castCredits,
                 });
             }
         }
@@ -696,6 +684,7 @@ public sealed class DetailComposerService
         IReadOnlyList<CreditGroupViewModel> groups)
     {
         return groups
+            .Where(group => ShouldShowContributorGroup(entityType, group))
             .Select(group =>
             {
                 var presentation = ResolveGroupPresentation(entityType, group);
@@ -714,6 +703,16 @@ public sealed class DetailComposerService
             .ToList();
     }
 
+    private static bool ShouldShowContributorGroup(
+        DetailEntityType entityType,
+        CreditGroupViewModel group)
+    {
+        if (entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode)
+            return group.GroupType == CreditGroupType.Cast;
+
+        return true;
+    }
+
     private static (string Title, int Priority, bool IsInitiallyExpanded, int InitialVisibleCount) ResolveGroupPresentation(
         DetailEntityType entityType,
         CreditGroupViewModel group)
@@ -721,16 +720,16 @@ public sealed class DetailComposerService
         var isVideo = entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode or DetailEntityType.Universe;
         if (isVideo)
         {
-            if (group.GroupType == CreditGroupType.Cast && group.Title.Contains("Primary", StringComparison.OrdinalIgnoreCase))
-                return (group.Title, 0, true, 8);
             if (group.GroupType == CreditGroupType.Directors)
-                return ("Directors", 1, true, 4);
+                return ("Director", 0, true, 2);
+            if (group.GroupType == CreditGroupType.Cast)
+                return ("Actors", 1, true, 12);
             if (group.GroupType == CreditGroupType.Writers)
                 return ("Writers", 2, false, 4);
+            if (group.GroupType == CreditGroupType.Producers)
+                return ("Producers", 3, false, 4);
             if (group.GroupType == CreditGroupType.MusicCredits)
-                return ("Music", 3, false, 3);
-            if (group.GroupType == CreditGroupType.Cast)
-                return (group.Title, 4, false, 4);
+                return ("Music", 4, false, 3);
             return (group.Title, 8, false, 4);
         }
 
@@ -779,30 +778,15 @@ public sealed class DetailComposerService
         if (credits.Count == 0)
             return [];
 
-        var groups = new List<CreditGroupViewModel>();
-        var primaryCast = credits.Take(8).ToList();
-        if (primaryCast.Count > 0)
-        {
-            groups.Add(new CreditGroupViewModel
+        return
+        [
+            new CreditGroupViewModel
             {
-                Title = "Primary Cast",
+                Title = "Actors",
                 GroupType = CreditGroupType.Cast,
-                Credits = primaryCast,
-            });
-        }
-
-        var supportingCast = credits.Skip(8).ToList();
-        if (supportingCast.Count > 0)
-        {
-            groups.Add(new CreditGroupViewModel
-            {
-                Title = "Supporting Cast",
-                GroupType = CreditGroupType.Cast,
-                Credits = supportingCast,
-            });
-        }
-
-        return groups;
+                Credits = credits,
+            },
+        ];
     }
 
     private async Task<IReadOnlyList<ContributorEntry>> LoadContributorEntriesAsync(
@@ -1378,7 +1362,7 @@ public sealed class DetailComposerService
                 continue;
             }
 
-            if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))
+            if (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid))
                 continue;
 
             if (position.HasValue && ownedPositions.Contains(position.Value))
@@ -2198,17 +2182,18 @@ public sealed class DetailComposerService
         string[] keys = entityType switch
         {
             DetailEntityType.TvShow => ["episodes", "overview", "cast", "universe", "details"],
-            DetailEntityType.TvSeason => ["episodes", "overview", "details"],
+            DetailEntityType.TvSeason => ["episodes", "overview", "cast", "details"],
             DetailEntityType.Movie when hasSeries => ["overview", "cast", "universe", "related", "details"],
             DetailEntityType.Movie => ["overview", "cast", "universe", "related", "details"],
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "universe", "details"],
-            DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["overview", "chapters", "universe", "editions", "details"],
-            DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "chapters", "universe", "editions", "details"],
-            DetailEntityType.Work when hasSeries => ["overview", "formats", "chapters", "universe", "editions", "details"],
-            DetailEntityType.Work => ["overview", "formats", "chapters", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue when hasSeries => ["overview", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue => ["overview", "universe", "editions", "details"],
+            DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["overview", "credits", "chapters", "universe", "editions", "details"],
+            DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "credits", "chapters", "universe", "editions", "details"],
+            DetailEntityType.Work when hasSeries => ["overview", "credits", "formats", "chapters", "universe", "editions", "details"],
+            DetailEntityType.Work => ["overview", "credits", "formats", "chapters", "universe", "editions", "details"],
+            DetailEntityType.ComicIssue when hasSeries => ["overview", "credits", "universe", "editions", "details"],
+            DetailEntityType.ComicIssue => ["overview", "credits", "universe", "editions", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "credits", "related", "details"],
+            DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicArtist when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "related", "details"],
             DetailEntityType.Person => ["details"],
             DetailEntityType.Character => ["overview", "appearances", "portrayals", "relationships", "universe", "details"],

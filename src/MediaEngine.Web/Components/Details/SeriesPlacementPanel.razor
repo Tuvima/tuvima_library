@@ -68,30 +68,19 @@
         <div class="tl-series-strip" style="@SeriesGridStyle" aria-label="@Placement.SeriesTitle series order">
             @foreach (var item in VisibleItems)
             {
-                <article class="tl-series-item @(item.IsCurrent ? "is-current" : null) @(item.IsOwned ? "is-owned" : "is-missing")">
-                    <div class="tl-series-item__position">
-                        <span class="tl-series-item__node">@SeriesNumber(item)</span>
-                    </div>
-
-                    <div class="tl-series-item__art">
-                        @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-                        {
-                            <img src="@item.ArtworkUrl" alt="@item.Title" />
-                        }
-                        else
-                        {
-                            <div class="tl-series-item__missing-art" aria-label="Missing from library">
-                                <MudIcon Icon="@MissingIcon" Size="Size.Large" />
-                                <span>Not in library</span>
-                            </div>
-                        }
-                        @if (item.IsCurrent && !Compact)
-                        {
-                            <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
-                        }
-                    </div>
-                    <div class="tl-series-item__title">@SeriesItemTitle(item)</div>
-                </article>
+                var route = SeriesItemRoute(item);
+                if (route is not null)
+                {
+                    <a class="@SeriesItemClass(item)" href="@route" aria-label="Open @SeriesItemTitle(item)">
+                        @SeriesItemContent(item)
+                    </a>
+                }
+                else
+                {
+                    <article class="@SeriesItemClass(item)">
+                        @SeriesItemContent(item)
+                    </article>
+                }
             }
         </div>
         <MudIconButton Class="@RightArrowClass"
@@ -142,7 +131,7 @@
 
     private int OwnedCount => Placement.OrderedItems.Count(item => item.IsOwned);
     private int MissingCount => Math.Max(0, Placement.OrderedItems.Count - OwnedCount);
-    private int TotalItems => Placement.TotalKnownItems ?? Placement.OrderedItems.Count;
+    private int TotalItems => Placement.OrderedItems.Count;
     private string CurrentPositionText => (Placement.PositionNumber ?? Placement.CurrentItem.PositionNumber)?.ToString() ?? SeriesNumber(Placement.CurrentItem);
     private string PositionSummary => $"{CurrentPositionText} of {TotalItems} in series";
     private string SeriesTitleDisplay => TitleCaseDisplay(Placement.SeriesTitle);
@@ -227,6 +216,53 @@
 
     private string SeriesItemTitle(SeriesItemViewModel item)
         => FirstNonBlank(item.Title, $"{ItemNoun} {SeriesNumber(item)}")!;
+
+    private string SeriesItemClass(SeriesItemViewModel item)
+        => $"tl-series-item{(item.IsCurrent ? " is-current" : string.Empty)}{(item.IsOwned ? " is-owned" : " is-missing")}{(SeriesItemRoute(item) is not null ? " is-clickable" : string.Empty)}";
+
+    private string? SeriesItemRoute(SeriesItemViewModel item)
+    {
+        if (!item.IsOwned || item.IsCurrent || !Guid.TryParse(item.Id, out var id))
+            return null;
+
+        return $"/details/{ToRouteEntityType(item.EntityType)}/{id:D}?context={ContextKey(item.EntityType)}";
+    }
+
+    private RenderFragment SeriesItemContent(SeriesItemViewModel item) => @<text>
+        <div class="tl-series-item__position">
+            <span class="tl-series-item__node">@SeriesNumber(item)</span>
+        </div>
+
+        <div class="tl-series-item__art">
+            @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+            {
+                <img src="@item.ArtworkUrl" alt="@item.Title" />
+            }
+            else
+            {
+                <div class="tl-series-item__missing-art" aria-label="Missing from library">
+                    <MudIcon Icon="@MissingIcon" Size="Size.Large" />
+                    <span>Not in library</span>
+                </div>
+            }
+            @if (item.IsCurrent && !Compact)
+            {
+                <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
+            }
+        </div>
+        <div class="tl-series-item__title">@SeriesItemTitle(item)</div>
+    </text>;
+
+    private static string ToRouteEntityType(DetailEntityType entityType)
+        => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();
+
+    private static string ContextKey(DetailEntityType entityType) => entityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries or DetailEntityType.Work => "read",
+        _ => "default",
+    };
 
     private static string SeriesNumber(SeriesItemViewModel item)
         => item.PositionNumber?.ToString() ?? FirstNonBlank(item.PositionLabel, "?")!;

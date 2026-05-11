@@ -69,7 +69,7 @@ public sealed class DetailHeroPresentation
             useLogo,
             useLogo ? model.Artwork.LogoUrl : null,
             model.Title,
-            isWatchHero ? null : model.Subtitle,
+            ResolveSubtitle(model, isWatchHero),
             copy,
             model.Progress,
             isWatchHero,
@@ -117,6 +117,14 @@ public sealed class DetailHeroPresentation
 #pragma warning restore CS0618
         _ => mode,
     };
+
+    private static string? ResolveSubtitle(DetailPageViewModel model, bool isWatchHero)
+    {
+        if (isWatchHero || model.EntityType == DetailEntityType.Audiobook)
+            return null;
+
+        return model.Subtitle;
+    }
 
     private static IReadOnlyList<MetadataPill> BuildCapabilityPills(DetailPageViewModel model, bool usePrimaryHeroChrome)
         => usePrimaryHeroChrome
