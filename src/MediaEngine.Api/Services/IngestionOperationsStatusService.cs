@@ -59,6 +59,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         nameof(IdentityJobState.Hydrating),
         nameof(IdentityJobState.UniverseEnriching),
     ];
+    private const int ActivityBatchSize = 50;
 
     private readonly IDatabaseConnection _db;
     private readonly IConfigurationLoader _configLoader;
@@ -141,7 +142,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             var batchPipelineRows = displayBatch?.Id == batch.Id
                 ? scopedPipelineRows
                 : await ReadIdentityStateCountsAsync(batch.Id, ct);
-            activeJobs.Add(ToActiveJob(batch, batchPipelineRows));
+            var batchIngestionRows = displayBatch?.Id == batch.Id
+                ? scopedIngestionRows
+                : await ReadIngestionStatusCountsAsync(batch.Id, ct);
+            var batchStages = BuildPipelineStages(batchPipelineRows, batchIngestionRows, lifecycle, projection, batch);
+            activeJobs.Add(ToActiveJob(batch, batchPipelineRows, batchStages));
         }
 
         var providerDtos = providers
@@ -161,7 +166,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var pipelineStages = BuildPipelineStages(scopedPipelineRows, scopedIngestionRows, lifecycle, projection, displayBatch);
         var currentActivities = displayBatch is null
             ? []
-            : await ReadCurrentActivitiesAsync(displayBatch.Id, pipelineStages, ct);
+            : await ReadTaskActivitiesAsync(displayBatch.Id, pipelineStages, ct);
         if (currentActivities.Count == 0)
         {
             currentActivities = activeJobs
@@ -494,6 +499,339 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .ToList();
     }
 
+    private async Task<List<IngestionCurrentActivityDto>> ReadTaskActivitiesAsync(
+        Guid batchId,
+        IReadOnlyList<IngestionPipelineStageDto> stages,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var rows = (await conn.QueryAsync<CurrentActivityRow>("""
+            WITH latest_jobs AS (
+                SELECT
+                    entity_id,
+                    state,
+                    media_type,
+                    updated_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entity_id
+                        ORDER BY updated_at DESC, created_at DESC
+                    ) AS rn
+                FROM identity_jobs
+                WHERE ingestion_run_id = @batchId
+            )
+            SELECT
+                lj.entity_id AS EntityId,
+                lj.state AS State,
+                lj.media_type AS MediaType,
+                lj.updated_at AS UpdatedAt,
+                ma.file_path_root AS SourcePath,
+                COALESCE(
+                    (
+                        SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = lj.entity_id
+                          AND cv.key IN ('title', 'episode_title')
+                          AND cv.value IS NOT NULL
+                          AND cv.value <> ''
+                        ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = w.id
+                          AND cv.key = 'title'
+                          AND cv.value IS NOT NULL
+                          AND cv.value <> ''
+                        LIMIT 1
+                    ),
+                    ''
+                ) AS Title
+            FROM latest_jobs lj
+            LEFT JOIN media_assets ma ON ma.id = lj.entity_id
+            LEFT JOIN editions e ON e.id = ma.edition_id
+            LEFT JOIN works w ON w.id = e.work_id
+            WHERE lj.rn = 1
+            ORDER BY lj.updated_at DESC;
+            """, new { batchId = batchId.ToString() })).AsList();
+
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var metrics = await conn.QueryFirstOrDefaultAsync<ActivityMetricCounts>("""
+            SELECT
+                (SELECT COUNT(*) FROM canonical_values WHERE key IN ('cover_url', 'poster_url', 'image', 'thumbnail', 'hero_image') AND value IS NOT NULL AND value <> '') AS ArtworkCount,
+                (SELECT COUNT(*) FROM collection_relationships) AS RelationshipCount,
+                (SELECT COUNT(DISTINCT person_id) FROM person_media_links) AS PersonCount,
+                (SELECT COUNT(*) FROM review_queue WHERE status = 'Pending') AS IssueCount;
+            """) ?? new ActivityMetricCounts();
+
+        var result = new List<IngestionCurrentActivityDto>
+        {
+            BuildTaskActivity(
+                "artwork",
+                "Fetching artwork",
+                "Retrieving covers and posters from providers.",
+                "retail",
+                rows,
+                stages,
+                activeStates: [nameof(IdentityJobState.RetailSearching)],
+                relevantStates: [
+                    nameof(IdentityJobState.Queued),
+                    nameof(IdentityJobState.RetailSearching),
+                    ..RetailMatchedStates,
+                    ..RetailReviewStates,
+                    ..RetailNoMatchStates,
+                    nameof(IdentityJobState.Failed),
+                ],
+                completedStates: [..RetailMatchedStates, ..RetailReviewStates, ..RetailNoMatchStates],
+                reviewStates: [..RetailReviewStates, ..RetailNoMatchStates, nameof(IdentityJobState.Failed)],
+                metricLabel: "Artwork found",
+                metricValue: metrics.ArtworkCount.ToString("N0"),
+                metricTone: "info"),
+            BuildTaskActivity(
+                "wikidata",
+                "Linking Wikidata QIDs",
+                "Matching works to canonical entities.",
+                "wikidata",
+                rows,
+                stages,
+                activeStates: [nameof(IdentityJobState.BridgeSearching)],
+                relevantStates: [
+                    nameof(IdentityJobState.RetailMatched),
+                    nameof(IdentityJobState.BridgeSearching),
+                    ..WikidataResolvedStates,
+                    ..WikidataReviewStates,
+                ],
+                completedStates: WikidataResolvedStates,
+                reviewStates: WikidataReviewStates,
+                metricLabel: "QIDs linked",
+                metricValue: CountStage(stages.ToDictionary(stage => stage.Key, StringComparer.OrdinalIgnoreCase), "canonicalized").ToString("N0"),
+                metricTone: "success"),
+            BuildTaskActivity(
+                "relationships",
+                "Series & relationships",
+                "Building series and relationship graphs.",
+                "enrichment",
+                rows,
+                stages,
+                activeStates: [nameof(IdentityJobState.UniverseEnriching)],
+                relevantStates: [
+                    nameof(IdentityJobState.QidResolved),
+                    nameof(IdentityJobState.Hydrating),
+                    nameof(IdentityJobState.UniverseEnriching),
+                    ..EnrichmentCompleteStates,
+                ],
+                completedStates: EnrichmentCompleteStates,
+                reviewStates: [],
+                metricLabel: "Links created",
+                metricValue: metrics.RelationshipCount.ToString("N0"),
+                metricTone: "success"),
+            BuildTaskActivity(
+                "people",
+                "People & cast enrichment",
+                "Enriching authors, narrators, cast, and characters.",
+                "enrichment",
+                rows,
+                stages,
+                activeStates: [nameof(IdentityJobState.UniverseEnriching)],
+                relevantStates: [
+                    nameof(IdentityJobState.QidResolved),
+                    nameof(IdentityJobState.Hydrating),
+                    nameof(IdentityJobState.UniverseEnriching),
+                    ..EnrichmentCompleteStates,
+                ],
+                completedStates: EnrichmentCompleteStates,
+                reviewStates: [],
+                metricLabel: "People resolved",
+                metricValue: metrics.PersonCount.ToString("N0"),
+                metricTone: "warning"),
+            BuildTaskActivity(
+                "validation",
+                "Metadata validation",
+                "Validating and normalizing metadata.",
+                "summary",
+                rows,
+                stages,
+                activeStates: [nameof(IdentityJobState.Hydrating)],
+                relevantStates: rows.Select(row => row.State).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                completedStates: [
+                    nameof(IdentityJobState.Ready),
+                    nameof(IdentityJobState.ReadyWithoutUniverse),
+                    nameof(IdentityJobState.Completed),
+                ],
+                reviewStates: [
+                    nameof(IdentityJobState.RetailMatchedNeedsReview),
+                    nameof(IdentityJobState.RetailNoMatch),
+                    nameof(IdentityJobState.QidNeedsReview),
+                    nameof(IdentityJobState.QidNoMatch),
+                    nameof(IdentityJobState.Failed),
+                ],
+                metricLabel: "Issues detected",
+                metricValue: metrics.IssueCount.ToString("N0"),
+                metricTone: metrics.IssueCount > 0 ? "danger" : "success"),
+        };
+
+        return result
+            .Where(activity => activity.TotalCount > 0 || activity.ActiveCount > 0 || activity.ProcessedCount > 0)
+            .ToList();
+    }
+
+    private static IngestionCurrentActivityDto BuildTaskActivity(
+        string taskKey,
+        string message,
+        string detail,
+        string progressStageKey,
+        IReadOnlyList<CurrentActivityRow> rows,
+        IReadOnlyList<IngestionPipelineStageDto> stages,
+        IReadOnlyCollection<string> activeStates,
+        IReadOnlyCollection<string> relevantStates,
+        IReadOnlyCollection<string> completedStates,
+        IReadOnlyCollection<string> reviewStates,
+        string metricLabel,
+        string metricValue,
+        string metricTone)
+    {
+        var relevant = rows
+            .Where(row => ContainsState(relevantStates, row.State))
+            .OrderBy(row => TaskSort(row, activeStates, completedStates, reviewStates))
+            .ThenByDescending(row => ParseDate(row.UpdatedAt))
+            .ToList();
+        var active = relevant.Where(row => ContainsState(activeStates, row.State)).ToList();
+        var completed = relevant.Where(row => ContainsState(completedStates, row.State)).ToList();
+        var review = relevant.Where(row => ContainsState(reviewStates, row.State)).ToList();
+        var progress = ResolveActivityProgress(progressStageKey, stages);
+        var total = Math.Max(progress.Total, relevant.Count);
+        var processed = Math.Clamp(Math.Max(progress.Count, completed.Count + review.Count), 0, Math.Max(0, total));
+        var queued = Math.Max(0, total - processed - active.Count);
+        var samples = active.Count > 0 ? active : relevant.Where(row => !ContainsState(completedStates, row.State)).Take(8).ToList();
+        if (samples.Count == 0)
+        {
+            samples = relevant.Take(8).ToList();
+        }
+        var currentItem = samples.Select(DisplayActivityItem).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        return new IngestionCurrentActivityDto
+        {
+            StageKey = taskKey,
+            Message = message,
+            Detail = detail,
+            CurrentItem = currentItem,
+            Source = FirstNonBlank(active.Select(row => ShortPath(row.SourcePath)).FirstOrDefault(), relevant.Select(row => ShortPath(row.SourcePath)).FirstOrDefault()),
+            ProcessedCount = processed,
+            TotalCount = total,
+            PercentComplete = total > 0 ? Math.Clamp(processed * 100d / total, 0, 100) : 0,
+            LastUpdatedTime = LatestUpdated(relevant),
+            QueuedCount = queued,
+            ActiveCount = active.Count,
+            SampleItems = samples.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
+            MetricLabel = metricLabel,
+            MetricValue = metricValue,
+            MetricTone = metricTone,
+            CurrentBatch = BuildCurrentBatch(relevant, activeStates, completedStates, reviewStates),
+        };
+    }
+
+    private static IngestionActivityBatchDto? BuildCurrentBatch(
+        IReadOnlyList<CurrentActivityRow> relevant,
+        IReadOnlyCollection<string> activeStates,
+        IReadOnlyCollection<string> completedStates,
+        IReadOnlyCollection<string> reviewStates)
+    {
+        if (relevant.Count == 0)
+        {
+            return null;
+        }
+
+        var totalBatches = Math.Max(1, (int)Math.Ceiling(relevant.Count / (double)ActivityBatchSize));
+        var firstActiveIndex = IndexOf(relevant, row => ContainsState(activeStates, row.State));
+        var firstPendingIndex = IndexOf(relevant, row =>
+            !ContainsState(activeStates, row.State)
+            && !ContainsState(completedStates, row.State)
+            && !ContainsState(reviewStates, row.State));
+        var startIndex = Math.Max(0, firstActiveIndex >= 0 ? firstActiveIndex : firstPendingIndex >= 0 ? firstPendingIndex : 0);
+        var batchNumber = Math.Min(totalBatches, startIndex / ActivityBatchSize + 1);
+        var batchRows = relevant
+            .Skip((batchNumber - 1) * ActivityBatchSize)
+            .Take(ActivityBatchSize)
+            .ToList();
+
+        var active = batchRows.Where(row => ContainsState(activeStates, row.State)).ToList();
+        var completed = batchRows.Where(row => ContainsState(completedStates, row.State)).ToList();
+        var review = batchRows.Where(row => ContainsState(reviewStates, row.State)).ToList();
+        var pending = batchRows
+            .Where(row => !ContainsState(activeStates, row.State)
+                && !ContainsState(completedStates, row.State)
+                && !ContainsState(reviewStates, row.State))
+            .ToList();
+
+        return new IngestionActivityBatchDto
+        {
+            BatchNumber = batchNumber,
+            BatchSize = batchRows.Count,
+            TotalBatches = totalBatches,
+            CompletedCount = completed.Count,
+            ActiveCount = active.Count,
+            PendingCount = pending.Count,
+            ReviewCount = review.Count,
+            ActiveItems = active.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(6).ToList(),
+            CompletedPreview = completed.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(6).ToList(),
+            PendingPreview = pending.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(6).ToList(),
+            ReviewPreview = review.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(6).ToList(),
+        };
+    }
+
+    private static int TaskSort(
+        CurrentActivityRow row,
+        IReadOnlyCollection<string> activeStates,
+        IReadOnlyCollection<string> completedStates,
+        IReadOnlyCollection<string> reviewStates)
+    {
+        if (ContainsState(activeStates, row.State))
+        {
+            return 0;
+        }
+
+        if (!ContainsState(completedStates, row.State) && !ContainsState(reviewStates, row.State))
+        {
+            return 1;
+        }
+
+        return ContainsState(reviewStates, row.State) ? 2 : 3;
+    }
+
+    private static bool ContainsState(IReadOnlyCollection<string> states, string? state) =>
+        !string.IsNullOrWhiteSpace(state) && states.Contains(state, StringComparer.OrdinalIgnoreCase);
+
+    private static int IndexOf(IReadOnlyList<CurrentActivityRow> rows, Func<CurrentActivityRow, bool> predicate)
+    {
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (predicate(rows[index]))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static DateTimeOffset? LatestUpdated(IReadOnlyList<CurrentActivityRow> rows)
+    {
+        var values = rows
+            .Select(row => ParseDate(row.UpdatedAt))
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .ToList();
+        return values.Count > 0 ? values.Max() : null;
+    }
+
+    private static string DisplayActivityItem(CurrentActivityRow row) =>
+        FirstNonBlank(row.Title, ShortPath(row.SourcePath), row.MediaType, "Current file");
+
     private static List<IngestionReviewReasonDto> BuildReviewReasons(
         IReadOnlyList<ReviewCountRow> reviewRows,
         IReadOnlyDictionary<string, int> triggerCounts)
@@ -654,10 +992,16 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static IngestionOperationsJobDto ToActiveJob(
         IngestionBatch batch,
-        IReadOnlyDictionary<string, int> pipelineRows)
+        IReadOnlyDictionary<string, int> pipelineRows,
+        IReadOnlyList<IngestionPipelineStageDto> stages)
     {
-        var percent = batch.FilesTotal > 0
-            ? Math.Clamp(batch.FilesProcessed * 100d / batch.FilesTotal, 0, 100)
+        var currentStage = ResolveBatchStage(batch, pipelineRows, stages);
+        var stageKey = ResolveActivityStageKey(currentStage);
+        var progress = ResolveActivityProgress(stageKey, stages);
+        var total = Math.Max(0, progress.Total > 0 ? progress.Total : batch.FilesTotal);
+        var processed = Math.Clamp(Math.Max(0, progress.Total > 0 ? progress.Count : batch.FilesProcessed), 0, total);
+        var percent = total > 0
+            ? Math.Clamp(processed * 100d / total, 0, 100)
             : 0;
 
         return new IngestionOperationsJobDto
@@ -666,10 +1010,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             JobType = "Ingestion batch",
             MediaType = batch.Category,
             SourceFolder = batch.SourcePath,
-            CurrentStage = ResolveBatchStage(batch, pipelineRows),
+            CurrentStage = currentStage,
             CurrentItem = null,
-            ProcessedCount = batch.FilesProcessed,
-            TotalCount = batch.FilesTotal,
+            ProcessedCount = processed,
+            TotalCount = total,
             PercentComplete = percent,
             Status = batch.Status,
             Elapsed = DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime(),
@@ -736,19 +1080,19 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static string ResolveActivityStageKey(string? stateOrStage)
     {
         var value = stateOrStage ?? string.Empty;
-        if (value.Contains("Retail", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("match", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("identify", StringComparison.OrdinalIgnoreCase))
-        {
-            return "retail";
-        }
-
         if (value.Contains("Bridge", StringComparison.OrdinalIgnoreCase)
             || value.Contains("Qid", StringComparison.OrdinalIgnoreCase)
             || value.Contains("Wikidata", StringComparison.OrdinalIgnoreCase)
             || value.Contains("canonical", StringComparison.OrdinalIgnoreCase))
         {
             return "wikidata";
+        }
+
+        if (value.Contains("Retail", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("match", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("identify", StringComparison.OrdinalIgnoreCase))
+        {
+            return "retail";
         }
 
         if (value.Contains("Hydrat", StringComparison.OrdinalIgnoreCase)
@@ -785,6 +1129,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             "enrichment" => (
                 CountStage(byKey, "enriched"),
                 TotalStage(byKey, "enriched")),
+            "summary" => (
+                CountStage(byKey, "registered")
+                    + CountStage(byKey, "needs_review")
+                    + CountStage(byKey, "duplicate")
+                    + CountStage(byKey, "skipped")
+                    + CountStage(byKey, "failed"),
+                TotalStage(byKey, "registered")),
             _ => (
                 CountStage(byKey, "detected"),
                 TotalStage(byKey, "detected")),
@@ -969,26 +1320,49 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static string ResolveBatchStage(
         IngestionBatch batch,
-        IReadOnlyDictionary<string, int> pipelineRows)
+        IReadOnlyDictionary<string, int> pipelineRows,
+        IReadOnlyList<IngestionPipelineStageDto> stages)
     {
+        var scanningProgress = ResolveActivityProgress("scanning", stages);
+        var retailProgress = ResolveActivityProgress("retail", stages);
+        var wikidataProgress = ResolveActivityProgress("wikidata", stages);
+        var enrichmentProgress = ResolveActivityProgress("enrichment", stages);
+
+        if (IsIncomplete(scanningProgress))
+        {
+            return "Scanning source folder";
+        }
+
+        if (Count(pipelineRows, nameof(IdentityJobState.RetailSearching)) > 0
+            || Count(pipelineRows, nameof(IdentityJobState.Queued)) > 0)
+        {
+            return "Retail identification";
+        }
+
+        if (Count(pipelineRows, nameof(IdentityJobState.BridgeSearching)) > 0)
+        {
+            return "Wikidata matching";
+        }
+
         if (Count(pipelineRows, nameof(IdentityJobState.Hydrating)) > 0
             || Count(pipelineRows, nameof(IdentityJobState.UniverseEnriching)) > 0)
         {
             return "Enrichment";
         }
 
-        if (Count(pipelineRows, nameof(IdentityJobState.BridgeSearching)) > 0
-            || Count(pipelineRows, nameof(IdentityJobState.QidResolved)) > 0)
+        if (IsIncomplete(retailProgress))
+        {
+            return "Retail identification";
+        }
+
+        if (IsIncomplete(wikidataProgress))
         {
             return "Wikidata matching";
         }
 
-        if (Count(pipelineRows, nameof(IdentityJobState.RetailSearching)) > 0
-            || Count(pipelineRows, nameof(IdentityJobState.RetailMatched)) > 0
-            || Count(pipelineRows, nameof(IdentityJobState.RetailMatchedNeedsReview)) > 0
-            || Count(pipelineRows, nameof(IdentityJobState.Queued)) > 0)
+        if (IsIncomplete(enrichmentProgress))
         {
-            return "Retail identification";
+            return "Enrichment";
         }
 
         if (batch.FilesFailed > 0)
@@ -1008,6 +1382,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         return "Scanning source folder";
     }
+
+    private static bool IsIncomplete((int Count, int Total) progress) =>
+        progress.Total > 0 && progress.Count < progress.Total;
 
     private static string ResolveHealthLabel(int review, int providerWarnings, int failedJobs, int activeJobs)
     {
@@ -1124,6 +1501,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public string? UpdatedAt { get; set; }
         public string? SourcePath { get; set; }
         public string? Title { get; set; }
+    }
+
+    private sealed class ActivityMetricCounts
+    {
+        public int ArtworkCount { get; init; }
+        public int RelationshipCount { get; init; }
+        public int PersonCount { get; init; }
+        public int IssueCount { get; init; }
     }
 
     private sealed class BatchTerminalSnapshot

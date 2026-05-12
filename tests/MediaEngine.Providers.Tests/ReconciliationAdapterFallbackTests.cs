@@ -14,11 +14,19 @@ namespace MediaEngine.Providers.Tests;
 public sealed class ReconciliationAdapterFallbackTests
 {
     [Fact]
-    public void ResolveDisplayLanguage_PrefersFileLanguageWhenDifferent()
+    public void ResolveDisplayLanguage_UsesConfiguredMetadataLanguage()
     {
-        Assert.Equal("ja", ReconciliationAdapter.ResolveDisplayLanguage("en-US", "ja-JP"));
+        Assert.Equal("en", ReconciliationAdapter.ResolveDisplayLanguage("en-US", "ja-JP"));
         Assert.Equal("en", ReconciliationAdapter.ResolveDisplayLanguage("en-US", "en-GB"));
         Assert.Equal("en", ReconciliationAdapter.ResolveDisplayLanguage("en", null));
+    }
+
+    [Fact]
+    public void ResolveSearchLanguage_PrefersFileLanguageWhenDifferent()
+    {
+        Assert.Equal("ja", ReconciliationAdapter.ResolveSearchLanguage("en-US", "ja-JP"));
+        Assert.Equal("en", ReconciliationAdapter.ResolveSearchLanguage("en-US", "en-GB"));
+        Assert.Equal("en", ReconciliationAdapter.ResolveSearchLanguage("en", null));
     }
 
     [Fact]
@@ -149,7 +157,7 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
-    public void BuildBridgeResolutionRequest_UsesFileLanguageForForeignContent()
+    public void BuildBridgeResolutionRequest_UsesFileLanguageForForeignContentSearch()
     {
         var adapter = CreateAdapter();
 
@@ -171,6 +179,66 @@ public sealed class ReconciliationAdapterFallbackTests
         var bridgeRequest = Assert.IsType<BridgeResolutionRequest>(method!.Invoke(adapter, [request]));
 
         Assert.Equal("ja", bridgeRequest.Language);
+    }
+
+    [Fact]
+    public void ValidateP31ForMediaType_RejectsVideoGameForBookMatches()
+    {
+        var adapter = CreateAdapter();
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "ValidateP31ForMediaType",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q7889" }, "Q1133749", MediaType.Books])!;
+
+        Assert.False(accepted);
+    }
+
+    [Fact]
+    public void ValidateP31ForMediaType_AcceptsExpectedBookClass()
+    {
+        var adapter = CreateAdapter();
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "ValidateP31ForMediaType",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q571" }, "Q20070", MediaType.Books])!;
+
+        Assert.True(accepted);
+    }
+
+    [Fact]
+    public void ValidateP31ForMediaType_RejectsHumanForBookMatches()
+    {
+        var adapter = CreateAdapter();
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "ValidateP31ForMediaType",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q5" }, "Q1984", MediaType.Books])!;
+
+        Assert.False(accepted);
+    }
+
+    [Fact]
+    public void ValidateP31ForMediaType_RejectsMissingTypeDataForBookMatches()
+    {
+        var adapter = CreateAdapter();
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "ValidateP31ForMediaType",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var accepted = (bool)method!.Invoke(adapter, [Array.Empty<string>(), "Q1984", MediaType.Books])!;
+
+        Assert.False(accepted);
     }
 
     [Fact]
@@ -237,9 +305,14 @@ public sealed class ReconciliationAdapterFallbackTests
         {
             InstanceOfClasses = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
             {
+                ["Books"] = ["Q7725634", "Q571", "Q8261"],
                 ["Music"] = ["Q105543609", "Q207628", "Q482994"],
                 ["MusicAlbum"] = ["Q482994", "Q208569", "Q222910"],
                 ["Comics"] = ["Q1004", "Q14406742"],
+            },
+            ExcludeClasses = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Books"] = ["Q5", "Q7889", "Q11424", "Q5398426"],
             },
             EditionPivot = new Dictionary<string, EditionPivotRuleEntry>(StringComparer.OrdinalIgnoreCase)
             {

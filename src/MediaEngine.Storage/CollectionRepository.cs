@@ -19,6 +19,13 @@ public sealed class CollectionRepository : ICollectionRepository
 {
     private readonly IDatabaseConnection _db;
 
+    private sealed class WorkLineageIdsRow
+    {
+        public string? LeafWorkId { get; init; }
+        public string? ParentWorkId { get; init; }
+        public string? RootWorkId { get; init; }
+    }
+
     // Reusable SELECT list for single-collection queries (no table prefix needed).
     private const string CollectionSelectColumns = """
         id                AS Id,
@@ -83,6 +90,12 @@ public sealed class CollectionRepository : ICollectionRepository
         h.CollectionType ??= "Universe";
         h.Scope ??= "library";
         return h;
+    }
+
+    private static void AddIfPresent(List<Guid> ids, string? value)
+    {
+        if (Guid.TryParse(value, out var id))
+            ids.Add(id);
     }
 
     // -------------------------------------------------------------------------
@@ -341,6 +354,38 @@ public sealed class CollectionRepository : ICollectionRepository
             """, new { assetId = mediaAssetId.ToString() });
 
         return Task.FromResult(result is null ? null : (Guid?)Guid.Parse(result));
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Guid>> GetWorkLineageIdsByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var row = conn.QueryFirstOrDefault<WorkLineageIdsRow>("""
+            SELECT leaf.id   AS LeafWorkId,
+                   parent.id AS ParentWorkId,
+                   root.id   AS RootWorkId
+            FROM   media_assets ma
+            JOIN   editions e ON e.id = ma.edition_id
+            JOIN   works leaf ON leaf.id = e.work_id
+            LEFT JOIN works parent ON parent.id = leaf.parent_work_id
+            LEFT JOIN works root ON root.id = parent.parent_work_id
+            WHERE  ma.id = @assetId
+            LIMIT  1;
+            """, new { assetId = mediaAssetId.ToString() });
+
+        if (row is null)
+            return Task.FromResult<IReadOnlyList<Guid>>([]);
+
+        var ids = new List<Guid>();
+        AddIfPresent(ids, row.LeafWorkId);
+        AddIfPresent(ids, row.ParentWorkId);
+        AddIfPresent(ids, row.RootWorkId);
+
+        return Task.FromResult<IReadOnlyList<Guid>>(ids
+            .Distinct()
+            .ToList());
     }
 
     /// <inheritdoc/>

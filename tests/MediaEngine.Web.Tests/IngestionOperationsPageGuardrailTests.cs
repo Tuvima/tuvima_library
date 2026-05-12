@@ -324,6 +324,46 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
+    public void ActivityList_RendersAllStructuredTaskRowsAndExpandableBatchSummary()
+    {
+        var activities = new[]
+        {
+            Activity("artwork", "Fetching artwork"),
+            Activity("wikidata", "Linking Wikidata QIDs"),
+            Activity("relationships", "Series & relationships"),
+            Activity("people", "People & cast enrichment"),
+        };
+
+        var cut = RenderComponent<IngestionActivityList>(parameters => parameters
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Fetching artwork", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Linking Wikidata QIDs", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Series &amp; relationships", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("People &amp; cast enrichment", cut.Markup, StringComparison.Ordinal);
+
+        cut.Find(".ingestion-current-row__main").Click();
+
+        Assert.Contains("Current batch 1 of 2", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Working now", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Pending", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Completed", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Needs review", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ActivityList_DoesNotLimitCurrentWorkToThreeRandomRows()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionActivityList.razor"));
+        var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
+
+        Assert.DoesNotContain("CurrentRows.Take(3)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Where(activity => !string.IsNullOrWhiteSpace(activity.Message))\r\n            .Take(3)", stateSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LiveDashboard_LinksToActivityLogsAndReviewQueue()
     {
         var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
@@ -337,4 +377,37 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("href=\"/settings/activity\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("href=\"/settings/review\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
+
+    private static IngestionCurrentActivityViewModel Activity(string key, string message) => new()
+    {
+        StageKey = key,
+        Message = message,
+        Detail = "Working through this batch.",
+        ProcessedCount = 31,
+        TotalCount = 50,
+        PercentComplete = 62,
+        QueuedCount = 12,
+        ActiveCount = 3,
+        SampleItems = ["Neuromancer", "Snow Crash", "Foundation", "Dune"],
+        MetricLabel = "Files checked",
+        MetricValue = "31",
+        MetricTone = "info",
+        CurrentBatch = new IngestionActivityBatchViewModel
+        {
+            BatchNumber = 1,
+            BatchSize = 50,
+            TotalBatches = 2,
+            CompletedCount = 31,
+            ActiveCount = 3,
+            PendingCount = 12,
+            ReviewCount = 4,
+            ActiveItems = ["Neuromancer", "Snow Crash"],
+            PendingPreview = ["Foundation"],
+            CompletedPreview = ["Dune"],
+            ReviewPreview = ["Arrival"],
+        },
+    };
+
+    private static string GetRepoFilePath(string relativePath) =>
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

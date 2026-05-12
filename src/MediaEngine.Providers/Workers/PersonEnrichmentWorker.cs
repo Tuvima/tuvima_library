@@ -70,15 +70,24 @@ public sealed class PersonEnrichmentWorker
         var claims = (await _claimRepo.GetByEntityAsync(entityId, ct)).ToList();
         var canonicals = (await _canonicalRepo.GetByEntityAsync(entityId, ct)).ToList();
 
-        // Lineage-aware scoring stores movie/TV people on the parent Work row.
-        // Person extraction is still invoked with the media asset id so links
-        // point to the owned file. Read both rows before extracting credits.
-        var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct)
+        // Lineage-aware scoring stores TV/movie people on Work rows. TV cast is
+        // commonly routed to the parent show row while enrichment is invoked
+        // for the episode asset, so read the whole Work lineage before
+        // extracting credits. Links still point at the owned file asset.
+        IReadOnlyList<Guid> lineageWorkIds = await _collectionRepo.GetWorkLineageIdsByMediaAssetAsync(entityId, ct)
             .ConfigureAwait(false);
-        if (workId.HasValue && workId.Value != entityId)
+        if (lineageWorkIds.Count == 0)
         {
-            claims.AddRange(await _claimRepo.GetByEntityAsync(workId.Value, ct).ConfigureAwait(false));
-            canonicals.AddRange(await _canonicalRepo.GetByEntityAsync(workId.Value, ct).ConfigureAwait(false));
+            var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct)
+                .ConfigureAwait(false);
+            if (workId.HasValue)
+                lineageWorkIds = new[] { workId.Value };
+        }
+
+        foreach (var lineageWorkId in lineageWorkIds.Where(id => id != entityId).Distinct())
+        {
+            claims.AddRange(await _claimRepo.GetByEntityAsync(lineageWorkId, ct).ConfigureAwait(false));
+            canonicals.AddRange(await _canonicalRepo.GetByEntityAsync(lineageWorkId, ct).ConfigureAwait(false));
         }
 
         // Determine media type from canonicals
@@ -172,9 +181,7 @@ public sealed class PersonEnrichmentWorker
         if (_personReconciliation is not null && providerClaims.Count > 0)
         {
             var unlinkedRefs = PersonReferenceExtractor.FromRawClaimsUnlinked(providerClaims, mediaType);
-            var titleHint = canonicals
-                .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title,
-                    StringComparison.OrdinalIgnoreCase))?.Value ?? "";
+            var titleHint = ResolvePersonWorkTitleHint(canonicals, mediaType) ?? "";
 
             foreach (var unlinked in unlinkedRefs)
             {
@@ -340,6 +347,27 @@ public sealed class PersonEnrichmentWorker
 
     private static string NormalizePersonName(string name)
         => string.Join(' ', name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
+
+    private static string? ResolvePersonWorkTitleHint(
+        IReadOnlyList<CanonicalValue> canonicals,
+        MediaType mediaType)
+    {
+        string? Value(string key) => canonicals
+            .FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+
+        return mediaType switch
+        {
+            MediaType.TV => FirstNonBlank(
+                Value(MetadataFieldConstants.ShowName),
+                Value(MetadataFieldConstants.Series),
+                Value(MetadataFieldConstants.Title)),
+            MediaType.Music => FirstNonBlank(
+                Value(MetadataFieldConstants.Album),
+                Value(MetadataFieldConstants.Title)),
+            _ => FirstNonBlank(Value(MetadataFieldConstants.Title), Value(MetadataFieldConstants.Series)),
+        };
+    }
 
     private sealed record TmdbPersonImageHint(int? PersonId, string? ProfileUrl);
 

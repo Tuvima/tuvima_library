@@ -162,6 +162,17 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionRepository_ReturnsAssetWorkLineage()
+    {
+        var (showId, seasonId, episodeWorkId, assetId) = await BuildTvHierarchyAsync();
+
+        var repo = new CollectionRepository(_db);
+        var lineage = await repo.GetWorkLineageIdsByMediaAssetAsync(assetId);
+
+        Assert.Equal(new[] { episodeWorkId, seasonId, showId }, lineage);
+    }
+
+    [Fact]
     public async Task CollectionRule_CvLookup_FindsValueOnRootParentRow()
     {
         // Same predicate, but the value lives on the parent show Work id.

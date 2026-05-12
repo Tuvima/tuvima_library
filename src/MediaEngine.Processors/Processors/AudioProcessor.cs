@@ -251,6 +251,14 @@ public sealed partial class AudioProcessor : IMediaProcessor
         if (!string.IsNullOrWhiteSpace(tagFile?.Tag.Album))
             claims.Add(Claim("album", tagFile!.Tag.Album, 0.7));
 
+        var series = ExtractTxxxValue(tagFile, "SERIES");
+        if (!string.IsNullOrWhiteSpace(series))
+            claims.Add(Claim("series", series, 0.7));
+
+        var seriesIndex = ExtractTxxxValue(tagFile, "SERIES_INDEX");
+        if (!string.IsNullOrWhiteSpace(seriesIndex))
+            claims.Add(Claim("series_position", seriesIndex, 0.7));
+
         // Year
         if (tagFile?.Tag.Year is > 0)
             claims.Add(Claim("year", tagFile.Tag.Year.ToString(), 0.7));

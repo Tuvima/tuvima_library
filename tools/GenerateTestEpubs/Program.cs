@@ -16,7 +16,7 @@
 //   EPUBs 29â€“30  : Multi-author works
 //
 // Usage:
-//   dotnet run --project tools/GenerateTestEpubs [watch-root-or-books-directory] [--clean]
+//   dotnet run --project tools/GenerateTestEpubs [watch-root-or-books-directory] [--clean] [--large]
 //
 // Default output : C:\temp\tuvima-watch
 // --clean        : Wipes the watch root before generating
@@ -30,6 +30,7 @@ using System.Text.Json;
 // â”€â”€ Args â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 bool clean = args.Any(a => a.Equals("--clean", StringComparison.OrdinalIgnoreCase));
+bool large = args.Any(a => a.Equals("--large", StringComparison.OrdinalIgnoreCase));
 var requestedOutputDir = args.FirstOrDefault(a => !a.StartsWith("--")) ?? @"C:\temp\tuvima-watch";
 var normalizedRequestedOutputDir = Path.GetFullPath(requestedOutputDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 var watchRoot = string.Equals(Path.GetFileName(normalizedRequestedOutputDir), "books", StringComparison.OrdinalIgnoreCase)
@@ -67,7 +68,8 @@ Console.WriteLine($"Movies           : {moviesDir}");
 Console.WriteLine($"TV               : {tvDir}");
 Console.WriteLine($"Music            : {musicDir}");
 Console.WriteLine($"Comics           : {comicsDir}");
-Console.WriteLine($"FFmpeg           : {ffmpegPath ?? "NOT FOUND â€” M4B files will be skipped"}");
+Console.WriteLine($"Corpus           : {(large ? "large" : "standard")}");
+Console.WriteLine($"FFmpeg           : {ffmpegPath ?? "NOT FOUND - M4B files will be skipped; MP4/MP3 use built-in fallback"}");
 Console.WriteLine();
 
 // â”€â”€ EPUB definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -335,13 +337,13 @@ var expectedPeople = new[]
     new ExpectedPersonEntry(
         "Denis Villeneuve",
         ExpectedWikidataQid: "Q212961",
-        MinimumOwnedCredits: 2,
-        MinimumMediaItems: 2,
+        MinimumOwnedCredits: 3,
+        MinimumMediaItems: 3,
         ExpectedMediaTypes: ["Movies"],
-        ExpectedTitles: ["Dune: Part One", "Dune: Part Two"],
+        ExpectedTitles: ["Dune: Part One", "Dune: Part Two", "Arrival"],
         RequireBiography: true,
         RequireHeadshot: true,
-        Note: "Director appears across the Dune movie series."),
+        Note: "Director appears across the Dune movie series and standalone Arrival fixture."),
     new ExpectedPersonEntry(
         "J. R. R. Tolkien",
         ExpectedWikidataQid: "Q892",
@@ -407,6 +409,36 @@ var expectedPeople = new[]
         RequireBiography: true,
         RequireHeadshot: true,
         Note: "Creator appears across multiple TV episodes in a series."),
+    new ExpectedPersonEntry(
+        "Aaron Paul",
+        ExpectedWikidataQid: "Q302491",
+        MinimumOwnedCredits: 2,
+        MinimumMediaItems: 2,
+        ExpectedMediaTypes: ["TV"],
+        ExpectedTitles: ["Breaking Bad: Pilot", "Breaking Bad: Cat's in the Bag"],
+        RequireBiography: true,
+        RequireHeadshot: true,
+        Note: "Actor appears across multiple Breaking Bad episode fixtures and should be reconciled through Wikidata/Wikipedia enrichment."),
+    new ExpectedPersonEntry(
+        "Anna Gunn",
+        ExpectedWikidataQid: "Q271050",
+        MinimumOwnedCredits: 2,
+        MinimumMediaItems: 2,
+        ExpectedMediaTypes: ["TV"],
+        ExpectedTitles: ["Breaking Bad: Pilot", "Breaking Bad: Cat's in the Bag"],
+        RequireBiography: true,
+        RequireHeadshot: true,
+        Note: "Actor appears across multiple Breaking Bad episode fixtures and should be reconciled through Wikidata/Wikipedia enrichment."),
+    new ExpectedPersonEntry(
+        "David Bowie",
+        ExpectedWikidataQid: "Q5383",
+        MinimumOwnedCredits: 2,
+        MinimumMediaItems: 2,
+        ExpectedMediaTypes: ["Music"],
+        ExpectedTitles: ["Five Years", "Soul Love"],
+        RequireBiography: true,
+        RequireHeadshot: true,
+        Note: "Artist appears across multiple tracks in one album so music person enrichment is covered."),
     new ExpectedPersonEntry(
         "Alan Moore",
         ExpectedWikidataQid: "Q183581",
@@ -816,7 +848,7 @@ else
 }
 
 // â”€â”€ Movie-series fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Scenarios 33-37 add real movie-series shapes with IMDb bridge IDs in the
+// Scenarios 33-39 add real movie shapes with IMDb bridge IDs in the
 // path. The video processor reads filename/year, and OrganizationHintParser
 // seeds the bridge identifiers for provider matching.
 var movieSeries = new VideoSpec[]
@@ -826,127 +858,106 @@ var movieSeries = new VideoSpec[]
     new(35, "middle-earth", "The Lord of the Rings The Fellowship of the Ring (2001) {imdb-tt0120737}.mp4", "The Lord of the Rings: The Fellowship of the Ring", "2001", "Fantasy", "#2E5E3F"),
     new(36, "middle-earth", "The Lord of the Rings The Two Towers (2002) {imdb-tt0167261}.mp4", "The Lord of the Rings: The Two Towers", "2002", "Fantasy", "#455A64"),
     new(37, "middle-earth", "The Lord of the Rings The Return of the King (2003) {imdb-tt0167260}.mp4", "The Lord of the Rings: The Return of the King", "2003", "Fantasy", "#795548"),
+    new(38, "standalone", "Arrival (2016) {imdb-tt2543164}.mp4", "Arrival", "2016", "Science Fiction", "#1565C0"),
+    new(39, "standalone", "The Shawshank Redemption (1994) {imdb-tt0111161}.mp4", "The Shawshank Redemption", "1994", "Drama", "#5D4037"),
 };
 
 Console.WriteLine();
-Console.WriteLine($"â”â”â” MP4 movie-series fixtures (scenarios 33-37) â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
-if (ffmpegPath is null)
+Console.WriteLine($"â”â”â” MP4 movie fixtures (scenarios 33-39) â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
+foreach (var spec in movieSeries)
 {
-    Console.WriteLine("  âœ—  FFmpeg not found â€” cannot create MP4 files.");
-    failed += movieSeries.Length;
-}
-else
-{
-    foreach (var spec in movieSeries)
+    var tempMovieDir = Path.Combine(tempDir, spec.Subdir);
+    var finalMovieDir = Path.Combine(moviesDir, spec.Subdir);
+    Directory.CreateDirectory(tempMovieDir);
+    var outPath = Path.Combine(tempMovieDir, spec.FileName);
+    var finalPath = Path.Combine(finalMovieDir, spec.FileName);
+    try
     {
-        var tempMovieDir = Path.Combine(tempDir, spec.Subdir);
-        var finalMovieDir = Path.Combine(moviesDir, spec.Subdir);
-        Directory.CreateDirectory(tempMovieDir);
-        var outPath = Path.Combine(tempMovieDir, spec.FileName);
-        var finalPath = Path.Combine(finalMovieDir, spec.FileName);
-        try
-        {
-            CreateMp4(ffmpegPath, outPath, spec);
-            generatedFiles.Add((outPath, finalPath));
-            var displayPath = Path.Combine(spec.Subdir, spec.FileName).Replace('\\', '/');
-            Console.WriteLine($"  âœ“  [{spec.Scenario,2}] {displayPath}");
-            manifest.Add(new(spec.Scenario, displayPath, "mp4", $"Scenario {spec.Scenario} â€” movie series"));
-            total++;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"  âœ—  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
-            failed++;
-        }
+        var usedFallback = CreateMp4Fixture(ffmpegPath, outPath, spec);
+        generatedFiles.Add((outPath, finalPath));
+        var displayPath = Path.Combine(spec.Subdir, spec.FileName).Replace('\\', '/');
+        Console.WriteLine($"  âœ“  [{spec.Scenario,2}] {displayPath}{(usedFallback ? " [fallback]" : "")}");
+        manifest.Add(new(spec.Scenario, displayPath, "mp4", $"Scenario {spec.Scenario} â€” movie series"));
+        total++;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  âœ—  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
+        failed++;
     }
 }
 // â”€â”€ Batch copy to output â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var tvSeries = new VideoSpec[]
 {
-    new(38, Path.Combine("breaking-bad", "Season 01"), "Breaking Bad S01E01 Pilot (2008) {imdb-tt0959621}.mp4", "Breaking Bad: Pilot", "2008", "Drama", "#2E7D32"),
-    new(39, Path.Combine("breaking-bad", "Season 01"), "Breaking Bad S01E02 Cat's in the Bag (2008) {imdb-tt1054724}.mp4", "Breaking Bad: Cat's in the Bag", "2008", "Drama", "#33691E"),
+    new(40, Path.Combine("breaking-bad", "Season 01"), "Breaking Bad S01E01 Pilot (2008) {imdb-tt0959621}.mp4", "Breaking Bad: Pilot", "2008", "Drama", "#2E7D32"),
+    new(41, Path.Combine("breaking-bad", "Season 01"), "Breaking Bad S01E02 Cat's in the Bag (2008) {imdb-tt1054724}.mp4", "Breaking Bad: Cat's in the Bag", "2008", "Drama", "#33691E"),
+    new(42, Path.Combine("shogun-2024", "Season 01"), "Shogun S01E01 Anjin (2024).mp4", "Shogun: Anjin", "2024", "Drama", "#7B1FA2"),
 };
 
 var musicTracks = new MusicSpec[]
 {
-    new(40, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "01 Five Years.mp3", "Five Years", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "1"),
-    new(41, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "02 Soul Love.mp3", "Soul Love", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "2"),
+    new(43, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "01 Five Years.mp3", "Five Years", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "1"),
+    new(44, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "02 Soul Love.mp3", "Soul Love", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "2"),
 };
 
 var comics = new ComicSpec[]
 {
-    new(42, "watchmen", "Watchmen 001 (1986).cbz", "Watchmen", "1", "Alan Moore", "Dave Gibbons", "1986"),
-    new(43, "watchmen", "Watchmen 002 (1986).cbz", "Watchmen", "2", "Alan Moore", "Dave Gibbons", "1986"),
+    new(45, "watchmen", "Watchmen 001 (1986).cbz", "Watchmen", "1", "Alan Moore", "Dave Gibbons", "1986"),
+    new(46, "watchmen", "Watchmen 002 (1986).cbz", "Watchmen", "2", "Alan Moore", "Dave Gibbons", "1986"),
 };
 
 Console.WriteLine();
-Console.WriteLine("TV fixtures (scenarios 38-39)");
-if (ffmpegPath is null)
+Console.WriteLine("TV fixtures (scenarios 40-42)");
+foreach (var spec in tvSeries)
 {
-    Console.WriteLine("  FFmpeg not found - cannot create TV MP4 files.");
-    failed += tvSeries.Length;
-}
-else
-{
-    foreach (var spec in tvSeries)
+    var tempTvDir = Path.Combine(tempDir, "tv", spec.Subdir);
+    var finalTvDir = Path.Combine(tvDir, spec.Subdir);
+    Directory.CreateDirectory(tempTvDir);
+    var outPath = Path.Combine(tempTvDir, spec.FileName);
+    var finalPath = Path.Combine(finalTvDir, spec.FileName);
+    try
     {
-        var tempTvDir = Path.Combine(tempDir, "tv", spec.Subdir);
-        var finalTvDir = Path.Combine(tvDir, spec.Subdir);
-        Directory.CreateDirectory(tempTvDir);
-        var outPath = Path.Combine(tempTvDir, spec.FileName);
-        var finalPath = Path.Combine(finalTvDir, spec.FileName);
-        try
-        {
-            CreateMp4(ffmpegPath, outPath, spec);
-            generatedFiles.Add((outPath, finalPath));
-            var displayPath = Path.Combine("tv", spec.Subdir, spec.FileName).Replace('\\', '/');
-            Console.WriteLine($"  [{spec.Scenario,2}] {displayPath}");
-            manifest.Add(new(spec.Scenario, displayPath, "mp4", $"Scenario {spec.Scenario} - TV episode"));
-            total++;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
-            failed++;
-        }
+        var usedFallback = CreateMp4Fixture(ffmpegPath, outPath, spec);
+        generatedFiles.Add((outPath, finalPath));
+        var displayPath = Path.Combine("tv", spec.Subdir, spec.FileName).Replace('\\', '/');
+        Console.WriteLine($"  [{spec.Scenario,2}] {displayPath}{(usedFallback ? " [fallback]" : "")}");
+        manifest.Add(new(spec.Scenario, displayPath, "mp4", $"Scenario {spec.Scenario} - TV episode"));
+        total++;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
+        failed++;
     }
 }
 
 Console.WriteLine();
-Console.WriteLine("Music fixtures (scenarios 40-41)");
-if (ffmpegPath is null)
+Console.WriteLine("Music fixtures (scenarios 43-44)");
+foreach (var spec in musicTracks)
 {
-    Console.WriteLine("  FFmpeg not found - cannot create MP3 files.");
-    failed += musicTracks.Length;
-}
-else
-{
-    foreach (var spec in musicTracks)
+    var tempMusicDir = Path.Combine(tempDir, "music", spec.Subdir);
+    var finalMusicDir = Path.Combine(musicDir, spec.Subdir);
+    Directory.CreateDirectory(tempMusicDir);
+    var outPath = Path.Combine(tempMusicDir, spec.FileName);
+    var finalPath = Path.Combine(finalMusicDir, spec.FileName);
+    try
     {
-        var tempMusicDir = Path.Combine(tempDir, "music", spec.Subdir);
-        var finalMusicDir = Path.Combine(musicDir, spec.Subdir);
-        Directory.CreateDirectory(tempMusicDir);
-        var outPath = Path.Combine(tempMusicDir, spec.FileName);
-        var finalPath = Path.Combine(finalMusicDir, spec.FileName);
-        try
-        {
-            CreateMp3(ffmpegPath, outPath, spec);
-            generatedFiles.Add((outPath, finalPath));
-            var displayPath = Path.Combine("music", spec.Subdir, spec.FileName).Replace('\\', '/');
-            Console.WriteLine($"  [{spec.Scenario,2}] {displayPath}");
-            manifest.Add(new(spec.Scenario, displayPath, "mp3", $"Scenario {spec.Scenario} - music track"));
-            total++;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
-            failed++;
-        }
+        var usedFallback = CreateMp3Fixture(ffmpegPath, outPath, spec);
+        generatedFiles.Add((outPath, finalPath));
+        var displayPath = Path.Combine("music", spec.Subdir, spec.FileName).Replace('\\', '/');
+        Console.WriteLine($"  [{spec.Scenario,2}] {displayPath}{(usedFallback ? " [fallback]" : "")}");
+        manifest.Add(new(spec.Scenario, displayPath, "mp3", $"Scenario {spec.Scenario} - music track"));
+        total++;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  [{spec.Scenario,2}] {spec.FileName}: {ex.Message}");
+        failed++;
     }
 }
 
 Console.WriteLine();
-Console.WriteLine("Comic fixtures (scenarios 42-43)");
+Console.WriteLine("Comic fixtures (scenarios 45-46)");
 foreach (var spec in comics)
 {
     var tempComicDir = Path.Combine(tempDir, "comics", spec.Subdir);
@@ -971,9 +982,9 @@ foreach (var spec in comics)
 }
 
 Console.WriteLine();
-Console.WriteLine("General drop fixture (scenario 44)");
+Console.WriteLine("General drop fixture (scenario 47)");
 {
-    const int num = 44;
+    const int num = 47;
     var outPath = Path.Combine(tempDir, "unsorted-field-note.txt");
     var finalPath = Path.Combine(generalDir, "unsorted-field-note.txt");
     try
@@ -981,7 +992,7 @@ Console.WriteLine("General drop fixture (scenario 44)");
         File.WriteAllText(outPath, "Tuvima Library general drop-zone smoke fixture.");
         generatedFiles.Add((outPath, finalPath));
         Console.WriteLine($"  [{num,2}] unsorted-field-note.txt");
-        manifest.Add(new(num, "unsorted-field-note.txt", "txt", "Scenario 44 - general drop zone"));
+        manifest.Add(new(num, "unsorted-field-note.txt", "txt", "Scenario 47 - general drop zone"));
         total++;
     }
     catch (Exception ex)
@@ -989,6 +1000,169 @@ Console.WriteLine("General drop fixture (scenario 44)");
         Console.WriteLine($"  [{num,2}] unsorted-field-note.txt: {ex.Message}");
         failed++;
     }
+}
+
+if (large)
+{
+    Console.WriteLine();
+    Console.WriteLine("Large corpus fixtures (scenarios 1000+)");
+
+    var largeBooks = new (int Scenario, EpubSpec Spec)[]
+    {
+        new(1000, new("large-the-shining.epub", "The Shining", "Stephen King", null, "9780307743657", "1977", "Doubleday", "A haunted hotel, a blocked writer, and a family under pressure.", null, null, "en", true, "#7F1D1D")),
+        new(1001, new("large-doctor-sleep.epub", "Doctor Sleep", "Stephen King", null, "9781476727653", "2013", "Scribner", "Danny Torrance faces a cult that feeds on children who shine.", null, null, "en", true, "#1F2937")),
+        new(1002, new("large-it.epub", "It", "Stephen King", null, "9781501142970", "1986", "Viking", "A group of friends confronts an ancient evil in Derry.", null, null, "en", true, "#991B1B")),
+        new(1003, new("large-do-androids-dream.epub", "Do Androids Dream of Electric Sheep?", "Philip K. Dick", null, "9780345404473", "1968", "Doubleday", "Rick Deckard hunts androids in a post-apocalyptic future.", null, null, "en", true, "#374151")),
+        new(1004, new("large-foundation-and-empire.epub", "Foundation and Empire", "Isaac Asimov", null, "9780553293371", "1952", "Gnome Press", "The second book in the Foundation series.", "Foundation", "2", "en", false, "#1D4ED8")),
+        new(1005, new("large-second-foundation.epub", "Second Foundation", "Isaac Asimov", null, "9780553293364", "1953", "Gnome Press", "The third book in the Foundation series.", "Foundation", "3", "en", false, "#2563EB")),
+        new(1006, new("large-the-hobbit.epub", "The Hobbit", "J. R. R. Tolkien", null, "9780547928227", "1937", "George Allen & Unwin", "Bilbo Baggins joins a quest to reclaim Erebor.", "Middle-earth", "1", "en", true, "#166534")),
+        new(1007, new("large-fellowship-book.epub", "The Fellowship of the Ring", "J. R. R. Tolkien", null, "9780618574940", "1954", "George Allen & Unwin", "The first volume of The Lord of the Rings.", "The Lord of the Rings", "1", "en", true, "#14532D")),
+        new(1008, new("large-two-towers-book.epub", "The Two Towers", "J. R. R. Tolkien", null, "9780618574957", "1954", "George Allen & Unwin", "The second volume of The Lord of the Rings.", "The Lord of the Rings", "2", "en", true, "#334155")),
+        new(1009, new("large-return-king-book.epub", "The Return of the King", "J. R. R. Tolkien", null, "9780618574971", "1955", "George Allen & Unwin", "The final volume of The Lord of the Rings.", "The Lord of the Rings", "3", "en", true, "#78350F")),
+        new(1010, new("large-the-martian.epub", "The Martian", "Andy Weir", null, "9780553418026", "2011", "Crown", "An astronaut must survive alone on Mars.", null, null, "en", true, "#EA580C")),
+        new(1011, new("large-project-hail-mary.epub", "Project Hail Mary", "Andy Weir", null, "9780593135204", "2021", "Ballantine", "A lone astronaut wakes with a mission to save Earth.", null, null, "en", true, "#0E7490")),
+        new(1012, new("large-game-of-thrones.epub", "A Game of Thrones", "George R. R. Martin", null, "9780553103540", "1996", "Bantam", "The first book in A Song of Ice and Fire.", "A Song of Ice and Fire", "1", "en", true, "#7C2D12")),
+        new(1013, new("large-clash-of-kings.epub", "A Clash of Kings", "George R. R. Martin", null, "9780553108033", "1998", "Bantam", "The second book in A Song of Ice and Fire.", "A Song of Ice and Fire", "2", "en", true, "#1E3A8A")),
+        new(1014, new("large-the-last-of-us.epub", "The Last of Us", "Neil Druckmann", null, "", "2013", "Dark Horse", "A tie-in story fixture for cross-media creator matching.", null, null, "en", false, "#065F46")),
+        new(1015, new("large-murderbot-all-systems-red.epub", "All Systems Red", "Martha Wells", null, "9780765397539", "2017", "Tor.com", "The first Murderbot Diaries novella.", "The Murderbot Diaries", "1", "en", true, "#4338CA")),
+    };
+
+    var largeAudiobooks = new (int Scenario, string Subdir, M4bSpec Spec)[]
+    {
+        new(1020, "stephen-king", new("the-shining-audio.m4b", "The Shining", "Stephen King", "Stephen King", "The Shining", "Campbell Scott", "1977", "Horror", "Narrated by Campbell Scott", "1", null, null, true, "#7F1D1D")),
+        new(1021, "stephen-king", new("doctor-sleep-audio.m4b", "Doctor Sleep", "Stephen King", "Stephen King", "Doctor Sleep", "Will Patton", "2013", "Horror", "Narrated by Will Patton", "1", null, null, true, "#1F2937")),
+        new(1022, "middle-earth-audio", new("the-hobbit-audio.m4b", "The Hobbit", "J. R. R. Tolkien", "J. R. R. Tolkien", "The Hobbit", "Andy Serkis", "1937", "Fantasy", "Narrated by Andy Serkis", "1", "Middle-earth", "1", true, "#166534")),
+        new(1023, "middle-earth-audio", new("fellowship-audio.m4b", "The Fellowship of the Ring", "J. R. R. Tolkien", "J. R. R. Tolkien", "The Lord of the Rings", "Andy Serkis", "1954", "Fantasy", "Narrated by Andy Serkis", "1", "The Lord of the Rings", "1", true, "#14532D")),
+        new(1024, "andy-weir-audio", new("the-martian-audio.m4b", "The Martian", "Andy Weir", "Andy Weir", "The Martian", "R. C. Bray", "2011", "Science Fiction", "Narrated by R. C. Bray", "1", null, null, true, "#EA580C")),
+        new(1025, "andy-weir-audio", new("project-hail-mary-audio.m4b", "Project Hail Mary", "Andy Weir", "Andy Weir", "Project Hail Mary", "Ray Porter", "2021", "Science Fiction", "Narrated by Ray Porter", "1", null, null, true, "#0E7490")),
+        new(1026, "asoiaf-audio", new("game-of-thrones-audio.m4b", "A Game of Thrones", "George R. R. Martin", "George R. R. Martin", "A Song of Ice and Fire", "Roy Dotrice", "1996", "Fantasy", "Narrated by Roy Dotrice", "1", "A Song of Ice and Fire", "1", true, "#7C2D12")),
+        new(1027, "murderbot-audio", new("all-systems-red-audio.m4b", "All Systems Red", "Martha Wells", "Martha Wells", "The Murderbot Diaries", "Kevin R. Free", "2017", "Science Fiction", "Narrated by Kevin R. Free", "1", "The Murderbot Diaries", "1", true, "#4338CA")),
+    };
+
+    var largeMovies = new VideoSpec[]
+    {
+        new(1040, "stephen-king", "The Shining (1980) {imdb-tt0081505}.mp4", "The Shining", "1980", "Horror", "#7F1D1D"),
+        new(1041, "stephen-king", "Doctor Sleep (2019) {imdb-tt5606664}.mp4", "Doctor Sleep", "2019", "Horror", "#1F2937"),
+        new(1042, "blade-runner", "Blade Runner (1982) {imdb-tt0083658}.mp4", "Blade Runner", "1982", "Science Fiction", "#111827"),
+        new(1043, "blade-runner", "Blade Runner 2049 (2017) {imdb-tt1856101}.mp4", "Blade Runner 2049", "2017", "Science Fiction", "#92400E"),
+        new(1044, "dune-films", "Dune (1984) {imdb-tt0087182}.mp4", "Dune", "1984", "Science Fiction", "#92400E"),
+        new(1045, "middle-earth", "The Hobbit An Unexpected Journey (2012) {imdb-tt0903624}.mp4", "The Hobbit: An Unexpected Journey", "2012", "Fantasy", "#166534"),
+        new(1046, "middle-earth", "The Hobbit The Desolation of Smaug (2013) {imdb-tt1170358}.mp4", "The Hobbit: The Desolation of Smaug", "2013", "Fantasy", "#7C2D12"),
+        new(1047, "harry-potter-films", "Harry Potter and the Philosophers Stone (2001) {imdb-tt0241527}.mp4", "Harry Potter and the Philosopher's Stone", "2001", "Fantasy", "#7B1FA2"),
+        new(1048, "harry-potter-films", "Harry Potter and the Chamber of Secrets (2002) {imdb-tt0295297}.mp4", "Harry Potter and the Chamber of Secrets", "2002", "Fantasy", "#558B2F"),
+        new(1049, "andy-weir", "The Martian (2015) {imdb-tt3659388}.mp4", "The Martian", "2015", "Science Fiction", "#EA580C"),
+        new(1050, "nolan", "Interstellar (2014) {imdb-tt0816692}.mp4", "Interstellar", "2014", "Science Fiction", "#0F172A"),
+        new(1051, "nolan", "Oppenheimer (2023) {imdb-tt15398776}.mp4", "Oppenheimer", "2023", "Drama", "#7C2D12"),
+        new(1052, "batman-nolan", "Batman Begins (2005) {imdb-tt0372784}.mp4", "Batman Begins", "2005", "Action", "#111827"),
+        new(1053, "batman-nolan", "The Dark Knight (2008) {imdb-tt0468569}.mp4", "The Dark Knight", "2008", "Action", "#0F172A"),
+        new(1054, "batman-nolan", "The Dark Knight Rises (2012) {imdb-tt1345836}.mp4", "The Dark Knight Rises", "2012", "Action", "#1F2937"),
+        new(1055, "matrix", "The Matrix (1999) {imdb-tt0133093}.mp4", "The Matrix", "1999", "Science Fiction", "#14532D"),
+        new(1056, "matrix", "The Matrix Reloaded (2003) {imdb-tt0234215}.mp4", "The Matrix Reloaded", "2003", "Science Fiction", "#166534"),
+        new(1057, "alien", "Alien (1979) {imdb-tt0078748}.mp4", "Alien", "1979", "Science Fiction", "#111827"),
+        new(1058, "alien", "Aliens (1986) {imdb-tt0090605}.mp4", "Aliens", "1986", "Science Fiction", "#1E3A8A"),
+        new(1059, "star-wars", "Star Wars A New Hope (1977) {imdb-tt0076759}.mp4", "Star Wars", "1977", "Science Fiction", "#111827"),
+        new(1060, "star-wars", "The Empire Strikes Back (1980) {imdb-tt0080684}.mp4", "The Empire Strikes Back", "1980", "Science Fiction", "#1E3A8A"),
+    };
+
+    var largeTv = new VideoSpec[]
+    {
+        new(1080, Path.Combine("breaking-bad", "Season 01"), "Breaking Bad S01E03 And the Bag's in the River (2008) {imdb-tt1054725}.mp4", "Breaking Bad: And the Bag's in the River", "2008", "Drama", "#2E7D32"),
+        new(1081, Path.Combine("breaking-bad", "Season 01"), "Breaking Bad S01E04 Cancer Man (2008) {imdb-tt1054726}.mp4", "Breaking Bad: Cancer Man", "2008", "Drama", "#33691E"),
+        new(1082, Path.Combine("better-call-saul", "Season 01"), "Better Call Saul S01E01 Uno (2015) {imdb-tt3216986}.mp4", "Better Call Saul: Uno", "2015", "Drama", "#92400E"),
+        new(1083, Path.Combine("better-call-saul", "Season 01"), "Better Call Saul S01E02 Mijo (2015) {imdb-tt3486042}.mp4", "Better Call Saul: Mijo", "2015", "Drama", "#A16207"),
+        new(1084, Path.Combine("the-expanse", "Season 01"), "The Expanse S01E01 Dulcinea (2015) {imdb-tt3983204}.mp4", "The Expanse: Dulcinea", "2015", "Science Fiction", "#0D47A1"),
+        new(1085, Path.Combine("the-expanse", "Season 01"), "The Expanse S01E02 The Big Empty (2015) {imdb-tt4310240}.mp4", "The Expanse: The Big Empty", "2015", "Science Fiction", "#1565C0"),
+        new(1086, Path.Combine("foundation-2021", "Season 01"), "Foundation S01E01 The Emperor's Peace (2021) {imdb-tt0804484}.mp4", "Foundation: The Emperor's Peace", "2021", "Science Fiction", "#1D4ED8"),
+        new(1087, Path.Combine("foundation-2021", "Season 01"), "Foundation S01E02 Preparing to Live (2021).mp4", "Foundation: Preparing to Live", "2021", "Science Fiction", "#2563EB"),
+        new(1088, Path.Combine("game-of-thrones", "Season 01"), "Game of Thrones S01E01 Winter Is Coming (2011) {imdb-tt1480055}.mp4", "Game of Thrones: Winter Is Coming", "2011", "Fantasy", "#334155"),
+        new(1089, Path.Combine("game-of-thrones", "Season 01"), "Game of Thrones S01E02 The Kingsroad (2011) {imdb-tt1668746}.mp4", "Game of Thrones: The Kingsroad", "2011", "Fantasy", "#475569"),
+        new(1090, Path.Combine("the-last-of-us", "Season 01"), "The Last of Us S01E01 When You're Lost in the Darkness (2023) {imdb-tt3581920}.mp4", "The Last of Us: When You're Lost in the Darkness", "2023", "Drama", "#065F46"),
+        new(1091, Path.Combine("the-last-of-us", "Season 01"), "The Last of Us S01E02 Infected (2023) {imdb-tt14500888}.mp4", "The Last of Us: Infected", "2023", "Drama", "#047857"),
+        new(1092, Path.Combine("shogun-2024", "Season 01"), "Shogun S01E02 Servants of Two Masters (2024).mp4", "Shogun: Servants of Two Masters", "2024", "Drama", "#7B1FA2"),
+        new(1093, Path.Combine("shogun-2024", "Season 01"), "Shogun S01E03 Tomorrow Is Tomorrow (2024).mp4", "Shogun: Tomorrow Is Tomorrow", "2024", "Drama", "#6D28D9"),
+    };
+
+    var largeMusic = new MusicSpec[]
+    {
+        new(1100, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "03 Moonage Daydream.mp3", "Moonage Daydream", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "3"),
+        new(1101, Path.Combine("David Bowie", "Heroes"), "01 Beauty and the Beast.mp3", "Beauty and the Beast", "David Bowie", "Heroes", "1977", "Rock", "1"),
+        new(1102, Path.Combine("Radiohead", "OK Computer"), "01 Airbag.mp3", "Airbag", "Radiohead", "OK Computer", "1997", "Alternative", "1"),
+        new(1103, Path.Combine("Radiohead", "OK Computer"), "02 Paranoid Android.mp3", "Paranoid Android", "Radiohead", "OK Computer", "1997", "Alternative", "2"),
+        new(1104, Path.Combine("The Beatles", "Abbey Road"), "01 Come Together.mp3", "Come Together", "The Beatles", "Abbey Road", "1969", "Rock", "1"),
+        new(1105, Path.Combine("The Beatles", "Abbey Road"), "02 Something.mp3", "Something", "The Beatles", "Abbey Road", "1969", "Rock", "2"),
+        new(1106, Path.Combine("Taylor Swift", "1989"), "01 Welcome to New York.mp3", "Welcome to New York", "Taylor Swift", "1989", "2014", "Pop", "1"),
+        new(1107, Path.Combine("Taylor Swift", "1989"), "02 Blank Space.mp3", "Blank Space", "Taylor Swift", "1989", "2014", "Pop", "2"),
+        new(1108, Path.Combine("Kendrick Lamar", "DAMN"), "01 BLOOD.mp3", "BLOOD.", "Kendrick Lamar", "DAMN.", "2017", "Hip-Hop", "1"),
+        new(1109, Path.Combine("Kendrick Lamar", "DAMN"), "02 DNA.mp3", "DNA.", "Kendrick Lamar", "DAMN.", "2017", "Hip-Hop", "2"),
+        new(1110, Path.Combine("Hans Zimmer", "Interstellar"), "01 Dreaming of the Crash.mp3", "Dreaming of the Crash", "Hans Zimmer", "Interstellar: Original Motion Picture Soundtrack", "2014", "Soundtrack", "1"),
+        new(1111, Path.Combine("Hans Zimmer", "Interstellar"), "02 Cornfield Chase.mp3", "Cornfield Chase", "Hans Zimmer", "Interstellar: Original Motion Picture Soundtrack", "2014", "Soundtrack", "2"),
+    };
+
+    foreach (var (num, spec) in largeBooks)
+    {
+        var outPath = Path.Combine(tempDir, "large-books", spec.FileName);
+        var finalPath = Path.Combine(booksDir, "large", spec.FileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+        byte[]? cover = spec.IncludeCover && ffmpegPath is not null ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 600) : null;
+        CreateEpub(outPath, spec, cover);
+        generatedFiles.Add((outPath, finalPath));
+        manifest.Add(new(num, $"large/{spec.FileName}", "epub", "Large corpus - books, canonical titles, series, repeated authors"));
+        total++;
+    }
+
+    if (ffmpegPath is not null)
+    {
+        foreach (var (num, subdir, spec) in largeAudiobooks)
+        {
+            var outPath = Path.Combine(tempDir, "large-audiobooks", subdir, spec.FileName);
+            var finalPath = Path.Combine(booksDir, "large-audiobooks", subdir, spec.FileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+            var cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
+            CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
+            generatedFiles.Add((outPath, finalPath));
+            manifest.Add(new(num, $"large-audiobooks/{subdir}/{spec.FileName}", "m4b", "Large corpus - audiobooks, narrators, cross-format works"));
+            total++;
+        }
+    }
+    else
+    {
+        failed += largeAudiobooks.Length;
+    }
+
+    foreach (var spec in largeMovies)
+    {
+        var outPath = Path.Combine(tempDir, "large-movies", spec.Subdir, spec.FileName);
+        var finalPath = Path.Combine(moviesDir, "large", spec.Subdir, spec.FileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+        var usedFallback = CreateMp4Fixture(ffmpegPath, outPath, spec);
+        generatedFiles.Add((outPath, finalPath));
+        manifest.Add(new(spec.Scenario, Path.Combine("large", spec.Subdir, spec.FileName).Replace('\\', '/'), "mp4", $"Large corpus - movies{(usedFallback ? " fallback" : "")}"));
+        total++;
+    }
+
+    foreach (var spec in largeTv)
+    {
+        var outPath = Path.Combine(tempDir, "large-tv", spec.Subdir, spec.FileName);
+        var finalPath = Path.Combine(tvDir, "large", spec.Subdir, spec.FileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+        var usedFallback = CreateMp4Fixture(ffmpegPath, outPath, spec);
+        generatedFiles.Add((outPath, finalPath));
+        manifest.Add(new(spec.Scenario, Path.Combine("large", spec.Subdir, spec.FileName).Replace('\\', '/'), "mp4", $"Large corpus - TV episodes and series{(usedFallback ? " fallback" : "")}"));
+        total++;
+    }
+
+    foreach (var spec in largeMusic)
+    {
+        var outPath = Path.Combine(tempDir, "large-music", spec.Subdir, spec.FileName);
+        var finalPath = Path.Combine(musicDir, "large", spec.Subdir, spec.FileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+        var usedFallback = CreateMp3Fixture(ffmpegPath, outPath, spec);
+        generatedFiles.Add((outPath, finalPath));
+        manifest.Add(new(spec.Scenario, Path.Combine("large", spec.Subdir, spec.FileName).Replace('\\', '/'), "mp3", $"Large corpus - music albums and repeated artists{(usedFallback ? " fallback" : "")}"));
+        total++;
+    }
+
+    Console.WriteLine($"  Added large corpus: {largeBooks.Length} books, {largeAudiobooks.Length} audiobooks, {largeMovies.Length} movies, {largeTv.Length} TV episodes, {largeMusic.Length} music tracks");
 }
 
 Console.WriteLine();
@@ -1008,6 +1182,91 @@ try { Directory.Delete(tempDir, recursive: true); } catch { }
 // Write MANIFEST.json one level above the watch directory so it is not
 // picked up as a media file by the Engine's watch folder monitor.
 var manifestPath = Path.Combine(watchRoot, "MANIFEST.json");
+var expectedPeopleForManifest = large
+    ? expectedPeople.Concat(
+    [
+        new ExpectedPersonEntry(
+            "Stephen King",
+            ExpectedWikidataQid: "Q39829",
+            MinimumOwnedCredits: 5,
+            MinimumMediaItems: 5,
+            ExpectedMediaTypes: ["Books", "Audiobooks", "Movies"],
+            ExpectedTitles: ["The Shining", "Doctor Sleep", "It", "The Talisman"],
+            RequireBiography: true,
+            RequireHeadshot: true,
+            Note: "Large corpus stress case: books, audiobooks, film adaptations, and pseudonym-adjacent titles."),
+        new ExpectedPersonEntry(
+            "Philip K. Dick",
+            ExpectedWikidataQid: "Q171091",
+            MinimumOwnedCredits: 3,
+            MinimumMediaItems: 3,
+            ExpectedMediaTypes: ["Books", "Movies"],
+            ExpectedTitles: ["Do Androids Dream of Electric Sheep?", "Blade Runner", "Blade Runner 2049"],
+            RequireBiography: true,
+            RequireHeadshot: true,
+            Note: "Large corpus stress case: one source novel across a movie franchise."),
+        new ExpectedPersonEntry(
+            "Christopher Nolan",
+            ExpectedWikidataQid: "Q25191",
+            MinimumOwnedCredits: 5,
+            MinimumMediaItems: 5,
+            ExpectedMediaTypes: ["Movies"],
+            ExpectedTitles: ["Batman Begins", "The Dark Knight", "The Dark Knight Rises", "Interstellar", "Oppenheimer"],
+            RequireBiography: true,
+            RequireHeadshot: true,
+            Note: "Large corpus stress case: repeated director across multiple franchises and standalone films."),
+        new ExpectedPersonEntry(
+            "Andy Weir",
+            ExpectedWikidataQid: "Q4750383",
+            MinimumOwnedCredits: 4,
+            MinimumMediaItems: 4,
+            ExpectedMediaTypes: ["Books", "Audiobooks", "Movies"],
+            ExpectedTitles: ["The Martian", "Project Hail Mary"],
+            RequireBiography: true,
+            RequireHeadshot: true,
+            Note: "Large corpus stress case: same author across ebook, audiobook, and movie adaptation."),
+        new ExpectedPersonEntry(
+            "George R. R. Martin",
+            ExpectedWikidataQid: "Q181677",
+            MinimumOwnedCredits: 4,
+            MinimumMediaItems: 4,
+            ExpectedMediaTypes: ["Books", "Audiobooks", "TV"],
+            ExpectedTitles: ["A Game of Thrones", "A Clash of Kings", "Game of Thrones: Winter Is Coming"],
+            RequireBiography: true,
+            RequireHeadshot: true,
+            Note: "Large corpus stress case: book series, audiobook, and TV adaptation."),
+        new ExpectedPersonEntry(
+            "Hans Zimmer",
+            ExpectedWikidataQid: "Q76364",
+            MinimumOwnedCredits: 3,
+            MinimumMediaItems: 3,
+            ExpectedMediaTypes: ["Movies", "Music"],
+            ExpectedTitles: ["Interstellar", "Dreaming of the Crash", "Cornfield Chase"],
+            RequireBiography: true,
+            RequireHeadshot: true,
+            Note: "Large corpus stress case: film composer plus soundtrack tracks."),
+        new ExpectedPersonEntry(
+            "Taylor Swift",
+            ExpectedWikidataQid: "Q26876",
+            MinimumOwnedCredits: 2,
+            MinimumMediaItems: 2,
+            ExpectedMediaTypes: ["Music"],
+            ExpectedTitles: ["Welcome to New York", "Blank Space"],
+            RequireBiography: true,
+            RequireHeadshot: true,
+            Note: "Large corpus stress case: popular music artist with album grouping."),
+        new ExpectedPersonEntry(
+            "Kendrick Lamar",
+            ExpectedWikidataQid: "Q130798",
+            MinimumOwnedCredits: 2,
+            MinimumMediaItems: 2,
+            ExpectedMediaTypes: ["Music"],
+            ExpectedTitles: ["BLOOD.", "DNA."],
+            RequireBiography: true,
+            RequireHeadshot: true,
+            Note: "Large corpus stress case: punctuation-heavy music titles and artist enrichment.")
+    ]).ToArray()
+    : expectedPeople;
 var manifestJson = JsonSerializer.Serialize(new
 {
     generated_at = DateTimeOffset.UtcNow.ToString("O"),
@@ -1019,7 +1278,7 @@ var manifestJson = JsonSerializer.Serialize(new
     comics_directory = comicsDir,
     total_files = total,
     files = manifest.Select(m => new { scenario = m.Scenario, path = m.Path, type = m.Type, note = m.Note }),
-    expected_person_enrichment = expectedPeople.Select(p => new
+    expected_person_enrichment = expectedPeopleForManifest.Select(p => new
     {
         name = p.Name,
         expected_wikidata_qid = p.ExpectedWikidataQid,
@@ -1037,7 +1296,7 @@ File.WriteAllText(manifestPath, manifestJson);
 // â”€â”€ Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Console.WriteLine();
 Console.WriteLine($"â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
-Console.WriteLine($"  Generated : {total} / 44");
+Console.WriteLine($"  Generated : {total} / {(large ? "118" : "47")}");
 if (failed > 0) Console.WriteLine($"  Failed    : {failed}");
 Console.WriteLine($"  Manifest  : {manifestPath}");
 Console.WriteLine();
@@ -1058,9 +1317,9 @@ Console.WriteLine($"  Title disambiguation : 4 scenarios (3, 22, 23, 28)");
 Console.WriteLine($"  Foreign language     : 3 scenarios (24, 25, 26)");
 Console.WriteLine($"  Multi-author         : 2 scenarios (29, 30)");
 Console.WriteLine($"  Same-author diff-work: 1 scenario  (27)");
-Console.WriteLine($"  All media watch roots: 7 scenarios (38-44)");
-Console.WriteLine($"  Repeated-person checks: {expectedPeople.Length} people declared in MANIFEST.json");
-Console.WriteLine($"  Total: 44 files covering 14 test categories");
+Console.WriteLine($"  All media watch roots: 10 scenarios (38-47)");
+Console.WriteLine($"  Repeated-person checks: {expectedPeopleForManifest.Length} people declared in MANIFEST.json");
+Console.WriteLine($"  Total: {(large ? "118" : "47")} files covering {(large ? "19" : "14")} test categories");
 Console.WriteLine();
 
 return failed > 0 ? 1 : 0;
@@ -1176,6 +1435,44 @@ static void TryDelete(string path) { try { File.Delete(path); } catch { } }
 
 static string Q(string value) => $"\"{value.Replace("\"", "\\\"")}\"";
 
+static bool CreateMp4Fixture(string? ffmpegPath, string outPath, VideoSpec spec)
+{
+    if (ffmpegPath is not null)
+    {
+        try
+        {
+            CreateMp4(ffmpegPath, outPath, spec);
+            return false;
+        }
+        catch
+        {
+            TryDelete(outPath);
+        }
+    }
+
+    CreateMinimalMp4(outPath, spec);
+    return true;
+}
+
+static bool CreateMp3Fixture(string? ffmpegPath, string outPath, MusicSpec spec)
+{
+    if (ffmpegPath is not null)
+    {
+        try
+        {
+            CreateMp3(ffmpegPath, outPath, spec);
+            return false;
+        }
+        catch
+        {
+            TryDelete(outPath);
+        }
+    }
+
+    CreateMinimalMp3(outPath, spec);
+    return true;
+}
+
 static void CreateMp4(string ffmpegPath, string outPath, VideoSpec spec)
 {
     var args =
@@ -1201,6 +1498,132 @@ static void CreateMp3(string ffmpegPath, string outPath, MusicSpec spec)
         $"-metadata track={Q(spec.TrackNum)} " +
         $"\"{outPath}\"";
     RunFfmpeg(ffmpegPath, args);
+}
+
+static void CreateMinimalMp4(string outPath, VideoSpec spec)
+{
+    using var stream = new FileStream(outPath, FileMode.Create, FileAccess.Write);
+    WriteMp4Ftyp(stream);
+    WriteMp4Moov(stream, spec);
+    WriteMp4Mdat(stream);
+}
+
+static void WriteMp4Ftyp(Stream stream)
+{
+    WriteBigEndian32(stream, 20);
+    stream.Write("ftyp"u8);
+    stream.Write("isom"u8);
+    WriteBigEndian32(stream, 0x200);
+    stream.Write("isom"u8);
+}
+
+static void WriteMp4Moov(Stream stream, VideoSpec spec)
+{
+    using var udta = new MemoryStream();
+    WriteMp4StringAtom(udta, "\u00A9nam", spec.Title);
+    WriteMp4StringAtom(udta, "\u00A9day", spec.Year);
+    WriteMp4StringAtom(udta, "\u00A9gen", spec.Genre);
+
+    var udtaBytes = udta.ToArray();
+    const int mvhdSize = 108;
+    var udtaSize = udtaBytes.Length == 0 ? 0 : 8 + udtaBytes.Length;
+    var moovSize = 8 + mvhdSize + udtaSize;
+
+    WriteBigEndian32(stream, moovSize);
+    stream.Write("moov"u8);
+    WriteBigEndian32(stream, mvhdSize);
+    stream.Write("mvhd"u8);
+    stream.Write(new byte[mvhdSize - 8]);
+
+    if (udtaBytes.Length > 0)
+    {
+        WriteBigEndian32(stream, udtaSize);
+        stream.Write("udta"u8);
+        stream.Write(udtaBytes);
+    }
+}
+
+static void WriteMp4Mdat(Stream stream)
+{
+    WriteBigEndian32(stream, 8);
+    stream.Write("mdat"u8);
+}
+
+static void WriteMp4StringAtom(Stream stream, string atomName, string value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+        return;
+
+    var valueBytes = Encoding.UTF8.GetBytes(value);
+    var dataSize = 8 + 8 + valueBytes.Length;
+    var atomSize = 8 + dataSize;
+    var atomBytes = Encoding.Latin1.GetBytes(atomName);
+
+    WriteBigEndian32(stream, atomSize);
+    stream.Write(atomBytes.AsSpan(0, 4));
+    WriteBigEndian32(stream, dataSize);
+    stream.Write("data"u8);
+    WriteBigEndian32(stream, 1);
+    WriteBigEndian32(stream, 0);
+    stream.Write(valueBytes);
+}
+
+static void CreateMinimalMp3(string outPath, MusicSpec spec)
+{
+    using var stream = new FileStream(outPath, FileMode.Create, FileAccess.Write);
+    using var frames = new MemoryStream();
+
+    WriteId3TextFrame(frames, "TIT2", spec.Title);
+    WriteId3TextFrame(frames, "TPE1", spec.Artist);
+    WriteId3TextFrame(frames, "TALB", spec.Album);
+    WriteId3TextFrame(frames, "TYER", spec.Year);
+    WriteId3TextFrame(frames, "TCON", spec.Genre);
+    WriteId3TextFrame(frames, "TRCK", spec.TrackNum);
+
+    var frameData = frames.ToArray();
+    stream.Write("ID3"u8);
+    stream.WriteByte(3);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+    WriteSyncSafe(stream, frameData.Length);
+    stream.Write(frameData);
+
+    stream.WriteByte(0xFF);
+    stream.WriteByte(0xFB);
+    stream.WriteByte(0x90);
+    stream.WriteByte(0x00);
+    stream.Write(new byte[413]);
+}
+
+static void WriteId3TextFrame(Stream stream, string frameId, string value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+        return;
+
+    var bytes = Encoding.Latin1.GetBytes(value);
+    var dataSize = 1 + bytes.Length;
+    stream.Write(Encoding.ASCII.GetBytes(frameId));
+    WriteBigEndian32(stream, dataSize);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+    stream.WriteByte(0);
+    stream.Write(bytes);
+}
+
+static void WriteSyncSafe(Stream stream, int value)
+{
+    stream.WriteByte((byte)((value >> 21) & 0x7F));
+    stream.WriteByte((byte)((value >> 14) & 0x7F));
+    stream.WriteByte((byte)((value >> 7) & 0x7F));
+    stream.WriteByte((byte)(value & 0x7F));
+}
+
+static void WriteBigEndian32(Stream stream, int value)
+{
+    stream.WriteByte((byte)((value >> 24) & 0xFF));
+    stream.WriteByte((byte)((value >> 16) & 0xFF));
+    stream.WriteByte((byte)((value >> 8) & 0xFF));
+    stream.WriteByte((byte)(value & 0xFF));
 }
 
 static void CreateCbz(string outPath, ComicSpec spec)

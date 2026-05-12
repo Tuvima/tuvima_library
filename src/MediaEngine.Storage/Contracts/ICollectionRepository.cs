@@ -48,6 +48,13 @@ public interface ICollectionRepository
     Task<Guid?> GetWorkIdByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default);
 
     /// <summary>
+    /// Resolves the Work lineage for a given MediaAsset ID, from the leaf Work
+    /// up through any parent and grandparent Work rows. Returns an empty list
+    /// when the asset is not found.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetWorkLineageIdsByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default);
+
+    /// <summary>
     /// Returns the <see cref="Collection.DisplayName"/> of the Collection that owns the given
     /// Work, using a single SQL JOIN across works → collections. Returns null when the
     /// Work has no Collection assignment or when the Collection has no display name.

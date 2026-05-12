@@ -1422,7 +1422,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// </summary>
     private BridgeResolutionRequest? BuildBridgeResolutionRequest(WikidataResolveRequest r)
     {
-        var language = ResolveDisplayLanguage(TryGetMetadataLanguage(), r.FileLanguage);
+        var language = ResolveSearchLanguage(TryGetMetadataLanguage(), r.FileLanguage);
         var realBridgeIds = r.BridgeIds?
             .Where(kvp => !kvp.Key.StartsWith('_') && !string.IsNullOrWhiteSpace(kvp.Value))
             .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase)
@@ -1569,7 +1569,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             CorrelationKey = input.CorrelationKey,
             MediaKind = BridgeMediaKind.ComicSeries,
             Title = queryTitle,
-            Language = ResolveDisplayLanguage(TryGetMetadataLanguage(), input.FileLanguage),
+            Language = ResolveSearchLanguage(TryGetMetadataLanguage(), input.FileLanguage),
             RollupTarget = BridgeRollupTarget.ReturnWorkAndEdition
         };
     }
@@ -1591,7 +1591,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             MediaKind = BridgeMediaKind.MusicWork,
             Title = input.Title!,
             Creator = input.Artist ?? input.Author,
-            Language = ResolveDisplayLanguage(TryGetMetadataLanguage(), input.FileLanguage),
+            Language = ResolveSearchLanguage(TryGetMetadataLanguage(), input.FileLanguage),
             RollupTarget = BridgeRollupTarget.ReturnWorkAndEdition
         };
     }
@@ -1653,7 +1653,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// not carry claims, so this follow-up call is required for parity with
     /// the consumer contract (<c>WikidataBridgeWorker.AdditionalClaims</c>).
     /// </summary>
-    private async Task<(IReadOnlyList<ProviderClaim> Claims, IReadOnlyDictionary<string, string> CollectedBridgeIds)>
+    private async Task<(IReadOnlyList<ProviderClaim> Claims, IReadOnlyDictionary<string, string> CollectedBridgeIds, IReadOnlyList<string> InstanceOfQids)>
         BuildClaimsForResolvedQidAsync(
             string resolvedQid,
             bool isEdition,
@@ -1664,6 +1664,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     {
         var collectedBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var claims = new List<ProviderClaim>();
+        var instanceOfQids = new List<string>();
         var language = ResolveDisplayLanguage(TryGetMetadataLanguage(), fileLanguage);
 
         try
@@ -1672,6 +1673,16 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             if (extensions.TryGetValue(resolvedQid, out var resolvedProps))
             {
+                if (resolvedProps.TryGetValue("P31", out var p31Values))
+                {
+                    foreach (var p31 in p31Values)
+                    {
+                        var qid = p31.Value?.EntityId ?? p31.Value?.RawValue;
+                        if (!string.IsNullOrWhiteSpace(qid) && qid.StartsWith('Q'))
+                            instanceOfQids.Add(qid);
+                    }
+                }
+
                 foreach (var pCode in BridgeResolutionPCodes)
                 {
                     if (!resolvedProps.TryGetValue(pCode, out var pValues) || pValues.Count == 0)
@@ -1728,7 +1739,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (isEdition && !string.IsNullOrWhiteSpace(editionQid))
             claims.Add(new ProviderClaim("edition_qid", editionQid, 1.0));
 
-        return (claims, collectedBridgeIds);
+        return (claims, collectedBridgeIds, instanceOfQids);
     }
 
     /// <summary>
@@ -1823,7 +1834,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 MediaKind = ToBridgeMediaKind(input.MediaType, input),
                 Title = input.Title!,
                 Creator = input.Author,
-                Language = ResolveDisplayLanguage(TryGetMetadataLanguage(), input.FileLanguage),
+                Language = ResolveSearchLanguage(TryGetMetadataLanguage(), input.FileLanguage),
                 RollupTarget = ToBridgeRollupTarget(input)
             });
         }
@@ -2013,7 +2024,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (inputByCorrelationKey is not null)
                 inputByCorrelationKey.TryGetValue(correlationKey, out input);
 
-            var (claims, collectedBridgeIds) = await BuildClaimsForResolvedQidAsync(
+            var (claims, collectedBridgeIds, instanceOfQids) = await BuildClaimsForResolvedQidAsync(
                 finalQid,
                 finalIsEdition,
                 finalWorkQid,
@@ -2028,7 +2039,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // adaptation can resolve to the film entity instead of the book.
             if (input is not null && input.MediaType != MediaType.Unknown)
             {
-                if (!ValidateP31ForMediaType(claims, finalWorkQid, input.MediaType))
+                if (!ValidateP31ForMediaType(instanceOfQids, finalWorkQid, input.MediaType))
                 {
                     _logger.LogInformation(
                         "{Provider}: Stage2 — rejected {Key} → {QID}: P31 does not match {MediaType}",
@@ -2062,7 +2073,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     finalWorkQid = preferredComicSeriesQid;
                     finalEditionQid = null;
 
-                    (claims, collectedBridgeIds) = await BuildClaimsForResolvedQidAsync(
+                    (claims, collectedBridgeIds, instanceOfQids) = await BuildClaimsForResolvedQidAsync(
                         finalQid,
                         finalIsEdition,
                         finalWorkQid,
@@ -2070,7 +2081,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         comicInput.FileLanguage,
                         ct).ConfigureAwait(false);
 
-                    if (!ValidateP31ForMediaType(claims, finalWorkQid, comicInput.MediaType))
+                    if (!ValidateP31ForMediaType(instanceOfQids, finalWorkQid, comicInput.MediaType))
                     {
                         _logger.LogInformation(
                             "{Provider}: Stage2 â€” rejected normalized comics parent {Key} â†’ {QID}: P31 does not match {MediaType}",
@@ -2206,7 +2217,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (preferred is null)
                 continue;
 
-            var (claims, collectedBridgeIds) = await BuildClaimsForResolvedQidAsync(
+            var (claims, collectedBridgeIds, instanceOfQids) = await BuildClaimsForResolvedQidAsync(
                 preferred.Id,
                 isEdition: false,
                 workQid: preferred.Id,
@@ -2214,7 +2225,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 fileLanguage: request.FileLanguage,
                 ct).ConfigureAwait(false);
 
-            if (!ValidateP31ForMediaType(claims, preferred.Id, MediaType.Comics))
+            if (!ValidateP31ForMediaType(instanceOfQids, preferred.Id, MediaType.Comics))
                 continue;
 
             return new WikidataResolveResult
@@ -2252,26 +2263,25 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Checks whether the resolved entity's P31 (instance_of) claims are compatible
+    /// Checks whether the resolved entity's P31 (instance_of) values are compatible
     /// with the requested media type. Returns <c>true</c> when at least one P31 value
     /// is in the configured <c>instance_of_classes</c> and none are in <c>exclude_classes</c>.
-    /// Falls back to <c>true</c> (permissive) when P31 data is unavailable — the
-    /// downstream enrichment pipeline will catch mismatches later.
+    /// Returns <c>false</c> when P31 data is unavailable. Canonical media identity
+    /// matching must fail closed; otherwise short or ambiguous titles like "1984"
+    /// can auto-accept unrelated people, games, or organizations.
     /// </summary>
     private bool ValidateP31ForMediaType(
-        IReadOnlyList<ProviderClaim> claims,
+        IReadOnlyList<string> instanceOfQids,
         string qid,
         MediaType mediaType)
     {
-        // Extract P31 QIDs from the "instance_of" claims emitted by ExtensionToClaims.
-        var instanceOfQids = claims
-            .Where(c => c.Key == "instance_of" && !string.IsNullOrWhiteSpace(c.Value)
-                        && c.Value.StartsWith('Q'))
-            .Select(c => c.Value)
-            .ToList();
-
         if (instanceOfQids.Count == 0)
-            return true; // No P31 data — be permissive
+        {
+            _logger.LogDebug(
+                "{Provider}: P31 validation — {QID} has no P31 data for {MediaType}",
+                Name, qid, mediaType);
+            return false;
+        }
 
         var mediaTypeKey = mediaType.ToString();
 
@@ -2500,8 +2510,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // A score >= review_threshold is sufficient to accept the candidate.
 
             qid = top.Id;
-            // Use MatchedLabel from the library if available (alias or sitelink that matched).
-            reconciliationLabel = top.MatchedLabel ?? top.Name;
+            var matchedLabel = top.MatchedLabel ?? top.Name;
+            reconciliationLabel = await FetchDisplayLabelAsync(qid, displayLanguage, ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(reconciliationLabel)
+                && IsSameLanguage(request.FileLanguage, displayLanguage))
+            {
+                reconciliationLabel = matchedLabel;
+            }
         }
         else
         {
@@ -2514,9 +2529,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // foreign-language label just because English is missing.
             try
             {
-                var label = await _reconciler!.Labels
-                    .GetAsync(qid, displayLanguage, withFallbackLanguage: false, ct)
-                    .ConfigureAwait(false);
+                var label = await FetchDisplayLabelAsync(qid, displayLanguage, ct).ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(label))
                     reconciliationLabel = label;
             }
@@ -3656,6 +3669,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     internal static string ResolveDisplayLanguage(string? metadataLanguage, string? fileLanguage)
+        => NormalizeLang(metadataLanguage);
+
+    internal static string ResolveSearchLanguage(string? metadataLanguage, string? fileLanguage)
     {
         var metadata = NormalizeLang(metadataLanguage);
         var file = NormalizeOptionalLang(fileLanguage);
@@ -3664,6 +3680,33 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                && !string.Equals(file, metadata, StringComparison.OrdinalIgnoreCase)
             ? file
             : metadata;
+    }
+
+    private async Task<string?> FetchDisplayLabelAsync(string qid, string displayLanguage, CancellationToken ct)
+    {
+        if (_reconciler is null || string.IsNullOrWhiteSpace(qid))
+            return null;
+
+        try
+        {
+            return await _reconciler.Labels
+                .GetAsync(qid, displayLanguage, withFallbackLanguage: false, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex,
+                "{Provider}: failed to fetch display label for {Qid} in language '{Lang}'",
+                Name, qid, displayLanguage);
+            return null;
+        }
+    }
+
+    private static bool IsSameLanguage(string? candidateLanguage, string displayLanguage)
+    {
+        var candidate = NormalizeOptionalLang(candidateLanguage);
+        return string.IsNullOrWhiteSpace(candidate)
+               || string.Equals(candidate, NormalizeLang(displayLanguage), StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? NormalizeOptionalLang(string? lang)

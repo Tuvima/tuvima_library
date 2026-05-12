@@ -327,6 +327,14 @@
     font-size: 0.82rem;
 }
 
+::deep .ingestion-current__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 ::deep .ingestion-current__live::after {
     content: "";
     width: 7px;
@@ -337,18 +345,32 @@
 }
 
 ::deep .ingestion-current-row {
-    display: grid;
-    grid-template-columns: 46px minmax(0, 1.3fr) minmax(140px, 0.7fr) minmax(130px, auto);
-    gap: 12px;
-    align-items: center;
-    padding: 10px;
     border: 1px solid rgba(176, 190, 255, 0.11);
     border-radius: 8px;
     background: rgba(10, 18, 43, 0.62);
+    overflow: hidden;
 }
 
 ::deep .ingestion-current-row + .ingestion-current-row {
     margin-top: 8px;
+}
+
+::deep .ingestion-current-row__main {
+    display: grid;
+    grid-template-columns: 48px minmax(170px, 0.9fr) minmax(280px, 1.25fr) minmax(116px, 0.38fr) 28px;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    padding: 10px;
+    color: inherit;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+::deep .ingestion-current-row__main:hover {
+    background: rgba(30, 64, 175, 0.12);
 }
 
 ::deep .ingestion-current-row__icon {
@@ -362,6 +384,12 @@
         conic-gradient(currentColor var(--stage-progress), rgba(148, 163, 184, 0.22) 0);
     color: #22d3ee;
 }
+
+::deep .ingestion-current-row.is-artwork .ingestion-current-row__icon { color: #38bdf8; }
+::deep .ingestion-current-row.is-wikidata .ingestion-current-row__icon { color: #22d3ee; }
+::deep .ingestion-current-row.is-relationships .ingestion-current-row__icon { color: #84cc16; }
+::deep .ingestion-current-row.is-people .ingestion-current-row__icon { color: #f59e0b; }
+::deep .ingestion-current-row.is-validation .ingestion-current-row__icon { color: #a855f7; }
 
 ::deep .ingestion-current-row__copy {
     display: grid;
@@ -382,23 +410,114 @@
     white-space: nowrap;
 }
 
-::deep .ingestion-current-row__progress {
+::deep .ingestion-current-row__work {
     display: grid;
-    grid-template-columns: minmax(70px, 1fr) 38px;
+    gap: 6px;
+    min-width: 0;
+}
+
+::deep .ingestion-current-row__counts {
+    color: rgba(226, 232, 255, 0.84);
+    font-size: 0.82rem;
+}
+
+::deep .ingestion-current-row__bar {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) 40px;
     gap: 8px;
     align-items: center;
 }
 
-::deep .ingestion-current-row__facts {
-    display: grid;
-    gap: 4px;
+::deep .ingestion-current-row__chips {
+    display: flex;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+::deep .ingestion-current-row__chips span {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 8px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 999px;
+    color: rgba(226, 232, 255, 0.76);
+    background: rgba(15, 23, 42, 0.58);
     font-size: 0.8rem;
 }
 
-::deep .ingestion-current-row__facts span {
-    display: inline-flex;
+::deep .ingestion-current-row__metric {
+    display: grid;
+    gap: 2px;
+    justify-items: start;
+    min-width: 0;
+}
+
+::deep .ingestion-current-row__metric small {
+    color: rgba(226, 232, 255, 0.62);
+    white-space: nowrap;
+}
+
+::deep .ingestion-current-row__metric strong {
+    font-size: 1rem;
+    line-height: 1.1;
+}
+
+::deep .ingestion-current-row__metric.is-success strong { color: #22c55e; }
+::deep .ingestion-current-row__metric.is-warning strong { color: #f59e0b; }
+::deep .ingestion-current-row__metric.is-danger strong { color: #f472b6; }
+::deep .ingestion-current-row__metric.is-info strong { color: #38bdf8; }
+
+::deep .ingestion-current-row__batch {
+    display: grid;
+    gap: 10px;
+    padding: 0 10px 10px 70px;
+    border-top: 1px solid rgba(176, 190, 255, 0.1);
+}
+
+::deep .ingestion-current-row__batch-head {
+    display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 10px;
+}
+
+::deep .ingestion-current-row__batch-head span {
+    color: rgba(226, 232, 255, 0.68);
+    font-size: 0.82rem;
+}
+
+::deep .ingestion-current-row__batch-groups {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+::deep .ingestion-current-row__batch-group {
+    display: grid;
+    align-content: start;
     gap: 5px;
+    min-height: 84px;
+    padding: 9px;
+    border: 1px solid rgba(176, 190, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(4, 9, 24, 0.34);
+}
+
+::deep .ingestion-current-row__batch-group strong {
+    color: rgba(248, 251, 255, 0.92);
+    font-size: 0.82rem;
+}
+
+::deep .ingestion-current-row__batch-group span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgba(226, 232, 255, 0.64);
+    font-size: 0.78rem;
 }
 
 ::deep .ingestion-review-preview__header strong {
@@ -882,13 +1001,21 @@
         grid-template-columns: 1fr;
     }
 
-    ::deep .ingestion-current-row {
-        grid-template-columns: 46px minmax(0, 1fr);
+    ::deep .ingestion-current-row__main {
+        grid-template-columns: 46px minmax(0, 1fr) 28px;
     }
 
-    ::deep .ingestion-current-row__progress,
-    ::deep .ingestion-current-row__facts {
+    ::deep .ingestion-current-row__work,
+    ::deep .ingestion-current-row__metric {
         grid-column: 2 / -1;
+    }
+
+    ::deep .ingestion-current-row__batch {
+        padding-left: 10px;
+    }
+
+    ::deep .ingestion-current-row__batch-groups {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -905,7 +1032,7 @@
         grid-template-columns: 1fr;
     }
 
-    ::deep .ingestion-current-row {
+    ::deep .ingestion-current-row__main {
         grid-template-columns: 1fr;
     }
 
@@ -913,9 +1040,18 @@
         display: none;
     }
 
-    ::deep .ingestion-current-row__progress,
-    ::deep .ingestion-current-row__facts {
+    ::deep .ingestion-current-row__work,
+    ::deep .ingestion-current-row__metric {
         grid-column: auto;
+    }
+
+    ::deep .ingestion-current-row__batch-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    ::deep .ingestion-current-row__batch-groups {
+        grid-template-columns: 1fr;
     }
 
     ::deep .ingestion-review-preview__reasons {

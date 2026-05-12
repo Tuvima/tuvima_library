@@ -280,7 +280,6 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         var activities = snapshot?.CurrentActivities
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
-            .Take(3)
             .ToList() ?? [];
 
         if (activities.Count > 0)
@@ -292,7 +291,6 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Where(job => job.Status.Equals("running", StringComparison.OrdinalIgnoreCase)
                 || job.Status.Equals("processing", StringComparison.OrdinalIgnoreCase)
                 || job.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
-            .Take(3)
             .Select(job => ToCurrentActivity(job, stages))
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
             .ToList();
@@ -528,6 +526,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
             TotalCount = total,
             PercentComplete = total > 0 ? Math.Clamp(processed * 100d / total, 0, 100) : Math.Clamp(job.PercentComplete, 0, 100),
             LastUpdatedTime = job.LastUpdatedTime,
+            QueuedCount = Math.Max(0, total - processed),
+            ActiveCount = 1,
+            SampleItems = [item],
         };
     }
 

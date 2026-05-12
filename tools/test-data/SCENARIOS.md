@@ -1,18 +1,25 @@
 # Tuvima Library — Ingestion Test Scenarios
 
-**20 scenarios** covering every major ingestion edge case for Books and Audiobooks.
-Designed to be expanded: add new rows to each table as Music, Movies, and other media types are implemented.
+**47 standard scenarios** covering Books, Audiobooks, Movies, TV, Music, Comics, and the general drop zone.
+**118 large-corpus scenarios** are available with `--large` for stress testing canonical matching, people enrichment, series linking, and batched provider flow.
+The generator now includes cross-media person and series coverage so the ingestion harness can validate links across formats.
 
 ---
 
 ## How to run
 
 ```powershell
-# One command — wipes dev environment, regenerates all 20 files:
+# One command - wipes dev environment, regenerates all 47 files:
 powershell -ExecutionPolicy Bypass -File tools/test-data/reset-and-generate.ps1
+
+# Large stress corpus - wipes dev environment, regenerates 118 files:
+powershell -ExecutionPolicy Bypass -File tools/test-data/reset-and-generate.ps1 -Large
 
 # Generator only (no wipe):
 dotnet run --project tools/GenerateTestEpubs
+
+# Generator only, large corpus:
+dotnet run --project tools/GenerateTestEpubs -- --large
 
 # Generator with clean output directory:
 dotnet run --project tools/GenerateTestEpubs -- --clean
@@ -119,17 +126,44 @@ skipping a redundant Stage 1 SPARQL lookup.
 
 ---
 
-## Expanding to other media types
+## Video, music, comic, and general fixtures
 
-When Music, Movies, or TV are ready to test, add new rows to a new Group table here and add the corresponding specs to `tools/GenerateTestEpubs/Program.cs`. The folder structure follows the same pattern:
+The harness now writes these folders in addition to `books/`:
 
 ```
-C:\temp\tuvima-watch\movies\   ← future movies intake
-C:\temp\tuvima-watch\music\    ← future music intake
-C:\temp\tuvima-watch\tv\       ← future TV intake
+C:\temp\tuvima-watch\movies\   # scenarios 33-39
+C:\temp\tuvima-watch\tv\       # scenarios 40-42
+C:\temp\tuvima-watch\music\    # scenarios 43-44
+C:\temp\tuvima-watch\comics\   # scenarios 45-46
 ```
 
-Each new category also needs an entry in `config/libraries.json`.
+Movies and TV use MP4 fixtures; music uses MP3 fixtures. If FFmpeg is unavailable, the generator writes minimal valid MP4/MP3 files so these media types are still present in every run.
+
+| # | Category | Scenario focus |
+|---|----------|----------------|
+| 33-37 | Movies | Dune and Middle-earth movie series grouping and TMDB/IMDb bridge IDs |
+| 38-39 | Movies | Standalone Arrival and The Shawshank Redemption movie fixtures |
+| 40-41 | TV | Breaking Bad episode grouping and cast/person enrichment, including Aaron Paul and Anna Gunn |
+| 42 | TV | Shogun 2024 episode grouping and TV disambiguation |
+| 43-44 | Music | David Bowie album grouping and artist/person enrichment |
+| 45-46 | Comics | Watchmen issue grouping |
+| 47 | General | Unsorted text drop-zone smoke fixture |
+
+The generated manifest's `expected_person_enrichment` section names the repeated people that should be checked after ingestion. It includes cross-format creators, series-level TV cast, comic creators, and music artists so person enrichment regressions are visible across media types.
+
+### Large corpus additions
+
+The `--large` corpus adds 71 more files: 16 books, 8 audiobooks, 21 movies, 14 TV episodes, and 12 music tracks. It intentionally stresses:
+
+| Area | Added titles |
+|---|---|
+| Stephen King disambiguation | `The Shining`, `Doctor Sleep`, `It`, `The Shining (1980)`, `Doctor Sleep (2019)` |
+| Blade Runner canonical matching | `Do Androids Dream of Electric Sheep?`, `Blade Runner`, `Blade Runner 2049` |
+| Foundation series | `Foundation and Empire`, `Second Foundation`, `Foundation` TV episodes |
+| Middle-earth | `The Hobbit`, LOTR books, Hobbit movies, LOTR movies |
+| Cross-format author/adaptation | `The Martian`, `Project Hail Mary`, `A Game of Thrones`, `The Expanse`, `The Last of Us` |
+| Repeated filmmakers/composers | Christopher Nolan films, Hans Zimmer film and soundtrack credits |
+| Music batching | David Bowie, Radiohead, The Beatles, Taylor Swift, Kendrick Lamar, Hans Zimmer albums |
 
 ---
 

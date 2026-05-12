@@ -239,6 +239,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("SeriesPlacementPanel", source);
         Assert.Contains("Compact=\"true\"", source);
         Assert.Contains("MoreLikeThisItems", source);
+        Assert.Contains("IsRecommendationGroup", source);
+        Assert.Contains("IsRecommendationCandidate", source);
+        Assert.Contains("item.EntityType is not DetailEntityType.TvEpisode", source);
         Assert.Contains("More Like This", source);
         Assert.DoesNotContain("tl-media-overview-card__art", source);
         Assert.Contains("BuildVideoCreditGroups", source);

@@ -12,7 +12,10 @@
                 <MudText Typo="Typo.subtitle2">@L["Ingestion_CurrentActivity"]</MudText>
                 <span>What the engine is working on right now</span>
             </div>
-            <span class="ingestion-current__live">Live updates</span>
+            <div class="ingestion-current__actions">
+                <span class="ingestion-current__live">Live updates</span>
+                <MudButton Href="/settings/activity" Variant="Variant.Outlined" Size="Size.Small">View all activity</MudButton>
+            </div>
         </div>
 
         @if (CurrentRows.Count == 0)
@@ -27,28 +30,61 @@
         }
         else
         {
-            @foreach (var row in CurrentRows.Take(3))
+            @foreach (var row in CurrentRows)
             {
-                <article class="ingestion-current-row">
-                    <div class="ingestion-current-row__icon" style="@RingStyle(row.Percent)">
-                        <MudIcon Icon="@row.Icon" />
-                    </div>
-                    <div class="ingestion-current-row__copy">
-                        <strong>@row.Message</strong>
-                        <span>@row.Detail</span>
-                        @if (!string.IsNullOrWhiteSpace(row.Source))
-                        {
-                            <small>@row.Source</small>
-                        }
-                    </div>
-                    <div class="ingestion-current-row__progress">
-                        <MudProgressLinear Value="@row.Percent" Color="@row.Color" Rounded="true" Size="Size.Small" />
-                        <span>@row.Percent.ToString("0", CultureInfo.CurrentCulture)%</span>
-                    </div>
-                    <div class="ingestion-current-row__facts">
-                        <span><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /> @row.Counts</span>
-                        <span><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" /> @row.Updated</span>
-                    </div>
+                <article class="ingestion-current-row @row.StageClass">
+                    <button type="button"
+                            class="ingestion-current-row__main"
+                            @onclick="() => ToggleRow(row.Key)">
+                        <span class="ingestion-current-row__icon" style="@RingStyle(row.Percent)">
+                            <MudIcon Icon="@row.Icon" />
+                        </span>
+                        <span class="ingestion-current-row__copy">
+                            <strong>@row.Message</strong>
+                            <span>@row.Detail</span>
+                            <small>@row.QueueSummary</small>
+                        </span>
+                        <span class="ingestion-current-row__work">
+                            <span class="ingestion-current-row__counts">@row.Counts</span>
+                            <span class="ingestion-current-row__bar">
+                                <MudProgressLinear Value="@row.Percent" Color="@row.Color" Rounded="true" Size="Size.Small" />
+                                <span>@row.Percent.ToString("0", CultureInfo.CurrentCulture)%</span>
+                            </span>
+                            @if (row.SampleItems.Count > 0)
+                            {
+                                <span class="ingestion-current-row__chips">
+                                    @foreach (var item in row.SampleItems.Take(3))
+                                    {
+                                        <span>@item</span>
+                                    }
+                                    @if (row.SampleItems.Count > 3)
+                                    {
+                                        <span>+@((row.SampleItems.Count - 3).ToString("N0", CultureInfo.CurrentCulture)) more</span>
+                                    }
+                                </span>
+                            }
+                        </span>
+                        <span class="ingestion-current-row__metric @row.MetricToneCss">
+                            <small>@row.MetricLabel</small>
+                            <strong>@row.MetricValue</strong>
+                        </span>
+                        <MudIcon Icon="@(IsExpanded(row.Key) ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ChevronRight)" />
+                    </button>
+                    @if (IsExpanded(row.Key) && row.Batch is not null)
+                    {
+                        <div class="ingestion-current-row__batch">
+                            <div class="ingestion-current-row__batch-head">
+                                <strong>Current batch @row.Batch.BatchNumber.ToString("N0", CultureInfo.CurrentCulture) of @row.Batch.TotalBatches.ToString("N0", CultureInfo.CurrentCulture)</strong>
+                                <span>@row.Batch.BatchSize.ToString("N0", CultureInfo.CurrentCulture) files · @row.Batch.CompletedCount.ToString("N0", CultureInfo.CurrentCulture) complete · @row.Batch.ActiveCount.ToString("N0", CultureInfo.CurrentCulture) active · @row.Batch.PendingCount.ToString("N0", CultureInfo.CurrentCulture) pending · @row.Batch.ReviewCount.ToString("N0", CultureInfo.CurrentCulture) review</span>
+                            </div>
+                            <div class="ingestion-current-row__batch-groups">
+                                @BatchGroup("Working now", row.Batch.ActiveItems, row.Batch.ActiveCount)
+                                @BatchGroup("Pending", row.Batch.PendingPreview, row.Batch.PendingCount)
+                                @BatchGroup("Completed", row.Batch.CompletedPreview, row.Batch.CompletedCount)
+                                @BatchGroup("Needs review", row.Batch.ReviewPreview, row.Batch.ReviewCount)
+                            </div>
+                        </div>
+                    }
                 </article>
             }
         }
@@ -123,13 +159,14 @@
     [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
     [Parameter] public int ReviewTotal { get; set; }
 
+    private readonly HashSet<string> _expandedRows = new(StringComparer.OrdinalIgnoreCase);
+
     private IReadOnlyList<CurrentRow> CurrentRows
     {
         get
         {
             var rows = CurrentActivities
                 .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
-                .Take(3)
                 .Select(CurrentRow.FromActivity)
                 .ToList();
 
@@ -142,7 +179,6 @@
                 .Where(job => job.Status.Equals("running", StringComparison.OrdinalIgnoreCase)
                     || job.Status.Equals("processing", StringComparison.OrdinalIgnoreCase)
                     || job.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
-                .Take(3)
                 .Select(job => CurrentRow.FromJob(job, Stages))
                 .ToList();
         }
@@ -156,6 +192,7 @@
             .ToList();
 
     private sealed record CurrentRow(
+        string Key,
         string Message,
         string Detail,
         string Source,
@@ -163,12 +200,20 @@
         string Updated,
         string Icon,
         double Percent,
-        Color Color)
+        Color Color,
+        string QueueSummary,
+        IReadOnlyList<string> SampleItems,
+        string MetricLabel,
+        string MetricValue,
+        string MetricToneCss,
+        string StageClass,
+        IngestionActivityBatchViewModel? Batch)
     {
         public static CurrentRow FromActivity(IngestionCurrentActivityViewModel activity)
         {
             var percent = Math.Clamp(activity.PercentComplete, 0, 100);
             return new CurrentRow(
+                FirstNonBlank(activity.StageKey, activity.Message),
                 FirstNonBlank(activity.Message, "Processing files"),
                 FirstNonBlank(activity.Detail, activity.CurrentItem, "Working on the current item"),
                 ShortPath(activity.Source),
@@ -176,7 +221,14 @@
                 FormatUpdated(activity.LastUpdatedTime),
                 StageIcon(activity.StageKey),
                 percent,
-                StageColor(activity.StageKey));
+                StageColor(activity.StageKey),
+                FormatQueue(activity.QueuedCount, activity.ActiveCount),
+                activity.SampleItems,
+                FirstNonBlank(activity.MetricLabel, "Active"),
+                FirstNonBlank(activity.MetricValue, activity.ActiveCount.ToString("N0", CultureInfo.CurrentCulture)),
+                ToMetricToneCss(activity.MetricTone),
+                $"is-{NormalizeStageClass(activity.StageKey)}",
+                activity.CurrentBatch);
         }
 
         public static CurrentRow FromJob(IngestionOperationsJobViewModel job, IReadOnlyList<IngestionDashboardStage> stages)
@@ -189,6 +241,7 @@
                 : Math.Clamp(job.PercentComplete, 0, 100);
             var stageKey = stage?.Key ?? ResolveStageKey(job.CurrentStage);
             return new CurrentRow(
+                stageKey,
                 StageMessage(stageKey),
                 FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running"),
                 ShortPath(job.SourceFolder),
@@ -196,7 +249,14 @@
                 FormatUpdated(job.LastUpdatedTime),
                 StageIcon(stageKey),
                 percent,
-                StageColor(stageKey));
+                StageColor(stageKey),
+                FormatQueue(Math.Max(0, total - count), 1),
+                [FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running")],
+                "Active",
+                "1",
+                "is-info",
+                $"is-{NormalizeStageClass(stageKey)}",
+                null);
         }
 
         private static string ResolveStageKey(string? stage) => (stage ?? string.Empty).ToLowerInvariant() switch
@@ -221,6 +281,10 @@
             "retail" => Icons.Material.Outlined.Extension,
             "wikidata" => Icons.Material.Outlined.TravelExplore,
             "enrichment" => Icons.Material.Outlined.DataObject,
+            "artwork" => Icons.Material.Outlined.Collections,
+            "relationships" => Icons.Material.Outlined.Hub,
+            "people" => Icons.Material.Outlined.Groups,
+            "validation" => Icons.Material.Outlined.FactCheck,
             "summary" => Icons.Material.Outlined.AssignmentTurnedIn,
             _ => Icons.Material.Outlined.Radar,
         };
@@ -228,10 +292,76 @@
         private static Color StageColor(string stageKey) => stageKey switch
         {
             "enrichment" => Color.Warning,
+            "relationships" => Color.Success,
+            "people" => Color.Warning,
+            "validation" => Color.Secondary,
             "summary" => Color.Success,
             _ => Color.Info,
         };
+
+        private static string FormatQueue(int queued, int active)
+        {
+            if (queued <= 0 && active <= 0)
+            {
+                return "No files currently waiting in this task";
+            }
+
+            return $"{queued.ToString("N0", CultureInfo.CurrentCulture)} queued · {active.ToString("N0", CultureInfo.CurrentCulture)} active";
+        }
+
+        private static string ToMetricToneCss(string? tone) => tone?.ToLowerInvariant() switch
+        {
+            "success" => "is-success",
+            "warning" => "is-warning",
+            "danger" => "is-danger",
+            _ => "is-info",
+        };
+
+        private static string NormalizeStageClass(string? stageKey) => stageKey?.ToLowerInvariant() switch
+        {
+            "artwork" => "artwork",
+            "wikidata" => "wikidata",
+            "relationships" => "relationships",
+            "people" => "people",
+            "validation" => "validation",
+            "enrichment" => "people",
+            _ => "scanning",
+        };
     }
+
+    private RenderFragment BatchGroup(string label, IReadOnlyList<string> items, int count) => builder =>
+    {
+        var sequence = 0;
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", "ingestion-current-row__batch-group");
+        builder.OpenElement(sequence++, "strong");
+        builder.AddContent(sequence++, $"{label} ({count.ToString("N0", CultureInfo.CurrentCulture)})");
+        builder.CloseElement();
+        if (items.Count == 0)
+        {
+            builder.OpenElement(sequence++, "span");
+            builder.AddContent(sequence++, "None right now");
+            builder.CloseElement();
+        }
+        else
+        {
+            foreach (var item in items.Take(6))
+            {
+                builder.OpenElement(sequence++, "span");
+                builder.AddContent(sequence++, item);
+                builder.CloseElement();
+            }
+
+            if (count > items.Count)
+            {
+                builder.OpenElement(sequence++, "span");
+                builder.AddContent(sequence++, $"+{(count - items.Count).ToString("N0", CultureInfo.CurrentCulture)} more");
+                builder.CloseElement();
+            }
+        }
+
+        builder.CloseElement();
+    };
 
     private static string DisplayReviewTitle(ReviewItemViewModel item) =>
         FirstNonBlank(item.EntityTitle, item.Detail, item.MediaType, "Review item");
@@ -289,4 +419,14 @@
 
     private static string RingStyle(double percent) =>
         $"--stage-progress: {Math.Clamp(percent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
+
+    private bool IsExpanded(string key) => _expandedRows.Contains(key);
+
+    private void ToggleRow(string key)
+    {
+        if (!_expandedRows.Add(key))
+        {
+            _expandedRows.Remove(key);
+        }
+    }
 }

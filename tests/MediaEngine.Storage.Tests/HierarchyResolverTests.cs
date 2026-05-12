@@ -170,6 +170,32 @@ public sealed class HierarchyResolverTests : IDisposable
         Assert.Equal(2, i2.Ordinal);
     }
 
+    [Fact]
+    public async Task Books_FoundationSeriesMetadata_CreatesSeriesParent()
+    {
+        var first = await _resolver.ResolveAsync(MediaType.Books, new Dictionary<string, string>
+        {
+            ["title"]           = "Foundation",
+            ["author"]          = "Isaac Asimov",
+            ["series"]          = "Foundation",
+            ["series_position"] = "1",
+        });
+        var second = await _resolver.ResolveAsync(MediaType.Books, new Dictionary<string, string>
+        {
+            ["title"]           = "Foundation and Empire",
+            ["author"]          = "Isaac Asimov",
+            ["series"]          = "Foundation",
+            ["series_position"] = "2",
+        });
+
+        Assert.Equal(WorkKind.Child, first.WorkKind);
+        Assert.Equal(WorkKind.Child, second.WorkKind);
+        Assert.NotNull(first.ParentWorkId);
+        Assert.Equal(first.ParentWorkId, second.ParentWorkId);
+        Assert.Equal(1, first.Ordinal);
+        Assert.Equal(2, second.Ordinal);
+    }
+
     // ── Standalone ────────────────────────────────────────────────────────────
 
     [Fact]

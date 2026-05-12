@@ -173,6 +173,10 @@ public sealed class VideoProcessor : IMediaProcessor
     private static readonly Regex TrailingYearRegex = new(
         @"\s*\((\d{4})\)\s*$", RegexOptions.Compiled);
 
+    /// <summary>Trailing organizer tokens such as {imdb-tt1160419} or [tmdb-438631].</summary>
+    private static readonly Regex TrailingOrganizerTokenRegex = new(
+        @"\s*(?:\{[^{}]+\}|\[[^\[\]]+\])\s*$", RegexOptions.Compiled);
+
     /// <summary>S01E01, S01E01E02 (multi-episode), case-insensitive.</summary>
     private static readonly Regex SxxExxRegex = new(
         @"^(?<series>.+?)\s*[.\-_ ]*[Ss](?<season>\d{1,2})\s*[Ee](?<ep1>\d{1,4})(?:\s*[Ee](?<ep2>\d{1,4}))?",
@@ -206,7 +210,7 @@ public sealed class VideoProcessor : IMediaProcessor
         if (!string.IsNullOrWhiteSpace(stem))
         {
             // Basic filename cleanup — SmartLabeler (Step 6b) handles intelligent parsing.
-            var basicTitle = stem.Replace('.', ' ').Replace('_', ' ').Trim();
+            var basicTitle = StripTrailingOrganizerTokens(stem.Replace('.', ' ').Replace('_', ' ').Trim());
 
             // Attempt season/episode extraction BEFORE the title-only path.
             // When detected, the series title (text before the episode pattern) is
@@ -413,6 +417,20 @@ public sealed class VideoProcessor : IMediaProcessor
     private static string CleanSeriesTitle(string raw)
     {
         return raw.TrimEnd('.', '-', '_', ' ');
+    }
+
+    private static string StripTrailingOrganizerTokens(string value)
+    {
+        var cleaned = value;
+        string previous;
+        do
+        {
+            previous = cleaned;
+            cleaned = TrailingOrganizerTokenRegex.Replace(cleaned, string.Empty).Trim();
+        }
+        while (!string.Equals(previous, cleaned, StringComparison.Ordinal));
+
+        return cleaned;
     }
 
     /// <summary>

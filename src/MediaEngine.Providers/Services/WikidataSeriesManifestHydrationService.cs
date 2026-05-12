@@ -85,6 +85,7 @@ public sealed class WikidataSeriesManifestHydrationService
             var cachedHydration = await _manifestRepo.GetHydrationAsync(seriesQid, ct).ConfigureAwait(false);
 
             if (cachedHydration is not null
+                && IsCachedHydrationCurrent(cachedHydration)
                 && DateTimeOffset.UtcNow - cachedHydration.LastHydratedAt < TimeSpan.FromDays(ttlDays))
             {
                 var cachedItems = await _manifestRepo.GetItemsBySeriesQidAsync(seriesQid, ct).ConfigureAwait(false);
@@ -119,7 +120,7 @@ public sealed class WikidataSeriesManifestHydrationService
                 IncludeCollections = true,
                 ExpandCollections = true,
                 IncludePublicationDate = true,
-                IncludeDescriptions = false,
+                IncludeDescriptions = true,
                 MaxDepth = 2,
                 MaxItems = 500,
             }, ct).ConfigureAwait(false);
@@ -130,7 +131,8 @@ public sealed class WikidataSeriesManifestHydrationService
                 ct).ConfigureAwait(false);
 
             var now = DateTimeOffset.UtcNow;
-            var itemRecords = manifest.Items
+            var scopedItems = FilterManifestItems(manifest.Items, context, manifest.SeriesQid).ToList();
+            var itemRecords = scopedItems
                 .Select((item, index) => ToRecord(collection.Id, manifest.SeriesQid, context.MediaType, item, index, now))
                 .ToList();
 
@@ -183,7 +185,8 @@ public sealed class WikidataSeriesManifestHydrationService
                     includeCollections = true,
                     expandCollections = true,
                     includePublicationDate = true,
-                    includeDescriptions = false,
+                    includeDescriptions = true,
+                    scopeFilter = "media-and-edition-filtered",
                     maxDepth = 2,
                     maxItems = 500,
                     completeness = manifest.Completeness.ToString(),
@@ -216,7 +219,7 @@ public sealed class WikidataSeriesManifestHydrationService
         SeriesManifestHydrationContext context,
         CancellationToken ct)
     {
-        if (TryResolveFromClaims(context.FullClaims, out var qid, out var label))
+        if (TryResolveFromClaims(context.FullClaims, context, out var qid, out var label))
             return (qid, label);
 
         if (context.Lineage is not null)
@@ -238,6 +241,7 @@ public sealed class WikidataSeriesManifestHydrationService
 
     private static bool TryResolveFromClaims(
         IReadOnlyList<ProviderClaim> claims,
+        SeriesManifestHydrationContext context,
         out string? qid,
         out string? label)
     {
@@ -246,6 +250,16 @@ public sealed class WikidataSeriesManifestHydrationService
             var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
             if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
                 return true;
+        }
+
+        if (context.MediaType is MediaType.Movies or MediaType.TV)
+        {
+            foreach (var key in new[] { "franchise_qid", "fictional_universe_qid" })
+            {
+                var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
+                if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
+                    return true;
+            }
         }
 
         foreach (var key in new[] { "series" })
@@ -258,6 +272,131 @@ public sealed class WikidataSeriesManifestHydrationService
         qid = null;
         label = null;
         return false;
+    }
+
+    private static IEnumerable<SeriesManifestItem> FilterManifestItems(
+        IReadOnlyList<SeriesManifestItem> items,
+        SeriesManifestHydrationContext context,
+        string seriesQid)
+    {
+        foreach (var item in items)
+        {
+            if (!IsManifestItemInScope(item, context, seriesQid))
+                continue;
+
+            yield return item;
+        }
+    }
+
+    private static bool IsManifestItemInScope(
+        SeriesManifestItem item,
+        SeriesManifestHydrationContext context,
+        string seriesQid)
+    {
+        if (string.IsNullOrWhiteSpace(item.Qid)
+            || string.Equals(item.Qid, seriesQid, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var label = item.Label?.Trim();
+        var currentWork = string.Equals(item.Qid, context.ResolvedWorkQid, StringComparison.OrdinalIgnoreCase);
+        if (!currentWork && (string.IsNullOrWhiteSpace(label) || IsQidOnlyLabel(label, item.Qid)))
+        {
+            return false;
+        }
+
+        if (context.MediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Comics)
+        {
+            if (LooksLikeEditionOrTranslation(item))
+                return false;
+
+            if (item.SourceProperties.Count == 1
+                && item.SourceProperties.Contains("P361", StringComparer.OrdinalIgnoreCase)
+                && !currentWork
+                && item.ParsedSeriesOrdinal is null
+                && string.IsNullOrWhiteSpace(item.RawSeriesOrdinal)
+                && string.IsNullOrWhiteSpace(item.PreviousQid)
+                && string.IsNullOrWhiteSpace(item.NextQid))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsQidOnlyLabel(string label, string qid) =>
+        string.Equals(label, qid, StringComparison.OrdinalIgnoreCase)
+        || (label.Length > 1 && label[0] is 'Q' && label.Skip(1).All(char.IsDigit));
+
+    private static bool LooksLikeEditionOrTranslation(SeriesManifestItem item)
+    {
+        var haystack = string.Join(
+            ' ',
+            item.Label,
+            item.Description,
+            item.ParentCollectionLabel,
+            item.IsExpandedFromCollection ? "expanded-from-collection" : null).ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(haystack))
+            return false;
+
+        var editionMarkers = new[]
+        {
+            "translation",
+            "translated",
+            "edition",
+            "version",
+            "omnibus",
+            "boxed set",
+            "box set",
+            "anthology",
+            "collected",
+            "collection of",
+        };
+        if (editionMarkers.Any(marker => haystack.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        if (!item.IsExpandedFromCollection)
+            return false;
+
+        var languageMarkers = new[]
+        {
+            "spanish",
+            "espanol",
+            "german",
+            "deutsch",
+            "french",
+            "francais",
+            "italian",
+            "portuguese",
+            "russian",
+            "polish",
+            "dutch",
+            "swedish",
+            "japanese",
+            "chinese",
+            "korean",
+        };
+        return languageMarkers.Any(marker => haystack.Contains(marker, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsCachedHydrationCurrent(SeriesManifestHydration hydration)
+    {
+        if (string.IsNullOrWhiteSpace(hydration.ApiMetadataJson))
+            return false;
+
+        try
+        {
+            using var document = JsonDocument.Parse(hydration.ApiMetadataJson);
+            return document.RootElement.TryGetProperty("scopeFilter", out var value)
+                && string.Equals(value.GetString(), "media-and-edition-filtered", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static bool TryParseQidValue(string? value, out string? qid, out string? label)
@@ -485,3 +624,4 @@ internal static class SeriesManifestRecordExtensions
         };
     }
 }
+

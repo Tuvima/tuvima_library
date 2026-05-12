@@ -3,6 +3,7 @@ using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 using MediaEngine.Processors.Processors;
+using System.Text;
 
 namespace MediaEngine.Processors.Tests;
 
@@ -76,6 +77,46 @@ public class GenericFileProcessorTests
 // ════════════════════════════════════════════════════════════════════════
 //  MediaProcessorRouter
 // ════════════════════════════════════════════════════════════════════════
+
+public class VideoProcessorTests
+{
+    [Theory]
+    [InlineData("Arrival (2016) {imdb-tt2543164}.mp4", "Arrival", "2016")]
+    [InlineData("Dune Part One (2021) {imdb-tt1160419} [tmdb-438631].mp4", "Dune Part One", "2021")]
+    public async Task ProcessAsync_StripsOrganizerBridgeTokensBeforeTitleAndYearExtraction(
+        string fileName,
+        string expectedTitle,
+        string expectedYear)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"video_processor_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var file = Path.Combine(dir, fileName);
+        await File.WriteAllBytesAsync(file, MinimalMp4Header());
+
+        try
+        {
+            var processor = new VideoProcessor(new StubVideoMetadataExtractor());
+
+            var result = await processor.ProcessAsync(file);
+
+            Assert.Contains(result.Claims, claim => claim.Key == "title" && claim.Value == expectedTitle);
+            Assert.Contains(result.Claims, claim => claim.Key == "year" && claim.Value == expectedYear);
+            Assert.DoesNotContain(result.Claims, claim => claim.Key == "title" && claim.Value.Contains("imdb-", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    private static byte[] MinimalMp4Header() =>
+    [
+        0x00, 0x00, 0x00, 0x18,
+        0x66, 0x74, 0x79, 0x70,
+        0x69, 0x73, 0x6F, 0x6D,
+        0x00, 0x00, 0x02, 0x00,
+    ];
+}
 
 public class MediaProcessorRouterTests : IDisposable
 {
@@ -230,6 +271,110 @@ public class MediaProcessorRouterTests : IDisposable
         {
             File.Delete(file);
         }
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ExtractsAudiobookSeriesTags()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"foundation_{Guid.NewGuid():N}.mp3");
+        await File.WriteAllBytesAsync(file, MinimalTaggedMp3(
+            title: "Foundation",
+            author: "Isaac Asimov",
+            narrator: "Scott Brick",
+            series: "Foundation",
+            seriesIndex: "1"));
+
+        try
+        {
+            var processor = new AudioProcessor();
+
+            var result = await processor.ProcessAsync(file);
+
+            Assert.Equal(MediaType.Audiobooks, result.DetectedType);
+            Assert.Contains(result.Claims, c => c.Key == "series" && c.Value == "Foundation");
+            Assert.Contains(result.Claims, c => c.Key == "series_position" && c.Value == "1");
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    private static byte[] MinimalTaggedMp3(
+        string title,
+        string author,
+        string narrator,
+        string series,
+        string seriesIndex)
+    {
+        using var stream = new MemoryStream();
+        using var frames = new MemoryStream();
+
+        WriteTextFrame(frames, "TIT2", title);
+        WriteTextFrame(frames, "TPE1", author);
+        WriteTextFrame(frames, "TPE2", narrator);
+        WriteTextFrame(frames, "TALB", title);
+        WriteTextFrame(frames, "TCON", "Audiobook");
+        WriteTxxxFrame(frames, "NARRATOR", narrator);
+        WriteTxxxFrame(frames, "AUTHOR", author);
+        WriteTxxxFrame(frames, "SERIES", series);
+        WriteTxxxFrame(frames, "SERIES_INDEX", seriesIndex);
+
+        var frameData = frames.ToArray();
+        stream.Write("ID3"u8);
+        stream.WriteByte(3);
+        stream.WriteByte(0);
+        stream.WriteByte(0);
+        WriteSyncSafe(stream, frameData.Length);
+        stream.Write(frameData);
+        stream.WriteByte(0xFF);
+        stream.WriteByte(0xFB);
+        stream.WriteByte(0x90);
+        stream.WriteByte(0x00);
+        stream.Write(new byte[413]);
+
+        return stream.ToArray();
+    }
+
+    private static void WriteTextFrame(Stream stream, string frameId, string text)
+    {
+        var textBytes = Encoding.Latin1.GetBytes(text);
+        stream.Write(Encoding.ASCII.GetBytes(frameId));
+        WriteBigEndianInt(stream, 1 + textBytes.Length);
+        stream.WriteByte(0);
+        stream.WriteByte(0);
+        stream.WriteByte(0);
+        stream.Write(textBytes);
+    }
+
+    private static void WriteTxxxFrame(Stream stream, string description, string value)
+    {
+        var descBytes = Encoding.Latin1.GetBytes(description);
+        var valBytes = Encoding.Latin1.GetBytes(value);
+        stream.Write("TXXX"u8);
+        WriteBigEndianInt(stream, 1 + descBytes.Length + 1 + valBytes.Length);
+        stream.WriteByte(0);
+        stream.WriteByte(0);
+        stream.WriteByte(0);
+        stream.Write(descBytes);
+        stream.WriteByte(0);
+        stream.Write(valBytes);
+    }
+
+    private static void WriteBigEndianInt(Stream stream, int value)
+    {
+        stream.WriteByte((byte)((value >> 24) & 0xFF));
+        stream.WriteByte((byte)((value >> 16) & 0xFF));
+        stream.WriteByte((byte)((value >> 8) & 0xFF));
+        stream.WriteByte((byte)(value & 0xFF));
+    }
+
+    private static void WriteSyncSafe(Stream stream, int value)
+    {
+        stream.WriteByte((byte)((value >> 21) & 0x7F));
+        stream.WriteByte((byte)((value >> 14) & 0x7F));
+        stream.WriteByte((byte)((value >> 7) & 0x7F));
+        stream.WriteByte((byte)(value & 0x7F));
     }
 }
 

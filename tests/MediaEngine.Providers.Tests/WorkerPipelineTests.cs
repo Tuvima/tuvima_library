@@ -2469,6 +2469,7 @@ public sealed class WorkerPipelineTests
         public Task<Guid> UpsertAsync(Collection collection, CancellationToken ct = default) => Task.FromResult(collection.Id);
         public Task InsertRelationshipsAsync(IReadOnlyList<CollectionRelationship> relationships, CancellationToken ct = default) => Task.CompletedTask;
         public Task<Guid?> GetWorkIdByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<IReadOnlyList<Guid>> GetWorkLineageIdsByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Guid>>([]);
         public Task<string?> FindCollectionNameByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<string?>(null);
         public Task AssignWorkToCollectionAsync(Guid workId, Guid collectionId, CancellationToken ct = default) => Task.CompletedTask;
         public Task MergeCollectionsAsync(Guid keepCollectionId, Guid mergeCollectionId, CancellationToken ct = default) => Task.CompletedTask;

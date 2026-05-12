@@ -192,13 +192,32 @@
 
     private IReadOnlyList<MediaGroupingItemViewModel> MoreLikeThisItems =>
         Model.MediaGroups
-            .Where(group => !string.Equals(group.Key, "series", StringComparison.OrdinalIgnoreCase))
+            .Where(IsRecommendationGroup)
             .SelectMany(group => group.Items)
             .Where(item => !string.Equals(item.Id, Model.Id, StringComparison.OrdinalIgnoreCase))
+            .Where(IsRecommendationCandidate)
             .GroupBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .Take(8)
             .ToList();
+
+    private static bool IsRecommendationGroup(MediaGroupingViewModel group)
+    {
+        var key = group.Key ?? string.Empty;
+        var title = group.Title ?? string.Empty;
+        return key.Equals("related", StringComparison.OrdinalIgnoreCase)
+            || key.Equals("recommendations", StringComparison.OrdinalIgnoreCase)
+            || key.Equals("more-like-this", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("more like", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("recommend", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("similar", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsRecommendationCandidate(MediaGroupingItemViewModel item)
+        => item.EntityType is not DetailEntityType.TvEpisode
+           && !item.Actions.Any(action =>
+               action.Route?.Contains("/episode/", StringComparison.OrdinalIgnoreCase) == true
+               || action.Route?.Contains("/tvepisode/", StringComparison.OrdinalIgnoreCase) == true);
 
     private IReadOnlyList<(string Label, string Value)> QuickFacts
     {

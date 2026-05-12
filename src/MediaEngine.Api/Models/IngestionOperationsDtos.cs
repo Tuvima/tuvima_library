@@ -138,6 +138,63 @@ public sealed class IngestionCurrentActivityDto
 
     [JsonPropertyName("last_updated_time")]
     public DateTimeOffset? LastUpdatedTime { get; init; }
+
+    [JsonPropertyName("queued_count")]
+    public int QueuedCount { get; init; }
+
+    [JsonPropertyName("active_count")]
+    public int ActiveCount { get; init; }
+
+    [JsonPropertyName("sample_items")]
+    public List<string> SampleItems { get; init; } = [];
+
+    [JsonPropertyName("metric_label")]
+    public string? MetricLabel { get; init; }
+
+    [JsonPropertyName("metric_value")]
+    public string? MetricValue { get; init; }
+
+    [JsonPropertyName("metric_tone")]
+    public string? MetricTone { get; init; }
+
+    [JsonPropertyName("current_batch")]
+    public IngestionActivityBatchDto? CurrentBatch { get; init; }
+}
+
+public sealed class IngestionActivityBatchDto
+{
+    [JsonPropertyName("batch_number")]
+    public int BatchNumber { get; init; }
+
+    [JsonPropertyName("batch_size")]
+    public int BatchSize { get; init; }
+
+    [JsonPropertyName("total_batches")]
+    public int TotalBatches { get; init; }
+
+    [JsonPropertyName("completed_count")]
+    public int CompletedCount { get; init; }
+
+    [JsonPropertyName("active_count")]
+    public int ActiveCount { get; init; }
+
+    [JsonPropertyName("pending_count")]
+    public int PendingCount { get; init; }
+
+    [JsonPropertyName("review_count")]
+    public int ReviewCount { get; init; }
+
+    [JsonPropertyName("active_items")]
+    public List<string> ActiveItems { get; init; } = [];
+
+    [JsonPropertyName("completed_preview")]
+    public List<string> CompletedPreview { get; init; } = [];
+
+    [JsonPropertyName("pending_preview")]
+    public List<string> PendingPreview { get; init; } = [];
+
+    [JsonPropertyName("review_preview")]
+    public List<string> ReviewPreview { get; init; } = [];
 }
 
 public sealed class IngestionPipelineStageDto
