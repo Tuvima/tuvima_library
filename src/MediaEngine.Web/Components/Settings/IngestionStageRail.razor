@@ -11,13 +11,7 @@
             <div class="ingestion-stage__node" style="@RingStyle(stage.RingPercent)">
                 <MudIcon Icon="@stage.Icon" />
             </div>
-            @if (stage.IsSummary)
-            {
-                <div class="ingestion-stage__count">@(stage.OtherCount > 0
-                    ? L["Ingestion_StageOutcomeSummaryWithSkipped", FormatCount(stage.MatchedCount), FormatCount(stage.ReviewCount), FormatCount(stage.OtherCount)]
-                    : L["Ingestion_StageOutcomeSummary", FormatCount(stage.MatchedCount), FormatCount(stage.ReviewCount)])</div>
-            }
-            else if (stage.Key == "retail")
+            @if (stage.Key == "retail")
             {
                 <div class="ingestion-stage__count">@(stage.OtherCount > 0
                     ? L["Ingestion_StageRetailSplitWithSkipped", FormatCount(stage.MatchedCount), FormatCount(stage.ReviewCount), FormatCount(stage.OtherCount)]

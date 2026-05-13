@@ -34,8 +34,8 @@
             {
                 <article class="ingestion-current-row @row.StageClass">
                     <button type="button"
-                            class="ingestion-current-row__main"
-                            @onclick="() => ToggleRow(row.Key)">
+                            class="ingestion-current-row__main @(IsSelected(row.Key) ? "is-selected" : null)"
+                            @onclick="() => SelectAndToggleRow(row.Key)">
                         <span class="ingestion-current-row__icon" style="@RingStyle(row.Percent)">
                             <MudIcon Icon="@row.Icon" />
                         </span>
@@ -90,62 +90,101 @@
         }
     </div>
 
-    <aside class="ingestion-review-preview">
-        <div class="ingestion-review-preview__header">
-            <div>
-                <MudText Typo="Typo.subtitle2">@L["ReviewQueue_Title"]</MudText>
-                <span>Items waiting for confirmation or fixes</span>
-            </div>
-            <strong>@ReviewTotal.ToString("N0", CultureInfo.CurrentCulture) items</strong>
-        </div>
-
-        @if (ReviewTotal <= 0)
+    <aside class="ingestion-activity-detail">
+        @if (SelectedRow is null)
         {
-            <div class="ingestion-review-preview__empty">
+            <div class="ingestion-activity-detail__empty">
                 <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
-                <span>Review queue is clear</span>
+                <div>
+                    <strong>No active library work</strong>
+                    <span>The Engine is monitoring watched folders and waiting for new activity.</span>
+                </div>
             </div>
         }
         else
         {
-            <div class="ingestion-review-preview__reasons">
-                @foreach (var reason in TopReasons)
+            var detail = BuildDetail(SelectedRow);
+            <div class="ingestion-activity-detail__header">
+                <div>
+                    <MudText Typo="Typo.subtitle2">@detail.Title</MudText>
+                    <span>@detail.Subtitle</span>
+                </div>
+                <strong>@SelectedRow.Percent.ToString("0", CultureInfo.CurrentCulture)% complete</strong>
+            </div>
+
+            <div class="ingestion-activity-detail__metrics">
+                @foreach (var metric in detail.Metrics)
                 {
-                    <div>
-                        <strong>@reason.Count.ToString("N0", CultureInfo.CurrentCulture)</strong>
-                        <span>@reason.Label</span>
+                    <div class="@metric.CssClass">
+                        <MudIcon Icon="@metric.Icon" />
+                        <span>@metric.Label</span>
+                        <strong>@metric.Value</strong>
                     </div>
                 }
             </div>
 
-            @foreach (var item in PendingReviews.Take(3))
+            @if (detail.Breakdown.Count > 0)
             {
-                <a class="ingestion-review-preview__item" href="/settings/review">
-                    <div class="ingestion-review-preview__cover">
-                        @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                <div class="ingestion-activity-detail__section">
+                    <strong>@detail.BreakdownTitle</strong>
+                    <div class="ingestion-activity-detail__breakdown">
+                        @foreach (var item in detail.Breakdown)
                         {
-                            <img src="@item.CoverUrl" alt="" loading="lazy" />
-                        }
-                        else
-                        {
-                            <MudIcon Icon="@Icons.Material.Outlined.RateReview" />
+                            <div>
+                                <span>@item.Label</span>
+                                <strong>@item.Value</strong>
+                            </div>
                         }
                     </div>
-                    <div>
-                        <strong>@DisplayReviewTitle(item)</strong>
-                        <span>@ReviewDetail(item)</span>
-                    </div>
-                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
-                </a>
+                </div>
             }
 
-            <MudButton Href="/settings/review"
-                       Variant="Variant.Outlined"
-                       Color="Color.Warning"
-                       FullWidth="true"
-                       EndIcon="@Icons.Material.Outlined.ChevronRight">
-                @L["Ingestion_ReviewQueue"]
-            </MudButton>
+            @if (SelectedRow.SampleItems.Count > 0)
+            {
+                <div class="ingestion-activity-detail__section">
+                    <strong>@detail.WorkTitle</strong>
+                    <div class="ingestion-activity-detail__work">
+                        @foreach (var item in SelectedRow.SampleItems.Take(5))
+                        {
+                            <div>
+                                <MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" />
+                                <span>@item</span>
+                                <small>@SelectedRow.Source</small>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (detail.Problems.Count > 0)
+            {
+                <div class="ingestion-activity-detail__section">
+                    <strong>Problem buckets</strong>
+                    <div class="ingestion-activity-detail__problems">
+                        @foreach (var problem in detail.Problems)
+                        {
+                            <a href="/settings/review" class="@problem.CssClass">
+                                <MudIcon Icon="@problem.Icon" />
+                                <span>@problem.Label</span>
+                                <strong>@problem.Count.ToString("N0", CultureInfo.CurrentCulture)</strong>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (RecentActivityItems.Count > 0)
+            {
+                <div class="ingestion-activity-detail__section">
+                    <strong>Recent engine activity</strong>
+                    <div class="ingestion-activity-detail__events">
+                        @foreach (var item in RecentActivityItems.Take(5))
+                        {
+                            <span>@DisplayRecentActivity(item)</span>
+                        }
+                    </div>
+                </div>
+            }
         }
     </aside>
 </section>
@@ -160,6 +199,24 @@
     [Parameter] public int ReviewTotal { get; set; }
 
     private readonly HashSet<string> _expandedRows = new(StringComparer.OrdinalIgnoreCase);
+    private string? _selectedRowKey;
+
+    protected override void OnParametersSet()
+    {
+        var rows = CurrentRows;
+        if (rows.Count == 0)
+        {
+            _selectedRowKey = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedRowKey) || rows.All(row => !row.Key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase)))
+        {
+            _selectedRowKey = rows
+                .FirstOrDefault(row => row.Percent < 100 || row.Batch?.ActiveCount > 0)?.Key
+                ?? rows[0].Key;
+        }
+    }
 
     private IReadOnlyList<CurrentRow> CurrentRows
     {
@@ -167,6 +224,8 @@
         {
             var rows = CurrentActivities
                 .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
+                .Where(activity => !activity.StageKey.Equals("validation", StringComparison.OrdinalIgnoreCase))
+                .Where(activity => !activity.StageKey.Equals("summary", StringComparison.OrdinalIgnoreCase))
                 .Select(CurrentRow.FromActivity)
                 .ToList();
 
@@ -190,6 +249,149 @@
             .OrderByDescending(reason => reason.Count)
             .Take(3)
             .ToList();
+
+    private CurrentRow? SelectedRow =>
+        CurrentRows.FirstOrDefault(row => row.Key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase))
+        ?? CurrentRows.FirstOrDefault();
+
+    private IReadOnlyList<ActivityEntryViewModel> RecentActivityItems =>
+        Activities
+            .Where(activity => !string.IsNullOrWhiteSpace(DisplayRecentActivity(activity)))
+            .Take(5)
+            .ToList();
+
+    private ActivityDetail BuildDetail(CurrentRow row)
+    {
+        var metrics = new List<DetailMetric>
+        {
+            new("Processed", row.Counts, Icons.Material.Outlined.TaskAlt, "is-info"),
+            new("Active", row.Batch is null ? row.MetricValue : row.Batch.ActiveCount.ToString("N0", CultureInfo.CurrentCulture), Icons.Material.Outlined.Autorenew, "is-warning"),
+            new(row.MetricLabel, row.MetricValue, row.Icon, row.MetricToneCss),
+        };
+
+        var breakdown = row.Batch is null
+            ? new List<DetailItem>
+            {
+                new("Queued", row.QueueSummary),
+                new("Updated", row.Updated),
+            }
+            : new List<DetailItem>
+            {
+                new("Current batch", $"{row.Batch.BatchNumber.ToString("N0", CultureInfo.CurrentCulture)} of {row.Batch.TotalBatches.ToString("N0", CultureInfo.CurrentCulture)}"),
+                new("Completed", row.Batch.CompletedCount.ToString("N0", CultureInfo.CurrentCulture)),
+                new("Pending", row.Batch.PendingCount.ToString("N0", CultureInfo.CurrentCulture)),
+                new("Needs attention", row.Batch.ReviewCount.ToString("N0", CultureInfo.CurrentCulture)),
+            };
+
+        return DetailStageKey(row.Key) switch
+        {
+            "artwork" => new(
+                "Artwork retrieval",
+                "Covers, posters, thumbnails, and provider image checks for this batch.",
+                "Artwork breakdown",
+                "Items being checked",
+                metrics,
+                breakdown,
+                ProblemBuckets(["missing_artwork", "provider_failures", "metadata_conflicts"])),
+            "wikidata" => new(
+                "Wikidata identity linking",
+                "Canonical QID matching, ambiguous identity checks, and unresolved bridge IDs.",
+                "Identity breakdown",
+                "Works in identity matching",
+                metrics,
+                breakdown,
+                ProblemBuckets(["missing_wikidata", "low_confidence", "metadata_conflicts"])),
+            "relationships" => new(
+                "Series and relationships",
+                "Series links, collection relationships, and universe graph updates.",
+                "Relationship breakdown",
+                "Works affecting relationships",
+                metrics,
+                breakdown,
+                ProblemBuckets(["duplicates", "metadata_conflicts", "missing_wikidata"])),
+            "people" => new(
+                "People and cast enrichment",
+                "Authors, narrators, cast, crew, and character links for active works.",
+                "People breakdown",
+                "Active works",
+                metrics,
+                breakdown,
+                ProblemBuckets(["metadata_conflicts", "missing_wikidata", "provider_failures"])),
+            _ => new(
+                "Library updates",
+                "Current Engine work, recent events, and issues scoped to this activity.",
+                "Batch breakdown",
+                "Active items",
+                metrics,
+                breakdown,
+                ProblemBuckets(["metadata_conflicts", "provider_failures", "low_confidence"])),
+        };
+    }
+
+    private static string DetailStageKey(string? stageKey) => stageKey?.ToLowerInvariant() switch
+    {
+        "artwork" => "artwork",
+        "wikidata" => "wikidata",
+        "relationships" => "relationships",
+        "people" or "enrichment" => "people",
+        _ => "scanning",
+    };
+
+    private IReadOnlyList<ProblemBucket> ProblemBuckets(IReadOnlyList<string> keys)
+    {
+        var selected = ReviewReasons
+            .Where(reason => reason.Count > 0 && keys.Contains(reason.Key, StringComparer.OrdinalIgnoreCase))
+            .OrderByDescending(reason => reason.Count)
+            .Select(reason => new ProblemBucket(
+                reason.Label,
+                reason.Count,
+                ProblemIcon(reason.Key),
+                $"is-{ProblemTone(reason.Key)}"))
+            .ToList();
+
+        return selected.Count > 0
+            ? selected
+            : TopReasons.Select(reason => new ProblemBucket(reason.Label, reason.Count, ProblemIcon(reason.Key), $"is-{ProblemTone(reason.Key)}")).ToList();
+    }
+
+    private static string ProblemIcon(string key) => key.ToLowerInvariant() switch
+    {
+        "missing_artwork" => Icons.Material.Outlined.ImageNotSupported,
+        "missing_wikidata" => Icons.Material.Outlined.TravelExplore,
+        "provider_failures" => Icons.Material.Outlined.SyncProblem,
+        "metadata_conflicts" => Icons.Material.Outlined.Rule,
+        "duplicates" => Icons.Material.Outlined.ContentCopy,
+        "low_confidence" => Icons.Material.Outlined.ReportProblem,
+        _ => Icons.Material.Outlined.Info,
+    };
+
+    private static string ProblemTone(string key) => key.ToLowerInvariant() switch
+    {
+        "provider_failures" => "danger",
+        "missing_artwork" or "metadata_conflicts" => "warning",
+        _ => "info",
+    };
+
+    private static string DisplayRecentActivity(ActivityEntryViewModel item) =>
+        FirstNonBlank(item.Detail, item.RichData?.Title, item.ReviewData?.Title, FormatTrigger(item.ActionType));
+
+    private sealed record DetailMetric(string Label, string Value, string Icon, string ToneCss)
+    {
+        public string CssClass => $"ingestion-activity-detail__metric {ToneCss}";
+    }
+
+    private sealed record DetailItem(string Label, string Value);
+
+    private sealed record ProblemBucket(string Label, int Count, string Icon, string CssClass);
+
+    private sealed record ActivityDetail(
+        string Title,
+        string Subtitle,
+        string BreakdownTitle,
+        string WorkTitle,
+        IReadOnlyList<DetailMetric> Metrics,
+        IReadOnlyList<DetailItem> Breakdown,
+        IReadOnlyList<ProblemBucket> Problems);
 
     private sealed record CurrentRow(
         string Key,
@@ -284,8 +486,6 @@
             "artwork" => Icons.Material.Outlined.Collections,
             "relationships" => Icons.Material.Outlined.Hub,
             "people" => Icons.Material.Outlined.Groups,
-            "validation" => Icons.Material.Outlined.FactCheck,
-            "summary" => Icons.Material.Outlined.AssignmentTurnedIn,
             _ => Icons.Material.Outlined.Radar,
         };
 
@@ -294,8 +494,6 @@
             "enrichment" => Color.Warning,
             "relationships" => Color.Success,
             "people" => Color.Warning,
-            "validation" => Color.Secondary,
-            "summary" => Color.Success,
             _ => Color.Info,
         };
 
@@ -323,7 +521,6 @@
             "wikidata" => "wikidata",
             "relationships" => "relationships",
             "people" => "people",
-            "validation" => "validation",
             "enrichment" => "people",
             _ => "scanning",
         };
@@ -421,6 +618,14 @@
         $"--stage-progress: {Math.Clamp(percent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
 
     private bool IsExpanded(string key) => _expandedRows.Contains(key);
+
+    private bool IsSelected(string key) => key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase);
+
+    private void SelectAndToggleRow(string key)
+    {
+        _selectedRowKey = key;
+        ToggleRow(key);
+    }
 
     private void ToggleRow(string key)
     {

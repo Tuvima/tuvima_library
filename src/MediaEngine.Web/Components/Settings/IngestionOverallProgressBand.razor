@@ -38,22 +38,26 @@
     {
         get
         {
-            var percentages = Stages.Count == 0
-                ? [0d, 0d, 0d, 0d, 0d]
-                : Stages.Take(5).Select(stage => Math.Clamp(stage.RingPercent, 0, 100)).ToArray();
-            while (percentages.Length < 5)
+            var stages = Stages.Where(stage => !stage.HideCount).ToArray();
+            if (stages.Length == 0)
             {
-                percentages = [..percentages, 0d];
+                return "background:rgba(148, 163, 184, 0.18);";
             }
 
-            var p1 = percentages[0] * 0.20;
-            var p2 = 20 + percentages[1] * 0.20;
-            var p3 = 40 + percentages[2] * 0.20;
-            var p4 = 60 + percentages[3] * 0.20;
-            var p5 = 80 + percentages[4] * 0.20;
+            var colors = new[] { "#a78bfa", "#60a5fa", "#34d399", "#f59e0b", "#f472b6" };
+            var parts = new List<string>();
+            for (var index = 0; index < stages.Length; index++)
+            {
+                var start = index * 100d / stages.Length;
+                var end = (index + 1) * 100d / stages.Length;
+                var filled = start + (end - start) * Math.Clamp(stages[index].RingPercent, 0, 100) / 100d;
+                var color = colors[Math.Min(index, colors.Length - 1)];
+                parts.Add(string.Create(CultureInfo.InvariantCulture, $"{color} {start:0.##}% {filled:0.##}%"));
+                parts.Add(string.Create(CultureInfo.InvariantCulture, $"rgba(148, 163, 184, 0.18) {filled:0.##}% {end:0.##}%"));
+            }
 
             return string.Create(CultureInfo.InvariantCulture,
-                $"--seg1:{p1:0.##}%;--seg2:{p2:0.##}%;--seg3:{p3:0.##}%;--seg4:{p4:0.##}%;--seg5:{p5:0.##}%;");
+                $"background:linear-gradient(90deg, {string.Join(", ", parts)});");
         }
     }
 

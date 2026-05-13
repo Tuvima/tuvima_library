@@ -649,30 +649,6 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 metricLabel: "People resolved",
                 metricValue: metrics.PersonCount.ToString("N0"),
                 metricTone: "warning"),
-            BuildTaskActivity(
-                "validation",
-                "Metadata validation",
-                "Validating and normalizing metadata.",
-                "summary",
-                rows,
-                stages,
-                activeStates: [nameof(IdentityJobState.Hydrating)],
-                relevantStates: rows.Select(row => row.State).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
-                completedStates: [
-                    nameof(IdentityJobState.Ready),
-                    nameof(IdentityJobState.ReadyWithoutUniverse),
-                    nameof(IdentityJobState.Completed),
-                ],
-                reviewStates: [
-                    nameof(IdentityJobState.RetailMatchedNeedsReview),
-                    nameof(IdentityJobState.RetailNoMatch),
-                    nameof(IdentityJobState.QidNeedsReview),
-                    nameof(IdentityJobState.QidNoMatch),
-                    nameof(IdentityJobState.Failed),
-                ],
-                metricLabel: "Issues detected",
-                metricValue: metrics.IssueCount.ToString("N0"),
-                metricTone: metrics.IssueCount > 0 ? "danger" : "success"),
         };
 
         return result
@@ -1129,13 +1105,6 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             "enrichment" => (
                 CountStage(byKey, "enriched"),
                 TotalStage(byKey, "enriched")),
-            "summary" => (
-                CountStage(byKey, "registered")
-                    + CountStage(byKey, "needs_review")
-                    + CountStage(byKey, "duplicate")
-                    + CountStage(byKey, "skipped")
-                    + CountStage(byKey, "failed"),
-                TotalStage(byKey, "registered")),
             _ => (
                 CountStage(byKey, "detected"),
                 TotalStage(byKey, "detected")),

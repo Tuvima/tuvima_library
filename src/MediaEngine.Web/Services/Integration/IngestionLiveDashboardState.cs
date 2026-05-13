@@ -302,11 +302,8 @@ public sealed class IngestionLiveDashboardState : IDisposable
         int totalFiles)
     {
         var activeKey = ResolveActiveStage(activeJobs);
-        var reviewCount = snapshot?.Summary.ItemsNeedingReview ?? 0;
-        var registeredCount = snapshot?.Summary.RegisteredItems ?? 0;
         var duplicateCount = Count(snapshot, "duplicate");
         var skippedCount = Count(snapshot, "skipped");
-        var failedCount = Count(snapshot, "failed");
         var skippedOrDuplicate = duplicateCount + skippedCount;
         var retailMatched = Count(snapshot, "matched");
         var retailReview = Count(snapshot, "retail_review");
@@ -328,13 +325,6 @@ public sealed class IngestionLiveDashboardState : IDisposable
             scanningTotal = Total(snapshot, "detected", totalFiles);
             scanningDone = Count(snapshot, "detected", 0);
         }
-
-        var summaryTerminal = registeredCount
-            + reviewCount
-            + duplicateCount
-            + skippedCount
-            + failedCount;
-        var summaryTotal = Math.Max(totalFiles, summaryTerminal);
 
         var stages = new List<IngestionDashboardStage>
         {
@@ -378,19 +368,6 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 enrichmentTotal,
                 totalFiles,
                 activeKey),
-            CreateStage(
-                "summary",
-                "Ingestion_StageSummary",
-                "Ingestion_StageSummaryDetail",
-                Icons.Material.Outlined.AssignmentTurnedIn,
-                summaryTerminal,
-                summaryTotal,
-                totalFiles,
-                activeKey,
-                matchedCount: registeredCount,
-                reviewCount: reviewCount,
-                otherCount: skippedOrDuplicate,
-                isSummary: true),
         };
 
         return stages;
@@ -447,15 +424,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
         IReadOnlyList<IngestionDashboardStage> stages,
         BatchProgressEvent? batch)
     {
-        var pipelineStages = stages.Take(5).ToList();
+        var pipelineStages = stages.Where(stage => !stage.HideCount).ToList();
         var hasPipelineWork = metrics.TotalFiles > 0 || pipelineStages.Any(stage => stage.Total > 0 || stage.Count > 0);
         var percent = hasPipelineWork && pipelineStages.Count > 0
             ? Math.Clamp(pipelineStages.Average(stage => Math.Clamp(stage.Percent, 0, 100)), 0, 100)
             : metrics.TotalFiles > 0
                 ? Math.Clamp(metrics.ProcessedFiles * 100d / metrics.TotalFiles, 0, 100)
                 : 0;
-        if (metrics.ActiveFiles > 0 && percent >= 100)
-            percent = 99;
 
         var activeStage = stages.FirstOrDefault(stage => stage.StatusKey == "Ingestion_StatusActive")
             ?? stages.FirstOrDefault(stage => !stage.HideCount && stage.Percent < 100)
@@ -493,7 +468,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (stage.Contains("enrich") || stage.Contains("hydrate") || stage.Contains("metadata") || stage.Contains("universe"))
             return "enrichment";
         if (stage.Contains("register") || stage.Contains("organize") || stage.Contains("review") || stage.Contains("complete"))
-            return "summary";
+            return "enrichment";
         return "retail";
     }
 
@@ -510,7 +485,6 @@ public sealed class IngestionLiveDashboardState : IDisposable
             "retail" => "Matching metadata",
             "wikidata" => "Checking Wikidata identity",
             "enrichment" => "Enriching relationships",
-            "summary" => "Finishing library updates",
             _ => "Scanning files",
         };
         var item = FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running");

@@ -86,6 +86,9 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("ActivityBatchSize = 50", serviceSource, StringComparison.Ordinal);
         Assert.Contains("Linking Wikidata QIDs", serviceSource, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentBatch", serviceSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("Metadata validation", serviceSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"validation\"", serviceSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"summary\" =>", serviceSource, StringComparison.Ordinal);
     }
 
     [Theory]

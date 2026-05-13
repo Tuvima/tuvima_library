@@ -1514,12 +1514,6 @@
   <data name="Ingestion_StageEnrichmentDetail" xml:space="preserve">
     <value>People, series, universe, relationships, artwork, and supporting metadata.</value>
   </data>
-  <data name="Ingestion_StageSummary" xml:space="preserve">
-    <value>Summary</value>
-  </data>
-  <data name="Ingestion_StageSummaryDetail" xml:space="preserve">
-    <value>Terminal matched and review outcomes for completed ingestion work.</value>
-  </data>
   <data name="Ingestion_StageRetailSplit" xml:space="preserve">
     <value>{0} matched, {1} need review</value>
   </data>

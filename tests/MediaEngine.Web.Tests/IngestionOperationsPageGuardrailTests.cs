@@ -99,7 +99,8 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains(stages, stage => stage.Key == "retail" && stage.LabelKey == "Ingestion_StageRetailIdentification");
         Assert.Contains(stages, stage => stage.Key == "wikidata" && stage.LabelKey == "Ingestion_StageWikidataMatch");
         Assert.DoesNotContain(stages, stage => stage.LabelKey == "Matching");
-        Assert.Contains(stages, stage => stage.Key == "summary" && stage.IsSummary);
+        Assert.DoesNotContain(stages, stage => stage.Key == "summary");
+        Assert.DoesNotContain(stages, stage => stage.LabelKey == "Ingestion_StageSummary");
     }
 
     [Fact]
@@ -147,7 +148,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal(43, retail.Total);
         Assert.Equal(1, retail.OtherCount);
         Assert.True(progress.Percent < 100);
-        Assert.Equal(72.3, Math.Round(progress.Percent, 1));
+        Assert.Equal(65.3, Math.Round(progress.Percent, 1));
         Assert.Equal("Ingestion_StageWikidataMatch", progress.ActiveStageLabelKey);
         Assert.Equal(19, progress.ActiveStageCount);
         Assert.Equal(31, progress.ActiveStageTotal);
@@ -155,7 +156,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
-    public void LiveDashboardState_OverallProgressStaysBelowCompleteWhileJobIsActive()
+    public void LiveDashboardState_OverallProgressCanReachCompleteWhileJobIsActive()
     {
         var stages = new[]
         {
@@ -163,12 +164,11 @@ public sealed class IngestionOperationsPageGuardrailTests
             new IngestionDashboardStage("retail", "Ingestion_StageRetailIdentification", "Ingestion_StageRetailIdentificationDetail", Icons.Material.Outlined.Search, 43, 43, 100, "Ingestion_StatusComplete", 100, false, 31, 11, 1, false),
             new IngestionDashboardStage("wikidata", "Ingestion_StageWikidataMatch", "Ingestion_StageWikidataMatchDetail", Icons.Material.Outlined.TravelExplore, 31, 31, 100, "Ingestion_StatusComplete", 100, false, 0, 0, 0, false),
             new IngestionDashboardStage("enrichment", "Ingestion_StageEnrichment", "Ingestion_StageEnrichmentDetail", Icons.Material.Outlined.DataObject, 31, 31, 100, "Ingestion_StatusActive", 100, false, 0, 0, 0, false),
-            new IngestionDashboardStage("summary", "Ingestion_StageSummary", "Ingestion_StageSummaryDetail", Icons.Material.Outlined.AssignmentTurnedIn, 43, 43, 100, "Ingestion_StatusComplete", 100, false, 28, 14, 1, true),
         };
 
         var progress = IngestionLiveDashboardState.BuildOverallProgress(new IngestionDashboardMetrics(43, 43, 1, 14), stages, null);
 
-        Assert.Equal(99, progress.Percent);
+        Assert.Equal(100, progress.Percent);
         Assert.Equal("Ingestion_StageEnrichment", progress.ActiveStageLabelKey);
     }
 
@@ -238,23 +238,28 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
-    public void ActivityList_RendersReviewPreviewCoverWhenReviewHasArtwork()
+    public void ActivityList_RendersContextualPanelInsteadOfReviewPreview()
     {
-        var review = new ReviewItemViewModel
+        var activities = new[]
         {
-            EntityTitle = "Dune",
-            MediaType = "Books",
-            Trigger = "LowConfidence",
-            CoverUrl = "https://example.test/dune.jpg",
+            Activity("artwork", "Fetching artwork"),
+        };
+        var reasons = new[]
+        {
+            new IngestionReviewReasonViewModel { Key = "missing_artwork", Label = "Missing Artwork", Count = 4 },
         };
 
         var cut = RenderComponent<IngestionActivityList>(parameters => parameters
+            .Add(component => component.CurrentActivities, activities)
             .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
-            .Add(component => component.PendingReviews, new[] { review })
-            .Add(component => component.ReviewTotal, 1));
+            .Add(component => component.PendingReviews, Array.Empty<ReviewItemViewModel>())
+            .Add(component => component.ReviewReasons, reasons)
+            .Add(component => component.ReviewTotal, 4));
 
-        Assert.Contains("https://example.test/dune.jpg", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Dune", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Artwork retrieval", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Missing Artwork", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Review Queue", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ingestion-review-preview", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -343,6 +348,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("Linking Wikidata QIDs", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Series &amp; relationships", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("People &amp; cast enrichment", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Metadata validation", cut.Markup, StringComparison.Ordinal);
 
         cut.Find(".ingestion-current-row__main").Click();
 
@@ -351,6 +357,27 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("Pending", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Completed", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Needs review", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ActivityList_ChangesContextualPanelWhenActivityIsSelected()
+    {
+        var activities = new[]
+        {
+            Activity("artwork", "Fetching artwork"),
+            Activity("people", "People & cast enrichment"),
+        };
+
+        var cut = RenderComponent<IngestionActivityList>(parameters => parameters
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Artwork retrieval", cut.Markup, StringComparison.Ordinal);
+
+        cut.FindAll(".ingestion-current-row__main")[1].Click();
+
+        Assert.Contains("People and cast enrichment", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]

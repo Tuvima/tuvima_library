@@ -209,7 +209,7 @@
 
 ::deep .ingestion-stage-rail {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0;
     padding: 10px 8px 30px;
     margin-bottom: 8px;
@@ -275,8 +275,6 @@
 ::deep .ingestion-stage--retail { color: #60a5fa; }
 ::deep .ingestion-stage--wikidata { color: #34d399; }
 ::deep .ingestion-stage--enrichment { color: #f59e0b; }
-::deep .ingestion-stage--summary { color: #f472b6; }
-
 ::deep .ingestion-stage.is-active .ingestion-stage__node {
     animation: ingestion-active-ring 2s ease-in-out infinite;
 }
@@ -371,6 +369,11 @@
 
 ::deep .ingestion-current-row__main:hover {
     background: rgba(30, 64, 175, 0.12);
+}
+
+::deep .ingestion-current-row__main.is-selected {
+    background: rgba(96, 165, 250, 0.12);
+    box-shadow: inset 3px 0 0 currentColor;
 }
 
 ::deep .ingestion-current-row__icon {
@@ -518,6 +521,157 @@
     white-space: nowrap;
     color: rgba(226, 232, 255, 0.64);
     font-size: 0.78rem;
+}
+
+::deep .ingestion-activity-detail {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid rgba(176, 190, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(7, 14, 34, 0.58);
+}
+
+::deep .ingestion-activity-detail__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+::deep .ingestion-activity-detail__header span,
+::deep .ingestion-activity-detail__section span,
+::deep .ingestion-activity-detail__section small {
+    color: rgba(226, 232, 255, 0.68);
+}
+
+::deep .ingestion-activity-detail__header strong {
+    color: #f59e0b;
+    white-space: nowrap;
+}
+
+::deep .ingestion-activity-detail__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+::deep .ingestion-activity-detail__metric {
+    display: grid;
+    gap: 4px;
+    min-height: 88px;
+    padding: 10px;
+    border: 1px solid rgba(176, 190, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(10, 18, 43, 0.56);
+}
+
+::deep .ingestion-activity-detail__metric .mud-icon-root {
+    color: #93c5fd;
+}
+
+::deep .ingestion-activity-detail__metric span,
+::deep .ingestion-activity-detail__breakdown span {
+    color: rgba(226, 232, 255, 0.64);
+    font-size: 0.78rem;
+}
+
+::deep .ingestion-activity-detail__metric strong {
+    color: #f8fbff;
+    overflow-wrap: anywhere;
+}
+
+::deep .ingestion-activity-detail__section {
+    display: grid;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(176, 190, 255, 0.1);
+}
+
+::deep .ingestion-activity-detail__section + .ingestion-activity-detail__section {
+    margin-top: 12px;
+}
+
+::deep .ingestion-activity-detail__section > strong {
+    color: #f8fbff;
+}
+
+::deep .ingestion-activity-detail__breakdown,
+::deep .ingestion-activity-detail__problems {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+::deep .ingestion-activity-detail__breakdown div,
+::deep .ingestion-activity-detail__problems a,
+::deep .ingestion-activity-detail__work div {
+    border: 1px solid rgba(176, 190, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(4, 9, 24, 0.34);
+}
+
+::deep .ingestion-activity-detail__breakdown div {
+    display: grid;
+    gap: 3px;
+    padding: 9px;
+}
+
+::deep .ingestion-activity-detail__breakdown strong {
+    color: #dbeafe;
+}
+
+::deep .ingestion-activity-detail__work,
+::deep .ingestion-activity-detail__events {
+    display: grid;
+    gap: 6px;
+}
+
+::deep .ingestion-activity-detail__work div {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) minmax(80px, auto);
+    gap: 8px;
+    align-items: center;
+    padding: 8px;
+}
+
+::deep .ingestion-activity-detail__work span,
+::deep .ingestion-activity-detail__work small,
+::deep .ingestion-activity-detail__events span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .ingestion-activity-detail__problems a {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 9px;
+    color: inherit;
+    text-decoration: none;
+}
+
+::deep .ingestion-activity-detail__problems strong {
+    color: #f8fbff;
+}
+
+::deep .ingestion-activity-detail__events span {
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(176, 190, 255, 0.08);
+}
+
+::deep .ingestion-activity-detail__empty {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    min-height: 180px;
+    padding: 16px;
+    border: 1px dashed rgba(176, 190, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(4, 9, 24, 0.28);
 }
 
 ::deep .ingestion-review-preview__header strong {
