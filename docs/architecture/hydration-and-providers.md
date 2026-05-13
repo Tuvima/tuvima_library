@@ -1,4 +1,4 @@
----
+﻿---
 title: "Hydration Pipeline, Provider Architecture and Enrichment Strategy"
 summary: "Deep technical documentation for provider adapters, waterfalling, and Wikidata bridge resolution."
 audience: "developer"
@@ -123,6 +123,13 @@ Providers participate in Stage 1 by declaring `"hydration_stages": [1]` in their
 
 Stage 1 never waits on Stage 2. Cover art is written to disk during Stage 1 (`cover.jpg` alongside the staged file). If Stage 1 fails to find any matching provider, the item routes directly to the review queue — **no text-only Wikidata fallback is attempted**. The principle: no retail match = no Wikidata.
 
+### Manual Identity Corrections
+
+Manual editor searches are retail-first by default. The normal **Find Retail Match** flow searches provider catalogues only, applies the selected provider ID and bridge IDs, and then lets Stage 2 align Wikidata from those bridge IDs.
+
+Direct Wikidata search is an explicit exception exposed as **Fix Wikidata Match**. It is used when the provider match is acceptable but the canonical Wikidata identity is wrong, missing, or ambiguous.
+
+When a curator confirms or replaces a Wikidata QID, the item records the match as user-owned and locks canonical identity fields against automatic overwrite. Later sweeps may retry provider-only or missing items, but they must not replace user-confirmed or user-replaced QIDs without a new explicit curator action.
 ### Stage 2 â€” WikidataBridge
 
 The `ReconciliationAdapter` runs second, using bridge IDs deposited by Stage 1 for precise QID resolution. The adapter is now a thin orchestrator over `Tuvima.Wikidata` v3.0's `BridgeResolutionService`:

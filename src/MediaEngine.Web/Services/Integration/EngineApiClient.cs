@@ -3855,6 +3855,52 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<ItemCanonicalApplyResponseDto?> ReplaceRetailMatchAsync(
+        Guid entityId, ReplaceRetailMatchRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/retail-match", request, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /library/items/.../retail-match failed: {resp.StatusCode}";
+                return null;
+            }
+
+            return await resp.Content.ReadFromJsonAsync<ItemCanonicalApplyResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /library/items/{EntityId}/retail-match failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<ItemCanonicalApplyResponseDto?> ReplaceWikidataMatchAsync(
+        Guid entityId, ReplaceWikidataMatchRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/wikidata-match", request, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /library/items/.../wikidata-match failed: {resp.StatusCode}";
+                return null;
+            }
+
+            return await resp.Content.ReadFromJsonAsync<ItemCanonicalApplyResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /library/items/{EntityId}/wikidata-match failed", entityId);
+            return null;
+        }
+    }
+
     public async Task<CreateManualResponseDto?> CreateManualEntryAsync(
         Guid entityId, CreateManualRequestDto request,
         CancellationToken ct = default)

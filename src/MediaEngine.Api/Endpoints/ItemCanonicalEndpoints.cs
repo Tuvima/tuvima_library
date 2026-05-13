@@ -7,6 +7,7 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
@@ -231,7 +232,11 @@ public static class ItemCanonicalEndpoints
             var retailCandidates = new List<ItemCanonicalRetailCandidate>();
             var linkedCandidates = new List<ItemCanonicalLinkedCandidate>();
 
-            if (policy.SearchRetail)
+            var searchMode = NormalizeSearchMode(request.SearchMode);
+            var shouldSearchRetail = (searchMode is "retail_only" or "combined") && policy.SearchRetail;
+            var shouldSearchUniverse = (searchMode is "wikidata_only" or "combined") && policy.SearchUniverse;
+
+            if (shouldSearchRetail)
             {
                 var retail = await searchService.SearchRetailAsync(
                     new Domain.Models.SearchRetailRequest(
@@ -250,7 +255,7 @@ public static class ItemCanonicalEndpoints
                     .ToList();
             }
 
-            if (policy.SearchUniverse)
+            if (shouldSearchUniverse)
             {
                 var universe = await searchService.SearchUniverseAsync(
                     new Domain.Models.SearchUniverseRequest(
@@ -290,7 +295,9 @@ public static class ItemCanonicalEndpoints
                     "Apply as unlinked canonical value",
                 ],
                 NoResultMessage = retailCandidates.Count == 0 && linkedCandidates.Count == 0
-                    ? "No safe canonical result was found. Keep the current value, save the draft as a preference, or apply an unlinked canonical value when the required anchors are present."
+                    ? searchMode == "wikidata_only"
+                        ? "No Wikidata identity was found. Keep the retail match as provider-only, mark Wikidata missing, or try a different query."
+                        : "No safe retail result was found. Keep the current value, save the draft as a preference, or apply an unlinked canonical value when the required anchors are present."
                     : null,
                 CanApplyUnlinkedCanonical = policy.AllowsTextOnly && missingRequired.Count == 0 && unlinkedFields.Count > 0,
                 MissingRequiredFields = missingRequired,
@@ -435,14 +442,16 @@ public static class ItemCanonicalEndpoints
                 var qidTargetId = ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid);
                 cmd.Parameters.AddWithValue("@workId", qidTargetId.ToString());
                 cmd.ExecuteNonQuery();
-                await collectionRepo.UpdateWorkWikidataStatusAsync(qidTargetId, "confirmed", ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(qidTargetId, "user_confirmed", "user", true, globalQid, ct: ct);
             }
             else if (string.Equals(NormalizeLinkState(request.LinkState), "provider_only", StringComparison.Ordinal))
             {
-                await collectionRepo.UpdateWorkWikidataStatusAsync(
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(
                     ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid),
-                    "missing",
-                    ct);
+                    "provider_only",
+                    "retail",
+                    false,
+                    ct: ct);
             }
 
             await activityRepo.LogAsync(new SystemActivityEntry
@@ -494,6 +503,260 @@ public static class ItemCanonicalEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
+        group.MapPost("/{entityId:guid}/retail-match", async (
+            Guid entityId,
+            ReplaceRetailMatchRequest request,
+            IMetadataClaimRepository claimRepo,
+            ICanonicalValueRepository canonicalRepo,
+            IBridgeIdRepository bridgeIdRepo,
+            ISystemActivityRepository activityRepo,
+            IEventPublisher publisher,
+            ICollectionRepository collectionRepo,
+            IWorkRepository workRepo,
+            IReviewQueueRepository reviewRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var context = TryResolveWorkAssetContext(entityId, db);
+            if (context is null)
+                return Results.NotFound($"No media asset found for work {entityId}.");
+
+            if (string.IsNullOrWhiteSpace(request.ProviderName) || string.IsNullOrWhiteSpace(request.ProviderItemId))
+                return Results.BadRequest("Provider name and provider item ID are required.");
+
+            var now = DateTimeOffset.UtcNow;
+            var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
+            var selectedFields = request.RequiredFields
+                .Concat(request.SuggestedFields)
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+            var claims = selectedFields.Select(kv => new MetadataClaim
+            {
+                Id = Guid.NewGuid(),
+                EntityId = ResolveScopedTarget(context.AssetId, lineage, kv.Key),
+                ProviderId = WellKnownProviders.UserManual,
+                ClaimKey = kv.Key,
+                ClaimValue = kv.Value,
+                ClaimedAt = now,
+                Confidence = 1.0,
+                IsUserLocked = true,
+            }).ToList();
+
+            var canonicals = selectedFields.Select(kv => new CanonicalValue
+            {
+                EntityId = ResolveScopedTarget(context.AssetId, lineage, kv.Key),
+                Key = kv.Key,
+                Value = kv.Value,
+                LastScoredAt = now,
+                IsConflicted = false,
+                NeedsReview = false,
+                WinningProviderId = WellKnownProviders.UserManual,
+            }).ToList();
+
+            if (claims.Count > 0)
+                await claimRepo.InsertBatchAsync(claims, ct);
+            if (canonicals.Count > 0)
+                await canonicalRepo.UpsertBatchAsync(canonicals, ct);
+
+            if (request.BridgeIds.Count > 0)
+            {
+                var bridgeEntries = request.BridgeIds
+                    .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+                    .Select(kv => new BridgeIdEntry
+                    {
+                        EntityId = ResolveScopedTarget(context.AssetId, lineage, kv.Key),
+                        IdType = kv.Key,
+                        IdValue = kv.Value,
+                        ProviderId = request.ProviderName,
+                        CreatedAt = now,
+                    })
+                    .ToList();
+
+                await bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
+            }
+
+            var workId = ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid);
+            var currentState = LoadWorkWikidataState(db, workId);
+            if (request.ClearAutoAlignedWikidata
+                && !string.IsNullOrWhiteSpace(currentState.Qid)
+                && IsAutomationOwnedWikidataState(currentState.Status, currentState.Source, currentState.Locked))
+            {
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "pending", "retail", false, "", ct: ct);
+            }
+            else
+            {
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "provider_only", "retail", false, ct: ct);
+            }
+
+            if (request.ReviewItemId is { } reviewItemId)
+                await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
+
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                OccurredAt = now,
+                ActionType = SystemActionType.MetadataManualOverride,
+                EntityId = entityId,
+                EntityType = "Work",
+                CollectionName = context.WorkTitle,
+                Detail = $"Retail match replaced with {request.ProviderName} {request.ProviderItemId}.",
+            }, ct);
+
+            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
+            {
+                entity_id = entityId,
+                provider_name = request.ProviderName,
+                provider_item_id = request.ProviderItemId,
+                updated_fields = selectedFields.Keys.Concat(request.BridgeIds.Keys).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            }, ct);
+
+            return Results.Ok(new ItemCanonicalApplyResponse
+            {
+                EntityId = entityId,
+                LinkState = "provider_only",
+                LinkStatusLabel = "Retail match applied; Wikidata alignment queued.",
+                FieldsApplied = selectedFields.Count,
+                Message = "Retail match applied; Wikidata alignment queued.",
+            });
+        })
+        .WithName("ReplaceItemRetailMatch")
+        .WithSummary("Replace or confirm the item retail/provider match.")
+        .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
+        group.MapPost("/{entityId:guid}/wikidata-match", async (
+            Guid entityId,
+            ReplaceWikidataMatchRequest request,
+            IMetadataClaimRepository claimRepo,
+            ICanonicalValueRepository canonicalRepo,
+            IHydrationPipelineService pipeline,
+            ISystemActivityRepository activityRepo,
+            IEventPublisher publisher,
+            ICollectionRepository collectionRepo,
+            IReviewQueueRepository reviewRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var context = TryResolveWorkAssetContext(entityId, db);
+            if (context is null)
+                return Results.NotFound($"No media asset found for work {entityId}.");
+
+            var action = (request.Action ?? "replace").Trim().ToLowerInvariant();
+            var workId = ResolveWorkIdForAsset(context.AssetId, db) ?? entityId;
+            var now = DateTimeOffset.UtcNow;
+            var fieldsApplied = 0;
+            var message = action switch
+            {
+                "replace" => "Wikidata identity replaced; canonical fields refreshed.",
+                "clear" => "Wikidata identity cleared; retail match kept.",
+                "mark_missing" => "Retail match kept; Wikidata marked missing.",
+                "reject" => "Wikidata identity rejected; retail match kept.",
+                _ => "Wikidata identity updated.",
+            };
+
+            if (action == "replace")
+            {
+                if (string.IsNullOrWhiteSpace(request.Qid))
+                    return Results.BadRequest("QID is required when replacing a Wikidata match.");
+
+                var qid = request.Qid.Trim();
+                await claimRepo.InsertBatchAsync([new MetadataClaim
+                {
+                    Id = Guid.NewGuid(),
+                    EntityId = workId,
+                    ProviderId = WellKnownProviders.UserManual,
+                    ClaimKey = BridgeIdKeys.WikidataQid,
+                    ClaimValue = qid,
+                    Confidence = 1.0,
+                    ClaimedAt = now,
+                    IsUserLocked = true,
+                }], ct);
+
+                await canonicalRepo.UpsertBatchAsync([new CanonicalValue
+                {
+                    EntityId = workId,
+                    Key = BridgeIdKeys.WikidataQid,
+                    Value = qid,
+                    LastScoredAt = now,
+                    IsConflicted = false,
+                    NeedsReview = false,
+                    WinningProviderId = WellKnownProviders.UserManual,
+                }], ct);
+
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "user_replaced", "user", true, qid, ct: ct);
+                fieldsApplied = 1;
+
+                if (request.RehydrateNow)
+                {
+                    var canonicals = await canonicalRepo.GetByEntityAsync(workId, ct);
+                    var hints = canonicals.ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+                    await pipeline.RunSynchronousAsync(new HarvestRequest
+                    {
+                        EntityId = workId,
+                        EntityType = EntityType.MediaAsset,
+                        MediaType = MediaType.Unknown,
+                        Hints = hints,
+                        PreResolvedQid = qid,
+                        SuppressReviewCreation = true,
+                    }, ct);
+                }
+            }
+            else if (action == "clear")
+            {
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "provider_only", "user", false, "", ct: ct);
+            }
+            else if (action == "mark_missing")
+            {
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "missing", "user", false, "", ct: ct);
+            }
+            else if (action == "reject")
+            {
+                var rejected = BuildRejectedQidsJson(db, workId, request.RejectedQid ?? request.Qid);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "user_rejected", "user", false, "", rejected, ct);
+            }
+            else
+            {
+                return Results.BadRequest("Unsupported Wikidata match action.");
+            }
+
+            if (request.ReviewItemId is { } reviewItemId)
+                await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
+
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                OccurredAt = now,
+                ActionType = SystemActionType.MetadataManualOverride,
+                EntityId = entityId,
+                EntityType = "Work",
+                CollectionName = context.WorkTitle,
+                Detail = $"Wikidata match action '{action}' applied. QID: {request.Qid ?? request.RejectedQid ?? "none"}.",
+            }, ct);
+
+            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
+            {
+                entity_id = entityId,
+                provider_name = "user_manual",
+                updated_fields = new[] { BridgeIdKeys.WikidataQid, "wikidata_status" },
+            }, ct);
+
+            return Results.Ok(new ItemCanonicalApplyResponse
+            {
+                EntityId = entityId,
+                LinkState = action == "replace" ? "linked" : "provider_only",
+                LinkStatusLabel = message,
+                FieldsApplied = fieldsApplied,
+                Message = message,
+            });
+        })
+        .WithName("ReplaceItemWikidataMatch")
+        .WithSummary("Replace, clear, reject, or mark missing the item Wikidata identity.")
+        .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
         return app;
     }
 
@@ -504,6 +767,8 @@ public static class ItemCanonicalEndpoints
         string? WorkTitle,
         string? PrimaryCreator,
         string? Year);
+
+    private sealed record WorkWikidataState(string? Qid, string? Status, string? Source, bool Locked, string? RejectedQidsJson);
 
     private sealed record CanonicalTargetPolicy(
         string MediaType,
@@ -561,6 +826,70 @@ public static class ItemCanonicalEndpoints
             WorkTitle: reader.IsDBNull(2) ? null : reader.GetString(2),
             PrimaryCreator: reader.IsDBNull(3) ? null : reader.GetString(3),
             Year: reader.IsDBNull(4) ? null : reader.GetString(4));
+    }
+
+    private static Guid? ResolveWorkIdForAsset(Guid assetId, IDatabaseConnection db)
+    {
+        using var conn = db.CreateConnection();
+        var value = conn.QueryFirstOrDefault<string?>(
+            """
+            SELECT e.work_id
+            FROM media_assets ma
+            JOIN editions e ON e.id = ma.edition_id
+            WHERE ma.id = @assetId
+            LIMIT 1;
+            """,
+            new { assetId = assetId.ToString() });
+
+        return Guid.TryParse(value, out var workId) ? workId : null;
+    }
+
+    private static WorkWikidataState LoadWorkWikidataState(IDatabaseConnection db, Guid workId)
+    {
+        using var conn = db.CreateConnection();
+        var row = conn.QueryFirstOrDefault<(string? Qid, string? Status, string? Source, int Locked, string? RejectedQidsJson)>(
+            """
+            SELECT wikidata_qid,
+                   wikidata_status,
+                   wikidata_match_source,
+                   COALESCE(wikidata_match_locked, 0),
+                   wikidata_rejected_qids_json
+            FROM works
+            WHERE id = @workId
+            LIMIT 1;
+            """,
+            new { workId = workId.ToString() });
+
+        return new WorkWikidataState(row.Qid, row.Status, row.Source, row.Locked == 1, row.RejectedQidsJson);
+    }
+
+    private static bool IsAutomationOwnedWikidataState(string? status, string? source, bool locked) =>
+        !locked
+        && !string.Equals(source, "user", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(status, "user_confirmed", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(status, "user_replaced", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildRejectedQidsJson(IDatabaseConnection db, Guid workId, string? rejectedQid)
+    {
+        var state = LoadWorkWikidataState(db, workId);
+        var rejected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(state.RejectedQidsJson))
+        {
+            try
+            {
+                foreach (var qid in JsonSerializer.Deserialize<List<string>>(state.RejectedQidsJson) ?? [])
+                    rejected.Add(qid);
+            }
+            catch
+            {
+                // Preserve the action even if legacy JSON is malformed.
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(rejectedQid))
+            rejected.Add(rejectedQid.Trim());
+
+        return JsonSerializer.Serialize(rejected.OrderBy(qid => qid, StringComparer.OrdinalIgnoreCase));
     }
 
     private static string ResolveMediaType(string? requestedMediaType, string fallbackMediaType) =>
@@ -973,6 +1302,14 @@ public static class ItemCanonicalEndpoints
         "provider_only" => "provider_only",
         _ => "text_only",
     };
+
+    private static string NormalizeSearchMode(string? searchMode) =>
+        (searchMode ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "wikidata_only" => "wikidata_only",
+            "combined" => "combined",
+            _ => "retail_only",
+        };
 
     private static string GetLinkStatusLabel(string linkState) => NormalizeLinkState(linkState) switch
     {

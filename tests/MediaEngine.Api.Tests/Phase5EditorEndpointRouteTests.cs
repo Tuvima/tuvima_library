@@ -18,6 +18,8 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("/{entityId:guid}/display-overrides", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/canonical-search", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/canonical-apply", canonical, StringComparison.Ordinal);
+        Assert.Contains("/{entityId:guid}/retail-match", canonical, StringComparison.Ordinal);
+        Assert.Contains("/{entityId:guid}/wikidata-match", canonical, StringComparison.Ordinal);
         Assert.Contains("/{id:guid}/resolve", review, StringComparison.Ordinal);
         Assert.Contains("/{id:guid}/dismiss", review, StringComparison.Ordinal);
         Assert.Contains("/{id:guid}/skip-universe", review, StringComparison.Ordinal);

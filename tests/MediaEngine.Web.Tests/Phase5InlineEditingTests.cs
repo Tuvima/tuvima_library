@@ -58,8 +58,8 @@ public sealed class Phase5InlineEditingTests
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
 
-        Assert.Contains("Save and Resolve Review", shell, StringComparison.Ordinal);
-        Assert.Contains("Approve Current Metadata", shell, StringComparison.Ordinal);
+        Assert.Contains("GetDirtySaveLabel", shell, StringComparison.Ordinal);
+        Assert.Contains("GetResolveReviewLabel", shell, StringComparison.Ordinal);
         Assert.Contains("ResolveReviewWithoutChangesAsync", code, StringComparison.Ordinal);
         Assert.Contains("Orchestrator.ResolveReviewAsync", code, StringComparison.Ordinal);
         Assert.Contains("Review was not resolved because changes could not be saved.", code, StringComparison.Ordinal);

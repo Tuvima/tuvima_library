@@ -79,12 +79,15 @@
                 </MudTd>
                 <MudTd DataLabel="Actions">
                     <MudStack Row="true" Spacing="1">
+                        @{
+                            var target = ReviewTargetResolver.Resolve(context.MediaType, context.Trigger);
+                        }
                         <MudButton Size="Size.Small"
                                    Variant="Variant.Filled"
                                    Color="Color.Warning"
                                    Disabled="@_busyIds.Contains(context.Id)"
                                    OnClick="@(() => OpenReviewEditorAsync(context))">
-                            Review
+                            @target.PrimaryActionLabel
                         </MudButton>
                         <MudButton Size="Size.Small"
                                    Variant="Variant.Outlined"
@@ -93,13 +96,16 @@
                                    OnClick="@(() => DismissAsync(context))">
                             Dismiss
                         </MudButton>
-                        <MudButton Size="Size.Small"
-                                   Variant="Variant.Outlined"
-                                   Color="Color.Default"
-                                   Disabled="@_busyIds.Contains(context.Id)"
-                                   OnClick="@(() => SkipUniverseAsync(context))">
-                            Skip Universe
-                        </MudButton>
+                        @if (IsWikidataReview(context.Trigger))
+                        {
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Default"
+                                       Disabled="@_busyIds.Contains(context.Id)"
+                                       OnClick="@(() => SkipUniverseAsync(context))">
+                                Mark Provider-Only
+                            </MudButton>
+                        }
                     </MudStack>
                 </MudTd>
             </RowTemplate>
@@ -176,6 +182,7 @@
                 LaunchEntityId = item.EntityId,
                 LaunchEntityKind = FirstNonBlank(item.EntityType, "review"),
                 Mode = SharedMediaEditorMode.Review,
+                IdentityIntent = target.Intent,
                 InitialTab = target.InitialTab,
                 InitialCanonicalTargetGroup = target.CanonicalTargetGroup,
                 ReviewItemId = item.Id,
@@ -253,6 +260,9 @@
 
         return string.Join(", ", item.BridgeIdentifiers.Take(3).Select(kv => $"{kv.Key}: {kv.Value}"));
     }
+
+    private static bool IsWikidataReview(string? trigger) =>
+        trigger is "WikidataBridgeFailed" or "MissingQid" or "MultipleQidMatches" or "QidNoMatch";
 
     private static string RelativeAge(DateTimeOffset createdAt)
     {

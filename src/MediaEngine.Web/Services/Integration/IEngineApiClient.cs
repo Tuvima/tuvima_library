@@ -826,6 +826,14 @@ public interface IEngineApiClient
     Task<ItemCanonicalApplyResponseDto?> ApplyItemCanonicalAsync(
         Guid entityId, ItemCanonicalApplyRequestDto request, CancellationToken ct = default);
 
+    /// <summary>POST /library/items/{entityId}/retail-match - replace or confirm the provider match.</summary>
+    Task<ItemCanonicalApplyResponseDto?> ReplaceRetailMatchAsync(
+        Guid entityId, ReplaceRetailMatchRequestDto request, CancellationToken ct = default);
+
+    /// <summary>POST /library/items/{entityId}/wikidata-match - replace, clear, reject, or mark Wikidata missing.</summary>
+    Task<ItemCanonicalApplyResponseDto?> ReplaceWikidataMatchAsync(
+        Guid entityId, ReplaceWikidataMatchRequestDto request, CancellationToken ct = default);
+
     /// <summary>POST /library/items/{entityId}/create-manual - create a manual metadata entry.</summary>
     Task<CreateManualResponseDto?> CreateManualEntryAsync(
         Guid entityId, CreateManualRequestDto request,

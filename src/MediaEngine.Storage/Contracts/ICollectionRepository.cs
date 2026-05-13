@@ -87,6 +87,19 @@ public interface ICollectionRepository
     Task UpdateWorkWikidataStatusAsync(Guid workId, string status, CancellationToken ct = default);
 
     /// <summary>
+    /// Updates Wikidata match state, source, lock, current QID, and rejected QIDs for an existing Work.
+    /// Null values preserve the current column value.
+    /// </summary>
+    Task UpdateWorkWikidataMatchStateAsync(
+        Guid workId,
+        string status,
+        string? source = null,
+        bool? locked = null,
+        string? wikidataQid = null,
+        string? rejectedQidsJson = null,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Removes orphaned hierarchy records that no longer have children:
     /// <list type="number">
     ///   <item>Editions with zero MediaAssets.</item>

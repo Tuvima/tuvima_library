@@ -52,6 +52,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         nameof(IdentityJobState.ReadyWithoutUniverse),
         nameof(IdentityJobState.Completed),
     ];
+    private static readonly TimeSpan ActiveActivityFreshness = TimeSpan.FromMinutes(6);
     private static readonly string[] CurrentActivityStates =
     [
         nameof(IdentityJobState.RetailSearching),
@@ -676,7 +677,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .OrderBy(row => TaskSort(row, activeStates, completedStates, reviewStates))
             .ThenByDescending(row => ParseDate(row.UpdatedAt))
             .ToList();
-        var active = relevant.Where(row => ContainsState(activeStates, row.State)).ToList();
+        var active = relevant.Where(row => IsFreshActive(row, activeStates)).ToList();
         var completed = relevant.Where(row => ContainsState(completedStates, row.State)).ToList();
         var review = relevant.Where(row => ContainsState(reviewStates, row.State)).ToList();
         var progress = ResolveActivityProgress(progressStageKey, stages);
@@ -723,9 +724,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         }
 
         var totalBatches = Math.Max(1, (int)Math.Ceiling(relevant.Count / (double)ActivityBatchSize));
-        var firstActiveIndex = IndexOf(relevant, row => ContainsState(activeStates, row.State));
+        var firstActiveIndex = IndexOf(relevant, row => IsFreshActive(row, activeStates));
         var firstPendingIndex = IndexOf(relevant, row =>
-            !ContainsState(activeStates, row.State)
+            !IsFreshActive(row, activeStates)
             && !ContainsState(completedStates, row.State)
             && !ContainsState(reviewStates, row.State));
         var startIndex = Math.Max(0, firstActiveIndex >= 0 ? firstActiveIndex : firstPendingIndex >= 0 ? firstPendingIndex : 0);
@@ -735,11 +736,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .Take(ActivityBatchSize)
             .ToList();
 
-        var active = batchRows.Where(row => ContainsState(activeStates, row.State)).ToList();
+        var active = batchRows.Where(row => IsFreshActive(row, activeStates)).ToList();
         var completed = batchRows.Where(row => ContainsState(completedStates, row.State)).ToList();
         var review = batchRows.Where(row => ContainsState(reviewStates, row.State)).ToList();
         var pending = batchRows
-            .Where(row => !ContainsState(activeStates, row.State)
+            .Where(row => !IsFreshActive(row, activeStates)
                 && !ContainsState(completedStates, row.State)
                 && !ContainsState(reviewStates, row.State))
             .ToList();
@@ -766,7 +767,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IReadOnlyCollection<string> completedStates,
         IReadOnlyCollection<string> reviewStates)
     {
-        if (ContainsState(activeStates, row.State))
+        if (IsFreshActive(row, activeStates))
         {
             return 0;
         }
@@ -781,6 +782,17 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static bool ContainsState(IReadOnlyCollection<string> states, string? state) =>
         !string.IsNullOrWhiteSpace(state) && states.Contains(state, StringComparer.OrdinalIgnoreCase);
+
+    private static bool IsFreshActive(CurrentActivityRow row, IReadOnlyCollection<string> activeStates)
+    {
+        if (!ContainsState(activeStates, row.State))
+        {
+            return false;
+        }
+
+        var updated = ParseDate(row.UpdatedAt);
+        return updated is null || DateTimeOffset.UtcNow - updated.Value.ToUniversalTime() <= ActiveActivityFreshness;
+    }
 
     private static int IndexOf(IReadOnlyList<CurrentActivityRow> rows, Func<CurrentActivityRow, bool> predicate)
     {

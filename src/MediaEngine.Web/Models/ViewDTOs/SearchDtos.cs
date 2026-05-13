@@ -445,6 +445,9 @@ public sealed class ItemCanonicalSearchRequestDto
     [JsonPropertyName("query_override")]
     public string? QueryOverride { get; set; }
 
+    [JsonPropertyName("search_mode")]
+    public string SearchMode { get; set; } = "retail_only";
+
     [JsonPropertyName("max_candidates")]
     public int MaxCandidates { get; set; } = 6;
 }
@@ -543,6 +546,57 @@ public sealed class ItemCanonicalApplyResponseDto
 
     [JsonPropertyName("message")]
     public string Message { get; set; } = "";
+}
+
+public sealed class ReplaceRetailMatchRequestDto
+{
+    [JsonPropertyName("target_field_group")]
+    public string TargetFieldGroup { get; set; } = "";
+
+    [JsonPropertyName("provider_name")]
+    public string ProviderName { get; set; } = "";
+
+    [JsonPropertyName("provider_item_id")]
+    public string ProviderItemId { get; set; } = "";
+
+    [JsonPropertyName("required_fields")]
+    public Dictionary<string, string> RequiredFields { get; set; } = [];
+
+    [JsonPropertyName("suggested_fields")]
+    public Dictionary<string, string> SuggestedFields { get; set; } = [];
+
+    [JsonPropertyName("bridge_ids")]
+    public Dictionary<string, string> BridgeIds { get; set; } = [];
+
+    [JsonPropertyName("clear_auto_aligned_wikidata")]
+    public bool ClearAutoAlignedWikidata { get; set; } = true;
+
+    [JsonPropertyName("review_item_id")]
+    public Guid? ReviewItemId { get; set; }
+}
+
+public sealed class ReplaceWikidataMatchRequestDto
+{
+    [JsonPropertyName("action")]
+    public string Action { get; set; } = "replace";
+
+    [JsonPropertyName("qid")]
+    public string? Qid { get; set; }
+
+    [JsonPropertyName("rejected_qid")]
+    public string? RejectedQid { get; set; }
+
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    [JsonPropertyName("keep_retail_match")]
+    public bool KeepRetailMatch { get; set; } = true;
+
+    [JsonPropertyName("rehydrate_now")]
+    public bool RehydrateNow { get; set; } = true;
+
+    [JsonPropertyName("review_item_id")]
+    public Guid? ReviewItemId { get; set; }
 }
 
 // ── Create Manual Entry ───────────────────────────────────────────────────────

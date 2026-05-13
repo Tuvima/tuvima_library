@@ -9,12 +9,27 @@ public enum SharedMediaEditorMode
     Batch,
 }
 
+public enum MediaEditorIdentityIntent
+{
+    None,
+    EditLocalDetails,
+    FixRetailMatch,
+    ConfirmRetailMatch,
+    FixWikidataMatch,
+    ConfirmWikidataMatch,
+    MarkWikidataMissing,
+    ReclassifyMediaType,
+    ConfirmArtwork,
+    ResolveWriteback,
+}
+
 public sealed class MediaEditorLaunchRequest
 {
     public List<Guid> EntityIds { get; init; } = [];
     public Guid? LaunchEntityId { get; init; }
     public string? LaunchEntityKind { get; init; }
     public SharedMediaEditorMode Mode { get; init; } = SharedMediaEditorMode.Normal;
+    public MediaEditorIdentityIntent IdentityIntent { get; init; } = MediaEditorIdentityIntent.None;
     public string? InitialScope { get; init; }
     public string? InitialTab { get; init; }
     public string? InitialCanonicalTargetGroup { get; init; }
@@ -65,7 +80,9 @@ public sealed record ReviewEditorTarget(
     string InitialTab,
     string CanonicalTargetGroup,
     string FocusField,
-    string Summary);
+    string Summary,
+    MediaEditorIdentityIntent Intent,
+    string PrimaryActionLabel);
 
 public static class ReviewTargetResolver
 {
@@ -73,14 +90,17 @@ public static class ReviewTargetResolver
     {
         var normalizedType = NormalizeMediaType(mediaType);
         var normalizedTrigger = (reviewTrigger ?? string.Empty).Trim();
+        var intent = ResolveIntent(normalizedTrigger);
+        var initialTab = ResolveInitialTab(intent);
+        var actionLabel = ResolvePrimaryActionLabel(intent);
 
         if (normalizedType == "Music")
         {
             return normalizedTrigger switch
             {
-                "RetailMatchFailed" or "QidNoMatch" or "WikidataBridgeFailed"
-                    => new("details", "album", "album", "Review the album and artist identity."),
-                _ => new("details", "album", "album", "Review the music identity."),
+                "RetailMatchFailed" or "RetailMatchAmbiguous" or "AuthorityMatchFailed" or "ContentMatchFailed" or "QidNoMatch" or "MissingQid" or "WikidataBridgeFailed" or "MultipleQidMatches"
+                    => new(initialTab, "album", "album", BuildSummary(intent, "album and artist"), intent, actionLabel),
+                _ => new(initialTab, "album", "album", BuildSummary(intent, "music"), intent, actionLabel),
             };
         }
 
@@ -88,28 +108,28 @@ public static class ReviewTargetResolver
         {
             return normalizedTrigger switch
             {
-                "QidNoMatch" or "WikidataBridgeFailed"
-                    => new("details", "narrator", "narrator", "Review the narrator identity."),
-                _ => new("details", "audiobook_identity", "title", "Review the audiobook identity."),
+                "QidNoMatch" or "MissingQid" or "WikidataBridgeFailed" or "MultipleQidMatches"
+                    => new(initialTab, "narrator", "narrator", BuildSummary(intent, "narrator"), intent, actionLabel),
+                _ => new(initialTab, "audiobook_identity", "title", BuildSummary(intent, "audiobook"), intent, actionLabel),
             };
         }
 
         if (normalizedType == "TV")
         {
-            return new("details", "show_episode", "show_name", "Review the show and episode identity.");
+            return new(initialTab, "show_episode", "show_name", BuildSummary(intent, "show and episode"), intent, actionLabel);
         }
 
         if (normalizedType == "Comics")
         {
-            return new("details", "series", "series", "Review the series identity.");
+            return new(initialTab, "issue", "series", BuildSummary(intent, "series and issue"), intent, actionLabel);
         }
 
         if (normalizedType == "Movies")
         {
-            return new("details", "movie_identity", "title", "Review the movie identity.");
+            return new(initialTab, "movie_identity", "title", BuildSummary(intent, "movie"), intent, actionLabel);
         }
 
-        return new("details", "book_identity", "title", "Review the item identity.");
+        return new(initialTab, "book_identity", "title", BuildSummary(intent, "item"), intent, actionLabel);
     }
 
     public static string NormalizeMediaType(string? mediaType) =>
@@ -119,6 +139,62 @@ public static class ReviewTargetResolver
             "Comic" => "Comics",
             "" => "Books",
             var value => value,
+        };
+
+    private static MediaEditorIdentityIntent ResolveIntent(string trigger) =>
+        trigger switch
+        {
+            "RetailMatchAmbiguous" => MediaEditorIdentityIntent.ConfirmRetailMatch,
+            "RetailMatchFailed" or "AuthorityMatchFailed" or "ContentMatchFailed" or "UserFixMatch"
+                => MediaEditorIdentityIntent.FixRetailMatch,
+            "WikidataBridgeFailed" or "MultipleQidMatches" or "QidNoMatch"
+                => MediaEditorIdentityIntent.FixWikidataMatch,
+            "MissingQid" => MediaEditorIdentityIntent.MarkWikidataMissing,
+            "AmbiguousMediaType" or "RootWatchFolder" => MediaEditorIdentityIntent.ReclassifyMediaType,
+            "ArtworkUnconfirmed" => MediaEditorIdentityIntent.ConfirmArtwork,
+            "WritebackFailed" => MediaEditorIdentityIntent.ResolveWriteback,
+            "MetadataConflict" or "LowConfidence" => MediaEditorIdentityIntent.EditLocalDetails,
+            _ => MediaEditorIdentityIntent.EditLocalDetails,
+        };
+
+    private static string ResolveInitialTab(MediaEditorIdentityIntent intent) =>
+        intent switch
+        {
+            MediaEditorIdentityIntent.FixRetailMatch or
+            MediaEditorIdentityIntent.ConfirmRetailMatch or
+            MediaEditorIdentityIntent.FixWikidataMatch or
+            MediaEditorIdentityIntent.ConfirmWikidataMatch or
+            MediaEditorIdentityIntent.MarkWikidataMissing => "links",
+            MediaEditorIdentityIntent.ConfirmArtwork => "artwork",
+            MediaEditorIdentityIntent.ResolveWriteback => "file",
+            _ => "details",
+        };
+
+    private static string ResolvePrimaryActionLabel(MediaEditorIdentityIntent intent) =>
+        intent switch
+        {
+            MediaEditorIdentityIntent.FixRetailMatch => "Find Retail Match",
+            MediaEditorIdentityIntent.ConfirmRetailMatch => "Confirm Retail Match",
+            MediaEditorIdentityIntent.FixWikidataMatch => "Fix Wikidata Match",
+            MediaEditorIdentityIntent.ConfirmWikidataMatch => "Choose Wikidata Match",
+            MediaEditorIdentityIntent.MarkWikidataMissing => "Mark Provider-Only",
+            MediaEditorIdentityIntent.ReclassifyMediaType => "Change Media Type",
+            MediaEditorIdentityIntent.ConfirmArtwork => "Review Artwork",
+            MediaEditorIdentityIntent.ResolveWriteback => "Retry Writeback",
+            _ => "Review Metadata",
+        };
+
+    private static string BuildSummary(MediaEditorIdentityIntent intent, string subject) =>
+        intent switch
+        {
+            MediaEditorIdentityIntent.FixRetailMatch => $"Find the correct retail match for this {subject}.",
+            MediaEditorIdentityIntent.ConfirmRetailMatch => $"Confirm the retail match for this {subject}.",
+            MediaEditorIdentityIntent.FixWikidataMatch => $"Fix the Wikidata identity for this {subject}.",
+            MediaEditorIdentityIntent.MarkWikidataMissing => $"Keep the retail match and mark this {subject} as provider-only.",
+            MediaEditorIdentityIntent.ReclassifyMediaType => "Confirm the correct media type before matching continues.",
+            MediaEditorIdentityIntent.ConfirmArtwork => "Review artwork and choose the preferred assets.",
+            MediaEditorIdentityIntent.ResolveWriteback => "Review the file write-back failure and retry or skip it.",
+            _ => $"Review the {subject} metadata.",
         };
 }
 

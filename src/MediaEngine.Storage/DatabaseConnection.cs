@@ -2825,6 +2825,23 @@ public sealed class DatabaseConnection : IDatabaseConnection
             table:  "works",
             column: "display_overrides_json",
             ddl:    "ALTER TABLE works ADD COLUMN display_overrides_json TEXT;");
+        MigrateAddColumnIfMissing(
+            conn,
+            table: "works",
+            column: "wikidata_match_source",
+            ddl: "ALTER TABLE works ADD COLUMN wikidata_match_source TEXT;");
+
+        MigrateAddColumnIfMissing(
+            conn,
+            table: "works",
+            column: "wikidata_match_locked",
+            ddl: "ALTER TABLE works ADD COLUMN wikidata_match_locked INTEGER NOT NULL DEFAULT 0;");
+
+        MigrateAddColumnIfMissing(
+            conn,
+            table: "works",
+            column: "wikidata_rejected_qids_json",
+            ddl: "ALTER TABLE works ADD COLUMN wikidata_rejected_qids_json TEXT;");
 
         // -- Step 6: indexes ---------------------------------------------------
         using (var idxCmd = conn.CreateCommand())

@@ -1265,6 +1265,7 @@ public sealed class DurablePipelineTests : IDisposable
         public Task MergeCollectionsAsync(Guid keepCollectionId, Guid mergeCollectionId, CancellationToken ct = default) => Task.CompletedTask;
         public Task SetUniverseMismatchAsync(Guid workId, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateWorkWikidataStatusAsync(Guid workId, string status, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateWorkWikidataMatchStateAsync(Guid workId, string status, string? source = null, bool? locked = null, string? wikidataQid = null, string? rejectedQidsJson = null, CancellationToken ct = default) => Task.CompletedTask;
         public Task<int> PruneOrphanedHierarchyAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<IReadOnlyList<Collection>> GetChildCollectionsAsync(Guid parentCollectionId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
         public Task SetParentCollectionAsync(Guid collectionId, Guid? parentCollectionId, CancellationToken ct = default) => Task.CompletedTask;

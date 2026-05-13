@@ -650,6 +650,31 @@
     margin-bottom: 12px;
 }
 
+.sme-panel__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.sme-panel__copy {
+    min-width: 0;
+}
+
+.sme-panel__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.sme-panel__body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
 .sme-search-toolbar {
     margin-bottom: 16px;
 }

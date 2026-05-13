@@ -88,6 +88,8 @@ public sealed class ItemEndpointRouteTests
         Assert.Contains("group.MapPut(\"/{entityId:guid}/preferences\", async (", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/{entityId:guid}/canonical-search\", async (", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/{entityId:guid}/canonical-apply\", async (", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/{entityId:guid}/retail-match\", async (", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/{entityId:guid}/wikidata-match\", async (", source, StringComparison.Ordinal);
         Assert.DoesNotContain("VaultItemCanonicalEndpoints", source, StringComparison.Ordinal);
         Assert.DoesNotContain("VaultCanonicalSearchRequest", source, StringComparison.Ordinal);
         Assert.DoesNotContain("VaultCanonicalApplyRequest", source, StringComparison.Ordinal);
@@ -103,6 +105,20 @@ public sealed class ItemEndpointRouteTests
         Assert.Contains("ResolveScopedTarget(context.AssetId, lineage, kv.Key)", source, StringComparison.Ordinal);
         Assert.Contains("ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)", source, StringComparison.Ordinal);
         Assert.Contains("COALESCE(ma.id, child_ma.id, grandchild_ma.id)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ItemCanonicalEndpoints_SupportRetailAndWikidataSearchModes()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+        var models = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\ItemCanonicalModels.cs"));
+
+        Assert.Contains("SearchMode", models, StringComparison.Ordinal);
+        Assert.Contains("\"retail_only\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"wikidata_only\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"combined\"", source, StringComparison.Ordinal);
+        Assert.Contains("shouldSearchRetail", source, StringComparison.Ordinal);
+        Assert.Contains("shouldSearchUniverse", source, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

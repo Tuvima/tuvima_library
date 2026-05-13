@@ -187,7 +187,7 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.Contains("Review Queue", cut.Markup);
             Assert.Contains("Unmatched Album", cut.Markup);
-            Assert.Contains("Skip Universe", cut.Markup);
+            Assert.Contains("Review Metadata", cut.Markup);
         });
     }
 

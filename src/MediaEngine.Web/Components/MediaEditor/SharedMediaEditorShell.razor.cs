@@ -21,6 +21,7 @@ public partial class SharedMediaEditorShell
         "links",
         "options",
         "file",
+        "history",
     ];
 
     private static readonly string[] ReclassifyMediaTypes =
@@ -120,6 +121,8 @@ public partial class SharedMediaEditorShell
     private string? _dragTargetArtworkType;
     private string? _loadError;
     private string _reviewSummary = "Review the item identity.";
+    private string _primaryActionLabel = "Review Metadata";
+    private MediaEditorIdentityIntent _identityIntent = MediaEditorIdentityIntent.None;
     private string _lastNonFileTab = "details";
     private bool _showArtworkUrlInput;
     private MediaEditorMembershipPreviewDto? _pendingMembershipPreview;
@@ -138,6 +141,8 @@ public partial class SharedMediaEditorShell
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
+    protected MediaEditorIdentityIntent EffectiveIdentityIntent =>
+        _identityIntent == MediaEditorIdentityIntent.None ? Request.IdentityIntent : _identityIntent;
     protected Guid EditorContextEntityId => _editorContext?.LaunchEntityId ?? LaunchEntityId;
     protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? EditorContextEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
@@ -304,9 +309,13 @@ public partial class SharedMediaEditorShell
                     ? (ActiveScope?.CanonicalTargetGroup ?? target.CanonicalTargetGroup)
                     : Request.InitialCanonicalTargetGroup!;
                 _reviewSummary = target.Summary;
+                _identityIntent = Request.IdentityIntent == MediaEditorIdentityIntent.None ? target.Intent : Request.IdentityIntent;
+                _primaryActionLabel = target.PrimaryActionLabel;
             }
             else
             {
+                _identityIntent = Request.IdentityIntent;
+                _primaryActionLabel = ResolveFooterPrimaryActionLabel(_identityIntent);
                 _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup)
                     ? (ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup)
                     : Request.InitialCanonicalTargetGroup!;
@@ -1395,6 +1404,7 @@ public partial class SharedMediaEditorShell
                     TargetFieldGroup = _canonicalTargetGroup,
                     DraftFields = BuildDraftFields(),
                     QueryOverride = string.IsNullOrWhiteSpace(_canonicalSearchQuery) ? null : _canonicalSearchQuery.Trim(),
+                    SearchMode = GetCanonicalSearchMode(),
                 });
 
             _canonicalSearchResponse = response;
@@ -1426,10 +1436,21 @@ public partial class SharedMediaEditorShell
     protected string GetCanonicalSearchSubtitle()
     {
         var label = GetCanonicalTargetLabel(_canonicalTargetGroup);
+        if (IsWikidataIntent)
+            return $"Search Wikidata directly for the correct {label.ToLowerInvariant()} identity.";
+
         return Request.Mode == SharedMediaEditorMode.Review
             ? $"Resolve the blocking {label.ToLowerInvariant()} identity."
             : $"Find the canonical {label.ToLowerInvariant()} and apply only the fields you want.";
     }
+
+    private bool IsWikidataIntent =>
+        EffectiveIdentityIntent is MediaEditorIdentityIntent.FixWikidataMatch
+            or MediaEditorIdentityIntent.ConfirmWikidataMatch
+            or MediaEditorIdentityIntent.MarkWikidataMissing;
+
+    private string GetCanonicalSearchMode() =>
+        IsWikidataIntent ? "wikidata_only" : "retail_only";
 
     protected string GetCanonicalTargetLabel(string targetGroup) =>
         QuickSearchTargets.FirstOrDefault(target => string.Equals(target.Key, targetGroup, StringComparison.OrdinalIgnoreCase)).Label
@@ -1529,15 +1550,25 @@ public partial class SharedMediaEditorShell
         if (!candidate.IsApplicable)
             return;
 
-        await ApplyCanonicalAsync(
-            candidate.LinkState,
-            candidate.ProviderName,
-            candidate.ProviderItemId,
-            candidate.RequiredFields,
-            candidate.SuggestedFields,
-            GetAcceptedSuggestedKeys(GetCandidateId(candidate)),
-            candidate.BridgeIds,
-            candidate.QidFields);
+        var acceptedSuggested = GetAcceptedSuggestedKeys(GetCandidateId(candidate));
+        var selectedSuggested = acceptedSuggested
+            .Where(key => candidate.SuggestedFields.ContainsKey(key))
+            .ToDictionary(key => key, key => candidate.SuggestedFields[key], StringComparer.OrdinalIgnoreCase);
+
+        var response = await ApiClient.ReplaceRetailMatchAsync(
+            CurrentEntityId,
+            new ReplaceRetailMatchRequestDto
+            {
+                TargetFieldGroup = _canonicalTargetGroup,
+                ProviderName = candidate.ProviderName,
+                ProviderItemId = candidate.ProviderItemId ?? string.Empty,
+                RequiredFields = candidate.RequiredFields,
+                SuggestedFields = selectedSuggested,
+                BridgeIds = candidate.BridgeIds,
+                ReviewItemId = Request.ReviewItemId,
+            });
+
+        await FinishMatchActionAsync(response, "Retail match applied; Wikidata alignment queued.");
     }
 
     protected async Task ApplyLinkedCandidateAsync(UniverseCandidateDto candidate)
@@ -1545,15 +1576,59 @@ public partial class SharedMediaEditorShell
         if (!candidate.IsApplicable)
             return;
 
-        await ApplyCanonicalAsync(
-            candidate.LinkState,
-            providerName: null,
-            providerItemId: null,
-            requiredFields: candidate.RequiredFields,
-            suggestedFields: candidate.SuggestedFields,
-            acceptedSuggestedKeys: GetAcceptedSuggestedKeys(GetCandidateId(candidate)),
-            bridgeIds: candidate.BridgeIds,
-            qidFields: candidate.QidFields);
+        var qid = candidate.QidFields.TryGetValue("wikidata_qid", out var qidField)
+            ? qidField
+            : candidate.Qid;
+
+        var response = await ApiClient.ReplaceWikidataMatchAsync(
+            CurrentEntityId,
+            new ReplaceWikidataMatchRequestDto
+            {
+                Action = "replace",
+                Qid = qid,
+                ReviewItemId = Request.ReviewItemId,
+            });
+
+        await FinishMatchActionAsync(response, "Wikidata identity replaced; canonical fields refreshed.");
+    }
+
+    protected async Task MarkWikidataMissingAsync()
+    {
+        var response = await ApiClient.ReplaceWikidataMatchAsync(
+            CurrentEntityId,
+            new ReplaceWikidataMatchRequestDto
+            {
+                Action = "mark_missing",
+                ReviewItemId = Request.ReviewItemId,
+            });
+
+        await FinishMatchActionAsync(response, "Retail match kept; Wikidata marked missing.");
+    }
+
+    protected async Task ClearWikidataMatchAsync()
+    {
+        var response = await ApiClient.ReplaceWikidataMatchAsync(
+            CurrentEntityId,
+            new ReplaceWikidataMatchRequestDto
+            {
+                Action = "clear",
+                ReviewItemId = Request.ReviewItemId,
+            });
+
+        await FinishMatchActionAsync(response, "Wikidata identity cleared; retail match kept.");
+    }
+
+    private Task FinishMatchActionAsync(ItemCanonicalApplyResponseDto? response, string fallbackMessage)
+    {
+        if (response is null)
+        {
+            Snackbar.Add("Match update failed.", Severity.Error);
+            return Task.CompletedTask;
+        }
+
+        Snackbar.Add(string.IsNullOrWhiteSpace(response.Message) ? fallbackMessage : response.Message, Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+        return Task.CompletedTask;
     }
 
     private async Task ApplyCanonicalAsync(
@@ -1879,17 +1954,56 @@ public partial class SharedMediaEditorShell
             "episodes" => _editorContext?.ContentTabLabel ?? "Episodes",
             "tracks" => _editorContext?.ContentTabLabel ?? "Tracks",
             "artwork" => "Artwork",
-            "links" => "Links",
+            "links" => "Match & Identity",
             "options" => "Options",
             "file" => "File",
+            "history" => "History",
             _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(tabId.Replace('_', ' ')),
+        };
+
+    protected string GetDirtySaveLabel() =>
+        IsBatchMode
+            ? $"Apply ({Request.EntityIds.Count})"
+            : ResolveFooterPrimaryActionLabel(EffectiveIdentityIntent);
+
+    protected string GetResolveReviewLabel() =>
+        ResolveFooterPrimaryActionLabel(EffectiveIdentityIntent) switch
+        {
+            "Save Local Changes" => "Resolve Review",
+            var label => label,
+        };
+
+    private static string ResolveFooterPrimaryActionLabel(MediaEditorIdentityIntent intent) =>
+        intent switch
+        {
+            MediaEditorIdentityIntent.FixRetailMatch => "Use Selected Retail Match",
+            MediaEditorIdentityIntent.ConfirmRetailMatch => "Confirm Retail Match",
+            MediaEditorIdentityIntent.FixWikidataMatch => "Replace Wikidata Match",
+            MediaEditorIdentityIntent.MarkWikidataMissing => "Mark Provider-Only",
+            MediaEditorIdentityIntent.ConfirmArtwork => "Confirm Artwork",
+            MediaEditorIdentityIntent.ReclassifyMediaType => "Change Media Type",
+            MediaEditorIdentityIntent.ResolveWriteback => "Retry Writeback",
+            _ => "Save Local Changes",
         };
 
     private bool IsDisplayOverrideKey(string key) =>
         _editorContext?.DisplayOverrideKeys.Contains(key, StringComparer.OrdinalIgnoreCase) == true;
 
     protected bool IsFieldLocked(string key) =>
-        _editorContext?.FieldLockMap.TryGetValue(key, out var locked) == true && locked;
+        (_editorContext?.FieldLockMap.TryGetValue(key, out var locked) == true && locked)
+        || (HasCanonicalWikidataIdentity
+            && IsIdentityField(key)
+            && !IsDisplayOverrideKey(key));
+
+    private bool HasCanonicalWikidataIdentity =>
+        !string.IsNullOrWhiteSpace(_editorContext?.IdentitySummary?.WikidataQid)
+        && (_editorContext?.IdentitySummary?.WikidataStatus is "confirmed" or "auto_aligned" or "user_confirmed" or "user_replaced"
+            || !string.IsNullOrWhiteSpace(_editorContext?.IdentitySummary?.WikidataQid));
+
+    private bool IsIdentityField(string key) =>
+        _schema.Groups
+            .SelectMany(group => group.Fields)
+            .Any(field => field.IdentityField && string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase));
 
     protected IReadOnlyList<string> GetDisplayDetailOverrideKeys() =>
         (_editorContext?.DisplayOverrideKeys ?? [])

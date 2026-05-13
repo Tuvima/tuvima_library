@@ -586,6 +586,44 @@ public sealed class CollectionRepository : ICollectionRepository
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
+    public Task UpdateWorkWikidataMatchStateAsync(
+        Guid workId,
+        string status,
+        string? source = null,
+        bool? locked = null,
+        string? wikidataQid = null,
+        string? rejectedQidsJson = null,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE works
+            SET    wikidata_status             = @status,
+                   wikidata_checked_at         = @now,
+                   wikidata_match_source       = COALESCE(@source, wikidata_match_source),
+                   wikidata_match_locked       = COALESCE(@locked, wikidata_match_locked),
+                   wikidata_qid                = CASE WHEN @hasQid = 1 THEN @qid ELSE wikidata_qid END,
+                   wikidata_rejected_qids_json = COALESCE(@rejectedQidsJson, wikidata_rejected_qids_json)
+            WHERE  id = @id;
+            """,
+            new
+            {
+                id = workId.ToString(),
+                status,
+                now = DateTimeOffset.UtcNow.ToString("O"),
+                source,
+                locked = locked.HasValue ? (locked.Value ? 1 : 0) : (int?)null,
+                hasQid = wikidataQid is null ? 0 : 1,
+                qid = wikidataQid,
+                rejectedQidsJson,
+            });
+
+        return Task.CompletedTask;
+    }
+
     /// <inheritdoc/>
     public Task<int> PruneOrphanedHierarchyAsync(CancellationToken ct = default)
     {

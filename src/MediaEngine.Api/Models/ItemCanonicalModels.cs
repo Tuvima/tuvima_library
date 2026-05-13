@@ -64,6 +64,9 @@ public sealed class ItemCanonicalSearchRequest
     [JsonPropertyName("query_override")]
     public string? QueryOverride { get; init; }
 
+    [JsonPropertyName("search_mode")]
+    public string SearchMode { get; init; } = "retail_only";
+
     [JsonPropertyName("max_candidates")]
     public int MaxCandidates { get; init; } = 6;
 }
@@ -294,4 +297,55 @@ public sealed class ItemCanonicalApplyResponse
 
     [JsonPropertyName("message")]
     public string Message { get; init; } = "";
+}
+
+public sealed class ReplaceRetailMatchRequest
+{
+    [JsonPropertyName("target_field_group")]
+    public string TargetFieldGroup { get; init; } = "";
+
+    [JsonPropertyName("provider_name")]
+    public string ProviderName { get; init; } = "";
+
+    [JsonPropertyName("provider_item_id")]
+    public string ProviderItemId { get; init; } = "";
+
+    [JsonPropertyName("required_fields")]
+    public Dictionary<string, string> RequiredFields { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("suggested_fields")]
+    public Dictionary<string, string> SuggestedFields { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("bridge_ids")]
+    public Dictionary<string, string> BridgeIds { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("clear_auto_aligned_wikidata")]
+    public bool ClearAutoAlignedWikidata { get; init; } = true;
+
+    [JsonPropertyName("review_item_id")]
+    public Guid? ReviewItemId { get; init; }
+}
+
+public sealed class ReplaceWikidataMatchRequest
+{
+    [JsonPropertyName("action")]
+    public string Action { get; init; } = "replace";
+
+    [JsonPropertyName("qid")]
+    public string? Qid { get; init; }
+
+    [JsonPropertyName("rejected_qid")]
+    public string? RejectedQid { get; init; }
+
+    [JsonPropertyName("reason")]
+    public string? Reason { get; init; }
+
+    [JsonPropertyName("keep_retail_match")]
+    public bool KeepRetailMatch { get; init; } = true;
+
+    [JsonPropertyName("rehydrate_now")]
+    public bool RehydrateNow { get; init; } = true;
+
+    [JsonPropertyName("review_item_id")]
+    public Guid? ReviewItemId { get; init; }
 }

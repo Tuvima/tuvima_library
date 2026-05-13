@@ -1937,9 +1937,9 @@ public static partial class MetadataEndpoints
         {
             return normalized switch
             {
-                "TV" => ["details", "episodes", "artwork", "links", "options"],
-                "Music" => ["details", "tracks", "artwork", "links", "options"],
-                _ => ["details", "links", "options"],
+                "TV" => ["details", "episodes", "artwork", "links", "options", "history"],
+                "Music" => ["details", "tracks", "artwork", "links", "options", "history"],
+                _ => ["details", "links", "options", "history"],
             };
         }
 
@@ -1952,6 +1952,8 @@ public static partial class MetadataEndpoints
 
         if (!string.IsNullOrWhiteSpace(representativeMediaFilePath))
             tabs.Add("file");
+
+        tabs.Add("history");
 
         return tabs;
     }

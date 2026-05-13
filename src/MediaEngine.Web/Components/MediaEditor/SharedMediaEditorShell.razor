@@ -106,7 +106,7 @@
                                    Color="Color.Primary"
                                    Class="sme-review-action"
                                    OnClick="@(() => _activeTab = "links")">
-                            Find @GetCanonicalTargetLabel(_canonicalTargetGroup)
+                            @_primaryActionLabel
                         </MudButton>
                     }
                 </div>
@@ -207,7 +207,7 @@
                                                 <span>@field.Label</span>
                                                 @if (isLocked)
                                                 {
-                                                    <MudTooltip Text="Linked identity field. Edit it here or use Links to search provider matches.">
+                                                    <MudTooltip Text="Controlled by canonical identity. Replace the retail or Wikidata match to change this value. Use Display Override for local presentation only.">
                                                         <span class="sme-field-info sme-field-info--locked" aria-label="Locked field">
                                                             <MudIcon Icon="@Icons.Material.Outlined.Lock" Style="font-size: 14px;" />
                                                         </span>
@@ -250,7 +250,7 @@
                                                 }
                                                 @if (isLocked)
                                                 {
-                                                    <div class="sme-field-hint">Edit here directly, or use Links to search and relink the canonical match.</div>
+                                                    <div class="sme-field-hint">Controlled by canonical identity. Replace the retail or Wikidata match to change this value. Use Display Override for local presentation only.</div>
                                                 }
                                             </div>
                                         </div>
@@ -464,11 +464,11 @@
                         {
                             var identity = _editorContext.IdentitySummary;
                             <section class="sme-group">
-                                <div class="sme-group-title">Current Links</div>
+                                <div class="sme-group-title">Identity Overview</div>
                                 <div class="sme-readonly-row"><span>Retail Match</span><strong>@(identity.ProviderName ?? identity.MatchSource ?? "Not linked")</strong></div>
                                 <div class="sme-readonly-row"><span>Provider ID</span><strong>@(identity.ProviderItemId ?? "Not linked")</strong></div>
-                                <div class="sme-readonly-row"><span>Canonical QID</span><strong>@(identity.WikidataQid ?? "Pending")</strong></div>
-                                <div class="sme-readonly-row"><span>Match Status</span><strong>@(identity.MatchLevel ?? identity.WikidataStatus ?? "Unresolved")</strong></div>
+                                <div class="sme-readonly-row"><span>Wikidata Identity</span><strong>@(identity.WikidataQid ?? "Pending")</strong></div>
+                                <div class="sme-readonly-row"><span>Canonical Status</span><strong>@(identity.WikidataStatus ?? identity.MatchLevel ?? "Unresolved")</strong></div>
                                 <div class="sme-readonly-row"><span>Universe / Series</span><strong>@(identity.UniverseName ?? "None")</strong></div>
                                 @if (!string.IsNullOrWhiteSpace(GetUniverseExploreUrl()))
                                 {
@@ -489,7 +489,7 @@
                             @if (SupportsCanonicalSearch)
                             {
                                 <section class="sme-group">
-                                    <div class="sme-group-title">Canonical Search</div>
+                                    <div class="sme-group-title">@(IsWikidataIntent ? "Fix Wikidata Match" : "Find Retail Match")</div>
                                     <MudTabs ActivePanelIndex="@CanonicalTargetIndex"
                                              ActivePanelIndexChanged="OnCanonicalTargetChanged"
                              Rounded="false"
@@ -516,7 +516,7 @@
                                                    Class="sme-inline-btn sme-inline-btn--primary"
                                                    Disabled="@_searchingCanonical"
                                                    OnClick="SearchCanonicalAsync">
-                                            @(_searchingCanonical ? "Searching..." : "Quick Search")
+                                            @(_searchingCanonical ? "Searching..." : IsWikidataIntent ? "Search Wikidata" : "Search Retail")
                                         </MudButton>
                                     </div>
                                 </section>
@@ -527,7 +527,7 @@
                                     {
                                         <div class="sme-empty-panel">
                                             <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Style="font-size: 24px; opacity: 0.18;" />
-                                            <span>Search for a canonical @GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant().</span>
+                                            <span>@(IsWikidataIntent ? "Search Wikidata for a canonical identity." : "Search retail providers for a provider match.")</span>
                                         </div>
                                     }
                                     else if (_canonicalSearchResponse.LinkedCandidates.Count == 0 && _canonicalSearchResponse.RetailCandidates.Count == 0)
@@ -541,7 +541,7 @@
                                     {
                                         @if (_canonicalSearchResponse.LinkedCandidates.Count > 0)
                                         {
-                                            <div class="sme-result-section-label">Linked results</div>
+                                            <div class="sme-result-section-label">Wikidata results</div>
                                                 @foreach (var candidate in _canonicalSearchResponse.LinkedCandidates)
                                                 {
                                                     <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
@@ -568,7 +568,7 @@
                                                                    Class="sme-inline-btn sme-inline-btn--primary"
                                                                    Disabled="@(!candidate.IsApplicable)"
                                                                    OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
-                                                            Apply linked candidate
+                                                            Replace Wikidata Match
                                                         </MudButton>
                                                     }
                                                 </div>
@@ -577,7 +577,7 @@
 
                                         @if (_canonicalSearchResponse.RetailCandidates.Count > 0)
                                         {
-                                            <div class="sme-result-section-label">Provider results</div>
+                                            <div class="sme-result-section-label">Retail results</div>
                                                 @foreach (var candidate in _canonicalSearchResponse.RetailCandidates)
                                                 {
                                                     <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
@@ -601,11 +601,28 @@
                                                                    Class="sme-inline-btn sme-inline-btn--primary"
                                                                    Disabled="@(!candidate.IsApplicable)"
                                                                    OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
-                                                            Apply provider candidate
+                                                            Use Selected Retail Match
                                                         </MudButton>
                                                     }
                                                 </div>
                                             }
+                                        }
+                                        @if (IsWikidataIntent)
+                                        {
+                                            <div class="sme-file-actions">
+                                                <MudButton Variant="Variant.Outlined"
+                                                           Color="Color.Inherit"
+                                                           Class="sme-inline-btn"
+                                                           OnClick="MarkWikidataMissingAsync">
+                                                    Mark Wikidata Missing
+                                                </MudButton>
+                                                <MudButton Variant="Variant.Outlined"
+                                                           Color="Color.Inherit"
+                                                           Class="sme-inline-btn"
+                                                           OnClick="ClearWikidataMatchAsync">
+                                                    Clear Wikidata Link
+                                                </MudButton>
+                                            </div>
                                         }
                                     }
                                 </section>
@@ -1010,6 +1027,37 @@
                         }
                     </div>
                 }
+                else if (_activeTab == "history")
+                {
+                    <div class="sme-file-tab sme-history-tab">
+                        <MediaEditorPanel Title="Change History"
+                                          Description="A timeline of identity, metadata, artwork, and system changes for this item.">
+                            @if (_history.Count == 0)
+                            {
+                                <div class="sme-empty-panel">
+                                    <MudIcon Icon="@Icons.Material.Outlined.History" Style="font-size: 24px; opacity: 0.18;" />
+                                    <span>No recent history is available.</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="sme-history-list">
+                                    @foreach (var entry in _history)
+                                    {
+                                        <div class="sme-history-row sme-history-row--timeline">
+                                            <div class="sme-history-title">@entry.Label</div>
+                                            @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                            {
+                                                <div class="sme-history-detail">@entry.Detail</div>
+                                            }
+                                            <div class="sme-history-time">@entry.OccurredAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </MediaEditorPanel>
+                    </div>
+                }
                     </div>
                 </div>
             </div>
@@ -1068,7 +1116,7 @@
                             {
                                 <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                             }
-                            @(IsBatchMode ? $"Apply ({Request.EntityIds.Count})" : Request.Mode == SharedMediaEditorMode.Review ? "Save and Resolve Review" : "Save")
+                            @GetDirtySaveLabel()
                         </MudButton>
                     }
                     else if (Request.Mode == SharedMediaEditorMode.Review)
@@ -1078,7 +1126,7 @@
                                    Class="sme-footer-btn sme-footer-btn--primary"
                                    OnClick="ResolveReviewWithoutChangesAsync"
                                    Disabled="@_saving">
-                            @(_saving ? "Resolving..." : "Approve Current Metadata")
+                            @(_saving ? "Resolving..." : GetResolveReviewLabel())
                         </MudButton>
                     }
                 }

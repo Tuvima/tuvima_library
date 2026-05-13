@@ -394,7 +394,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
                     : 0;
             var isActive = activeKey == key;
             var hideCount = hideCountWhenIdle && !isActive && total <= 0;
-            var status = isActive
+            var status = isActive && percent < 100
                 ? "Ingestion_StatusActive"
                 : hideCount
                     ? "Ingestion_StatusIdle"

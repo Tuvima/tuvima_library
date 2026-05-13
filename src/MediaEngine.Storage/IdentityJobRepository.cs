@@ -282,6 +282,17 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
               AND  (lease_owner IS NULL OR lease_expires_at < @now)
               AND  updated_at < @cutoff
               AND  attempt_count < 5;
+
+            UPDATE identity_jobs
+            SET    state            = 'Failed',
+                   lease_owner      = NULL,
+                   lease_expires_at = NULL,
+                   last_error       = 'Stuck intermediate state exceeded retry limit',
+                   updated_at       = @now
+            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
+              AND  (lease_owner IS NULL OR lease_expires_at < @now)
+              AND  updated_at < @cutoff
+              AND  attempt_count >= 5;
             """,
             new { cutoff, now });
     }

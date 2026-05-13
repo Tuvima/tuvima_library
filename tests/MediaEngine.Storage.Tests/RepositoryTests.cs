@@ -513,6 +513,44 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task IdentityJob_ReclaimStuckJobsAsync_FailsRetryExhaustedIntermediateJobs()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var job = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = IdentityJobState.UniverseEnriching.ToString(),
+        };
+        await repo.CreateAsync(job);
+
+        using (var conn = _db.CreateConnection())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                UPDATE identity_jobs
+                SET attempt_count = 5,
+                    updated_at = @updatedAt
+                WHERE id = @id;
+                """;
+            cmd.Parameters.AddWithValue("@updatedAt", DateTimeOffset.UtcNow.AddMinutes(-10).ToString("O"));
+            cmd.Parameters.AddWithValue("@id", job.Id.ToString());
+            cmd.ExecuteNonQuery();
+        }
+
+        var reclaimed = await repo.ReclaimStuckJobsAsync(TimeSpan.FromMinutes(5));
+        var failed = await repo.GetByIdAsync(job.Id);
+
+        Assert.Equal(1, reclaimed);
+        Assert.NotNull(failed);
+        Assert.Equal(IdentityJobState.Failed.ToString(), failed!.State);
+        Assert.Equal("Stuck intermediate state exceeded retry limit", failed.LastError);
+    }
+
+    [Fact]
     public async Task ApiKey_InsertAndFindByHash()
     {
         var repo = new ApiKeyRepository(_db);

@@ -50,7 +50,7 @@
                                 <MudProgressLinear Value="@row.Percent" Color="@row.Color" Rounded="true" Size="Size.Small" />
                                 <span>@row.Percent.ToString("0", CultureInfo.CurrentCulture)%</span>
                             </span>
-                            @if (row.SampleItems.Count > 0)
+                            @if (row.Percent < 100 && row.SampleItems.Count > 0)
                             {
                                 <span class="ingestion-current-row__chips">
                                     @foreach (var item in row.SampleItems.Take(3))
@@ -70,21 +70,6 @@
                         </span>
                         <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
                     </button>
-                    @if (IsExpanded(row.Key) && row.Batch is not null)
-                    {
-                        <div class="ingestion-current-row__batch">
-                            <div class="ingestion-current-row__batch-head">
-                                <strong>Current batch @row.Batch.BatchNumber.ToString("N0", CultureInfo.CurrentCulture) of @row.Batch.TotalBatches.ToString("N0", CultureInfo.CurrentCulture)</strong>
-                                <span>@row.Batch.BatchSize.ToString("N0", CultureInfo.CurrentCulture) files · @row.Batch.CompletedCount.ToString("N0", CultureInfo.CurrentCulture) complete · @row.Batch.ActiveCount.ToString("N0", CultureInfo.CurrentCulture) active · @row.Batch.PendingCount.ToString("N0", CultureInfo.CurrentCulture) pending · @row.Batch.ReviewCount.ToString("N0", CultureInfo.CurrentCulture) review</span>
-                            </div>
-                            <div class="ingestion-current-row__batch-groups">
-                                @BatchGroup("Working now", row.Batch.ActiveItems, row.Batch.ActiveCount)
-                                @BatchGroup("Pending", row.Batch.PendingPreview, row.Batch.PendingCount)
-                                @BatchGroup("Completed", row.Batch.CompletedPreview, row.Batch.CompletedCount)
-                                @BatchGroup("Needs review", row.Batch.ReviewPreview, row.Batch.ReviewCount)
-                            </div>
-                        </div>
-                    }
                 </article>
             }
         }
@@ -139,17 +124,26 @@
                 </div>
             }
 
-            @if (SelectedRow.SampleItems.Count > 0)
+            @if (detail.WorkGroups.Count > 0)
             {
                 <div class="ingestion-activity-detail__section">
                     <strong>@detail.WorkTitle</strong>
-                    <div class="ingestion-activity-detail__work">
-                        @foreach (var item in SelectedRow.SampleItems.Take(5))
+                    <div class="ingestion-activity-detail__work-groups">
+                        @foreach (var group in detail.WorkGroups)
                         {
-                            <div>
-                                <MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" />
-                                <span>@item</span>
-                                <small>@SelectedRow.Source</small>
+                            <div class="ingestion-activity-detail__work-group">
+                                <strong>@group.Label</strong>
+                                @if (group.Items.Count == 0)
+                                {
+                                    <span>None right now</span>
+                                }
+                                else
+                                {
+                                    @foreach (var item in group.Items.Take(5))
+                                    {
+                                        <span>@item</span>
+                                    }
+                                }
                             </div>
                         }
                     </div>
@@ -212,7 +206,7 @@
         if (string.IsNullOrWhiteSpace(_selectedRowKey) || rows.All(row => !row.Key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase)))
         {
             _selectedRowKey = rows
-                .FirstOrDefault(row => row.Percent < 100 || row.Batch?.ActiveCount > 0)?.Key
+                .FirstOrDefault(row => row.Percent < 100)?.Key
                 ?? rows[0].Key;
         }
     }
@@ -261,10 +255,15 @@
 
     private ActivityDetail BuildDetail(CurrentRow row)
     {
+        var activeValue = row.Percent >= 100
+            ? "Complete"
+            : row.Batch is null
+                ? row.MetricValue
+                : row.Batch.ActiveCount.ToString("N0", CultureInfo.CurrentCulture);
         var metrics = new List<DetailMetric>
         {
             new("Processed", row.Counts, Icons.Material.Outlined.TaskAlt, "is-info"),
-            new("Active", row.Batch is null ? row.MetricValue : row.Batch.ActiveCount.ToString("N0", CultureInfo.CurrentCulture), Icons.Material.Outlined.Autorenew, "is-warning"),
+            new(row.Percent >= 100 ? "State" : "Active", activeValue, row.Percent >= 100 ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Autorenew, row.Percent >= 100 ? "is-success" : "is-warning"),
             new(row.MetricLabel, row.MetricValue, row.Icon, row.MetricToneCss),
         };
 
@@ -291,6 +290,7 @@
                 "Items being checked",
                 metrics,
                 breakdown,
+                WorkGroups(row),
                 ProblemBuckets(["missing_artwork", "provider_failures", "metadata_conflicts"])),
             "wikidata" => new(
                 "Wikidata identity linking",
@@ -299,6 +299,7 @@
                 "Works in identity matching",
                 metrics,
                 breakdown,
+                WorkGroups(row),
                 ProblemBuckets(["missing_wikidata", "low_confidence", "metadata_conflicts"])),
             "relationships" => new(
                 "Series and relationships",
@@ -307,6 +308,7 @@
                 "Works affecting relationships",
                 metrics,
                 breakdown,
+                WorkGroups(row),
                 ProblemBuckets(["duplicates", "metadata_conflicts", "missing_wikidata"])),
             "people" => new(
                 "People and cast enrichment",
@@ -315,6 +317,7 @@
                 "Active works",
                 metrics,
                 breakdown,
+                WorkGroups(row),
                 ProblemBuckets(["metadata_conflicts", "missing_wikidata", "provider_failures"])),
             _ => new(
                 "Library updates",
@@ -323,8 +326,35 @@
                 "Active items",
                 metrics,
                 breakdown,
+                WorkGroups(row),
                 ProblemBuckets(["metadata_conflicts", "provider_failures", "low_confidence"])),
         };
+    }
+
+    private static IReadOnlyList<DetailWorkGroup> WorkGroups(CurrentRow row)
+    {
+        if (row.Batch is null)
+        {
+            return row.SampleItems.Count == 0
+                ? []
+                : [new DetailWorkGroup(row.Percent >= 100 ? "Recent items" : "Current focus", row.SampleItems)];
+        }
+
+        if (row.Percent >= 100)
+        {
+            return
+            [
+                new DetailWorkGroup("Completed", row.Batch.CompletedPreview),
+                new DetailWorkGroup("Needs attention", row.Batch.ReviewPreview),
+            ];
+        }
+
+        return
+        [
+            new DetailWorkGroup("Working now", row.Batch.ActiveItems),
+            new DetailWorkGroup("Pending", row.Batch.PendingPreview),
+            new DetailWorkGroup("Needs attention", row.Batch.ReviewPreview),
+        ];
     }
 
     private static string DetailStageKey(string? stageKey) => stageKey?.ToLowerInvariant() switch
@@ -381,6 +411,8 @@
 
     private sealed record DetailItem(string Label, string Value);
 
+    private sealed record DetailWorkGroup(string Label, IReadOnlyList<string> Items);
+
     private sealed record ProblemBucket(string Label, int Count, string Icon, string CssClass);
 
     private sealed record ActivityDetail(
@@ -390,6 +422,7 @@
         string WorkTitle,
         IReadOnlyList<DetailMetric> Metrics,
         IReadOnlyList<DetailItem> Breakdown,
+        IReadOnlyList<DetailWorkGroup> WorkGroups,
         IReadOnlyList<ProblemBucket> Problems);
 
     private sealed record CurrentRow(
@@ -413,6 +446,8 @@
         public static CurrentRow FromActivity(IngestionCurrentActivityViewModel activity)
         {
             var percent = Math.Clamp(activity.PercentComplete, 0, 100);
+            var activeCount = percent >= 100 ? 0 : activity.ActiveCount;
+            var queuedCount = percent >= 100 ? 0 : activity.QueuedCount;
             return new CurrentRow(
                 FirstNonBlank(activity.StageKey, activity.Message),
                 FirstNonBlank(activity.Message, "Processing files"),
@@ -423,10 +458,10 @@
                 StageIcon(activity.StageKey),
                 percent,
                 StageColor(activity.StageKey),
-                FormatQueue(activity.QueuedCount, activity.ActiveCount),
+                FormatQueue(queuedCount, activeCount),
                 activity.SampleItems,
                 FirstNonBlank(activity.MetricLabel, "Active"),
-                FirstNonBlank(activity.MetricValue, activity.ActiveCount.ToString("N0", CultureInfo.CurrentCulture)),
+                FirstNonBlank(activity.MetricValue, activeCount.ToString("N0", CultureInfo.CurrentCulture)),
                 ToMetricToneCss(activity.MetricTone),
                 $"is-{NormalizeStageClass(activity.StageKey)}",
                 activity.CurrentBatch);
@@ -473,7 +508,6 @@
             "retail" => "Matching metadata",
             "wikidata" => "Checking Wikidata identity",
             "enrichment" => "Enriching relationships",
-            "summary" => "Finishing library updates",
             _ => "Scanning files",
         };
 
@@ -524,40 +558,6 @@
             _ => "scanning",
         };
     }
-
-    private RenderFragment BatchGroup(string label, IReadOnlyList<string> items, int count) => builder =>
-    {
-        var sequence = 0;
-        builder.OpenElement(sequence++, "div");
-        builder.AddAttribute(sequence++, "class", "ingestion-current-row__batch-group");
-        builder.OpenElement(sequence++, "strong");
-        builder.AddContent(sequence++, $"{label} ({count.ToString("N0", CultureInfo.CurrentCulture)})");
-        builder.CloseElement();
-        if (items.Count == 0)
-        {
-            builder.OpenElement(sequence++, "span");
-            builder.AddContent(sequence++, "None right now");
-            builder.CloseElement();
-        }
-        else
-        {
-            foreach (var item in items.Take(6))
-            {
-                builder.OpenElement(sequence++, "span");
-                builder.AddContent(sequence++, item);
-                builder.CloseElement();
-            }
-
-            if (count > items.Count)
-            {
-                builder.OpenElement(sequence++, "span");
-                builder.AddContent(sequence++, $"+{(count - items.Count).ToString("N0", CultureInfo.CurrentCulture)} more");
-                builder.CloseElement();
-            }
-        }
-
-        builder.CloseElement();
-    };
 
     private static string DisplayReviewTitle(ReviewItemViewModel item) =>
         FirstNonBlank(item.EntityTitle, item.Detail, item.MediaType, "Review item");
@@ -615,8 +615,6 @@
 
     private static string RingStyle(double percent) =>
         $"--stage-progress: {Math.Clamp(percent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
-
-    private static bool IsExpanded(string key) => false;
 
     private bool IsSelected(string key) => key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase);
 
