@@ -35,7 +35,7 @@
                 <article class="ingestion-current-row @row.StageClass">
                     <button type="button"
                             class="ingestion-current-row__main @(IsSelected(row.Key) ? "is-selected" : null)"
-                            @onclick="() => SelectAndToggleRow(row.Key)">
+                            @onclick="() => SelectRow(row.Key)">
                         <span class="ingestion-current-row__icon" style="@RingStyle(row.Percent)">
                             <MudIcon Icon="@row.Icon" />
                         </span>
@@ -68,7 +68,7 @@
                             <small>@row.MetricLabel</small>
                             <strong>@row.MetricValue</strong>
                         </span>
-                        <MudIcon Icon="@(IsExpanded(row.Key) ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ChevronRight)" />
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
                     </button>
                     @if (IsExpanded(row.Key) && row.Batch is not null)
                     {
@@ -198,7 +198,6 @@
     [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
     [Parameter] public int ReviewTotal { get; set; }
 
-    private readonly HashSet<string> _expandedRows = new(StringComparer.OrdinalIgnoreCase);
     private string? _selectedRowKey;
 
     protected override void OnParametersSet()
@@ -617,21 +616,9 @@
     private static string RingStyle(double percent) =>
         $"--stage-progress: {Math.Clamp(percent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
 
-    private bool IsExpanded(string key) => _expandedRows.Contains(key);
+    private static bool IsExpanded(string key) => false;
 
     private bool IsSelected(string key) => key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase);
 
-    private void SelectAndToggleRow(string key)
-    {
-        _selectedRowKey = key;
-        ToggleRow(key);
-    }
-
-    private void ToggleRow(string key)
-    {
-        if (!_expandedRows.Add(key))
-        {
-            _expandedRows.Remove(key);
-        }
-    }
+    private void SelectRow(string key) => _selectedRowKey = key;
 }

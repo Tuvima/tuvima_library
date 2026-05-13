@@ -329,7 +329,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
-    public void ActivityList_RendersAllStructuredTaskRowsAndExpandableBatchSummary()
+    public void ActivityList_RendersAllStructuredTaskRowsAndKeepsDetailsInSidePane()
     {
         var activities = new[]
         {
@@ -350,13 +350,12 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("People &amp; cast enrichment", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Metadata validation", cut.Markup, StringComparison.Ordinal);
 
-        cut.Find(".ingestion-current-row__main").Click();
-
-        Assert.Contains("Current batch 1 of 2", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Working now", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Current batch", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("1 of 2", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Pending", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Completed", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Needs review", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Needs attention", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("ingestion-current-row__batch", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
