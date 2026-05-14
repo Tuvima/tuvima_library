@@ -188,7 +188,8 @@ public sealed class Phase5InlineEditingTests
 
         Assert.Contains("OverrideActive=\"@HasActiveDisplayOverride(field.Key)\"", shell, StringComparison.Ordinal);
         Assert.Contains("Unlocked=\"@IsInlineOverrideEnabled(field.Key)\"", shell, StringComparison.Ordinal);
-        Assert.Contains("Yellow underline means local override", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Yellow underline means local override", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-metadata-legend-icon--unlock", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Override in use", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Override in use", code, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.LockOpen", code, StringComparison.Ordinal);

@@ -107,7 +107,6 @@ public partial class SharedMediaEditorShell
     private string _activeScopeId = string.Empty;
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
-    private string _artworkSearchQuery = "";
     private string _artworkUrlInput = string.Empty;
     private string? _artworkAddMenuAssetType;
     private string? _selectedCandidateId;
@@ -1049,23 +1048,6 @@ public partial class SharedMediaEditorShell
     protected string GetArtworkGallerySubtitle(ArtworkSlotDefinition slot) =>
         $"Select an image to make it the active {slot.Label.ToLowerInvariant()} for this item. Your choice is applied immediately.";
 
-    protected IReadOnlyList<ArtworkVariantDisplayItem> GetFilteredArtworkRowItems(string assetType)
-    {
-        var items = GetArtworkRowItems(assetType);
-        if (string.IsNullOrWhiteSpace(_artworkSearchQuery))
-            return items;
-
-        var query = _artworkSearchQuery.Trim();
-        return items
-            .Where(item =>
-                ContainsSearch(item.Origin, query)
-                || ContainsSearch(item.ProviderName, query)
-                || ContainsSearch(item.AssetType, query)
-                || (item.IsPreferred && ContainsSearch("active preferred primary selected", query))
-                || (item.IsPending && ContainsSearch("pending upload", query)))
-            .ToList();
-    }
-
     protected string GetArtworkCardSource(ArtworkVariantDisplayItem item) =>
         string.IsNullOrWhiteSpace(item.ProviderName)
             ? item.Origin
@@ -1094,17 +1076,8 @@ public partial class SharedMediaEditorShell
             badges.Add(("Uploaded", "sme-artwork-badge--uploaded"));
         if (string.Equals(item.Origin, "Local Embedded", StringComparison.OrdinalIgnoreCase))
             badges.Add(("Embedded", "sme-artwork-badge--info"));
-        if (badges.Count == 0)
-            badges.Add(("Recommended", "sme-artwork-badge--recommended"));
-        if (!item.IsPending && !string.Equals(item.Origin, "Uploaded", StringComparison.OrdinalIgnoreCase))
-            badges.Add(("High Res", "sme-artwork-badge--info"));
-
         return badges;
     }
-
-    private static bool ContainsSearch(string? value, string query) =>
-        !string.IsNullOrWhiteSpace(value)
-        && value.Contains(query, StringComparison.OrdinalIgnoreCase);
 
     protected string GetArtworkActionLabel(string assetType) => "Add";
 
