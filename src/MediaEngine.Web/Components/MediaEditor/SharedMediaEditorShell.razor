@@ -133,7 +133,7 @@
                                  Class="settings-tab-strip sme-tabs">
                             @foreach (var tab in Tabs)
                             {
-                                <MudTabPanel Text="@tab.Label" Disabled="@IsTabDisabled(tab.Id)" />
+                                <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" Disabled="@IsTabDisabled(tab.Id)" />
                             }
                         </MudTabs>
                     </div>
@@ -611,26 +611,52 @@
                         @if (IsSingleItem)
                         {
                             <section class="sme-artwork-workspace">
-                                <div class="sme-artwork-rail" role="tablist" aria-label="Artwork types">
-                                    @foreach (var slotItem in ArtworkSlots)
+                                <div class="sme-artwork-sidebar">
+                                    <div class="sme-artwork-sidebar-title">Artwork Types</div>
+                                    <div class="sme-artwork-rail" role="tablist" aria-label="Artwork types">
+                                        @foreach (var slotItem in ArtworkSlots)
+                                        {
+                                            var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
+                                            <MudButton Variant="Variant.Text"
+                                                       Color="Color.Inherit"
+                                                       Class="@($"sme-artwork-rail-item {(isSelectedSlot ? "sme-artwork-rail-item--active" : string.Empty)}")"
+                                                       OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
+                                                <span class="sme-artwork-rail-icon">
+                                                    <MudIcon Icon="@slotItem.Icon" Style="font-size: 18px;" />
+                                                </span>
+                                                <span class="sme-artwork-rail-copy">
+                                                    <span class="sme-artwork-rail-label">@slotItem.Label</span>
+                                                    <span class="sme-artwork-rail-meta">@slotItem.Description</span>
+                                                </span>
+                                                <span class="sme-artwork-rail-badge">
+                                                    <span class="sme-artwork-rail-count">@GetArtworkSlotCount(slotItem)</span>
+                                                </span>
+                                            </MudButton>
+                                        }
+                                    </div>
+
+                                    @if (SelectedArtworkSlot is not null)
                                     {
-                                        var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
-                                        <MudButton Variant="Variant.Text"
+                                        <MudButton Variant="Variant.Outlined"
                                                    Color="Color.Inherit"
-                                                   Class="@($"sme-artwork-rail-item {(isSelectedSlot ? "sme-artwork-rail-item--active" : string.Empty)}")"
-                                                   OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
-                                            <span class="sme-artwork-rail-icon">
-                                                <MudIcon Icon="@slotItem.Icon" Style="font-size: 18px;" />
-                                            </span>
-                                            <span class="sme-artwork-rail-copy">
-                                                <span class="sme-artwork-rail-label">@slotItem.Label</span>
-                                                <span class="sme-artwork-rail-meta">@slotItem.Description</span>
-                                            </span>
-                                            <span class="sme-artwork-rail-badge">
-                                                <span class="sme-artwork-rail-count">@GetArtworkSlotCount(slotItem)</span>
+                                                   Class="sme-artwork-upload-card"
+                                                   title="@SelectedArtworkSlot.UploadHelp"
+                                                   OnClick="@(() => ToggleArtworkAddMenu(SelectedArtworkSlot.AssetType))">
+                                            <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" Style="font-size: 30px;" />
+                                            <span>
+                                                <strong>Upload Custom Artwork</strong>
+                                                <small>PNG, JPG or WEBP - Max 10MB</small>
                                             </span>
                                         </MudButton>
                                     }
+
+                                    <div class="sme-artwork-help-card">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 22px;" />
+                                        <div>
+                                            <strong>About Artwork Types</strong>
+                                            <p>Each artwork type can have multiple options from different sources. Choose the preferred image for each slot to customize how this item looks in your library and on detail pages.</p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="sme-artwork-main">
@@ -659,13 +685,51 @@
                                     {
                                         var slot = SelectedArtworkSlot;
                                         var focusedItem = LeadArtworkVariant;
-                                        var rowItems = GetArtworkRowItems(slot.AssetType);
+                                        var rowItems = GetFilteredArtworkRowItems(slot.AssetType);
 
                                         <section class="sme-artwork-gallery-panel @(IsArtworkDragTarget(slot.AssetType) ? "sme-artwork-gallery-panel--drag" : "")"
                                                  @ondragenter="@(() => SetArtworkDragTarget(slot.AssetType))"
                                                  @ondragleave="@(() => ClearArtworkDragTarget(slot.AssetType))"
                                                  @ondragover:preventDefault="true"
                                                  @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
+                                            <div class="sme-artwork-gallery-toolbar">
+                                                <MudTextField T="string"
+                                                              Value="@_artworkSearchQuery"
+                                                              ValueChanged="@((string? value) => _artworkSearchQuery = value ?? string.Empty)"
+                                                              Placeholder="@($"Search {slot.Label.ToLowerInvariant()}")"
+                                                              Variant="Variant.Outlined"
+                                                              Margin="Margin.Dense"
+                                                              Immediate="true"
+                                                              Adornment="Adornment.Start"
+                                                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                                                              Class="sme-artwork-search" />
+                                                <MudButton Variant="Variant.Outlined"
+                                                           Color="Color.Inherit"
+                                                           Class="sme-artwork-toolbar-btn"
+                                                           StartIcon="@Icons.Material.Outlined.FilterList"
+                                                           EndIcon="@Icons.Material.Outlined.KeyboardArrowDown">
+                                                    Filters
+                                                </MudButton>
+                                                <MudButton Variant="Variant.Outlined"
+                                                           Color="Color.Inherit"
+                                                           Class="sme-artwork-toolbar-btn"
+                                                           EndIcon="@Icons.Material.Outlined.KeyboardArrowDown">
+                                                    Sort: Recommended
+                                                </MudButton>
+                                                <span class="sme-artwork-toolbar-spacer"></span>
+                                                <MudIconButton Icon="@Icons.Material.Outlined.GridView"
+                                                               Class="sme-artwork-view-btn sme-artwork-view-btn--active"
+                                                               aria-label="Grid view" />
+                                                <MudIconButton Icon="@Icons.Material.Outlined.ViewList"
+                                                               Class="sme-artwork-view-btn"
+                                                               aria-label="List view" />
+                                            </div>
+
+                                            <div class="sme-artwork-gallery-heading">
+                                                <h3>@GetArtworkGalleryTitle(slot)</h3>
+                                                <p>@GetArtworkGallerySubtitle(slot)</p>
+                                            </div>
+
                                             <div class="sme-artwork-gallery sme-artwork-gallery--@slot.PreviewClass">
                                                 <div class="sme-artwork-add-entry">
                                                     <MudButton Variant="Variant.Outlined"
@@ -744,6 +808,17 @@
                                                                                aria-label="View full size"
                                                                                OnClick="@(() => OpenArtworkZoom(slot, item))" />
                                                             }
+                                                        </div>
+
+                                                        <div class="sme-artwork-card-copy">
+                                                            <div class="sme-artwork-card-source">@GetArtworkCardSource(item)</div>
+                                                            <div class="sme-artwork-card-dimensions">@GetArtworkCardDimensions(slot)</div>
+                                                            <div class="sme-artwork-card-badges">
+                                                                @foreach (var badge in GetArtworkCardBadges(item))
+                                                                {
+                                                                    <span class="sme-artwork-badge @badge.Class">@badge.Label</span>
+                                                                }
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 }

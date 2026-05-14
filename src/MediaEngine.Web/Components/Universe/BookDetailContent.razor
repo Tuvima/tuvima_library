@@ -778,6 +778,7 @@ else
                 ?? ActiveWork?.Author
                 ?? _work.Author,
             CoverUrl = ActiveWork?.CoverUrl ?? _work.CoverUrl,
+            OnArtworkChanged = OnEditApplied,
             PreviewItems =
             [
                 new MediaEditorPreviewItem

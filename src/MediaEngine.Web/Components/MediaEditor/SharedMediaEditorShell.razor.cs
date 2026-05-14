@@ -107,6 +107,7 @@ public partial class SharedMediaEditorShell
     private string _activeScopeId = string.Empty;
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
+    private string _artworkSearchQuery = "";
     private string _artworkUrlInput = string.Empty;
     private string? _artworkAddMenuAssetType;
     private string? _selectedCandidateId;
@@ -133,7 +134,7 @@ public partial class SharedMediaEditorShell
     private MediaEditorMembershipPreviewDto? _pendingMembershipPreview;
     private string? _fieldToFocus;
 
-    protected IReadOnlyList<(string Id, string Label)> Tabs => ResolveVisibleTabs();
+    protected IReadOnlyList<(string Id, string Label, string Icon)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
     protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ArtworkScope);
     protected bool SupportsCanonicalSearch => QuickSearchTargets.Count > 0;
@@ -1033,6 +1034,78 @@ public partial class SharedMediaEditorShell
         };
     }
 
+    protected string GetArtworkGalleryTitle(ArtworkSlotDefinition slot) =>
+        slot.AssetType switch
+        {
+            "Background" => "Banner / Backdrop Gallery",
+            "Banner" => "Banner Gallery",
+            "Logo" => "Logo Gallery",
+            "SquareArt" => "Square Art Gallery",
+            "DiscArt" => "Disc Art Gallery",
+            "ClearArt" => "Clear Art Gallery",
+            _ => $"{slot.Label} Gallery",
+        };
+
+    protected string GetArtworkGallerySubtitle(ArtworkSlotDefinition slot) =>
+        $"Select an image to make it the active {slot.Label.ToLowerInvariant()} for this item. Your choice is applied immediately.";
+
+    protected IReadOnlyList<ArtworkVariantDisplayItem> GetFilteredArtworkRowItems(string assetType)
+    {
+        var items = GetArtworkRowItems(assetType);
+        if (string.IsNullOrWhiteSpace(_artworkSearchQuery))
+            return items;
+
+        var query = _artworkSearchQuery.Trim();
+        return items
+            .Where(item =>
+                ContainsSearch(item.Origin, query)
+                || ContainsSearch(item.ProviderName, query)
+                || ContainsSearch(item.AssetType, query)
+                || (item.IsPreferred && ContainsSearch("active preferred primary selected", query))
+                || (item.IsPending && ContainsSearch("pending upload", query)))
+            .ToList();
+    }
+
+    protected string GetArtworkCardSource(ArtworkVariantDisplayItem item) =>
+        string.IsNullOrWhiteSpace(item.ProviderName)
+            ? item.Origin
+            : item.ProviderName!;
+
+    protected string GetArtworkCardDimensions(ArtworkSlotDefinition slot) =>
+        slot.PreviewClass switch
+        {
+            "portrait" => "1200 x 1800",
+            "square" => "1200 x 1200",
+            "background" => "1920 x 1080",
+            "banner" => "1920 x 356",
+            "logo" => "1200 x 450",
+            _ => "High resolution",
+        };
+
+    protected IReadOnlyList<(string Label, string Class)> GetArtworkCardBadges(ArtworkVariantDisplayItem item)
+    {
+        var badges = new List<(string Label, string Class)>();
+
+        if (item.IsPreferred)
+            badges.Add(("Active", "sme-artwork-badge--active"));
+        if (item.IsPending)
+            badges.Add(("Pending", "sme-artwork-badge--pending"));
+        if (string.Equals(item.Origin, "Uploaded", StringComparison.OrdinalIgnoreCase))
+            badges.Add(("Uploaded", "sme-artwork-badge--uploaded"));
+        if (string.Equals(item.Origin, "Local Embedded", StringComparison.OrdinalIgnoreCase))
+            badges.Add(("Embedded", "sme-artwork-badge--info"));
+        if (badges.Count == 0)
+            badges.Add(("Recommended", "sme-artwork-badge--recommended"));
+        if (!item.IsPending && !string.Equals(item.Origin, "Uploaded", StringComparison.OrdinalIgnoreCase))
+            badges.Add(("High Res", "sme-artwork-badge--info"));
+
+        return badges;
+    }
+
+    private static bool ContainsSearch(string? value, string query) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Contains(query, StringComparison.OrdinalIgnoreCase);
+
     protected string GetArtworkActionLabel(string assetType) => "Add";
 
     protected string GetArtworkAcceptedTypes(string assetType) =>
@@ -1207,7 +1280,7 @@ public partial class SharedMediaEditorShell
             return;
         }
 
-        await RefreshArtworkStateAsync();
+        await RefreshArtworkStateAsync(notifyParent: true);
     }
 
     protected async Task RetryArtworkUploadAsync(string assetType)
@@ -1253,7 +1326,7 @@ public partial class SharedMediaEditorShell
             _artworkUrlInput = string.Empty;
             _artworkAddMenuAssetType = null;
             _showArtworkUrlInput = false;
-            await RefreshArtworkStateAsync(scope.ScopeId);
+            await RefreshArtworkStateAsync(scope.ScopeId, notifyParent: true);
             Snackbar.Add($"{slot.Label} updated.", Severity.Success);
         }
         finally
@@ -1307,7 +1380,7 @@ public partial class SharedMediaEditorShell
             _pendingArtworkFiles.Remove(scopedKey);
             _pendingArtworkPreviewUrls.Remove(scopedKey);
             _artworkUploadErrors.Remove(scopedKey);
-            await RefreshArtworkStateAsync(scope.ScopeId);
+            await RefreshArtworkStateAsync(scope.ScopeId, notifyParent: true);
             Snackbar.Add($"{ResolveArtworkSlots(scope).FirstOrDefault(slot => string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?.Label ?? assetType} updated.", Severity.Success);
         }
         finally
@@ -1344,7 +1417,7 @@ public partial class SharedMediaEditorShell
             return;
         }
 
-        await RefreshArtworkStateAsync();
+        await RefreshArtworkStateAsync(notifyParent: true);
     }
 
     protected void OpenArtworkZoom(ArtworkSlotDefinition slot, ArtworkVariantDisplayItem item)
@@ -1857,15 +1930,15 @@ public partial class SharedMediaEditorShell
         };
     }
 
-    private IReadOnlyList<(string Id, string Label)> ResolveVisibleTabs()
+    private IReadOnlyList<(string Id, string Label, string Icon)> ResolveVisibleTabs()
     {
         if (IsBatchMode)
-            return [("details", "Details"), ("options", "Options")];
+            return [("details", "Details", GetTabIcon("details")), ("options", "Options", GetTabIcon("options"))];
 
         return GetAvailableTabIds()
             .OrderBy(tabId => Array.IndexOf(TabDisplayOrder, tabId))
             .Where(IsTabVisible)
-            .Select(tabId => (tabId, GetTabLabel(tabId)))
+            .Select(tabId => (tabId, GetTabLabel(tabId), GetTabIcon(tabId)))
             .ToList();
     }
 
@@ -2008,6 +2081,20 @@ public partial class SharedMediaEditorShell
             "file" => "File",
             "history" => "History",
             _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(tabId.Replace('_', ' ')),
+        };
+
+    private static string GetTabIcon(string tabId) =>
+        tabId switch
+        {
+            "details" => Icons.Material.Outlined.Article,
+            "episodes" => Icons.Material.Outlined.LiveTv,
+            "tracks" => Icons.Material.Outlined.LibraryMusic,
+            "artwork" => Icons.Material.Outlined.PhotoLibrary,
+            "links" => Icons.Material.Outlined.TravelExplore,
+            "options" => Icons.Material.Outlined.Tune,
+            "file" => Icons.Material.Outlined.InsertDriveFile,
+            "history" => Icons.Material.Outlined.History,
+            _ => Icons.Material.Outlined.Tab,
         };
 
     protected string GetDirtySaveLabel() =>
@@ -2922,7 +3009,7 @@ public partial class SharedMediaEditorShell
         return string.IsNullOrWhiteSpace(digits) ? input : digits;
     }
 
-    private async Task RefreshArtworkStateAsync(string? scopeId = null)
+    private async Task RefreshArtworkStateAsync(string? scopeId = null, bool notifyParent = false)
     {
         if (!IsSingleItem)
             return;
@@ -2948,6 +3035,9 @@ public partial class SharedMediaEditorShell
         CloseArtworkZoom();
         NormalizeArtworkSelection();
         StateHasChanged();
+
+        if (notifyParent && Request.OnArtworkChanged is not null)
+            await Request.OnArtworkChanged.Invoke();
     }
 
     private void NormalizeArtworkSelection()
@@ -3071,7 +3161,7 @@ public partial class SharedMediaEditorShell
         var headerScope = IsContainerEditor ? ContainerRootScope ?? ActiveScope : ActiveScope;
         foreach (var slot in ResolveArtworkSlots(headerScope))
         {
-            var previewUrl = GetHeaderArtworkPreviewUrl(slot.AssetType);
+            var previewUrl = GetHeaderArtworkPreviewUrl(headerScope, slot.AssetType);
             if (!string.IsNullOrWhiteSpace(previewUrl))
                 return previewUrl;
         }
@@ -3079,9 +3169,15 @@ public partial class SharedMediaEditorShell
         return Request.CoverUrl;
     }
 
-    private string? GetHeaderArtworkPreviewUrl(string assetType)
+    private string? GetHeaderArtworkPreviewUrl(MediaEditorScopeDto? scope, string assetType)
     {
-        return _artwork?.Slots.FirstOrDefault(slot =>
+        var artwork = scope is null
+            ? _artwork
+            : _artworkStates.TryGetValue(BuildScopeStateKey(scope.FieldEntityId, scope.ScopeId), out var scopedArtwork)
+                ? scopedArtwork
+                : _artwork;
+
+        return artwork?.Slots.FirstOrDefault(slot =>
             string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?.Variants
             .OrderByDescending(variant => variant.IsPreferred)
             .ThenByDescending(variant => variant.CreatedAt)

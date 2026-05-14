@@ -39,6 +39,7 @@ public sealed class MediaEditorLaunchRequest
     public string? HeaderTitle { get; init; }
     public string? HeaderSubtitle { get; init; }
     public string? CoverUrl { get; init; }
+    public Func<Task>? OnArtworkChanged { get; init; }
     public List<MediaEditorPreviewItem> PreviewItems { get; init; } = [];
 }
 

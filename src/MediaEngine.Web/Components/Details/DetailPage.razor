@@ -183,6 +183,7 @@
                 HeaderTitle = Model.Title,
                 HeaderSubtitle = Model.Subtitle,
                 CoverUrl = Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.PortraitUrl,
+                OnArtworkChanged = RefreshAfterEditorArtworkChangeAsync,
                 PreviewItems =
                 [
                     new MediaEditorPreviewItem
@@ -207,6 +208,19 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Media editor could not open: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task RefreshAfterEditorArtworkChangeAsync()
+    {
+        if (Model is null || !Guid.TryParse(Model.Id, out var entityId))
+            return;
+
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext);
+        if (updated is not null)
+        {
+            Model = updated;
+            StateHasChanged();
         }
     }
 
