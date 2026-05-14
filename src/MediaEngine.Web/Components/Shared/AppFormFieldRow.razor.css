@@ -108,12 +108,14 @@
     border-color: rgba(148, 163, 184, 0.20);
 }
 
+.tl-field-grid--unlocked ::deep .tl-field-action-button,
 .tl-field-grid--unlocked .tl-field-action-button {
     color: var(--tl-status-warning) !important;
-    border-color: rgba(251, 191, 36, 0.42);
-    background: rgba(251, 191, 36, 0.13);
+    border-color: rgba(251, 191, 36, 0.42) !important;
+    background: rgba(251, 191, 36, 0.13) !important;
 }
 
+.tl-field-grid--unlocked ::deep .tl-field-action-button .mud-icon-root,
 .tl-field-grid--unlocked .tl-field-action-button .mud-icon-root {
     color: var(--tl-status-warning) !important;
 }

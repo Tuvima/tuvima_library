@@ -703,7 +703,7 @@
                                             <div class="sme-artwork-gallery sme-artwork-gallery--@slot.PreviewClass">
                                                 @foreach (var item in rowItems)
                                                 {
-                                                    <div class="sme-artwork-gallery-card">
+                                                    <div class="sme-artwork-gallery-card sme-artwork-gallery-card--@slot.PreviewClass">
                                                         <MudButton Variant="Variant.Outlined"
                                                                    Color="Color.Inherit"
                                                                    Class="@($"sme-artwork-gallery-tile {(item.IsPreferred ? "sme-artwork-gallery-tile--preferred" : string.Empty)} {(item.IsPending ? "sme-artwork-gallery-tile--pending" : string.Empty)} {(IsFocusedArtworkVariant(item.Key) ? "sme-artwork-gallery-tile--focused" : string.Empty)}")"

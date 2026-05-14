@@ -386,7 +386,6 @@ public static class MediaEditorSchemaCatalog
                 Field("title", "Title", identity: true),
                 Field("year", "Year", identity: true),
                 Field("description", "Description", "textarea", identity: true),
-                Field("original_title", "Original Title"),
                 Field("director", "Director", identity: true),
                 Field("runtime", "Runtime"),
                 Field("studio", "Studio"),

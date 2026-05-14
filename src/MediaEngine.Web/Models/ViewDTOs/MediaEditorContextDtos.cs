@@ -25,6 +25,9 @@ public sealed class MediaEditorContextDto
     [JsonPropertyName("supports_file_tab")]
     public bool SupportsFileTab { get; set; }
 
+    [JsonPropertyName("file_metadata_sync_status")]
+    public string? FileMetadataSyncStatus { get; set; }
+
     [JsonPropertyName("current_target_summary")]
     public MediaEditorTargetSummaryDto? CurrentTargetSummary { get; set; }
 

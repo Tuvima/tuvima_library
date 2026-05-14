@@ -607,6 +607,7 @@ public static partial class MetadataEndpoints
                 context.AvailableTabs,
                 context.ContentTabLabel,
                 context.SupportsFileTab,
+                context.FileMetadataSyncStatus,
                 context.CurrentTargetSummary,
                 context.IdentitySummary,
                 context.FieldLockMap,
@@ -1844,6 +1845,7 @@ public static partial class MetadataEndpoints
             BuildContentTabLabel(editorMode, launch.MediaType),
             !string.Equals(editorMode, "container", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(launch.RepresentativeMediaFilePath),
+            BuildFileMetadataSyncStatus(launch.RepresentativeMediaFilePath, launch.RepresentativeWritebackStatus),
             BuildCurrentTargetSummary(initialScopeResolution),
             BuildIdentitySummary(launchDetail),
             BuildFieldLockMap(launch.MediaType, initialScopeResolution.ScopeId),
@@ -1887,12 +1889,14 @@ public static partial class MetadataEndpoints
                 string.IsNullOrWhiteSpace(workRow.MediaType) ? "Books" : workRow.MediaType,
                 string.IsNullOrWhiteSpace(workRow.WorkKind) ? "standalone" : workRow.WorkKind,
                 representativeAsset?.AssetId,
-                representativeAsset?.FilePath);
+                representativeAsset?.FilePath,
+                representativeAsset?.WritebackStatus);
         }
 
         var assetRow = conn.QueryFirstOrDefault<EditorLaunchAssetRow>("""
             SELECT a.id             AS AssetId,
                    a.file_path_root AS FilePath,
+                   a.writeback_status AS WritebackStatus,
                    w.id             AS WorkId,
                    w.media_type     AS MediaType,
                    w.work_kind      AS WorkKind,
@@ -1919,7 +1923,8 @@ public static partial class MetadataEndpoints
             string.IsNullOrWhiteSpace(assetRow.MediaType) ? "Books" : assetRow.MediaType,
             string.IsNullOrWhiteSpace(assetRow.WorkKind) ? "standalone" : assetRow.WorkKind,
             TryParseGuid(assetRow.AssetId),
-            assetRow.FilePath);
+            assetRow.FilePath,
+            assetRow.WritebackStatus);
     }
 
     private static bool IsContainerEditorMediaType(string? mediaType) =>
@@ -1987,6 +1992,20 @@ public static partial class MetadataEndpoints
             detail?.UniverseSummary?.UniverseQid,
             detail?.UniverseSummary?.Stage3Status);
 
+    private static string BuildFileMetadataSyncStatus(string? filePath, string? writebackStatus)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return "No file";
+
+        return (writebackStatus ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "ok" => "Synced to canonical",
+            "retry" => "Sync retry scheduled",
+            "failed" => "Sync failed",
+            _ => "Not synced",
+        };
+    }
+
     private static Dictionary<string, bool> BuildFieldLockMap(string mediaType, string scopeId)
     {
         var map = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
@@ -2045,7 +2064,8 @@ public static partial class MetadataEndpoints
                 INNER JOIN work_tree ON child.parent_work_id = work_tree.id
             )
             SELECT ma.id AS AssetIdValue,
-                   ma.file_path_root AS FilePath
+                   ma.file_path_root AS FilePath,
+                   ma.writeback_status AS WritebackStatus
             FROM work_tree
             INNER JOIN editions e ON e.work_id = work_tree.id
             INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -2952,6 +2972,7 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("available_tabs")] IReadOnlyList<string> AvailableTabs,
         [property: JsonPropertyName("content_tab_label")] string? ContentTabLabel,
         [property: JsonPropertyName("supports_file_tab")] bool SupportsFileTab,
+        [property: JsonPropertyName("file_metadata_sync_status")] string FileMetadataSyncStatus,
         [property: JsonPropertyName("current_target_summary")] MediaEditorTargetSummaryEnvelope CurrentTargetSummary,
         [property: JsonPropertyName("identity_summary")] MediaEditorIdentitySummaryEnvelope IdentitySummary,
         [property: JsonPropertyName("field_lock_map")] IReadOnlyDictionary<string, bool> FieldLockMap,
@@ -3020,12 +3041,12 @@ public static partial class MetadataEndpoints
         string WorkId,
         string RootWorkId,
         string? RootPrimaryAssetId);
-    private sealed record EditorAssetSample(string AssetIdValue, string? FilePath)
+    private sealed record EditorAssetSample(string AssetIdValue, string? FilePath, string? WritebackStatus)
     {
         public Guid? AssetId => TryParseGuid(AssetIdValue);
     }
     private sealed record EditorLaunchWorkRow(string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
-    private sealed record EditorLaunchAssetRow(string AssetId, string? FilePath, string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
+    private sealed record EditorLaunchAssetRow(string AssetId, string? FilePath, string? WritebackStatus, string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
     private sealed record EditorLaunchContext(
         Guid LaunchEntityId,
         string LaunchEntityKind,
@@ -3035,7 +3056,8 @@ public static partial class MetadataEndpoints
         string MediaType,
         string WorkKind,
         Guid? RepresentativeAssetId,
-        string? RepresentativeMediaFilePath);
+        string? RepresentativeMediaFilePath,
+        string? RepresentativeWritebackStatus);
     private sealed record EditorScopeContext(
         Guid LaunchEntityId,
         string LaunchEntityKind,
@@ -3044,6 +3066,7 @@ public static partial class MetadataEndpoints
         IReadOnlyList<string> AvailableTabs,
         string? ContentTabLabel,
         bool SupportsFileTab,
+        string FileMetadataSyncStatus,
         MediaEditorTargetSummaryEnvelope CurrentTargetSummary,
         MediaEditorIdentitySummaryEnvelope IdentitySummary,
         IReadOnlyDictionary<string, bool> FieldLockMap,

@@ -1068,8 +1068,6 @@ public partial class SharedMediaEditorShell
     {
         var badges = new List<(string Label, string Class)>();
 
-        if (item.IsPreferred)
-            badges.Add(("Active", "sme-artwork-badge--active"));
         if (item.IsPending)
             badges.Add(("Pending", "sme-artwork-badge--pending"));
         if (string.Equals(item.Origin, "Uploaded", StringComparison.OrdinalIgnoreCase))
@@ -2183,6 +2181,15 @@ public partial class SharedMediaEditorShell
             return Task.CompletedTask;
         }
 
+        if (IsInlineOverrideEnabled(key))
+        {
+            _inlineOverrideKeys.Remove(scopedKey);
+            _pendingInlineRevertKeys.Remove(scopedKey);
+            if (string.Equals(_fieldToFocus, scopedKey, StringComparison.OrdinalIgnoreCase))
+                _fieldToFocus = null;
+            return InvokeAsync(StateHasChanged);
+        }
+
         _inlineOverrideKeys.Add(scopedKey);
         _clearedInlineOverrideKeys.Remove(scopedKey);
         _pendingInlineRevertKeys.Remove(scopedKey);
@@ -2230,6 +2237,7 @@ public partial class SharedMediaEditorShell
             ("Retail Match", !string.IsNullOrWhiteSpace(provider) ? provider : hasProviderEvidence ? "Retail matched" : "Not linked"),
             ("Wikidata", hasQid ? summary!.WikidataQid! : "No QID"),
             ("Status", GetMatchStatusLabel(summary, hasProviderEvidence, hasQid)),
+            ("File Metadata", _editorContext?.FileMetadataSyncStatus ?? "Unknown"),
             ("Universe", string.IsNullOrWhiteSpace(summary?.UniverseName) ? "-" : summary!.UniverseName!),
         ];
     }
