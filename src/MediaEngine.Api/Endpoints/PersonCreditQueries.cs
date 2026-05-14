@@ -3,6 +3,8 @@ using MediaEngine.Api.Models;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -340,7 +342,7 @@ internal static class CastCreditQueries
                    mc.claim_value AS ClaimValue
             FROM metadata_claims mc
             WHERE mc.entity_id = @workId
-              AND mc.claim_key IN ('cast_member', 'cast_member_qid')
+              AND mc.claim_key IN ('cast_member', 'cast_member_qid', 'cast_member_character')
               AND NULLIF(mc.claim_value, '') IS NOT NULL
             ORDER BY mc.rowid;
             """,
@@ -365,6 +367,7 @@ internal static class CastCreditQueries
                 Name = person?.Name ?? entry.Name,
                 WikidataQid = entry.Qid ?? person?.WikidataQid,
                 HeadshotUrl = BuildHeadshotUrl(person?.Id, person?.LocalHeadshotPath, person?.HeadshotUrl),
+                Characters = BuildClaimCharacterPortrayals(workId, entry.Name, entry.Characters),
             });
         }
 
@@ -380,6 +383,10 @@ internal static class CastCreditQueries
             .Where(row => row.ClaimKey.Equals("cast_member_qid", StringComparison.OrdinalIgnoreCase))
             .Select(row => ParseQidLabel(row.ClaimValue))
             .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Qid) || !string.IsNullOrWhiteSpace(parsed.Label))
+            .ToList();
+        var characterClaims = rows
+            .Where(row => row.ClaimKey.Equals("cast_member_character", StringComparison.OrdinalIgnoreCase))
+            .Select(row => row.ClaimValue)
             .ToList();
 
         var qidByName = qidClaims
@@ -397,9 +404,12 @@ internal static class CastCreditQueries
 
             qidByName.TryGetValue(name, out var qid);
             qid ??= i < qidClaims.Count ? qidClaims[i].Qid : null;
+            var characters = i < characterClaims.Count
+                ? SplitCharacterNames(characterClaims[i])
+                : [];
             var key = qid ?? name;
             if (seen.Add(key))
-                entries.Add(new CastClaimEntry(name, qid));
+                entries.Add(new CastClaimEntry(name, qid, characters));
         }
 
         foreach (var parsed in qidClaims)
@@ -410,10 +420,35 @@ internal static class CastCreditQueries
 
             var key = parsed.Qid ?? name;
             if (seen.Add(key))
-                entries.Add(new CastClaimEntry(name, parsed.Qid));
+                entries.Add(new CastClaimEntry(name, parsed.Qid, []));
         }
 
         return entries;
+    }
+
+    private static List<CharacterPortrayalDto> BuildClaimCharacterPortrayals(
+        Guid workId,
+        string actorName,
+        IReadOnlyList<string> characterNames)
+        => characterNames
+            .Where(characterName => !string.IsNullOrWhiteSpace(characterName))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(characterName => new CharacterPortrayalDto
+            {
+                FictionalEntityId = CreateDeterministicCharacterId(workId, actorName, characterName),
+                CharacterName = characterName.Trim(),
+            })
+            .ToList();
+
+    private static IReadOnlyList<string> SplitCharacterNames(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(" / ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static Guid CreateDeterministicCharacterId(Guid workId, string actorName, string characterName)
+    {
+        var bytes = MD5.HashData(Encoding.UTF8.GetBytes($"{workId:D}|{actorName}|{characterName}"));
+        return new Guid(bytes);
     }
 
     private static (string? Qid, string? Label) ParseQidLabel(string? value)
@@ -642,7 +677,7 @@ internal static class CastCreditQueries
         public string? ValueQid { get; init; }
     }
 
-    private sealed record CastClaimEntry(string Name, string? Qid);
+    private sealed record CastClaimEntry(string Name, string? Qid, IReadOnlyList<string> Characters);
 }
 
 internal static class PersonCreditQueries

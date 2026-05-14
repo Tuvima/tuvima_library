@@ -1976,8 +1976,8 @@ public static partial class MetadataEndpoints
 
     private static MediaEditorIdentitySummaryEnvelope BuildIdentitySummary(LibraryItemDetail? detail) =>
         new(
-            detail?.MatchSource,
-            GetProviderBridgeId(detail),
+            detail?.RetailProviderName,
+            detail?.RetailProviderItemId,
             detail?.MatchSource,
             detail?.MatchMethod,
             detail?.WikidataQid,
@@ -1986,17 +1986,6 @@ public static partial class MetadataEndpoints
             detail?.UniverseSummary?.UniverseName,
             detail?.UniverseSummary?.UniverseQid,
             detail?.UniverseSummary?.Stage3Status);
-
-    private static string? GetProviderBridgeId(LibraryItemDetail? detail)
-    {
-        if (detail?.BridgeIds is null || detail.BridgeIds.Count == 0)
-            return null;
-
-        return detail.BridgeIds
-            .OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => $"{entry.Key}:{entry.Value}")
-            .FirstOrDefault();
-    }
 
     private static Dictionary<string, bool> BuildFieldLockMap(string mediaType, string scopeId)
     {

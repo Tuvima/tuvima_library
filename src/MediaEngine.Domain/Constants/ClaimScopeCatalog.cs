@@ -68,6 +68,11 @@ public static class ClaimScopeCatalog
             [MetadataFieldConstants.TrackCount]        = ClaimScope.Parent,
             [MetadataFieldConstants.IssueCount]        = ClaimScope.Parent,
             [MetadataFieldConstants.ChildEntitiesJson] = ClaimScope.Parent,
+            ["cast_member_character"]                  = ClaimScope.Parent,
+            ["network_logo_url"]                       = ClaimScope.Parent,
+            ["studio"]                                 = ClaimScope.Parent,
+            ["studio_logo_url"]                        = ClaimScope.Parent,
+            ["production_company"]                     = ClaimScope.Parent,
         };
 
     // ── Per-media-type overrides applied AFTER the default map. ──────────

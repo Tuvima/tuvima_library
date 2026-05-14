@@ -129,6 +129,8 @@ public sealed record LibraryItemDetail
     [JsonPropertyName("status")]         public string Status { get; init; } = "Identified";
     [JsonPropertyName("match_source")]   public string? MatchSource { get; init; }
     [JsonPropertyName("match_method")]   public string? MatchMethod { get; init; }
+    [JsonPropertyName("retail_provider_name")] public string? RetailProviderName { get; init; }
+    [JsonPropertyName("retail_provider_item_id")] public string? RetailProviderItemId { get; init; }
 
     // Metadata
     [JsonPropertyName("author")]          public string? Author { get; init; }

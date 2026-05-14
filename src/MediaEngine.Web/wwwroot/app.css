@@ -124,7 +124,7 @@ body {
 
 .mud-menu,
 .mud-popover {
-    z-index: calc(var(--app-z-modal) + 10) !important;
+    z-index: calc(var(--app-z-modal) + 50) !important;
 }
 
 .mud-overlay-drawer,
@@ -1668,8 +1668,7 @@ body {
 }
 
 .mud-menu,
-.mud-popover,
-.mud-list {
+.mud-popover {
     color: var(--app-text-primary) !important;
     background: var(--app-surface) !important;
     border: 1px solid var(--app-border) !important;
@@ -1681,11 +1680,42 @@ body {
 .mud-menu-item {
     color: var(--app-text-primary) !important;
     font-size: 14px !important;
+    border: 0 !important;
+    box-shadow: none !important;
 }
 
 .mud-list-item:hover,
 .mud-menu-item:hover {
     background: var(--app-hover-overlay) !important;
+}
+
+.mud-menu .mud-list,
+.mud-popover .mud-list,
+.mud-menu .mud-menu-list,
+.mud-popover .mud-menu-list {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+.mud-menu .mud-list-item,
+.mud-popover .mud-list-item,
+.mud-menu .mud-menu-item,
+.mud-popover .mud-menu-item {
+    border: 0 !important;
+    box-shadow: none !important;
+    outline: 0 !important;
+}
+
+.mud-menu .mud-list-item::before,
+.mud-menu .mud-list-item::after,
+.mud-popover .mud-list-item::before,
+.mud-popover .mud-list-item::after,
+.mud-menu .mud-menu-item::before,
+.mud-menu .mud-menu-item::after,
+.mud-popover .mud-menu-item::before,
+.mud-popover .mud-menu-item::after {
+    display: none !important;
 }
 
 .mud-dialog {
@@ -2503,7 +2533,6 @@ body,
 
 .mud-menu,
 .mud-popover,
-.mud-list,
 .mud-dialog,
 .mud-dialog.sme-dialog,
 .mud-dialog.sme-dialog .mud-dialog-content {
@@ -3365,8 +3394,8 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 .mud-dialog.sme-dialog {
-    width: min(100vw - 32px, 1040px) !important;
-    max-width: 1040px !important;
+    width: min(100vw - 24px, 1440px) !important;
+    max-width: min(100vw - 24px, 1440px) !important;
     background: var(--tl-bg-surface-elevated) !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius-md) !important;

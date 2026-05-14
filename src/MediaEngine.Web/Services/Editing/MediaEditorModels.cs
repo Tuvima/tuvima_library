@@ -253,7 +253,26 @@ public static class MediaEditorSchemaCatalog
         static void Add(IDictionary<string, string> target, string key, string? value)
         {
             if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
-                target[key] = value.Trim();
+            {
+                target[key] = string.Equals(key, "description", StringComparison.OrdinalIgnoreCase)
+                    ? NormalizeDescriptionParagraphs(value)
+                    : value.Trim();
+            }
+        }
+
+        static string NormalizeDescriptionParagraphs(string value)
+        {
+            var normalized = value
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .TrimEnd();
+
+            if (string.IsNullOrWhiteSpace(normalized))
+                return string.Empty;
+
+            return string.Join("\n\n",
+                normalized.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph)));
         }
 
         foreach (var field in canonicals)
@@ -333,17 +352,17 @@ public static class MediaEditorSchemaCatalog
         [
             Group("music_details", "Details", "details",
                 Field("title", "Title", identity: true),
+                Field("year", "Year"),
+                Field("description", "Description", "textarea", identity: true),
                 Field("artist", "Artist", identity: true),
                 Field("album", "Album", identity: true),
-                Field("album_artist", "Album Artist"),
-                Field("composer", "Composer"),
-                Field("genre", "Genre"),
-                Field("year", "Year"),
                 Field("track_number", "Track"),
                 Field("disc_number", "Disc"),
-                Field("duration", "Duration")),
+                Field("composer", "Composer"),
+                Field("genre", "Genre")),
             Group("music_options", "Options", "options",
-                Field("description", "Description", "textarea"),
+                Field("album_artist", "Album Artist"),
+                Field("duration", "Duration"),
                 Field("lyrics", "Lyrics", "textarea", batch: false),
                 Field("language", "Language"),
                 Field("rating", "Rating"),
@@ -364,16 +383,16 @@ public static class MediaEditorSchemaCatalog
         [
             Group("movie_details", "Details", "details",
                 Field("title", "Title", identity: true),
-                Field("original_title", "Original Title"),
                 Field("year", "Year", identity: true),
-                Field("edition", "Edition"),
+                Field("description", "Description", "textarea", identity: true),
+                Field("original_title", "Original Title"),
                 Field("director", "Director", identity: true),
                 Field("runtime", "Runtime"),
-                Field("genre", "Genre"),
                 Field("studio", "Studio"),
                 Field("language", "Language")),
             Group("movie_options", "Options", "options",
-                Field("description", "Description", "textarea"),
+                Field("edition", "Edition"),
+                Field("genre", "Genre"),
                 Field("rating", "Rating"),
                 Field("comment", "Comment", "textarea")),
             Group("movie_sorting", "Sorting", "sorting",
@@ -390,14 +409,14 @@ public static class MediaEditorSchemaCatalog
         [
             Group("tv_details", "Details", "details",
                 Field("show_name", "Show", identity: true),
+                Field("year", "Year"),
+                Field("description", "Description", "textarea", identity: true),
                 Field("season_number", "Season", identity: true),
                 Field("episode_number", "Episode", identity: true),
                 Field("episode_title", "Episode Title"),
-                Field("year", "Year"),
                 Field("network", "Network"),
                 Field("runtime", "Runtime")),
             Group("tv_options", "Options", "options",
-                Field("description", "Description", "textarea"),
                 Field("genre", "Genre"),
                 Field("rating", "Rating"),
                 Field("language", "Language"),
@@ -417,15 +436,15 @@ public static class MediaEditorSchemaCatalog
         [
             Group("book_details", "Details", "details",
                 Field("title", "Title", identity: true),
+                Field("year", "Year"),
+                Field("description", "Description", "textarea", identity: true),
                 Field("subtitle", "Subtitle"),
                 Field("author", "Author", identity: true),
                 Field("series", "Series"),
                 Field("series_position", "Series Number"),
                 Field("publisher", "Publisher"),
-                Field("year", "Year"),
                 Field("language", "Language")),
             Group("book_options", "Options", "options",
-                Field("description", "Description", "textarea"),
                 Field("genre", "Genre"),
                 Field("rating", "Rating"),
                 Field("comment", "Comment", "textarea")),
@@ -444,15 +463,15 @@ public static class MediaEditorSchemaCatalog
         [
             Group("audiobook_details", "Details", "details",
                 Field("title", "Title", identity: true),
+                Field("year", "Year"),
+                Field("description", "Description", "textarea", identity: true),
                 Field("author", "Author", identity: true),
                 Field("narrator", "Narrator", identity: true),
                 Field("series", "Series"),
                 Field("series_position", "Series Number"),
-                Field("publisher", "Publisher"),
-                Field("year", "Year"),
-                Field("duration", "Duration")),
+                Field("duration", "Duration"),
+                Field("publisher", "Publisher")),
             Group("audiobook_options", "Options", "options",
-                Field("description", "Description", "textarea"),
                 Field("genre", "Genre"),
                 Field("language", "Language"),
                 Field("rating", "Rating"),
@@ -471,16 +490,16 @@ public static class MediaEditorSchemaCatalog
         Groups =
         [
             Group("comic_details", "Details", "details",
+                Field("title", "Title"),
+                Field("year", "Year"),
+                Field("description", "Description", "textarea", identity: true),
                 Field("series", "Series", identity: true),
-                Field("volume", "Volume"),
                 Field("series_position", "Issue Number", identity: true),
-                Field("title", "Issue Title"),
                 Field("author", "Writer"),
                 Field("illustrator", "Artist"),
-                Field("publisher", "Publisher"),
-                Field("year", "Year")),
+                Field("publisher", "Publisher")),
             Group("comic_options", "Options", "options",
-                Field("description", "Description", "textarea"),
+                Field("volume", "Volume"),
                 Field("genre", "Genre"),
                 Field("comment", "Comment", "textarea")),
             Group("comic_sorting", "Sorting", "sorting",

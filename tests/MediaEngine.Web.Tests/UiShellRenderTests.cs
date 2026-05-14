@@ -527,6 +527,28 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
+    public void AppCss_KeepsMudDropdownRowsBorderless()
+    {
+        var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "app.css"));
+
+        Assert.Contains(".mud-menu .mud-list-item", css);
+        Assert.Contains("border: 0 !important;", css);
+        Assert.Contains("box-shadow: none !important;", css);
+
+        var rowRuleBodies = Regex.Matches(css, @"(?s)\.mud-(?:list-item|menu-item)[^{]*\{(?<body>.*?)\}")
+            .Select(match => match.Groups["body"].Value.ToLowerInvariant())
+            .ToArray();
+
+        Assert.All(rowRuleBodies, body =>
+        {
+            Assert.DoesNotContain("border: 1px", body);
+            Assert.DoesNotContain("box-shadow: var(", body);
+            Assert.DoesNotContain("box-shadow: 0 ", body);
+            Assert.DoesNotContain("box-shadow: inset", body);
+        });
+    }
+
+    [Fact]
     public void DesignTokens_DefineSharedControlAndFormSizing()
     {
         var tokens = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "tuvima.tokens.css"));

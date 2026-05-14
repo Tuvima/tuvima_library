@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
+@using MediaEngine.Web.Components.Shared
 
 <NavigationLock ConfirmExternalNavigation="@IsDirty"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
@@ -73,60 +74,71 @@
             @if (Request.Mode == SharedMediaEditorMode.Review)
             {
                 <div class="sme-review-banner">
-                    <div class="sme-review-copy">
-                        <div class="sme-review-title">Needs review</div>
-                        <div class="sme-review-text">@_reviewSummary</div>
+                    <div class="sme-review-icon" aria-hidden="true">
+                        <MudIcon Icon="@Icons.Material.Outlined.PriorityHigh" Style="font-size: 22px;" />
                     </div>
-                    @if (CanReclassifyMediaType)
-                    {
-                        <div class="sme-review-reclassify">
-                            <MudSelect T="string"
-                                       Value="_selectedMediaType"
-                                       ValueChanged="OnSelectedMediaTypeChanged"
-                                       Variant="Variant.Outlined"
-                                       Dense="true"
-                                       Class="sme-review-select">
-                                @foreach (var mediaType in ReclassifyMediaTypes)
-                                {
-                                    <MudSelectItem T="string" Value="@mediaType">@mediaType</MudSelectItem>
-                                }
-                            </MudSelect>
+                    <div class="sme-review-copy">
+                        <div class="sme-review-title">Needs review <span class="sme-review-text">- @_reviewSummary</span></div>
+                    </div>
+                    <div class="sme-review-actions">
+                        @if (CanReclassifyMediaType)
+                        {
+                            <div class="sme-review-reclassify">
+                                <MudMenu Variant="Variant.Outlined"
+                                         Color="Color.Inherit"
+                                         Dense="true"
+                                         EndIcon="@Icons.Material.Outlined.KeyboardArrowDown"
+                                         Label="@GetMediaTypeButtonLabel(_selectedMediaType)"
+                                         AnchorOrigin="Origin.BottomLeft"
+                                         TransformOrigin="Origin.TopLeft"
+                                         Class="sme-review-menu">
+                                    @foreach (var mediaType in ReclassifyMediaTypes)
+                                    {
+                                        <MudMenuItem OnClick="@(() => OnSelectedMediaTypeChanged(mediaType))">
+                                            @GetMediaTypeMenuLabel(mediaType)
+                                        </MudMenuItem>
+                                    }
+                                </MudMenu>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           Class="sme-review-action"
+                                           Disabled="@_reclassifying"
+                                           OnClick="ReclassifyMediaTypeAsync">
+                                    @(_reclassifying ? "Updating..." : "Change")
+                                </MudButton>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_canonicalTargetGroup))
+                        {
                             <MudButton Variant="Variant.Filled"
                                        Color="Color.Primary"
                                        Class="sme-review-action"
-                                       Disabled="@_reclassifying"
-                                       OnClick="ReclassifyMediaTypeAsync">
-                                @(_reclassifying ? "Updating..." : "Change type")
+                                       OnClick="@(() => _activeTab = "links")">
+                                @GetReviewBannerActionLabel()
                             </MudButton>
-                        </div>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(_canonicalTargetGroup))
-                    {
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Class="sme-review-action"
-                                   OnClick="@(() => _activeTab = "links")">
-                            @_primaryActionLabel
-                        </MudButton>
-                    }
+                        }
+                    </div>
                 </div>
             }
 
             <div class="sme-workspace">
                 <div class="sme-main-pane">
-                    <MudTabs ActivePanelIndex="@ActiveTabIndex"
-                             ActivePanelIndexChanged="OnTabChanged"
-                         Rounded="false"
-                             Border="false"
-                             Elevation="0"
-                             Class="sme-tabs">
-                        @foreach (var tab in Tabs)
-                        {
-                            <MudTabPanel Text="@tab.Label" Disabled="@IsTabDisabled(tab.Id)" />
-                        }
-                    </MudTabs>
+                    <div class="settings-admin-panel">
+                        <MudTabs ActivePanelIndex="@ActiveTabIndex"
+                                 ActivePanelIndexChanged="OnTabChanged"
+                                 Rounded="true"
+                                 Border="false"
+                                 Color="Color.Primary"
+                                 Elevation="0"
+                                 Class="settings-tab-strip sme-tabs">
+                            @foreach (var tab in Tabs)
+                            {
+                                <MudTabPanel Text="@tab.Label" Disabled="@IsTabDisabled(tab.Id)" />
+                            }
+                        </MudTabs>
+                    </div>
 
-                    @if (IsSingleItem)
+                    @if (IsSingleItem && NavigatorRootNode is not null && (_activeTab == "episodes" || _activeTab == "tracks"))
                     {
                         <div class="sme-selection-bar">
                             <div class="sme-selection-copy">
@@ -191,176 +203,82 @@
                 }
                 else if (_activeTab == "details")
                 {
-                    <div class="sme-details sme-details--single">
-                        <div class="sme-fields-pane sme-fields-pane--single">
+                    <div class="sme-details sme-details--with-summary">
+                        <div class="sme-fields-pane sme-details-main">
+                            <MediaEditorPanel Title="Metadata" Description="Canonical data from Wikimedia sources. Override any field to use a local value.">
+                                <div class="sme-metadata-legend" aria-label="Metadata editing legend">
+                                    <span><MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" /> Locked uses canonical data</span>
+                                    <span><MudIcon Icon="@Icons.Material.Outlined.LockOpen" Size="Size.Small" /> Unlock edits a local value</span>
+                                    <span><MudIcon Icon="@Icons.Material.Outlined.Restore" Size="Size.Small" /> Revert removes an override</span>
+                                    <span><i class="sme-metadata-legend-line"></i> Yellow underline means local override</span>
+                                </div>
 
-                            @foreach (var group in GetGroupsForTab("details"))
-                            {
-                                <section class="sme-group">
-                                    <div class="sme-group-title">@group.Label</div>
-                                    @foreach (var field in group.Fields)
-                                    {
-                                        var isDisplayOverride = IsDisplayOverrideKey(field.Key);
-                                        var isLocked = IsFieldLocked(field.Key) && !isDisplayOverride;
-                                        <div class="sme-field-row @(isLocked ? "sme-field-row--locked" : string.Empty)">
-                                            <label class="sme-field-label">
-                                                <span>@field.Label</span>
-                                                @if (isLocked)
-                                                {
-                                                    <MudTooltip Text="Controlled by canonical identity. Replace the retail or Wikidata match to change this value. Use Display Override for local presentation only.">
-                                                        <span class="sme-field-info sme-field-info--locked" aria-label="Locked field">
-                                                            <MudIcon Icon="@Icons.Material.Outlined.Lock" Style="font-size: 14px;" />
-                                                        </span>
-                                                    </MudTooltip>
-                                                }
-                                                else if (field.IdentityField)
-                                                {
-                                                    <MudTooltip Text="Used to identify the right title, edition, show, or person during matching.">
-                                                        <span class="sme-field-info" aria-label="Matching help">
-                                                            <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 14px;" />
-                                                        </span>
-                                                    </MudTooltip>
-                                                }
-                                            </label>
-                                            <div class="sme-field-control">
-                                                @if (field.InputKind == "textarea")
-                                                {
-                                                    <MudTextField T="string"
-                                                                  Value="@GetEditableValue(field.Key)"
-                                                                  ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
-                                                                  Placeholder="@GetPlaceholder(field)"
-                                                                  Disabled="@isLocked"
-                                                                  Variant="Variant.Outlined"
-                                                                  Margin="Margin.Dense"
-                                                                  Immediate="true"
-                                                                  Lines="4"
-                                                                  Class="@($"sme-textarea {(isLocked ? "sme-textarea--locked" : string.Empty)}")" />
-                                                }
-                                                else
-                                                {
-                                                    <MudTextField T="string"
-                                                                  Value="@GetEditableValue(field.Key)"
-                                                                  ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
-                                                                  Placeholder="@GetPlaceholder(field)"
-                                                                  Disabled="@isLocked"
-                                                                  Variant="Variant.Outlined"
-                                                                  Margin="Margin.Dense"
-                                                                  Immediate="true"
-                                                                  Class="@($"sme-text-input {(isLocked ? "sme-text-input--locked" : string.Empty)}")" />
-                                                }
-                                                @if (isLocked)
-                                                {
-                                                    <div class="sme-field-hint">Controlled by canonical identity. Replace the retail or Wikidata match to change this value. Use Display Override for local presentation only.</div>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
-                                </section>
-                            }
-
-                            @if (GetDisplayDetailOverrideKeys().Count > 0)
-                            {
-                                <section class="sme-group">
-                                    <div class="sme-group-title">Display Overrides</div>
-                                    @foreach (var key in GetDisplayDetailOverrideKeys())
-                                    {
-                                        <div class="sme-field-row">
-                                            <label class="sme-field-label">
-                                                <span>@GetDisplayOverrideLabel(key)</span>
-                                                <span class="sme-field-chip">Alias</span>
-                                            </label>
-                                            <div class="sme-field-control">
-                                                <MudTextField T="string"
-                                                              Value="@GetEditableValue(key)"
-                                                              ValueChanged="@((string? value) => OnFieldInput(key, value))"
-                                                              Placeholder="@GetDisplayOverrideHint(key)"
-                                                              Variant="Variant.Outlined"
-                                                              Margin="Margin.Dense"
-                                                              Immediate="true"
-                                                              Class="sme-text-input" />
-                                                <div class="sme-field-hint">@GetDisplayOverrideHint(key)</div>
-                                            </div>
-                                        </div>
-                                    }
-                                </section>
-                            }
-
-                            @if (IsSingleItem && GetPlacementFieldKeysForActiveScope().Count > 0)
-                            {
-                                <section class="sme-group">
-                                    <div class="sme-group-title">Placement & Identity</div>
-                                    @foreach (var key in GetPlacementFieldKeysForActiveScope())
-                                    {
-                                        var field = _schema.Groups
-                                            .SelectMany(candidateGroup => candidateGroup.Fields)
-                                            .FirstOrDefault(candidate => string.Equals(candidate.Key, key, StringComparison.OrdinalIgnoreCase));
-                                        if (field is null)
-                                        {
-                                            continue;
-                                        }
-
-                                        <div class="sme-field-row">
-                                            <label class="sme-field-label">
-                                                <span>@field.Label</span>
-                                                <MudTooltip Text="Type to update this field. Existing library matches appear first, with provider search available inline when needed.">
-                                                    <span class="sme-field-info" aria-label="Placement help">
-                                                        <MudIcon Icon="@Icons.Material.Outlined.ManageSearch" Style="font-size: 14px;" />
-                                                    </span>
-                                                </MudTooltip>
-                                            </label>
-                                            <div class="sme-field-control">
-                                                <div class="sme-membership-input-row">
-                                                    <MudTextField T="string"
-                                                                  Value="@GetEditableValue(field.Key)"
-                                                                  ValueChanged="@(async (string? value) => await OnMembershipFieldInputAsync(field.Key, value))"
-                                                                  Placeholder="@GetPlaceholder(field)"
-                                                                  Variant="Variant.Outlined"
-                                                                  Margin="Margin.Dense"
-                                                                  Immediate="true"
-                                                                  Class="sme-text-input" />
-                                                    @if (CanSearchRetailMembership(field.Key))
-                                                    {
-                                                        <MudButton Variant="Variant.Outlined"
-                                                                   Color="Color.Inherit"
-                                                                   Class="sme-inline-btn"
-                                                                   OnClick="@(() => SearchRetailMembershipAsync(field.Key))">
-                                                            Search
-                                                        </MudButton>
-                                                    }
-                                                </div>
-
-                                                @if (GetMembershipSuggestions(field.Key).Count > 0)
-                                                {
-                                                    <div class="sme-membership-suggestions">
-                                                        @foreach (var suggestion in GetMembershipSuggestions(field.Key))
-                                                        {
-                                                            <MudButton Variant="Variant.Outlined"
-                                                                       Color="Color.Inherit"
-                                                                       FullWidth="true"
-                                                                       Class="sme-membership-suggestion"
-                                                                       OnClick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
-                                                                <span class="sme-membership-suggestion-label">@suggestion.Label</span>
-                                                                @if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
-                                                                {
-                                                                    <span class="sme-membership-suggestion-subtitle">@suggestion.Subtitle</span>
-                                                                }
-                                                                @if (!string.IsNullOrWhiteSpace(GetMembershipSuggestionMeta(suggestion)))
-                                                                {
-                                                                    <span class="sme-membership-suggestion-subtitle">@GetMembershipSuggestionMeta(suggestion)</span>
-                                                                }
-                                                            </MudButton>
-                                                        }
-                                                    </div>
-                                                }
-
-                                                <div class="sme-field-hint">If the right album or artist is already in your library, select it here. If not, use Search to look up provider results without leaving Details.</div>
-                                            </div>
-                                        </div>
-                                    }
-                                </section>
-                            }
+                                @foreach (var field in GetDetailsMetadataFields())
+                                {
+                                    <AppFormFieldRow Label="@field.Label"
+                                                     Value="@GetEditableValue(field.Key)"
+                                                     ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                     Placeholder="@GetPlaceholder(field)"
+                                                      InputKind="@field.InputKind"
+                                                      Lines="@GetFieldLineCount(field)"
+                                                      Locked="@IsInlineFieldReadOnly(field.Key)"
+                                                      OverrideActive="@HasActiveDisplayOverride(field.Key)"
+                                                      HelpText="@GetInlineFieldHelpText(field)"
+                                                      AutoFocus="@IsInlineFieldAutoFocus(field.Key)"
+                                                      ActionIcon="@GetInlineFieldActionIcon(field.Key)"
+                                                      ActionLabel="@GetInlineFieldActionLabel(field.Key, field.Label)"
+                                                      ActionColor="@GetInlineFieldActionColor(field.Key)"
+                                                      OnAction="@(() => HandleInlineFieldActionAsync(field.Key, field.Label))"
+                                                      ConfirmingAction="@IsInlineFieldConfirmingRevert(field.Key)"
+                                                      ConfirmLabel="@($"Remove local override for {field.Label}")"
+                                                      CancelLabel="Keep override"
+                                                      OnConfirmAction="@(() => ConfirmInlineFieldRevertAsync(field.Key))"
+                                                      OnCancelAction="@(() => CancelInlineFieldRevert(field.Key))" />
+                                }
+                            </MediaEditorPanel>
                         </div>
 
+                        <aside class="sme-details-sidebar">
+                            <MediaEditorPanel Class="sme-match-info-panel">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="sme-match-info-heading">
+                                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Secondary" />
+                                    <div class="sme-match-info-heading-copy">
+                                        <MudText Typo="Typo.subtitle1" Class="sme-match-info-title">Match Information</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">Identity Summary</MudText>
+                                    </div>
+                                </MudStack>
+
+                                <div class="sme-match-info-list">
+                                    @foreach (var row in GetMatchInformationRows())
+                                    {
+                                        <div class="sme-match-info-row">
+                                            <span>@row.Label</span>
+                                            <strong>@row.Value</strong>
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (GetActiveOverrideLabels().Count > 0)
+                                {
+                                    <div class="sme-match-override-summary">
+                                        <div class="sme-match-override-kicker">Local overrides</div>
+                                        <div class="sme-match-override-count">@GetActiveOverrideLabels().Count</div>
+                                        <div class="sme-match-override-caption">fields overridden</div>
+                                        <div class="sme-match-override-list">
+                                            @foreach (var label in GetActiveOverrideLabels())
+                                            {
+                                                <span>@label</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                <MudDivider Class="sme-match-info-divider" />
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="sme-match-info-note">
+                                    @GetMatchInformationNote()
+                                </MudText>
+                            </MediaEditorPanel>
+                        </aside>
                     </div>
                 }
                 else if (_activeTab == "episodes" || _activeTab == "tracks")
@@ -490,17 +408,20 @@
                             {
                                 <section class="sme-group">
                                     <div class="sme-group-title">@(IsWikidataIntent ? "Fix Wikidata Match" : "Find Retail Match")</div>
-                                    <MudTabs ActivePanelIndex="@CanonicalTargetIndex"
-                                             ActivePanelIndexChanged="OnCanonicalTargetChanged"
-                             Rounded="false"
-                                             Border="false"
-                                             Elevation="0"
-                                             Class="sme-search-targets">
-                                        @foreach (var target in QuickSearchTargets)
-                                        {
-                                            <MudTabPanel Text="@target.Label" />
-                                        }
-                                    </MudTabs>
+                                    <div class="settings-admin-panel">
+                                        <MudTabs ActivePanelIndex="@CanonicalTargetIndex"
+                                                 ActivePanelIndexChanged="OnCanonicalTargetChanged"
+                                                 Rounded="true"
+                                                 Border="false"
+                                                 Color="Color.Primary"
+                                                 Elevation="0"
+                                                 Class="settings-tab-strip sme-search-targets">
+                                            @foreach (var target in QuickSearchTargets)
+                                            {
+                                                <MudTabPanel Text="@target.Label" />
+                                            }
+                                        </MudTabs>
+                                    </div>
 
                                     <div class="sme-search-row">
                                         <MudTextField T="string"

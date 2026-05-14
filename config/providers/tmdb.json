@@ -5,8 +5,8 @@
   "weight": 0.8,
   "domain": "Video",
   "icon": "images/providers/tmdb.svg",
-  "capability_tags": ["title", "director", "cast_member", "year", "genre", "description", "short_description", "cover", "tmdb_id", "imdb_id", "rating", "content_rating"],
-  "available_fields": ["title", "director", "cast_member", "year", "genre", "description", "short_description", "cover", "tmdb_id", "imdb_id", "rating", "content_rating", "runtime", "original_language", "tagline"],
+  "capability_tags": ["title", "director", "cast_member", "cast_member_character", "year", "genre", "description", "short_description", "cover", "tmdb_id", "imdb_id", "rating", "content_rating", "studio", "production_company", "network"],
+  "available_fields": ["title", "director", "cast_member", "cast_member_character", "year", "genre", "description", "short_description", "cover", "tmdb_id", "imdb_id", "rating", "content_rating", "runtime", "original_language", "tagline", "studio", "studio_logo_url", "production_company", "network", "network_logo_url"],
   "field_weights": {
     "title": 0.85,
     "director": 0.9,
@@ -22,7 +22,13 @@
     "content_rating": 0.88,
     "runtime": 0.9,
     "original_language": 0.85,
-    "tagline": 0.7
+    "tagline": 0.7,
+    "cast_member_character": 0.9,
+    "studio": 0.88,
+    "studio_logo_url": 0.84,
+    "production_company": 0.86,
+    "network": 0.88,
+    "network_logo_url": 0.84
   },
   "endpoints": {
     "api": "https://api.themoviedb.org/3"

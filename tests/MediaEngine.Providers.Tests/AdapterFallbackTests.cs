@@ -244,6 +244,7 @@ public sealed class AdapterFallbackTests
                               {
                                 "id": 12345,
                                 "name": "Cosmo Jarvis",
+                                "character": "John Blackthorne",
                                 "order": 0,
                                 "profile_path": "/cosmo.jpg"
                               }
@@ -256,7 +257,13 @@ public sealed class AdapterFallbackTests
                                 "profile_path": "/jane.jpg"
                               }
                             ]
-                          }
+                          },
+                          "production_companies": [
+                            {
+                              "name": "FX Productions",
+                              "logo_path": "/fx.png"
+                            }
+                          ]
                         }
                         """);
                 }
@@ -283,12 +290,20 @@ public sealed class AdapterFallbackTests
             && c.Value == "12345");
         Assert.Contains(claims, c => c.Key == "cast_member_profile_url"
             && c.Value == "https://image.tmdb.org/t/p/original/cosmo.jpg");
+        Assert.Contains(claims, c => c.Key == "cast_member_character"
+            && c.Value == "John Blackthorne");
         Assert.Contains(claims, c => c.Key == "director"
             && c.Value == "Jane Director");
         Assert.Contains(claims, c => c.Key == "director_tmdb_id"
             && c.Value == "98765");
         Assert.Contains(claims, c => c.Key == "director_profile_url"
             && c.Value == "https://image.tmdb.org/t/p/original/jane.jpg");
+        Assert.Contains(claims, c => c.Key == "studio"
+            && c.Value == "FX Productions");
+        Assert.Contains(claims, c => c.Key == "studio_logo_url"
+            && c.Value == "https://image.tmdb.org/t/p/original/fx.png");
+        Assert.Contains(claims, c => c.Key == "production_company"
+            && c.Value == "FX Productions");
     }
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()

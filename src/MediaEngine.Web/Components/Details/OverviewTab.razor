@@ -410,9 +410,7 @@
             .Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase);
 
         var paragraphs = normalized
-            .Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(paragraph => string.Join('\n',
-                paragraph.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
             .ToList();
 

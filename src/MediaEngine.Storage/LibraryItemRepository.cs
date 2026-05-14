@@ -352,6 +352,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                 ClaimedAt: ParseDateTimeOffset(r.ClaimedAt) ?? DateTimeOffset.MinValue))
             .ToList();
 
+        var providerNamesById = LoadProviderNamesById(conn);
+        var retailProviderName = ResolveRetailProviderName(canonicalValues, claims, providerNamesById);
+
         var rqRow = conn.QueryFirstOrDefault<(string Id, string Trigger, double? ConfidenceScore, string? Detail, string? CandidatesJson)>("""
             SELECT id AS Id,
                    trigger AS Trigger,
@@ -523,6 +526,8 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             Status = projection?.Status ?? "Confirmed",
             MatchSource = projection?.MatchSource,
             MatchMethod = projection?.PipelineStep,
+            RetailProviderName = retailProviderName,
+            RetailProviderItemId = GetProviderBridgeId(bridgeIds, retailProviderName),
             Author = resolvedAuthor,
             Director = projection?.Director ?? Canonical("director"),
             Artist = projection?.Artist ?? Canonical("artist"),
@@ -1330,6 +1335,90 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
 
         if (!string.IsNullOrWhiteSpace(query.MatchSource))
             cmd.Parameters.AddWithValue("@matchSource", query.MatchSource);
+    }
+
+    private static IReadOnlyDictionary<Guid, string> LoadProviderNamesById(SqliteConnection conn)
+    {
+        return conn.Query<(string Id, string Name)>("""
+            SELECT id AS Id,
+                   name AS Name
+            FROM metadata_providers;
+            """)
+            .Where(row => Guid.TryParse(row.Id, out _))
+            .ToDictionary(row => Guid.Parse(row.Id), row => row.Name, EqualityComparer<Guid>.Default);
+    }
+
+    private static string? ResolveRetailProviderName(
+        IReadOnlyList<LibraryItemCanonicalValue> canonicalValues,
+        IReadOnlyList<LibraryItemClaimRecord> claims,
+        IReadOnlyDictionary<Guid, string> providerNamesById)
+    {
+        var claimProvider = claims
+            .Where(claim => IsRetailProviderClaim(claim.ClaimKey))
+            .Where(claim => providerNamesById.TryGetValue(claim.ProviderId, out var providerName)
+                            && !IsNonRetailProvider(providerName))
+            .OrderByDescending(claim => claim.Confidence)
+            .ThenByDescending(claim => claim.ClaimedAt)
+            .Select(claim => providerNamesById[claim.ProviderId])
+            .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(claimProvider))
+            return claimProvider;
+
+        return canonicalValues
+            .Where(value => IsRetailProviderClaim(value.Key))
+            .Select(value => Guid.TryParse(value.WinningProviderId, out var providerId)
+                && providerNamesById.TryGetValue(providerId, out var providerName)
+                && !IsNonRetailProvider(providerName)
+                    ? providerName
+                    : null)
+            .FirstOrDefault(providerName => !string.IsNullOrWhiteSpace(providerName));
+    }
+
+    private static bool IsRetailProviderClaim(string claimKey) =>
+        claimKey is MetadataFieldConstants.Title
+            or MetadataFieldConstants.Album
+            or MetadataFieldConstants.ShowName
+            or MetadataFieldConstants.EpisodeTitle
+            or MetadataFieldConstants.Series
+            or MetadataFieldConstants.Description;
+
+    private static bool IsNonRetailProvider(string? providerName) =>
+        string.IsNullOrWhiteSpace(providerName)
+        || providerName.Contains("wikidata", StringComparison.OrdinalIgnoreCase)
+        || providerName.Contains("wikipedia", StringComparison.OrdinalIgnoreCase)
+        || providerName.Contains("local", StringComparison.OrdinalIgnoreCase)
+        || providerName.Contains("libraryscan", StringComparison.OrdinalIgnoreCase)
+        || providerName.Contains("user_manual", StringComparison.OrdinalIgnoreCase)
+        || providerName.Contains("ai", StringComparison.OrdinalIgnoreCase);
+
+    private static string? GetProviderBridgeId(IReadOnlyDictionary<string, string> bridgeIds, string? providerName)
+    {
+        if (bridgeIds.Count == 0)
+            return null;
+
+        var normalizedProvider = providerName?.Trim().ToLowerInvariant() ?? string.Empty;
+        var preferredKeys = normalizedProvider switch
+        {
+            var provider when provider.Contains("tmdb") => new[] { "tmdb_id", "tmdb_movie_id", "tmdb_tv_id" },
+            var provider when provider.Contains("comic") => new[] { "comic_vine_id", "comicvine_id", "metron_id" },
+            var provider when provider.Contains("apple") => new[] { "apple_books_id", "apple_music_id", "apple_music_collection_id", "apple_itunes_id" },
+            var provider when provider.Contains("google") => new[] { "google_books_id" },
+            var provider when provider.Contains("open_library") => new[] { "open_library_id", "isbn_13", "isbn" },
+            var provider when provider.Contains("musicbrainz") => new[] { "musicbrainz_id" },
+            _ => Array.Empty<string>(),
+        };
+
+        foreach (var key in preferredKeys)
+        {
+            if (bridgeIds.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return bridgeIds
+            .OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => entry.Value)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
     private static string? ResolveAuthorForDetail(

@@ -7,11 +7,17 @@
             <div class="sme-panel__copy">
                 @if (!string.IsNullOrWhiteSpace(Title))
                 {
-                    <div class="sme-group-title">@Title</div>
-                }
-                @if (!string.IsNullOrWhiteSpace(Description))
-                {
-                    <div class="sme-field-hint">@Description</div>
+                    <div class="sme-panel-title-row">
+                        <div class="sme-group-title">@Title</div>
+                        @if (!string.IsNullOrWhiteSpace(Description))
+                        {
+                            <MudTooltip Text="@Description">
+                                <span class="sme-field-info" aria-label="@($"{Title} details")">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 14px;" />
+                                </span>
+                            </MudTooltip>
+                        }
+                    </div>
                 }
             </div>
             @if (Actions is not null)

@@ -1,4 +1,5 @@
 using MediaEngine.Api.Endpoints;
+using MediaEngine.Domain;
 using MediaEngine.Storage;
 
 namespace MediaEngine.Api.Tests;
@@ -101,5 +102,66 @@ public sealed class PersonCreditQueriesTests : IDisposable
         Assert.Equal("Actor", credit.Role);
         Assert.Single(credit.Characters);
         Assert.Equal("Lead Chemistry Teacher", credit.Characters[0].CharacterName);
+    }
+
+    [Fact]
+    public async Task BuildForWorkAsync_UsesTmdbCharacterClaimsWhenExplicitCharacterLinksAreMissing()
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var providerId = WellKnownProviders.Tmdb;
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
+                    VALUES ($providerId, 'tmdb', '1.0', 1);
+
+                INSERT INTO works (id, media_type, work_kind)
+                    VALUES ($workId, 'Movies', 'standalone');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($editionId, $workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($assetId, $editionId, 'arrival-test-hash', 'C:/library/Arrival.mkv');
+
+                INSERT INTO persons (id, name, created_at)
+                    VALUES ($personId, 'Jeremy Renner', $now);
+
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim1, $workId, $providerId, 'cast_member', 'Amy Adams', 0.90, $now);
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim2, $workId, $providerId, 'cast_member_character', 'Dr. Louise Banks', 0.90, $now);
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim3, $workId, $providerId, 'cast_member', 'Jeremy Renner', 0.90, $now);
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim4, $workId, $providerId, 'cast_member_character', 'Ian Donnelly', 0.90, $now);
+                """;
+            cmd.Parameters.AddWithValue("$providerId", providerId.ToString("D"));
+            cmd.Parameters.AddWithValue("$workId", workId.ToString("D"));
+            cmd.Parameters.AddWithValue("$editionId", editionId.ToString("D"));
+            cmd.Parameters.AddWithValue("$assetId", assetId.ToString("D"));
+            cmd.Parameters.AddWithValue("$personId", personId.ToString("D"));
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$claim1", Guid.NewGuid().ToString("D"));
+            cmd.Parameters.AddWithValue("$claim2", Guid.NewGuid().ToString("D"));
+            cmd.Parameters.AddWithValue("$claim3", Guid.NewGuid().ToString("D"));
+            cmd.Parameters.AddWithValue("$claim4", Guid.NewGuid().ToString("D"));
+            cmd.ExecuteNonQuery();
+        }
+
+        var credits = await CastCreditQueries.BuildForWorkAsync(
+            workId,
+            new CanonicalValueArrayRepository(_db),
+            new PersonRepository(_db),
+            _db,
+            CancellationToken.None);
+
+        var jeremy = Assert.Single(credits, credit => credit.Name == "Jeremy Renner");
+        Assert.Equal(personId, jeremy.PersonId);
+        Assert.Equal("Ian Donnelly", Assert.Single(jeremy.Characters).CharacterName);
     }
 }

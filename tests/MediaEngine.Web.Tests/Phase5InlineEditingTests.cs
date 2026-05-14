@@ -66,6 +66,149 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
+    public void SharedEditor_DetailsTabUsesInlineMetadataOverrideLayout()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+
+        Assert.Contains("Title=\"Metadata\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Class=\"sme-match-info-panel\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Match Information", shell, StringComparison.Ordinal);
+        Assert.Contains("ActionIcon=\"@GetInlineFieldActionIcon(field.Key)\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Title=\"Local Library Details\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Title=\"Field Rules\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Title=\"Review Focus\"", shell, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedFieldRow_ProvidesSideActionForLockedCanonicalOverrides()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor");
+
+        Assert.Contains("ActionIcon", source, StringComparison.Ordinal);
+        Assert.Contains("MudIconButton", source, StringComparison.Ordinal);
+        Assert.Contains("OnAction.InvokeAsync()", source, StringComparison.Ordinal);
+        Assert.Contains("ConfirmingAction", source, StringComparison.Ordinal);
+        Assert.Contains("OnConfirmAction.InvokeAsync()", source, StringComparison.Ordinal);
+        Assert.Contains("OnCancelAction.InvokeAsync()", source, StringComparison.Ordinal);
+        Assert.Contains("Color=\"Color.Success\"", source, StringComparison.Ordinal);
+        Assert.Contains("Color=\"Color.Error\"", source, StringComparison.Ordinal);
+        var styles = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor.css");
+        Assert.Contains("flex-direction: row", styles, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_InlineCanonicalOverridesSaveThroughDisplayOverrides()
+    {
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+
+        Assert.Contains("ShouldSaveAsDisplayOverride(scopedKey, key)", code, StringComparison.Ordinal);
+        Assert.Contains("ShouldSaveAsDisplayOverride(entry.RawKey, entry.Key.Key)", code, StringComparison.Ordinal);
+        Assert.Contains("SaveItemDisplayOverridesAsync(scopeGroup.Key.EntityId, overrideFields)", code, StringComparison.Ordinal);
+        Assert.Contains("SaveItemPreferencesAsync(scopeGroup.Key.EntityId, preferenceFields)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_MatchInformationUsesProviderNameAndOmitsTechnicalRows()
+    {
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+
+        Assert.Contains("GetRetailMatchDisplayName(summary)", code, StringComparison.Ordinal);
+        Assert.Contains("(\"Retail Match\", !string.IsNullOrWhiteSpace(provider) ? provider : hasProviderEvidence ? \"Retail matched\" : \"Not linked\")", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("(\"Provider ID\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("(\"Match Source\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("NormalizeRetailProviderLabel(summary?.MatchSource)", code, StringComparison.Ordinal);
+        Assert.Contains("Guid.TryParse(trimmed, out _)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ProviderNameFromBridgeIdentifier", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EditorIdentitySummary_UsesRetailProviderNameFromContext()
+    {
+        var endpoint = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
+        var model = ReadSource("src/MediaEngine.Domain/Models/LibraryItemModels.cs");
+
+        Assert.Contains("detail?.RetailProviderName", endpoint, StringComparison.Ordinal);
+        Assert.Contains("detail?.RetailProviderItemId", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetProviderBridgeId(detail)", endpoint, StringComparison.Ordinal);
+        Assert.Contains("retail_provider_name", model, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedFieldRow_UsesCompactDetailGridAndLargerReadableFields()
+    {
+        var styles = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor.css");
+
+        Assert.Contains("grid-template-columns: minmax(96px, 126px) minmax(0, 1fr) 44px", styles, StringComparison.Ordinal);
+        Assert.Contains("font-size: 1rem !important", styles, StringComparison.Ordinal);
+        Assert.Contains("tl-field-grid--locked", styles, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_DescriptionFieldGetsMoreRoomAndPreservesParagraphSpacing()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor.css");
+
+        Assert.Contains("Lines=\"@GetFieldLineCount(field)\"", shell, StringComparison.Ordinal);
+        Assert.Contains("field.Key, \"description\"", code, StringComparison.Ordinal);
+        Assert.Contains("? 7 : 4", code, StringComparison.Ordinal);
+        Assert.Contains("TrimEnd()", code, StringComparison.Ordinal);
+        Assert.Contains("min-height: 170px !important", styles, StringComparison.Ordinal);
+        Assert.Contains("white-space: pre-wrap !important", styles, StringComparison.Ordinal);
+        Assert.Contains("resize: vertical !important", styles, StringComparison.Ordinal);
+        Assert.Contains("NormalizeDescriptionParagraphs", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_MatchInformationPanelUsesSeparatedHighlightedSurface()
+    {
+        var panelStyles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorPanel.razor.css");
+        var shellStyles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.css");
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+
+        Assert.Contains(".sme-match-info-panel", panelStyles, StringComparison.Ordinal);
+        Assert.Contains("radial-gradient", panelStyles, StringComparison.Ordinal);
+        Assert.Contains("sme-match-info-list", shellStyles, StringComparison.Ordinal);
+        Assert.Contains("border: 1px solid rgba(148, 163, 184, 0.14)", shellStyles, StringComparison.Ordinal);
+        Assert.Contains("sme-match-override-summary", shell, StringComparison.Ordinal);
+        Assert.Contains("fields overridden", shell, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_UsesInlineOverrideIndicatorsAndBlankUniverseDash()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var row = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor.css");
+
+        Assert.Contains("OverrideActive=\"@HasActiveDisplayOverride(field.Key)\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Yellow underline means local override", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Override in use", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Override in use", code, StringComparison.Ordinal);
+        Assert.Contains("Icons.Material.Outlined.LockOpen", code, StringComparison.Ordinal);
+        Assert.Contains("IsInlineOverrideEnabled(key) ? Color.Warning : Color.Default", code, StringComparison.Ordinal);
+        Assert.Contains("(\"Universe\", string.IsNullOrWhiteSpace(summary?.UniverseName) ? \"-\"", code, StringComparison.Ordinal);
+        Assert.Contains("tl-field-grid--override", styles, StringComparison.Ordinal);
+        Assert.Contains("box-shadow: inset 0 -2px 0 var(--tl-status-warning) !important", styles, StringComparison.Ordinal);
+        Assert.Contains("tl-field-grid--unlocked", row, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_RevertQueuesEmptyDisplayOverrideValue()
+    {
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+
+        Assert.Contains("_editedValues[scopedKey] = string.Empty;", code, StringComparison.Ordinal);
+        Assert.Contains("_clearedInlineOverrideKeys.Add(scopedKey);", code, StringComparison.Ordinal);
+        Assert.Contains("_pendingInlineRevertKeys.Add(scopedKey);", code, StringComparison.Ordinal);
+        Assert.Contains("ConfirmInlineFieldRevertAsync", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConfirmRemoveOverrideAsync", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("DialogService.ShowAsync<AppConfirmDialog>", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SharedEditor_BatchModeRequiresRealSelection()
     {
         var launcher = ReadSource("src/MediaEngine.Web/Services/Editing/MediaEditorLauncherService.cs");

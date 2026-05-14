@@ -1,0 +1,111 @@
+.tl-field-grid {
+    display: grid;
+    grid-template-columns: minmax(96px, 126px) minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 10px 10px;
+    margin-bottom: 8px;
+}
+
+.tl-field-grid--textarea {
+    align-items: start;
+}
+
+.tl-field-grid--textarea .tl-field-label-cell,
+.tl-field-grid--textarea .tl-field-action-cell {
+    padding-top: 8px;
+}
+
+.tl-field-label-cell {
+    min-width: 0;
+}
+
+.tl-field-label {
+    color: rgba(226, 232, 240, 0.8);
+    font-size: 0.98rem !important;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.tl-field-grid--locked .tl-field-label {
+    color: rgba(203, 213, 225, 0.62);
+}
+
+.tl-field-input-cell {
+    min-width: 0;
+}
+
+.tl-field-action-cell {
+    display: flex;
+    justify-content: center;
+    min-width: 44px;
+}
+
+.tl-field-action-button {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-color: rgba(148, 163, 184, 0.24);
+}
+
+.tl-field-confirm-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+    justify-content: center;
+}
+
+.tl-field-confirm-button {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+}
+
+.tl-field-grid ::deep .app-dialog-field input,
+.tl-field-grid ::deep .app-dialog-field textarea,
+.tl-field-grid ::deep .app-dialog-field .mud-input-slot {
+    font-size: 1rem !important;
+    line-height: 1.42 !important;
+}
+
+.tl-field-grid--textarea ::deep .app-dialog-textarea textarea {
+    min-height: 170px !important;
+    line-height: 1.6 !important;
+    white-space: pre-wrap !important;
+    resize: vertical !important;
+}
+
+.tl-field-grid--override ::deep .app-dialog-field .mud-input,
+.tl-field-grid--override ::deep .app-dialog-field .mud-input-slot,
+.tl-field-grid--override ::deep .app-dialog-field input,
+.tl-field-grid--override ::deep .app-dialog-field textarea {
+    box-shadow: inset 0 -2px 0 var(--tl-status-warning) !important;
+}
+
+.tl-field-grid--locked ::deep .app-dialog-field input,
+.tl-field-grid--locked ::deep .app-dialog-field textarea,
+.tl-field-grid--locked ::deep .app-dialog-field .mud-input-slot {
+    color: rgba(226, 232, 240, 0.66) !important;
+    background: rgba(15, 23, 42, 0.62) !important;
+}
+
+.tl-field-grid--locked .tl-field-action-button {
+    color: rgba(226, 232, 240, 0.72);
+    border-color: rgba(148, 163, 184, 0.20);
+}
+
+.tl-field-grid--unlocked .tl-field-action-button {
+    color: var(--tl-status-warning);
+    border-color: rgba(251, 191, 36, 0.42);
+    background: rgba(251, 191, 36, 0.13);
+}
+
+@media (max-width: 720px) {
+    .tl-field-grid {
+        grid-template-columns: minmax(0, 1fr) 44px;
+    }
+
+    .tl-field-label-cell {
+        grid-column: 1 / -1;
+    }
+}

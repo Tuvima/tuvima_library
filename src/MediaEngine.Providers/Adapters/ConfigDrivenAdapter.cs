@@ -949,6 +949,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             AddIfMissing(enriched, MetadataFieldConstants.Tagline, details["tagline"]?.GetValue<string>(), 0.70);
             AddIfMissing(enriched, MetadataFieldConstants.Runtime, details["runtime"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.90);
             AddIfMissing(enriched, "content_rating", ExtractTmdbContentRating(details, mediaType), 0.88);
+            AddTmdbProductionClaims(enriched, details, mediaType);
             AddTmdbCastClaims(enriched, details, mediaType);
             AddTmdbCrewClaims(enriched, details, mediaType);
 
@@ -1018,6 +1019,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 continue;
 
             claims.Add(new ProviderClaim(MetadataFieldConstants.CastMember, name, 0.90));
+            AddIfPresent(claims, "cast_member_character", ExtractTmdbCharacterName(castNode, mediaType), 0.90);
 
             var tmdbPersonId = castNode?["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
                 ?? castNode?["id"]?.GetValue<string>();
@@ -1026,6 +1028,30 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             var profilePath = castNode?["profile_path"]?.GetValue<string>();
             AddIfPresent(claims, "cast_member_profile_url", BuildTmdbProfileUrl(profilePath), 0.90);
         }
+    }
+
+    private static string? ExtractTmdbCharacterName(JsonNode? castNode, MediaType mediaType)
+    {
+        if (castNode is null)
+            return null;
+
+        if (mediaType == MediaType.TV)
+        {
+            var roles = castNode["roles"]?.AsArray()
+                .Where(role => role is not null)
+                .OrderBy(role => role?["episode_count"]?.GetValue<int?>() ?? 0)
+                .Reverse()
+                .Select(role => role?["character"]?.GetValue<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(3)
+                .ToList();
+
+            if (roles is { Count: > 0 })
+                return string.Join(" / ", roles);
+        }
+
+        return castNode["character"]?.GetValue<string>();
     }
 
     private static void AddIfPresent(List<ProviderClaim> claims, string key, string? value, double confidence)
@@ -1038,6 +1064,43 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         => string.IsNullOrWhiteSpace(profilePath)
             ? null
             : $"https://image.tmdb.org/t/p/original/{profilePath.TrimStart('/')}";
+
+    private static void AddTmdbProductionClaims(List<ProviderClaim> claims, JsonNode details, MediaType mediaType)
+    {
+        if (mediaType == MediaType.TV)
+        {
+            var network = details["networks"]?.AsArray()
+                .Where(node => node is not null)
+                .Select(node => new
+                {
+                    Name = node?["name"]?.GetValue<string>(),
+                    LogoPath = node?["logo_path"]?.GetValue<string>(),
+                })
+                .FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Name));
+
+            AddIfMissing(claims, MetadataFieldConstants.Network, network?.Name, 0.88);
+            AddIfMissing(claims, "network_logo_url", BuildTmdbProfileUrl(network?.LogoPath), 0.84);
+        }
+
+        var companies = details["production_companies"]?.AsArray()
+            .Where(node => node is not null)
+            .Select(node => new
+            {
+                Name = node?["name"]?.GetValue<string>(),
+                LogoPath = node?["logo_path"]?.GetValue<string>(),
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .Take(5)
+            .ToList();
+
+        if (companies is not { Count: > 0 })
+            return;
+
+        var studio = companies.First();
+        AddIfMissing(claims, "studio", studio.Name, 0.88);
+        AddIfMissing(claims, "studio_logo_url", BuildTmdbProfileUrl(studio.LogoPath), 0.84);
+        AddIfMissing(claims, "production_company", string.Join("; ", companies.Select(item => item.Name)), 0.86);
+    }
 
     private static void AddTmdbCrewClaims(List<ProviderClaim> claims, JsonNode details, MediaType mediaType)
     {

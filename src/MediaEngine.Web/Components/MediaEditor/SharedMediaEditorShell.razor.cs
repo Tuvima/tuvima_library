@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
+using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
@@ -74,6 +75,7 @@ public partial class SharedMediaEditorShell
     [Inject] protected UIOrchestratorService Orchestrator { get; set; } = null!;
     [Inject] protected ISnackbar Snackbar { get; set; } = null!;
     [Inject] protected IJSRuntime JS { get; set; } = null!;
+    [Inject] protected IDialogService DialogService { get; set; } = null!;
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
     [Parameter] public MediaEditorLaunchRequest Request { get; set; } = new();
@@ -87,6 +89,9 @@ public partial class SharedMediaEditorShell
     private MediaEditorNavigatorDto? _navigator;
     private MediaEditorSchema _schema = MediaEditorSchemaCatalog.Resolve(null);
     private readonly Dictionary<string, string> _editedValues = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _inlineOverrideKeys = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _clearedInlineOverrideKeys = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _pendingInlineRevertKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _selectedSuggestedFieldKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Guid?> _selectedMembershipTargetIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, MediaEditorMembershipSuggestionDto> _selectedMembershipSuggestions = new(StringComparer.OrdinalIgnoreCase);
@@ -126,6 +131,7 @@ public partial class SharedMediaEditorShell
     private string _lastNonFileTab = "details";
     private bool _showArtworkUrlInput;
     private MediaEditorMembershipPreviewDto? _pendingMembershipPreview;
+    private string? _fieldToFocus;
 
     protected IReadOnlyList<(string Id, string Label)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
@@ -584,15 +590,25 @@ public partial class SharedMediaEditorShell
     protected string GetPlaceholder(MediaEditorFieldDefinition field) =>
         IsBatchMode ? "Leave unchanged" : (field.Placeholder ?? field.Label);
 
+    protected static int GetFieldLineCount(MediaEditorFieldDefinition field)
+    {
+        if (!string.Equals(field.InputKind, "textarea", StringComparison.OrdinalIgnoreCase))
+            return 1;
+
+        return string.Equals(field.Key, "description", StringComparison.OrdinalIgnoreCase) ? 7 : 4;
+    }
+
     protected string GetEditableValue(string key)
     {
-        if (_editedValues.TryGetValue(BuildScopedFieldKey(key), out var edited))
+        var scopedKey = BuildScopedFieldKey(key);
+
+        if (_editedValues.TryGetValue(scopedKey, out var edited) && !_clearedInlineOverrideKeys.Contains(scopedKey))
             return edited;
 
         if (IsBatchMode)
             return string.Empty;
 
-        if (IsDisplayOverrideKey(key)
+        if (!_clearedInlineOverrideKeys.Contains(scopedKey)
             && _editorContext?.DisplayOverrides.TryGetValue(key, out var overrideValue) == true)
         {
             return overrideValue;
@@ -604,9 +620,12 @@ public partial class SharedMediaEditorShell
 
     protected void OnFieldInput(string key, string? value)
     {
-        var normalized = (value ?? string.Empty).Trim();
+        var normalized = IsMultilineField(key)
+            ? NormalizeMultilineInput(key, value)
+            : (value ?? string.Empty).Trim();
         var baseline = IsBatchMode ? string.Empty : GetBaselineValue(key);
         var scopedKey = BuildScopedFieldKey(key);
+        _clearedInlineOverrideKeys.Remove(scopedKey);
 
         if (string.Equals(normalized, baseline, StringComparison.Ordinal))
         {
@@ -614,7 +633,7 @@ public partial class SharedMediaEditorShell
         }
         else if (string.IsNullOrWhiteSpace(normalized))
         {
-            if (IsDisplayOverrideKey(key) && !string.IsNullOrWhiteSpace(baseline))
+            if (ShouldSaveAsDisplayOverride(scopedKey, key) && !string.IsNullOrWhiteSpace(baseline))
                 _editedValues[scopedKey] = string.Empty;
             else
                 _editedValues.Remove(scopedKey);
@@ -700,20 +719,19 @@ public partial class SharedMediaEditorShell
             }
 
             var fieldChangesByScope = _editedValues
-                .Select(entry => (Key: ParseScopedKey(entry.Key), Value: entry.Value))
+                .Select(entry => (RawKey: entry.Key, Key: ParseScopedKey(entry.Key), Value: entry.Value))
                 .Where(entry => entry.Key.EntityId != Guid.Empty)
                 .GroupBy(entry => new ScopedEditorKey(entry.Key.EntityId, entry.Key.ScopeId), ScopedEditorKeyComparer.Instance)
                 .ToList();
 
             foreach (var scopeGroup in fieldChangesByScope)
             {
-                var allFields = scopeGroup.ToDictionary(entry => entry.Key.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
-                var overrideFields = allFields
-                    .Where(entry => IsDisplayOverrideKey(entry.Key))
-                    .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
-                var preferenceFields = allFields
-                    .Where(entry => !IsDisplayOverrideKey(entry.Key))
-                    .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
+                var overrideFields = scopeGroup
+                    .Where(entry => ShouldSaveAsDisplayOverride(entry.RawKey, entry.Key.Key))
+                    .ToDictionary(entry => entry.Key.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
+                var preferenceFields = scopeGroup
+                    .Where(entry => !ShouldSaveAsDisplayOverride(entry.RawKey, entry.Key.Key))
+                    .ToDictionary(entry => entry.Key.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
 
                 if (preferenceFields.Count > 0)
                 {
@@ -1444,6 +1462,31 @@ public partial class SharedMediaEditorShell
             : $"Find the canonical {label.ToLowerInvariant()} and apply only the fields you want.";
     }
 
+    private static string NormalizeMultilineInput(string key, string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var normalized = value
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .TrimEnd();
+
+        return string.Equals(key, "description", StringComparison.OrdinalIgnoreCase)
+            ? NormalizeDescriptionParagraphs(normalized)
+            : normalized;
+    }
+
+    private static string NormalizeDescriptionParagraphs(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return string.Join("\n\n",
+            value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph)));
+    }
+
     private bool IsWikidataIntent =>
         EffectiveIdentityIntent is MediaEditorIdentityIntent.FixWikidataMatch
             or MediaEditorIdentityIntent.ConfirmWikidataMatch
@@ -1764,8 +1807,7 @@ public partial class SharedMediaEditorShell
         if (IsBatchMode)
             return string.Empty;
 
-        if (IsDisplayOverrideKey(key)
-            && _editorContext?.DisplayOverrides.TryGetValue(key, out var overrideValue) == true)
+        if (_editorContext?.DisplayOverrides.TryGetValue(key, out var overrideValue) == true)
         {
             return overrideValue;
         }
@@ -1793,7 +1835,7 @@ public partial class SharedMediaEditorShell
             _ => "item",
         };
 
-    private static string FormatProviderName(string? providerName)
+    private static string FormatProviderName(string? providerName, string? mediaType = null)
     {
         if (string.IsNullOrWhiteSpace(providerName))
             return "Provider";
@@ -1802,7 +1844,14 @@ public partial class SharedMediaEditorShell
         {
             "fanart_tv" => "Fanart.tv",
             "tmdb" => "TMDB",
+            "imdb" => "IMDb",
+            "comicvine" => "Comic Vine",
+            "comic_vine" => "Comic Vine",
             "musicbrainz" => "MusicBrainz",
+            "apple_api" => ReviewTargetResolver.NormalizeMediaType(mediaType) == "Music" ? "Apple Music" : "Apple Books",
+            "apple_music" => "Apple Music",
+            "apple_books" => "Apple Books",
+            "google_books" => "Google Books",
             "wikidata_reconciliation" => "Wikidata",
             _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(providerName.Replace('_', ' ')),
         };
@@ -1973,6 +2022,297 @@ public partial class SharedMediaEditorShell
             var label => label,
         };
 
+    protected string GetDetailsPanelTitle(MediaEditorFieldGroup group)
+    {
+        if (group.Fields.Any(field => field.IdentityField))
+            return "Canonical Identity";
+
+        return group.Label;
+    }
+
+    protected string? GetDetailsPanelDescription(MediaEditorFieldGroup group)
+    {
+        if (group.Fields.Any(field => field.IdentityField))
+            return "Controlled by canonical identity. Change via Retail Match or Wikidata Match.";
+
+        if (string.Equals(group.Id, "display", StringComparison.OrdinalIgnoreCase)
+            || group.Fields.Any(field => IsDisplayOverrideKey(field.Key)))
+        {
+            return "Local overrides and presentation preferences. These do not affect identity.";
+        }
+
+        return null;
+    }
+
+    protected IReadOnlyList<MediaEditorFieldDefinition> GetDetailsMetadataFields() =>
+        GetGroupsForTab("details")
+            .SelectMany(group => group.Fields)
+            .Where(field => !IsDisplayOverrideKey(field.Key))
+            .ToList();
+
+    private bool IsMultilineField(string key) =>
+        GetGroupsForTab("details")
+            .SelectMany(group => group.Fields)
+            .Any(field => string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase)
+                          && string.Equals(field.InputKind, "textarea", StringComparison.OrdinalIgnoreCase));
+
+    protected bool IsInlineFieldReadOnly(string key)
+    {
+        if (!IsFieldLocked(key))
+            return false;
+
+        var scopedKey = BuildScopedFieldKey(key);
+        return !_inlineOverrideKeys.Contains(scopedKey)
+               && !HasActiveDisplayOverride(key)
+               && !(_editedValues.ContainsKey(scopedKey) && !_clearedInlineOverrideKeys.Contains(scopedKey));
+    }
+
+    protected bool IsInlineFieldAutoFocus(string key)
+    {
+        var scopedKey = BuildScopedFieldKey(key);
+        if (!string.Equals(_fieldToFocus, scopedKey, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        _fieldToFocus = null;
+        return true;
+    }
+
+    protected string? GetInlineFieldHelpText(MediaEditorFieldDefinition field)
+    {
+        if (HasActiveDisplayOverride(field.Key))
+            return "Local override. Revert to use the canonical value.";
+
+        if (IsInlineOverrideEnabled(field.Key))
+            return "Local override is enabled. Changes will be saved locally.";
+
+        if (IsFieldLocked(field.Key))
+            return "Canonical value. Unlock to save a local override.";
+
+        return field.IdentityField ? "Used for matching and identity." : null;
+    }
+
+    protected string? GetInlineFieldActionIcon(string key)
+    {
+        if (HasActiveDisplayOverride(key))
+            return Icons.Material.Outlined.Restore;
+
+        if (IsInlineOverrideEnabled(key))
+            return Icons.Material.Outlined.LockOpen;
+
+        return IsFieldLocked(key) ? Icons.Material.Outlined.Lock : null;
+    }
+
+    protected string GetInlineFieldActionLabel(string key, string label) =>
+        HasActiveDisplayOverride(key)
+            ? $"Remove local override for {label}"
+            : $"Use local override for {label}";
+
+    protected Color GetInlineFieldActionColor(string key) =>
+        HasActiveDisplayOverride(key)
+            ? Color.Warning
+            : IsInlineOverrideEnabled(key) ? Color.Warning : Color.Default;
+
+    protected Task HandleInlineFieldActionAsync(string key, string label)
+    {
+        var scopedKey = BuildScopedFieldKey(key);
+
+        if (HasActiveDisplayOverride(key))
+        {
+            _pendingInlineRevertKeys.Add(scopedKey);
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+
+        _inlineOverrideKeys.Add(scopedKey);
+        _clearedInlineOverrideKeys.Remove(scopedKey);
+        _pendingInlineRevertKeys.Remove(scopedKey);
+        _fieldToFocus = scopedKey;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    protected bool IsInlineFieldConfirmingRevert(string key) =>
+        _pendingInlineRevertKeys.Contains(BuildScopedFieldKey(key));
+
+    protected Task ConfirmInlineFieldRevertAsync(string key)
+    {
+        var scopedKey = BuildScopedFieldKey(key);
+        if (HasSavedDisplayOverride(key))
+        {
+            _editedValues[scopedKey] = string.Empty;
+            _clearedInlineOverrideKeys.Add(scopedKey);
+        }
+        else
+        {
+            _editedValues.Remove(scopedKey);
+            _clearedInlineOverrideKeys.Remove(scopedKey);
+        }
+
+        _inlineOverrideKeys.Remove(scopedKey);
+        _pendingInlineRevertKeys.Remove(scopedKey);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    protected void CancelInlineFieldRevert(string key)
+    {
+        _pendingInlineRevertKeys.Remove(BuildScopedFieldKey(key));
+        StateHasChanged();
+    }
+
+    protected IReadOnlyList<(string Label, string Value)> GetMatchInformationRows()
+    {
+        var summary = _editorContext?.IdentitySummary;
+        var provider = GetRetailMatchDisplayName(summary);
+        var hasProviderEvidence = !string.IsNullOrWhiteSpace(provider) || !string.IsNullOrWhiteSpace(summary?.ProviderItemId);
+        var hasQid = !string.IsNullOrWhiteSpace(summary?.WikidataQid);
+
+        return
+        [
+            ("Retail Match", !string.IsNullOrWhiteSpace(provider) ? provider : hasProviderEvidence ? "Retail matched" : "Not linked"),
+            ("Wikidata", hasQid ? summary!.WikidataQid! : "No QID"),
+            ("Status", GetMatchStatusLabel(summary, hasProviderEvidence, hasQid)),
+            ("Universe", string.IsNullOrWhiteSpace(summary?.UniverseName) ? "-" : summary!.UniverseName!),
+        ];
+    }
+
+    private string GetMatchStatusLabel(MediaEditorIdentitySummaryDto? summary, bool hasProvider, bool hasQid)
+    {
+        if (Request.Mode == SharedMediaEditorMode.Review)
+            return "Needs review";
+
+        var wikidataStatus = NormalizeIdentityStatus(summary?.WikidataStatus);
+        if (wikidataStatus is "user_confirmed" or "user_replaced")
+            return "User reviewed";
+
+        if (wikidataStatus is "auto_aligned" or "confirmed")
+            return "Identified";
+
+        if (wikidataStatus is "missing" or "provider_only")
+            return "Provider only";
+
+        if (wikidataStatus is "user_rejected")
+            return "Rejected";
+
+        if (!string.IsNullOrWhiteSpace(_detail?.Status))
+        {
+            var detailStatus = FormatDetailStatus(_detail.Status);
+            if (!string.IsNullOrWhiteSpace(detailStatus))
+                return detailStatus;
+        }
+
+        if (hasProvider && hasQid)
+            return "Identified";
+
+        if (hasProvider)
+            return "Pending";
+
+        return "Pending";
+    }
+
+    private static string? FormatDetailStatus(string? status)
+    {
+        var normalized = NormalizeIdentityStatus(status);
+        return normalized switch
+        {
+            "" => null,
+            "work" or "edition" or "asset" or "confirmed" or "identified" => "Identified",
+            "pending" or "processing" => "Pending",
+            "needs_review" or "review" => "Needs review",
+            "provider_only" => "Provider only",
+            "rejected" => "Rejected",
+            _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(normalized.Replace('_', ' ')),
+        };
+    }
+
+    private string GetRetailMatchDisplayName(MediaEditorIdentitySummaryDto? summary)
+    {
+        var providerName = NormalizeRetailProviderLabel(summary?.ProviderName);
+        if (!string.IsNullOrWhiteSpace(providerName))
+            return FormatProviderName(providerName, _selectedMediaType);
+
+        return string.Empty;
+    }
+
+    private static string? NormalizeRetailProviderLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        if (string.Equals(trimmed, "provider", StringComparison.OrdinalIgnoreCase)
+            || IsBridgeOnlyProvider(trimmed)
+            || LooksLikeBridgeIdentifier(trimmed)
+            || Guid.TryParse(trimmed, out _))
+        {
+            return null;
+        }
+
+        return trimmed;
+    }
+
+    private static bool IsBridgeOnlyProvider(string value) =>
+        value is "imdb" or "imdb_id" or "isbn" or "isbn_10" or "isbn_13" or "asin" or "wikidata" or "wikidata_qid"
+        || string.Equals(value, "imdb", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "imdb_id", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "isbn", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "isbn_10", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "isbn_13", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "asin", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "wikidata", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "wikidata_qid", StringComparison.OrdinalIgnoreCase);
+
+    private static bool LooksLikeBridgeIdentifier(string value) =>
+        value.Contains(':', StringComparison.Ordinal)
+        || value.EndsWith("_id", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("_id:", StringComparison.OrdinalIgnoreCase);
+
+    protected string GetMatchInformationNote()
+    {
+        var note = HasCanonicalWikidataIdentity
+            ? "Canonical identity is matched. Locked fields use canonical values unless you add a local override."
+            : "Retail data is available. Wikidata identity is not confirmed yet.";
+
+        if (Request.Mode == SharedMediaEditorMode.Review)
+            note += " Resolve the review after confirming the match.";
+
+        return note;
+    }
+
+    protected string GetReviewBannerActionLabel() =>
+        _identityIntent switch
+        {
+            MediaEditorIdentityIntent.FixRetailMatch => "Find",
+            MediaEditorIdentityIntent.ConfirmRetailMatch => "Confirm",
+            MediaEditorIdentityIntent.FixWikidataMatch => "Fix QID",
+            MediaEditorIdentityIntent.ConfirmWikidataMatch => "Choose QID",
+            MediaEditorIdentityIntent.MarkWikidataMissing => "Provider-Only",
+            MediaEditorIdentityIntent.ReclassifyMediaType => "Change Type",
+            MediaEditorIdentityIntent.ConfirmArtwork => "Review Art",
+            MediaEditorIdentityIntent.ResolveWriteback => "Retry",
+            _ => _primaryActionLabel,
+        };
+
+    protected static string GetMediaTypeButtonLabel(string? mediaType) =>
+        ReviewTargetResolver.NormalizeMediaType(mediaType) switch
+        {
+            "Audiobooks" => "Audio",
+            "Movies" => "Movie",
+            "Comics" => "Comics",
+            "Music" => "Music",
+            "TV" => "TV",
+            _ => "Books",
+        };
+
+    protected static string GetMediaTypeMenuLabel(string? mediaType) =>
+        ReviewTargetResolver.NormalizeMediaType(mediaType) switch
+        {
+            "Audiobooks" => "Audiobooks",
+            "Movies" => "Movies",
+            "Comics" => "Comics",
+            "Music" => "Music",
+            "TV" => "TV",
+            _ => "Books",
+        };
+
     private static string ResolveFooterPrimaryActionLabel(MediaEditorIdentityIntent intent) =>
         intent switch
         {
@@ -1986,8 +2326,60 @@ public partial class SharedMediaEditorShell
             _ => "Save Local Changes",
         };
 
+    private static string NormalizeIdentityStatus(string? status) =>
+        string.IsNullOrWhiteSpace(status) ? string.Empty : status.Trim().ToLowerInvariant();
+
     private bool IsDisplayOverrideKey(string key) =>
         _editorContext?.DisplayOverrideKeys.Contains(key, StringComparer.OrdinalIgnoreCase) == true;
+
+    private bool HasSavedDisplayOverride(string key) =>
+        _editorContext?.DisplayOverrides.ContainsKey(key) == true;
+
+    protected bool HasActiveDisplayOverride(string key)
+    {
+        var scopedKey = BuildScopedFieldKey(key);
+        if (_clearedInlineOverrideKeys.Contains(scopedKey))
+            return false;
+
+        return HasSavedDisplayOverride(key)
+               || (_editedValues.ContainsKey(scopedKey) && ShouldSaveAsDisplayOverride(scopedKey, key));
+    }
+
+    private bool IsInlineOverrideEnabled(string key)
+    {
+        var scopedKey = BuildScopedFieldKey(key);
+        return _inlineOverrideKeys.Contains(scopedKey)
+               && !HasActiveDisplayOverride(key)
+               && !_clearedInlineOverrideKeys.Contains(scopedKey);
+    }
+
+    protected IReadOnlyList<string> GetActiveOverrideLabels()
+    {
+        var labels = GetGroupsForTab("details")
+            .SelectMany(group => group.Fields)
+            .Where(field => HasActiveDisplayOverride(field.Key))
+            .Select(field => field.Label)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var key in _editorContext?.DisplayOverrideKeys ?? [])
+        {
+            if (!HasActiveDisplayOverride(key))
+                continue;
+
+            var label = GetDisplayOverrideLabel(key);
+            if (!labels.Contains(label, StringComparer.OrdinalIgnoreCase))
+                labels.Add(label);
+        }
+
+        return labels;
+    }
+
+    private bool ShouldSaveAsDisplayOverride(string scopedKey, string key) =>
+        IsDisplayOverrideKey(key)
+        || _inlineOverrideKeys.Contains(scopedKey)
+        || _clearedInlineOverrideKeys.Contains(scopedKey)
+        || HasSavedDisplayOverride(key);
 
     protected bool IsFieldLocked(string key) =>
         (_editorContext?.FieldLockMap.TryGetValue(key, out var locked) == true && locked)

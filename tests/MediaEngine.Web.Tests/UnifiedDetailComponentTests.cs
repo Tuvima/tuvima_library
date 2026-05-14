@@ -257,7 +257,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("CreditGroupType.Illustrators", source);
         Assert.DoesNotContain("RelatedEntityChip", source);
         Assert.Contains("OverviewParagraphs(Model.Description)", source);
-        Assert.Contains("Split([\"\\n\\n\"]", source);
+        Assert.Contains("Split('\\n'", source);
         Assert.Contains("Replace(\"\\\\n\", \"\\n\", StringComparison.Ordinal)", source);
         Assert.Contains("DescriptionAttribution Attribution=\"Model.DescriptionAttribution\" Compact=\"true\"", source);
         Assert.Contains("width: min(90vw, calc(100% - clamp(2rem, 4vw, 4rem)))", styles);

@@ -1,0 +1,118 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RowClass">
+    <div class="tl-field-label-cell">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudText Typo="Typo.caption" Class="tl-field-label">@Label</MudText>
+            @if (!string.IsNullOrWhiteSpace(Badge))
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Default">@Badge</MudChip>
+            }
+            @if (!string.IsNullOrWhiteSpace(HelpText))
+            {
+                <MudTooltip Text="@HelpText">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Color="Color.Info" />
+                </MudTooltip>
+            }
+        </MudStack>
+    </div>
+
+    <div class="tl-field-input-cell">
+        @if (ChildContent is not null)
+        {
+            @ChildContent
+        }
+        else
+        {
+            <MudTextField T="string"
+                          Value="@Value"
+                          ValueChanged="OnValueChanged"
+                          Placeholder="@Placeholder"
+                          ReadOnly="@EffectiveReadOnly"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Immediate="true"
+                          Lines="@EffectiveLines"
+                          FullWidth="true"
+                          AutoFocus="@AutoFocus"
+                          Class="@FieldClass" />
+        }
+    </div>
+
+    <div class="tl-field-action-cell">
+        @if (ConfirmingAction)
+        {
+            <div class="tl-field-confirm-actions">
+                <MudTooltip Text="@ConfirmLabel" Placement="Placement.Left">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Check"
+                                   Size="Size.Small"
+                                   Color="Color.Success"
+                                   Variant="Variant.Filled"
+                                   OnClick="@(() => OnConfirmAction.InvokeAsync())"
+                                   Class="tl-field-confirm-button" />
+                </MudTooltip>
+                <MudTooltip Text="@CancelLabel" Placement="Placement.Left">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                                   Size="Size.Small"
+                                   Color="Color.Error"
+                                   Variant="Variant.Filled"
+                                   OnClick="@(() => OnCancelAction.InvokeAsync())"
+                                   Class="tl-field-confirm-button" />
+                </MudTooltip>
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(ActionIcon))
+        {
+            <MudTooltip Text="@ActionLabel" Placement="Placement.Left">
+                <MudIconButton Icon="@ActionIcon"
+                               Size="Size.Small"
+                               Color="@ActionColor"
+                               Variant="Variant.Outlined"
+                               Disabled="@ActionDisabled"
+                               OnClick="@(() => OnAction.InvokeAsync())"
+                               Class="tl-field-action-button" />
+            </MudTooltip>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string InputKind { get; set; } = "text";
+    [Parameter] public bool Locked { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool AutoFocus { get; set; }
+    [Parameter] public int? Lines { get; set; }
+    [Parameter] public bool OverrideActive { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public string? Badge { get; set; }
+    [Parameter] public string? ActionIcon { get; set; }
+    [Parameter] public string ActionLabel { get; set; } = "";
+    [Parameter] public Color ActionColor { get; set; } = Color.Default;
+    [Parameter] public bool ActionDisabled { get; set; }
+    [Parameter] public EventCallback OnAction { get; set; }
+    [Parameter] public bool ConfirmingAction { get; set; }
+    [Parameter] public string ConfirmLabel { get; set; } = "Confirm";
+    [Parameter] public string CancelLabel { get; set; } = "Cancel";
+    [Parameter] public EventCallback OnConfirmAction { get; set; }
+    [Parameter] public EventCallback OnCancelAction { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool IsTextarea => string.Equals(InputKind, "textarea", StringComparison.OrdinalIgnoreCase);
+    private bool EffectiveReadOnly => Locked || ReadOnly;
+    private int EffectiveLines => Lines ?? (IsTextarea ? 4 : 1);
+    private string FieldClass => IsTextarea ? "app-dialog-field app-dialog-textarea" : "app-dialog-field";
+    private string RowClass => string.Join(" ", new[]
+    {
+        "tl-field-grid",
+        IsTextarea ? "tl-field-grid--textarea" : null,
+        EffectiveReadOnly ? "tl-field-grid--locked" : null,
+        !EffectiveReadOnly && Locked ? "tl-field-grid--unlocked" : null,
+        OverrideActive ? "tl-field-grid--override" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task OnValueChanged(string? value) => ValueChanged.InvokeAsync(value);
+}
