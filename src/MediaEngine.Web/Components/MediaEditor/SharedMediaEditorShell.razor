@@ -222,6 +222,7 @@
                                                       InputKind="@field.InputKind"
                                                       Lines="@GetFieldLineCount(field)"
                                                       Locked="@IsInlineFieldReadOnly(field.Key)"
+                                                      Unlocked="@IsInlineOverrideEnabled(field.Key)"
                                                       OverrideActive="@HasActiveDisplayOverride(field.Key)"
                                                       HelpText="@GetInlineFieldHelpText(field)"
                                                       AutoFocus="@IsInlineFieldAutoFocus(field.Key)"

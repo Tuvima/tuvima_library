@@ -92,8 +92,11 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("OnCancelAction.InvokeAsync()", source, StringComparison.Ordinal);
         Assert.Contains("Color=\"Color.Success\"", source, StringComparison.Ordinal);
         Assert.Contains("Color=\"Color.Error\"", source, StringComparison.Ordinal);
+        Assert.Contains("Unlocked", source, StringComparison.Ordinal);
         var styles = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor.css");
         Assert.Contains("flex-direction: row", styles, StringComparison.Ordinal);
+        Assert.Contains("tl-field-grid--confirming", styles, StringComparison.Ordinal);
+        Assert.Contains("tl-field-confirm-button--accept", styles, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -184,6 +187,7 @@ public sealed class Phase5InlineEditingTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor.css");
 
         Assert.Contains("OverrideActive=\"@HasActiveDisplayOverride(field.Key)\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Unlocked=\"@IsInlineOverrideEnabled(field.Key)\"", shell, StringComparison.Ordinal);
         Assert.Contains("Yellow underline means local override", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Override in use", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Override in use", code, StringComparison.Ordinal);
@@ -193,6 +197,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("tl-field-grid--override", styles, StringComparison.Ordinal);
         Assert.Contains("box-shadow: inset 0 -2px 0 var(--tl-status-warning) !important", styles, StringComparison.Ordinal);
         Assert.Contains("tl-field-grid--unlocked", row, StringComparison.Ordinal);
+        Assert.Contains(".tl-field-grid--unlocked .tl-field-action-button .mud-icon-root", styles, StringComparison.Ordinal);
     }
 
     [Fact]

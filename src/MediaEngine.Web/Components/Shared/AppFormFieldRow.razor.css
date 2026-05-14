@@ -6,6 +6,10 @@
     margin-bottom: 8px;
 }
 
+.tl-field-grid--confirming {
+    grid-template-columns: minmax(96px, 126px) minmax(0, 1fr) 76px;
+}
+
 .tl-field-grid--textarea {
     align-items: start;
 }
@@ -61,6 +65,16 @@
     min-width: 30px;
 }
 
+.tl-field-confirm-button--accept {
+    color: #ffffff !important;
+    background: var(--tl-status-success) !important;
+}
+
+.tl-field-confirm-button--cancel {
+    color: #ffffff !important;
+    background: var(--tl-status-danger) !important;
+}
+
 .tl-field-grid ::deep .app-dialog-field input,
 .tl-field-grid ::deep .app-dialog-field textarea,
 .tl-field-grid ::deep .app-dialog-field .mud-input-slot {
@@ -95,9 +109,13 @@
 }
 
 .tl-field-grid--unlocked .tl-field-action-button {
-    color: var(--tl-status-warning);
+    color: var(--tl-status-warning) !important;
     border-color: rgba(251, 191, 36, 0.42);
     background: rgba(251, 191, 36, 0.13);
+}
+
+.tl-field-grid--unlocked .tl-field-action-button .mud-icon-root {
+    color: var(--tl-status-warning) !important;
 }
 
 @media (max-width: 720px) {

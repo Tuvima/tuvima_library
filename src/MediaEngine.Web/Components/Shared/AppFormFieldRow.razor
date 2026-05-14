@@ -49,7 +49,7 @@
                                    Color="Color.Success"
                                    Variant="Variant.Filled"
                                    OnClick="@(() => OnConfirmAction.InvokeAsync())"
-                                   Class="tl-field-confirm-button" />
+                                   Class="tl-field-confirm-button tl-field-confirm-button--accept" />
                 </MudTooltip>
                 <MudTooltip Text="@CancelLabel" Placement="Placement.Left">
                     <MudIconButton Icon="@Icons.Material.Outlined.Close"
@@ -57,7 +57,7 @@
                                    Color="Color.Error"
                                    Variant="Variant.Filled"
                                    OnClick="@(() => OnCancelAction.InvokeAsync())"
-                                   Class="tl-field-confirm-button" />
+                                   Class="tl-field-confirm-button tl-field-confirm-button--cancel" />
                 </MudTooltip>
             </div>
         }
@@ -87,6 +87,7 @@
     [Parameter] public bool AutoFocus { get; set; }
     [Parameter] public int? Lines { get; set; }
     [Parameter] public bool OverrideActive { get; set; }
+    [Parameter] public bool Unlocked { get; set; }
     [Parameter] public string? HelpText { get; set; }
     [Parameter] public string? Badge { get; set; }
     [Parameter] public string? ActionIcon { get; set; }
@@ -110,8 +111,9 @@
         "tl-field-grid",
         IsTextarea ? "tl-field-grid--textarea" : null,
         EffectiveReadOnly ? "tl-field-grid--locked" : null,
-        !EffectiveReadOnly && Locked ? "tl-field-grid--unlocked" : null,
+        Unlocked ? "tl-field-grid--unlocked" : null,
         OverrideActive ? "tl-field-grid--override" : null,
+        ConfirmingAction ? "tl-field-grid--confirming" : null,
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private Task OnValueChanged(string? value) => ValueChanged.InvokeAsync(value);
