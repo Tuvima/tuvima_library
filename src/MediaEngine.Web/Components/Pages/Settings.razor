@@ -27,15 +27,41 @@
                                     Href="@SettingsNav.RouteFor(item.Value)"
                                     Active="@(item.Value == _activeSection)"
                                     Child="@(group.Sections.Count > 1)"
+                                    Level="@(group.Sections.Count > 1 ? 1 : 0)"
                                     BadgeCount="@GetBadgeCount(item)"
-                                    Meta="@GetItemMeta(item)" />
+                                    Meta="@(group.Sections.Count > 1 ? null : GetItemMeta(item))" />
+
+                    @if (item.Value == SettingsSection.AdminOverview)
+                    {
+                        @foreach (var childGroup in GetVisibleChildTreeGroups(group))
+                        {
+                            <SidebarNavGroup Label="@childGroup.Label"
+                                             Icon="@childGroup.Icon"
+                                             Expandable="@childGroup.Expandable"
+                                             Expanded="@IsTreeGroupActive(childGroup)"
+                                             BadgeCount="@GetGroupBadgeCount(childGroup)"
+                                             Level="1">
+                                @foreach (var childItem in GetVisibleTreeItems(childGroup))
+                                {
+                                    <SidebarNavItem Label="@childItem.Label"
+                                                    Icon="@childItem.Icon"
+                                                    Href="@SettingsNav.RouteFor(childItem.Value)"
+                                                    Active="@(childItem.Value == _activeSection)"
+                                                    Child="true"
+                                                    Level="2"
+                                                    BadgeCount="@GetBadgeCount(childItem)"
+                                                    Meta="@null" />
+                                }
+                            </SidebarNavGroup>
+                        }
+                    }
                 }
             </SidebarNavGroup>
         }
     </Rail>
 
     <Header>
-        <SidebarPageHeader Eyebrow="@CurrentGroup.Label"
+        <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
                            Title="@GetHeroTitle()"
                            Subtitle="@GetSectionDescription(_activeSection)"
                            Status="@GetStatusLabel()"
@@ -78,6 +104,20 @@
                         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
                             Checking profile permissions before showing administrator settings.
                         </MudAlert>
+                    }
+                    @if (IsLibraryOperationsSection(_activeSection))
+                    {
+                        <nav class="library-operations-tabs" aria-label="Library Operations sections">
+                            @foreach (var tab in LibraryOperationsTabs)
+                            {
+                                <a class="library-operations-tabs__item @(tab.Section == _activeSection ? "is-active" : null)"
+                                   href="@SettingsNav.RouteFor(tab.Section)"
+                                   aria-current="@(tab.Section == _activeSection ? "page" : null)">
+                                    <MudIcon Icon="@tab.Icon" Size="Size.Small" />
+                                    <span>@tab.Label</span>
+                                </a>
+                            }
+                        </nav>
                     }
                     @switch (_activeSection)
                     {
@@ -307,14 +347,21 @@
     }
 
     private bool IsTreeGroupActive(SettingsTreeGroupDef group) =>
-        group.Sections.Contains(_activeSection);
+        group.Sections.Contains(_activeSection)
+        || GetVisibleChildTreeGroups(group).Any(childGroup => childGroup.Sections.Contains(_activeSection));
 
     private int GetGroupBadgeCount(SettingsTreeGroupDef group) =>
-        GetVisibleTreeItems(group).Sum(GetBadgeCount);
+        GetVisibleTreeItems(group).Sum(GetBadgeCount)
+        + GetVisibleChildTreeGroups(group).Sum(GetGroupBadgeCount);
 
     private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
         SettingsNav.FilteredTreeItems(group, _currentRole)
             .Where(IsItemEnabledByUiSettings)
+            .ToList();
+
+    private IReadOnlyList<SettingsTreeGroupDef> GetVisibleChildTreeGroups(SettingsTreeGroupDef group) =>
+        SettingsNav.FilteredChildTreeGroups(group, _currentRole)
+            .Where(childGroup => GetVisibleTreeItems(childGroup).Count > 0)
             .ToList();
 
     private bool IsItemEnabledByUiSettings(SettingsItemDef item) => item.Value switch
@@ -340,7 +387,24 @@
         _ => item.Placeholder ? "Planned" : SettingsStatus.Label(item.Status),
     };
 
-    private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
+    private static readonly LibraryOperationsTabDef[] LibraryOperationsTabs =
+    [
+        new(SettingsSection.Libraries, "Libraries", Icons.Material.Outlined.FolderOpen),
+        new(SettingsSection.Ingestion, "Ingestion", Icons.Material.Outlined.PendingActions),
+        new(SettingsSection.Providers, "Providers", Icons.Material.Outlined.Storage),
+        new(SettingsSection.ActivityLogs, "Activity", Icons.Material.Outlined.Timeline),
+    ];
+
+    private static bool IsLibraryOperationsSection(SettingsSection section) =>
+        LibraryOperationsTabs.Any(tab => tab.Section == section);
+
+    private string GetHeroEyebrow() =>
+        IsLibraryOperationsSection(_activeSection) ? "Admin Settings" : CurrentGroup.Label;
+
+    private string GetHeroTitle() =>
+        IsLibraryOperationsSection(_activeSection)
+            ? "Library Operations"
+            : SettingsNav.GetItem(_activeSection).Label;
 
     private SettingsStatusKind GetCurrentStatus() =>
         IsEngineUnavailableForCurrentSection
@@ -363,18 +427,17 @@
         SettingsSection.Playback => "Personal defaults for watching, reading, listening, subtitles, resume, and progress behavior.",
         SettingsSection.Privacy => "Control personal history, tracking, personalization, and reset/export options.",
         SettingsSection.AdminOverview => "Monitor system health, library status, provider coverage, ingestion progress, and review work.",
-        SettingsSection.Libraries => "Manage library roots, watch folders, source paths, scan behavior, and organization templates.",
-        SettingsSection.Ingestion => "Track scans, matches, enrichment, organization, and review work across your library.",
-        SettingsSection.Providers => "Configure provider priority, credentials, language strategy, timeouts, retries, health, and coverage.",
+        SettingsSection.Libraries or SettingsSection.Ingestion or SettingsSection.Providers or SettingsSection.ActivityLogs => "Manage ingestion, metadata providers, source folders, organization rules, and activity across your library.",
         SettingsSection.LocalAi => "Manage local models, AI feature toggles, vocabulary, hardware profile, and scheduled enrichment jobs.",
         SettingsSection.Plugins => "Manage optional extension features, tool health, background jobs, and guarded AI access.",
         SettingsSection.Delivery => "Configure direct play, transcoding, generated variants, offline downloads, and delivery defaults.",
         SettingsSection.Access => "Manage profiles, roles, sign-in, API keys, HTTPS, local access, and rate limits.",
-        SettingsSection.ActivityLogs => "Review the complete Engine activity history for ingestion, enrichment, review, and maintenance work.",
         SettingsSection.Review => "Resolve uncertain matches and keep ingestion moving.",
         SettingsSection.Setup => "Guided configuration and readiness checks.",
         SettingsSection.ProviderTester => "Internal provider testing tool.",
         SettingsSection.EnrichmentTester => "Internal enrichment debugging tool.",
         _ => "Settings",
     };
+
+    private sealed record LibraryOperationsTabDef(SettingsSection Section, string Label, string Icon);
 }

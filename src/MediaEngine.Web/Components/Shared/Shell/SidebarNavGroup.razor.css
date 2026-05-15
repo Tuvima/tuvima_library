@@ -1,5 +1,13 @@
-﻿.sidebar-nav-group + .sidebar-nav-group {
-    margin-top: 20px;
+.sidebar-nav-group + .sidebar-nav-group {
+    margin-top: 14px;
+}
+
+.sidebar-nav-group--level-1 {
+    margin-top: 2px;
+}
+
+.sidebar-nav-group--level-1 + .sidebar-nav-group--level-1 {
+    margin-top: 4px;
 }
 
 .sidebar-nav-group__label,
@@ -18,6 +26,40 @@
     letter-spacing: 0.12em;
     text-align: left;
     text-transform: uppercase;
+}
+
+.sidebar-nav-group--level-1 .sidebar-nav-group__label,
+.sidebar-nav-group--level-1 .sidebar-nav-group__toggle {
+    min-height: 30px;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 5px 10px 5px 22px;
+    color: var(--tl-text-secondary);
+    font-size: 0.86rem;
+    font-weight: 760;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.sidebar-nav-group__text {
+    justify-self: start;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-nav-group--level-1 .sidebar-nav-group__icon {
+    display: block;
+    grid-column: 1;
+}
+
+.sidebar-nav-group--level-1 .sidebar-nav-group__chevron {
+    grid-column: 3;
+}
+
+.sidebar-nav-group--level-1 .sidebar-nav-group__toggle[aria-expanded="true"] {
+    color: var(--tl-text-primary);
 }
 
 .sidebar-nav-group__toggle {
@@ -42,5 +84,14 @@
 .sidebar-nav-group__body {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 1px;
+    margin-left: 18px;
+    padding-left: 12px;
+    border-left: 1px solid var(--tl-border-subtle);
+}
+
+.sidebar-nav-group--level-1 .sidebar-nav-group__body {
+    gap: 0;
+    margin-left: 18px;
+    padding-left: 12px;
 }

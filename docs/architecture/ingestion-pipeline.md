@@ -59,9 +59,9 @@ The `category` tells the Engine where to organise files on disk. The `media_type
 
 ---
 
-## Library Operations Snapshot
+## Ingestion Snapshot
 
-The Dashboard's Library Operations page uses `GET /ingestion/operations`, backed by `IIngestionOperationsStatusService`, as the application-facing ingestion status model. The service aggregates existing persisted state rather than keeping a separate demo task model:
+The Dashboard's Ingestion page uses `GET /ingestion/operations`, backed by `IIngestionOperationsStatusService`, as the application-facing ingestion status model. The service aggregates existing persisted state rather than keeping a separate demo task model:
 
 - `ILibraryItemRepository` for total, registered, provisional, and review lifecycle counts
 - `IIngestionBatchRepository` for active and recent batches

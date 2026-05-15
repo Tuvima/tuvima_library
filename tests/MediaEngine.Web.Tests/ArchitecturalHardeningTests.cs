@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Services.Integration.Clients;
 using MediaEngine.Web.Services.Playback;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,6 +93,31 @@ public sealed class ArchitecturalHardeningTests
         Assert.Same(first, second);
         Assert.NotSame(first, third);
         Assert.Equal(2, api.CatalogueCalls);
+    }
+
+    [Fact]
+    public void ProviderCatalogueService_IsScopedBecauseItUsesCircuitScopedEngineApiState()
+    {
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Program.cs"));
+
+        Assert.Contains("AddScoped<ProviderCatalogueService>", program);
+        Assert.DoesNotContain("AddSingleton<ProviderCatalogueService>", program);
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddMemoryCache();
+        services.AddSingleton<MediaEngine.Web.Services.Branding.StreamingServiceLogoResolver>();
+        services.AddScoped<EngineApiFailureState>();
+        services.AddHttpClient<IEngineApiClient, EngineApiClient>(client =>
+        {
+            client.BaseAddress = new Uri("http://engine.test");
+        });
+        services.AddScoped<ProviderCatalogueService>();
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ProviderCatalogueService>());
     }
 
     [Fact]

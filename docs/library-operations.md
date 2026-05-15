@@ -1,18 +1,18 @@
 ---
 title: "Library Operations"
-summary: "Understand the Library Operations dashboard for ingestion, review, source folders, provider health, and recent batches."
+summary: "Understand the Library Operations area for libraries, ingestion, providers, activity, review, source folders, provider health, and recent batches."
 audience: "user"
 category: "guide"
 product_area: "ingestion"
 tags:
-  - "library-operations"
+  - "ingestion-dashboard"
   - "ingestion"
   - "review"
 ---
 
 # Library Operations
 
-Library Operations is the product-facing admin dashboard for the part of Tuvima Library that turns messy folders into registered media. It is available from Settings under **Library Operations**, while preserving the existing `/settings/ingestion` route.
+Library Operations is the product-facing admin area for the part of Tuvima Library that turns messy folders into registered media. It is available from Settings under **Admin Settings > Library Operations**, with tabs for **Libraries**, **Ingestion**, **Providers**, and **Activity**. The Ingestion tab remains available at `/settings/ingestion`.
 
 The page answers six operational questions:
 
@@ -95,7 +95,7 @@ The page never displays API keys or secret values.
 
 ## Organization Rules
 
-The Organization Rules card summarizes whether automatic rename/move behavior is enabled, whether preview is required, and which folder and filename templates are active. Library Operations does not trigger destructive file operations. It is a status and preview surface, not a file manager.
+The Organization Rules card summarizes whether automatic rename/move behavior is enabled, whether preview is required, and which folder and filename templates are active. Ingestion does not trigger destructive file operations. It is a status and preview surface, not a file manager.
 
 ## Real Today vs. Not Yet Tracked
 

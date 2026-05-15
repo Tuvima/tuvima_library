@@ -113,6 +113,59 @@
     border-bottom-color: var(--tl-border-subtle) !important;
 }
 
+.settings-admin-style-scope ::deep .library-operations-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    margin: 0 1.25rem 1rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.105);
+    border-radius: var(--app-radius-md, 8px);
+    background: rgba(9, 14, 29, 0.76);
+}
+
+.settings-admin-style-scope ::deep .library-operations-tabs__item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 56px;
+    min-width: 0;
+    padding: 0 18px;
+    color: rgba(226, 232, 255, 0.74);
+    font-weight: 700;
+    text-decoration: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.075);
+    background: transparent;
+    transition: background-color 160ms ease, color 160ms ease;
+}
+
+.settings-admin-style-scope ::deep .library-operations-tabs__item:first-child {
+    border-left: 0;
+}
+
+.settings-admin-style-scope ::deep .library-operations-tabs__item:hover,
+.settings-admin-style-scope ::deep .library-operations-tabs__item:focus-visible {
+    color: rgba(255, 255, 255, 0.94);
+    background: rgba(124, 92, 255, 0.12);
+}
+
+.settings-admin-style-scope ::deep .library-operations-tabs__item.is-active {
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(124, 92, 255, 0.96), rgba(91, 54, 190, 0.96));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 16px 34px rgba(83, 52, 176, 0.24);
+}
+
+.settings-admin-style-scope ::deep .library-operations-tabs__item .mud-icon-root {
+    color: currentColor;
+}
+
+.settings-admin-style-scope ::deep .library-operations-tabs__item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar {
     min-height: 60px !important;
     padding: 0 10px !important;
@@ -703,6 +756,18 @@
 }
 
 @media (max-width: 768px) {
+    .settings-admin-style-scope ::deep .library-operations-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .settings-admin-style-scope ::deep .library-operations-tabs__item:nth-child(odd) {
+        border-left: 0;
+    }
+
+    .settings-admin-style-scope ::deep .library-operations-tabs__item:nth-child(n + 3) {
+        border-top: 1px solid rgba(255, 255, 255, 0.075);
+    }
+
     .settings-admin-style-scope ::deep .settings-admin-panel .tl-page {
         padding: 1rem;
     }
@@ -761,6 +826,20 @@
 }
 
 @media (max-width: 560px) {
+    .settings-admin-style-scope ::deep .library-operations-tabs {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-admin-style-scope ::deep .library-operations-tabs__item {
+        justify-content: flex-start;
+        border-left: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.075);
+    }
+
+    .settings-admin-style-scope ::deep .library-operations-tabs__item:first-child {
+        border-top: 0;
+    }
+
     .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-layout,
     .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-edit,
     .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-row {

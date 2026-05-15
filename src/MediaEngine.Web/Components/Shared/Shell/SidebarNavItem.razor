@@ -30,12 +30,13 @@ else
     [Parameter] public string? Href { get; set; }
     [Parameter] public bool Active { get; set; }
     [Parameter] public bool Child { get; set; }
+    [Parameter] public int Level { get; set; }
     [Parameter] public string? Meta { get; set; }
     [Parameter] public int BadgeCount { get; set; }
     [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
 
     private string CssClass =>
-        $"sidebar-nav-item{(Active ? " is-active" : string.Empty)}{(Child ? " is-child" : string.Empty)}";
+        $"sidebar-nav-item sidebar-nav-item--level-{Math.Clamp(Level, 0, 3)}{(Active ? " is-active" : string.Empty)}{(Child ? " is-child" : string.Empty)}";
 
     private void Navigate()
     {

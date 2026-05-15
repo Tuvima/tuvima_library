@@ -205,17 +205,29 @@ public sealed class SettingsNavTests
         Assert.Equal([
             "Admin Overview",
             "Setup",
-            "Libraries",
-            "Ingestion",
-            "Providers",
             "Local AI",
             "Plugins",
             "Playback & Delivery",
             "Users & Access",
         ], adminLabels);
 
+        var adminGroup = SettingsNav.TreeGroups.Single(group => group.Key == "admin");
+        var childGroups = SettingsNav.FilteredChildTreeGroups(adminGroup, "Administrator").Select(group => group.Key).ToArray();
+
+        Assert.Equal(["library-operations"], childGroups);
+
+        var libraryOperationsLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "library-operations"), "Administrator")
+            .Select(item => item.Label)
+            .ToArray();
+
+        Assert.Equal([
+            "Libraries",
+            "Ingestion",
+            "Providers",
+            "Activity",
+        ], libraryOperationsLabels);
+
         Assert.DoesNotContain("Reg" + "istry", adminLabels);
-        Assert.DoesNotContain("Activity", adminLabels);
         Assert.DoesNotContain("Maintenance", adminLabels);
         Assert.DoesNotContain("Provider Tester", adminLabels);
         Assert.DoesNotContain("Enrichment Tester", adminLabels);
@@ -249,6 +261,7 @@ public sealed class SettingsNavTests
 
     [Theory]
     [InlineData("admin", SettingsSection.AdminOverview, "/settings/admin")]
+    [InlineData("library-operations", SettingsSection.Libraries, "/settings/libraries")]
     [InlineData("user", SettingsSection.Overview, "/settings")]
     public void GroupDefaults_ResolveToExpectedCanonicalRoutes(string groupKey, SettingsSection expectedSection, string expectedRoute)
     {

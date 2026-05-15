@@ -57,7 +57,8 @@ public sealed record SettingsTreeGroupDef(
     bool AdminOnly,
     bool Expandable,
     SettingsSection DefaultSection,
-    IReadOnlyList<SettingsSection> Sections);
+    IReadOnlyList<SettingsSection> Sections,
+    string? ParentKey = null);
 
 /// <summary>
 /// Result of resolving a route segment into a settings destination.
@@ -82,6 +83,7 @@ public static class SettingsNav
     [
         new("user", "User Settings", Icons.Material.Outlined.Person, false, SettingsSection.Overview),
         new("admin", "Admin Settings", Icons.Material.Outlined.AdminPanelSettings, true, SettingsSection.AdminOverview),
+        new("library-operations", "Library Operations", Icons.Material.Outlined.LibraryBooks, true, SettingsSection.Libraries),
     ];
 
     public static readonly SettingsItemDef[] AllItems =
@@ -91,15 +93,15 @@ public static class SettingsNav
         new(SettingsSection.Privacy, "user", "privacy", Icons.Material.Outlined.PrivacyTip, "Privacy & History", false, null, [], "sqlite"),
 
         new(SettingsSection.AdminOverview, "admin", "admin", Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Libraries, "admin", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Ingestion", true, null, ["tasks", "maintenance"], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Collections, "Providers", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Libraries, "library-operations", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Ingestion, "library-operations", "ingestion", Icons.Material.Outlined.PendingActions, "Ingestion", true, null, ["tasks", "maintenance"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Providers, "library-operations", "providers", Icons.Material.Outlined.Storage, "Providers", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.LocalAi, "admin", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "runtime", "vocabulary", "schedule", "enrichment"], Status: SettingsStatusKind.Live),
         new(SettingsSection.Plugins, "admin", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, ["extensions", "commercial-skip", "intro-skip", "credits"], "sqlite", Status: SettingsStatusKind.Partial),
         new(SettingsSection.Delivery, "admin", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"], Status: SettingsStatusKind.Partial),
         new(SettingsSection.Access, "admin", "access", Icons.Material.Outlined.AdminPanelSettings, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"], Status: SettingsStatusKind.Partial),
 
-        new(SettingsSection.ActivityLogs, "admin", "activity", Icons.Material.Outlined.Timeline, "Activity Logs", true, null, ["activity-log"], "sqlite"),
+        new(SettingsSection.ActivityLogs, "library-operations", "activity", Icons.Material.Outlined.Timeline, "Activity", true, null, ["activity-log"], "sqlite"),
         new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
         new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, []),
         new(SettingsSection.ProviderTester, "admin", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal"),
@@ -114,14 +116,19 @@ public static class SettingsNav
             [
                 SettingsSection.AdminOverview,
                 SettingsSection.Setup,
-                SettingsSection.Libraries,
-                SettingsSection.Ingestion,
-                SettingsSection.Providers,
                 SettingsSection.LocalAi,
                 SettingsSection.Plugins,
                 SettingsSection.Delivery,
                 SettingsSection.Access,
             ]),
+        new("library-operations", "Library Operations", Icons.Material.Outlined.LibraryBooks, true, true, SettingsSection.Libraries,
+            [
+                SettingsSection.Libraries,
+                SettingsSection.Ingestion,
+                SettingsSection.Providers,
+                SettingsSection.ActivityLogs,
+            ],
+            ParentKey: "admin"),
     ];
 
     private static readonly Dictionary<SettingsSection, SettingsItemDef> _itemsBySection =
@@ -152,6 +159,17 @@ public static class SettingsNav
     {
         var hasAdmin = IsAdminRole(role);
         return TreeGroups
+            .Where(group => string.IsNullOrWhiteSpace(group.ParentKey))
+            .Where(group => !group.AdminOnly || hasAdmin)
+            .Where(group => group.Sections.Any(section => IsVisible(section, role))
+                            || FilteredChildTreeGroups(group, role).Any());
+    }
+
+    public static IEnumerable<SettingsTreeGroupDef> FilteredChildTreeGroups(SettingsTreeGroupDef parent, string role)
+    {
+        var hasAdmin = IsAdminRole(role);
+        return TreeGroups
+            .Where(group => string.Equals(group.ParentKey, parent.Key, StringComparison.OrdinalIgnoreCase))
             .Where(group => !group.AdminOnly || hasAdmin)
             .Where(group => group.Sections.Any(section => IsVisible(section, role)));
     }

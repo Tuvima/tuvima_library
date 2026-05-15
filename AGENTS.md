@@ -88,7 +88,7 @@ Current UI entry points:
 4. `src/MediaEngine.Web/Components/Details/DetailPage.razor` and `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` for detail surfaces and inline edit launch points.
 5. `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` for the exception queue.
 6. `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` for normal, review, and batch editing.
-7. `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` for the Library Operations dashboard at `/settings/ingestion`; it uses the Engine `GET /ingestion/operations` snapshot plus SignalR ingestion progress.
+7. `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` for the Ingestion dashboard at `/settings/ingestion`; it uses the Engine `GET /ingestion/operations` snapshot plus SignalR ingestion progress.
 
 Treat stale references to `LibraryPage`, `LibrarySurfacePreset`, retired Vault CSS, broad management workbenches, or removed Vault docs as cleanup candidates unless they are historical notes explaining that the old workspace was removed.
 

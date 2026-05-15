@@ -21,12 +21,12 @@ Use SQLite for records created or changed by product workflows:
 - profiles, profile external logins, and API keys.
 - provider health and recent failures.
 - review queue entries and resolution history.
-- ingestion batches, ingestion logs, identity jobs, and Library Operations status inputs.
+- ingestion batches, ingestion logs, identity jobs, and Ingestion status inputs.
 - system activity, encode jobs, and playback/reading progress.
 
 ## Library Operations
 
-The Settings/Admin ingestion route is now the **Library Operations** page. It is a read-heavy operational dashboard, not a configuration editor and not a raw background-job log. Its Engine snapshot (`GET /ingestion/operations`) combines JSON-owned configuration with SQLite-owned state:
+The Settings/Admin navigation nests **Library Operations** inside **Admin Settings**. Library Operations groups **Libraries**, **Ingestion**, **Providers**, and **Activity**. The Ingestion tab is a read-heavy operational dashboard, not a configuration editor and not a raw background-job log. Its Engine snapshot (`GET /ingestion/operations`) combines JSON-owned configuration with SQLite-owned state:
 
 - JSON supplies configured source folders, provider definitions, and organization templates.
 - SQLite supplies lifecycle counts, active/recent ingestion batches, review reasons, provider health records, and pipeline progress.

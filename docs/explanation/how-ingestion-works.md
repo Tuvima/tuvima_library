@@ -163,7 +163,7 @@ The pipeline is designed to fail safely:
 
 ## Watching Operations
 
-The **Library Operations** page in Settings is the admin view for this pipeline. It keeps the existing `/settings/ingestion` route but presents ingestion as operational library health rather than a raw task log.
+The **Ingestion** page in Settings is the admin view for this pipeline. It keeps the existing `/settings/ingestion` route but presents ingestion as operational library health rather than a raw task log.
 
 It shows real application state from the Engine:
 

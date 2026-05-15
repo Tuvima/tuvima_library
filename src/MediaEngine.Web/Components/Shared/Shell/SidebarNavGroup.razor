@@ -1,33 +1,34 @@
 @namespace MediaEngine.Web.Components.Shared.Shell
 
-<section class="sidebar-nav-group">
+<section class="@CssClass">
     @if (Expandable)
     {
         <button type="button"
-                class="sidebar-nav-group__toggle"
+                class="@ToggleCssClass"
                 aria-expanded="@_expanded"
                 @onclick="Toggle">
             @if (!string.IsNullOrWhiteSpace(Icon))
             {
-                <MudIcon Icon="@Icon" Style="font-size: 18px;" />
+                <MudIcon Icon="@Icon" Class="sidebar-nav-group__icon" Style="font-size: 18px;" />
             }
-            <span>@Label</span>
+            <span class="sidebar-nav-group__text">@Label</span>
             @if (BadgeCount > 0)
             {
                 <span class="sidebar-nav-group__badge">@BadgeCount</span>
             }
             <MudIcon Icon="@(_expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
+                     Class="sidebar-nav-group__chevron"
                      Style="font-size: 18px;" />
         </button>
     }
     else
     {
-        <div class="sidebar-nav-group__label">
+        <div class="@LabelCssClass">
             @if (!string.IsNullOrWhiteSpace(Icon))
             {
-                <MudIcon Icon="@Icon" Style="font-size: 18px;" />
+                <MudIcon Icon="@Icon" Class="sidebar-nav-group__icon" Style="font-size: 18px;" />
             }
-            <span>@Label</span>
+            <span class="sidebar-nav-group__text">@Label</span>
             @if (BadgeCount > 0)
             {
                 <span class="sidebar-nav-group__badge">@BadgeCount</span>
@@ -52,7 +53,17 @@
     [Parameter] public int BadgeCount { get; set; }
     [Parameter] public bool Expandable { get; set; }
     [Parameter] public bool Expanded { get; set; }
+    [Parameter] public int Level { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string CssClass => $"sidebar-nav-group sidebar-nav-group--level-{Math.Clamp(Level, 0, 3)}";
+    private string ToggleCssClass => Level > 0
+        ? "sidebar-nav-group__toggle sidebar-nav-item sidebar-nav-item--level-1 is-child"
+        : "sidebar-nav-group__toggle";
+
+    private string LabelCssClass => Level > 0
+        ? "sidebar-nav-group__label sidebar-nav-item sidebar-nav-item--level-1 is-child"
+        : "sidebar-nav-group__label";
 
     protected override void OnParametersSet()
     {
