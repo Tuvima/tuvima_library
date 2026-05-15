@@ -448,23 +448,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("MusicTrackList", detailPage);
         Assert.Contains("ReplaceQueueItemsAsync", trackList);
         Assert.Contains("tl-detail-track-list", trackList);
-        Assert.Contains("Owned <strong>@OwnedTrackCount</strong> of @Tracks.Count tracks", trackList);
-        Assert.Contains("disabled=\"@(!track.IsOwned)\"", trackList);
-        Assert.Contains("Tracks.Where(item => item.IsOwned)", trackList);
         Assert.DoesNotContain("@page \"/listen/album", albumRoute, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void TvEpisodeDetailsUseCollapsibleCompletionGroups()
-    {
-        var episodes = ReadSource("src/MediaEngine.Web/Components/Details/EpisodesTab.razor");
-
-        Assert.Contains("tl-completion-summary", episodes);
-        Assert.Contains("aria-expanded", episodes);
-        Assert.Contains("group.InitiallyCollapsed", episodes);
-        Assert.Contains("Owned <strong>@AggregateOwned</strong> of @AggregateTotal episodes", episodes);
-        Assert.Contains("item.episode.IsOwned", episodes);
-        Assert.Contains("No file in library", episodes);
     }
 
     private static string ReadSource(string relativePath)

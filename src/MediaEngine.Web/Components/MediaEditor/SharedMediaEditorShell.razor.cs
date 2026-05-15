@@ -101,6 +101,7 @@ public partial class SharedMediaEditorShell
     private readonly Dictionary<string, string> _artworkUploadErrors = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ArtworkEditorDto> _artworkStates = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ScopeEditorState> _scopeStates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, bool> _contentGroupExpandedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _artworkApplyingKeys = new(StringComparer.OrdinalIgnoreCase);
     private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
     private string _activeTab = "details";
@@ -120,7 +121,6 @@ public partial class SharedMediaEditorShell
     private bool _reclassifying;
     private bool _searchingCanonical;
     private bool _artworkUrlSubmitting;
-    private bool _quarantining;
     private bool _confirmDiscard;
     private bool _showQuarantineConfirm;
     private string? _dragTargetArtworkType;
@@ -189,7 +189,24 @@ public partial class SharedMediaEditorShell
     protected string ContentTabLabel => GetTabLabel(ContentTabId);
     protected IReadOnlyList<MediaEditorNavigatorNodeDto> ContentRootChildren =>
         NavigatorRootNode is null ? [] : GetNavigatorChildren(NavigatorRootNode.NodeId);
-    protected IReadOnlyList<EpisodeContentGroup> EpisodeContentGroups => BuildEpisodeContentGroups();
+    protected IReadOnlyList<EditorContentGroup> EditorContentGroups => BuildEditorContentGroups();
+    protected int EditorContentOwnedCount => EditorContentGroups.Sum(group => group.OwnedCount);
+    protected int EditorContentTotalCount => EditorContentGroups.Sum(group => group.TotalCount);
+    protected double EditorContentCompletionPercent => EditorContentTotalCount == 0 ? 0 : EditorContentOwnedCount * 100.0 / EditorContentTotalCount;
+    protected string EditorContentItemPlural => string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "tracks" : "episodes";
+    protected int EditorContentGroupCount => EditorContentGroups.Count;
+    protected string EditorContentGroupPlural
+    {
+        get
+        {
+            var singular = string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "track group" : "season";
+            return EditorContentGroupCount == 1 ? singular : $"{singular}s";
+        }
+    }
+    protected string? EditorContentIncompleteHint =>
+        EditorContentGroups.FirstOrDefault(group => group.MissingCount > 0) is { } group
+            ? $"{group.Title} incomplete"
+            : null;
     protected string CurrentTargetLabel => _editorContext?.CurrentTargetSummary?.Label ?? ActiveScope?.Label ?? "Item";
     protected string CurrentTargetTitle => _editorContext?.CurrentTargetSummary?.Title ?? ActiveScope?.DisplayTitle ?? HeaderTitle;
     protected string? CurrentTargetSubtitle => _editorContext?.CurrentTargetSummary?.Subtitle ?? ActiveScope?.DisplaySubtitle;
@@ -234,10 +251,17 @@ public partial class SharedMediaEditorShell
         public ArtworkEditorDto Artwork { get; init; } = new();
     }
 
-    protected sealed record EpisodeContentGroup(
+    protected sealed record EditorContentGroup(
+        string GroupId,
         string Title,
         string? Subtitle,
-        IReadOnlyList<MediaEditorNavigatorNodeDto> Episodes);
+        IReadOnlyList<MediaEditorNavigatorNodeDto> Items)
+    {
+        public int TotalCount => Items.Count;
+        public int OwnedCount => Items.Count(item => item.IsOwned);
+        public int MissingCount => Math.Max(0, TotalCount - OwnedCount);
+        public double CompletionPercent => TotalCount == 0 ? 0 : OwnedCount * 100.0 / TotalCount;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -2776,13 +2800,18 @@ public partial class SharedMediaEditorShell
             .ToList();
     }
 
-    private IReadOnlyList<EpisodeContentGroup> BuildEpisodeContentGroups()
+    private IReadOnlyList<EditorContentGroup> BuildEditorContentGroups() =>
+        string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase)
+            ? BuildTrackContentGroups()
+            : BuildEpisodeContentGroups();
+
+    private IReadOnlyList<EditorContentGroup> BuildEpisodeContentGroups()
     {
         if (NavigatorRootNode is null)
             return [];
 
         var looseEpisodes = new List<MediaEditorNavigatorNodeDto>();
-        var groups = new List<EpisodeContentGroup>();
+        var groups = new List<EditorContentGroup>();
 
         foreach (var child in ContentRootChildren)
         {
@@ -2797,17 +2826,205 @@ public partial class SharedMediaEditorShell
                 .ToList();
 
             if (episodes.Count > 0)
-                groups.Add(new EpisodeContentGroup(child.Title, child.Subtitle, episodes));
+                groups.Add(new EditorContentGroup(child.NodeId.ToString("D"), child.Title, child.Subtitle, DeduplicateEditorContentItems(episodes)));
         }
 
         if (looseEpisodes.Count > 0)
-            groups.Insert(0, new EpisodeContentGroup("Episodes", null, looseEpisodes));
+            MergeLooseEpisodeGroups(groups, looseEpisodes);
 
-        return groups;
+        return DeduplicateEditorContentGroups(groups);
+    }
+
+    private static void MergeLooseEpisodeGroups(List<EditorContentGroup> groups, IReadOnlyList<MediaEditorNavigatorNodeDto> looseEpisodes)
+    {
+        var yearSeasonMap = BuildYearSeasonMap(looseEpisodes);
+        var looseGroups = looseEpisodes
+            .GroupBy(episode => InferLooseEpisodeSeasonTitle(episode, yearSeasonMap), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new EditorContentGroup(
+                $"loose-{NormalizeTextKey(group.Key)}",
+                group.Key,
+                null,
+                DeduplicateEditorContentItems(group)))
+            .ToList();
+
+        foreach (var looseGroup in looseGroups)
+        {
+            var existingIndex = groups.FindIndex(group => string.Equals(group.Title, looseGroup.Title, StringComparison.OrdinalIgnoreCase));
+            if (existingIndex >= 0)
+            {
+                var existing = groups[existingIndex];
+                groups[existingIndex] = existing with
+                {
+                    Items = DeduplicateEditorContentItems(existing.Items.Concat(looseGroup.Items)),
+                };
+            }
+            else
+            {
+                groups.Add(looseGroup);
+            }
+        }
+
+        groups.Sort((left, right) =>
+            Nullable.Compare(ParseSeasonNumberFromTitle(left.Title), ParseSeasonNumberFromTitle(right.Title)) is var bySeason && bySeason != 0
+                ? bySeason
+                : string.Compare(left.Title, right.Title, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IReadOnlyDictionary<int, int> BuildYearSeasonMap(IEnumerable<MediaEditorNavigatorNodeDto> looseEpisodes)
+    {
+        var years = looseEpisodes
+            .Select(episode => TryParseYear(episode.Subtitle))
+            .Where(year => year.HasValue)
+            .Select(year => year!.Value)
+            .Distinct()
+            .Order()
+            .ToList();
+
+        return years
+            .Select((year, index) => new { year, season = index + 1 })
+            .ToDictionary(entry => entry.year, entry => entry.season);
+    }
+
+    private static string InferLooseEpisodeSeasonTitle(MediaEditorNavigatorNodeDto episode, IReadOnlyDictionary<int, int> yearSeasonMap)
+    {
+        var year = TryParseYear(episode.Subtitle);
+        if (year.HasValue && yearSeasonMap.TryGetValue(year.Value, out var seasonNumber))
+            return $"Season {seasonNumber}";
+
+        return "Episodes";
+    }
+
+    private static int? TryParseYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        for (var index = 0; index <= value.Length - 4; index++)
+        {
+            if (char.IsDigit(value[index])
+                && char.IsDigit(value[index + 1])
+                && char.IsDigit(value[index + 2])
+                && char.IsDigit(value[index + 3])
+                && int.TryParse(value.AsSpan(index, 4), out var year)
+                && year is >= 1900 and <= 2100)
+            {
+                return year;
+            }
+        }
+
+        return null;
+    }
+
+    private static int? ParseSeasonNumberFromTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
+
+        var marker = "Season ";
+        var index = title.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (index < 0)
+            return null;
+
+        var start = index + marker.Length;
+        var end = start;
+        while (end < title.Length && char.IsDigit(title[end]))
+            end++;
+
+        return end > start && int.TryParse(title.AsSpan(start, end - start), out var season)
+            ? season
+            : null;
     }
 
     private static bool IsEpisodeNavigatorNode(MediaEditorNavigatorNodeDto node) =>
         string.Equals(node.NodeKind, "episode", StringComparison.OrdinalIgnoreCase) || node.IsLeaf;
+
+    private IReadOnlyList<EditorContentGroup> BuildTrackContentGroups()
+    {
+        var tracks = ContentRootChildren
+            .Where(node => string.Equals(node.NodeKind, "track", StringComparison.OrdinalIgnoreCase) || node.IsLeaf)
+            .ToList();
+
+        return tracks.Count == 0
+            ? []
+            : [new EditorContentGroup("tracks", "Tracks", NavigatorRootNode?.Subtitle, DeduplicateEditorContentItems(tracks))];
+    }
+
+    protected bool IsContentGroupCollapsed(EditorContentGroup group)
+    {
+        if (_contentGroupExpandedOverrides.TryGetValue(group.GroupId, out var expanded))
+            return !expanded;
+
+        return group.OwnedCount == 0;
+    }
+
+    protected void ToggleContentGroup(EditorContentGroup group)
+    {
+        var collapsed = IsContentGroupCollapsed(group);
+        _contentGroupExpandedOverrides[group.GroupId] = collapsed;
+    }
+
+    protected Dictionary<string, object> GetContentGroupHeaderAttributes(bool collapsed) =>
+        new()
+        {
+            ["aria-expanded"] = collapsed ? "false" : "true",
+        };
+
+    protected string GetContentOrdinalLabel(MediaEditorNavigatorNodeDto node, int index)
+    {
+        if (!string.IsNullOrWhiteSpace(node.OrdinalLabel))
+            return node.OrdinalLabel!;
+
+        var prefix = string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "T" : "E";
+        return $"{prefix}{index + 1:00}";
+    }
+
+    protected string GetContentRowMeta(MediaEditorNavigatorNodeDto node)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(node.Subtitle))
+            parts.Add(node.Subtitle!);
+
+        return string.Join(" | ", parts.Where(part => !string.IsNullOrWhiteSpace(part)).Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static IReadOnlyList<MediaEditorNavigatorNodeDto> DeduplicateEditorContentItems(IEnumerable<MediaEditorNavigatorNodeDto> items) =>
+        items.GroupBy(BuildEditorContentDeduplicationKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(item => item.IsOwned)
+                .ThenBy(item => ParseOrdinalLabel(item.OrdinalLabel))
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                .First())
+            .OrderBy(item => ParseOrdinalLabel(item.OrdinalLabel))
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static IReadOnlyList<EditorContentGroup> DeduplicateEditorContentGroups(IReadOnlyList<EditorContentGroup> groups)
+    {
+        var winners = groups
+            .SelectMany(group => group.Items)
+            .GroupBy(BuildEditorContentDeduplicationKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(item => item.IsOwned)
+                .ThenBy(item => ParseOrdinalLabel(item.OrdinalLabel))
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                .First().NodeId)
+            .ToHashSet();
+
+        return groups
+            .Select(group => group with { Items = group.Items.Where(item => winners.Contains(item.NodeId)).ToList() })
+            .Where(group => group.Items.Count > 0)
+            .ToList();
+    }
+
+    private static string BuildEditorContentDeduplicationKey(MediaEditorNavigatorNodeDto item)
+    {
+        var title = NormalizeTextKey(item.Title);
+        if (!string.IsNullOrWhiteSpace(title))
+            return title;
+
+        var ordinal = NormalizeTextKey(item.OrdinalLabel);
+        return string.IsNullOrWhiteSpace(ordinal) ? item.EntityId.ToString("D") : ordinal;
+    }
 
     private IReadOnlyList<MediaEditorNavigatorNodeDto> GetQuarantineTargetNodes(MediaEditorNavigatorNodeDto node)
     {
@@ -2856,7 +3073,6 @@ public partial class SharedMediaEditorShell
         if (entityIds.Count == 0)
             return;
 
-        _quarantining = true;
         StateHasChanged();
 
         try
@@ -2887,7 +3103,6 @@ public partial class SharedMediaEditorShell
         }
         finally
         {
-            _quarantining = false;
             _showQuarantineConfirm = false;
             StateHasChanged();
         }
@@ -3019,6 +3234,11 @@ public partial class SharedMediaEditorShell
         var digits = new string(ordinalLabel.Where(char.IsDigit).ToArray());
         return int.TryParse(digits, out var parsed) ? parsed : int.MaxValue;
     }
+
+    private static string NormalizeTextKey(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : string.Join(' ', value.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
 
     private static string ExtractLeadingNumber(string input)
     {

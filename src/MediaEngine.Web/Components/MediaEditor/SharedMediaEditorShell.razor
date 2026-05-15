@@ -138,55 +138,6 @@
                         </MudTabs>
                     </div>
 
-                    @if (IsSingleItem && NavigatorRootNode is not null && (_activeTab == "episodes" || _activeTab == "tracks"))
-                    {
-                        <div class="sme-selection-bar">
-                            <div class="sme-selection-copy">
-                                <div class="sme-selection-kicker">@CurrentTargetLabel</div>
-                                <div class="sme-selection-title">@CurrentTargetTitle</div>
-                                @if (!string.IsNullOrWhiteSpace(CurrentTargetSubtitle))
-                                {
-                                    <div class="sme-selection-subtitle">@CurrentTargetSubtitle</div>
-                                }
-                            </div>
-                            @if (SupportsDeleteAction)
-                            {
-                                <div class="sme-selection-actions">
-                                    @if (_showQuarantineConfirm)
-                                    {
-                                        <div class="sme-delete-confirm">
-                                            <div class="sme-delete-confirm-text">@GetDeleteConfirmationText()</div>
-                                            <div class="sme-delete-confirm-actions">
-                                                <MudButton Variant="Variant.Filled"
-                                                           Color="Color.Error"
-                                                           Class="sme-inline-btn sme-inline-btn--danger"
-                                                           Disabled="@_quarantining"
-                                                           OnClick="QuarantineCurrentSelectionAsync">
-                                                    @(_quarantining ? "Quarantining..." : "Quarantine")
-                                                </MudButton>
-                                                <MudButton Variant="Variant.Text"
-                                                           Color="Color.Inherit"
-                                                           Class="sme-inline-btn"
-                                                           OnClick="ToggleQuarantineConfirmAsync">
-                                                    Cancel
-                                                </MudButton>
-                                            </div>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <MudButton Variant="Variant.Filled"
-                                                   Color="Color.Error"
-                                                   Class="sme-inline-btn sme-inline-btn--danger"
-                                                   OnClick="ToggleQuarantineConfirmAsync">
-                                            Delete
-                                        </MudButton>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    }
-
                     <div class="sme-body">
                 @if (_loading)
                 {
@@ -294,79 +245,94 @@
                         else
                         {
                             <section class="sme-group">
-                                <div class="sme-group-title">@ContentTabLabel</div>
-                                <MudButton Variant="Variant.Outlined"
-                                           Color="Color.Inherit"
-                                           FullWidth="true"
-                                           Class="@($"sme-content-root {(IsContentNodeSelected(NavigatorRootNode) ? "is-active" : string.Empty)}")"
-                                           OnClick="@(() => SelectNavigatorNodeAsync(NavigatorRootNode.EntityId))">
-                                    <span class="sme-content-root-label">@NavigatorRootNode.Label</span>
-                                    <span class="sme-content-root-title">@NavigatorRootNode.Title</span>
-                                    @if (!string.IsNullOrWhiteSpace(NavigatorRootNode.Subtitle))
-                                    {
-                                        <span class="sme-content-root-subtitle">@NavigatorRootNode.Subtitle</span>
-                                    }
-                                </MudButton>
+                                <div class="sme-content-completion">
+                                    <div>
+                                        <div class="sme-group-title">@ContentTabLabel</div>
+                                        <div class="sme-content-completion-title">
+                                            Owned <strong>@EditorContentOwnedCount</strong> of @EditorContentTotalCount @EditorContentItemPlural
+                                        </div>
+                                        @if (EditorContentGroupCount > 0)
+                                        {
+                                            <div class="sme-content-completion-meta">@EditorContentGroupCount @EditorContentGroupPlural</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(EditorContentIncompleteHint))
+                                        {
+                                            <div class="sme-content-completion-hint">@EditorContentIncompleteHint</div>
+                                        }
+                                    </div>
+                                    <div class="sme-content-completion-meter" aria-label="@($"{EditorContentOwnedCount} of {EditorContentTotalCount} {EditorContentItemPlural} owned")">
+                                        <div class="sme-content-completion-bar">
+                                            <span style="width: @($"{EditorContentCompletionPercent:F0}%")"></span>
+                                        </div>
+                                        <strong>@EditorContentOwnedCount / @EditorContentTotalCount</strong>
+                                    </div>
+                                </div>
 
-                                @if (string.Equals(_activeTab, "episodes", StringComparison.OrdinalIgnoreCase))
+                                @foreach (var group in EditorContentGroups)
                                 {
-                                    foreach (var group in EpisodeContentGroups)
-                                    {
-                                        <div class="sme-content-group">
-                                            <div class="sme-content-group-header">
-                                                <div class="sme-content-group-title">@group.Title</div>
-                                                @if (!string.IsNullOrWhiteSpace(group.Subtitle))
-                                                {
-                                                    <div class="sme-content-group-subtitle">@group.Subtitle</div>
-                                                }
-                                            </div>
+                                    var collapsed = IsContentGroupCollapsed(group);
+                                    <div class="sme-content-group @(collapsed ? "is-collapsed" : string.Empty)">
+                                        <MudButton Variant="Variant.Text"
+                                                   Color="Color.Inherit"
+                                                   FullWidth="true"
+                                                   Class="sme-content-group-header"
+                                                   UserAttributes="@GetContentGroupHeaderAttributes(collapsed)"
+                                                   OnClick="@(() => ToggleContentGroup(group))">
+                                            <span class="sme-content-group-title">@group.Title</span>
+                                            <span class="sme-content-group-meta">@group.TotalCount @EditorContentItemPlural</span>
+                                            <span class="sme-content-status sme-content-status--owned">
+                                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
+                                                @group.OwnedCount owned
+                                            </span>
+                                            @if (group.MissingCount > 0)
+                                            {
+                                                <span class="sme-content-status sme-content-status--missing">@group.MissingCount missing</span>
+                                            }
+                                            <MudIcon Icon="@(collapsed ? Icons.Material.Outlined.KeyboardArrowDown : Icons.Material.Outlined.KeyboardArrowUp)" Size="Size.Small" />
+                                        </MudButton>
+                                        @if (!string.IsNullOrWhiteSpace(group.Subtitle))
+                                        {
+                                            <div class="sme-content-group-subtitle">@group.Subtitle</div>
+                                        }
+                                        <div class="sme-content-group-progress" aria-hidden="true">
+                                            <span style="width: @($"{group.CompletionPercent:F0}%")"></span>
+                                        </div>
+
+                                        @if (!collapsed)
+                                        {
                                             <div class="sme-content-list">
-                                                @foreach (var episode in group.Episodes)
+                                                @foreach (var entry in group.Items.Select((node, index) => (node, index)))
                                                 {
+                                                    var item = entry.node;
+                                                    var ordinal = GetContentOrdinalLabel(item, entry.index);
+                                                    var meta = GetContentRowMeta(item);
                                                     <MudButton Variant="Variant.Outlined"
                                                                Color="Color.Inherit"
                                                                FullWidth="true"
-                                                               Class="@($"sme-content-item {(IsContentNodeSelected(episode) ? "is-active" : string.Empty)}")"
-                                                               OnClick="@(() => SelectNavigatorNodeAsync(episode.EntityId))">
+                                                               Class="@($"sme-content-item {(IsContentNodeSelected(item) ? "is-active" : string.Empty)} {(item.IsOwned ? "is-owned" : "is-missing")}")"
+                                                               OnClick="@(() => SelectNavigatorNodeAsync(item.EntityId))">
+                                                        <span class="sme-content-item-badge">@ordinal</span>
                                                         <span class="sme-content-item-copy">
-                                                            <span class="sme-content-item-title">@episode.Title</span>
-                                                            @if (!string.IsNullOrWhiteSpace(episode.Subtitle))
+                                                            <span class="sme-content-item-title">@item.Title</span>
+                                                            @if (!string.IsNullOrWhiteSpace(meta))
                                                             {
-                                                                <span class="sme-content-item-subtitle">@episode.Subtitle</span>
+                                                                <span class="sme-content-item-subtitle">@meta</span>
                                                             }
                                                         </span>
-                                                        @if (!string.IsNullOrWhiteSpace(episode.OrdinalLabel))
+                                                        @if (item.IsOwned)
                                                         {
-                                                            <span class="sme-content-item-badge">@episode.OrdinalLabel</span>
+                                                            <span class="sme-content-owned">
+                                                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
+                                                                Owned
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="sme-content-missing">No file in library</span>
                                                         }
                                                     </MudButton>
                                                 }
                                             </div>
-                                        </div>
-                                    }
-                                }
-                                else
-                                {
-                                    <div class="sme-content-list">
-                                        @foreach (var track in ContentRootChildren)
-                                        {
-                                            <MudButton Variant="Variant.Outlined"
-                                                       Color="Color.Inherit"
-                                                       FullWidth="true"
-                                                       Class="@($"sme-content-item {(IsContentNodeSelected(track) ? "is-active" : string.Empty)}")"
-                                                       OnClick="@(() => SelectNavigatorNodeAsync(track.EntityId))">
-                                                <span class="sme-content-item-copy">
-                                                    <span class="sme-content-item-title">@track.Title</span>
-                                                    @if (!string.IsNullOrWhiteSpace(track.Subtitle))
-                                                    {
-                                                        <span class="sme-content-item-subtitle">@track.Subtitle</span>
-                                                    }
-                                                </span>
-                                                @if (!string.IsNullOrWhiteSpace(track.OrdinalLabel))
-                                                {
-                                                    <span class="sme-content-item-badge">@track.OrdinalLabel</span>
-                                                }
-                                            </MudButton>
                                         }
                                     </div>
                                 }

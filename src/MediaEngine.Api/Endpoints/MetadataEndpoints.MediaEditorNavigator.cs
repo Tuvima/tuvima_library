@@ -122,7 +122,7 @@ public static partial class MetadataEndpoints
         }
 
         var valueMap = QueryNavigatorValues(conn, treeRows);
-        var descendantOwnedCounts = ComputeNavigatorOwnedCounts(treeRows);
+        var descendantOwnedCounts = ComputeNavigatorOwnedCounts(treeRows, valueMap);
         var orderedRows = OrderNavigatorRows(treeRows, valueMap);
         var nodes = orderedRows
             .Select(row => BuildNavigatorNodeEnvelope(mediaType, row, valueMap, descendantOwnedCounts))
@@ -306,6 +306,7 @@ public static partial class MetadataEndpoints
                    w.work_kind              AS WorkKind,
                    CAST(w.ordinal AS INTEGER) AS Ordinal,
                    CAST(w.is_catalog_only AS INTEGER) AS IsCatalogOnly,
+                   CAST(COALESCE(w.ownership, 'Owned') AS TEXT) AS Ownership,
                    w.parent_key             AS ParentKey
             FROM work_tree
             INNER JOIN works w ON w.id = work_tree.id
@@ -373,7 +374,9 @@ public static partial class MetadataEndpoints
             _ => false,
         };
 
-    private static IReadOnlyDictionary<Guid, int> ComputeNavigatorOwnedCounts(IReadOnlyList<NavigatorTreeRow> rows)
+    private static IReadOnlyDictionary<Guid, int> ComputeNavigatorOwnedCounts(
+        IReadOnlyList<NavigatorTreeRow> rows,
+        IReadOnlyDictionary<Guid, NavigatorValueRow> valueMap)
     {
         var childrenByParent = rows
             .Where(row => row.ParentWorkId.HasValue)
@@ -392,7 +395,7 @@ public static partial class MetadataEndpoints
             int count;
             if (!isParent)
             {
-                count = row.IsCatalogOnly != 0 ? 0 : 1;
+                count = IsOwnedNavigatorLeaf(row, valueMap) ? 1 : 0;
             }
             else
             {
@@ -448,7 +451,7 @@ public static partial class MetadataEndpoints
         var ordinalLabel = ResolveNavigatorOrdinalLabel(mediaType, row, value);
         var isParent = string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase);
         var quarantineCount = descendantOwnedCounts.TryGetValue(row.WorkId, out var count) ? count : 0;
-        var isOwned = isParent ? quarantineCount > 0 : row.IsCatalogOnly == 0;
+        var isOwned = isParent ? quarantineCount > 0 : IsOwnedNavigatorLeaf(row, valueMap);
 
         return new MediaEditorNavigatorNodeEnvelope(
             NodeId: row.WorkId,
@@ -484,6 +487,20 @@ public static partial class MetadataEndpoints
             "Books" => "book",
             _ => "work",
         };
+
+    private static bool IsOwnedNavigatorLeaf(
+        NavigatorTreeRow row,
+        IReadOnlyDictionary<Guid, NavigatorValueRow> valueMap)
+    {
+        if (string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return row.IsCatalogOnly == 0
+               && !string.Equals(row.Ownership, "Unowned", StringComparison.OrdinalIgnoreCase)
+               && !string.Equals(row.Ownership, "Missing", StringComparison.OrdinalIgnoreCase)
+               && valueMap.TryGetValue(row.WorkId, out var value)
+               && value.AssetId.HasValue;
+    }
 
     private static string ResolveNavigatorScopeId(string mediaType, string nodeKind) =>
         nodeKind switch
@@ -556,6 +573,7 @@ public static partial class MetadataEndpoints
 
         return mediaType switch
         {
+            "TV" => FirstNonBlank(value?.WorkYear),
             "Music" => FirstNonBlank(value?.WorkArtist),
             "Books" or "Audiobooks" => FirstNonBlank(value?.WorkAuthor),
             "Comics" => FirstNonBlank(value?.AssetVolume, value?.WorkYear),
@@ -1511,6 +1529,7 @@ public static partial class MetadataEndpoints
         public string WorkKind { get; init; } = string.Empty;
         public long? Ordinal { get; init; }
         public long IsCatalogOnly { get; init; }
+        public string Ownership { get; init; } = "Owned";
         public string? ParentKey { get; init; }
     }
     private sealed class NavigatorValueRow

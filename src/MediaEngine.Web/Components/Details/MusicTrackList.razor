@@ -5,20 +5,7 @@
 
 @if (Tracks.Count > 0)
 {
-    <section class="tl-completion-view tl-detail-track-section" aria-label="@($"{AlbumTitle} tracks")">
-        <div class="tl-completion-summary">
-            <div>
-                <div class="tl-completion-summary__eyebrow">Tracks</div>
-                <h2>Owned <strong>@OwnedTrackCount</strong> of @Tracks.Count tracks</h2>
-            </div>
-            <div class="tl-completion-summary__meter" aria-label="@($"{OwnedTrackCount} of {Tracks.Count} tracks owned")">
-                <div class="tl-completion-summary__bar">
-                    <span style="width: @($"{CompletionPercent:F0}%")"></span>
-                </div>
-                <strong>@OwnedTrackCount / @Tracks.Count</strong>
-            </div>
-        </div>
-
+    <section class="tl-detail-track-section" aria-label="@($"{AlbumTitle} tracks")">
         <div class="tl-detail-track-list" role="table" aria-label="@($"{AlbumTitle} tracks")">
             <div class="tl-detail-track-list__head" role="row">
                 <span role="columnheader">#</span>
@@ -36,17 +23,13 @@
                 var track = Tracks[index];
                 var isPlaying = IsCurrentTrack(track);
                 <button type="button"
-                        class="tl-detail-track-row @(isPlaying ? "is-playing" : null) @(track.IsOwned ? "is-owned" : "is-missing")"
+                        class="tl-detail-track-row @(isPlaying ? "is-playing" : null)"
                         role="row"
-                        disabled="@(!track.IsOwned)"
-                        aria-label="@(track.IsOwned ? $"Play {track.Title}" : $"{track.Title} missing from library")"
+                        aria-label="@($"Play {track.Title}")"
                         @onclick="@(() => PlayTrackAsync(track, index))">
                     <span class="tl-detail-track-row__number" role="cell">
                         <span class="tl-detail-track-row__ordinal">@DisplayTrackNumber(track, index)</span>
-                        @if (track.IsOwned)
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
-                        }
+                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
                     </span>
                     <span class="tl-detail-track-row__title" role="cell">
                         <span class="tl-detail-track-row__name">@track.Title</span>
@@ -65,16 +48,9 @@
                         {
                             <span class="tl-detail-track-row__playing" aria-label="Currently playing"></span>
                         }
-                        @if (track.IsOwned)
+                        @if (!string.IsNullOrWhiteSpace(track.Quality))
                         {
-                            <span class="tl-completion-owned">
-                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                                Owned
-                            </span>
-                        }
-                        else
-                        {
-                            <span class="tl-completion-missing">No file in library</span>
+                            <span class="tl-detail-track-row__quality">@track.Quality</span>
                         }
                     </span>
                 </button>
@@ -95,9 +71,6 @@
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private int OwnedTrackCount => Tracks.Count(track => track.IsOwned);
-    private double CompletionPercent => Tracks.Count == 0 ? 0 : OwnedTrackCount * 100.0 / Tracks.Count;
-
     private bool ShowArtistColumn =>
         Tracks.Select(track => track.Artist)
             .Where(artist => !string.IsNullOrWhiteSpace(artist))
@@ -107,15 +80,11 @@
 
     private async Task PlayTrackAsync(MediaGroupingItemViewModel track, int index)
     {
-        if (!track.IsOwned)
-            return;
-
-        var queue = Tracks.Where(item => item.IsOwned).Select(ToQueueItem).ToList();
+        var queue = Tracks.Select(ToQueueItem).ToList();
         if (queue.Count == 0)
             return;
 
-        var ownedIndex = Tracks.Take(index).Count(item => item.IsOwned);
-        await Playback.ReplaceQueueItemsAsync(queue, ownedIndex, AlbumTitle, shuffle: false);
+        await Playback.ReplaceQueueItemsAsync(queue, index, AlbumTitle, shuffle: false);
     }
 
     private ListenQueueItem ToQueueItem(MediaGroupingItemViewModel track)
@@ -131,8 +100,7 @@
         };
 
     private bool IsCurrentTrack(MediaGroupingItemViewModel track)
-        => track.IsOwned
-           && Guid.TryParse(track.Id, out var workId)
+        => Guid.TryParse(track.Id, out var workId)
            && Playback.CurrentItem?.WorkId == workId;
 
     private static int TrackSortKey(MediaGroupingItemViewModel track)

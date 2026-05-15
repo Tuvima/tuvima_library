@@ -1,109 +1,84 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<section class="tl-completion-view tl-episode-panel">
-    <div class="tl-completion-summary">
+<section class="tl-episode-panel">
+    <div class="tl-episode-panel__header">
         <div>
-            <div class="tl-completion-summary__eyebrow">Episodes</div>
-            <h2>Owned <strong>@AggregateOwned</strong> of @AggregateTotal episodes</h2>
-            @if (!string.IsNullOrWhiteSpace(IncompleteHint))
+            <h2>Episodes</h2>
+            @if (ActiveGroup is not null)
             {
-                <div class="tl-completion-summary__hint">@IncompleteHint</div>
+                <div class="tl-episode-panel__meta">@ActiveGroup.Items.Count @EpisodeWord(ActiveGroup.Items.Count)</div>
             }
         </div>
-        <div class="tl-completion-summary__meter" aria-label="@($"{AggregateOwned} of {AggregateTotal} episodes owned")">
-            <div class="tl-completion-summary__bar">
-                <span style="width: @($"{AggregateCompletion:F0}%")"></span>
-            </div>
-            <strong>@AggregateOwned / @AggregateTotal</strong>
-        </div>
+
+        @if (VisibleGroups.Count > 1)
+        {
+            <label class="tl-season-dropdown">
+                <span class="sr-only">Season</span>
+                <select value="@SelectedKey" @onchange="SelectSeason">
+                    @foreach (var group in VisibleGroups)
+                    {
+                        <option value="@group.Key">@group.Title</option>
+                    }
+                </select>
+            </label>
+        }
     </div>
 
-    @if (Groups.Count == 0)
+    @if (ActiveGroup is null || ActiveGroup.Items.Count == 0)
     {
-        <div class="tl-episode-empty">No episodes are available yet.</div>
+        <div class="tl-episode-empty">No owned episodes are available for this season yet.</div>
     }
     else
     {
-        <div class="tl-completion-groups">
-            @foreach (var group in Groups)
+        <div class="tl-episode-list">
+            @foreach (var item in ActiveGroup.Items.Select((episode, index) => (episode, index)))
             {
-                var collapsed = IsCollapsed(group);
-                <section class="tl-completion-group @(collapsed ? "is-collapsed" : string.Empty)">
-                    <button type="button"
-                            class="tl-completion-group__header"
-                            aria-expanded="@(collapsed ? "false" : "true")"
-                            @onclick="@(() => ToggleGroup(group))">
-                        <span class="tl-completion-group__title">@group.Title</span>
-                        <span class="tl-completion-group__meta">@group.TotalCount @EpisodeWord(group.TotalCount)</span>
-                        <span class="tl-completion-status tl-completion-status--owned">
-                            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                            @group.OwnedCount owned
-                        </span>
-                        @if (group.MissingCount > 0)
-                        {
-                            <span class="tl-completion-status tl-completion-status--missing">@group.MissingCount missing</span>
-                        }
-                        <MudIcon Icon="@(collapsed ? Icons.Material.Outlined.KeyboardArrowDown : Icons.Material.Outlined.KeyboardArrowUp)" Size="Size.Small" />
-                    </button>
+                var route = item.episode.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route;
+                var episodeNumber = EpisodeNumber(item.episode, item.index);
+                var runtime = RuntimeLabel(item.episode);
+                var secondaryMeta = SecondaryMetadata(item.episode, runtime);
 
-                    @if (!collapsed)
+                <article class="tl-episode-row">
+                    <div class="tl-episode-row__number">@episodeNumber</div>
+
+                    @if (!string.IsNullOrWhiteSpace(route))
                     {
-                        <div class="tl-completion-list">
-                            @foreach (var item in group.Items.Select((episode, index) => (episode, index)))
-                            {
-                                var route = item.episode.IsOwned
-                                    ? item.episode.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route
-                                    : null;
-                                var episodeNumber = EpisodeNumber(item.episode, item.index);
-                                var runtime = RuntimeLabel(item.episode);
-                                var secondaryMeta = SecondaryMetadata(item.episode, runtime);
-
-                                <article class="tl-completion-row tl-episode-row @(item.episode.IsOwned ? "is-owned" : "is-missing")">
-                                    <div class="tl-completion-row__number">@episodeNumber</div>
-                                    <div class="tl-completion-row__body">
-                                        <h3>@item.episode.Title</h3>
-                                        @if (!string.IsNullOrWhiteSpace(secondaryMeta))
-                                        {
-                                            <div class="tl-completion-row__meta">@secondaryMeta</div>
-                                        }
-                                        else if (!string.IsNullOrWhiteSpace(item.episode.Subtitle))
-                                        {
-                                            <div class="tl-completion-row__meta">@item.episode.Subtitle</div>
-                                        }
-                                    </div>
-                                    <div class="tl-completion-row__state">
-                                        @if (item.episode.IsOwned)
-                                        {
-                                            <span class="tl-completion-owned">
-                                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                                                Owned
-                                            </span>
-                                        }
-                                    </div>
-                                    <div class="tl-completion-row__detail">
-                                        @if (!string.IsNullOrWhiteSpace(runtime))
-                                        {
-                                            <span>@runtime</span>
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(item.episode.Quality))
-                                        {
-                                            <span>@item.episode.Quality</span>
-                                        }
-                                        @if (!item.episode.IsOwned)
-                                        {
-                                            <span>No file in library</span>
-                                        }
-                                    </div>
-                                    @if (!string.IsNullOrWhiteSpace(route))
-                                    {
-                                        <a class="tl-completion-row__link" href="@route" aria-label="@($"Open {item.episode.Title}")"></a>
-                                    }
-                                </article>
-                            }
+                        <a class="tl-episode-row__thumb" href="@route" aria-label="@($"Open {item.episode.Title}")">
+                            @Thumbnail(item.episode)
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="tl-episode-row__thumb">
+                            @Thumbnail(item.episode)
                         </div>
                     }
-                </section>
+
+                    <div class="tl-episode-row__body">
+                        <div class="tl-episode-row__titleline">
+                            <h3>@item.episode.Title</h3>
+                            @if (!string.IsNullOrWhiteSpace(runtime))
+                            {
+                                <span>@runtime</span>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(item.episode.Description))
+                        {
+                            <p>@item.episode.Description</p>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(item.episode.Subtitle))
+                        {
+                            <p>@item.episode.Subtitle</p>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(secondaryMeta))
+                        {
+                            <div class="tl-episode-row__meta">@secondaryMeta</div>
+                        }
+                    </div>
+                </article>
             }
         </div>
     }
@@ -112,42 +87,65 @@
 @code {
     [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
 
-    private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _touchedGroups = new(StringComparer.OrdinalIgnoreCase);
+    private string? _selectedKey;
 
-    private int AggregateOwned => Groups.Sum(GroupOwnedCount);
-    private int AggregateTotal => Groups.Sum(GroupTotalCount);
-    private double AggregateCompletion => AggregateTotal == 0 ? 0 : AggregateOwned * 100.0 / AggregateTotal;
-    private string? IncompleteHint => Groups.FirstOrDefault(group => GroupMissingCount(group) > 0) is { } group
-        ? $"{group.Title} incomplete"
-        : null;
+    private IReadOnlyList<MediaGroupingViewModel> VisibleGroups => Groups
+        .Select(group => new MediaGroupingViewModel
+        {
+            Key = group.Key,
+            Title = group.Title,
+            Items = group.Items.Where(IsVisibleEpisode).ToList(),
+        })
+        .Where(group => group.Items.Count > 0)
+        .ToList();
 
-    private bool IsCollapsed(MediaGroupingViewModel group)
+    private string? SelectedKey
     {
-        if (_touchedGroups.Contains(group.Key))
-            return _collapsedGroups.Contains(group.Key);
+        get
+        {
+            if (VisibleGroups.Count == 0)
+                return null;
 
-        return group.InitiallyCollapsed || GroupOwnedCount(group) == 0;
+            if (string.IsNullOrWhiteSpace(_selectedKey) || !VisibleGroups.Any(group => group.Key == _selectedKey))
+                _selectedKey = VisibleGroups[0].Key;
+
+            return _selectedKey;
+        }
     }
 
-    private void ToggleGroup(MediaGroupingViewModel group)
+    private MediaGroupingViewModel? ActiveGroup
+        => SelectedKey is null
+            ? null
+            : VisibleGroups.FirstOrDefault(group => group.Key == SelectedKey);
+
+    private void SelectSeason(ChangeEventArgs args)
     {
-        var collapsed = IsCollapsed(group);
-        _touchedGroups.Add(group.Key);
-        if (collapsed)
-            _collapsedGroups.Remove(group.Key);
+        var value = args.Value?.ToString();
+        if (!string.IsNullOrWhiteSpace(value))
+            _selectedKey = value;
+    }
+
+    private static RenderFragment Thumbnail(MediaGroupingItemViewModel episode) => builder =>
+    {
+        if (!string.IsNullOrWhiteSpace(episode.ArtworkUrl))
+        {
+            builder.OpenElement(0, "img");
+            builder.AddAttribute(1, "src", episode.ArtworkUrl);
+            builder.AddAttribute(2, "alt", episode.Title);
+            builder.CloseElement();
+        }
         else
-            _collapsedGroups.Add(group.Key);
-    }
+        {
+            builder.OpenComponent<GeneratedIdentity>(3);
+            builder.AddAttribute(4, "Name", episode.Title);
+            builder.CloseComponent();
+        }
 
-    private static int GroupOwnedCount(MediaGroupingViewModel group) =>
-        group.OwnedCount > 0 ? group.OwnedCount : group.Items.Count(item => item.IsOwned);
-
-    private static int GroupTotalCount(MediaGroupingViewModel group) =>
-        group.TotalCount > 0 ? group.TotalCount : group.Items.Count;
-
-    private static int GroupMissingCount(MediaGroupingViewModel group) =>
-        group.MissingCount > 0 ? group.MissingCount : Math.Max(0, GroupTotalCount(group) - GroupOwnedCount(group));
+        builder.OpenElement(5, "span");
+        builder.AddAttribute(6, "class", "tl-episode-row__play");
+        builder.AddAttribute(7, "aria-hidden", "true");
+        builder.CloseElement();
+    };
 
     private static string EpisodeNumber(MediaGroupingItemViewModel episode, int index)
     {
@@ -159,14 +157,14 @@
                 || string.Equals(marker[i], "Episode", StringComparison.OrdinalIgnoreCase))
                 && i < marker.Length - 1)
             {
-                return $"E{marker[i + 1].Trim().PadLeft(2, '0')}";
+                return marker[i + 1].Trim();
             }
 
             if (marker[i].StartsWith('E') && marker[i].Length > 1 && int.TryParse(marker[i][1..], out var compact))
-                return $"E{compact:00}";
+                return compact.ToString();
         }
 
-        return $"E{index + 1:00}";
+        return (index + 1).ToString();
     }
 
     private static string? RuntimeLabel(MediaGroupingItemViewModel episode)
@@ -181,7 +179,7 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return labels.Count == 0 ? null : string.Join(" | ", labels);
+        return labels.Count == 0 ? null : string.Join(" • ", labels);
     }
 
     private static bool LooksLikeRuntime(string? value)
@@ -189,6 +187,9 @@
             && (value.Contains(':', StringComparison.Ordinal)
                 || value.Contains("min", StringComparison.OrdinalIgnoreCase)
                 || value.Contains("m", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsVisibleEpisode(MediaGroupingItemViewModel episode) =>
+        episode.IsOwned && episode.Actions.Any(action => !string.IsNullOrWhiteSpace(action.Route));
 
     private static string EpisodeWord(int count) => count == 1 ? "episode" : "episodes";
 }

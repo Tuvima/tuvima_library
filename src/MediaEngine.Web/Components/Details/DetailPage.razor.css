@@ -1604,207 +1604,6 @@
     margin-top: 0.45rem;
 }
 
-::deep .tl-completion-view {
-    width: min(105rem, calc(100% - 3rem));
-    margin: 0 auto;
-    color: rgba(246, 240, 232, 0.9);
-}
-
-::deep .tl-completion-summary {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(14rem, 24rem);
-    gap: 1.5rem;
-    align-items: end;
-    margin-bottom: 1rem;
-    padding: 1.2rem 1.35rem;
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 0.45rem;
-    background: linear-gradient(135deg, rgba(35, 45, 78, 0.68), rgba(10, 14, 28, 0.84));
-}
-
-::deep .tl-completion-summary__eyebrow,
-::deep .tl-completion-summary__hint {
-    color: rgba(246, 240, 232, 0.62);
-    font-size: 0.82rem;
-    font-weight: 750;
-}
-
-::deep .tl-completion-summary h2 {
-    margin: 0.2rem 0 0;
-    color: #fff;
-    font-size: 1.25rem;
-    font-weight: 820;
-}
-
-::deep .tl-completion-summary h2 strong {
-    color: #57d978;
-}
-
-::deep .tl-completion-summary__meter {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 1rem;
-    align-items: center;
-}
-
-::deep .tl-completion-summary__bar {
-    height: 0.55rem;
-    overflow: hidden;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.11);
-}
-
-::deep .tl-completion-summary__bar span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #4fc96a, #75d77e);
-}
-
-::deep .tl-completion-summary__meter strong {
-    color: rgba(246, 240, 232, 0.86);
-    font-size: 0.86rem;
-}
-
-::deep .tl-completion-groups {
-    display: grid;
-    gap: 0.9rem;
-}
-
-::deep .tl-completion-group {
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 0.45rem;
-    background: rgba(13, 19, 38, 0.72);
-}
-
-::deep .tl-completion-group__header {
-    width: 100%;
-    display: grid;
-    grid-template-columns: minmax(10rem, 1fr) auto auto auto auto;
-    gap: 1rem;
-    align-items: center;
-    min-height: 4rem;
-    padding: 0 1.05rem;
-    border: 0;
-    background: rgba(255,255,255,0.035);
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-::deep .tl-completion-group__title {
-    color: #fff;
-    font-size: 1.05rem;
-    font-weight: 850;
-}
-
-::deep .tl-completion-group__meta,
-::deep .tl-completion-row__meta,
-::deep .tl-completion-row__detail {
-    color: rgba(246, 240, 232, 0.56);
-    font-size: 0.84rem;
-    font-weight: 650;
-}
-
-::deep .tl-completion-status,
-::deep .tl-completion-owned,
-::deep .tl-completion-missing {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-height: 1.8rem;
-    padding: 0 0.65rem;
-    border-radius: 0.35rem;
-    font-size: 0.82rem;
-    font-weight: 800;
-    white-space: nowrap;
-}
-
-::deep .tl-completion-status--owned,
-::deep .tl-completion-owned {
-    background: rgba(42, 151, 75, 0.20);
-    color: #66dd7e;
-}
-
-::deep .tl-completion-status--missing,
-::deep .tl-completion-missing {
-    background: rgba(255,255,255,0.055);
-    color: rgba(246, 240, 232, 0.52);
-}
-
-::deep .tl-completion-list {
-    display: grid;
-}
-
-::deep .tl-completion-row.tl-episode-row {
-    position: relative;
-    display: grid;
-    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(7.5rem, auto) minmax(11rem, 20rem);
-    gap: 1rem;
-    align-items: center;
-    min-height: 3.65rem;
-    padding: 0.55rem 1.05rem;
-    border-bottom: 1px solid rgba(255,255,255,0.075);
-    color: rgba(246, 240, 232, 0.9);
-}
-
-::deep .tl-completion-row.tl-episode-row:first-child {
-    padding-inline: 1.05rem;
-    border-radius: 0;
-    background: transparent;
-}
-
-::deep .tl-completion-row:last-child {
-    border-bottom: 0;
-}
-
-::deep .tl-completion-row__number {
-    min-height: 2.2rem;
-    display: inline-grid;
-    place-items: center;
-    border-radius: 0.35rem;
-    background: rgba(255,255,255,0.07);
-    color: rgba(246, 240, 232, 0.82);
-    font-size: 0.82rem;
-    font-weight: 850;
-}
-
-::deep .tl-completion-row__body {
-    min-width: 0;
-}
-
-::deep .tl-completion-row__body h3 {
-    overflow: hidden;
-    margin: 0;
-    color: #fff;
-    font-size: 0.95rem;
-    font-weight: 820;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-::deep .tl-completion-row__detail {
-    display: inline-flex;
-    gap: 0.65rem;
-    justify-content: flex-end;
-    min-width: 0;
-}
-
-::deep .tl-completion-row.is-missing {
-    color: rgba(246, 240, 232, 0.48);
-}
-
-::deep .tl-completion-row.is-missing .tl-completion-row__body h3 {
-    color: rgba(246, 240, 232, 0.58);
-}
-
-::deep .tl-completion-row__link {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-}
-
 ::deep .sr-only {
     position: absolute;
     width: 1px;
@@ -4027,20 +3826,6 @@
     outline: none;
 }
 
-::deep .tl-detail-track-row.is-missing {
-    color: rgba(246, 240, 232, 0.46);
-    cursor: default;
-}
-
-::deep .tl-detail-track-row.is-missing:hover,
-::deep .tl-detail-track-row.is-missing:focus-visible {
-    background: transparent;
-}
-
-::deep .tl-detail-track-row:disabled {
-    opacity: 1;
-}
-
 ::deep .tl-detail-track-row__number {
     display: inline-flex;
     align-items: center;
@@ -4060,20 +3845,10 @@
     display: none;
 }
 
-::deep .tl-detail-track-row.is-missing:hover .tl-detail-track-row__ordinal,
-::deep .tl-detail-track-row.is-missing:focus-visible .tl-detail-track-row__ordinal {
-    display: inline;
-}
-
 ::deep .tl-detail-track-row:hover .tl-detail-track-row__number .mud-icon-root,
 ::deep .tl-detail-track-row:focus-visible .tl-detail-track-row__number .mud-icon-root,
 ::deep .tl-detail-track-row.is-playing .tl-detail-track-row__number .mud-icon-root {
     display: inline-flex;
-}
-
-::deep .tl-detail-track-row.is-missing:hover .tl-detail-track-row__number .mud-icon-root,
-::deep .tl-detail-track-row.is-missing:focus-visible .tl-detail-track-row__number .mud-icon-root {
-    display: none;
 }
 
 ::deep .tl-detail-track-row__title {
@@ -4116,11 +3891,6 @@
     align-items: center;
     justify-content: flex-end;
     gap: 0.55rem;
-}
-
-::deep .tl-detail-track-row__status .tl-completion-owned,
-::deep .tl-detail-track-row__status .tl-completion-missing {
-    padding-inline: 0.55rem;
 }
 
 ::deep .tl-detail-track-row__playing {
