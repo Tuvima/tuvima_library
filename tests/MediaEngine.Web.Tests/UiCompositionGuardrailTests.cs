@@ -203,7 +203,8 @@ public sealed class UiCompositionGuardrailTests
         var reviewTab = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components", "Settings", "SettingsReviewQueueTab.razor"));
         var listenPage = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor.cs"));
 
-        Assert.Matches(@"if\s*\(\s*applied\s*\)\s*\{[^}]*GetDetailPageAsync", detailPage);
+        Assert.Matches(@"if\s*\(\s*applied\s*\)\s*\{[^}]*RefreshCurrentDetailAsync", detailPage);
+        Assert.Contains("GetDetailPageAsync", detailPage);
         Assert.Matches(@"if\s*\(\s*applied\s*\)\s*\{[^}]*LoadAsync", reviewTab);
         Assert.Matches(@"if\s*\(\s*applied\s*\)\s*\{[^}]*LoadAsync", listenPage);
     }

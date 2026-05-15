@@ -5,6 +5,7 @@ public sealed class DetailPageViewModel
     public string Id { get; init; } = string.Empty;
     public DetailEntityType EntityType { get; init; }
     public DetailPresentationContext PresentationContext { get; init; }
+    public DetailEditorTarget? EditorTarget { get; init; }
 
     public string Title { get; init; } = string.Empty;
     public string? Subtitle { get; init; }
@@ -40,6 +41,15 @@ public sealed class DetailPageViewModel
     public CanonicalIdentityStatus IdentityStatus { get; init; } = CanonicalIdentityStatus.Unknown;
     public LibraryStatus LibraryStatus { get; init; } = LibraryStatus.Unknown;
     public bool IsAdminView { get; init; }
+}
+
+public sealed class DetailEditorTarget
+{
+    public string EntityId { get; init; } = string.Empty;
+    public string EntityKind { get; init; } = "Work";
+    public string ContainerMode { get; init; } = "Canonical";
+    public string? InitialTab { get; init; }
+    public string? InitialScope { get; init; }
 }
 
 public sealed class DescriptionAttributionViewModel

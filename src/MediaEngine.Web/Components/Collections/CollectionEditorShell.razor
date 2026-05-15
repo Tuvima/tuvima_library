@@ -139,7 +139,7 @@
     private string _itemSearchText = string.Empty;
     private bool _loadingLibraryItems;
     private bool _loadingManualItems;
-    private List<WorkViewModel> _libraryItems = [];
+    private List<CollectionMediaLookupItemViewModel> _lookupItems = [];
     private List<ManualCollectionItem> _manualItems = [];
 
     private bool IsPlaylist => string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
@@ -190,10 +190,9 @@
                 ? "Create Playlist"
                 : "Create Collection";
 
-    private List<WorkViewModel> FilteredLibraryItems =>
-        _libraryItems
-            .Where(work => !SelectedWorkIds.Contains(work.Id))
-            .Where(work => string.IsNullOrWhiteSpace(_itemSearchText) || MatchesSearch(work, _itemSearchText))
+    private List<CollectionMediaLookupItemViewModel> FilteredLibraryItems =>
+        _lookupItems
+            .Where(work => !SelectedWorkIds.Contains(work.WorkId))
             .Take(12)
             .ToList();
 
@@ -311,7 +310,7 @@
 
     private async Task EnsureLibraryItemsLoadedAsync()
     {
-        if (_libraryItems.Count > 0 || _loadingLibraryItems)
+        if (_lookupItems.Count > 0 || _loadingLibraryItems)
             return;
 
         _loadingLibraryItems = true;
@@ -319,11 +318,38 @@
 
         try
         {
-            _libraryItems = await Orchestrator.GetLibraryWorksAsync();
+            await RefreshLookupItemsAsync();
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Failed to load libraryItems: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loadingLibraryItems = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshLookupItemsAsync()
+    {
+        _lookupItems = await ApiClient.LookupCollectionMediaAsync(
+            _itemSearchText,
+            EditingCollection?.Id,
+            offset: 0,
+            limit: 24,
+            profileId: Request.ActiveProfileId);
+    }
+
+    private async Task OnItemSearchChanged(string value)
+    {
+        _itemSearchText = value;
+        _loadingLibraryItems = true;
+        StateHasChanged();
+
+        try
+        {
+            await RefreshLookupItemsAsync();
         }
         finally
         {
@@ -474,14 +500,14 @@
         return RunPreview();
     }
 
-    private async Task AddManualItemAsync(WorkViewModel work)
+    private async Task AddManualItemAsync(CollectionMediaLookupItemViewModel work)
     {
-        if (SelectedWorkIds.Contains(work.Id))
+        if (SelectedWorkIds.Contains(work.WorkId))
             return;
 
         if (EditingCollection is not null)
         {
-            var ok = await ApiClient.AddCollectionItemAsync(EditingCollection.Id, work.Id, Request.ActiveProfileId);
+            var ok = await ApiClient.AddCollectionItemAsync(EditingCollection.Id, work.WorkId, Request.ActiveProfileId);
             if (!ok)
             {
                 Snackbar.Add("Failed to add the item to this collection.", Severity.Error);
@@ -489,17 +515,18 @@
             }
 
             await LoadManualItemsAsync();
+            await RefreshLookupItemsAsync();
             return;
         }
 
         _manualItems.Add(new ManualCollectionItem
         {
             Id = Guid.Empty,
-            WorkId = work.Id,
+            WorkId = work.WorkId,
             Title = work.Title,
-            Creator = work.Author,
+            Creator = work.Creator,
             MediaType = work.MediaType,
-            CoverUrl = work.CoverUrl,
+            CoverUrl = work.ArtworkUrl,
             SortOrder = _manualItems.Count == 0 ? 1 : _manualItems.Max(item => item.SortOrder) + 1,
         });
         MarkDirty();
@@ -519,11 +546,49 @@
             }
 
             await LoadManualItemsAsync();
+            await RefreshLookupItemsAsync();
             return;
         }
 
         _manualItems.RemoveAll(existing => existing.WorkId == item.WorkId);
         MarkDirty();
+        StateHasChanged();
+    }
+
+    private async Task MoveManualItemAsync(ManualCollectionItem item, int direction)
+    {
+        var ordered = _manualItems.OrderBy(existing => existing.SortOrder).ToList();
+        var index = ordered.FindIndex(existing => existing.Id == item.Id && existing.WorkId == item.WorkId);
+        var targetIndex = index + direction;
+        if (index < 0 || targetIndex < 0 || targetIndex >= ordered.Count)
+            return;
+
+        (ordered[index], ordered[targetIndex]) = (ordered[targetIndex], ordered[index]);
+
+        _manualItems = ordered
+            .Select((existing, order) => existing with { SortOrder = order + 1 })
+            .ToList();
+
+        if (EditingCollection is not null)
+        {
+            var itemIds = _manualItems
+                .OrderBy(existing => existing.SortOrder)
+                .Select(existing => existing.Id)
+                .Where(id => id != Guid.Empty)
+                .ToList();
+            var ok = await ApiClient.ReorderCollectionItemsAsync(EditingCollection.Id, itemIds, Request.ActiveProfileId);
+            if (!ok)
+            {
+                Snackbar.Add("Failed to reorder the collection.", Severity.Error);
+                await LoadManualItemsAsync();
+                return;
+            }
+        }
+        else
+        {
+            MarkDirty();
+        }
+
         StateHasChanged();
     }
 
@@ -680,16 +745,13 @@
             Snackbar.Add($"{failures} item(s) could not be added automatically. Reopen the collection to finish curation.", Severity.Warning);
     }
 
-    private static bool MatchesSearch(WorkViewModel work, string query) =>
-        work.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
-        || (work.Author?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-        || work.MediaType.Contains(query, StringComparison.OrdinalIgnoreCase);
-
-    private static string FormatWorkMeta(WorkViewModel work)
+    private static string FormatWorkMeta(CollectionMediaLookupItemViewModel work)
     {
         var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(work.Author))
-            parts.Add(work.Author);
+        if (!string.IsNullOrWhiteSpace(work.ParentContext))
+            parts.Add(work.ParentContext);
+        if (!string.IsNullOrWhiteSpace(work.Creator))
+            parts.Add(work.Creator);
         if (!string.IsNullOrWhiteSpace(work.MediaType))
             parts.Add(work.MediaType);
         if (!string.IsNullOrWhiteSpace(work.Year))
@@ -719,7 +781,7 @@
 
     private sealed record OpDef(string Key, string Label);
 
-    private sealed class ManualCollectionItem
+    private sealed record ManualCollectionItem
     {
         public Guid Id { get; init; }
         public Guid WorkId { get; init; }
@@ -962,11 +1024,13 @@
                 else
                 {
                     <MudTextField T="string"
-                                  @bind-Value="_itemSearchText"
+                                  Value="_itemSearchText"
+                                  ValueChanged="OnItemSearchChanged"
                                   Label="Add items"
                                   Placeholder="Search title, creator, or media type"
                                   Variant="Variant.Outlined"
                                   Immediate="true"
+                                  DebounceInterval="300"
                                   Class="collection-editor-field" />
 
                     <div class="collection-editor-item-grid">
@@ -1015,6 +1079,8 @@
                                                 <div class="collection-editor-item-title">@item.Title</div>
                                                 <div class="collection-editor-item-meta">@FormatManualItemMeta(item)</div>
                                             </div>
+                                            <MudIconButton Icon="@Icons.Material.Outlined.KeyboardArrowUp" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Min(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, -1))" aria-label="Move item up" />
+                                            <MudIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Max(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, 1))" aria-label="Move item down" />
                                             <MudIconButton Icon="@Icons.Material.Outlined.RemoveCircle" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveManualItemAsync(item))" aria-label="Remove item" />
                                         </div>
                                     }

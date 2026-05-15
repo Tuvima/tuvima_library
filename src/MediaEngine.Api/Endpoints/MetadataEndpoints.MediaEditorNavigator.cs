@@ -302,10 +302,10 @@ public static partial class MetadataEndpoints
             )
             SELECT work_tree.id             AS WorkId,
                    work_tree.parent_work_id AS ParentWorkId,
-                   work_tree.depth          AS Depth,
+                   CAST(work_tree.depth AS INTEGER) AS Depth,
                    w.work_kind              AS WorkKind,
-                   w.ordinal                AS Ordinal,
-                   w.is_catalog_only        AS IsCatalogOnly,
+                   CAST(w.ordinal AS INTEGER) AS Ordinal,
+                   CAST(w.is_catalog_only AS INTEGER) AS IsCatalogOnly,
                    w.parent_key             AS ParentKey
             FROM work_tree
             INNER JOIN works w ON w.id = work_tree.id
@@ -326,32 +326,32 @@ public static partial class MetadataEndpoints
         var result = conn.Query<NavigatorValueRow>("""
             WITH representative_assets AS (
                 SELECT e.work_id AS WorkId,
-                       MIN(ma.id) AS AssetId
+                       CAST(MIN(ma.id) AS TEXT) AS AssetId
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 WHERE e.work_id IN @workIds
                 GROUP BY e.work_id
             )
-            SELECT w.id AS WorkId,
+            SELECT CAST(w.id AS TEXT) AS WorkId,
                    ra.AssetId,
-                   MAX(CASE WHEN wv.key = 'title' THEN wv.value END) AS WorkTitle,
-                   MAX(CASE WHEN wv.key = 'show_name' THEN wv.value END) AS WorkShowName,
-                   MAX(CASE WHEN wv.key = 'network' THEN wv.value END) AS WorkNetwork,
-                   MAX(CASE WHEN wv.key = 'album' THEN wv.value END) AS WorkAlbum,
-                   MAX(CASE WHEN wv.key = 'artist' THEN wv.value END) AS WorkArtist,
-                   MAX(CASE WHEN wv.key = 'series' THEN wv.value END) AS WorkSeries,
-                   MAX(CASE WHEN wv.key = 'author' THEN wv.value END) AS WorkAuthor,
-                   MAX(CASE WHEN wv.key = 'year' THEN wv.value END) AS WorkYear,
-                   MAX(CASE WHEN wv.key = 'season_number' THEN wv.value END) AS WorkSeasonNumber,
-                   MAX(CASE WHEN av.key = 'title' THEN av.value END) AS AssetTitle,
-                   MAX(CASE WHEN av.key = 'episode_title' THEN av.value END) AS AssetEpisodeTitle,
-                   MAX(CASE WHEN av.key = 'episode_number' THEN av.value END) AS AssetEpisodeNumber,
-                   MAX(CASE WHEN av.key = 'season_number' THEN av.value END) AS AssetSeasonNumber,
-                   MAX(CASE WHEN av.key = 'track_number' THEN av.value END) AS AssetTrackNumber,
-                   MAX(CASE WHEN av.key = 'series_position' THEN av.value END) AS AssetSeriesPosition,
-                   MAX(CASE WHEN av.key = 'issue_number' THEN av.value END) AS AssetIssueNumber,
-                   MAX(CASE WHEN av.key = 'volume' THEN av.value END) AS AssetVolume,
-                   w.parent_key AS ParentKey
+                   CAST(MAX(CASE WHEN wv.key = 'title' THEN wv.value END) AS TEXT) AS WorkTitle,
+                   CAST(MAX(CASE WHEN wv.key = 'show_name' THEN wv.value END) AS TEXT) AS WorkShowName,
+                   CAST(MAX(CASE WHEN wv.key = 'network' THEN wv.value END) AS TEXT) AS WorkNetwork,
+                   CAST(MAX(CASE WHEN wv.key = 'album' THEN wv.value END) AS TEXT) AS WorkAlbum,
+                   CAST(MAX(CASE WHEN wv.key = 'artist' THEN wv.value END) AS TEXT) AS WorkArtist,
+                   CAST(MAX(CASE WHEN wv.key = 'series' THEN wv.value END) AS TEXT) AS WorkSeries,
+                   CAST(MAX(CASE WHEN wv.key = 'author' THEN wv.value END) AS TEXT) AS WorkAuthor,
+                   CAST(MAX(CASE WHEN wv.key = 'year' THEN wv.value END) AS TEXT) AS WorkYear,
+                   CAST(MAX(CASE WHEN wv.key = 'season_number' THEN wv.value END) AS TEXT) AS WorkSeasonNumber,
+                   CAST(MAX(CASE WHEN av.key = 'title' THEN av.value END) AS TEXT) AS AssetTitle,
+                   CAST(MAX(CASE WHEN av.key = 'episode_title' THEN av.value END) AS TEXT) AS AssetEpisodeTitle,
+                   CAST(MAX(CASE WHEN av.key = 'episode_number' THEN av.value END) AS TEXT) AS AssetEpisodeNumber,
+                   CAST(MAX(CASE WHEN av.key = 'season_number' THEN av.value END) AS TEXT) AS AssetSeasonNumber,
+                   CAST(MAX(CASE WHEN av.key = 'track_number' THEN av.value END) AS TEXT) AS AssetTrackNumber,
+                   CAST(MAX(CASE WHEN av.key = 'series_position' THEN av.value END) AS TEXT) AS AssetSeriesPosition,
+                   CAST(MAX(CASE WHEN av.key = 'issue_number' THEN av.value END) AS TEXT) AS AssetIssueNumber,
+                   CAST(MAX(CASE WHEN av.key = 'volume' THEN av.value END) AS TEXT) AS AssetVolume,
+                   CAST(w.parent_key AS TEXT) AS ParentKey
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
             LEFT JOIN canonical_values wv ON wv.entity_id = w.id
@@ -392,7 +392,7 @@ public static partial class MetadataEndpoints
             int count;
             if (!isParent)
             {
-                count = row.IsCatalogOnly ? 0 : 1;
+                count = row.IsCatalogOnly != 0 ? 0 : 1;
             }
             else
             {
@@ -448,7 +448,7 @@ public static partial class MetadataEndpoints
         var ordinalLabel = ResolveNavigatorOrdinalLabel(mediaType, row, value);
         var isParent = string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase);
         var quarantineCount = descendantOwnedCounts.TryGetValue(row.WorkId, out var count) ? count : 0;
-        var isOwned = isParent ? quarantineCount > 0 : !row.IsCatalogOnly;
+        var isOwned = isParent ? quarantineCount > 0 : row.IsCatalogOnly == 0;
 
         return new MediaEditorNavigatorNodeEnvelope(
             NodeId: row.WorkId,
@@ -460,7 +460,7 @@ public static partial class MetadataEndpoints
             Title: title,
             Subtitle: subtitle,
             OrdinalLabel: ordinalLabel,
-            Depth: row.Depth,
+            Depth: (int)row.Depth,
             IsRoot: row.Depth == 0,
             IsLeaf: !isParent,
             IsOwned: isOwned,
@@ -525,7 +525,7 @@ public static partial class MetadataEndpoints
         {
             "TV" when row.Depth == 0 => FirstNonBlank(value?.WorkShowName, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
             "TV" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                $"Season {ParseNavigatorOrdinal(value?.AssetSeasonNumber ?? value?.WorkSeasonNumber, row.Ordinal)?.ToString(CultureInfo.InvariantCulture) ?? "?"}",
+                $"Season {ParseNavigatorOrdinal(value?.AssetSeasonNumber ?? value?.WorkSeasonNumber, ToInt(row.Ordinal))?.ToString(CultureInfo.InvariantCulture) ?? "?"}",
             "TV" => FirstNonBlank(value?.AssetEpisodeTitle, value?.AssetTitle, value?.WorkTitle, $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Music" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
                 FirstNonBlank(value?.WorkAlbum, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Album"),
@@ -575,7 +575,7 @@ public static partial class MetadataEndpoints
                 "Books" or "Audiobooks" => value?.AssetSeriesPosition,
                 _ => null,
             },
-            row.Ordinal);
+            ToInt(row.Ordinal));
 
         if (ordinal is null)
             return null;
@@ -633,10 +633,10 @@ public static partial class MetadataEndpoints
         var rows = conn.Query<NavigatorTreeRow>("""
             SELECT w.id             AS WorkId,
                    w.parent_work_id AS ParentWorkId,
-                   1                AS Depth,
+                   CAST(1 AS INTEGER) AS Depth,
                    w.work_kind      AS WorkKind,
-                   w.ordinal        AS Ordinal,
-                   w.is_catalog_only AS IsCatalogOnly,
+                   CAST(w.ordinal AS INTEGER) AS Ordinal,
+                   CAST(w.is_catalog_only AS INTEGER) AS IsCatalogOnly,
                    w.parent_key     AS ParentKey
             FROM works w
             WHERE w.parent_work_id = @showId
@@ -1485,6 +1485,9 @@ public static partial class MetadataEndpoints
         return parts.Count == 0 ? string.Empty : string.Join(" • ", parts);
     }
 
+    private static int? ToInt(long? value) =>
+        value.HasValue && value.Value >= int.MinValue && value.Value <= int.MaxValue ? (int)value.Value : null;
+
     private static int? ParseNavigatorOrdinal(string? raw, int? fallback)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -1500,8 +1503,39 @@ public static partial class MetadataEndpoints
     private static Guid? GetRequestTarget(IReadOnlyDictionary<string, Guid?> targets, string key) =>
         targets.TryGetValue(key, out var value) && value.HasValue && value.Value != Guid.Empty ? value.Value : null;
 
-    private sealed record NavigatorTreeRow(Guid WorkId, Guid? ParentWorkId, int Depth, string WorkKind, int? Ordinal, bool IsCatalogOnly, string? ParentKey);
-    private sealed record NavigatorValueRow(Guid WorkId, Guid? AssetId, string? WorkTitle, string? WorkShowName, string? WorkNetwork, string? WorkAlbum, string? WorkArtist, string? WorkSeries, string? WorkAuthor, string? WorkYear, string? WorkSeasonNumber, string? AssetTitle, string? AssetEpisodeTitle, string? AssetEpisodeNumber, string? AssetSeasonNumber, string? AssetTrackNumber, string? AssetSeriesPosition, string? AssetIssueNumber, string? AssetVolume, string? ParentKey);
+    private sealed class NavigatorTreeRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid? ParentWorkId { get; init; }
+        public long Depth { get; init; }
+        public string WorkKind { get; init; } = string.Empty;
+        public long? Ordinal { get; init; }
+        public long IsCatalogOnly { get; init; }
+        public string? ParentKey { get; init; }
+    }
+    private sealed class NavigatorValueRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid? AssetId { get; init; }
+        public string? WorkTitle { get; init; }
+        public string? WorkShowName { get; init; }
+        public string? WorkNetwork { get; init; }
+        public string? WorkAlbum { get; init; }
+        public string? WorkArtist { get; init; }
+        public string? WorkSeries { get; init; }
+        public string? WorkAuthor { get; init; }
+        public string? WorkYear { get; init; }
+        public string? WorkSeasonNumber { get; init; }
+        public string? AssetTitle { get; init; }
+        public string? AssetEpisodeTitle { get; init; }
+        public string? AssetEpisodeNumber { get; init; }
+        public string? AssetSeasonNumber { get; init; }
+        public string? AssetTrackNumber { get; init; }
+        public string? AssetSeriesPosition { get; init; }
+        public string? AssetIssueNumber { get; init; }
+        public string? AssetVolume { get; init; }
+        public string? ParentKey { get; init; }
+    }
     private sealed record MembershipEntityRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, int? Ordinal, string? ParentKey, Guid RootWorkId);
     private sealed record MembershipPlan(string Action, string MediaType, Guid CurrentEntityId, Guid? CurrentParentEntityId, Guid CurrentRootEntityId, int? CurrentOrdinal, string? RequestedTitle, string? RequestedParentLabel, string? RequestedSecondaryLabel, string? RequestedParentKey, int? RequestedOrdinal, Guid? SelectedPrimaryTargetId, Guid? SelectedSecondaryTargetId);
     private sealed record ResolvedMoveTarget(string Action, Guid? TargetParentEntityId, string TargetPath, bool RequiresNewTarget, bool CanApply, string Message, string? ConflictMessage, Guid? Stage2TargetEntityId = null);

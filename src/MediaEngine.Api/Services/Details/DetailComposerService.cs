@@ -168,6 +168,13 @@ public sealed class DetailComposerService
             Id = workId.ToString("D"),
             EntityType = entityType,
             PresentationContext = context,
+            EditorTarget = new DetailEditorTarget
+            {
+                EntityId = workId.ToString("D"),
+                EntityKind = "Work",
+                ContainerMode = IsCanonicalContainerEntity(entityType) ? "Canonical" : "Singular",
+                InitialTab = "details",
+            },
             Title = entityType == DetailEntityType.TvEpisode
                 ? FirstNonBlank(detail.EpisodeTitle, GetValue(values, MetadataFieldConstants.EpisodeTitle), detail.Title, detail.FileName, "Untitled")
                 : FirstNonBlank(detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled"),
@@ -314,6 +321,7 @@ public sealed class DetailComposerService
             Id = collectionId.ToString("D"),
             EntityType = entityType,
             PresentationContext = context,
+            EditorTarget = BuildCollectionEditorTarget(collectionId, entityType, rootWorkId),
             Title = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values),
             Subtitle = BuildCollectionSubtitle(entityType, works, values),
             Tagline = heroSummary,
@@ -1939,6 +1947,7 @@ public sealed class DetailComposerService
             FROM works w
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
+            LEFT JOIN collection_items ci ON ci.work_id = w.id AND ci.collection_id = @collectionId
             LEFT JOIN editions e ON e.work_id = w.id
             LEFT JOIN media_assets ma ON ma.edition_id = e.id
             LEFT JOIN user_states us ON us.asset_id = ma.id
@@ -1998,8 +2007,9 @@ public sealed class DetailComposerService
             LEFT JOIN canonical_values hero_state_root ON hero_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND hero_state_root.key = 'hero_state'
             LEFT JOIN canonical_values banner_state_root ON banner_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND banner_state_root.key = 'banner_state'
             WHERE w.collection_id = @collectionId
+               OR ci.collection_id = @collectionId
             GROUP BY w.id
-            ORDER BY CAST(NULLIF(Season, '') AS INTEGER), CAST(NULLIF(Episode, '') AS INTEGER), CAST(NULLIF(TrackNumber, '') AS INTEGER), COALESCE(w.ordinal, 9999), Title;
+            ORDER BY COALESCE(ci.sort_order, 9999), CAST(NULLIF(Season, '') AS INTEGER), CAST(NULLIF(Episode, '') AS INTEGER), CAST(NULLIF(TrackNumber, '') AS INTEGER), COALESCE(w.ordinal, 9999), Title;
             """,
             new { collectionId = collectionId.ToString(), defaultOwnerUserId = DefaultOwnerUserId.ToString("D") },
             cancellationToken: ct));
@@ -2509,6 +2519,44 @@ public sealed class DetailComposerService
         // TODO: Replace the safe Movie/TV hero stub with a real playback capability flag when group watch is added.
         return false;
     }
+
+    private static DetailEditorTarget BuildCollectionEditorTarget(
+        Guid collectionId,
+        DetailEntityType entityType,
+        Guid? rootWorkId)
+    {
+        if (IsCanonicalContainerEntity(entityType) && rootWorkId.HasValue)
+        {
+            return new DetailEditorTarget
+            {
+                EntityId = rootWorkId.Value.ToString("D"),
+                EntityKind = "Work",
+                ContainerMode = "Canonical",
+                InitialTab = entityType switch
+                {
+                    DetailEntityType.TvShow or DetailEntityType.TvSeason => "episodes",
+                    DetailEntityType.MusicAlbum => "tracks",
+                    _ => "details",
+                },
+            };
+        }
+
+        return new DetailEditorTarget
+        {
+            EntityId = collectionId.ToString("D"),
+            EntityKind = "Collection",
+            ContainerMode = "Curated",
+            InitialTab = "media",
+        };
+    }
+
+    private static bool IsCanonicalContainerEntity(DetailEntityType entityType) =>
+        entityType is DetailEntityType.TvShow
+            or DetailEntityType.TvSeason
+            or DetailEntityType.MusicAlbum
+            or DetailEntityType.BookSeries
+            or DetailEntityType.ComicSeries
+            or DetailEntityType.MovieSeries;
 
     private static IReadOnlyList<DetailAction> BuildOverflowActions(Guid id, DetailEntityType entityType, bool isAdminView)
     {

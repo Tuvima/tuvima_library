@@ -221,6 +221,31 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_JoinsCollectionItemsWhenLoadingCollectionWorks()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("LEFT JOIN collection_items ci ON ci.work_id = w.id AND ci.collection_id = @collectionId", source);
+        Assert.Contains("OR ci.collection_id = @collectionId", source);
+        Assert.Contains("ORDER BY COALESCE(ci.sort_order, 9999)", source);
+        var contributorStart = source.IndexOf("LoadContributorTargetIdsAsync", StringComparison.Ordinal);
+        var contributorEnd = source.IndexOf("if (row is null)", contributorStart, StringComparison.Ordinal);
+        Assert.DoesNotContain("collection_items ci", source[contributorStart..contributorEnd]);
+    }
+
+    [Fact]
+    public void MediaEditorNavigator_UsesSettableRowsForSqliteMaterialization()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs"));
+
+        Assert.Contains("private sealed class NavigatorTreeRow", source);
+        Assert.Contains("public long? Ordinal { get; init; }", source);
+        Assert.Contains("public long IsCatalogOnly { get; init; }", source);
+        Assert.Contains("private sealed class NavigatorValueRow", source);
+        Assert.Contains("CAST(MIN(ma.id) AS TEXT) AS AssetId", source);
+    }
+
+    [Fact]
     public void DetailComposer_PrefersOwnedFormatArtworkForWorkHero()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));

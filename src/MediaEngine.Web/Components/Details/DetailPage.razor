@@ -1,10 +1,14 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Discovery
+@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Services.Playback
 @inject IEngineApiClient ApiClient
 @inject MediaEditorLauncherService MediaEditorLauncher
+@inject CollectionEditorLauncherService CollectionEditorLauncher
+@inject IDialogService DialogService
 @inject MediaReactionService Reactions
 @inject ListenPlaybackService Playback
 @inject UIOrchestratorService Orchestrator
@@ -130,6 +134,12 @@
             return;
         }
 
+        if (action.Key is "add-to-collection" or "save")
+        {
+            await OpenAddToCollectionAsync();
+            return;
+        }
+
         if (action.Key == "details")
         {
             await SetActiveTabAsync("details");
@@ -172,13 +182,39 @@
 
         try
         {
+            var target = ResolveEditorTarget(entityId);
+            if (string.Equals(target.EntityKind, "Collection", StringComparison.OrdinalIgnoreCase))
+            {
+                var collection = await ResolveManagedCollectionForEditorAsync(target.EntityId);
+                if (collection is null)
+                {
+                    Snackbar.Add("Collection editor could not load this collection.", Severity.Error);
+                    return;
+                }
+
+                var collectionApplied = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
+                {
+                    EditingCollection = collection,
+                    ActiveProfileId = collection.ProfileId,
+                    CanManageSharedCollections = Model.IsAdminView || collection.CanShare,
+                    Mode = "Collection",
+                });
+
+                if (collectionApplied)
+                    await RefreshCurrentDetailAsync();
+
+                return;
+            }
+
             var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
             {
-                EntityIds = [entityId],
-                LaunchEntityId = entityId,
-                LaunchEntityKind = Model.EntityType.ToString(),
+                EntityIds = [target.EntityId],
+                LaunchEntityId = target.EntityId,
+                LaunchEntityKind = target.EntityKind,
+                ContainerMode = target.ContainerMode,
                 Mode = SharedMediaEditorMode.Normal,
-                InitialTab = "details",
+                InitialTab = target.InitialTab ?? "details",
+                InitialScope = target.InitialScope,
                 MediaType = ResolveEditorMediaType(Model.EntityType, Model.PresentationContext),
                 HeaderTitle = Model.Title,
                 HeaderSubtitle = Model.Subtitle,
@@ -198,10 +234,7 @@
 
             if (applied)
             {
-                var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext);
-                if (updated is not null)
-                    Model = updated;
-
+                await RefreshCurrentDetailAsync();
                 Snackbar.Add("Media details updated.", Severity.Success);
             }
         }
@@ -209,6 +242,90 @@
         {
             Snackbar.Add($"Media editor could not open: {ex.Message}", Severity.Error);
         }
+    }
+
+    private (Guid EntityId, string EntityKind, string ContainerMode, string? InitialTab, string? InitialScope) ResolveEditorTarget(Guid fallbackEntityId)
+    {
+        var target = Model?.EditorTarget;
+        return target is not null && Guid.TryParse(target.EntityId, out var targetId)
+            ? (targetId, target.EntityKind, target.ContainerMode, target.InitialTab, target.InitialScope)
+            : (fallbackEntityId, Model?.EntityType.ToString() ?? "Work", "Canonical", "details", null);
+    }
+
+    private async Task<CollectionListItemViewModel?> ResolveManagedCollectionForEditorAsync(Guid collectionId)
+    {
+        var collections = await ApiClient.GetManagedCollectionsAsync();
+        var collection = collections.FirstOrDefault(item => item.Id == collectionId);
+        return collection is null ? null : ToCollectionListItem(collection);
+    }
+
+    private static CollectionListItemViewModel ToCollectionListItem(ManagedCollectionViewModel collection) =>
+        new()
+        {
+            Id = collection.Id,
+            Name = collection.Name,
+            Description = collection.Description,
+            IconName = collection.IconName,
+            CollectionType = collection.CollectionType,
+            Resolution = collection.Resolution,
+            Scope = collection.Scope,
+            ProfileId = collection.ProfileId,
+            Visibility = collection.Visibility,
+            IsEnabled = collection.IsEnabled,
+            IsFeatured = collection.IsFeatured,
+            ItemCount = collection.ItemCount,
+            RuleJson = collection.RuleJson,
+            RuleHash = collection.RuleHash,
+            MatchMode = collection.MatchMode,
+            SortField = collection.SortField,
+            SortDirection = collection.SortDirection,
+            LiveUpdating = collection.LiveUpdating,
+            CoverUrl = collection.SquareArtworkUrl,
+            CreatedAt = collection.CreatedAt,
+            CanEdit = collection.CanEdit,
+            CanShare = collection.CanShare,
+        };
+
+    private async Task RefreshCurrentDetailAsync()
+    {
+        if (Model is null || !Guid.TryParse(Model.Id, out var entityId))
+            return;
+
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext);
+        if (updated is not null)
+        {
+            Model = updated;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OpenAddToCollectionAsync()
+    {
+        if (Model is null || !Guid.TryParse(Model.EditorTarget?.EntityId ?? Model.Id, out var workId))
+            return;
+
+        if (string.Equals(Model.EditorTarget?.EntityKind, "Collection", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var dialog = await DialogService.ShowAsync<AddToCollectionDialog>(
+            "Add to collection",
+            new DialogParameters
+            {
+                { nameof(AddToCollectionDialog.WorkId), workId },
+                { nameof(AddToCollectionDialog.WorkTitle), Model.Title },
+            },
+            new DialogOptions
+            {
+                CloseButton = false,
+                NoHeader = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                BackdropClick = true,
+                CloseOnEscapeKey = true,
+            });
+
+        if (dialog is not null)
+            await dialog.Result;
     }
 
     private async Task RefreshAfterEditorArtworkChangeAsync()

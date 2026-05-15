@@ -5400,6 +5400,50 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<CollectionMediaLookupItemViewModel>> LookupCollectionMediaAsync(
+        string? query,
+        Guid? collectionId = null,
+        string? mediaTypes = null,
+        int offset = 0,
+        int limit = 24,
+        Guid? profileId = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var parameters = new List<string>
+            {
+                $"offset={Math.Max(0, offset)}",
+                $"limit={Math.Clamp(limit, 1, 100)}",
+            };
+
+            if (!string.IsNullOrWhiteSpace(query))
+                parameters.Add($"q={Uri.EscapeDataString(query.Trim())}");
+            if (collectionId.HasValue)
+                parameters.Add($"collectionId={collectionId.Value:D}");
+            if (!string.IsNullOrWhiteSpace(mediaTypes))
+                parameters.Add($"mediaTypes={Uri.EscapeDataString(mediaTypes)}");
+
+            var url = $"/collections/media-lookup?{string.Join("&", parameters)}";
+            url = AppendCollectionProfileQuery(url, profileId);
+            var items = await _http.GetFromJsonAsync<List<CollectionMediaLookupItemViewModel>>(url, ct) ?? [];
+            foreach (var item in items)
+            {
+                if (item.ArtworkUrl is not null)
+                    item.ArtworkUrl = AbsoluteUrl(item.ArtworkUrl);
+            }
+
+            return items;
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /collections/media-lookup failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     public async Task<bool> AddCollectionItemAsync(Guid collectionId, Guid workId, Guid? profileId = null, CancellationToken ct = default)
     {
         try

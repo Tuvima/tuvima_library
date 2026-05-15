@@ -925,6 +925,9 @@ public interface IEngineApiClient
     /// <summary>GET /collections/{id}/items?limit= — curated items for a collection.</summary>
     Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, Guid? profileId = null, CancellationToken ct = default);
 
+    /// <summary>GET /collections/media-lookup - search local visible media for collection membership.</summary>
+    Task<List<CollectionMediaLookupItemViewModel>> LookupCollectionMediaAsync(string? query, Guid? collectionId = null, string? mediaTypes = null, int offset = 0, int limit = 24, Guid? profileId = null, CancellationToken ct = default);
+
     /// <summary>POST /collections/{id}/items — add a work to a playlist.</summary>
     Task<bool> AddCollectionItemAsync(Guid collectionId, Guid workId, Guid? profileId = null, CancellationToken ct = default);
 

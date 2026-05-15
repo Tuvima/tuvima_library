@@ -28,6 +28,8 @@ public sealed class MediaEditorLaunchRequest
     public List<Guid> EntityIds { get; init; } = [];
     public Guid? LaunchEntityId { get; init; }
     public string? LaunchEntityKind { get; init; }
+    public string? ContainerMode { get; init; }
+    public Guid? SelectedCollectionId { get; init; }
     public SharedMediaEditorMode Mode { get; init; } = SharedMediaEditorMode.Normal;
     public MediaEditorIdentityIntent IdentityIntent { get; init; } = MediaEditorIdentityIntent.None;
     public string? InitialScope { get; init; }

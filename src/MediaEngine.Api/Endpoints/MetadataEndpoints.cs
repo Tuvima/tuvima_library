@@ -2177,8 +2177,9 @@ public static partial class MetadataEndpoints
         switch (mediaType)
         {
             case "TV":
-                var isEpisodeLaunch = !string.IsNullOrWhiteSpace(episodeNumber)
-                    || (hasParentScope && launch.ParentWorkId!.Value != rootWorkId);
+                var isEpisodeLaunch = string.Equals(launchWorkKind, "child", StringComparison.OrdinalIgnoreCase)
+                    && hasParentScope
+                    && launch.ParentWorkId!.Value != rootWorkId;
                 var isSeasonLaunch = isParentLaunch && hasParentScope;
                 var seasonWorkId = isSeasonLaunch
                     ? launch.WorkId

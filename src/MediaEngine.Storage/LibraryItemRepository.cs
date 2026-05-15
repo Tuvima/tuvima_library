@@ -266,20 +266,35 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             """,
             new { entityId = entityId.ToString() });
 
-        var lineageRow = conn.QueryFirstOrDefault<(string AssetId, string RootParentWorkId, string MediaType)>("""
-            SELECT MIN(ma.id) AS AssetId,
+        var lineageRow = conn.QueryFirstOrDefault<(string? AssetId, string RootParentWorkId, string MediaType)>("""
+            WITH RECURSIVE work_tree(id, depth) AS (
+                SELECT w.id, 0
+                FROM works w
+                WHERE w.id = @entityId
+                UNION ALL
+                SELECT child.id, work_tree.depth + 1
+                FROM works child
+                INNER JOIN work_tree ON child.parent_work_id = work_tree.id
+            ),
+            representative_asset AS (
+                SELECT ma.id AS AssetId
+                FROM work_tree
+                INNER JOIN editions e ON e.work_id = work_tree.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                ORDER BY work_tree.depth, ma.id
+                LIMIT 1
+            )
+            SELECT (SELECT AssetId FROM representative_asset) AS AssetId,
                    COALESCE(gp.id, p.id, w.id) AS RootParentWorkId,
                    w.media_type AS MediaType
             FROM works w
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
-            LEFT JOIN editions e ON e.work_id = w.id
-            LEFT JOIN media_assets ma ON ma.edition_id = e.id
             WHERE w.id = @entityId
-            GROUP BY w.id;
+            LIMIT 1;
             """, new { entityId = entityId.ToString() });
 
-        if (lineageRow == default || lineageRow.AssetId is null)
+        if (lineageRow == default)
             return null;
 
         var assetIdStr = lineageRow.AssetId;
@@ -296,6 +311,26 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             WHERE entity_id = @assetId
             ORDER BY key;
             """, new { assetId = assetIdStr })
+            .Select(r => new LibraryItemCanonicalValue(
+                Key: r.Key,
+                Value: r.Value,
+                IsConflicted: r.IsConflicted == 1,
+                WinningProviderId: r.WinningProviderId,
+                NeedsReview: r.NeedsReview == 1,
+                LastScoredAt: ParseDateTimeOffset(r.LastScoredAt) ?? DateTimeOffset.MinValue))
+            .ToList();
+
+        var targetValues = conn.Query<(string Key, string Value, int IsConflicted, string? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
+            SELECT key AS Key,
+                   value AS Value,
+                   is_conflicted AS IsConflicted,
+                   winning_provider_id AS WinningProviderId,
+                   needs_review AS NeedsReview,
+                   last_scored_at AS LastScoredAt
+            FROM canonical_values
+            WHERE entity_id = @entityId
+            ORDER BY key;
+            """, new { entityId = entityId.ToString() })
             .Select(r => new LibraryItemCanonicalValue(
                 Key: r.Key,
                 Value: r.Value,
@@ -326,7 +361,8 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             .ToList();
 
         var canonicalValues = parentValues
-            .Where(p => !selfValues.Any(s => s.Key == p.Key))
+            .Where(p => !targetValues.Any(t => t.Key == p.Key) && !selfValues.Any(s => s.Key == p.Key))
+            .Concat(targetValues.Where(t => !selfValues.Any(s => s.Key == t.Key)))
             .Concat(selfValues)
             .ToList();
 
@@ -339,9 +375,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                    is_user_locked AS IsUserLocked,
                    claimed_at AS ClaimedAt
             FROM metadata_claims
-            WHERE entity_id IN (@assetId, @parentId)
+            WHERE entity_id IN (@assetId, @entityId, @parentId)
             ORDER BY claimed_at DESC;
-            """, new { assetId = assetIdStr, parentId = rootParentStr })
+            """, new { assetId = assetIdStr, entityId = entityId.ToString(), parentId = rootParentStr })
             .Select(r => new LibraryItemClaimRecord(
                 Id: Guid.Parse(r.Id),
                 ClaimKey: r.ClaimKey,
@@ -412,13 +448,14 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         if (!string.IsNullOrWhiteSpace(projection?.WikidataQid) && !bridgeIds.ContainsKey(BridgeIdKeys.WikidataQid))
             bridgeIds[BridgeIdKeys.WikidataQid] = projection.WikidataQid;
 
+        var latestJobEntityId = string.IsNullOrWhiteSpace(assetIdStr) ? entityId.ToString() : assetIdStr;
         var latestJobState = conn.QueryFirstOrDefault<string?>("""
             SELECT state
             FROM identity_jobs
             WHERE entity_id = @entityId
             ORDER BY updated_at DESC, created_at DESC
             LIMIT 1;
-            """, new { entityId = assetIdStr });
+            """, new { entityId = latestJobEntityId });
 
         if (projection is null && canonicalValues.Count == 0)
             return null;
