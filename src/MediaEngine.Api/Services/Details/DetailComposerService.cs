@@ -253,7 +253,12 @@ public sealed class DetailComposerService
             StringValue(rawRow.HeroBrandLabel),
             StringValue(rawRow.HeroBrandImageUrl));
 
-        var works = await LoadCollectionWorksAsync(collectionId, ct);
+        var collectionValues = await LoadCanonicalMapAsync(collectionId, ct);
+        var rootWorkId = await LoadCollectionRootWorkIdAsync(
+            collectionId,
+            requireRootWithChildren: entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum or DetailEntityType.MovieSeries or DetailEntityType.BookSeries,
+            ct);
+        var works = await LoadCollectionWorksAsync(collectionId, rootWorkId, ct);
         if (entityType == DetailEntityType.Collection)
             entityType = InferCollectionEntityType(works);
 
@@ -264,11 +269,6 @@ public sealed class DetailComposerService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(8)
             .ToList();
-        var collectionValues = await LoadCanonicalMapAsync(collectionId, ct);
-        var rootWorkId = await LoadCollectionRootWorkIdAsync(
-            collectionId,
-            requireRootWithChildren: entityType is DetailEntityType.TvShow or DetailEntityType.MovieSeries or DetailEntityType.BookSeries,
-            ct);
         var rootValues = rootWorkId.HasValue
             ? await LoadCanonicalMapAsync(rootWorkId.Value, ct)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -492,7 +492,7 @@ public sealed class DetailComposerService
         if (row is null)
             return null;
 
-        var works = await LoadCollectionWorksAsync(id, ct);
+        var works = await LoadCollectionWorksAsync(id, rootWorkId: null, ct);
         var relatedArt = works.Select(w => w.ArtworkUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(10).ToList();
         var characterGroups = await BuildCollectionCharactersAsync(id, row.WikidataQid, ct);
         var contributorGroups = await BuildUniverseCastGroupsAsync(row.WikidataQid, ct);
@@ -1912,7 +1912,7 @@ public sealed class DetailComposerService
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private async Task<IReadOnlyList<CollectionWorkSummary>> LoadCollectionWorksAsync(Guid collectionId, CancellationToken ct)
+    private async Task<IReadOnlyList<CollectionWorkSummary>> LoadCollectionWorksAsync(Guid collectionId, Guid? rootWorkId, CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
         var rawRows = await conn.QueryAsync(new CommandDefinition(
@@ -1943,7 +1943,10 @@ public sealed class DetailComposerService
                    CAST(COALESCE(NULLIF(still_asset.value, ''), NULLIF(still_work.value, ''), NULLIF(bg_asset.value, ''), NULLIF(bg_work.value, ''), NULLIF(hero_asset.value, ''), NULLIF(hero_work.value, ''), NULLIF(banner_asset.value, ''), NULLIF(banner_work.value, ''), NULLIF(bg_root.value, ''), NULLIF(hero_root.value, ''), NULLIF(banner_root.value, '')) AS TEXT) AS BackgroundUrl,
                    CAST(COALESCE(NULLIF(cover_state_asset.value, ''), NULLIF(cover_state_work.value, ''), NULLIF(cover_state_root.value, '')) AS TEXT) AS CoverState,
                    CAST(COALESCE(NULLIF(bg_state_asset.value, ''), NULLIF(bg_state_work.value, ''), NULLIF(hero_state_asset.value, ''), NULLIF(hero_state_work.value, ''), NULLIF(banner_state_asset.value, ''), NULLIF(banner_state_work.value, ''), NULLIF(bg_state_root.value, ''), NULLIF(hero_state_root.value, ''), NULLIF(banner_state_root.value, '')) AS TEXT) AS BackgroundState,
-                   MAX(us.progress_pct) AS ProgressPercent
+                   MAX(us.progress_pct) AS ProgressPercent,
+                   CASE WHEN MAX(ma.id) IS NULL THEN 0 ELSE 1 END AS HasAsset,
+                   CAST(COALESCE(w.ownership, 'Owned') AS TEXT) AS Ownership,
+                   COALESCE(w.is_catalog_only, 0) AS IsCatalogOnly
             FROM works w
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
@@ -2008,10 +2011,26 @@ public sealed class DetailComposerService
             LEFT JOIN canonical_values banner_state_root ON banner_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND banner_state_root.key = 'banner_state'
             WHERE w.collection_id = @collectionId
                OR ci.collection_id = @collectionId
+               OR (
+                   @rootWorkId IS NOT NULL
+                   AND (
+                       p.parent_work_id = @rootWorkId
+                       OR (
+                           w.parent_work_id = @rootWorkId
+                           AND EXISTS (
+                               SELECT 1
+                               FROM canonical_values child_marker
+                               WHERE child_marker.entity_id = w.id
+                                 AND child_marker.key IN ('episode_number', 'track_number')
+                                 AND NULLIF(CAST(child_marker.value AS TEXT), '') IS NOT NULL
+                           )
+                       )
+                   )
+               )
             GROUP BY w.id
             ORDER BY COALESCE(ci.sort_order, 9999), CAST(NULLIF(Season, '') AS INTEGER), CAST(NULLIF(Episode, '') AS INTEGER), CAST(NULLIF(TrackNumber, '') AS INTEGER), COALESCE(w.ordinal, 9999), Title;
             """,
-            new { collectionId = collectionId.ToString(), defaultOwnerUserId = DefaultOwnerUserId.ToString("D") },
+            new { collectionId = collectionId.ToString(), rootWorkId = rootWorkId?.ToString("D"), defaultOwnerUserId = DefaultOwnerUserId.ToString("D") },
             cancellationToken: ct));
         return rawRows.Select(row => new CollectionWorkSummary(
             StringValue(row.Id) ?? string.Empty,
@@ -2028,6 +2047,9 @@ public sealed class DetailComposerService
             IsTruthy(StringValue(row.Explicit)),
             StringValue(row.Quality),
             DoubleValue(row.ProgressPercent),
+            IsTruthy(StringValue(row.HasAsset)),
+            StringValue(row.Ownership),
+            IsTruthy(StringValue(row.IsCatalogOnly)),
             ResolveCollectionArtworkUrl(StringValue(row.ArtworkUrl), StringValue(row.AssetId), "cover", StringValue(row.CoverState)),
             ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)))).ToList();
     }
@@ -2958,31 +2980,47 @@ public sealed class DetailComposerService
                     Key = g.Key.ToLowerInvariant().Replace(" ", "-"),
                     Title = g.Key,
                     Items = g.Select(ToMediaItem).ToList(),
-                }).ToList();
+                })
+                .Select(ApplyMediaGroupCompletion)
+                .ToList();
         }
 
         return
         [
-            new MediaGroupingViewModel
+            ApplyMediaGroupCompletion(new MediaGroupingViewModel
             {
                 Key = entityType == DetailEntityType.MusicAlbum ? "tracks" : "items",
                 Title = entityType == DetailEntityType.MusicAlbum ? "Tracks" : "Items",
                 Items = works.Select(ToMediaItem).ToList(),
-            }
+            })
         ];
+    }
+
+    private static MediaGroupingViewModel ApplyMediaGroupCompletion(MediaGroupingViewModel group)
+    {
+        var total = group.Items.Count;
+        var owned = group.Items.Count(item => item.IsOwned);
+        var missing = Math.Max(0, total - owned);
+        return new MediaGroupingViewModel
+        {
+            Key = group.Key,
+            Title = group.Title,
+            Items = group.Items,
+            OwnedCount = owned,
+            TotalCount = total,
+            MissingCount = missing,
+            CompletionPercent = total == 0 ? 0 : owned * 100.0 / total,
+            InitiallyCollapsed = total > 0 && owned == 0,
+        };
     }
 
     private static IReadOnlyList<CollectionWorkSummary> DeduplicateTvEpisodeSummaries(IReadOnlyList<CollectionWorkSummary> works)
     {
         return works
-            .GroupBy(work => new
-            {
-                Season = NormalizeEpisodeKey(work.Season),
-                Episode = NormalizeEpisodeKey(work.Episode),
-                Title = NormalizeTextKey(work.Title),
-            })
+            .GroupBy(BuildTvEpisodeDeduplicationKey, StringComparer.OrdinalIgnoreCase)
             .Select(group => group
-                .OrderByDescending(work => !string.IsNullOrWhiteSpace(work.BackgroundUrl))
+                .OrderByDescending(work => work.IsOwned)
+                .ThenByDescending(work => !string.IsNullOrWhiteSpace(work.BackgroundUrl))
                 .ThenByDescending(work => !string.IsNullOrWhiteSpace(work.ArtworkUrl))
                 .ThenBy(work => work.Ordinal ?? int.MaxValue)
                 .First())
@@ -2990,6 +3028,18 @@ public sealed class DetailComposerService
             .ThenBy(work => TryParseInt(work.Episode) ?? work.Ordinal ?? int.MaxValue)
             .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static string BuildTvEpisodeDeduplicationKey(CollectionWorkSummary work)
+    {
+        var title = NormalizeTextKey(work.Title);
+        var season = NormalizeEpisodeKey(work.Season);
+        var episode = NormalizeEpisodeKey(work.Episode);
+
+        if (!string.IsNullOrWhiteSpace(title))
+            return title;
+
+        return $"{season}:{episode}";
     }
 
     private static string NormalizeEpisodeKey(string? value)
@@ -3022,8 +3072,9 @@ public sealed class DetailComposerService
             Quality = work.Quality,
             ProgressPercent = work.ProgressPercent,
             Metadata = BuildEpisodeMetadata(FormatTrackDuration(work.Duration), work.Year),
-            Actions = [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", Route = BuildWorkRoute(work) }],
-            IsOwned = true,
+            Actions = work.IsOwned ? [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", Route = BuildWorkRoute(work) }] : [],
+            IsOwned = work.IsOwned,
+            ProgressState = work.IsOwned ? LibraryProgressState.Unstarted : LibraryProgressState.Missing,
         };
 
     private static IReadOnlyList<MetadataPill> BuildEpisodeMetadata(string? duration, string? year)
@@ -4257,7 +4308,14 @@ public sealed class DetailComposerService
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator, double? ProgressPct);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
     private sealed record SeriesRow(string WorkId, string Title, string? MediaType, string? PositionLabel, string? ArtworkUrl);
-    private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? Artist, bool IsExplicit, string? Quality, double? ProgressPercent, string? ArtworkUrl, string? BackgroundUrl);
+    private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? Artist, bool IsExplicit, string? Quality, double? ProgressPercent, bool HasAsset, string? Ownership, bool IsCatalogOnly, string? ArtworkUrl, string? BackgroundUrl)
+    {
+        public bool IsOwned =>
+            HasAsset
+            && !IsCatalogOnly
+            && !string.Equals(Ownership, "Unowned", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(Ownership, "Missing", StringComparison.OrdinalIgnoreCase);
+    }
     private sealed class RecommendationWorkRow
     {
         public string WorkId { get; init; } = string.Empty;

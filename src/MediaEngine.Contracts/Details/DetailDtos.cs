@@ -496,6 +496,11 @@ public sealed class MediaGroupingViewModel
     public string Key { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public IReadOnlyList<MediaGroupingItemViewModel> Items { get; init; } = [];
+    public int OwnedCount { get; init; }
+    public int TotalCount { get; init; }
+    public int MissingCount { get; init; }
+    public double CompletionPercent { get; init; }
+    public bool InitiallyCollapsed { get; init; }
 }
 
 public sealed class MediaGroupingItemViewModel

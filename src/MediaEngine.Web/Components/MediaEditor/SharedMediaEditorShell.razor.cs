@@ -189,6 +189,7 @@ public partial class SharedMediaEditorShell
     protected string ContentTabLabel => GetTabLabel(ContentTabId);
     protected IReadOnlyList<MediaEditorNavigatorNodeDto> ContentRootChildren =>
         NavigatorRootNode is null ? [] : GetNavigatorChildren(NavigatorRootNode.NodeId);
+    protected IReadOnlyList<EpisodeContentGroup> EpisodeContentGroups => BuildEpisodeContentGroups();
     protected string CurrentTargetLabel => _editorContext?.CurrentTargetSummary?.Label ?? ActiveScope?.Label ?? "Item";
     protected string CurrentTargetTitle => _editorContext?.CurrentTargetSummary?.Title ?? ActiveScope?.DisplayTitle ?? HeaderTitle;
     protected string? CurrentTargetSubtitle => _editorContext?.CurrentTargetSummary?.Subtitle ?? ActiveScope?.DisplaySubtitle;
@@ -232,6 +233,11 @@ public partial class SharedMediaEditorShell
         public List<LibraryItemHistoryDto> History { get; init; } = [];
         public ArtworkEditorDto Artwork { get; init; } = new();
     }
+
+    protected sealed record EpisodeContentGroup(
+        string Title,
+        string? Subtitle,
+        IReadOnlyList<MediaEditorNavigatorNodeDto> Episodes);
 
     protected override async Task OnInitializedAsync()
     {
@@ -2769,6 +2775,39 @@ public partial class SharedMediaEditorShell
             .ThenBy(node => node.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    private IReadOnlyList<EpisodeContentGroup> BuildEpisodeContentGroups()
+    {
+        if (NavigatorRootNode is null)
+            return [];
+
+        var looseEpisodes = new List<MediaEditorNavigatorNodeDto>();
+        var groups = new List<EpisodeContentGroup>();
+
+        foreach (var child in ContentRootChildren)
+        {
+            if (IsEpisodeNavigatorNode(child))
+            {
+                looseEpisodes.Add(child);
+                continue;
+            }
+
+            var episodes = GetNavigatorChildren(child.NodeId)
+                .Where(IsEpisodeNavigatorNode)
+                .ToList();
+
+            if (episodes.Count > 0)
+                groups.Add(new EpisodeContentGroup(child.Title, child.Subtitle, episodes));
+        }
+
+        if (looseEpisodes.Count > 0)
+            groups.Insert(0, new EpisodeContentGroup("Episodes", null, looseEpisodes));
+
+        return groups;
+    }
+
+    private static bool IsEpisodeNavigatorNode(MediaEditorNavigatorNodeDto node) =>
+        string.Equals(node.NodeKind, "episode", StringComparison.OrdinalIgnoreCase) || node.IsLeaf;
 
     private IReadOnlyList<MediaEditorNavigatorNodeDto> GetQuarantineTargetNodes(MediaEditorNavigatorNodeDto node)
     {

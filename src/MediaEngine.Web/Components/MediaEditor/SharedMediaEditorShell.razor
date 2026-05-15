@@ -310,19 +310,18 @@
 
                                 @if (string.Equals(_activeTab, "episodes", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    foreach (var season in ContentRootChildren)
+                                    foreach (var group in EpisodeContentGroups)
                                     {
-                                        var episodes = GetNavigatorChildren(season.NodeId);
                                         <div class="sme-content-group">
                                             <div class="sme-content-group-header">
-                                                <div class="sme-content-group-title">@season.Title</div>
-                                                @if (!string.IsNullOrWhiteSpace(season.Subtitle))
+                                                <div class="sme-content-group-title">@group.Title</div>
+                                                @if (!string.IsNullOrWhiteSpace(group.Subtitle))
                                                 {
-                                                    <div class="sme-content-group-subtitle">@season.Subtitle</div>
+                                                    <div class="sme-content-group-subtitle">@group.Subtitle</div>
                                                 }
                                             </div>
                                             <div class="sme-content-list">
-                                                @foreach (var episode in episodes)
+                                                @foreach (var episode in group.Episodes)
                                                 {
                                                     <MudButton Variant="Variant.Outlined"
                                                                Color="Color.Inherit"

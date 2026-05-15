@@ -4218,6 +4218,7 @@ public sealed class EngineApiClient : IEngineApiClient
             Id = detail.Id,
             EntityType = detail.EntityType,
             PresentationContext = detail.PresentationContext,
+            EditorTarget = detail.EditorTarget,
             Title = detail.Title,
             Subtitle = detail.Subtitle,
             Tagline = detail.Tagline,
@@ -4284,6 +4285,11 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 Key = group.Key,
                 Title = group.Title,
+                OwnedCount = group.OwnedCount,
+                TotalCount = group.TotalCount,
+                MissingCount = group.MissingCount,
+                CompletionPercent = group.CompletionPercent,
+                InitiallyCollapsed = group.InitiallyCollapsed,
                 Items = group.Items.Select(item => new MediaGroupingItemViewModel
                 {
                     Id = item.Id,

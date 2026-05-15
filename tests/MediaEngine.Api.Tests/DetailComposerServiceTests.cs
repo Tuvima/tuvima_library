@@ -190,6 +190,21 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_ComputesMediaGroupCompletionFromOwnedAssets()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
+
+        Assert.Contains("CASE WHEN MAX(ma.id) IS NULL THEN 0 ELSE 1 END AS HasAsset", source);
+        Assert.Contains("COALESCE(w.is_catalog_only, 0) AS IsCatalogOnly", source);
+        Assert.Contains("ApplyMediaGroupCompletion", source);
+        Assert.Contains("InitiallyCollapsed = total > 0 && owned == 0", source);
+        Assert.Contains("Actions = work.IsOwned ?", source);
+        Assert.Contains("public int OwnedCount { get; init; }", contracts);
+        Assert.Contains("public double CompletionPercent { get; init; }", contracts);
+    }
+
+    [Fact]
     public void DetailComposer_BuildsWatchHeroActionsInMockupOrder()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));

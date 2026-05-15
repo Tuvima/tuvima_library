@@ -19,6 +19,13 @@ public sealed class EngineApiClientLibraryWorksTests
               "id": "11111111-1111-1111-1111-111111111111",
               "entityType": 0,
               "presentationContext": 3,
+              "editorTarget": {
+                "entityId": "33333333-3333-3333-3333-333333333333",
+                "entityKind": "Work",
+                "containerMode": "Canonical",
+                "initialTab": "episodes",
+                "initialScope": "series"
+              },
               "title": "Dune",
               "artwork": {
                 "coverUrl": "/stream/cover",
@@ -79,6 +86,11 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal("http://localhost:61495/stream/backdrop", detail.Artwork.BackdropUrl);
         Assert.Equal("http://localhost:61495/stream/related", Assert.Single(detail.Artwork.RelatedArtworkUrls));
         Assert.Equal("http://localhost:61495/stream/ebook-cover", Assert.Single(detail.OwnedFormats).CoverUrl);
+        Assert.NotNull(detail.EditorTarget);
+        Assert.Equal("33333333-3333-3333-3333-333333333333", detail.EditorTarget!.EntityId);
+        Assert.Equal("Canonical", detail.EditorTarget.ContainerMode);
+        Assert.Equal("episodes", detail.EditorTarget.InitialTab);
+        Assert.Equal("series", detail.EditorTarget.InitialScope);
     }
 
     [Fact]
