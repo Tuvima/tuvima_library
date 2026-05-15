@@ -40,7 +40,7 @@
         @if (_scanStarted)
         {
             <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4">
-                Scan request sent. Open Library Operations to watch progress and review any items that need confirmation.
+                Scan request sent. Open Ingestion to watch progress and review any items that need confirmation.
             </MudAlert>
         }
 
@@ -54,7 +54,7 @@
                 Icons.Material.Outlined.Dns,
                 "Retry",
                 LoadReadinessAsync,
-                "Open Library Operations",
+                "Open Ingestion",
                 "/settings/ingestion")
 
             @ReadinessRow(
@@ -97,7 +97,7 @@
                 Icons.Material.Outlined.PlayCircle,
                 ScanPrimaryLabel(snapshot),
                 ScanNowAsync,
-                "Open Library Operations",
+                "Open Ingestion",
                 "/settings/ingestion",
                 primaryDisabled: !snapshot.CanScan || _scanStarting)
 
@@ -211,7 +211,7 @@
             if (started)
             {
                 _scanStarted = true;
-                Snackbar.Add("Scan started. Library Operations will show progress as the Engine reports it.", Severity.Success);
+                Snackbar.Add("Scan started. Ingestion will show progress as the Engine reports it.", Severity.Success);
             }
             else
             {
@@ -361,12 +361,12 @@
     {
         if (snapshot.IsIngestionActive)
         {
-            return "A scan or ingestion job is already running. Open Library Operations to follow progress.";
+            return "A scan or ingestion job is already running. Open Ingestion to follow progress.";
         }
 
         if (snapshot.HasScanEverRun)
         {
-            return "A scan has already run. You can run another scan or watch progress in Library Operations.";
+            return "A scan has already run. You can run another scan or watch progress in Ingestion.";
         }
 
         return snapshot.FoldersReady

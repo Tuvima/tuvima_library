@@ -62,7 +62,7 @@ else if (IsEmpty)
                        Size="MudBlazor.Size.Large"
                        StartIcon="@Icons.Material.Outlined.PendingActions"
                        Href="/settings/ingestion">
-                Open Library Operations
+                Open Ingestion
             </MudButton>
         </div>
 
@@ -178,7 +178,7 @@ else
             var started = await Orchestrator.TriggerRescanAsync();
             if (started)
             {
-                Snackbar.Add("Scan started. Open Library Operations to watch progress.", Severity.Success);
+                Snackbar.Add("Scan started. Open Ingestion to watch progress.", Severity.Success);
                 _readiness = await ReadinessService.GetSnapshotAsync();
             }
             else

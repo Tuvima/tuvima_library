@@ -51,7 +51,6 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Privacy, "/settings/privacy")]
     [InlineData(SettingsSection.Libraries, "/settings/libraries")]
     [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
-    [InlineData(SettingsSection.Metadata, "/settings/metadata")]
     [InlineData(SettingsSection.Providers, "/settings/providers")]
     [InlineData(SettingsSection.LocalAi, "/settings/ai")]
     [InlineData(SettingsSection.Plugins, "/settings/plugins")]
@@ -130,7 +129,6 @@ public sealed class SettingsNavTests
     [InlineData("folders", SettingsSection.Libraries, "/settings/libraries")]
     [InlineData("tasks", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("maintenance", SettingsSection.Ingestion, "/settings/ingestion")]
-    [InlineData("wikidata", SettingsSection.Metadata, "/settings/metadata")]
     [InlineData("models", SettingsSection.LocalAi, "/settings/ai")]
     [InlineData("features", SettingsSection.LocalAi, "/settings/ai")]
     [InlineData("vocabulary", SettingsSection.LocalAi, "/settings/ai")]
@@ -166,6 +164,19 @@ public sealed class SettingsNavTests
         Assert.True(resolution.ShouldRedirect);
     }
 
+    [Theory]
+    [InlineData("metadata")]
+    [InlineData("wikidata")]
+    public void ResolveRoute_MetadataManagementRoutes_AreHidden(string segment)
+    {
+        var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
+
+        Assert.Equal(SettingsSection.Overview, resolution.Section);
+        Assert.Equal("/settings", resolution.CanonicalRoute);
+        Assert.False(resolution.IsKnownRoute);
+        Assert.True(resolution.ShouldRedirect);
+    }
+
     [Fact]
     public void FilteredGroups_NonAdmin_OnlyShowsPublicGroups()
     {
@@ -195,8 +206,7 @@ public sealed class SettingsNavTests
             "Admin Overview",
             "Setup",
             "Libraries",
-            "Library Operations",
-            "Metadata & Matching",
+            "Ingestion",
             "Providers",
             "Local AI",
             "Plugins",

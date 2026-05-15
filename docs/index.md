@@ -90,6 +90,7 @@ Set provider keys, language preferences, and library behavior without digging th
 ### Use Tuvima
 
 - [Add Media to Your Library](guides/adding-media.md)
+- [Use Plugins](guides/using-plugins.md)
 - [Resolve Items That Need Review](guides/resolving-reviews.md)
 - [How the Entire Pipeline Works](explanation/how-the-pipeline-works.md)
 - [How Universes and Series Work](explanation/how-universes-work.md)
@@ -115,6 +116,7 @@ Set provider keys, language preferences, and library behavior without digging th
 - [Developer Setup](tutorials/dev-setup.md)
 - [How to Add a New Metadata Provider](guides/adding-a-provider.md)
 - [How to Write a New File Format Processor](guides/writing-a-processor.md)
+- [How to Build a Plugin](guides/building-a-plugin.md)
 - [How to Build, Test, and Verify Changes](guides/running-tests.md)
 
 </div>

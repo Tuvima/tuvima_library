@@ -388,8 +388,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var batchProcessed = Math.Max(0, displayBatch?.FilesProcessed ?? lifecycle.Identified + lifecycle.InReview + lifecycle.Provisional + lifecycle.Rejected);
         var duplicates = Count(ingestionRows, "duplicate") + Count(ingestionRows, "same_path_redetected");
         var skipped = Count(ingestionRows, "skipped_non_media");
-        var skippedOrDuplicate = duplicates + skipped;
         var failed = Count(pipelineRows, nameof(IdentityJobState.Failed)) + Count(ingestionRows, "failed") + Count(ingestionRows, "missing");
+        var skippedOrDuplicate = duplicates + skipped;
+        var terminalOther = skippedOrDuplicate + failed;
         var registered = Math.Max(0, displayBatch?.FilesIdentified ?? lifecycle.Identified);
         var review = Math.Max(0, displayBatch is null
             ? lifecycle.InReview
@@ -400,14 +401,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var retailReview = SumStates(pipelineRows, RetailReviewStates);
         var retailNoMatch = SumStates(pipelineRows, RetailNoMatchStates);
         var retailFinished = retailMatched + retailReview + retailNoMatch;
-        var retailEligible = Math.Max(batchTotal, Math.Max(identityTotal + skippedOrDuplicate, retailFinished + skippedOrDuplicate));
+        var retailEligible = Math.Max(batchTotal, Math.Max(identityTotal + skippedOrDuplicate, retailFinished + terminalOther));
 
         var wikidataResolved = SumStates(pipelineRows, WikidataResolvedStates);
         var wikidataReview = SumStates(pipelineRows, WikidataReviewStates);
         var wikidataEligible = Math.Max(retailMatched + retailReview, wikidataResolved + wikidataReview);
         var enriched = Math.Min(wikidataEligible, SumStates(pipelineRows, EnrichmentCompleteStates));
         var enrichmentTotal = Math.Max(wikidataEligible, enriched);
-        var identified = Math.Min(retailEligible, Math.Max(batchProcessed, retailFinished + skippedOrDuplicate + failed));
+        var identified = Math.Min(retailEligible, Math.Max(batchProcessed, retailFinished + terminalOther));
 
         return
         [
@@ -1105,17 +1106,18 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         var byKey = stages.ToDictionary(stage => stage.Key, StringComparer.OrdinalIgnoreCase);
         var duplicateOrSkipped = CountStage(byKey, "duplicate") + CountStage(byKey, "skipped");
+        var failed = CountStage(byKey, "failed");
 
         return stageKey switch
         {
             "retail" => (
-                CountStage(byKey, "matched") + CountStage(byKey, "retail_review") + duplicateOrSkipped,
+                CountStage(byKey, "matched") + CountStage(byKey, "retail_review") + duplicateOrSkipped + failed,
                 TotalStage(byKey, "matched")),
             "wikidata" => (
                 CountStage(byKey, "canonicalized") + CountStage(byKey, "wikidata_review"),
                 TotalStage(byKey, "canonicalized")),
             "enrichment" => (
-                CountStage(byKey, "enriched"),
+                CountStage(byKey, "enriched") + CountStage(byKey, "wikidata_review"),
                 TotalStage(byKey, "enriched")),
             _ => (
                 CountStage(byKey, "detected"),

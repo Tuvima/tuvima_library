@@ -374,14 +374,7 @@ builder.Services.AddHostedService<FolderHealthService>();
 
 // -- External Metadata Providers (Phase 9 — Zero-Key) -------------------------
 // Named HttpClients: lifecycle managed by IHttpClientFactory.
-// Short-lived probe client used by GET /settings/providers to test reachability.
 // 3-second timeout is intentionally tight — the settings page should respond quickly.
-builder.Services.AddHttpClient("settings_probe", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(5); // outer cap; each probe uses a 3-second CTS
-})
-.AddStandardResilienceHandler();
-
 // Named HttpClient for the ReconciliationAdapter (wikidata.reconci.link + Wikimedia Commons).
 // 30-second timeout to accommodate batch SPARQL-style data extension queries.
 builder.Services.AddHttpClient("wikidata_reconciliation", c =>
@@ -413,6 +406,13 @@ builder.Services.AddHttpClient("plugin_tools", c =>
 {
     c.Timeout = TimeSpan.FromMinutes(10);
 });
+builder.Services.AddHttpClient("plugin_catalog", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(15);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+})
+.AddStandardResilienceHandler();
 
 // Config-driven providers: scan config/providers/ and register each one.
 // Named HttpClients + ConfigDrivenAdapter instances are created from config.
@@ -833,6 +833,7 @@ builder.Services.AddSingleton<ITuvimaPlugin, RecapDetectionPlugin>();
 builder.Services.AddSingleton<ITuvimaPlugin, AiVisualVerifierPlugin>();
 builder.Services.AddSingleton<PluginSettingsStore>();
 builder.Services.AddSingleton<PluginCatalog>();
+builder.Services.AddSingleton<ApprovedPluginCatalogService>();
 builder.Services.AddSingleton<PluginJobStateService>();
 builder.Services.AddSingleton<PluginScheduledSegmentService>();
 builder.Services.AddSingleton<IPluginToolRuntime, PluginToolRuntime>();

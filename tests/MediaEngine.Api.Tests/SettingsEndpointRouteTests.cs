@@ -53,6 +53,23 @@ public sealed class SettingsEndpointRouteTests
         Assert.Contains("grp.MapGet(\"/media-types\"", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ProviderSettingsStatus_DoesNotRunLiveExternalProbesOnPageLoad()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\SettingsEndpoints.cs"));
+        var start = source.IndexOf("grp.MapGet(\"/providers\", async", StringComparison.Ordinal);
+        var end = source.IndexOf(".WithName(\"GetProviderStatus\")", StringComparison.Ordinal);
+
+        Assert.True(start >= 0);
+        Assert.True(end > start);
+        var endpoint = source[start..end];
+
+        Assert.Contains("healthRepo.GetAllAsync", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("IHttpClientFactory", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("SendAsync", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetBaseUrlForProvider", endpoint, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

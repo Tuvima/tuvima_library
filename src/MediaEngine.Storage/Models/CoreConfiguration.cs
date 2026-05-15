@@ -139,11 +139,29 @@ public sealed class CoreConfiguration
     [JsonPropertyName("storage_policy")]
     public LibraryStoragePolicy StoragePolicy { get; set; } = new();
 
+    /// <summary>
+    /// Approved plugin catalogue source used by Settings > Plugins.
+    /// The Engine fetches this read-only list from GitHub so admins can discover
+    /// vetted third-party plugins without enabling arbitrary install sources.
+    /// </summary>
+    [JsonPropertyName("plugin_catalog")]
+    public PluginCatalogSettings PluginCatalog { get; set; } = new();
+
     private static string GetDefaultCountry()
     {
         try { return RegionInfo.CurrentRegion.TwoLetterISORegionName; }
         catch { return "US"; }
     }
+}
+
+public sealed class PluginCatalogSettings
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    [JsonPropertyName("approved_plugins_url")]
+    public string ApprovedPluginsUrl { get; set; } =
+        "https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json";
 }
 
 /// <summary>

@@ -17,6 +17,11 @@ internal static class PluginEndpoints
             .WithName("ListPlugins")
             .RequireAdmin();
 
+        group.MapGet("/approved", async (ApprovedPluginCatalogService catalog, CancellationToken ct) =>
+            Results.Ok(await catalog.GetAsync(ct).ConfigureAwait(false)))
+            .WithName("ListApprovedPlugins")
+            .RequireAdmin();
+
         group.MapGet("/{pluginId}", (string pluginId, PluginCatalog catalog) =>
         {
             var plugin = catalog.Get(pluginId);

@@ -149,3 +149,66 @@ public sealed class PluginJobViewModel
     [JsonPropertyName("error")]
     public string? Error { get; set; }
 }
+
+public sealed class ApprovedPluginCatalogViewModel
+{
+    [JsonPropertyName("schema_version")]
+    public string SchemaVersion { get; set; } = "1.0";
+
+    [JsonPropertyName("source_url")]
+    public string SourceUrl { get; set; } = "";
+
+    [JsonPropertyName("last_updated")]
+    public DateTimeOffset? LastUpdated { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "unknown";
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("plugins")]
+    public List<ApprovedPluginViewModel> Plugins { get; set; } = [];
+}
+
+public sealed class ApprovedPluginViewModel
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("version")]
+    public string Version { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("author")]
+    public string Author { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "approved";
+
+    [JsonPropertyName("repository_url")]
+    public string? RepositoryUrl { get; set; }
+
+    [JsonPropertyName("release_url")]
+    public string? ReleaseUrl { get; set; }
+
+    [JsonPropertyName("package_url")]
+    public string? PackageUrl { get; set; }
+
+    [JsonPropertyName("sha256")]
+    public string? Sha256 { get; set; }
+
+    [JsonPropertyName("minimum_tuvima_api_version")]
+    public string MinimumTuvimaApiVersion { get; set; } = "1.0.0";
+
+    [JsonPropertyName("capabilities")]
+    public List<string> Capabilities { get; set; } = [];
+
+    [JsonPropertyName("install_notes")]
+    public string? InstallNotes { get; set; }
+}

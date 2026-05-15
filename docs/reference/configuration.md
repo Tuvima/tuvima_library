@@ -38,6 +38,8 @@ Core Engine settings. Restart required for changes to take effect.
 | `country` | string | `"US"` | Country code. Used by providers that return region-specific data (e.g., Apple API storefronts). |
 | `date_format` | string | `"system"` | Date display format. `"system"` uses the OS locale. Accepts standard format strings. |
 | `time_format` | string | `"system"` | Time display format. `"system"` uses the OS locale. |
+| `plugin_catalog.enabled` | bool | `true` | Enables the read-only approved plugin catalog lookup used by Settings > Plugins. |
+| `plugin_catalog.approved_plugins_url` | string | GitHub raw URL | HTTPS GitHub URL for the approved plugin catalog JSON. The Engine accepts `raw.githubusercontent.com` or `github.com` sources only. |
 
 **Backward compatibility:** `language` accepts both legacy string form (`"language": "en"`) and the new object form. The deserializer handles both.
 

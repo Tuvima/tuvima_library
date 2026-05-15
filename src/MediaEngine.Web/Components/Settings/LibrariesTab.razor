@@ -52,7 +52,7 @@ else
                    Size="Size.Small"
                    Href="/settings/ingestion"
                    StartIcon="@Icons.Material.Outlined.PendingActions">
-            Library Operations
+            Ingestion
         </MudButton>
         @if (readOnly)
         {
@@ -280,7 +280,7 @@ else if (!string.IsNullOrWhiteSpace(_loadError))
                        Color="Color.Default"
                        Href="/settings/ingestion"
                        StartIcon="@Icons.Material.Outlined.PendingActions">
-                Open Library Operations
+                Open Ingestion
             </MudButton>
             <MudButton Variant="Variant.Outlined"
                        Color="Color.Primary"
@@ -738,7 +738,7 @@ else if (!string.IsNullOrWhiteSpace(_loadError))
         var result = await Orchestrator.ScanAndRefreshAsync(_watchDir);
         Snackbar.Add(
             result is null
-                ? "Scan could not be started. Check Engine status in Library Operations."
+                ? "Scan could not be started. Check Engine status in Ingestion."
                 : "Scan started for the saved watch folder.",
             result is null ? Severity.Error : Severity.Success);
     }

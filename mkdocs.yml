@@ -70,6 +70,7 @@ nav:
   - Use Tuvima:
       - Your First Library: tutorials/first-library.md
       - Add Media: guides/adding-media.md
+      - Use Plugins: guides/using-plugins.md
       - Resolve Review Items: guides/resolving-reviews.md
       - Understand Universes and Series: explanation/how-universes-work.md
       - Understand Ingestion: explanation/how-ingestion-works.md
@@ -80,6 +81,7 @@ nav:
   - Reference:
       - Configuration Reference: reference/configuration.md
       - Providers Reference: reference/providers.md
+      - Plugin Catalog: reference/plugin-catalog.md
       - Media Types: reference/media-types.md
       - Glossary: reference/glossary.md
       - API Endpoints: reference/api-endpoints.md
@@ -88,6 +90,7 @@ nav:
       - Developer Setup: tutorials/dev-setup.md
       - Add a Provider: guides/adding-a-provider.md
       - Write a Processor: guides/writing-a-processor.md
+      - Build a Plugin: guides/building-a-plugin.md
       - Run Tests: guides/running-tests.md
   - Architecture:
       - Product Concepts:

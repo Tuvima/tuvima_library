@@ -36,7 +36,7 @@ else
             </div>
         </MudPaper>
         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-            Partial. Plugin list, enable/disable, settings JSON, manifest editing for dynamic plugins, health checks, jobs, and delete actions use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
+            Partial. Plugin list, enable/disable, settings JSON, manifest editing for dynamic plugins, health checks, jobs, delete actions, and the approved GitHub catalog use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
         </MudAlert>
 
         @if (!string.IsNullOrWhiteSpace(_error))
@@ -256,6 +256,99 @@ else
                                     }
                                 </MudStack>
                             </MudTabPanel>
+                            <MudTabPanel Text="Approved catalog" Icon="@Icons.Material.Outlined.Verified">
+                                <MudStack Spacing="3">
+                                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.CloudDownload" OnClick="LoadApprovedCatalogAsync">Refresh GitHub catalog</MudButton>
+                                        @if (_approvedCatalog?.LastUpdated is not null)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Updated @_approvedCatalog.LastUpdated.Value.ToLocalTime().ToString("g")</MudText>
+                                        }
+                                    </MudStack>
+
+                                    @if (_approvedCatalogLoading)
+                                    {
+                                        <MudSkeleton Height="120px" />
+                                    }
+                                    else if (_approvedCatalog is null)
+                                    {
+                                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">The approved plugin catalog has not been loaded yet.</MudAlert>
+                                    }
+                                    else
+                                    {
+                                        <MudAlert Severity="@CatalogSeverity(_approvedCatalog.Status)" Variant="Variant.Outlined">
+                                            GitHub catalog status: @_approvedCatalog.Status
+                                            @if (!string.IsNullOrWhiteSpace(_approvedCatalog.Message))
+                                            {
+                                                <span> - @_approvedCatalog.Message</span>
+                                            }
+                                        </MudAlert>
+
+                                        @if (_approvedCatalog.Plugins.Count == 0)
+                                        {
+                                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No approved third-party plugins are listed right now.</MudAlert>
+                                        }
+                                        else
+                                        {
+                                            <MudTable T="ApprovedPluginViewModel" Items="_approvedCatalog.Plugins" Dense="true" Elevation="0" Class="settings-plugin-job-table">
+                                                <HeaderContent>
+                                                    <MudTh>Plugin</MudTh>
+                                                    <MudTh>Status</MudTh>
+                                                    <MudTh>Capabilities</MudTh>
+                                                    <MudTh>Package</MudTh>
+                                                </HeaderContent>
+                                                <RowTemplate>
+                                                    <MudTd>
+                                                        <MudText Typo="Typo.body2">@context.Name</MudText>
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Id - v@context.Version</MudText>
+                                                        @if (!string.IsNullOrWhiteSpace(context.Description))
+                                                        {
+                                                            <MudText Typo="Typo.caption">@context.Description</MudText>
+                                                        }
+                                                    </MudTd>
+                                                    <MudTd>@context.Status</MudTd>
+                                                    <MudTd>@string.Join(", ", context.Capabilities)</MudTd>
+                                                    <MudTd>
+                                                        @if (!string.IsNullOrWhiteSpace(context.ReleaseUrl))
+                                                        {
+                                                            <MudLink Href="@context.ReleaseUrl" Target="_blank">Release</MudLink>
+                                                        }
+                                                        @if (!string.IsNullOrWhiteSpace(context.PackageUrl))
+                                                        {
+                                                            <MudText Typo="Typo.caption">
+                                                                <MudLink Href="@context.PackageUrl" Target="_blank">Package</MudLink>
+                                                            </MudText>
+                                                        }
+                                                        @if (!string.IsNullOrWhiteSpace(context.Sha256))
+                                                        {
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">SHA-256 pinned</MudText>
+                                                        }
+                                                        @if (!string.IsNullOrWhiteSpace(context.InstallNotes))
+                                                        {
+                                                            <MudText Typo="Typo.caption">@context.InstallNotes</MudText>
+                                                        }
+                                                    </MudTd>
+                                                </RowTemplate>
+                                            </MudTable>
+                                        }
+                                    }
+                                </MudStack>
+                            </MudTabPanel>
+                            <MudTabPanel Text="How to use" Icon="@Icons.Material.Outlined.MenuBook">
+                                <MudStack Spacing="3">
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                        Admins use this page to enable built-in plugins, configure dynamic plugins, check health, and discover approved plugins from GitHub. Installing a downloaded plugin is still a manual dynamic-plugin folder step.
+                                    </MudAlert>
+                                    <MudSimpleTable Dense="true" Class="settings-plugin-job-table">
+                                        <tbody>
+                                            <tr><td>Use a plugin</td><td>Download an approved release, verify the published SHA-256 when one is provided, extract it under the library root at .data/plugins/plugin-folder, reload the Engine, then enable it here.</td></tr>
+                                            <tr><td>Configure a plugin</td><td>Select the plugin, edit typed settings or Settings JSON, then run Jobs & health before relying on scheduled work.</td></tr>
+                                            <tr><td>Build a plugin</td><td>Create a .NET class library that references MediaEngine.Plugins, implement ITuvimaPlugin, ship plugin.json beside the compiled assembly, and list only the permissions, tools, and AI roles the plugin actually needs.</td></tr>
+                                            <tr><td>Submit for approval</td><td>Publish a GitHub release with a versioned archive, checksum, source repository, manifest, and installation notes so maintainers can add it to the approved catalog.</td></tr>
+                                        </tbody>
+                                    </MudSimpleTable>
+                                </MudStack>
+                            </MudTabPanel>
                             <MudTabPanel Text="Danger" Icon="@Icons.Material.Outlined.Delete">
                                 @if (plugin.IsBuiltIn)
                                 {
@@ -295,6 +388,8 @@ else
     private readonly Dictionary<string, string> _settingsJson = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _manifestJson = new(StringComparer.OrdinalIgnoreCase);
     private List<PluginViewModel> _plugins = [];
+    private ApprovedPluginCatalogViewModel? _approvedCatalog;
+    private bool _approvedCatalogLoading;
     private bool _loading = true;
     private string? _error;
     private string? _selectedPluginId;
@@ -323,6 +418,8 @@ else
 
             foreach (var plugin in _plugins)
                 EnsureJsonBuffers(plugin);
+
+            _approvedCatalog ??= await Orchestrator.GetApprovedPluginCatalogAsync();
         }
         catch
         {
@@ -477,6 +574,21 @@ else
         _jobs[plugin.Id] = await Orchestrator.GetPluginJobsAsync(plugin.Id);
     }
 
+    private async Task LoadApprovedCatalogAsync()
+    {
+        _approvedCatalogLoading = true;
+        try
+        {
+            _approvedCatalog = await Orchestrator.GetApprovedPluginCatalogAsync();
+            if (_approvedCatalog is null)
+                Snackbar.Add("Approved plugin catalog could not be loaded.", Severity.Error);
+        }
+        finally
+        {
+            _approvedCatalogLoading = false;
+        }
+    }
+
     private void EnsureJsonBuffers(PluginViewModel plugin)
     {
         _settingsJson.TryAdd(plugin.Id, JsonSerializer.Serialize(plugin.Settings, PrettyJson));
@@ -560,6 +672,8 @@ else
     private static double ReadNumber(JsonElement value) => value.TryGetDouble(out var parsed) ? parsed : 0;
 
     private static Severity HealthSeverity(string status) => string.Equals(status, "healthy", StringComparison.OrdinalIgnoreCase) ? Severity.Success : Severity.Warning;
+
+    private static Severity CatalogSeverity(string status) => string.Equals(status, "ok", StringComparison.OrdinalIgnoreCase) ? Severity.Success : Severity.Warning;
 
     private static string PluginIcon(PluginViewModel plugin) => plugin.Id switch
     {

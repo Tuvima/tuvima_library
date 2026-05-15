@@ -197,6 +197,25 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 ---
 
+## Plugins
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/plugins` | List built-in and dynamic plugins loaded by the Engine | Administrator |
+| GET | `/plugins/approved` | Fetch the approved plugin discovery catalog from the configured GitHub source | Administrator |
+| GET | `/plugins/{pluginId}` | Plugin detail, manifest metadata, settings, permissions, and load state | Administrator |
+| POST | `/plugins/{pluginId}/enable` | Enable a plugin | Administrator |
+| POST | `/plugins/{pluginId}/disable` | Disable a plugin | Administrator |
+| PUT | `/plugins/{pluginId}/settings` | Save plugin user settings JSON | Administrator |
+| GET | `/plugins/{pluginId}/manifest` | Read dynamic plugin manifest JSON. Built-in manifests are compiled and are not returned here. | Administrator |
+| PUT | `/plugins/{pluginId}/manifest` | Save dynamic plugin manifest JSON without changing plugin id | Administrator |
+| DELETE | `/plugins/{pluginId}` | Delete a dynamic plugin folder and saved plugin configuration | Administrator |
+| POST | `/plugins/{pluginId}/health` | Run plugin health checks | Administrator |
+| GET | `/plugins/{pluginId}/jobs` | List recent jobs for one plugin | Administrator |
+| POST | `/plugins/jobs/segment-detection/run` | Run scheduled playback segment detector plugins immediately | Administrator |
+
+---
+
 ## Admin
 
 | Method | Path | Description | Auth |

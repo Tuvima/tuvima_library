@@ -146,6 +146,34 @@ public sealed class IngestionOperationsContractTests
         Assert.Equal("Wikidata matching", actual);
     }
 
+    [Fact]
+    public void OperationsService_TreatsTerminalFailuresAsRetailActivityProgress()
+    {
+        var progress = ResolveActivityProgress("retail",
+        [
+            Stage("matched", 91, 117),
+            Stage("retail_review", 6, 117),
+            Stage("duplicate", 1, 117),
+            Stage("failed", 19, 117),
+        ]);
+
+        Assert.Equal(117, progress.Count);
+        Assert.Equal(117, progress.Total);
+    }
+
+    [Fact]
+    public void OperationsService_TreatsWikidataTerminalReviewAsEnrichmentActivityProgress()
+    {
+        var progress = ResolveActivityProgress("enrichment",
+        [
+            Stage("enriched", 90, 91),
+            Stage("wikidata_review", 1, 91),
+        ]);
+
+        Assert.Equal(91, progress.Count);
+        Assert.Equal(91, progress.Total);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -161,4 +189,17 @@ public sealed class IngestionOperationsContractTests
         Count = count,
         TotalCount = total,
     };
+
+    private static (int Count, int Total) ResolveActivityProgress(
+        string stageKey,
+        IReadOnlyList<IngestionPipelineStageDto> stages)
+    {
+        var method = typeof(IngestionOperationsStatusService).GetMethod(
+            "ResolveActivityProgress",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        var actual = Assert.IsType<ValueTuple<int, int>>(method.Invoke(null, [stageKey, stages]));
+        return actual;
+    }
 }

@@ -51,6 +51,8 @@ public interface IEngineApiClient
 
     Task<IReadOnlyList<PluginViewModel>> GetPluginsAsync(CancellationToken ct = default);
 
+    Task<ApprovedPluginCatalogViewModel?> GetApprovedPluginCatalogAsync(CancellationToken ct = default);
+
     Task<bool> SetPluginEnabledAsync(string pluginId, bool enabled, CancellationToken ct = default);
 
     Task<bool> SavePluginSettingsAsync(string pluginId, Dictionary<string, JsonElement> settings, CancellationToken ct = default);
@@ -780,7 +782,7 @@ public interface IEngineApiClient
     Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
         int limit = 20, CancellationToken ct = default);
 
-    /// <summary>GET /ingestion/operations — Library Operations dashboard snapshot.</summary>
+    /// <summary>GET /ingestion/operations — Ingestion dashboard snapshot.</summary>
     Task<IngestionOperationsSnapshotViewModel?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default);
 
     /// <summary>GET /ingestion/batches/{id} — single batch detail.</summary>

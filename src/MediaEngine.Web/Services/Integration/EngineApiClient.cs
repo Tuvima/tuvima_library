@@ -283,6 +283,20 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<ApprovedPluginCatalogViewModel?> GetApprovedPluginCatalogAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<ApprovedPluginCatalogViewModel>("/plugins/approved", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /plugins/approved failed");
+            return null;
+        }
+    }
+
     public async Task<bool> SetPluginEnabledAsync(string pluginId, bool enabled, CancellationToken ct = default)
     {
         try

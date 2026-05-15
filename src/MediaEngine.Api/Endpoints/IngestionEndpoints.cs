@@ -28,7 +28,7 @@ public static class IngestionEndpoints
             return Results.Ok(snapshot);
         })
         .WithName("GetIngestionOperationsSnapshot")
-        .WithSummary("Aggregated Library Operations status for scans, review, providers, folders, and recent batches.")
+        .WithSummary("Aggregated Ingestion status for scans, review, providers, folders, and recent batches.")
         .Produces<IngestionOperationsSnapshotDto>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 

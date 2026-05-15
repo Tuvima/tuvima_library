@@ -99,9 +99,6 @@
                         case SettingsSection.Ingestion:
                             <IngestionTasksTab />
                             break;
-                        case SettingsSection.Metadata:
-                            <MetadataMatchingTab />
-                            break;
                         case SettingsSection.Providers:
                             <ProviderPriorityTab />
                             break;
@@ -368,7 +365,6 @@
         SettingsSection.AdminOverview => "Monitor system health, library status, provider coverage, ingestion progress, and review work.",
         SettingsSection.Libraries => "Manage library roots, watch folders, source paths, scan behavior, and organization templates.",
         SettingsSection.Ingestion => "Track scans, matches, enrichment, organization, and review work across your library.",
-        SettingsSection.Metadata => "Configure media type rules, matching confidence, canonical identity, Wikidata, universe enrichment, and review thresholds.",
         SettingsSection.Providers => "Configure provider priority, credentials, language strategy, timeouts, retries, health, and coverage.",
         SettingsSection.LocalAi => "Manage local models, AI feature toggles, vocabulary, hardware profile, and scheduled enrichment jobs.",
         SettingsSection.Plugins => "Manage optional extension features, tool health, background jobs, and guarded AI access.",

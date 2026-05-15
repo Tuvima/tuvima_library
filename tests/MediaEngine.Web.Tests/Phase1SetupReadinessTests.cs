@@ -154,7 +154,7 @@ public sealed class Phase1SetupReadinessTests : TestContext
         Assert.Contains("Href=\"/settings/setup\"", source);
         Assert.Contains("Configure folders", source);
         Assert.Contains("Href=\"/settings/folders\"", source);
-        Assert.Contains("Open Library Operations", source);
+        Assert.Contains("Open Ingestion", source);
         Assert.Contains("Href=\"/settings/ingestion\"", source);
         Assert.Contains("_readiness?.CanScan == true", source);
         Assert.Contains("Orchestrator.TriggerRescanAsync", source);
@@ -167,7 +167,7 @@ public sealed class Phase1SetupReadinessTests : TestContext
             "src", "MediaEngine.Web", "Components", "Settings", "SetupTab.razor"));
 
         Assert.Contains("Orchestrator.TriggerRescanAsync", source);
-        Assert.Contains("Open Library Operations", source);
+        Assert.Contains("Open Ingestion", source);
         Assert.Contains("/settings/ingestion", source);
         Assert.Contains("Scan request sent", source);
     }

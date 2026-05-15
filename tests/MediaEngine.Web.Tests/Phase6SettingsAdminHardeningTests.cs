@@ -53,14 +53,23 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void MetadataSettings_MarksUnavailableControls()
+    public void MetadataSettings_AreHiddenFromSettingsUi()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\MetadataMatchingTab.razor");
+        var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
+        var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
+        var metadataTabPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            @"src\MediaEngine.Web\Components\Settings\MetadataMatchingTab.razor"));
 
-        Assert.Contains("Not connected", source, StringComparison.Ordinal);
-        Assert.Contains("Review Queue remains the exception workflow", source, StringComparison.Ordinal);
-        Assert.Contains("Disabled=\"true\"", source, StringComparison.Ordinal);
-        Assert.Contains("SettingsStatusKind.Partial", source, StringComparison.Ordinal);
+        Assert.False(File.Exists(metadataTabPath));
+        Assert.DoesNotContain("MetadataMatchingTab", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("Metadata & Matching", nav, StringComparison.Ordinal);
+        Assert.DoesNotContain("/settings/metadata", nav, StringComparison.Ordinal);
     }
 
     [Fact]

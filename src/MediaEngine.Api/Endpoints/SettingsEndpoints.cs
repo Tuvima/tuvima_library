@@ -396,20 +396,15 @@ public static class SettingsEndpoints
         grp.MapGet("/providers", async (
             IConfigurationLoader configLoader,
             IProviderHealthRepository healthRepo,
-            IHttpClientFactory   httpFactory,
             CancellationToken    ct) =>
         {
             var providers = configLoader.LoadAllProviders();
 
-            // Prefer persisted health data from the health monitor.
-            // Fall back to a live probe only for providers without a health record yet.
             var healthRecords = await healthRepo.GetAllAsync(ct);
             var healthMap = healthRecords.ToDictionary(
                 r => r.ProviderId, StringComparer.OrdinalIgnoreCase);
 
-            var http = httpFactory.CreateClient("settings_probe");
-
-            var statusTasks = providers.Select(async provider =>
+            var statuses = providers.Select(provider =>
             {
                 var displayName = ResolveDisplayName(provider);
 
@@ -421,27 +416,10 @@ public static class SettingsEndpoints
                         provider, displayName, isReachable, healthRecord);
                 }
 
-                // Fallback: live probe for providers without health data (first startup).
-                bool probeReachable = false;
-                var baseUrl = GetBaseUrlForProvider(provider);
-                if (provider.Enabled && !string.IsNullOrWhiteSpace(baseUrl))
-                {
-                    using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    probeCts.CancelAfter(TimeSpan.FromSeconds(3));
-                    try
-                    {
-                        using var req  = new HttpRequestMessage(HttpMethod.Get, baseUrl);
-                        using var resp = await http.SendAsync(
-                            req, HttpCompletionOption.ResponseHeadersRead, probeCts.Token);
-                        probeReachable = (int)resp.StatusCode < 500;
-                    }
-                    catch { /* timeout / DNS failure / network error */ }
-                }
-
-                return BuildProviderStatusResponse(provider, displayName, probeReachable);
+                return BuildProviderStatusResponse(provider, displayName);
             });
 
-            return Results.Ok(await Task.WhenAll(statusTasks));
+            return Results.Ok(statuses.ToArray());
         })
         .WithName("GetProviderStatus")
         .WithSummary("Returns enabled/reachability status for all registered metadata providers.")
