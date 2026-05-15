@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Net.Sockets;
 using MediaEngine.Domain;
 using MediaEngine.Contracts.Playback;
@@ -1330,7 +1330,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         }
     }
 
-    // â”€â”€ Fan-out search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Fan-out search
 
     public Task<FanOutSearchResponseViewModel?> SearchMetadataFanOutAsync(
         string query, string? mediaType = null, string? providerId = null,
@@ -1346,13 +1346,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         => _api.SaveSearchResultsCacheAsync(entityId, resultsJson, ct);
 
 
-    // â”€â”€ Canonical values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Canonical values
 
     public Task<List<CanonicalFieldViewModel>> GetCanonicalValuesAsync(
         Guid entityId, CancellationToken ct = default)
         => _api.GetCanonicalValuesAsync(entityId, ct);
 
-    // â”€â”€ Cover from URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Cover from URL
 
     public Task<bool> ApplyCoverFromUrlAsync(
         Guid entityId, string imageUrl, CancellationToken ct = default)

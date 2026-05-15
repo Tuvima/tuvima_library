@@ -58,7 +58,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <!-- â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Navigation -->
   <data name="Nav_Home" xml:space="preserve">
     <value>Startseite</value>
   </data>
@@ -66,7 +66,7 @@
     <value>Suche</value>
   </data>
   <data name="Nav_Books" xml:space="preserve">
-    <value>BÃ¼cher</value>
+    <value>Bücher</value>
   </data>
   <data name="Nav_Video" xml:space="preserve">
     <value>Video</value>
@@ -87,28 +87,28 @@
     <value>Ansehen</value>
   </data>
   <data name="Nav_Listen" xml:space="preserve">
-    <value>HÃ¶ren</value>
+    <value>Hören</value>
   </data>
   <data name="Nav_Collections" xml:space="preserve">
     <value>Sammlungen</value>
   </data>
   <data name="Nav_OpenNavigation" xml:space="preserve">
-    <value>Navigation Ã¶ffnen</value>
+    <value>Navigation öffnen</value>
   </data>
   <data name="Nav_SearchPlaceholder" xml:space="preserve">
-    <value>Bibliothek durchsuchenâ€¦</value>
+    <value>Bibliothek durchsuchen...</value>
   </data>
   <data name="Nav_ReviewQueue" xml:space="preserve">
-    <value>ÃœberprÃ¼fungswarteschlange</value>
+    <value>Überprüfungswarteschlange</value>
   </data>
   <data name="Nav_CloseNavigation" xml:space="preserve">
-    <value>NavigationsmenÃ¼ schlieÃŸen</value>
+    <value>Navigationsmenü schließen</value>
   </data>
   <data name="Nav_Library" xml:space="preserve">
     <value>Bibliothek</value>
   </data>
   <data name="Nav_ReviewPending" xml:space="preserve">
-    <value>PrÃ¼fung ({0} ausstehend)</value>
+    <value>Prüfung ({0} ausstehend)</value>
   </data>
   <data name="Nav_Universes" xml:space="preserve">
     <value>Universen</value>
@@ -126,7 +126,7 @@
     <value>Einklappen</value>
   </data>
   <data name="TopBar_OpenProfileMenu" xml:space="preserve">
-    <value>ProfilmenÃ¼ Ã¶ffnen</value>
+    <value>Profilmenü öffnen</value>
   </data>
   <data name="TopBar_SignedInAs" xml:space="preserve">
     <value>Angemeldet als</value>
@@ -138,7 +138,7 @@
     <value>Engine online</value>
   </data>
   <data name="TopBar_EngineUnavailable" xml:space="preserve">
-    <value>Engine nicht verfÃ¼gbar</value>
+    <value>Engine nicht verfügbar</value>
   </data>
   <data name="TopBar_LiveUpdatesConnected" xml:space="preserve">
     <value>Live-Updates verbunden</value>
@@ -146,12 +146,12 @@
   <data name="TopBar_LiveUpdatesOffline" xml:space="preserve">
     <value>Live-Updates offline</value>
   </data>
-  <!-- â”€â”€ Command Palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Command Palette -->
   <data name="CmdPalette_Placeholder" xml:space="preserve">
-    <value>Serien suchen, navigierenâ€¦</value>
+    <value>Serien suchen, navigieren...</value>
   </data>
   <data name="CmdPalette_Hint" xml:space="preserve">
-    <value>â†‘â†“ navigieren Â· Enter auswÃ¤hlen Â· Esc schlieÃŸen</value>
+    <value>↑↓ navigieren · Enter auswählen · Esc schließen</value>
   </data>
   <data name="CmdPalette_Library" xml:space="preserve">
     <value>Bibliothek</value>
@@ -160,23 +160,23 @@
     <value>Einstellungen</value>
   </data>
   <data name="CmdPalette_SettingsSubtitle" xml:space="preserve">
-    <value>Einstellungen, Bibliothek, API-SchlÃ¼ssel</value>
+    <value>Einstellungen, Bibliothek, API-Schlüssel</value>
   </data>
-  <!-- â”€â”€ Status Pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Status Pill -->
   <data name="StatusPill_Verified" xml:space="preserve">
     <value>VERIFIZIERT</value>
   </data>
   <data name="StatusPill_Provisional" xml:space="preserve">
-    <value>VORLÃ„UFIG</value>
+    <value>VORLÄUFIG</value>
   </data>
   <data name="StatusPill_NeedsReview" xml:space="preserve">
-    <value>ÃœBERPRÃœFUNG ERFORDERLICH</value>
+    <value>ÜBERPRÜFUNG ERFORDERLICH</value>
   </data>
   <data name="StatusPill_Failed" xml:space="preserve">
     <value>FEHLGESCHLAGEN</value>
   </data>
   <data name="StatusPill_Quarantined" xml:space="preserve">
-    <value>QUARANTÃ„NE</value>
+    <value>QUARANTÄNE</value>
   </data>
   <data name="StatusPill_Unknown" xml:space="preserve">
     <value>UNBEKANNT</value>
@@ -191,14 +191,14 @@
     <value>NICHT BESESSEN</value>
   </data>
   <data name="StatusPill_DeletesIn" xml:space="preserve">
-    <value>LÃ¶scht in {0} T</value>
+    <value>Löscht in {0} T</value>
   </data>
-  <!-- â”€â”€ Profile Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Profile Tab -->
   <data name="Profile_AccountIdentity" xml:space="preserve">
-    <value>KontoidentitÃ¤t</value>
+    <value>Kontoidentität</value>
   </data>
   <data name="Profile_UploadAvatarComingSoon" xml:space="preserve">
-    <value>Avatar hochladen (demnÃ¤chst verfÃ¼gbar)</value>
+    <value>Avatar hochladen (demnächst verfügbar)</value>
   </data>
   <data name="Profile_DisplayName" xml:space="preserve">
     <value>Anzeigename</value>
@@ -210,7 +210,7 @@
     <value>Avatar-Farbe</value>
   </data>
   <data name="Profile_AvatarColourHint" xml:space="preserve">
-    <value>WÃ¤hlen Sie eine Farbe fÃ¼r Ihren Avatar-Kreis.</value>
+    <value>Wählen Sie eine Farbe für Ihren Avatar-Kreis.</value>
   </data>
   <data name="Profile_DisplayAndLocale" xml:space="preserve">
     <value>Anzeige &amp; Gebietsschema</value>
@@ -234,34 +234,34 @@
     <value>Spracheinstellungen</value>
   </data>
   <data name="Profile_LanguagePreferencesHint" xml:space="preserve">
-    <value>Legen Sie fest, welche Sprachen der Engine fÃ¼r Metadaten-Lookups verwendet und welche Inhaltssprachen ohne ÃœberprÃ¼fung akzeptiert werden.</value>
+    <value>Legen Sie fest, welche Sprachen der Engine für Metadaten-Lookups verwendet und welche Inhaltssprachen ohne Überprüfung akzeptiert werden.</value>
   </data>
   <data name="Profile_DisplayLanguage" xml:space="preserve">
     <value>Anzeigesprache</value>
   </data>
   <data name="Profile_DisplayLanguageHelper" xml:space="preserve">
-    <value>Sprache fÃ¼r UI-Beschriftungen und Wikidata-Anzeige</value>
+    <value>Sprache für UI-Beschriftungen und Wikidata-Anzeige</value>
   </data>
   <data name="Profile_MetadataLanguage" xml:space="preserve">
     <value>Metadatensprache</value>
   </data>
   <data name="Profile_MetadataLanguageHelper" xml:space="preserve">
-    <value>Sprache fÃ¼r Anbieterabfragen und Wikidata-Lookups</value>
+    <value>Sprache für Anbieterabfragen und Wikidata-Lookups</value>
   </data>
   <data name="Profile_AdditionalContentLanguages" xml:space="preserve">
     <value>Weitere Inhaltssprachen</value>
   </data>
   <data name="Profile_AdditionalContentLanguagesHelper" xml:space="preserve">
-    <value>Sprachen, in denen Sie Inhalte konsumieren â€” Dateien in diesen Sprachen werden nicht markiert</value>
+    <value>Sprachen, in denen Sie Inhalte konsumieren - Dateien in diesen Sprachen werden nicht markiert</value>
   </data>
   <data name="Profile_AcceptAnyLanguage" xml:space="preserve">
     <value>Jede Sprache akzeptieren</value>
   </data>
   <data name="Profile_AcceptAnyLanguageHint" xml:space="preserve">
-    <value>Wenn aktiviert, werden Dateien in beliebiger Sprache ohne ÃœberprÃ¼fungsmarkierungen aufgenommen. Deaktivieren Sie diese Option, um akzeptierte Sprachen auf Ihre Anzeige-, Metadaten- und zusÃ¤tzlichen Sprachen zu beschrÃ¤nken.</value>
+    <value>Wenn aktiviert, werden Dateien in beliebiger Sprache ohne Überprüfungsmarkierungen aufgenommen. Deaktivieren Sie diese Option, um akzeptierte Sprachen auf Ihre Anzeige-, Metadaten- und zusätzlichen Sprachen zu beschränken.</value>
   </data>
   <data name="Profile_Saving" xml:space="preserve">
-    <value>Wird gespeichertâ€¦</value>
+    <value>Wird gespeichert...</value>
   </data>
   <data name="Profile_SaveProfile" xml:space="preserve">
     <value>Profil speichern</value>
@@ -270,23 +270,23 @@
     <value>Profil aktualisiert</value>
   </data>
   <data name="Profile_CouldNotSaveProfile" xml:space="preserve">
-    <value>Profil konnte nicht gespeichert werden â€” lÃ¤uft der Engine?</value>
+    <value>Profil konnte nicht gespeichert werden - läuft der Engine?</value>
   </data>
   <data name="Profile_CouldNotSaveLanguagePreferences" xml:space="preserve">
     <value>Spracheinstellungen konnten nicht gespeichert werden</value>
   </data>
-  <!-- â”€â”€ Models Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Models Tab -->
   <data name="Models_AiModels" xml:space="preserve">
     <value>KI-Modelle</value>
   </data>
   <data name="Models_AiModelsDescription" xml:space="preserve">
-    <value>Lokale KI-Modelle herunterladen, laden und verwalten, die intelligente Funktionen antreiben. Modelle laufen vollstÃ¤ndig auf Ihrem Rechner â€” keine Daten verlassen ihn.</value>
+    <value>Lokale KI-Modelle herunterladen, laden und verwalten, die intelligente Funktionen antreiben. Modelle laufen vollständig auf Ihrem Rechner - keine Daten verlassen ihn.</value>
   </data>
   <data name="Models_HardwareProfile" xml:space="preserve">
     <value>Hardwareprofil</value>
   </data>
   <data name="Models_ReRunBenchmark" xml:space="preserve">
-    <value>Benchmark erneut ausfÃ¼hren</value>
+    <value>Benchmark erneut ausführen</value>
   </data>
   <data name="Models_PerformanceTier" xml:space="preserve">
     <value>LEISTUNGSSTUFE</value>
@@ -301,13 +301,13 @@
     <value>INFERENZGESCHWINDIGKEIT</value>
   </data>
   <data name="Models_AvailableMemory" xml:space="preserve">
-    <value>VERFÃœGBARER SPEICHER</value>
+    <value>VERFÜGBARER SPEICHER</value>
   </data>
   <data name="Models_LastBenchmark" xml:space="preserve">
     <value>LETZTER BENCHMARK</value>
   </data>
   <data name="Models_NoBenchmarkData" xml:space="preserve">
-    <value>Noch keine Benchmark-Daten â€” der Engine fÃ¼hrt beim ersten Start automatisch einen Benchmark durch.</value>
+    <value>Noch keine Benchmark-Daten - der Engine führt beim ersten Start automatisch einen Benchmark durch.</value>
   </data>
   <data name="Models_ResourceMonitor" xml:space="preserve">
     <value>Ressourcenmonitor</value>
@@ -337,10 +337,10 @@
     <value>RAM</value>
   </data>
   <data name="Models_Size" xml:space="preserve">
-    <value>GrÃ¶ÃŸe</value>
+    <value>Größe</value>
   </data>
   <data name="Models_Downloading" xml:space="preserve">
-    <value>Wird heruntergeladenâ€¦</value>
+    <value>Wird heruntergeladen...</value>
   </data>
   <data name="Models_Download" xml:space="preserve">
     <value>Herunterladen</value>
@@ -352,7 +352,7 @@
     <value>Entladen</value>
   </data>
   <data name="Models_DeleteModelFiles" xml:space="preserve">
-    <value>Modelldateien von der Festplatte lÃ¶schen</value>
+    <value>Modelldateien von der Festplatte löschen</value>
   </data>
   <data name="Models_StorageAndRuntimeSettings" xml:space="preserve">
     <value>Speicher- &amp; Laufzeiteinstellungen</value>
@@ -361,16 +361,16 @@
     <value>Modellverzeichnis</value>
   </data>
   <data name="Models_IdleAutoUnloadTimeout" xml:space="preserve">
-    <value>Automatisches Entladen bei InaktivitÃ¤t (Sekunden)</value>
+    <value>Automatisches Entladen bei Inaktivität (Sekunden)</value>
   </data>
   <data name="Models_IdleAutoUnloadTimeoutHelper" xml:space="preserve">
-    <value>Modell nach dieser Anzahl von Sekunden ohne AktivitÃ¤t aus dem RAM entladen.</value>
+    <value>Modell nach dieser Anzahl von Sekunden ohne Aktivität aus dem RAM entladen.</value>
   </data>
   <data name="Models_GpuAcceleration" xml:space="preserve">
     <value>GPU-Beschleunigung (CUDA / Vulkan)</value>
   </data>
   <data name="Models_GpuActive" xml:space="preserve">
-    <value>Aktiv â€” verwendet</value>
+    <value>Aktiv - verwendet</value>
   </data>
   <data name="Models_GpuOn" xml:space="preserve">
     <value>auf</value>
@@ -379,14 +379,14 @@
     <value>GPU</value>
   </data>
   <data name="Models_CpuInferenceActive" xml:space="preserve">
-    <value>CPU-Inferenz aktiv. Eine dedizierte GPU (NVIDIA, AMD oder Intel Arc) ermÃ¶glicht 6â€“7Ã— schnellere Inferenz.</value>
+    <value>CPU-Inferenz aktiv. Eine dedizierte GPU (NVIDIA, AMD oder Intel Arc) ermöglicht 6-7x schnellere Inferenz.</value>
   </data>
-  <!-- â”€â”€ AI Features Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- AI Features Tab -->
   <data name="AiFeatures_AiFeatures" xml:space="preserve">
     <value>KI-Funktionen</value>
   </data>
   <data name="AiFeatures_AiFeaturesDescription" xml:space="preserve">
-    <value>Einzelne KI-gestÃ¼tzte Funktionen aktivieren oder deaktivieren. Ã„nderungen treten sofort fÃ¼r zukÃ¼nftige VorgÃ¤nge in Kraft â€” bereits aufgenommene Dateien werden nicht erneut verarbeitet.</value>
+    <value>Einzelne KI-gestützte Funktionen aktivieren oder deaktivieren. Änderungen treten sofort für zukünftige Vorgänge in Kraft - bereits aufgenommene Dateien werden nicht erneut verarbeitet.</value>
   </data>
   <data name="AiFeatures_Ingestion" xml:space="preserve">
     <value>Aufnahme</value>
@@ -398,7 +398,7 @@
     <value>bei</value>
   </data>
   <data name="AiFeatures_IngestionDescription" xml:space="preserve">
-    <value>Wird automatisch wÃ¤hrend der Dateiaufnahme ausgefÃ¼hrt. Jede neue Datei profitiert von diesen Funktionen ohne Benutzereingriff.</value>
+    <value>Wird automatisch während der Dateiaufnahme ausgeführt. Jede neue Datei profitiert von diesen Funktionen ohne Benutzereingriff.</value>
   </data>
   <data name="AiFeatures_BuiltIn" xml:space="preserve">
     <value>integriert</value>
@@ -416,44 +416,44 @@
     <value>Hintergrund</value>
   </data>
   <data name="AiFeatures_EnrichmentDescription" xml:space="preserve">
-    <value>LÃ¤uft im Hintergrund nach der Aufnahme, wenn der Engine inaktiv ist. Verleiht Ihrer Bibliothek Tiefe und PersÃ¶nlichkeit, ohne andere VorgÃ¤nge zu blockieren.</value>
+    <value>Läuft im Hintergrund nach der Aufnahme, wenn der Engine inaktiv ist. Verleiht Ihrer Bibliothek Tiefe und Persönlichkeit, ohne andere Vorgänge zu blockieren.</value>
   </data>
   <data name="AiFeatures_OnDemand" xml:space="preserve">
     <value>Auf Anfrage</value>
   </data>
   <data name="AiFeatures_UserTriggered" xml:space="preserve">
-    <value>Vom Benutzer ausgelÃ¶st</value>
+    <value>Vom Benutzer ausgelöst</value>
   </data>
   <data name="AiFeatures_OnDemandDescription" xml:space="preserve">
-    <value>Wird durch Benutzeraktionen ausgelÃ¶st â€” eine Suchanfrage, ein SchaltflÃ¤chenklick oder das Aufrufen einer Werkdetailseite. Schnelle Antworten werden erwartet.</value>
+    <value>Wird durch Benutzeraktionen ausgelöst - eine Suchanfrage, ein Schaltflächenklick oder das Aufrufen einer Werkdetailseite. Schnelle Antworten werden erwartet.</value>
   </data>
   <data name="AiFeatures_Scheduled" xml:space="preserve">
     <value>Geplant</value>
   </data>
   <data name="AiFeatures_ScheduledDescription" xml:space="preserve">
-    <value>Wird nach einem nÃ¤chtlichen oder wÃ¶chentlichen cron-Zeitplan ausgefÃ¼hrt. Diese Funktionen sind langwierig und dafÃ¼r ausgelegt, wÃ¤hrend Sie schlafen zu laufen.</value>
+    <value>Wird nach einem nächtlichen oder wöchentlichen cron-Zeitplan ausgeführt. Diese Funktionen sind langwierig und dafür ausgelegt, während Sie schlafen zu laufen.</value>
   </data>
-  <!-- â”€â”€ AI Schedule Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- AI Schedule Tab -->
   <data name="Schedule_AiSchedule" xml:space="preserve">
     <value>KI-Zeitplan</value>
   </data>
   <data name="Schedule_AiScheduleDescription" xml:space="preserve">
-    <value>Legen Sie fest, wann jeder Hintergrund-KI-Auftrag ausgefÃ¼hrt wird. Ã„nderungen treten nach dem Neustart des Engines in Kraft.</value>
+    <value>Legen Sie fest, wann jeder Hintergrund-KI-Auftrag ausgeführt wird. Änderungen treten nach dem Neustart des Engines in Kraft.</value>
   </data>
   <data name="Schedule_EnrichmentProgress" xml:space="preserve">
     <value>Anreicherungsfortschritt</value>
   </data>
   <data name="Schedule_ItemsEnriched" xml:space="preserve">
-    <value>EintrÃ¤ge angereichert</value>
+    <value>Einträge angereichert</value>
   </data>
   <data name="Schedule_ItemsPending" xml:space="preserve">
-    <value>EintrÃ¤ge ausstehend â€” werden in Hintergrundchargen verarbeitet</value>
+    <value>Einträge ausstehend - werden in Hintergrundchargen verarbeitet</value>
   </data>
   <data name="Schedule_AllItemsEnriched" xml:space="preserve">
-    <value>Alle EintrÃ¤ge angereichert</value>
+    <value>Alle Einträge angereichert</value>
   </data>
   <data name="Schedule_NoItemsInQueue" xml:space="preserve">
-    <value>Noch keine EintrÃ¤ge in der Anreicherungswarteschlange. FÃ¼gen Sie Ihrer Bibliothek Medien hinzu, um zu beginnen.</value>
+    <value>Noch keine Einträge in der Anreicherungswarteschlange. Fügen Sie Ihrer Bibliothek Medien hinzu, um zu beginnen.</value>
   </data>
   <data name="Schedule_Job" xml:space="preserve">
     <value>Auftrag</value>
@@ -468,23 +468,23 @@
     <value>Letzter Lauf</value>
   </data>
   <data name="Schedule_NextRun" xml:space="preserve">
-    <value>NÃ¤chster Lauf</value>
+    <value>Nächster Lauf</value>
   </data>
   <data name="Schedule_Enabled" xml:space="preserve">
     <value>Aktiviert</value>
   </data>
   <data name="Schedule_ChangesRequireRestart" xml:space="preserve">
-    <value>Ã„nderungen erfordern einen Engine-Neustart, um wirksam zu werden.</value>
+    <value>Änderungen erfordern einen Engine-Neustart, um wirksam zu werden.</value>
   </data>
   <data name="Schedule_SaveSchedules" xml:space="preserve">
-    <value>ZeitplÃ¤ne speichern</value>
+    <value>Zeitpläne speichern</value>
   </data>
-  <!-- â”€â”€ Libraries Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Libraries Tab -->
   <data name="Libraries_NotAvailable" xml:space="preserve">
-    <value>Nicht verfÃ¼gbar</value>
+    <value>Nicht verfügbar</value>
   </data>
   <data name="Libraries_NotAvailableDescription" xml:space="preserve">
-    <value>Bibliotheksordner-Einstellungen sind auf diesem GerÃ¤t nicht verfÃ¼gbar. Bitte verwenden Sie die Web- oder mobile OberflÃ¤che, um Ihre Bibliothek zu konfigurieren.</value>
+    <value>Bibliotheksordner-Einstellungen sind auf diesem Gerät nicht verfügbar. Bitte verwenden Sie die Web- oder mobile Oberfläche, um Ihre Bibliothek zu konfigurieren.</value>
   </data>
   <data name="Libraries_LibraryPaths" xml:space="preserve">
     <value>Bibliothekspfade</value>
@@ -496,7 +496,7 @@
     <value>Bibliotheksordner</value>
   </data>
   <data name="Libraries_WatchFolder" xml:space="preserve">
-    <value>Ãœberwachungsordner</value>
+    <value>Überwachungsordner</value>
   </data>
   <data name="Libraries_BrowseFolders" xml:space="preserve">
     <value>Ordner durchsuchen</value>
@@ -505,55 +505,55 @@
     <value>Dateiorganisation</value>
   </data>
   <data name="Libraries_FileOrganizationHint" xml:space="preserve">
-    <value>Klicken Sie auf ein Feld, um es an den Pfad anzuhÃ¤ngen. Verwenden Sie / zur Ordnertrennung. Text auÃŸerhalb der geschweiften Klammern ist wÃ¶rtlich.</value>
+    <value>Klicken Sie auf ein Feld, um es an den Pfad anzuhängen. Verwenden Sie / zur Ordnertrennung. Text außerhalb der geschweiften Klammern ist wörtlich.</value>
   </data>
   <data name="Libraries_ResetPathToDefault" xml:space="preserve">
-    <value>Pfad auf Standard zurÃ¼cksetzen</value>
+    <value>Pfad auf Standard zurücksetzen</value>
   </data>
   <data name="Libraries_PreviewExampleOutput" xml:space="preserve">
-    <value>Vorschau â€” Beispielausgabe</value>
+    <value>Vorschau - Beispielausgabe</value>
   </data>
   <data name="Libraries_Reset" xml:space="preserve">
-    <value>ZurÃ¼cksetzen</value>
+    <value>Zurücksetzen</value>
   </data>
   <data name="Libraries_Saving" xml:space="preserve">
-    <value>Wird gespeichertâ€¦</value>
+    <value>Wird gespeichert...</value>
   </data>
   <data name="Libraries_SaveChanges" xml:space="preserve">
-    <value>Ã„nderungen speichern</value>
+    <value>Änderungen speichern</value>
   </data>
   <data name="Libraries_CannotReachEngine" xml:space="preserve">
-    <value>Engine nicht erreichbar â€” bitte stellen Sie sicher, dass er lÃ¤uft.</value>
+    <value>Engine nicht erreichbar - bitte stellen Sie sicher, dass er läuft.</value>
   </data>
   <data name="Libraries_WatchFolderNotAccessible" xml:space="preserve">
-    <value>Ãœberwachungsordner ist nicht zugÃ¤nglich â€” bitte Ã¼berprÃ¼fen Sie Pfad und Berechtigungen.</value>
+    <value>Überwachungsordner ist nicht zugänglich - bitte überprüfen Sie Pfad und Berechtigungen.</value>
   </data>
   <data name="Libraries_LibraryFolderNotAccessible" xml:space="preserve">
-    <value>Bibliotheksordner ist nicht zugÃ¤nglich â€” bitte Ã¼berprÃ¼fen Sie Pfad und Berechtigungen.</value>
+    <value>Bibliotheksordner ist nicht zugänglich - bitte überprüfen Sie Pfad und Berechtigungen.</value>
   </data>
   <data name="Libraries_InvalidTemplate" xml:space="preserve">
-    <value>UngÃ¼ltige Vorlage â€” bitte Ã¼berprÃ¼fen Sie Ihre Token.</value>
+    <value>Ungültige Vorlage - bitte überprüfen Sie Ihre Token.</value>
   </data>
   <data name="Libraries_SettingsSaved" xml:space="preserve">
-    <value>Einstellungen gespeichert â€” Ãœberwachung aktiv</value>
+    <value>Einstellungen gespeichert - Überwachung aktiv</value>
   </data>
   <data name="Libraries_CouldNotSaveFolderSettings" xml:space="preserve">
-    <value>Ordnereinstellungen konnten nicht gespeichert werden â€” bitte stellen Sie sicher, dass der Engine lÃ¤uft.</value>
+    <value>Ordnereinstellungen konnten nicht gespeichert werden - bitte stellen Sie sicher, dass der Engine läuft.</value>
   </data>
   <data name="Libraries_CouldNotSave" xml:space="preserve">
     <value>Konnte nicht gespeichert werden:</value>
   </data>
   <data name="Libraries_Checking" xml:space="preserve">
-    <value>Wird Ã¼berprÃ¼ftâ€¦</value>
+    <value>Wird überprüft...</value>
   </data>
   <data name="Libraries_FolderNotFound" xml:space="preserve">
     <value>Ordner nicht gefunden</value>
   </data>
   <data name="Libraries_ReadWriteConfirmed" xml:space="preserve">
-    <value>Lese- &amp; Schreibzugriff bestÃ¤tigt</value>
+    <value>Lese- &amp; Schreibzugriff bestätigt</value>
   </data>
   <data name="Libraries_ReadOnly" xml:space="preserve">
-    <value>Nur lesen â€” kein Schreiben mÃ¶glich</value>
+    <value>Nur lesen - kein Schreiben möglich</value>
   </data>
   <data name="Libraries_AccessDenied" xml:space="preserve">
     <value>Zugriff verweigert</value>
@@ -562,14 +562,14 @@
     <value>Konfigurierte Bibliotheken</value>
   </data>
   <data name="Libraries_ConfiguredLibrariesHint" xml:space="preserve">
-    <value>In config/libraries.json definierte Bibliotheken. Jede Bibliothek kann mehrere Quellpfade umfassen. Bearbeiten Sie die Konfigurationsdatei direkt, um Bibliotheken hinzuzufÃ¼gen oder zu Ã¤ndern.</value>
+    <value>In config/libraries.json definierte Bibliotheken. Jede Bibliothek kann mehrere Quellpfade umfassen. Bearbeiten Sie die Konfigurationsdatei direkt, um Bibliotheken hinzuzufügen oder zu ändern.</value>
   </data>
-  <!-- â”€â”€ Status Dashboard Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Status Dashboard Tab -->
   <data name="Status_StatusDashboard" xml:space="preserve">
     <value>Status-Dashboard</value>
   </data>
   <data name="Status_StatusDashboardDescription" xml:space="preserve">
-    <value>Eine Live-Ãœbersicht Ã¼ber Engine-Gesundheit, BibliotheksgrÃ¶ÃŸe und Speichernutzung.</value>
+    <value>Eine Live-Übersicht über Engine-Gesundheit, Bibliotheksgröße und Speichernutzung.</value>
   </data>
   <data name="Status_ServerUptime" xml:space="preserve">
     <value>Server-Betriebszeit</value>
@@ -601,7 +601,7 @@
   <data name="Status_AiModels" xml:space="preserve">
     <value>KI-Modelle</value>
   </data>
-  <!-- â”€â”€ Security Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Security Tab -->
   <data name="Security_Security" xml:space="preserve">
     <value>Sicherheit</value>
   </data>
@@ -618,10 +618,10 @@
     <value>Nicht authentifizierte Anfragen von diesem Rechner zulassen</value>
   </data>
   <data name="Security_RequireHttps" xml:space="preserve">
-    <value>HTTPS fÃ¼r Fernverbindungen vorschreiben</value>
+    <value>HTTPS für Fernverbindungen vorschreiben</value>
   </data>
   <data name="Security_RequireHttpsDescription" xml:space="preserve">
-    <value>Nicht-HTTPS-Anfragen von anderen GerÃ¤ten im Netzwerk ablehnen</value>
+    <value>Nicht-HTTPS-Anfragen von anderen Geräten im Netzwerk ablehnen</value>
   </data>
   <data name="Security_RateLimits" xml:space="preserve">
     <value>Ratenbegrenzungen</value>
@@ -630,7 +630,7 @@
     <value>Nur lesen</value>
   </data>
   <data name="Security_KeyGeneration" xml:space="preserve">
-    <value>SchlÃ¼sselerzeugung</value>
+    <value>Schlüsselerzeugung</value>
   </data>
   <data name="Security_FileStreaming" xml:space="preserve">
     <value>Datei-Streaming</value>
@@ -638,24 +638,24 @@
   <data name="Security_GeneralApi" xml:space="preserve">
     <value>Allgemeine API</value>
   </data>
-  <!-- â”€â”€ API Keys Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- API Keys Tab -->
   <data name="ApiKeys_GuestApiKeys" xml:space="preserve">
-    <value>Gast-API-SchlÃ¼ssel</value>
+    <value>Gast-API-Schlüssel</value>
   </data>
   <data name="ApiKeys_GenerateKey" xml:space="preserve">
-    <value>SchlÃ¼ssel generieren</value>
+    <value>Schlüssel generieren</value>
   </data>
   <data name="ApiKeys_GuestApiKeysDescription" xml:space="preserve">
-    <value>Jede Anwendung, die sich mit dem Engine verbindet â€” Radarr, Sonarr, eine mobile App â€” muss einen gÃ¼ltigen Gast-API-SchlÃ¼ssel vorweisen. Jeder SchlÃ¼ssel ist beschriftet und kann einzeln widerrufen werden.</value>
+    <value>Jede Anwendung, die sich mit dem Engine verbindet - Radarr, Sonarr, eine mobile App - muss einen gültigen Gast-API-Schlüssel vorweisen. Jeder Schlüssel ist beschriftet und kann einzeln widerrufen werden.</value>
   </data>
   <data name="ApiKeys_NoKeysIssued" xml:space="preserve">
-    <value>Noch keine Gast-API-SchlÃ¼ssel ausgestellt. Generieren Sie einen, um externe Verbindungen zu ermÃ¶glichen.</value>
+    <value>Noch keine Gast-API-Schlüssel ausgestellt. Generieren Sie einen, um externe Verbindungen zu ermöglichen.</value>
   </data>
   <data name="ApiKeys_Label" xml:space="preserve">
     <value>Bezeichnung</value>
   </data>
   <data name="ApiKeys_Key" xml:space="preserve">
-    <value>SchlÃ¼ssel</value>
+    <value>Schlüssel</value>
   </data>
   <data name="ApiKeys_Created" xml:space="preserve">
     <value>Erstellt</value>
@@ -664,40 +664,40 @@
     <value>Aktionen</value>
   </data>
   <data name="ApiKeys_ToggleKeyVisibility" xml:space="preserve">
-    <value>SchlÃ¼sselprÃ¤fix-Sichtbarkeit umschalten</value>
+    <value>Schlüsselpräfix-Sichtbarkeit umschalten</value>
   </data>
   <data name="ApiKeys_RevokeThisKey" xml:space="preserve">
-    <value>Diesen SchlÃ¼ssel widerrufen</value>
+    <value>Diesen Schlüssel widerrufen</value>
   </data>
   <data name="ApiKeys_RevokeAllKeys" xml:space="preserve">
-    <value>Alle SchlÃ¼ssel widerrufen</value>
+    <value>Alle Schlüssel widerrufen</value>
   </data>
   <data name="ApiKeys_GenerateGuestApiKey" xml:space="preserve">
-    <value>Gast-API-SchlÃ¼ssel generieren</value>
+    <value>Gast-API-Schlüssel generieren</value>
   </data>
   <data name="ApiKeys_LabelPlaceholder" xml:space="preserve">
     <value>z. B. Radarr-Integration, Mobile App</value>
   </data>
   <data name="ApiKeys_CopyKeyNow" xml:space="preserve">
-    <value>Kopieren Sie diesen SchlÃ¼ssel jetzt â€” er wird nicht erneut angezeigt.</value>
+    <value>Kopieren Sie diesen Schlüssel jetzt - er wird nicht erneut angezeigt.</value>
   </data>
   <data name="ApiKeys_CopyKeyToClipboard" xml:space="preserve">
-    <value>SchlÃ¼ssel in Zwischenablage kopieren</value>
+    <value>Schlüssel in Zwischenablage kopieren</value>
   </data>
   <data name="ApiKeys_Cancel" xml:space="preserve">
     <value>Abbrechen</value>
   </data>
   <data name="ApiKeys_Generating" xml:space="preserve">
-    <value>Wird generiertâ€¦</value>
+    <value>Wird generiert...</value>
   </data>
   <data name="ApiKeys_Generate" xml:space="preserve">
     <value>Generieren</value>
   </data>
   <data name="ApiKeys_IveSavedTheKey" xml:space="preserve">
-    <value>Ich habe den SchlÃ¼ssel gespeichert</value>
+    <value>Ich habe den Schlüssel gespeichert</value>
   </data>
   <data name="ApiKeys_RevokeAllGuestApiKeys" xml:space="preserve">
-    <value>Alle Gast-API-SchlÃ¼ssel widerrufen</value>
+    <value>Alle Gast-API-Schlüssel widerrufen</value>
   </data>
   <data name="ApiKeys_All" xml:space="preserve">
     <value>alle</value>
@@ -706,44 +706,44 @@
     <value>Dies widerruft</value>
   </data>
   <data name="ApiKeys_RevokeAllConfirmation2" xml:space="preserve">
-    <value>Gast-API-SchlÃ¼ssel sofort. Jede derzeit mit dem Engine verbundene Anwendung verliert den Zugriff.</value>
+    <value>Gast-API-Schlüssel sofort. Jede derzeit mit dem Engine verbundene Anwendung verliert den Zugriff.</value>
   </data>
   <data name="ApiKeys_ActionCannotBeUndone" xml:space="preserve">
-    <value>Diese Aktion kann nicht rÃ¼ckgÃ¤ngig gemacht werden.</value>
+    <value>Diese Aktion kann nicht rückgängig gemacht werden.</value>
   </data>
   <data name="ApiKeys_Revoking" xml:space="preserve">
-    <value>Wird widerrufenâ€¦</value>
+    <value>Wird widerrufen...</value>
   </data>
   <data name="ApiKeys_RevokeAll" xml:space="preserve">
     <value>Alle widerrufen</value>
   </data>
   <data name="ApiKeys_CouldNotGenerateKey" xml:space="preserve">
-    <value>SchlÃ¼ssel konnte nicht generiert werden â€” lÃ¤uft der Engine?</value>
+    <value>Schlüssel konnte nicht generiert werden - läuft der Engine?</value>
   </data>
   <data name="ApiKeys_KeyCopiedToClipboard" xml:space="preserve">
-    <value>SchlÃ¼ssel in Zwischenablage kopiert</value>
+    <value>Schlüssel in Zwischenablage kopiert</value>
   </data>
   <data name="ApiKeys_KeyRevoked" xml:space="preserve">
-    <value>SchlÃ¼ssel widerrufen</value>
+    <value>Schlüssel widerrufen</value>
   </data>
   <data name="ApiKeys_RevokeFailed" xml:space="preserve">
-    <value>Widerruf fehlgeschlagen â€” lÃ¤uft der Engine?</value>
+    <value>Widerruf fehlgeschlagen - läuft der Engine?</value>
   </data>
   <data name="ApiKeys_AllKeysRevoked" xml:space="preserve">
     <value>Alle</value>
   </data>
   <data name="ApiKeys_Keys" xml:space="preserve">
-    <value>SchlÃ¼ssel widerrufen</value>
+    <value>Schlüssel widerrufen</value>
   </data>
   <data name="ApiKeys_CouldNotRevokeKeys" xml:space="preserve">
-    <value>SchlÃ¼ssel konnten nicht widerrufen werden â€” lÃ¤uft der Engine?</value>
+    <value>Schlüssel konnten nicht widerrufen werden - läuft der Engine?</value>
   </data>
-  <!-- â”€â”€ Users Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Users Tab -->
   <data name="Users_PageTitle" xml:space="preserve">
     <value>Benutzer &amp; Profile</value>
   </data>
   <data name="Users_PageDescription" xml:space="preserve">
-    <value>Verwalten Sie die Profile, die Zugriff auf diese Tuvima Library-Instanz haben. Das Ausgangsprofil (EigentÃ¼mer) kann nicht gelÃ¶scht werden.</value>
+    <value>Verwalten Sie die Profile, die Zugriff auf diese Tuvima Library-Instanz haben. Das Ausgangsprofil (Eigentümer) kann nicht gelöscht werden.</value>
   </data>
   <data name="Users_NewProfile" xml:space="preserve">
     <value>Neues Profil</value>
@@ -770,7 +770,7 @@
     <value>Aktionen</value>
   </data>
   <data name="Users_DeleteProfileTooltip" xml:space="preserve">
-    <value>Profil lÃ¶schen</value>
+    <value>Profil löschen</value>
   </data>
   <data name="Users_CreateProfileTitle" xml:space="preserve">
     <value>Profil erstellen</value>
@@ -800,29 +800,29 @@
     <value>Abbrechen</value>
   </data>
   <data name="Users_Creating" xml:space="preserve">
-    <value>Wird erstelltâ€¦</value>
+    <value>Wird erstellt...</value>
   </data>
   <data name="Users_Create" xml:space="preserve">
     <value>Erstellen</value>
   </data>
   <data name="Users_CreateError" xml:space="preserve">
-    <value>Profil konnte nicht erstellt werden â€” lÃ¤uft der Engine?</value>
+    <value>Profil konnte nicht erstellt werden - läuft der Engine?</value>
   </data>
   <data name="Users_DeleteError" xml:space="preserve">
-    <value>Profil konnte nicht gelÃ¶scht werden â€” lÃ¤uft der Engine?</value>
+    <value>Profil konnte nicht gelöscht werden - läuft der Engine?</value>
   </data>
-  <!-- â”€â”€ Activity Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Activity Tab -->
   <data name="Activity_PageTitle" xml:space="preserve">
-    <value>AktivitÃ¤tsprotokoll</value>
+    <value>Aktivitätsprotokoll</value>
   </data>
   <data name="Activity_PageDescription" xml:space="preserve">
-    <value>Eine vollstÃ¤ndige Aufzeichnung aller wesentlichen Aktionen des Engines â€” Aufnahme, Anreicherung, ÃœberprÃ¼fungslÃ¶sungen und geplante Wartung.</value>
+    <value>Eine vollständige Aufzeichnung aller wesentlichen Aktionen des Engines - Aufnahme, Anreicherung, Überprüfungslösungen und geplante Wartung.</value>
   </data>
   <data name="Activity_RetentionPolicy" xml:space="preserve">
     <value>Aufbewahrungsrichtlinie</value>
   </data>
   <data name="Activity_KeepEntriesFor" xml:space="preserve">
-    <value>EintrÃ¤ge aufbewahren fÃ¼r</value>
+    <value>Einträge aufbewahren für</value>
   </data>
   <data name="Activity_Days" xml:space="preserve">
     <value>Tage</value>
@@ -834,7 +834,7 @@
     <value>1 Jahr</value>
   </data>
   <data name="Activity_Pruning" xml:space="preserve">
-    <value>Wird bereinigtâ€¦</value>
+    <value>Wird bereinigt...</value>
   </data>
   <data name="Activity_PruneNow" xml:space="preserve">
     <value>Jetzt bereinigen</value>
@@ -843,10 +843,10 @@
     <value>Filter</value>
   </data>
   <data name="Activity_Clear" xml:space="preserve">
-    <value>LÃ¶schen</value>
+    <value>Löschen</value>
   </data>
   <data name="Activity_NoEntries" xml:space="preserve">
-    <value>Keine AktivitÃ¤tseintrÃ¤ge entsprechen dem aktuellen Filter.</value>
+    <value>Keine Aktivitätseinträge entsprechen dem aktuellen Filter.</value>
   </data>
   <data name="Activity_LoadMore" xml:space="preserve">
     <value>Mehr laden</value>
@@ -855,23 +855,23 @@
     <value>verbleibend</value>
   </data>
   <data name="Activity_PruneError" xml:space="preserve">
-    <value>Bereinigung fehlgeschlagen â€” lÃ¤uft der Engine?</value>
+    <value>Bereinigung fehlgeschlagen - läuft der Engine?</value>
   </data>
-  <!-- â”€â”€ Maintenance Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Maintenance Tab -->
   <data name="Maintenance_PageTitle" xml:space="preserve">
     <value>Wartung</value>
   </data>
   <data name="Maintenance_PageDescription" xml:space="preserve">
-    <value>Wartungswerkzeuge fÃ¼r die BibliotheksintegritÃ¤t und regelmÃ¤ÃŸige Metadatenaktualisierung.</value>
+    <value>Wartungswerkzeuge für die Bibliotheksintegrität und regelmäßige Metadatenaktualisierung.</value>
   </data>
   <data name="Maintenance_ReconciliationTitle" xml:space="preserve">
     <value>Bibliotheksabgleich</value>
   </data>
   <data name="Maintenance_ReconciliationDescription" xml:space="preserve">
-    <value>Alle Bibliotheks-Assets scannen und prÃ¼fen, ob ihre Dateien noch auf der Festplatte vorhanden sind. Fehlende Dateien werden automatisch bereinigt â€” verwaiste Coverbilder, Sidecar-XML und leere Ordner werden entfernt.</value>
+    <value>Alle Bibliotheks-Assets scannen und prüfen, ob ihre Dateien noch auf der Festplatte vorhanden sind. Fehlende Dateien werden automatisch bereinigt - verwaiste Coverbilder, Sidecar-XML und leere Ordner werden entfernt.</value>
   </data>
   <data name="Maintenance_Scanning" xml:space="preserve">
-    <value>Wird gescanntâ€¦</value>
+    <value>Wird gescannt...</value>
   </data>
   <data name="Maintenance_ReconcileNow" xml:space="preserve">
     <value>Jetzt abgleichen</value>
@@ -880,10 +880,10 @@
     <value>Universum-Anreicherung</value>
   </data>
   <data name="Maintenance_UniverseEnrichmentDescription" xml:space="preserve">
-    <value>Tiefe Anreicherung fÃ¼r alle ausstehenden EintrÃ¤ge ausfÃ¼hren â€” Charakterbeziehungen, Franchise-Verbindungen und medienÃ¼bergreifende ErzÃ¤hlverknÃ¼pfungen.</value>
+    <value>Tiefe Anreicherung für alle ausstehenden Einträge ausführen - Charakterbeziehungen, Franchise-Verbindungen und medienübergreifende Erzählverknüpfungen.</value>
   </data>
   <data name="Maintenance_Running" xml:space="preserve">
-    <value>Wird ausgefÃ¼hrtâ€¦</value>
+    <value>Wird ausgeführt...</value>
   </data>
   <data name="Maintenance_RunPass2Now" xml:space="preserve">
     <value>Durchlauf 2 jetzt starten</value>
@@ -895,35 +895,35 @@
     <value>Bibliotheks-Crawl</value>
   </data>
   <data name="Maintenance_LibraryCrawlDescription" xml:space="preserve">
-    <value>Den Bibliotheksstamm nach library.xml-Sidecars durchsuchen und die Datenbank aus dem Dateisystem neu aufbauen. Kommt in einem zukÃ¼nftigen Update.</value>
+    <value>Den Bibliotheksstamm nach library.xml-Sidecars durchsuchen und die Datenbank aus dem Dateisystem neu aufbauen. Kommt in einem zukünftigen Update.</value>
   </data>
   <data name="Maintenance_WeeklySyncTitle" xml:space="preserve">
-    <value>WÃ¶chentliche Synchronisierung</value>
+    <value>Wöchentliche Synchronisierung</value>
   </data>
   <data name="Maintenance_WeeklySyncDescription" xml:space="preserve">
-    <value>Periodische Metadatenaktualisierung mit Artwork-Hash-Verifizierung. Kommt in einem zukÃ¼nftigen Update.</value>
+    <value>Periodische Metadatenaktualisierung mit Artwork-Hash-Verifizierung. Kommt in einem zukünftigen Update.</value>
   </data>
   <data name="Maintenance_ReconciliationComplete" xml:space="preserve">
-    <value>Abgleich abgeschlossen â€” alle Dateien vorhanden</value>
+    <value>Abgleich abgeschlossen - alle Dateien vorhanden</value>
   </data>
   <data name="Maintenance_ReconciliationError" xml:space="preserve">
-    <value>Abgleich fehlgeschlagen â€” lÃ¤uft der Engine?</value>
+    <value>Abgleich fehlgeschlagen - läuft der Engine?</value>
   </data>
   <data name="Maintenance_Pass2Error" xml:space="preserve">
-    <value>Durchlauf 2 konnte nicht gestartet werden â€” lÃ¤uft der Engine?</value>
+    <value>Durchlauf 2 konnte nicht gestartet werden - läuft der Engine?</value>
   </data>
-  <!-- â”€â”€ Setup Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Setup Tab -->
   <data name="Setup_PageTitle" xml:space="preserve">
     <value>Einrichtungsassistent</value>
   </data>
   <data name="Setup_PageDescription" xml:space="preserve">
-    <value>Die anfÃ¤nglichen Einrichtungsschritte erneut durchgehen oder die aktuelle Serverkonfiguration auf einen Blick Ã¼berprÃ¼fen.</value>
+    <value>Die anfänglichen Einrichtungsschritte erneut durchgehen oder die aktuelle Serverkonfiguration auf einen Blick überprüfen.</value>
   </data>
   <data name="Setup_RerunTitle" xml:space="preserve">
-    <value>Einrichtungsassistenten erneut ausfÃ¼hren</value>
+    <value>Einrichtungsassistenten erneut ausführen</value>
   </data>
   <data name="Setup_RerunDescription" xml:space="preserve">
-    <value>Bibliothekspfadauswahl, Anbieterkonfiguration und KI-Modell-Download erneut durchfÃ¼hren. Ihre vorhandenen Bibliotheksdaten werden dabei nicht berÃ¼hrt.</value>
+    <value>Bibliothekspfadauswahl, Anbieterkonfiguration und KI-Modell-Download erneut durchführen. Ihre vorhandenen Bibliotheksdaten werden dabei nicht berührt.</value>
   </data>
   <data name="Setup_RunWizard" xml:space="preserve">
     <value>Assistenten starten</value>
@@ -952,25 +952,25 @@
   <data name="Setup_Reconfigure" xml:space="preserve">
     <value>Neu konfigurieren</value>
   </data>
-  <!-- â”€â”€ Connectivity Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Connectivity Tab -->
   <data name="Connectivity_Title" xml:space="preserve">
-    <value>KonnektivitÃ¤t</value>
+    <value>Konnektivität</value>
   </data>
   <data name="Connectivity_ComingSoon" xml:space="preserve">
-    <value>Funktion in Entwicklung â€” Netzwerk- und Synchronisierungseinstellungen erscheinen hier in einem zukÃ¼nftigen Update.</value>
+    <value>Funktion in Entwicklung - Netzwerk- und Synchronisierungseinstellungen erscheinen hier in einem zukünftigen Update.</value>
   </data>
-  <!-- â”€â”€ Server General Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Server General Tab -->
   <data name="ServerGeneral_ServerIdentityTitle" xml:space="preserve">
-    <value>ServeridentitÃ¤t</value>
+    <value>Serveridentität</value>
   </data>
   <data name="ServerGeneral_ServerIdentityDescription" xml:space="preserve">
-    <value>Der Servername erscheint bei der Netzwerkerkennung (mDNS/Bonjour), damit andere Apps in Ihrem Heimnetzwerk Ihre Bibliothek beim Namen finden kÃ¶nnen.</value>
+    <value>Der Servername erscheint bei der Netzwerkerkennung (mDNS/Bonjour), damit andere Apps in Ihrem Heimnetzwerk Ihre Bibliothek beim Namen finden können.</value>
   </data>
   <data name="ServerGeneral_ServerNameLabel" xml:space="preserve">
     <value>Servername</value>
   </data>
   <data name="ServerGeneral_ServerNameHelper" xml:space="preserve">
-    <value>FÃ¼r Medien-Apps in Ihrem lokalen Netzwerk sichtbar</value>
+    <value>Für Medien-Apps in Ihrem lokalen Netzwerk sichtbar</value>
   </data>
   <data name="ServerGeneral_RegionalSettingsTitle" xml:space="preserve">
     <value>Regionale Einstellungen</value>
@@ -982,13 +982,13 @@
     <value>Sprache</value>
   </data>
   <data name="ServerGeneral_LanguageHelper" xml:space="preserve">
-    <value>Wird fÃ¼r Metadaten-Anbieterabfragen verwendet</value>
+    <value>Wird für Metadaten-Anbieterabfragen verwendet</value>
   </data>
   <data name="ServerGeneral_CountryLabel" xml:space="preserve">
     <value>Land</value>
   </data>
   <data name="ServerGeneral_CountryHelper" xml:space="preserve">
-    <value>Wird fÃ¼r regionale Store-Abfragen verwendet (z. B. Apple API)</value>
+    <value>Wird für regionale Store-Abfragen verwendet (z. B. Apple API)</value>
   </data>
   <data name="ServerGeneral_DateFormatLabel" xml:space="preserve">
     <value>Datumsformat</value>
@@ -1018,16 +1018,16 @@
     <value>24-Stunden</value>
   </data>
   <data name="ServerGeneral_LanguageChangeNotice" xml:space="preserve">
-    <value>Das Ã„ndern der Sprache lÃ¤dt die Seite neu, um das neue UI-Gebietsschema anzuwenden.</value>
+    <value>Das Ändern der Sprache lädt die Seite neu, um das neue UI-Gebietsschema anzuwenden.</value>
   </data>
   <data name="ServerGeneral_Reset" xml:space="preserve">
-    <value>ZurÃ¼cksetzen</value>
+    <value>Zurücksetzen</value>
   </data>
   <data name="ServerGeneral_Saving" xml:space="preserve">
-    <value>Wird gespeichertâ€¦</value>
+    <value>Wird gespeichert...</value>
   </data>
   <data name="ServerGeneral_SaveChanges" xml:space="preserve">
-    <value>Ã„nderungen speichern</value>
+    <value>Änderungen speichern</value>
   </data>
   <data name="ServerGeneral_ServerNameEmpty" xml:space="preserve">
     <value>Servername darf nicht leer sein.</value>
@@ -1036,17 +1036,17 @@
     <value>Einstellungen gespeichert.</value>
   </data>
   <data name="ServerGeneral_SaveError" xml:space="preserve">
-    <value>Einstellungen konnten nicht gespeichert werden. ÃœberprÃ¼fen Sie die Engine-Verbindung.</value>
+    <value>Einstellungen konnten nicht gespeichert werden. Überprüfen Sie die Engine-Verbindung.</value>
   </data>
-  <!-- â”€â”€ Vibe Vocabulary Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Vibe Vocabulary Tab -->
   <data name="Vibes_PageTitle" xml:space="preserve">
     <value>Stimmungsvokabular</value>
   </data>
   <data name="Vibes_PageDescription" xml:space="preserve">
-    <value>Stimmungs- und AtmosphÃ¤ren-Tags, aus denen die KI bei der Anreicherung Ihrer Bibliothek schÃ¶pft.</value>
+    <value>Stimmungs- und Atmosphären-Tags, aus denen die KI bei der Anreicherung Ihrer Bibliothek schöpft.</value>
   </data>
   <data name="Vibes_InfoAlert" xml:space="preserve">
-    <value>Die KI kann Tags auÃŸerhalb dieser Liste generieren, bevorzugt jedoch diese. Bearbeiten Sie sie frei â€” Ã„nderungen treten beim nÃ¤chsten Anreicherungslauf in Kraft.</value>
+    <value>Die KI kann Tags außerhalb dieser Liste generieren, bevorzugt jedoch diese. Bearbeiten Sie sie frei - Änderungen treten beim nächsten Anreicherungslauf in Kraft.</value>
   </data>
   <data name="Vibes_TagSingular" xml:space="preserve">
     <value>Tag</value>
@@ -1055,50 +1055,50 @@
     <value>Tags</value>
   </data>
   <data name="Vibes_NoTags" xml:space="preserve">
-    <value>Keine Tags â€” fÃ¼gen Sie unten einen hinzu.</value>
+    <value>Keine Tags - fügen Sie unten einen hinzu.</value>
   </data>
   <data name="Vibes_NewTagPlaceholder" xml:space="preserve">
-    <value>Neuer Tagâ€¦</value>
+    <value>Neuer Tag...</value>
   </data>
   <data name="Vibes_Add" xml:space="preserve">
-    <value>HinzufÃ¼gen</value>
+    <value>Hinzufügen</value>
   </data>
   <data name="Vibes_ResetToDefaults" xml:space="preserve">
-    <value>Auf Standardwerte zurÃ¼cksetzen</value>
+    <value>Auf Standardwerte zurücksetzen</value>
   </data>
-  <!-- â”€â”€ Wikidata Configuration Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Wikidata Configuration Tab -->
   <data name="Wikidata_PageTitle" xml:space="preserve">
     <value>Wikidata-Konfiguration</value>
   </data>
   <data name="Wikidata_PageDescription" xml:space="preserve">
-    <value>Wikidata ist die einzige IdentitÃ¤tsautoritÃ¤t fÃ¼r Ihre Bibliothek. Jedes Buch, jeder Film, jede Person und jedes Franchise wird durch einen Wikidata-Q-Bezeichner identifiziert. Phase 2 lÃ¶st die IdentitÃ¤t wÃ¤hrend der Aufnahme auf; Phase 3 reichert das Universum Ihrer Bibliothek im Hintergrund an.</value>
+    <value>Wikidata ist die einzige Identitätsautorität für Ihre Bibliothek. Jedes Buch, jeder Film, jede Person und jedes Franchise wird durch einen Wikidata-Q-Bezeichner identifiziert. Phase 2 löst die Identität während der Aufnahme auf; Phase 3 reichert das Universum Ihrer Bibliothek im Hintergrund an.</value>
   </data>
   <data name="Wikidata_Stage2Title" xml:space="preserve">
-    <value>Phase 2 â€” IdentitÃ¤t &amp; Kerndaten</value>
+    <value>Phase 2 - Identität &amp; Kerndaten</value>
   </data>
   <data name="Wikidata_Stage2Badge" xml:space="preserve">
     <value>Aufnahme</value>
   </data>
   <data name="Wikidata_Stage2Description" xml:space="preserve">
-    <value>Wird unmittelbar nach dem Einlagern von Bridge-IDs durch Einzelhandelsanbieter (Phase 1) ausgefÃ¼hrt. LÃ¶st den Q-Bezeichner auf und ruft Kerneigenschaften Ã¼ber die Data Extension API ab.</value>
+    <value>Wird unmittelbar nach dem Einlagern von Bridge-IDs durch Einzelhandelsanbieter (Phase 1) ausgeführt. Löst den Q-Bezeichner auf und ruft Kerneigenschaften über die Data Extension API ab.</value>
   </data>
   <data name="Wikidata_PropertiesFetched" xml:space="preserve">
     <value>ABGERUFENE EIGENSCHAFTEN</value>
   </data>
   <data name="Wikidata_MatchingThresholds" xml:space="preserve">
-    <value>ÃœBEREINSTIMMUNGSSCHWELLENWERTE</value>
+    <value>ÜBEREINSTIMMUNGSSCHWELLENWERTE</value>
   </data>
   <data name="Wikidata_AutoAcceptThresholdLabel" xml:space="preserve">
     <value>Automatischer Annahmeschwellenwert</value>
   </data>
   <data name="Wikidata_AutoAcceptThresholdDescription" xml:space="preserve">
-    <value>Abgleichswert, bei dem eine QID-Ãœbereinstimmung automatisch angenommen wird. Werte unterhalb dieses Schwellenwerts werden in die ÃœberprÃ¼fungswarteschlange eingereiht.</value>
+    <value>Abgleichswert, bei dem eine QID-Übereinstimmung automatisch angenommen wird. Werte unterhalb dieses Schwellenwerts werden in die Überprüfungswarteschlange eingereiht.</value>
   </data>
   <data name="Wikidata_ReviewThresholdLabel" xml:space="preserve">
-    <value>ÃœberprÃ¼fungsschwellenwert</value>
+    <value>Überprüfungsschwellenwert</value>
   </data>
   <data name="Wikidata_ReviewThresholdDescription" xml:space="preserve">
-    <value>Mindestwert, damit eine Ãœbereinstimmung Ã¼berhaupt in der ÃœberprÃ¼fungswarteschlange erscheint. Ãœbereinstimmungen unterhalb dieses Werts werden verworfen.</value>
+    <value>Mindestwert, damit eine Übereinstimmung überhaupt in der Überprüfungswarteschlange erscheint. Übereinstimmungen unterhalb dieses Werts werden verworfen.</value>
   </data>
   <data name="Wikidata_PipelineOptions" xml:space="preserve">
     <value>PIPELINE-OPTIONEN</value>
@@ -1107,25 +1107,25 @@
     <value>Pipeline bei Wikidata-Fehler fortsetzen</value>
   </data>
   <data name="Wikidata_MaxQidCandidatesLabel" xml:space="preserve">
-    <value>Maximale QID-Kandidaten in der ÃœberprÃ¼fung</value>
+    <value>Maximale QID-Kandidaten in der Überprüfung</value>
   </data>
   <data name="Wikidata_MaxQidCandidatesHelper" xml:space="preserve">
-    <value>Anzahl der in der ÃœberprÃ¼fungswarteschlange zur manuellen Auswahl angezeigten Wikidata-Kandidaten.</value>
+    <value>Anzahl der in der Überprüfungswarteschlange zur manuellen Auswahl angezeigten Wikidata-Kandidaten.</value>
   </data>
   <data name="Wikidata_WikipediaMaxCharsLabel" xml:space="preserve">
     <value>Wikipedia-Beschreibung max. Zeichen</value>
   </data>
   <data name="Wikidata_WikipediaMaxCharsHelper" xml:space="preserve">
-    <value>Lange Beschreibungen werden auf diese LÃ¤nge gekÃ¼rzt, bevor sie als Metadaten-Claim gespeichert werden.</value>
+    <value>Lange Beschreibungen werden auf diese Länge gekürzt, bevor sie als Metadaten-Claim gespeichert werden.</value>
   </data>
   <data name="Wikidata_Stage3Title" xml:space="preserve">
-    <value>Phase 3 â€” Universumsdaten</value>
+    <value>Phase 3 - Universumsdaten</value>
   </data>
   <data name="Wikidata_Stage3Badge" xml:space="preserve">
     <value>Hintergrund</value>
   </data>
   <data name="Wikidata_Stage3Description" xml:space="preserve">
-    <value>Wird im Hintergrund nach Abschluss von Phase 2 oder wÃ¤hrend des nÃ¤chtlichen Durchlaufs ausgefÃ¼hrt. BefÃ¼llt den Chronik-Explorer mit tiefen Universums-Beziehungen.</value>
+    <value>Wird im Hintergrund nach Abschluss von Phase 2 oder während des nächtlichen Durchlaufs ausgeführt. Befüllt den Chronik-Explorer mit tiefen Universums-Beziehungen.</value>
   </data>
   <data name="Wikidata_DataGroups" xml:space="preserve">
     <value>DATENGRUPPEN</value>
@@ -1134,7 +1134,7 @@
     <value>Personen</value>
   </data>
   <data name="Wikidata_PeopleGroupDescription" xml:space="preserve">
-    <value>PortrÃ¤tfotos, Biografien, Social-Links, Pseudonyme</value>
+    <value>Porträtfotos, Biografien, Social-Links, Pseudonyme</value>
   </data>
   <data name="Wikidata_UniverseLoreGroupTitle" xml:space="preserve">
     <value>Universum / Lore</value>
@@ -1143,7 +1143,7 @@
     <value>Charaktere, Orte, Organisationen, Beziehungen</value>
   </data>
   <data name="Wikidata_CrossMediaGroupTitle" xml:space="preserve">
-    <value>MedienÃ¼bergreifende VerknÃ¼pfungen</value>
+    <value>Medienübergreifende Verknüpfungen</value>
   </data>
   <data name="Wikidata_CrossMediaGroupDescription" xml:space="preserve">
     <value>Adaptionen, Fortsetzungen, gemeinsame Universen</value>
@@ -1152,79 +1152,79 @@
     <value>ZEITPLANUNG &amp; TIEFE</value>
   </data>
   <data name="Wikidata_BackgroundIdleDelayLabel" xml:space="preserve">
-    <value>Hintergrund-LeerlaufverzÃ¶gerung (Sekunden)</value>
+    <value>Hintergrund-Leerlaufverzögerung (Sekunden)</value>
   </data>
   <data name="Wikidata_BackgroundIdleDelayHelper" xml:space="preserve">
     <value>Wie lange der Engine wartet, nachdem die Aufnahmewarteschlange geleert wurde, bevor Phase-3-Verarbeitung beginnt.</value>
   </data>
   <data name="Wikidata_NightlySweepCronLabel" xml:space="preserve">
-    <value>NÃ¤chtlicher Durchlauf-Zeitplan (cron)</value>
+    <value>Nächtlicher Durchlauf-Zeitplan (cron)</value>
   </data>
   <data name="Wikidata_NightlySweepCronHelper" xml:space="preserve">
-    <value>Standard-5-Feld-cron-Ausdruck in Ihrer lokalen Zeitzone. Standard: tÃ¤glich um 2 Uhr.</value>
+    <value>Standard-5-Feld-cron-Ausdruck in Ihrer lokalen Zeitzone. Standard: täglich um 2 Uhr.</value>
   </data>
   <data name="Wikidata_RelationshipDepthLabel" xml:space="preserve">
     <value>Beziehungstiefe</value>
   </data>
   <data name="Wikidata_RelationshipDepthDescription" xml:space="preserve">
-    <value>Wie viele Schritte der Engine beim Aufbau des Universum-Graphen verfolgt. Tiefe 1 = nur direkte Beziehungen. Tiefe 3 = GroÃŸeltern, Unterfraktionen.</value>
+    <value>Wie viele Schritte der Engine beim Aufbau des Universum-Graphen verfolgt. Tiefe 1 = nur direkte Beziehungen. Tiefe 3 = Großeltern, Unterfraktionen.</value>
   </data>
   <data name="Wikidata_LoreDeltaLabel" xml:space="preserve">
-    <value>Lore-Delta beim Ã–ffnen des Chronik-Explorers automatisch prÃ¼fen</value>
+    <value>Lore-Delta beim Öffnen des Chronik-Explorers automatisch prüfen</value>
   </data>
   <data name="Wikidata_LoreDeltaDescription" xml:space="preserve">
     <value>Erkennt, ob Wikidata seit dem letzten Anreicherungsdurchlauf aktualisierte Informationen zu Ihrem Universum hat.</value>
   </data>
   <data name="Wikidata_ResetToDefaults" xml:space="preserve">
-    <value>Auf Standardwerte zurÃ¼cksetzen</value>
+    <value>Auf Standardwerte zurücksetzen</value>
   </data>
   <data name="Wikidata_Saving" xml:space="preserve">
-    <value>Wird gespeichertâ€¦</value>
+    <value>Wird gespeichert...</value>
   </data>
   <data name="Wikidata_SaveConfiguration" xml:space="preserve">
     <value>Konfiguration speichern</value>
   </data>
-  <!-- â”€â”€ Home Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Home Page -->
   <data name="Home_EmptyTitle" xml:space="preserve">
     <value>Ihre Bibliothek ist leer</value>
   </data>
   <data name="Home_EmptySubtitle" xml:space="preserve">
-    <value>Legen Sie Dateien in Ihren Ãœberwachungsordner, oder fÃ¼llen Sie die Bibliothek mit BeispielbÃ¼chern, um loszulegen.</value>
+    <value>Legen Sie Dateien in Ihren Überwachungsordner, oder füllen Sie die Bibliothek mit Beispielbüchern, um loszulegen.</value>
   </data>
   <data name="Home_Seeding" xml:space="preserve">
-    <value>Wird befÃ¼lltâ€¦</value>
+    <value>Wird befüllt...</value>
   </data>
   <data name="Home_SeedLibrary" xml:space="preserve">
-    <value>Bibliothek befÃ¼llen</value>
+    <value>Bibliothek befüllen</value>
   </data>
   <data name="Home_SearchPlaceholder" xml:space="preserve">
-    <value>Bibliothek durchsuchenâ€¦</value>
+    <value>Bibliothek durchsuchen...</value>
   </data>
   <data name="Home_ContinueYourJourney" xml:space="preserve">
     <value>Ihre Reise fortsetzen</value>
   </data>
   <data name="Home_RecentlyAdded" xml:space="preserve">
-    <value>Zuletzt hinzugefÃ¼gt</value>
+    <value>Zuletzt hinzugefügt</value>
   </data>
   <data name="Home_YouMightLike" xml:space="preserve">
-    <value>Das kÃ¶nnte Ihnen gefallen</value>
+    <value>Das könnte Ihnen gefallen</value>
   </data>
   <data name="Home_ExploreYourLibrary" xml:space="preserve">
     <value>Ihre Bibliothek erkunden</value>
   </data>
   <data name="Home_SeedSuccess" xml:space="preserve">
-    <value>7 BÃ¼cher werden verarbeitet â€” sie erscheinen gleich hier.</value>
+    <value>7 Bücher werden verarbeitet - sie erscheinen gleich hier.</value>
   </data>
   <data name="Home_SeedFailure" xml:space="preserve">
-    <value>Bibliothek konnte nicht befÃ¼llt werden. Stellen Sie sicher, dass der Ãœberwachungsordner konfiguriert ist.</value>
+    <value>Bibliothek konnte nicht befüllt werden. Stellen Sie sicher, dass der Überwachungsordner konfiguriert ist.</value>
   </data>
   <data name="Home_CarouselPrevious" xml:space="preserve">
-    <value>ZurÃ¼ck</value>
+    <value>Zurück</value>
   </data>
   <data name="Home_CarouselNext" xml:space="preserve">
     <value>Weiter</value>
   </data>
-  <!-- â”€â”€ Settings Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Settings Page -->
   <data name="Settings_Title" xml:space="preserve">
     <value>Einstellungen</value>
   </data>
@@ -1232,25 +1232,25 @@
     <value>Verwalten Sie Ihre Erfahrung.</value>
   </data>
   <data name="Settings_Save" xml:space="preserve">
-    <value>Ã„nderungen speichern</value>
+    <value>Änderungen speichern</value>
   </data>
   <data name="Settings_Reset" xml:space="preserve">
-    <value>ZurÃ¼cksetzen</value>
+    <value>Zurücksetzen</value>
   </data>
   <data name="Settings_Saving" xml:space="preserve">
-    <value>Wird gespeichertâ€¦</value>
+    <value>Wird gespeichert...</value>
   </data>
-  <!-- â”€â”€ Search Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Search Page -->
   <data name="Search_Title" xml:space="preserve">
     <value>Bibliothek durchsuchen</value>
   </data>
   <data name="Search_Subtitle" xml:space="preserve">
-    <value>Nutzen Sie die Suchleiste oben, um BÃ¼cher, HÃ¶rbÃ¼cher und Comics zu finden.</value>
+    <value>Nutzen Sie die Suchleiste oben, um Bücher, Hörbücher und Comics zu finden.</value>
   </data>
   <data name="Search_AllTitles" xml:space="preserve">
     <value>Alle Titel</value>
   </data>
-  <!-- â”€â”€ Provider Language Strategy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Provider Language Strategy -->
   <data name="Provider_LanguageStrategy" xml:space="preserve">
     <value>Sprachstrategie</value>
   </data>
@@ -1261,12 +1261,12 @@
     <value>Lokalisiert (Ihre Sprache)</value>
   </data>
   <data name="Provider_LanguageStrategy_Both" xml:space="preserve">
-    <value>Beide (beide versuchen, zusammenfÃ¼hren)</value>
+    <value>Beide (beide versuchen, zusammenführen)</value>
   </data>
   <data name="Provider_LanguageStrategy_Help" xml:space="preserve">
     <value>Steuert, ob dieser Anbieter in Ihrer Metadatensprache, auf Englisch oder in beiden abfragt.</value>
   </data>
-  <!-- â”€â”€ Stage 3 Universe Enrichment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Stage 3 Universe Enrichment -->
   <data name="Wikidata_Stage3Enabled" xml:space="preserve">
     <value>Stufe 3 aktiviert</value>
   </data>
@@ -1274,7 +1274,7 @@
     <value>Zeitplan</value>
   </data>
   <data name="Wikidata_Stage3BatchSize" xml:space="preserve">
-    <value>StapelgrÃ¶ÃŸe</value>
+    <value>Stapelgröße</value>
   </data>
   <data name="Wikidata_Stage3BatchSizeHelper" xml:space="preserve">
     <value>Maximale Anzahl von Werken, die pro Durchlauf verarbeitet werden.</value>
@@ -1283,22 +1283,22 @@
     <value>Aktualisierungszyklus (Tage)</value>
   </data>
   <data name="Wikidata_Stage3RefreshDaysHelper" xml:space="preserve">
-    <value>EntitÃ¤ten erneut prÃ¼fen, die seit mehr als dieser Anzahl von Tagen angereichert wurden.</value>
+    <value>Entitäten erneut prüfen, die seit mehr als dieser Anzahl von Tagen angereichert wurden.</value>
   </data>
   <data name="Wikidata_Stage3MaxDepth" xml:space="preserve">
     <value>Beziehungstiefe</value>
   </data>
   <data name="Wikidata_Stage3TriggerNow" xml:space="preserve">
-    <value>Jetzt auslÃ¶sen</value>
+    <value>Jetzt auslösen</value>
   </data>
   <data name="Wikidata_Stage3TriggerHint" xml:space="preserve">
     <value>Manuell einen Anreicherungslauf starten</value>
   </data>
-  <!-- â”€â”€ Providers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Providers -->
   <data name="Provider_FanartTv" xml:space="preserve">
     <value>Fanart.tv</value>
   </data>
-  <!-- â”€â”€ Universe Explorer modes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Universe Explorer modes -->
   <data name="Universe_ModeWeb" xml:space="preserve">
     <value>Netzwerk</value>
   </data>
@@ -1321,13 +1321,13 @@
     <value>Ziel</value>
   </data>
   <data name="Universe_PathClear" xml:space="preserve">
-    <value>LÃ¶schen</value>
+    <value>Löschen</value>
   </data>
   <data name="Universe_PathSteps" xml:space="preserve">
     <value>Schritte</value>
   </data>
   <data name="Universe_FamilySelectCharacter" xml:space="preserve">
-    <value>Figur auswÃ¤hlen</value>
+    <value>Figur auswählen</value>
   </data>
   <data name="Universe_FamilyGenerations" xml:space="preserve">
     <value>Generationen</value>
@@ -1342,7 +1342,7 @@
     <value>Original</value>
   </data>
   <data name="Universe_GuideSearch" xml:space="preserve">
-    <value>EntitÃ¤ten suchen…</value>
+    <value>Entitäten suchen…</value>
   </data>
   <data name="Universe_GuideFilterAll" xml:space="preserve">
     <value>Alle</value>

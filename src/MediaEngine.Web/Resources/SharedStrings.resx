@@ -58,7 +58,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <!-- â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Navigation -->
   <data name="Nav_Home" xml:space="preserve">
     <value>Home</value>
   </data>
@@ -96,7 +96,7 @@
     <value>Open navigation</value>
   </data>
   <data name="Nav_SearchPlaceholder" xml:space="preserve">
-    <value>Search your libraryâ€¦</value>
+    <value>Search your library...</value>
   </data>
   <data name="Nav_ReviewQueue" xml:space="preserve">
     <value>Review queue</value>
@@ -146,12 +146,12 @@
   <data name="TopBar_LiveUpdatesOffline" xml:space="preserve">
     <value>Live updates offline</value>
   </data>
-  <!-- â”€â”€ Command Palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Command Palette -->
   <data name="CmdPalette_Placeholder" xml:space="preserve">
-    <value>Search collections, navigateâ€¦</value>
+    <value>Search collections, navigate...</value>
   </data>
   <data name="CmdPalette_Hint" xml:space="preserve">
-    <value>â†‘â†“ navigate Â· Enter select Â· Esc close</value>
+    <value>↑↓ navigate · Enter select · Esc close</value>
   </data>
   <data name="CmdPalette_Library" xml:space="preserve">
     <value>Library</value>
@@ -162,7 +162,7 @@
   <data name="CmdPalette_SettingsSubtitle" xml:space="preserve">
     <value>Preferences, library, API keys</value>
   </data>
-  <!-- â”€â”€ Status Pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Status Pill -->
   <data name="StatusPill_Verified" xml:space="preserve">
     <value>VERIFIED</value>
   </data>
@@ -193,7 +193,7 @@
   <data name="StatusPill_DeletesIn" xml:space="preserve">
     <value>Deletes in {0}d</value>
   </data>
-  <!-- â”€â”€ Profile Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Profile Tab -->
   <data name="Profile_AccountIdentity" xml:space="preserve">
     <value>Account Identity</value>
   </data>
@@ -252,7 +252,7 @@
     <value>Additional Content Languages</value>
   </data>
   <data name="Profile_AdditionalContentLanguagesHelper" xml:space="preserve">
-    <value>Languages you consume content in â€” files in these languages won't be flagged</value>
+    <value>Languages you consume content in - files in these languages won't be flagged</value>
   </data>
   <data name="Profile_AcceptAnyLanguage" xml:space="preserve">
     <value>Accept any language</value>
@@ -270,17 +270,17 @@
     <value>Profile updated</value>
   </data>
   <data name="Profile_CouldNotSaveProfile" xml:space="preserve">
-    <value>Could not save profile â€” is the Engine running?</value>
+    <value>Could not save profile - is the Engine running?</value>
   </data>
   <data name="Profile_CouldNotSaveLanguagePreferences" xml:space="preserve">
     <value>Could not save language preferences</value>
   </data>
-  <!-- â”€â”€ Models Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Models Tab -->
   <data name="Models_AiModels" xml:space="preserve">
     <value>AI Models</value>
   </data>
   <data name="Models_AiModelsDescription" xml:space="preserve">
-    <value>Download, load, and manage the local AI models that power intelligent features. Models run entirely on your machine â€” no data leaves.</value>
+    <value>Download, load, and manage the local AI models that power intelligent features. Models run entirely on your machine - no data leaves.</value>
   </data>
   <data name="Models_HardwareProfile" xml:space="preserve">
     <value>Hardware Profile</value>
@@ -307,7 +307,7 @@
     <value>LAST BENCHMARK</value>
   </data>
   <data name="Models_NoBenchmarkData" xml:space="preserve">
-    <value>No benchmark data yet â€” the Engine will benchmark automatically on first startup.</value>
+    <value>No benchmark data yet - the Engine will benchmark automatically on first startup.</value>
   </data>
   <data name="Models_ResourceMonitor" xml:space="preserve">
     <value>Resource Monitor</value>
@@ -340,7 +340,7 @@
     <value>Size</value>
   </data>
   <data name="Models_Downloading" xml:space="preserve">
-    <value>Downloadingâ€¦</value>
+    <value>Downloading...</value>
   </data>
   <data name="Models_Download" xml:space="preserve">
     <value>Download</value>
@@ -370,7 +370,7 @@
     <value>GPU Acceleration (CUDA / Vulkan)</value>
   </data>
   <data name="Models_GpuActive" xml:space="preserve">
-    <value>Active â€” using</value>
+    <value>Active - using</value>
   </data>
   <data name="Models_GpuOn" xml:space="preserve">
     <value>on</value>
@@ -379,14 +379,14 @@
     <value>GPU</value>
   </data>
   <data name="Models_CpuInferenceActive" xml:space="preserve">
-    <value>CPU inference active. A dedicated GPU (NVIDIA, AMD, or Intel Arc) enables 6-7Ã— faster inference.</value>
+    <value>CPU inference active. A dedicated GPU (NVIDIA, AMD, or Intel Arc) enables 6-7x faster inference.</value>
   </data>
-  <!-- â”€â”€ AI Features Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- AI Features Tab -->
   <data name="AiFeatures_AiFeatures" xml:space="preserve">
     <value>AI Features</value>
   </data>
   <data name="AiFeatures_AiFeaturesDescription" xml:space="preserve">
-    <value>Enable or disable individual AI-powered features. Changes take effect immediately for future operations â€” they do not reprocess already-ingested files.</value>
+    <value>Enable or disable individual AI-powered features. Changes take effect immediately for future operations - they do not reprocess already-ingested files.</value>
   </data>
   <data name="AiFeatures_Ingestion" xml:space="preserve">
     <value>Ingestion</value>
@@ -425,7 +425,7 @@
     <value>User-Triggered</value>
   </data>
   <data name="AiFeatures_OnDemandDescription" xml:space="preserve">
-    <value>Activated by user actions â€” a search query, a button click, or browsing a work's detail page. Fast responses expected.</value>
+    <value>Activated by user actions - a search query, a button click, or browsing a work's detail page. Fast responses expected.</value>
   </data>
   <data name="AiFeatures_Scheduled" xml:space="preserve">
     <value>Scheduled</value>
@@ -433,7 +433,7 @@
   <data name="AiFeatures_ScheduledDescription" xml:space="preserve">
     <value>Runs on a nightly or weekly cron schedule. These features are long-running and are designed to run while you sleep.</value>
   </data>
-  <!-- â”€â”€ AI Schedule Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- AI Schedule Tab -->
   <data name="Schedule_AiSchedule" xml:space="preserve">
     <value>AI Schedule</value>
   </data>
@@ -447,7 +447,7 @@
     <value>items enriched</value>
   </data>
   <data name="Schedule_ItemsPending" xml:space="preserve">
-    <value>items pending â€” processed in background batches</value>
+    <value>items pending - processed in background batches</value>
   </data>
   <data name="Schedule_AllItemsEnriched" xml:space="preserve">
     <value>All items enriched</value>
@@ -479,7 +479,7 @@
   <data name="Schedule_SaveSchedules" xml:space="preserve">
     <value>Save Schedules</value>
   </data>
-  <!-- â”€â”€ Libraries Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Libraries Tab -->
   <data name="Libraries_NotAvailable" xml:space="preserve">
     <value>Not Available</value>
   </data>
@@ -511,7 +511,7 @@
     <value>Reset path to default</value>
   </data>
   <data name="Libraries_PreviewExampleOutput" xml:space="preserve">
-    <value>Preview â€” example output</value>
+    <value>Preview - example output</value>
   </data>
   <data name="Libraries_Reset" xml:space="preserve">
     <value>Reset</value>
@@ -523,22 +523,22 @@
     <value>Save Changes</value>
   </data>
   <data name="Libraries_CannotReachEngine" xml:space="preserve">
-    <value>Cannot reach the Engine â€” please make sure it is running.</value>
+    <value>Cannot reach the Engine - please make sure it is running.</value>
   </data>
   <data name="Libraries_WatchFolderNotAccessible" xml:space="preserve">
-    <value>Watch Folder is not accessible â€” please check the path and permissions.</value>
+    <value>Watch Folder is not accessible - please check the path and permissions.</value>
   </data>
   <data name="Libraries_LibraryFolderNotAccessible" xml:space="preserve">
-    <value>Library Folder is not accessible â€” please check the path and permissions.</value>
+    <value>Library Folder is not accessible - please check the path and permissions.</value>
   </data>
   <data name="Libraries_InvalidTemplate" xml:space="preserve">
-    <value>Invalid template â€” please check your tokens.</value>
+    <value>Invalid template - please check your tokens.</value>
   </data>
   <data name="Libraries_SettingsSaved" xml:space="preserve">
-    <value>Settings saved â€” now watching</value>
+    <value>Settings saved - now watching</value>
   </data>
   <data name="Libraries_CouldNotSaveFolderSettings" xml:space="preserve">
-    <value>Could not save folder settings â€” please make sure the Engine is running.</value>
+    <value>Could not save folder settings - please make sure the Engine is running.</value>
   </data>
   <data name="Libraries_CouldNotSave" xml:space="preserve">
     <value>Could not save:</value>
@@ -553,7 +553,7 @@
     <value>Read &amp; Write access confirmed</value>
   </data>
   <data name="Libraries_ReadOnly" xml:space="preserve">
-    <value>Read only â€” cannot write</value>
+    <value>Read only - cannot write</value>
   </data>
   <data name="Libraries_AccessDenied" xml:space="preserve">
     <value>Access denied</value>
@@ -564,7 +564,7 @@
   <data name="Libraries_ConfiguredLibrariesHint" xml:space="preserve">
     <value>Libraries defined in config/libraries.json. Each library can span multiple source paths across different drives. Edit the config file directly to add or modify libraries.</value>
   </data>
-  <!-- â”€â”€ Status Dashboard Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Status Dashboard Tab -->
   <data name="Status_StatusDashboard" xml:space="preserve">
     <value>Status Dashboard</value>
   </data>
@@ -601,7 +601,7 @@
   <data name="Status_AiModels" xml:space="preserve">
     <value>AI Models</value>
   </data>
-  <!-- â”€â”€ Security Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Security Tab -->
   <data name="Security_Security" xml:space="preserve">
     <value>Security</value>
   </data>
@@ -638,7 +638,7 @@
   <data name="Security_GeneralApi" xml:space="preserve">
     <value>General API</value>
   </data>
-  <!-- â”€â”€ API Keys Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- API Keys Tab -->
   <data name="ApiKeys_GuestApiKeys" xml:space="preserve">
     <value>Guest API Keys</value>
   </data>
@@ -646,7 +646,7 @@
     <value>Generate Key</value>
   </data>
   <data name="ApiKeys_GuestApiKeysDescription" xml:space="preserve">
-    <value>Any application connecting to the Engine â€” Radarr, Sonarr, a mobile app â€” must present a valid Guest API Key. Each key is labelled and can be revoked individually.</value>
+    <value>Any application connecting to the Engine - Radarr, Sonarr, a mobile app - must present a valid Guest API Key. Each key is labelled and can be revoked individually.</value>
   </data>
   <data name="ApiKeys_NoKeysIssued" xml:space="preserve">
     <value>No Guest API Keys have been issued yet. Generate one to allow external connections.</value>
@@ -679,7 +679,7 @@
     <value>e.g. Radarr integration, Mobile app</value>
   </data>
   <data name="ApiKeys_CopyKeyNow" xml:space="preserve">
-    <value>Copy this key now â€” it will not be shown again.</value>
+    <value>Copy this key now - it will not be shown again.</value>
   </data>
   <data name="ApiKeys_CopyKeyToClipboard" xml:space="preserve">
     <value>Copy key to clipboard</value>
@@ -718,7 +718,7 @@
     <value>Revoke All</value>
   </data>
   <data name="ApiKeys_CouldNotGenerateKey" xml:space="preserve">
-    <value>Could not generate key â€” is the Engine running?</value>
+    <value>Could not generate key - is the Engine running?</value>
   </data>
   <data name="ApiKeys_KeyCopiedToClipboard" xml:space="preserve">
     <value>Key copied to clipboard</value>
@@ -727,7 +727,7 @@
     <value>Key revoked</value>
   </data>
   <data name="ApiKeys_RevokeFailed" xml:space="preserve">
-    <value>Revoke failed â€” is the Engine running?</value>
+    <value>Revoke failed - is the Engine running?</value>
   </data>
   <data name="ApiKeys_AllKeysRevoked" xml:space="preserve">
     <value>All</value>
@@ -736,9 +736,9 @@
     <value>keys revoked</value>
   </data>
   <data name="ApiKeys_CouldNotRevokeKeys" xml:space="preserve">
-    <value>Could not revoke keys â€” is the Engine running?</value>
+    <value>Could not revoke keys - is the Engine running?</value>
   </data>
-  <!-- â”€â”€ Users Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Users Tab -->
   <data name="Users_PageTitle" xml:space="preserve">
     <value>Users &amp; Profiles</value>
   </data>
@@ -806,17 +806,17 @@
     <value>Create</value>
   </data>
   <data name="Users_CreateError" xml:space="preserve">
-    <value>Could not create profile â€” is the Engine running?</value>
+    <value>Could not create profile - is the Engine running?</value>
   </data>
   <data name="Users_DeleteError" xml:space="preserve">
-    <value>Could not delete profile â€” is the Engine running?</value>
+    <value>Could not delete profile - is the Engine running?</value>
   </data>
-  <!-- â”€â”€ Activity Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Activity Tab -->
   <data name="Activity_PageTitle" xml:space="preserve">
     <value>Activity Log</value>
   </data>
   <data name="Activity_PageDescription" xml:space="preserve">
-    <value>A complete record of every significant action taken by the Engine â€” ingestion, enrichment, review resolutions, and scheduled maintenance.</value>
+    <value>A complete record of every significant action taken by the Engine - ingestion, enrichment, review resolutions, and scheduled maintenance.</value>
   </data>
   <data name="Activity_RetentionPolicy" xml:space="preserve">
     <value>Retention Policy</value>
@@ -855,9 +855,9 @@
     <value>remaining</value>
   </data>
   <data name="Activity_PruneError" xml:space="preserve">
-    <value>Prune failed â€” is the Engine running?</value>
+    <value>Prune failed - is the Engine running?</value>
   </data>
-  <!-- â”€â”€ Maintenance Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Maintenance Tab -->
   <data name="Maintenance_PageTitle" xml:space="preserve">
     <value>Maintenance</value>
   </data>
@@ -868,7 +868,7 @@
     <value>Library Reconciliation</value>
   </data>
   <data name="Maintenance_ReconciliationDescription" xml:space="preserve">
-    <value>Scan all library assets and verify their files still exist on disk. Missing files are cleaned up automatically â€” orphaned cover art, sidecar XML, and empty folders are removed.</value>
+    <value>Scan all library assets and verify their files still exist on disk. Missing files are cleaned up automatically - orphaned cover art, sidecar XML, and empty folders are removed.</value>
   </data>
   <data name="Maintenance_Scanning" xml:space="preserve">
     <value>Scanning...</value>
@@ -880,7 +880,7 @@
     <value>Universe Enrichment</value>
   </data>
   <data name="Maintenance_UniverseEnrichmentDescription" xml:space="preserve">
-    <value>Run deep enrichment for all pending items â€” character relationships, franchise connections, and cross-media narrative links.</value>
+    <value>Run deep enrichment for all pending items - character relationships, franchise connections, and cross-media narrative links.</value>
   </data>
   <data name="Maintenance_Running" xml:space="preserve">
     <value>Running...</value>
@@ -904,15 +904,15 @@
     <value>Periodic metadata refresh with artwork hash verification. Coming in a future update.</value>
   </data>
   <data name="Maintenance_ReconciliationComplete" xml:space="preserve">
-    <value>Reconciliation complete â€” all files present</value>
+    <value>Reconciliation complete - all files present</value>
   </data>
   <data name="Maintenance_ReconciliationError" xml:space="preserve">
-    <value>Reconciliation failed â€” is the Engine running?</value>
+    <value>Reconciliation failed - is the Engine running?</value>
   </data>
   <data name="Maintenance_Pass2Error" xml:space="preserve">
-    <value>Failed to trigger Pass 2 â€” is the Engine running?</value>
+    <value>Failed to trigger Pass 2 - is the Engine running?</value>
   </data>
-  <!-- â”€â”€ Setup Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Setup Tab -->
   <data name="Setup_PageTitle" xml:space="preserve">
     <value>Setup checklist</value>
   </data>
@@ -952,14 +952,14 @@
   <data name="Setup_Reconfigure" xml:space="preserve">
     <value>Reconfigure</value>
   </data>
-  <!-- â”€â”€ Connectivity Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Connectivity Tab -->
   <data name="Connectivity_Title" xml:space="preserve">
     <value>Connectivity</value>
   </data>
   <data name="Connectivity_ComingSoon" xml:space="preserve">
-    <value>Feature in Development â€” Network and sync settings will appear here in a future update.</value>
+    <value>Feature in Development - Network and sync settings will appear here in a future update.</value>
   </data>
-  <!-- â”€â”€ Server General Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Server General Tab -->
   <data name="ServerGeneral_ServerIdentityTitle" xml:space="preserve">
     <value>Server Identity</value>
   </data>
@@ -1024,7 +1024,7 @@
     <value>Reset</value>
   </data>
   <data name="ServerGeneral_Saving" xml:space="preserve">
-    <value>Savingâ€¦</value>
+    <value>Saving...</value>
   </data>
   <data name="ServerGeneral_SaveChanges" xml:space="preserve">
     <value>Save Changes</value>
@@ -1038,7 +1038,7 @@
   <data name="ServerGeneral_SaveError" xml:space="preserve">
     <value>Failed to save settings. Check the Engine connection.</value>
   </data>
-  <!-- â”€â”€ Vibe Vocabulary Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Vibe Vocabulary Tab -->
   <data name="Vibes_PageTitle" xml:space="preserve">
     <value>Vibe Vocabulary</value>
   </data>
@@ -1046,7 +1046,7 @@
     <value>Mood and atmosphere tags the AI draws from when enriching your library.</value>
   </data>
   <data name="Vibes_InfoAlert" xml:space="preserve">
-    <value>The AI can generate tags outside this list but prefers these. Edit freely â€” changes take effect on the next enrichment run.</value>
+    <value>The AI can generate tags outside this list but prefers these. Edit freely - changes take effect on the next enrichment run.</value>
   </data>
   <data name="Vibes_TagSingular" xml:space="preserve">
     <value>tag</value>
@@ -1055,10 +1055,10 @@
     <value>tags</value>
   </data>
   <data name="Vibes_NoTags" xml:space="preserve">
-    <value>No tags â€” add one below.</value>
+    <value>No tags - add one below.</value>
   </data>
   <data name="Vibes_NewTagPlaceholder" xml:space="preserve">
-    <value>New tagâ€¦</value>
+    <value>New tag...</value>
   </data>
   <data name="Vibes_Add" xml:space="preserve">
     <value>Add</value>
@@ -1066,7 +1066,7 @@
   <data name="Vibes_ResetToDefaults" xml:space="preserve">
     <value>Reset to Defaults</value>
   </data>
-  <!-- â”€â”€ Wikidata Configuration Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Wikidata Configuration Tab -->
   <data name="Wikidata_PageTitle" xml:space="preserve">
     <value>Wikidata Configuration</value>
   </data>
@@ -1074,7 +1074,7 @@
     <value>Wikidata is the sole identity authority for your library. Every book, film, person, and franchise is identified by a Wikidata Q-identifier. Stage 2 resolves identity during ingestion; Stage 3 enriches your library's universe in the background.</value>
   </data>
   <data name="Wikidata_Stage2Title" xml:space="preserve">
-    <value>Stage 2 â€” Identity &amp; Core Data</value>
+    <value>Stage 2 - Identity &amp; Core Data</value>
   </data>
   <data name="Wikidata_Stage2Badge" xml:space="preserve">
     <value>Ingestion</value>
@@ -1119,7 +1119,7 @@
     <value>Long descriptions are truncated to this length before being stored as a metadata claim.</value>
   </data>
   <data name="Wikidata_Stage3Title" xml:space="preserve">
-    <value>Stage 3 â€” Universe Data</value>
+    <value>Stage 3 - Universe Data</value>
   </data>
   <data name="Wikidata_Stage3Badge" xml:space="preserve">
     <value>Background</value>
@@ -1179,12 +1179,12 @@
     <value>Reset to Defaults</value>
   </data>
   <data name="Wikidata_Saving" xml:space="preserve">
-    <value>Savingâ€¦</value>
+    <value>Saving...</value>
   </data>
   <data name="Wikidata_SaveConfiguration" xml:space="preserve">
     <value>Save Configuration</value>
   </data>
-  <!-- â”€â”€ Home Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Home Page -->
   <data name="Home_EmptyTitle" xml:space="preserve">
     <value>Your library is empty</value>
   </data>
@@ -1213,7 +1213,7 @@
     <value>Explore Your Library</value>
   </data>
   <data name="Home_SeedSuccess" xml:space="preserve">
-    <value>7 books are being processed â€” they'll appear here momentarily.</value>
+    <value>7 books are being processed - they'll appear here momentarily.</value>
   </data>
   <data name="Home_SeedFailure" xml:space="preserve">
     <value>Could not seed the library. Make sure the Watch Folder is configured.</value>
@@ -1224,7 +1224,7 @@
   <data name="Home_CarouselNext" xml:space="preserve">
     <value>Next</value>
   </data>
-  <!-- â”€â”€ Settings Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Settings Page -->
   <data name="Settings_Title" xml:space="preserve">
     <value>Settings</value>
   </data>
@@ -1238,9 +1238,9 @@
     <value>Reset</value>
   </data>
   <data name="Settings_Saving" xml:space="preserve">
-    <value>Savingâ€¦</value>
+    <value>Saving...</value>
   </data>
-  <!-- â”€â”€ Search Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Search Page -->
   <data name="Search_Title" xml:space="preserve">
     <value>Search your library</value>
   </data>
@@ -1250,7 +1250,7 @@
   <data name="Search_AllTitles" xml:space="preserve">
     <value>All titles</value>
   </data>
-  <!-- â”€â”€ Provider Language Strategy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Provider Language Strategy -->
   <data name="Provider_LanguageStrategy" xml:space="preserve">
     <value>Language Strategy</value>
   </data>
@@ -1266,7 +1266,7 @@
   <data name="Provider_LanguageStrategy_Help" xml:space="preserve">
     <value>Controls whether this provider queries in your metadata language, English, or both.</value>
   </data>
-  <!-- â”€â”€ Stage 3 Universe Enrichment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Stage 3 Universe Enrichment -->
   <data name="Wikidata_Stage3Enabled" xml:space="preserve">
     <value>Stage 3 Enabled</value>
   </data>
@@ -1294,11 +1294,11 @@
   <data name="Wikidata_Stage3TriggerHint" xml:space="preserve">
     <value>Manually start a Stage 3 enrichment sweep</value>
   </data>
-  <!-- â”€â”€ Providers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Providers -->
   <data name="Provider_FanartTv" xml:space="preserve">
     <value>Fanart.tv</value>
   </data>
-  <!-- â”€â”€ Universe Explorer modes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <!-- Universe Explorer modes -->
   <data name="Universe_ModeWeb" xml:space="preserve">
     <value>Web</value>
   </data>

@@ -249,20 +249,21 @@
 ::deep .tl-detail-hero--listen:not(.tl-detail-hero--watch) .tl-detail-hero__copy,
 ::deep .tl-detail-hero--music:not(.tl-detail-hero--watch) .tl-detail-hero__copy,
 ::deep .tl-detail-hero--fallback-surface:not(.tl-detail-hero--watch) .tl-detail-hero__copy {
-    max-width: min(45rem, 49vw);
+    max-width: min(58rem, 57vw);
     gap: 0.7rem;
-    transform: translateY(clamp(1.4rem, 5vh, 4rem));
+    transform: translateY(clamp(0.5rem, 2.5vh, 2rem));
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-hero__copy h1,
 ::deep .tl-detail-hero--listen:not(.tl-detail-hero--watch) .tl-detail-hero__copy h1 {
-    max-width: 12ch;
+    max-width: 16ch;
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(4rem, 7.1vw, 7.8rem);
     font-weight: 500;
     line-height: 0.92;
     letter-spacing: 0;
     text-transform: uppercase;
+    text-wrap: pretty;
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-hero__subtitle,

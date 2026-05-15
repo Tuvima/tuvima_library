@@ -4,6 +4,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 using SharpCompress.Archives;
+using SharpCompressReaderOptions = SharpCompress.Readers.ReaderOptions;
 
 namespace MediaEngine.Processors.Processors;
 
@@ -192,7 +193,7 @@ public sealed class ComicProcessor : IMediaProcessor
     {
         try
         {
-            using var archive = ArchiveFactory.Open(filePath);
+            using var archive = ArchiveFactory.OpenArchive(filePath, new SharpCompressReaderOptions());
             int count = archive.Entries.Count(IsImageEntry);
             return count > 0 ? count : null;
         }
@@ -229,7 +230,7 @@ public sealed class ComicProcessor : IMediaProcessor
     {
         try
         {
-            using var archive = ArchiveFactory.Open(filePath);
+            using var archive = ArchiveFactory.OpenArchive(filePath, new SharpCompressReaderOptions());
 
             var comicInfoEntry = archive.Entries
                 .FirstOrDefault(e => !e.IsDirectory

@@ -173,6 +173,49 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_OverallProgressReachesCompleteWhenAllFilesAreTerminal()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 117,
+                RegisteredItems = 90,
+                ItemsNeedingReview = 26,
+            },
+            PipelineStages =
+            [
+                new() { Key = "detected", Count = 117, TotalCount = 117 },
+                new() { Key = "matched", Count = 91, TotalCount = 117 },
+                new() { Key = "retail_review", Count = 6, TotalCount = 117 },
+                new() { Key = "canonicalized", Count = 90, TotalCount = 91 },
+                new() { Key = "wikidata_review", Count = 1, TotalCount = 91 },
+                new() { Key = "enriched", Count = 90, TotalCount = 91 },
+                new() { Key = "duplicate", Count = 1, TotalCount = 117 },
+                new() { Key = "failed", Count = 19, TotalCount = 117 },
+            ],
+        };
+
+        var metrics = IngestionLiveDashboardState.BuildMetrics(snapshot, []);
+        var stages = IngestionLiveDashboardState.BuildStages(snapshot, [], metrics.TotalFiles);
+        var progress = IngestionLiveDashboardState.BuildOverallProgress(metrics, stages, null);
+
+        Assert.Equal(117, metrics.ProcessedFiles);
+        Assert.Equal(117, metrics.TotalFiles);
+        Assert.Equal(100, progress.Percent);
+
+        var retail = Assert.Single(stages, stage => stage.Key == "retail");
+        Assert.Equal(117, retail.Count);
+        Assert.Equal(117, retail.Total);
+        Assert.Equal(20, retail.OtherCount);
+
+        var enrichment = Assert.Single(stages, stage => stage.Key == "enrichment");
+        Assert.Equal(91, enrichment.Count);
+        Assert.Equal(91, enrichment.Total);
+        Assert.Equal("Ingestion_StatusComplete", enrichment.StatusKey);
+    }
+
+    [Fact]
     public void LiveDashboardState_HidesScanningCountWhenIdle()
     {
         var stages = IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 0);

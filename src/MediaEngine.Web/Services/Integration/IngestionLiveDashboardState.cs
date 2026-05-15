@@ -304,17 +304,20 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var activeKey = ResolveActiveStage(activeJobs);
         var duplicateCount = Count(snapshot, "duplicate");
         var skippedCount = Count(snapshot, "skipped");
+        var failedCount = Count(snapshot, "failed");
         var skippedOrDuplicate = duplicateCount + skippedCount;
+        var terminalOther = skippedOrDuplicate + failedCount;
         var retailMatched = Count(snapshot, "matched");
         var retailReview = Count(snapshot, "retail_review");
-        var retailTotal = Math.Max(totalFiles, Total(snapshot, "matched", Math.Max(0, retailMatched + retailReview + skippedOrDuplicate)));
-        var retailDone = retailMatched + retailReview + skippedOrDuplicate;
+        var retailTotal = Math.Max(totalFiles, Total(snapshot, "matched", Math.Max(0, retailMatched + retailReview + terminalOther)));
+        var retailDone = retailMatched + retailReview + terminalOther;
         var canonicalized = Count(snapshot, "canonicalized");
         var wikidataReview = Count(snapshot, "wikidata_review");
         var wikidataTotal = Total(snapshot, "canonicalized", Math.Max(0, canonicalized + wikidataReview));
         var wikidataDone = canonicalized + wikidataReview;
         var enriched = Count(snapshot, "enriched");
-        var enrichmentTotal = Total(snapshot, "enriched", Math.Max(0, enriched));
+        var enrichmentDone = enriched + wikidataReview;
+        var enrichmentTotal = Total(snapshot, "enriched", Math.Max(0, enrichmentDone));
         var scanningJobs = activeJobs
             .Where(job => ResolveActiveStage([job]) == "scanning")
             .ToList();
@@ -349,7 +352,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 activeKey,
                 matchedCount: retailMatched,
                 reviewCount: retailReview,
-                otherCount: skippedOrDuplicate),
+                otherCount: terminalOther),
             CreateStage(
                 "wikidata",
                 "Ingestion_StageWikidataMatch",
@@ -364,7 +367,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 "Ingestion_StageEnrichment",
                 "Ingestion_StageEnrichmentDetail",
                 Icons.Material.Outlined.DataObject,
-                enriched,
+                enrichmentDone,
                 enrichmentTotal,
                 totalFiles,
                 activeKey),

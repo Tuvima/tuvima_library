@@ -33,7 +33,7 @@
     <!-- MediaInfo.Wrapper: .NET wrapper around MediaInfo for stream-level codec, track, and chapter inspection. -->
     <PackageVersion Include="MediaInfo.Wrapper.Core" Version="26.1.0" />
     <!-- SharpCompress: pure managed archive reader for CBZ/CBR comic archives. -->
-    <PackageVersion Include="SharpCompress" Version="0.44.0" />
+    <PackageVersion Include="SharpCompress" Version="0.48.0" />
     <!-- LLamaSharp: .NET native llama.cpp binding for local LLM inference.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="LLamaSharp" Version="0.21.0" />

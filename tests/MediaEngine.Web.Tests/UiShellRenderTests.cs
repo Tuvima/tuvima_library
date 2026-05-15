@@ -581,11 +581,14 @@ public sealed class UiShellRenderTests : TestContext
     [Fact]
     public void WebUiSource_DoesNotContainLegacySettingsClassesOrMojibake()
     {
-        var root = GetRepoFile("src", "MediaEngine.Web", "Components");
+        var root = GetRepoFile("src", "MediaEngine.Web");
         var files = Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
             .Where(file => file.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)
                            || file.EndsWith(".css", StringComparison.OrdinalIgnoreCase)
-                           || file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase));
+                           || file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                           || file.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+                           && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
 
         foreach (var file in files)
         {
@@ -596,7 +599,16 @@ public sealed class UiShellRenderTests : TestContext
             Assert.DoesNotMatch(@"class=""[^""]*\bst-toggle-row\b", source);
             Assert.DoesNotContain("Ã‚", source);
             Assert.DoesNotContain("Ã¢", source);
+            Assert.DoesNotContain("Ã", source);
+            Assert.DoesNotContain("Â", source);
+            Assert.DoesNotContain("â€¦", source);
+            Assert.DoesNotContain("â€”", source);
+            Assert.DoesNotContain("â€“", source);
+            Assert.DoesNotContain("â†", source);
+            Assert.DoesNotContain("â€", source);
+            Assert.DoesNotContain("â”", source);
             Assert.DoesNotContain("ï¿½", source);
+            Assert.DoesNotContain("�", source);
         }
     }
 
