@@ -175,6 +175,20 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_DetailAndChildListsPreferDisplayOverrides()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("LoadWorkDisplayOverridesAsync(workId", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveDisplayTitleOverride(displayOverrides, entityType)", source, StringComparison.Ordinal);
+        Assert.Contains("w.display_overrides_json AS TEXT) AS WorkDisplayOverridesJson", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveDisplayTitleOverride(", source, StringComparison.Ordinal);
+        Assert.Contains("DetailEntityType.TvEpisode => [\"episode_title\", \"title\", \"display_title\"]", source, StringComparison.Ordinal);
+        Assert.Contains("DetailEntityType.MusicAlbum => [\"album\", \"title\", \"display_title\"]", source, StringComparison.Ordinal);
+        Assert.Contains("return $\"{season}:{episode}\";", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DetailComposer_DrivesHeroProgressFromPlaybackState()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));

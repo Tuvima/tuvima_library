@@ -40,6 +40,10 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("file_size_bytes", navigator, StringComparison.Ordinal);
         Assert.Contains("video_width", navigator, StringComparison.Ordinal);
         Assert.Contains("disc_number", navigator, StringComparison.Ordinal);
+        Assert.Contains("display_overrides_json", navigator, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayOverrideValue(value, \"episode_title\", \"title\", \"display_title\")", navigator, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayOverrideValue(value, \"title\", \"display_title\")", navigator, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayOverrideValue(value, \"display_subtitle\")", navigator, StringComparison.Ordinal);
         Assert.Contains("IsContainerEditorLaunch(launch)", metadata, StringComparison.Ordinal);
         Assert.Contains("!string.Equals(launch.WorkKind, \"child\"", metadata, StringComparison.Ordinal);
     }

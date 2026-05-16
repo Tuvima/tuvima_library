@@ -377,6 +377,7 @@ public static partial class MetadataEndpoints
                    CAST(MAX(CASE WHEN av.key = 'container' THEN av.value END) AS TEXT) AS AssetContainer,
                    CAST(pic.file_size AS TEXT) AS InspectionFileSize,
                    CAST(pic.container AS TEXT) AS InspectionContainer,
+                   CAST(w.display_overrides_json AS TEXT) AS WorkDisplayOverridesJson,
                    CAST(w.parent_key AS TEXT) AS ParentKey
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
@@ -384,7 +385,7 @@ public static partial class MetadataEndpoints
             LEFT JOIN canonical_values wv ON wv.entity_id = w.id
             LEFT JOIN canonical_values av ON av.entity_id = ra.AssetId
             WHERE w.id IN @workIds
-            GROUP BY w.id, ra.AssetId, ra.FilePath, ra.ContentHash, ra.FormatLabel, pic.file_size, pic.container, w.parent_key;
+            GROUP BY w.id, ra.AssetId, ra.FilePath, ra.ContentHash, ra.FormatLabel, pic.file_size, pic.container, w.display_overrides_json, w.parent_key;
             """, new { workIds }).ToList();
 
         return result.ToDictionary(row => row.WorkId);
@@ -452,8 +453,10 @@ public static partial class MetadataEndpoints
                     return row.WorkId.ToString("D");
 
                 return FirstNonBlank(
+                    GetDisplayOverrideValue(value, "episode_title", "title", "display_title"),
                     value.AssetEpisodeTitle,
                     value.AssetTitle,
+                    GetDisplayOverrideValue(value, "show_name", "album", "series"),
                     value.WorkTitle,
                     value.WorkShowName,
                     value.WorkAlbum,
@@ -574,20 +577,45 @@ public static partial class MetadataEndpoints
     private static string ResolveNavigatorTitle(string mediaType, NavigatorTreeRow row, NavigatorValueRow? value) =>
         mediaType switch
         {
-            "TV" when row.Depth == 0 => FirstNonBlank(value?.WorkShowName, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            "TV" when row.Depth == 0 => FirstNonBlank(GetDisplayOverrideValue(value, "show_name", "title", "display_title"), value?.WorkShowName, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
             "TV" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
                 $"Season {ParseNavigatorOrdinal(value?.AssetSeasonNumber ?? value?.WorkSeasonNumber, ToInt(row.Ordinal))?.ToString(CultureInfo.InvariantCulture) ?? "?"}",
-            "TV" => FirstNonBlank(value?.AssetEpisodeTitle, value?.AssetTitle, value?.WorkTitle, $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+            "TV" => FirstNonBlank(GetDisplayOverrideValue(value, "episode_title", "title", "display_title"), value?.AssetEpisodeTitle, value?.AssetTitle, value?.WorkTitle, $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Music" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(value?.WorkAlbum, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Album"),
-            "Music" => FirstNonBlank(value?.AssetTitle, value?.WorkTitle, $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+                FirstNonBlank(GetDisplayOverrideValue(value, "album", "title", "display_title"), value?.WorkAlbum, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Album"),
+            "Music" => FirstNonBlank(GetDisplayOverrideValue(value, "title", "display_title"), value?.AssetTitle, value?.WorkTitle, $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Comics" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
-            "Comics" => FirstNonBlank(value?.AssetTitle, value?.WorkTitle, $"Issue {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+                FirstNonBlank(GetDisplayOverrideValue(value, "series", "title", "display_title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            "Comics" => FirstNonBlank(GetDisplayOverrideValue(value, "title", "display_title"), value?.AssetTitle, value?.WorkTitle, $"Issue {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Books" or "Audiobooks" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
-            _ => FirstNonBlank(value?.AssetTitle, value?.WorkTitle, "Item"),
+                FirstNonBlank(GetDisplayOverrideValue(value, "series", "title", "display_title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            _ => FirstNonBlank(GetDisplayOverrideValue(value, "title", "display_title"), value?.AssetTitle, value?.WorkTitle, "Item"),
         };
+
+    private static string? GetDisplayOverrideValue(NavigatorValueRow? value, params string[] keys)
+    {
+        if (value is null || string.IsNullOrWhiteSpace(value.WorkDisplayOverridesJson))
+            return null;
+
+        try
+        {
+            var overrides = JsonSerializer.Deserialize<Dictionary<string, string>>(value.WorkDisplayOverridesJson);
+            if (overrides is null)
+                return null;
+
+            foreach (var key in keys)
+            {
+                if (overrides.TryGetValue(key, out var overrideValue) && !string.IsNullOrWhiteSpace(overrideValue))
+                    return overrideValue.Trim();
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
+    }
 
     private static string? ResolveNavigatorSubtitle(string mediaType, NavigatorTreeRow row, NavigatorValueRow? value, int ownedCount)
     {
@@ -598,20 +626,20 @@ public static partial class MetadataEndpoints
         {
             return mediaType switch
             {
-                "TV" => BuildDelimitedLabel(FirstNonBlank(value?.WorkYear), FirstNonBlank(value?.WorkNetwork)),
-                "Music" => BuildDelimitedLabel(FirstNonBlank(value?.WorkArtist), FirstNonBlank(value?.WorkYear)),
-                "Comics" or "Books" or "Audiobooks" => BuildDelimitedLabel(FirstNonBlank(value?.WorkAuthor), FirstNonBlank(value?.WorkYear)),
-                _ => FirstNonBlank(value?.WorkYear),
+                "TV" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), BuildDelimitedLabel(FirstNonBlank(value?.WorkYear), FirstNonBlank(value?.WorkNetwork))),
+                "Music" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), BuildDelimitedLabel(FirstNonBlank(value?.WorkArtist), FirstNonBlank(value?.WorkYear))),
+                "Comics" or "Books" or "Audiobooks" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), BuildDelimitedLabel(FirstNonBlank(value?.WorkAuthor), FirstNonBlank(value?.WorkYear))),
+                _ => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), value?.WorkYear),
             };
         }
 
         return mediaType switch
         {
-            "TV" => FirstNonBlank(value?.WorkYear),
-            "Music" => FirstNonBlank(value?.WorkArtist),
-            "Books" or "Audiobooks" => FirstNonBlank(value?.WorkAuthor),
-            "Comics" => FirstNonBlank(value?.AssetVolume, value?.WorkYear),
-            _ => null,
+            "TV" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), value?.WorkYear),
+            "Music" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle", "artist"), value?.WorkArtist),
+            "Books" or "Audiobooks" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle", "author"), value?.WorkAuthor),
+            "Comics" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle", "volume"), value?.AssetVolume, value?.WorkYear),
+            _ => GetDisplayOverrideValue(value, "display_subtitle"),
         };
     }
 
@@ -1719,6 +1747,7 @@ public static partial class MetadataEndpoints
         public string? AssetContainer { get; init; }
         public string? InspectionFileSize { get; init; }
         public string? InspectionContainer { get; init; }
+        public string? WorkDisplayOverridesJson { get; init; }
         public string? ParentKey { get; init; }
     }
     private sealed record MembershipEntityRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, int? Ordinal, string? ParentKey, Guid RootWorkId);

@@ -1,6 +1,7 @@
 using Dapper;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Contracts.Details;
@@ -162,6 +163,8 @@ public sealed class DetailComposerService
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, ct);
         var longDescription = ResolveLongDescription(detail.Description, values, entityType);
         var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, entityType, ct);
+        var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
+        var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
 
         return new DetailPageViewModel
         {
@@ -175,7 +178,9 @@ public sealed class DetailComposerService
                 ContainerMode = IsCanonicalContainerEntity(entityType) ? "Canonical" : "Singular",
                 InitialTab = "details",
             },
-            Title = entityType == DetailEntityType.TvEpisode
+            Title = !string.IsNullOrWhiteSpace(displayTitle)
+                ? displayTitle
+                : entityType == DetailEntityType.TvEpisode
                 ? FirstNonBlank(detail.EpisodeTitle, GetValue(values, MetadataFieldConstants.EpisodeTitle), detail.Title, detail.FileName, "Untitled")
                 : FirstNonBlank(detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled"),
             Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
@@ -1921,6 +1926,7 @@ public sealed class DetailComposerService
                    CAST(ma.id AS TEXT) AS AssetId,
                    CAST(w.media_type AS TEXT) AS MediaType,
                    w.ordinal AS Ordinal,
+                   CAST(w.display_overrides_json AS TEXT) AS WorkDisplayOverridesJson,
                    CAST(COALESCE(NULLIF(episode_title.value, ''), NULLIF(episode_title_work.value, ''), NULLIF(title_asset.value, ''), NULLIF(title_work.value, ''), 'Untitled') AS TEXT) AS Title,
                    CAST(COALESCE(
                        NULLIF(episode_desc_work.value, ''),
@@ -2036,7 +2042,12 @@ public sealed class DetailComposerService
             StringValue(row.Id) ?? string.Empty,
             StringValue(row.MediaType) ?? string.Empty,
             IntValue(row.Ordinal),
-            StringValue(row.Title) ?? "Untitled",
+            FirstNonBlank(
+                ResolveDisplayTitleOverride(
+                    StringValue(row.WorkDisplayOverridesJson),
+                    InferMediaItemEntityType(StringValue(row.MediaType) ?? string.Empty, StringValue(row.Episode))),
+                StringValue(row.Title),
+                "Untitled"),
             StringValue(row.Description),
             StringValue(row.Season),
             StringValue(row.Episode),
@@ -2052,6 +2063,62 @@ public sealed class DetailComposerService
             IsTruthy(StringValue(row.IsCatalogOnly)),
             ResolveCollectionArtworkUrl(StringValue(row.ArtworkUrl), StringValue(row.AssetId), "cover", StringValue(row.CoverState)),
             ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)))).ToList();
+    }
+
+    private async Task<Dictionary<string, string>> LoadWorkDisplayOverridesAsync(Guid workId, CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        var json = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "SELECT display_overrides_json FROM works WHERE id = @workId LIMIT 1;",
+            new { workId = workId.ToString("D") },
+            cancellationToken: ct));
+
+        return ParseDisplayOverrides(json);
+    }
+
+    private static Dictionary<string, string> ParseDisplayOverrides(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            return parsed is null
+                ? new(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(parsed, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return new(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static string? ResolveDisplayTitleOverride(string? json, DetailEntityType entityType) =>
+        ResolveDisplayTitleOverride(ParseDisplayOverrides(json), entityType);
+
+    private static string? ResolveDisplayTitleOverride(IReadOnlyDictionary<string, string> overrides, DetailEntityType entityType)
+    {
+        if (overrides.Count == 0)
+            return null;
+
+        var keys = entityType switch
+        {
+            DetailEntityType.TvShow or DetailEntityType.TvSeason => ["show_name", "title", "display_title"],
+            DetailEntityType.TvEpisode => ["episode_title", "title", "display_title"],
+            DetailEntityType.MusicAlbum => ["album", "title", "display_title"],
+            DetailEntityType.MusicTrack => ["title", "display_title"],
+            DetailEntityType.BookSeries or DetailEntityType.ComicSeries => ["series", "title", "display_title"],
+            _ => new[] { "title", "display_title" },
+        };
+
+        foreach (var key in keys)
+        {
+            if (overrides.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+
+        return null;
     }
 
     private async Task<Dictionary<string, string>> LoadCanonicalMapAsync(Guid entityId, CancellationToken ct)
@@ -3032,14 +3099,13 @@ public sealed class DetailComposerService
 
     private static string BuildTvEpisodeDeduplicationKey(CollectionWorkSummary work)
     {
-        var title = NormalizeTextKey(work.Title);
         var season = NormalizeEpisodeKey(work.Season);
         var episode = NormalizeEpisodeKey(work.Episode);
 
-        if (!string.IsNullOrWhiteSpace(title))
-            return title;
+        if (!string.IsNullOrWhiteSpace(season) || !string.IsNullOrWhiteSpace(episode))
+            return $"{season}:{episode}";
 
-        return $"{season}:{episode}";
+        return NormalizeTextKey(work.Title);
     }
 
     private static string NormalizeEpisodeKey(string? value)
@@ -3089,11 +3155,16 @@ public sealed class DetailComposerService
 
     private static DetailEntityType InferMediaItemEntityType(CollectionWorkSummary work)
     {
-        if (!string.IsNullOrWhiteSpace(work.Episode) || work.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.TvEpisode;
-        if (work.MediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.Movie;
-        if (work.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.MusicTrack;
-        if (work.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.Audiobook;
-        if (work.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.ComicIssue;
+        return InferMediaItemEntityType(work.MediaType, work.Episode);
+    }
+
+    private static DetailEntityType InferMediaItemEntityType(string mediaType, string? episode)
+    {
+        if (!string.IsNullOrWhiteSpace(episode) || mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.TvEpisode;
+        if (mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.Movie;
+        if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.MusicTrack;
+        if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.Audiobook;
+        if (mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.ComicIssue;
         return DetailEntityType.Book;
     }
 
