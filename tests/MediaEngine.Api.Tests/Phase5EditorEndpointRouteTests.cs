@@ -25,6 +25,25 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("/{id:guid}/skip-universe", review, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void MediaEditorNavigator_ReturnsCompactOrdinalsTechnicalBadgesAndClickableState()
+    {
+        var navigator = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs");
+        var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
+
+        Assert.Contains("compact_ordinal_label", navigator, StringComparison.Ordinal);
+        Assert.Contains("technical_badges", navigator, StringComparison.Ordinal);
+        Assert.Contains("primary_asset_id", navigator, StringComparison.Ordinal);
+        Assert.Contains("is_clickable", navigator, StringComparison.Ordinal);
+        Assert.Contains("BuildNavigatorTechnicalBadges", navigator, StringComparison.Ordinal);
+        Assert.Contains("playback_inspection_cache", navigator, StringComparison.Ordinal);
+        Assert.Contains("file_size_bytes", navigator, StringComparison.Ordinal);
+        Assert.Contains("video_width", navigator, StringComparison.Ordinal);
+        Assert.Contains("disc_number", navigator, StringComparison.Ordinal);
+        Assert.Contains("IsContainerEditorLaunch(launch)", metadata, StringComparison.Ordinal);
+        Assert.Contains("!string.Equals(launch.WorkKind, \"child\"", metadata, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(string relativePath) =>
         File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
 

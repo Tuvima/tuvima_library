@@ -138,6 +138,23 @@
                         </MudTabs>
                     </div>
 
+                    @if (HasContainerReturnState)
+                    {
+                        <div class="sme-container-return">
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Inherit"
+                                       StartIcon="@Icons.Material.Outlined.ArrowBack"
+                                       Class="sme-container-return-button"
+                                       OnClick="ReturnToContainerEditorAsync">
+                                @ContainerReturnLabel
+                            </MudButton>
+                            @if (!string.IsNullOrWhiteSpace(ContainerReturnContext))
+                            {
+                                <span>@ContainerReturnContext</span>
+                            }
+                        </div>
+                    }
+
                     <div class="sme-body">
                 @if (_loading)
                 {
@@ -278,25 +295,20 @@
                                                    Class="sme-content-group-header"
                                                    UserAttributes="@GetContentGroupHeaderAttributes(collapsed)"
                                                    OnClick="@(() => ToggleContentGroup(group))">
-                                            <span class="sme-content-group-title">@group.Title</span>
-                                            <span class="sme-content-group-meta">@group.TotalCount @EditorContentItemPlural</span>
-                                            <span class="sme-content-status sme-content-status--owned">
-                                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                                                @group.OwnedCount owned
+                                            <span class="sme-content-group-icon">
+                                                <MudIcon Icon="@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? Icons.Material.Outlined.Album : Icons.Material.Outlined.CalendarMonth)" Size="Size.Small" />
                                             </span>
-                                            @if (group.MissingCount > 0)
-                                            {
-                                                <span class="sme-content-status sme-content-status--missing">@group.MissingCount missing</span>
-                                            }
+                                            <span class="sme-content-group-copy">
+                                                <span class="sme-content-group-title">@group.Title</span>
+                                            </span>
+                                            <span class="sme-content-group-meter">
+                                                <span class="sme-content-group-progress" aria-hidden="true">
+                                                    <span style="width: @($"{group.CompletionPercent:F0}%")"></span>
+                                                </span>
+                                                <strong>@group.OwnedCount / @group.TotalCount</strong>
+                                            </span>
                                             <MudIcon Icon="@(collapsed ? Icons.Material.Outlined.KeyboardArrowDown : Icons.Material.Outlined.KeyboardArrowUp)" Size="Size.Small" />
                                         </MudButton>
-                                        @if (!string.IsNullOrWhiteSpace(group.Subtitle))
-                                        {
-                                            <div class="sme-content-group-subtitle">@group.Subtitle</div>
-                                        }
-                                        <div class="sme-content-group-progress" aria-hidden="true">
-                                            <span style="width: @($"{group.CompletionPercent:F0}%")"></span>
-                                        </div>
 
                                         @if (!collapsed)
                                         {
@@ -306,11 +318,12 @@
                                                     var item = entry.node;
                                                     var ordinal = GetContentOrdinalLabel(item, entry.index);
                                                     var meta = GetContentRowMeta(item);
-                                                    <MudButton Variant="Variant.Outlined"
+                                                    <MudButton Variant="Variant.Text"
                                                                Color="Color.Inherit"
                                                                FullWidth="true"
-                                                               Class="@($"sme-content-item {(IsContentNodeSelected(item) ? "is-active" : string.Empty)} {(item.IsOwned ? "is-owned" : "is-missing")}")"
-                                                               OnClick="@(() => SelectNavigatorNodeAsync(item.EntityId))">
+                                                               Disabled="@(!item.IsClickable)"
+                                                               Class="@($"sme-content-item {(IsContentNodeSelected(item) ? "is-active" : string.Empty)} {(item.IsOwned ? "is-owned" : "is-missing")} {(item.IsClickable ? "is-clickable" : "is-disabled")}")"
+                                                               OnClick="@(() => SelectContentItemAsync(group, item))">
                                                         <span class="sme-content-item-badge">@ordinal</span>
                                                         <span class="sme-content-item-copy">
                                                             <span class="sme-content-item-title">@item.Title</span>
@@ -319,11 +332,19 @@
                                                                 <span class="sme-content-item-subtitle">@meta</span>
                                                             }
                                                         </span>
+                                                        @if (item.TechnicalBadges.Count > 0)
+                                                        {
+                                                            <span class="sme-content-tech-badges">
+                                                                @foreach (var badge in item.TechnicalBadges)
+                                                                {
+                                                                    <span>@badge</span>
+                                                                }
+                                                            </span>
+                                                        }
                                                         @if (item.IsOwned)
                                                         {
-                                                            <span class="sme-content-owned">
+                                                            <span class="sme-content-owned" title="Owned" aria-label="Owned">
                                                                 <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                                                                Owned
                                                             </span>
                                                         }
                                                         else

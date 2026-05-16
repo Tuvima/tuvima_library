@@ -325,16 +325,29 @@ public static partial class MetadataEndpoints
             return [];
 
         var result = conn.Query<NavigatorValueRow>("""
-            WITH representative_assets AS (
+            WITH representative_asset_ids AS (
                 SELECT e.work_id AS WorkId,
                        CAST(MIN(ma.id) AS TEXT) AS AssetId
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 WHERE e.work_id IN @workIds
                 GROUP BY e.work_id
+            ),
+            representative_assets AS (
+                SELECT rai.WorkId,
+                       rai.AssetId,
+                       ma.file_path_root AS FilePath,
+                       ma.content_hash AS ContentHash,
+                       e.format_label AS FormatLabel
+                FROM representative_asset_ids rai
+                INNER JOIN media_assets ma ON ma.id = rai.AssetId
+                INNER JOIN editions e ON e.id = ma.edition_id
             )
             SELECT CAST(w.id AS TEXT) AS WorkId,
                    ra.AssetId,
+                   CAST(ra.FilePath AS TEXT) AS AssetFilePath,
+                   CAST(ra.ContentHash AS TEXT) AS AssetContentHash,
+                   CAST(ra.FormatLabel AS TEXT) AS AssetFormatLabel,
                    CAST(MAX(CASE WHEN wv.key = 'title' THEN wv.value END) AS TEXT) AS WorkTitle,
                    CAST(MAX(CASE WHEN wv.key = 'show_name' THEN wv.value END) AS TEXT) AS WorkShowName,
                    CAST(MAX(CASE WHEN wv.key = 'network' THEN wv.value END) AS TEXT) AS WorkNetwork,
@@ -344,21 +357,34 @@ public static partial class MetadataEndpoints
                    CAST(MAX(CASE WHEN wv.key = 'author' THEN wv.value END) AS TEXT) AS WorkAuthor,
                    CAST(MAX(CASE WHEN wv.key = 'year' THEN wv.value END) AS TEXT) AS WorkYear,
                    CAST(MAX(CASE WHEN wv.key = 'season_number' THEN wv.value END) AS TEXT) AS WorkSeasonNumber,
+                   CAST(MAX(CASE WHEN wv.key = 'disc_number' THEN wv.value END) AS TEXT) AS WorkDiscNumber,
                    CAST(MAX(CASE WHEN av.key = 'title' THEN av.value END) AS TEXT) AS AssetTitle,
                    CAST(MAX(CASE WHEN av.key = 'episode_title' THEN av.value END) AS TEXT) AS AssetEpisodeTitle,
                    CAST(MAX(CASE WHEN av.key = 'episode_number' THEN av.value END) AS TEXT) AS AssetEpisodeNumber,
                    CAST(MAX(CASE WHEN av.key = 'season_number' THEN av.value END) AS TEXT) AS AssetSeasonNumber,
                    CAST(MAX(CASE WHEN av.key = 'track_number' THEN av.value END) AS TEXT) AS AssetTrackNumber,
+                   CAST(MAX(CASE WHEN av.key = 'disc_number' THEN av.value END) AS TEXT) AS AssetDiscNumber,
                    CAST(MAX(CASE WHEN av.key = 'series_position' THEN av.value END) AS TEXT) AS AssetSeriesPosition,
                    CAST(MAX(CASE WHEN av.key = 'issue_number' THEN av.value END) AS TEXT) AS AssetIssueNumber,
                    CAST(MAX(CASE WHEN av.key = 'volume' THEN av.value END) AS TEXT) AS AssetVolume,
+                   CAST(MAX(CASE WHEN av.key = 'file_size_bytes' THEN av.value END) AS TEXT) AS AssetFileSizeBytes,
+                   CAST(MAX(CASE WHEN av.key = 'video_width' THEN av.value END) AS TEXT) AS AssetVideoWidth,
+                   CAST(MAX(CASE WHEN av.key = 'video_height' THEN av.value END) AS TEXT) AS AssetVideoHeight,
+                   CAST(MAX(CASE WHEN av.key = 'video_codec' THEN av.value END) AS TEXT) AS AssetVideoCodec,
+                   CAST(MAX(CASE WHEN av.key = 'audio_codec' THEN av.value END) AS TEXT) AS AssetAudioCodec,
+                   CAST(MAX(CASE WHEN av.key = 'bitrate_kbps' THEN av.value END) AS TEXT) AS AssetBitrateKbps,
+                   CAST(MAX(CASE WHEN av.key = 'sample_rate' THEN av.value END) AS TEXT) AS AssetSampleRate,
+                   CAST(MAX(CASE WHEN av.key = 'container' THEN av.value END) AS TEXT) AS AssetContainer,
+                   CAST(pic.file_size AS TEXT) AS InspectionFileSize,
+                   CAST(pic.container AS TEXT) AS InspectionContainer,
                    CAST(w.parent_key AS TEXT) AS ParentKey
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
+            LEFT JOIN playback_inspection_cache pic ON pic.asset_id = ra.AssetId AND pic.source_hash = ra.ContentHash
             LEFT JOIN canonical_values wv ON wv.entity_id = w.id
             LEFT JOIN canonical_values av ON av.entity_id = ra.AssetId
             WHERE w.id IN @workIds
-            GROUP BY w.id, ra.AssetId, w.parent_key;
+            GROUP BY w.id, ra.AssetId, ra.FilePath, ra.ContentHash, ra.FormatLabel, pic.file_size, pic.container, w.parent_key;
             """, new { workIds }).ToList();
 
         return result.ToDictionary(row => row.WorkId);
@@ -452,6 +478,10 @@ public static partial class MetadataEndpoints
         var isParent = string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase);
         var quarantineCount = descendantOwnedCounts.TryGetValue(row.WorkId, out var count) ? count : 0;
         var isOwned = isParent ? quarantineCount > 0 : IsOwnedNavigatorLeaf(row, valueMap);
+        var primaryAssetId = !isParent && isOwned ? value?.AssetId : null;
+        var compactOrdinalLabel = ResolveCompactNavigatorOrdinalLabel(mediaType, row, value);
+        var technicalBadges = primaryAssetId.HasValue ? BuildNavigatorTechnicalBadges(mediaType, value) : [];
+        var isClickable = primaryAssetId.HasValue && isOwned && !isParent;
 
         return new MediaEditorNavigatorNodeEnvelope(
             NodeId: row.WorkId,
@@ -467,6 +497,10 @@ public static partial class MetadataEndpoints
             IsRoot: row.Depth == 0,
             IsLeaf: !isParent,
             IsOwned: isOwned,
+            PrimaryAssetId: primaryAssetId,
+            CompactOrdinalLabel: compactOrdinalLabel,
+            TechnicalBadges: technicalBadges,
+            IsClickable: isClickable,
             CanQuarantine: quarantineCount > 0,
             QuarantineCount: quarantineCount);
     }
@@ -607,6 +641,123 @@ public static partial class MetadataEndpoints
             "Books" or "Audiobooks" => $"Book {ordinal}",
             _ => ordinal.Value.ToString(CultureInfo.InvariantCulture),
         };
+    }
+
+    private static string? ResolveCompactNavigatorOrdinalLabel(string mediaType, NavigatorTreeRow row, NavigatorValueRow? value)
+    {
+        var ordinal = ParseNavigatorOrdinal(
+            mediaType switch
+            {
+                "TV" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) => value?.AssetSeasonNumber ?? value?.WorkSeasonNumber,
+                "TV" => value?.AssetEpisodeNumber,
+                "Music" => value?.AssetTrackNumber,
+                _ => null,
+            },
+            ToInt(row.Ordinal));
+
+        if (ordinal is null)
+            return null;
+
+        return mediaType switch
+        {
+            "TV" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) => $"S{ordinal.Value:00}",
+            "TV" => $"E{ordinal.Value:00}",
+            "Music" when ParseNavigatorOrdinal(value?.AssetDiscNumber ?? value?.WorkDiscNumber, null) is { } disc => $"D{disc} T{ordinal.Value:00}",
+            "Music" => $"T{ordinal.Value:00}",
+            _ => ordinal.Value.ToString(CultureInfo.InvariantCulture),
+        };
+    }
+
+    private static IReadOnlyList<string> BuildNavigatorTechnicalBadges(string mediaType, NavigatorValueRow? value)
+    {
+        if (value is null)
+            return [];
+
+        var badges = new List<string>();
+        if (mediaType == "TV")
+        {
+            AddIfPresent(badges, FormatResolutionBadge(value.AssetVideoWidth, value.AssetVideoHeight));
+            AddIfPresent(badges, FirstNonBlank(value.InspectionContainer, value.AssetContainer, Path.GetExtension(value.AssetFilePath)?.TrimStart('.'), value.AssetFormatLabel)?.ToUpperInvariant());
+            if (badges.Count < 2)
+                AddIfPresent(badges, value.AssetVideoCodec?.ToUpperInvariant());
+            AddIfPresent(badges, FormatFileSizeBadge(FirstNonBlank(value.InspectionFileSize, value.AssetFileSizeBytes)));
+        }
+        else if (mediaType == "Music")
+        {
+            AddIfPresent(badges, FirstNonBlank(value.AssetAudioCodec, value.InspectionContainer, value.AssetContainer, Path.GetExtension(value.AssetFilePath)?.TrimStart('.'), value.AssetFormatLabel)?.ToUpperInvariant());
+            AddIfPresent(badges, FormatBitrateBadge(value.AssetBitrateKbps));
+            if (badges.Count < 2)
+                AddIfPresent(badges, FormatSampleRateBadge(value.AssetSampleRate));
+            AddIfPresent(badges, FormatFileSizeBadge(FirstNonBlank(value.InspectionFileSize, value.AssetFileSizeBytes)));
+        }
+
+        return badges
+            .Where(badge => !string.IsNullOrWhiteSpace(badge))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+    }
+
+    private static void AddIfPresent(List<string> values, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            values.Add(value.Trim());
+    }
+
+    private static string? FormatResolutionBadge(string? widthValue, string? heightValue)
+    {
+        if (!int.TryParse(widthValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var width)
+            || !int.TryParse(heightValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var height)
+            || width <= 0
+            || height <= 0)
+        {
+            return null;
+        }
+
+        return height switch
+        {
+            >= 2160 => "4K",
+            >= 1440 => "1440p",
+            >= 1080 => "1080p",
+            >= 720 => "720p",
+            _ => $"{height}p",
+        };
+    }
+
+    private static string? FormatFileSizeBadge(string? value)
+    {
+        if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bytes) || bytes <= 0)
+            return null;
+
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var size = (double)bytes;
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit <= 1
+            ? $"{size:F0} {units[unit]}"
+            : $"{size:F1} {units[unit]}";
+    }
+
+    private static string? FormatBitrateBadge(string? value)
+    {
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bitrate) || bitrate <= 0)
+            return null;
+
+        return $"{bitrate} kbps";
+    }
+
+    private static string? FormatSampleRateBadge(string? value)
+    {
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var sampleRate) || sampleRate <= 0)
+            return null;
+
+        var khz = sampleRate >= 1000 ? sampleRate / 1000 : sampleRate;
+        return $"{khz:0.#} kHz";
     }
 
     private static IReadOnlyList<MembershipSuggestionEnvelope> QueryParentSuggestions(
@@ -1536,6 +1687,9 @@ public static partial class MetadataEndpoints
     {
         public Guid WorkId { get; init; }
         public Guid? AssetId { get; init; }
+        public string? AssetFilePath { get; init; }
+        public string? AssetContentHash { get; init; }
+        public string? AssetFormatLabel { get; init; }
         public string? WorkTitle { get; init; }
         public string? WorkShowName { get; init; }
         public string? WorkNetwork { get; init; }
@@ -1545,14 +1699,26 @@ public static partial class MetadataEndpoints
         public string? WorkAuthor { get; init; }
         public string? WorkYear { get; init; }
         public string? WorkSeasonNumber { get; init; }
+        public string? WorkDiscNumber { get; init; }
         public string? AssetTitle { get; init; }
         public string? AssetEpisodeTitle { get; init; }
         public string? AssetEpisodeNumber { get; init; }
         public string? AssetSeasonNumber { get; init; }
         public string? AssetTrackNumber { get; init; }
+        public string? AssetDiscNumber { get; init; }
         public string? AssetSeriesPosition { get; init; }
         public string? AssetIssueNumber { get; init; }
         public string? AssetVolume { get; init; }
+        public string? AssetFileSizeBytes { get; init; }
+        public string? AssetVideoWidth { get; init; }
+        public string? AssetVideoHeight { get; init; }
+        public string? AssetVideoCodec { get; init; }
+        public string? AssetAudioCodec { get; init; }
+        public string? AssetBitrateKbps { get; init; }
+        public string? AssetSampleRate { get; init; }
+        public string? AssetContainer { get; init; }
+        public string? InspectionFileSize { get; init; }
+        public string? InspectionContainer { get; init; }
         public string? ParentKey { get; init; }
     }
     private sealed record MembershipEntityRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, int? Ordinal, string? ParentKey, Guid RootWorkId);
@@ -1575,7 +1741,7 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("external_id_key")] string? ExternalIdKey,
         [property: JsonPropertyName("external_id_value")] string? ExternalIdValue);
     private sealed record MediaEditorNavigatorEnvelope([property: JsonPropertyName("enabled")] bool Enabled, [property: JsonPropertyName("media_type")] string MediaType, [property: JsonPropertyName("container_entity_id")] Guid ContainerEntityId, [property: JsonPropertyName("selected_entity_id")] Guid SelectedEntityId, [property: JsonPropertyName("container_label")] string ContainerLabel, [property: JsonPropertyName("container_title")] string ContainerTitle, [property: JsonPropertyName("container_subtitle")] string? ContainerSubtitle, [property: JsonPropertyName("nodes")] IReadOnlyList<MediaEditorNavigatorNodeEnvelope> Nodes);
-    private sealed record MediaEditorNavigatorNodeEnvelope([property: JsonPropertyName("node_id")] Guid NodeId, [property: JsonPropertyName("parent_node_id")] Guid? ParentNodeId, [property: JsonPropertyName("entity_id")] Guid EntityId, [property: JsonPropertyName("scope_id")] string ScopeId, [property: JsonPropertyName("node_kind")] string NodeKind, [property: JsonPropertyName("label")] string Label, [property: JsonPropertyName("title")] string Title, [property: JsonPropertyName("subtitle")] string? Subtitle, [property: JsonPropertyName("ordinal_label")] string? OrdinalLabel, [property: JsonPropertyName("depth")] int Depth, [property: JsonPropertyName("is_root")] bool IsRoot, [property: JsonPropertyName("is_leaf")] bool IsLeaf, [property: JsonPropertyName("is_owned")] bool IsOwned, [property: JsonPropertyName("can_quarantine")] bool CanQuarantine, [property: JsonPropertyName("quarantine_count")] int QuarantineCount);
+    private sealed record MediaEditorNavigatorNodeEnvelope([property: JsonPropertyName("node_id")] Guid NodeId, [property: JsonPropertyName("parent_node_id")] Guid? ParentNodeId, [property: JsonPropertyName("entity_id")] Guid EntityId, [property: JsonPropertyName("scope_id")] string ScopeId, [property: JsonPropertyName("node_kind")] string NodeKind, [property: JsonPropertyName("label")] string Label, [property: JsonPropertyName("title")] string Title, [property: JsonPropertyName("subtitle")] string? Subtitle, [property: JsonPropertyName("ordinal_label")] string? OrdinalLabel, [property: JsonPropertyName("depth")] int Depth, [property: JsonPropertyName("is_root")] bool IsRoot, [property: JsonPropertyName("is_leaf")] bool IsLeaf, [property: JsonPropertyName("is_owned")] bool IsOwned, [property: JsonPropertyName("primary_asset_id")] Guid? PrimaryAssetId, [property: JsonPropertyName("compact_ordinal_label")] string? CompactOrdinalLabel, [property: JsonPropertyName("technical_badges")] IReadOnlyList<string> TechnicalBadges, [property: JsonPropertyName("is_clickable")] bool IsClickable, [property: JsonPropertyName("can_quarantine")] bool CanQuarantine, [property: JsonPropertyName("quarantine_count")] int QuarantineCount);
     private sealed record MembershipSuggestionEnvelope(
         [property: JsonPropertyName("entity_id")] Guid? EntityId,
         [property: JsonPropertyName("source")] string Source,

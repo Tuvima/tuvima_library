@@ -132,6 +132,7 @@ public partial class SharedMediaEditorShell
     private bool _showArtworkUrlInput;
     private MediaEditorMembershipPreviewDto? _pendingMembershipPreview;
     private string? _fieldToFocus;
+    private ContainerReturnState? _containerReturnState;
 
     protected IReadOnlyList<(string Id, string Label, string Icon)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
@@ -219,6 +220,9 @@ public partial class SharedMediaEditorShell
     protected MediaEditorScopeDto? ArtworkScope => ActiveScope;
     protected bool IsFileScope => string.Equals(ActiveScope?.ScopeId, "file", StringComparison.OrdinalIgnoreCase);
     protected string BreadcrumbText => BuildBreadcrumbText();
+    protected bool HasContainerReturnState => _containerReturnState is not null;
+    protected string ContainerReturnLabel => _containerReturnState?.Label ?? "Back to list";
+    protected string? ContainerReturnContext => _containerReturnState?.Context;
 
     protected string HeaderKicker =>
         Request.Mode switch
@@ -263,6 +267,8 @@ public partial class SharedMediaEditorShell
         public double CompletionPercent => TotalCount == 0 ? 0 : OwnedCount * 100.0 / TotalCount;
     }
 
+    private sealed record ContainerReturnState(Guid EntityId, string TabId, string Label, string? Context);
+
     protected override async Task OnInitializedAsync()
     {
         _activeTab = NormalizeTabId(string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab);
@@ -295,6 +301,7 @@ public partial class SharedMediaEditorShell
                 _artworkUploadErrors.Clear();
                 _scopeStates.Clear();
                 _artworkStates.Clear();
+                _containerReturnState = null;
             }
 
             _editorContext = await ApiClient.GetMediaEditorContextAsync(entityId);
@@ -489,6 +496,36 @@ public partial class SharedMediaEditorShell
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    protected async Task SelectContentItemAsync(EditorContentGroup group, MediaEditorNavigatorNodeDto item)
+    {
+        if (!item.IsClickable || !item.IsOwned || item.PrimaryAssetId is null)
+            return;
+
+        var parentLabel = string.IsNullOrWhiteSpace(_navigator?.ContainerTitle)
+            ? HeaderTitle
+            : _navigator!.ContainerTitle;
+        var itemLabel = string.Join(" ", new[] { GetContentOrdinalLabel(item, 0), item.Title }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        _containerReturnState = new ContainerReturnState(
+            NavigatorRootNode?.EntityId ?? _navigator?.ContainerEntityId ?? LaunchEntityId,
+            _activeTab,
+            $"Back to {ContentTabLabel}",
+            $"{parentLabel} > {group.Title} > {itemLabel}");
+
+        await SelectNavigatorNodeAsync(item.EntityId);
+    }
+
+    protected async Task ReturnToContainerEditorAsync()
+    {
+        if (_containerReturnState is null)
+            return;
+
+        var state = _containerReturnState;
+        await LoadSingleItemAsync(state.EntityId, resetEditorState: false);
+        _activeTab = string.IsNullOrWhiteSpace(state.TabId) ? ContentTabId : state.TabId;
+        _containerReturnState = null;
+        EnsureActiveTabVisible();
     }
 
     protected async Task SelectArtworkScopeAsync(string scopeId)
@@ -2915,12 +2952,17 @@ public partial class SharedMediaEditorShell
         return null;
     }
 
-    private static int? ParseSeasonNumberFromTitle(string? title)
+    private static int? ParseSeasonNumberFromTitle(string? title) =>
+        ParseNumberAfterMarker(title, "Season ");
+
+    private static int? ParseContentGroupNumber(string? title) =>
+        ParseNumberAfterMarker(title, "Season ") ?? ParseNumberAfterMarker(title, "Disc ");
+
+    private static int? ParseNumberAfterMarker(string? title, string marker)
     {
         if (string.IsNullOrWhiteSpace(title))
             return null;
 
-        var marker = "Season ";
         var index = title.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
         if (index < 0)
             return null;
@@ -2944,9 +2986,38 @@ public partial class SharedMediaEditorShell
             .Where(node => string.Equals(node.NodeKind, "track", StringComparison.OrdinalIgnoreCase) || node.IsLeaf)
             .ToList();
 
-        return tracks.Count == 0
-            ? []
-            : [new EditorContentGroup("tracks", "Tracks", NavigatorRootNode?.Subtitle, DeduplicateEditorContentItems(tracks))];
+        if (tracks.Count == 0)
+            return [];
+
+        var discGroups = tracks
+            .GroupBy(GetTrackDiscGroupTitle, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (discGroups.Count <= 1 && string.Equals(discGroups[0].Key, "Tracks", StringComparison.OrdinalIgnoreCase))
+            return [new EditorContentGroup("tracks", "Tracks", NavigatorRootNode?.Subtitle, DeduplicateEditorContentItems(tracks))];
+
+        return discGroups
+            .Select(group => new EditorContentGroup(
+                $"disc-{NormalizeTextKey(group.Key)}",
+                group.Key,
+                null,
+                DeduplicateEditorContentItems(group)))
+            .OrderBy(group => ParseContentGroupNumber(group.Title) ?? int.MaxValue)
+            .ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string GetTrackDiscGroupTitle(MediaEditorNavigatorNodeDto node)
+    {
+        var label = node.CompactOrdinalLabel ?? node.OrdinalLabel ?? string.Empty;
+        if (label.StartsWith("D", StringComparison.OrdinalIgnoreCase))
+        {
+            var digits = new string(label.Skip(1).TakeWhile(char.IsDigit).ToArray());
+            if (int.TryParse(digits, out var disc) && disc > 0)
+                return $"Disc {disc}";
+        }
+
+        return "Tracks";
     }
 
     protected bool IsContentGroupCollapsed(EditorContentGroup group)
@@ -2971,15 +3042,36 @@ public partial class SharedMediaEditorShell
 
     protected string GetContentOrdinalLabel(MediaEditorNavigatorNodeDto node, int index)
     {
+        if (!string.IsNullOrWhiteSpace(node.CompactOrdinalLabel))
+            return node.CompactOrdinalLabel!;
+
         if (!string.IsNullOrWhiteSpace(node.OrdinalLabel))
-            return node.OrdinalLabel!;
+            return CompactOrdinalLabel(node.OrdinalLabel!);
 
         var prefix = string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "T" : "E";
         return $"{prefix}{index + 1:00}";
     }
 
+    private static string CompactOrdinalLabel(string ordinalLabel)
+    {
+        var digits = new string(ordinalLabel.Where(char.IsDigit).ToArray());
+        if (!int.TryParse(digits, out var ordinal))
+            return ordinalLabel;
+
+        if (ordinalLabel.Contains("track", StringComparison.OrdinalIgnoreCase))
+            return $"T{ordinal:00}";
+
+        if (ordinalLabel.Contains("episode", StringComparison.OrdinalIgnoreCase))
+            return $"E{ordinal:00}";
+
+        return ordinalLabel;
+    }
+
     protected string GetContentRowMeta(MediaEditorNavigatorNodeDto node)
     {
+        if (!node.IsOwned)
+            return string.Empty;
+
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(node.Subtitle))
             parts.Add(node.Subtitle!);

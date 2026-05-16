@@ -215,6 +215,27 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
+    public void SharedEditor_ContainerCompletionRowsUseCompactClickableOwnedItems()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var dto = ReadSource("src/MediaEngine.Web/Models/ViewDTOs/MediaEditorContextDtos.cs");
+
+        Assert.Contains("item.TechnicalBadges", shell, StringComparison.Ordinal);
+        Assert.Contains("Disabled=\"@(!item.IsClickable)\"", shell, StringComparison.Ordinal);
+        Assert.Contains("SelectContentItemAsync(group, item)", shell, StringComparison.Ordinal);
+        Assert.Contains("ReturnToContainerEditorAsync", shell, StringComparison.Ordinal);
+        Assert.Contains("CompactOrdinalLabel", dto, StringComparison.Ordinal);
+        Assert.Contains("PrimaryAssetId", dto, StringComparison.Ordinal);
+        Assert.Contains("IsClickable", dto, StringComparison.Ordinal);
+        Assert.Contains("GetContentOrdinalLabel", code, StringComparison.Ordinal);
+        Assert.Contains("E{ordinal:00}", code, StringComparison.Ordinal);
+        Assert.Contains("T{ordinal:00}", code, StringComparison.Ordinal);
+        Assert.Contains("BuildTrackContentGroups", code, StringComparison.Ordinal);
+        Assert.Contains("Disc {disc}", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SharedEditor_BatchModeRequiresRealSelection()
     {
         var launcher = ReadSource("src/MediaEngine.Web/Services/Editing/MediaEditorLauncherService.cs");

@@ -1833,7 +1833,7 @@ public static partial class MetadataEndpoints
         var initialScope = GetDefaultEditorScope(launch, scopes);
         var initialScopeResolution = scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, initialScope, StringComparison.OrdinalIgnoreCase))
             ?? scopes[0];
-        var editorMode = IsContainerEditorMediaType(launch.MediaType) ? "container" : "singular";
+        var editorMode = IsContainerEditorLaunch(launch) ? "container" : "singular";
         var displayOverrides = LoadDisplayOverrides(db, initialScopeResolution.FieldEntityId);
 
         return new EditorScopeContext(
@@ -1929,6 +1929,10 @@ public static partial class MetadataEndpoints
 
     private static bool IsContainerEditorMediaType(string? mediaType) =>
         NormalizeEditorMediaType(mediaType) is "TV" or "Music";
+
+    private static bool IsContainerEditorLaunch(EditorLaunchContext launch) =>
+        IsContainerEditorMediaType(launch.MediaType)
+        && !string.Equals(launch.WorkKind, "child", StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlyList<string> BuildEditorAvailableTabs(
         string editorMode,
@@ -2357,7 +2361,7 @@ public static partial class MetadataEndpoints
                 break;
         }
 
-        if (!IsContainerEditorMediaType(mediaType))
+        if (!IsContainerEditorMediaType(mediaType) || string.Equals(launch.WorkKind, "child", StringComparison.OrdinalIgnoreCase))
         {
             scopes.Add(new EditorScopeResolution(
                 "file",

@@ -211,6 +211,18 @@ public sealed class MediaEditorNavigatorNodeDto
     [JsonPropertyName("is_owned")]
     public bool IsOwned { get; set; }
 
+    [JsonPropertyName("primary_asset_id")]
+    public Guid? PrimaryAssetId { get; set; }
+
+    [JsonPropertyName("compact_ordinal_label")]
+    public string? CompactOrdinalLabel { get; set; }
+
+    [JsonPropertyName("technical_badges")]
+    public List<string> TechnicalBadges { get; set; } = [];
+
+    [JsonPropertyName("is_clickable")]
+    public bool IsClickable { get; set; }
+
     [JsonPropertyName("can_quarantine")]
     public bool CanQuarantine { get; set; }
 
