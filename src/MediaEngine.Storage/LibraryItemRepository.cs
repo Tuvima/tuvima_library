@@ -412,7 +412,10 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             LIMIT 1;
             """, new { entityId = entityId.ToString() });
 
-        var matchLevel = conn.QueryFirstOrDefault<string?>("SELECT match_level FROM works WHERE id = @entityId;", new { entityId = entityId.ToString() }) ?? "work";
+        var workIdentity = conn.QueryFirstOrDefault<(string? MatchLevel, string? WorkKind)>(
+            "SELECT match_level AS MatchLevel, work_kind AS WorkKind FROM works WHERE id = @entityId;",
+            new { entityId = entityId.ToString() });
+        var matchLevel = workIdentity.MatchLevel ?? "work";
 
         string? Canonical(string key)
         {
@@ -549,6 +552,20 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             PortraitCount = linkedPortraitCount,
         };
         var resolvedAuthor = ResolveAuthorForDetail(projection?.Author ?? Canonical("author"), canonicalValues, claims);
+        var isTelevisionChild = string.Equals(lineageRow.MediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(workIdentity.WorkKind, "child", StringComparison.OrdinalIgnoreCase);
+        var resolvedDescription = isTelevisionChild
+            ? Canonical("episode_description")
+                ?? Canonical("description")
+                ?? Canonical("overview")
+                ?? Canonical("plot_summary")
+                ?? projection?.Description
+            : projection?.Description
+                ?? Canonical("episode_description")
+                ?? Canonical("description")
+                ?? Canonical("overview")
+                ?? Canonical("plot_summary");
+
         var detail = new LibraryItemDetail
         {
             EntityId = entityId,
@@ -575,11 +592,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             Language = Canonical("language"),
             Genre = projection?.Genre ?? Canonical("genre"),
             Runtime = projection?.Runtime ?? Canonical("runtime"),
-            Description = projection?.Description
-                ?? Canonical("episode_description")
-                ?? Canonical("description")
-                ?? Canonical("overview")
-                ?? Canonical("plot_summary"),
+            Description = resolvedDescription,
             Tagline = Canonical("tagline") ?? Canonical("short_description"),
             Series = projection?.Series ?? Canonical("series"),
             SeriesPosition = projection?.SeriesPosition ?? Canonical("series_position"),

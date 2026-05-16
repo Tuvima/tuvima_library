@@ -239,6 +239,7 @@ public static class MediaEditorSchemaCatalog
             new() { Key = "title", Label = "Title" },
             new() { Key = "year", Label = "Year" },
             new() { Key = "genre", Label = "Genre" },
+            new() { Key = "custom_tags", Label = "Tags" },
             new() { Key = "language", Label = "Language" },
             new() { Key = "rating", Label = "Rating" },
         ];
@@ -308,10 +309,10 @@ public static class MediaEditorSchemaCatalog
         Add(values, "disc_number", FindCanonicalValue(canonicals, "disc_number"));
         Add(values, "duration", FindCanonicalValue(canonicals, "duration"));
         Add(values, "lyrics", FindCanonicalValue(canonicals, "lyrics"));
-        Add(values, "show_name", FindCanonicalValue(canonicals, "show_name"));
-        Add(values, "season_number", FindCanonicalValue(canonicals, "season_number"));
-        Add(values, "episode_number", FindCanonicalValue(canonicals, "episode_number"));
-        Add(values, "episode_title", FindCanonicalValue(canonicals, "episode_title"));
+        Add(values, "show_name", detail.ShowName ?? FindCanonicalValue(canonicals, "show_name"));
+        Add(values, "season_number", detail.SeasonNumber ?? FindCanonicalValue(canonicals, "season_number"));
+        Add(values, "episode_number", detail.EpisodeNumber ?? FindCanonicalValue(canonicals, "episode_number"));
+        Add(values, "episode_title", detail.EpisodeTitle ?? FindCanonicalValue(canonicals, "episode_title") ?? detail.Title);
         Add(values, "network", FindCanonicalValue(canonicals, "network"));
         Add(values, "subtitle", FindCanonicalValue(canonicals, "subtitle"));
         Add(values, "publisher", FindCanonicalValue(canonicals, "publisher"));
@@ -325,6 +326,7 @@ public static class MediaEditorSchemaCatalog
         Add(values, "sort_artist", FindCanonicalValue(canonicals, "sort_artist"));
         Add(values, "sort_album", FindCanonicalValue(canonicals, "sort_album"));
         Add(values, "sort_series", FindCanonicalValue(canonicals, "sort_series"));
+        Add(values, "custom_tags", FindCanonicalValue(canonicals, "custom_tags"));
         Add(values, "comment", FindCanonicalValue(canonicals, "comment"));
         return values;
     }
@@ -368,6 +370,7 @@ public static class MediaEditorSchemaCatalog
                 Field("duration", "Duration"),
                 Field("lyrics", "Lyrics", "textarea", batch: false),
                 Field("language", "Language"),
+                Field("custom_tags", "Tags"),
                 Field("rating", "Rating"),
                 Field("comment", "Comment", "textarea")),
             Group("music_sorting", "Sorting", "sorting",
@@ -395,6 +398,7 @@ public static class MediaEditorSchemaCatalog
             Group("movie_options", "Options", "options",
                 Field("edition", "Edition"),
                 Field("genre", "Genre"),
+                Field("custom_tags", "Tags"),
                 Field("rating", "Rating"),
                 Field("comment", "Comment", "textarea")),
             Group("movie_sorting", "Sorting", "sorting",
@@ -411,15 +415,16 @@ public static class MediaEditorSchemaCatalog
         [
             Group("tv_details", "Details", "details",
                 Field("show_name", "Show", identity: true),
-                Field("year", "Year"),
+                Field("episode_title", "Title", identity: true),
                 Field("description", "Description", "textarea", identity: true),
                 Field("season_number", "Season", identity: true),
                 Field("episode_number", "Episode", identity: true),
-                Field("episode_title", "Episode Title"),
+                Field("year", "Year"),
                 Field("network", "Network"),
                 Field("runtime", "Runtime")),
             Group("tv_options", "Options", "options",
                 Field("genre", "Genre"),
+                Field("custom_tags", "Tags"),
                 Field("rating", "Rating"),
                 Field("language", "Language"),
                 Field("comment", "Comment", "textarea")),
@@ -448,6 +453,7 @@ public static class MediaEditorSchemaCatalog
                 Field("language", "Language")),
             Group("book_options", "Options", "options",
                 Field("genre", "Genre"),
+                Field("custom_tags", "Tags"),
                 Field("rating", "Rating"),
                 Field("comment", "Comment", "textarea")),
             Group("book_sorting", "Sorting", "sorting",
@@ -476,6 +482,7 @@ public static class MediaEditorSchemaCatalog
             Group("audiobook_options", "Options", "options",
                 Field("genre", "Genre"),
                 Field("language", "Language"),
+                Field("custom_tags", "Tags"),
                 Field("rating", "Rating"),
                 Field("comment", "Comment", "textarea")),
             Group("audiobook_sorting", "Sorting", "sorting",
@@ -503,6 +510,7 @@ public static class MediaEditorSchemaCatalog
             Group("comic_options", "Options", "options",
                 Field("volume", "Volume"),
                 Field("genre", "Genre"),
+                Field("custom_tags", "Tags"),
                 Field("comment", "Comment", "textarea")),
             Group("comic_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort Title"),

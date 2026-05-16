@@ -654,6 +654,23 @@ public partial class SharedMediaEditorShell
         };
     }
 
+    protected IEnumerable<MediaEditorFieldGroup> GetAdditionalOptionsGroups() =>
+        GetGroupsForTab("options")
+            .Select(group => new MediaEditorFieldGroup
+            {
+                Id = group.Id,
+                Label = group.Label,
+                TabId = group.TabId,
+                Fields = group.Fields
+                    .Where(field => !IsLocalOptionsField(field.Key))
+                    .ToList(),
+            })
+            .Where(group => group.Fields.Count > 0)
+            .ToList();
+
+    private static bool IsLocalOptionsField(string key) =>
+        key is "genre" or "custom_tags" or "rating" or "comment";
+
     protected string GetPlaceholder(MediaEditorFieldDefinition field) =>
         IsBatchMode ? "Leave unchanged" : (field.Placeholder ?? field.Label);
 
@@ -2007,10 +2024,10 @@ public partial class SharedMediaEditorShell
 
         return (_selectedMediaType, ActiveScope.ScopeId) switch
         {
-            ("TV", "series") => ["show_name", "year", "network", "runtime", "genre", "language", "description", "rating", "comment", "sort_series"],
-            ("TV", "episode") => ["season_number", "episode_number", "episode_title", "runtime", "release_date", "description", "language", "rating", "comment", "sort_title"],
-            ("Music", "album") => ["album", "album_artist", "artist", "genre", "year", "language", "description", "rating", "comment", "sort_album"],
-            ("Music", "track") => ["title", "artist", "album", "composer", "track_number", "disc_number", "duration", "rating", "comment", "sort_title"],
+            ("TV", "series") => ["show_name", "year", "network", "runtime", "genre", "custom_tags", "language", "description", "rating", "comment", "sort_series"],
+            ("TV", "episode") => ["episode_title", "description", "season_number", "episode_number", "runtime", "release_date", "custom_tags", "language", "rating", "comment", "sort_title"],
+            ("Music", "album") => ["album", "album_artist", "artist", "genre", "custom_tags", "year", "language", "description", "rating", "comment", "sort_album"],
+            ("Music", "track") => ["title", "artist", "album", "composer", "track_number", "disc_number", "duration", "custom_tags", "rating", "comment", "sort_title"],
             ("Movies", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
             ("Books", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
             ("Audiobooks", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),

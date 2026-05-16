@@ -834,14 +834,20 @@
                 }
                 else if (_activeTab == "options")
                 {
-                    var groups = GetGroupsForTab("options").ToList();
+                    var groups = GetAdditionalOptionsGroups().ToList();
                     <div class="sme-fields-pane sme-fields-pane--single">
+                        <MediaEditorLocalOptions GenreValue="@GetEditableValue("genre")"
+                                                 GenreValueChanged="@((string? value) => OnFieldInput("genre", value))"
+                                                 TagValue="@GetEditableValue("custom_tags")"
+                                                 TagValueChanged="@((string? value) => OnFieldInput("custom_tags", value))"
+                                                 RatingValue="@GetEditableValue("rating")"
+                                                 RatingValueChanged="@((string? value) => OnFieldInput("rating", value))"
+                                                 CommentValue="@GetEditableValue("comment")"
+                                                 CommentValueChanged="@((string? value) => OnFieldInput("comment", value))" />
+
                         @if (groups.Count == 0)
                         {
-                            <div class="sme-empty-panel">
-                                <MudIcon Icon="@Icons.Material.Outlined.Tune" Style="font-size: 24px; opacity: 0.18;" />
-                                <span>No options are available for this selection.</span>
-                            </div>
+                            <div class="sme-options-note">Additional item options will appear here when available.</div>
                         }
                         else
                         {

@@ -342,6 +342,9 @@ public sealed class LibraryItemDetailViewModel
     [JsonPropertyName("episode_number")]
     public string? EpisodeNumber { get; set; }
 
+    [JsonPropertyName("episode_title")]
+    public string? EpisodeTitle { get; set; }
+
     [JsonPropertyName("release_date")]
     public string? ReleaseDate { get; set; }
 

@@ -220,6 +220,8 @@ public sealed class Phase5InlineEditingTests
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
         var dto = ReadSource("src/MediaEngine.Web/Models/ViewDTOs/MediaEditorContextDtos.cs");
+        var libraryDto = ReadSource("src/MediaEngine.Web/Models/ViewDTOs/LibraryCatalogDtos.cs");
+        var schema = ReadSource("src/MediaEngine.Web/Services/Editing/MediaEditorModels.cs");
 
         Assert.Contains("item.TechnicalBadges", shell, StringComparison.Ordinal);
         Assert.Contains("Disabled=\"@(!item.IsClickable)\"", shell, StringComparison.Ordinal);
@@ -233,6 +235,34 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("T{ordinal:00}", code, StringComparison.Ordinal);
         Assert.Contains("BuildTrackContentGroups", code, StringComparison.Ordinal);
         Assert.Contains("Disc {disc}", code, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"episode_title\")", libraryDto, StringComparison.Ordinal);
+        Assert.Contains("detail.SeasonNumber ?? FindCanonicalValue(canonicals, \"season_number\")", schema, StringComparison.Ordinal);
+        Assert.Contains("detail.EpisodeNumber ?? FindCanonicalValue(canonicals, \"episode_number\")", schema, StringComparison.Ordinal);
+        Assert.Contains("detail.EpisodeTitle ?? FindCanonicalValue(canonicals, \"episode_title\")", schema, StringComparison.Ordinal);
+        Assert.Contains("Field(\"episode_title\", \"Title\", identity: true)", schema, StringComparison.Ordinal);
+        Assert.Contains("(\"TV\", \"episode\") => [\"episode_title\", \"description\", \"season_number\", \"episode_number\"", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_OptionsTabUsesCentralizedLocalOptionsComponent()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var component = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorLocalOptions.razor");
+        var schema = ReadSource("src/MediaEngine.Web/Services/Editing/MediaEditorModels.cs");
+
+        Assert.Contains("<MediaEditorLocalOptions", shell, StringComparison.Ordinal);
+        Assert.Contains("TagValue=\"@GetEditableValue(\"custom_tags\")\"", shell, StringComparison.Ordinal);
+        Assert.Contains("GetAdditionalOptionsGroups", code, StringComparison.Ordinal);
+        Assert.Contains("key is \"genre\" or \"custom_tags\" or \"rating\" or \"comment\"", code, StringComparison.Ordinal);
+        Assert.Contains("Genres <span>(Local)</span>", component, StringComparison.Ordinal);
+        Assert.Contains("Tags <span>(Local)</span>", component, StringComparison.Ordinal);
+        Assert.Contains("User Notes", component, StringComparison.Ordinal);
+        Assert.Contains("These notes are private and not written to metadata.", component, StringComparison.Ordinal);
+        Assert.Contains("MudChip", component, StringComparison.Ordinal);
+        Assert.Contains("MudIconButton", component, StringComparison.Ordinal);
+        Assert.Contains("Field(\"custom_tags\", \"Tags\")", schema, StringComparison.Ordinal);
+        Assert.Contains("Add(values, \"custom_tags\"", schema, StringComparison.Ordinal);
     }
 
     [Fact]

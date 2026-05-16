@@ -1,0 +1,247 @@
+@namespace MediaEngine.Web.Components.MediaEditor
+@using System.Globalization
+@using Microsoft.AspNetCore.Components
+@using MudBlazor
+
+<MediaEditorPanel Class="sme-local-options-panel">
+    <div class="sme-local-options">
+        <div class="sme-local-option-row">
+            <label class="sme-local-option-label">Genres <span>(Local)</span></label>
+            <div class="sme-local-option-control">
+                <div class="sme-local-chip-box">
+                    @foreach (var genre in ParseList(GenreValue))
+                    {
+                        var captured = genre;
+                        <MudChip T="string"
+                                 Variant="Variant.Outlined"
+                                 Size="Size.Small"
+                                 Class="sme-local-chip"
+                                 OnClose="@(() => RemoveListValueAsync(GenreValue, captured, GenreValueChanged))">
+                            @captured
+                        </MudChip>
+                    }
+                    @if (_addingGenre)
+                    {
+                        <MudTextField T="string"
+                                      @bind-Value="_newGenre"
+                                      Placeholder="Add genre"
+                                      Variant="Variant.Text"
+                                      Margin="Margin.Dense"
+                                      Immediate="true"
+                                      Class="sme-local-add-input" />
+                    }
+                    <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="sme-local-chip-box-icon" />
+                </div>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Inherit"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.Add"
+                           Class="sme-local-add-button"
+                           OnClick="AddGenreAsync">
+                    Add
+                </MudButton>
+            </div>
+        </div>
+
+        <div class="sme-local-option-row">
+            <label class="sme-local-option-label">Tags <span>(Local)</span></label>
+            <div class="sme-local-option-control">
+                <div class="sme-local-chip-box">
+                    @foreach (var tag in ParseList(TagValue))
+                    {
+                        var captured = tag;
+                        <MudChip T="string"
+                                 Variant="Variant.Outlined"
+                                 Size="Size.Small"
+                                 Class="sme-local-chip"
+                                 OnClose="@(() => RemoveListValueAsync(TagValue, captured, TagValueChanged))">
+                            @captured
+                        </MudChip>
+                    }
+                    @if (_addingTag)
+                    {
+                        <MudTextField T="string"
+                                      @bind-Value="_newTag"
+                                      Placeholder="Add tag"
+                                      Variant="Variant.Text"
+                                      Margin="Margin.Dense"
+                                      Immediate="true"
+                                      Class="sme-local-add-input" />
+                    }
+                    <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="sme-local-chip-box-icon" />
+                </div>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Inherit"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.Add"
+                           Class="sme-local-add-button"
+                           OnClick="AddTagAsync">
+                    Add
+                </MudButton>
+            </div>
+        </div>
+
+        <div class="sme-local-option-row sme-local-option-row--rating">
+            <label class="sme-local-option-label">Rating <span>(Local)</span></label>
+            <div class="sme-local-rating-control">
+                <div class="sme-local-stars" aria-label="@RatingLabel">
+                    @for (var score = 1; score <= 5; score++)
+                    {
+                        var capturedScore = score;
+                        <MudIconButton Icon="@GetStarIcon(score)"
+                                       Size="Size.Small"
+                                       Color="Color.Inherit"
+                                       Class="sme-local-star-button"
+                                       aria-label="@($"Set rating to {score}")"
+                                       OnClick="@(() => SetRatingAsync(capturedScore))" />
+                    }
+                </div>
+                <span class="sme-local-rating-text">@RatingLabel</span>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Inherit"
+                           Size="Size.Small"
+                           Class="sme-local-clear-button"
+                           OnClick="@(() => RatingValueChanged.InvokeAsync(string.Empty))">
+                    Clear
+                </MudButton>
+            </div>
+        </div>
+    </div>
+</MediaEditorPanel>
+
+<MediaEditorPanel Class="sme-local-notes-panel">
+    <div class="sme-local-notes">
+        <div>
+            <div class="sme-local-notes-title">User Notes</div>
+            <div class="sme-local-notes-description">Your personal notes about this item.</div>
+        </div>
+        <MudTextField T="string"
+                      Value="@CommentValue"
+                      ValueChanged="OnCommentChangedAsync"
+                      Placeholder="Add notes about this item..."
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Lines="3"
+                      Immediate="true"
+                      Class="sme-local-notes-input" />
+        <div class="sme-local-notes-footer">
+            <span>These notes are private and not written to metadata.</span>
+            <strong>@CommentLength / @MaxNotesLength</strong>
+        </div>
+    </div>
+</MediaEditorPanel>
+
+@code {
+    private const int MaxNotesLength = 1000;
+
+    private bool _addingGenre;
+    private bool _addingTag;
+    private string? _newGenre;
+    private string? _newTag;
+
+    [Parameter] public string? GenreValue { get; set; }
+    [Parameter] public EventCallback<string?> GenreValueChanged { get; set; }
+    [Parameter] public string? TagValue { get; set; }
+    [Parameter] public EventCallback<string?> TagValueChanged { get; set; }
+    [Parameter] public string? RatingValue { get; set; }
+    [Parameter] public EventCallback<string?> RatingValueChanged { get; set; }
+    [Parameter] public string? CommentValue { get; set; }
+    [Parameter] public EventCallback<string?> CommentValueChanged { get; set; }
+
+    private int CommentLength => Math.Min((CommentValue ?? string.Empty).Length, MaxNotesLength);
+
+    private double RatingNumber
+    {
+        get
+        {
+            var raw = (RatingValue ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(raw))
+                return 0;
+
+            var token = raw.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? raw;
+            return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+                ? Math.Clamp(parsed, 0, 5)
+                : 0;
+        }
+    }
+
+    private string RatingLabel => RatingNumber > 0
+        ? RatingNumber.ToString(RatingNumber % 1 == 0 ? "0" : "0.0", CultureInfo.InvariantCulture)
+        : "Not rated";
+
+    private static IReadOnlyList<string> ParseList(string? value) =>
+        (value ?? string.Empty)
+            .Split([',', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static string SerializeList(IEnumerable<string> values) =>
+        string.Join(", ", values
+            .Select(static item => item.Trim())
+            .Where(static item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
+
+    private async Task AddGenreAsync()
+    {
+        if (!_addingGenre)
+        {
+            _addingGenre = true;
+            return;
+        }
+
+        await AddListValueAsync(GenreValue, _newGenre, GenreValueChanged);
+        _newGenre = string.Empty;
+    }
+
+    private async Task AddTagAsync()
+    {
+        if (!_addingTag)
+        {
+            _addingTag = true;
+            return;
+        }
+
+        await AddListValueAsync(TagValue, _newTag, TagValueChanged);
+        _newTag = string.Empty;
+    }
+
+    private static async Task AddListValueAsync(string? currentValue, string? newValue, EventCallback<string?> callback)
+    {
+        var trimmed = (newValue ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return;
+
+        var values = ParseList(currentValue).Append(trimmed);
+        await callback.InvokeAsync(SerializeList(values));
+    }
+
+    private static async Task RemoveListValueAsync(string? currentValue, string value, EventCallback<string?> callback)
+    {
+        var values = ParseList(currentValue)
+            .Where(item => !string.Equals(item, value, StringComparison.OrdinalIgnoreCase));
+        await callback.InvokeAsync(SerializeList(values));
+    }
+
+    private string GetStarIcon(int score)
+    {
+        var rating = RatingNumber;
+        if (rating >= score)
+            return Icons.Material.Filled.Star;
+        if (rating >= score - 0.5)
+            return Icons.Material.Filled.StarHalf;
+        return Icons.Material.Filled.StarBorder;
+    }
+
+    private Task SetRatingAsync(int score) =>
+        RatingValueChanged.InvokeAsync(score.ToString(CultureInfo.InvariantCulture));
+
+    private Task OnCommentChangedAsync(string? value)
+    {
+        var next = value ?? string.Empty;
+        if (next.Length > MaxNotesLength)
+            next = next[..MaxNotesLength];
+
+        return CommentValueChanged.InvokeAsync(next);
+    }
+}

@@ -44,7 +44,7 @@ public sealed class MediaEditorSchemaCatalogTests
     [InlineData("Books", "title", "year", "description")]
     [InlineData("Audiobooks", "title", "year", "description")]
     [InlineData("Movies", "title", "year", "description")]
-    [InlineData("TV", "show_name", "year", "description")]
+    [InlineData("TV", "show_name", "episode_title", "description")]
     [InlineData("Music", "title", "year", "description")]
     [InlineData("Comics", "title", "year", "description")]
     public void Resolve_DetailsFields_StartWithCoreIdentityBlock(string mediaType, params string[] expectedKeys)
