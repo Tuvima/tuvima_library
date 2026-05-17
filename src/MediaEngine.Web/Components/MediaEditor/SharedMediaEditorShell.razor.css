@@ -194,7 +194,6 @@
 
 .sme-close,
 .sme-tab,
-.sme-target-chip,
 .sme-inline-btn,
 .sme-footer-btn,
 .sme-review-action,
@@ -1173,28 +1172,11 @@
     line-height: 1.45;
 }
 
-::deep .sme-search-targets {
-    margin-bottom: 10px;
-}
-
 .sme-artwork-rail {
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
-}
-
-.sme-target-chip {
-    padding: 8px 12px;
-    border-radius: var(--app-radius-md);
-    border: 1px solid var(--tl-border-subtle);
-    color: rgba(255,255,255,0.72);
-}
-
-.sme-target-chip--active {
-    color: rgba(255,255,255,0.96);
-    border-color: var(--tl-status-danger-border);
-    background: var(--tl-status-danger-soft);
 }
 
 .sme-search-row,

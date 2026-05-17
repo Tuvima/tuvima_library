@@ -145,7 +145,6 @@ public partial class SharedMediaEditorShell
             .OrderBy(scope => scope.Order)
             .ToList();
     protected int ActiveTabIndex => GetSelectedIndex(Tabs.Select(tab => tab.Id), _activeTab);
-    protected int CanonicalTargetIndex => GetSelectedIndex(QuickSearchTargets.Select(target => target.Key), _canonicalTargetGroup);
     protected int MatchSearchModeIndex => string.Equals(_activeMatchSearchMode, "wikidata", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
@@ -1278,15 +1277,6 @@ public partial class SharedMediaEditorShell
             return Task.CompletedTask;
 
         return SelectTabInternalAsync(Tabs[index].Id);
-    }
-
-    protected Task OnCanonicalTargetChanged(int index)
-    {
-        if (index < 0 || index >= QuickSearchTargets.Count)
-            return Task.CompletedTask;
-
-        SetCanonicalTargetGroup(QuickSearchTargets[index].Key);
-        return Task.CompletedTask;
     }
 
     protected Task OnMatchSearchModeChanged(int index)

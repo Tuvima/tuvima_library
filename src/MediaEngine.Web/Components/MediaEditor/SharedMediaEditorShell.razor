@@ -460,21 +460,6 @@
                                             </MudTabs>
                                         </div>
 
-                                        <div class="settings-admin-panel">
-                                            <MudTabs ActivePanelIndex="@CanonicalTargetIndex"
-                                                     ActivePanelIndexChanged="OnCanonicalTargetChanged"
-                                                     Rounded="true"
-                                                     Border="false"
-                                                     Color="Color.Primary"
-                                                     Elevation="0"
-                                                     Class="settings-tab-strip sme-search-targets">
-                                                @foreach (var target in QuickSearchTargets)
-                                                {
-                                                    <MudTabPanel Text="@target.Label" />
-                                                }
-                                            </MudTabs>
-                                        </div>
-
                                         <div class="sme-search-row">
                                             <MudTextField T="string"
                                                           Value="@_canonicalSearchQuery"

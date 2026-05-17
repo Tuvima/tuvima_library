@@ -143,6 +143,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
         Assert.Contains("ValueChanged=\"OnSelectedMediaTypeChanged\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-match-type-select", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("sme-search-targets", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Keep Match", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Keep QID", shell, StringComparison.Ordinal);
         Assert.Contains("Clear QID", shell, StringComparison.Ordinal);
