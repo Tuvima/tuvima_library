@@ -66,19 +66,8 @@
                 @if (CanReclassifyMediaType)
                 {
                     <div class="sme-header-actions">
-                        <MudSelect T="string"
-                                   Value="@_selectedMediaType"
-                                   ValueChanged="@((string value) => OnSelectedMediaTypeChanged(value))"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Class="sme-review-select sme-header-type-select">
-                            @foreach (var mediaType in ReclassifyMediaTypes)
-                            {
-                                <MudSelectItem T="string" Value="@mediaType">
-                                    @GetMediaTypeMenuLabel(mediaType)
-                                </MudSelectItem>
-                            }
-                        </MudSelect>
+                        <AppMediaTypeSelect Value="@_selectedMediaType"
+                                            ValueChanged="OnSelectedMediaTypeChanged" />
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    Class="sme-header-type-action"

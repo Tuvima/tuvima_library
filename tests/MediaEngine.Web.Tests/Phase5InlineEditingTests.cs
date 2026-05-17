@@ -140,8 +140,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Text=\"Wikidata\"", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
         Assert.Contains("Change Type", shell, StringComparison.Ordinal);
-        Assert.Contains("Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
-        Assert.Contains("ValueChanged=\"@((string value) => OnSelectedMediaTypeChanged(value))\"", shell, StringComparison.Ordinal);
+        Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
+        Assert.Contains("ValueChanged=\"OnSelectedMediaTypeChanged\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-match-type-select", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Keep Match", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Keep QID", shell, StringComparison.Ordinal);

@@ -1,0 +1,33 @@
+@using MudBlazor
+
+<MudSelect T="string"
+           Value="@Value"
+           ValueChanged="OnValueChanged"
+           Variant="Variant.Outlined"
+           Dense="true"
+           Margin="Margin.Dense"
+           Class="@($"app-media-type-select {Class}".Trim())"
+           PopoverClass="app-media-type-select__popover">
+    @foreach (var option in Options)
+    {
+        <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    private static readonly IReadOnlyList<(string Value, string Label)> Options =
+    [
+        ("Books", "Books"),
+        ("Audiobooks", "Audiobooks"),
+        ("Movies", "Movies"),
+        ("TV", "TV"),
+        ("Music", "Music"),
+        ("Comics", "Comics"),
+    ];
+
+    [Parameter] public string Value { get; set; } = "Books";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private Task OnValueChanged(string value) => ValueChanged.InvokeAsync(value);
+}

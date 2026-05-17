@@ -140,14 +140,9 @@
     height: 38px;
 }
 
-.sme-header-type-select {
-    width: 150px;
-    min-width: 150px;
-}
-
 .sme-header-type-action {
-    min-height: 36px;
-    height: 36px;
+    min-height: 38px;
+    height: 38px;
     padding: 0 18px;
     white-space: nowrap;
     text-transform: none;
@@ -262,37 +257,6 @@
     align-items: center;
     gap: 8px;
     flex-wrap: nowrap;
-}
-
-.sme-review-select {
-    flex: 0 0 auto;
-    min-width: 150px;
-}
-
-::deep .sme-review-select .mud-input-control {
-    margin: 0;
-    height: 36px;
-}
-
-::deep .sme-review-select .mud-input {
-    min-height: 36px;
-    height: 36px;
-    align-items: center;
-    margin-top: 0;
-}
-
-::deep .sme-review-select .mud-input-slot {
-    min-height: 0;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    white-space: nowrap;
-}
-
-::deep .sme-review-select .mud-select-input {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .sme-review-title {
