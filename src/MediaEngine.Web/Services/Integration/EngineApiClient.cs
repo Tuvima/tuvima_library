@@ -1873,6 +1873,15 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PostAsJsonAsync(
                 $"/metadata/{entityId}/reclassify",
                 new { media_type = mediaType }, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var error = await resp.Content.ReadAsStringAsync(ct);
+                LastError = string.IsNullOrWhiteSpace(error)
+                    ? $"POST /metadata/.../reclassify failed: {resp.StatusCode}"
+                    : $"POST /metadata/.../reclassify failed: {resp.StatusCode} - {error}";
+                return false;
+            }
+
             return resp.IsSuccessStatusCode;
         }
         catch (OperationCanceledException) { return false; }
@@ -3831,7 +3840,10 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/canonical-search", request, ct);
             if (!resp.IsSuccessStatusCode)
             {
-                LastError = $"POST /library/items/.../canonical-search failed: {resp.StatusCode}";
+                var error = await resp.Content.ReadAsStringAsync(ct);
+                LastError = string.IsNullOrWhiteSpace(error)
+                    ? $"POST /library/items/.../canonical-search failed: {resp.StatusCode}"
+                    : $"POST /library/items/.../canonical-search failed: {resp.StatusCode} - {error}";
                 return null;
             }
 
@@ -3877,7 +3889,10 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/retail-match", request, ct);
             if (!resp.IsSuccessStatusCode)
             {
-                LastError = $"POST /library/items/.../retail-match failed: {resp.StatusCode}";
+                var error = await resp.Content.ReadAsStringAsync(ct);
+                LastError = string.IsNullOrWhiteSpace(error)
+                    ? $"POST /library/items/.../retail-match failed: {resp.StatusCode}"
+                    : $"POST /library/items/.../retail-match failed: {resp.StatusCode} - {error}";
                 return null;
             }
 
@@ -3900,7 +3915,10 @@ public sealed class EngineApiClient : IEngineApiClient
             var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/wikidata-match", request, ct);
             if (!resp.IsSuccessStatusCode)
             {
-                LastError = $"POST /library/items/.../wikidata-match failed: {resp.StatusCode}";
+                var error = await resp.Content.ReadAsStringAsync(ct);
+                LastError = string.IsNullOrWhiteSpace(error)
+                    ? $"POST /library/items/.../wikidata-match failed: {resp.StatusCode}"
+                    : $"POST /library/items/.../wikidata-match failed: {resp.StatusCode} - {error}";
                 return null;
             }
 

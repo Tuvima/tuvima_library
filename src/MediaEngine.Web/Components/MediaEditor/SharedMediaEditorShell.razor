@@ -63,6 +63,32 @@
                     }
                 </div>
 
+                @if (CanReclassifyMediaType)
+                {
+                    <div class="sme-header-actions">
+                        <MudSelect T="string"
+                                   Value="@_selectedMediaType"
+                                   ValueChanged="@((string value) => OnSelectedMediaTypeChanged(value))"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="sme-review-select sme-header-type-select">
+                            @foreach (var mediaType in ReclassifyMediaTypes)
+                            {
+                                <MudSelectItem T="string" Value="@mediaType">
+                                    @GetMediaTypeMenuLabel(mediaType)
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Class="sme-header-type-action"
+                                   Disabled="@_reclassifying"
+                                   OnClick="ReclassifyMediaTypeAsync">
+                            @(_reclassifying ? "Updating..." : "Change Type")
+                        </MudButton>
+                    </div>
+                }
+
                 <MudIconButton Icon="@Icons.Material.Outlined.Close"
                                Size="Size.Small"
                                Color="Color.Inherit"
@@ -79,44 +105,6 @@
                     </div>
                     <div class="sme-review-copy">
                         <div class="sme-review-title">Needs review <span class="sme-review-text">- @_reviewSummary</span></div>
-                    </div>
-                    <div class="sme-review-actions">
-                        @if (CanReclassifyMediaType)
-                        {
-                            <div class="sme-review-reclassify">
-                                <MudMenu Variant="Variant.Outlined"
-                                         Color="Color.Inherit"
-                                         Dense="true"
-                                         EndIcon="@Icons.Material.Outlined.KeyboardArrowDown"
-                                         Label="@GetMediaTypeButtonLabel(_selectedMediaType)"
-                                         AnchorOrigin="Origin.BottomLeft"
-                                         TransformOrigin="Origin.TopLeft"
-                                         Class="sme-review-menu">
-                                    @foreach (var mediaType in ReclassifyMediaTypes)
-                                    {
-                                        <MudMenuItem OnClick="@(() => OnSelectedMediaTypeChanged(mediaType))">
-                                            @GetMediaTypeMenuLabel(mediaType)
-                                        </MudMenuItem>
-                                    }
-                                </MudMenu>
-                                <MudButton Variant="Variant.Filled"
-                                           Color="Color.Primary"
-                                           Class="sme-review-action"
-                                           Disabled="@_reclassifying"
-                                           OnClick="ReclassifyMediaTypeAsync">
-                                    @(_reclassifying ? "Updating..." : "Change")
-                                </MudButton>
-                            </div>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(_canonicalTargetGroup))
-                        {
-                            <MudButton Variant="Variant.Filled"
-                                       Color="Color.Primary"
-                                       Class="sme-review-action"
-                                       OnClick="@(() => _activeTab = "links")">
-                                @GetReviewBannerActionLabel()
-                            </MudButton>
-                        }
                     </div>
                 </div>
             }
@@ -363,181 +351,298 @@
                 }
                 else if (_activeTab == "links")
                 {
-                    <div class="sme-file-tab">
-                        @if (_editorContext?.IdentitySummary is not null)
-                        {
-                            var identity = _editorContext.IdentitySummary;
-                            <section class="sme-group">
-                                <div class="sme-group-title">Identity Overview</div>
-                                <div class="sme-readonly-row"><span>Retail Match</span><strong>@(identity.ProviderName ?? identity.MatchSource ?? "Not linked")</strong></div>
-                                <div class="sme-readonly-row"><span>Provider ID</span><strong>@(identity.ProviderItemId ?? "Not linked")</strong></div>
-                                <div class="sme-readonly-row"><span>Wikidata Identity</span><strong>@(identity.WikidataQid ?? "Pending")</strong></div>
-                                <div class="sme-readonly-row"><span>Canonical Status</span><strong>@(identity.WikidataStatus ?? identity.MatchLevel ?? "Unresolved")</strong></div>
-                                <div class="sme-readonly-row"><span>Universe / Series</span><strong>@(identity.UniverseName ?? "None")</strong></div>
-                                @if (!string.IsNullOrWhiteSpace(GetUniverseExploreUrl()))
-                                {
-                                    <div class="sme-file-actions">
-                                        <MudButton Variant="Variant.Outlined"
-                                                   Color="Color.Inherit"
-                                                   Class="sme-inline-btn"
-                                                   Href="@GetUniverseExploreUrl()">
-                                            Open graph
-                                        </MudButton>
-                                    </div>
-                                }
-                            </section>
-                        }
+                    <div class="sme-match-tab">
+                        <section class="sme-match-status-strip" aria-label="Match and identity status">
+                            @foreach (var row in GetMatchStatusStripRows())
+                            {
+                                <div class="sme-match-status-item">
+                                    <span>@row.Label</span>
+                                    <strong>@row.Value</strong>
+                                </div>
+                            }
+                        </section>
 
                         @if (IsSingleItem)
                         {
-                            @if (SupportsCanonicalSearch)
-                            {
-                                <section class="sme-group">
-                                    <div class="sme-group-title">@(IsWikidataIntent ? "Fix Wikidata Match" : "Find Retail Match")</div>
-                                    <div class="settings-admin-panel">
-                                        <MudTabs ActivePanelIndex="@CanonicalTargetIndex"
-                                                 ActivePanelIndexChanged="OnCanonicalTargetChanged"
-                                                 Rounded="true"
-                                                 Border="false"
-                                                 Color="Color.Primary"
-                                                 Elevation="0"
-                                                 Class="settings-tab-strip sme-search-targets">
-                                            @foreach (var target in QuickSearchTargets)
-                                            {
-                                                <MudTabPanel Text="@target.Label" />
-                                            }
-                                        </MudTabs>
+                            <div class="sme-match-workflow">
+                                <section class="sme-match-current-panel">
+                                    @{
+                                        var currentRetail = BuildCurrentRetailMatchCard();
+                                        var currentQid = BuildCurrentWikidataMatchCard();
+                                    }
+                                    <div class="sme-match-panel-heading">
+                                        <div>
+                                            <div class="sme-group-title">Current Identity</div>
+                                            <p>Current retail and Wikidata identity state for this item.</p>
+                                        </div>
                                     </div>
+                                    <div class="sme-current-match-stack">
+                                        <div class="sme-current-match-card">
+                                            <div class="sme-current-match-art">
+                                                @if (!string.IsNullOrWhiteSpace(currentRetail.CoverUrl))
+                                                {
+                                                    <img src="@currentRetail.CoverUrl" alt="" />
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 28px; opacity: 0.24;" />
+                                                }
+                                            </div>
+                                            <div class="sme-current-match-copy">
+                                                <span class="sme-match-chip">@currentRetail.Badge</span>
+                                                <h3>@currentRetail.Title</h3>
+                                                @if (!string.IsNullOrWhiteSpace(currentRetail.Creator))
+                                                {
+                                                    <p>@currentRetail.Creator</p>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(currentRetail.Year))
+                                                {
+                                                    <p>@currentRetail.Year</p>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(currentRetail.Description))
+                                                {
+                                                    <p>@currentRetail.Description</p>
+                                                }
+                                                @if (currentRetail.Chips.Count > 0)
+                                                {
+                                                    <div class="sme-match-chip-row">
+                                                        @foreach (var chip in currentRetail.Chips)
+                                                        {
+                                                            <span>@chip</span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
 
-                                    <div class="sme-search-row">
-                                        <MudTextField T="string"
-                                                      Value="@_canonicalSearchQuery"
-                                                      ValueChanged="@((string? value) => _canonicalSearchQuery = value ?? string.Empty)"
-                                                      Placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
-                                                      Variant="Variant.Outlined"
-                                                      Margin="Margin.Dense"
-                                                      Immediate="true"
-                                                      Class="sme-text-input" />
-                                        <MudButton Variant="Variant.Filled"
-                                                   Color="Color.Primary"
-                                                   Class="sme-inline-btn sme-inline-btn--primary"
-                                                   Disabled="@_searchingCanonical"
-                                                   OnClick="SearchCanonicalAsync">
-                                            @(_searchingCanonical ? "Searching..." : IsWikidataIntent ? "Search Wikidata" : "Search Retail")
-                                        </MudButton>
+                                        <div class="sme-current-match-card sme-current-match-card--qid">
+                                            <div class="sme-current-match-art sme-current-match-art--qid">
+                                                <span>Q</span>
+                                            </div>
+                                            <div class="sme-current-match-copy">
+                                                <span class="sme-match-chip sme-match-chip--qid">@currentQid.Badge</span>
+                                                <h3>@currentQid.Title</h3>
+                                                @if (!string.IsNullOrWhiteSpace(currentQid.Creator))
+                                                {
+                                                    <p>@currentQid.Creator</p>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(currentQid.Year))
+                                                {
+                                                    <p>@currentQid.Year</p>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(currentQid.Description))
+                                                {
+                                                    <p>@currentQid.Description</p>
+                                                }
+                                                @if (currentQid.Chips.Count > 0)
+                                                {
+                                                    <div class="sme-match-chip-row">
+                                                        @foreach (var chip in currentQid.Chips)
+                                                        {
+                                                            <span>@chip</span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
                                     </div>
                                 </section>
 
-                                <section class="sme-group">
-                                    <div class="sme-group-title">Search Results</div>
-                                    @if (_canonicalSearchResponse is null)
+                                <section class="sme-match-search-panel">
+                                    @if (SupportsCanonicalSearch)
                                     {
-                                        <div class="sme-empty-panel">
-                                            <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Style="font-size: 24px; opacity: 0.18;" />
-                                            <span>@(IsWikidataIntent ? "Search Wikidata for a canonical identity." : "Search retail providers for a provider match.")</span>
+                                        <div class="sme-match-panel-heading sme-match-panel-heading--row">
+                                            <div>
+                                                <div class="sme-group-title">Correct Match</div>
+                                                <p>@GetCanonicalSearchSubtitle()</p>
+                                            </div>
                                         </div>
-                                    }
-                                    else if (_canonicalSearchResponse.LinkedCandidates.Count == 0 && _canonicalSearchResponse.RetailCandidates.Count == 0)
-                                    {
-                                        <div class="sme-empty-panel">
-                                            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 24px; opacity: 0.18;" />
-                                            <span>@(_canonicalSearchResponse.NoResultMessage ?? "No safe canonical results were found.")</span>
+
+                                        <div class="settings-admin-panel">
+                                            <MudTabs ActivePanelIndex="@MatchSearchModeIndex"
+                                                     ActivePanelIndexChanged="OnMatchSearchModeChanged"
+                                                     Rounded="true"
+                                                     Border="false"
+                                                     Color="Color.Primary"
+                                                     Elevation="0"
+                                                     Class="settings-tab-strip sme-match-search-tabs">
+                                                <MudTabPanel Text="Retail" Icon="@Icons.Material.Outlined.TravelExplore" />
+                                                <MudTabPanel Text="Wikidata" Icon="@Icons.Material.Outlined.Hub" />
+                                            </MudTabs>
                                         </div>
-                                    }
-                                    else
-                                    {
-                                        @if (_canonicalSearchResponse.LinkedCandidates.Count > 0)
-                                        {
-                                            <div class="sme-result-section-label">Wikidata results</div>
+
+                                        <div class="settings-admin-panel">
+                                            <MudTabs ActivePanelIndex="@CanonicalTargetIndex"
+                                                     ActivePanelIndexChanged="OnCanonicalTargetChanged"
+                                                     Rounded="true"
+                                                     Border="false"
+                                                     Color="Color.Primary"
+                                                     Elevation="0"
+                                                     Class="settings-tab-strip sme-search-targets">
+                                                @foreach (var target in QuickSearchTargets)
+                                                {
+                                                    <MudTabPanel Text="@target.Label" />
+                                                }
+                                            </MudTabs>
+                                        </div>
+
+                                        <div class="sme-search-row">
+                                            <MudTextField T="string"
+                                                          Value="@_canonicalSearchQuery"
+                                                          ValueChanged="@((string? value) => _canonicalSearchQuery = value ?? string.Empty)"
+                                                          Placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
+                                                          Variant="Variant.Outlined"
+                                                          Margin="Margin.Dense"
+                                                          Immediate="true"
+                                                          Class="sme-text-input" />
+                                            <MudButton Variant="Variant.Filled"
+                                                       Color="Color.Primary"
+                                                       Class="sme-inline-btn sme-inline-btn--primary"
+                                                       Disabled="@_searchingCanonical"
+                                                       StartIcon="@Icons.Material.Outlined.Search"
+                                                       OnClick="SearchCanonicalAsync">
+                                                @(_searchingCanonical ? "Searching..." : IsWikidataSearchMode ? "Search Wikidata" : "Search Retail")
+                                            </MudButton>
+                                        </div>
+
+                                        <div class="sme-match-results">
+                                            @if (_canonicalSearchResponse is null)
+                                            {
+                                                <div class="sme-empty-panel">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Style="font-size: 24px; opacity: 0.18;" />
+                                                    <span>@(IsWikidataSearchMode ? "Search Wikidata for a canonical identity." : "Search retail providers for a provider match.")</span>
+                                                </div>
+                                            }
+                                            else if (_canonicalSearchResponse.LinkedCandidates.Count == 0 && _canonicalSearchResponse.RetailCandidates.Count == 0)
+                                            {
+                                                <div class="sme-empty-panel">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 24px; opacity: 0.18;" />
+                                                    <span>@(_canonicalSearchResponse.NoResultMessage ?? "No safe canonical results were found.")</span>
+                                                </div>
+                                            }
+                                            else if (IsWikidataSearchMode)
+                                            {
                                                 @foreach (var candidate in _canonicalSearchResponse.LinkedCandidates)
                                                 {
-                                                    <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
+                                                    var candidateId = GetCandidateId(candidate);
+                                                    <div class="sme-match-result-card @(IsCandidateSelected(candidateId) ? "sme-match-result-card--selected" : "")">
+                                                        <MudButton Variant="Variant.Text"
+                                                                   Color="Color.Inherit"
+                                                                   FullWidth="true"
+                                                                   Class="sme-match-result-summary"
+                                                                   OnClick="@(() => SelectCandidate(candidate))">
+                                                            <div class="sme-match-result-art sme-match-result-art--qid">
+                                                                <span>Q</span>
+                                                            </div>
+                                                            <div class="sme-match-result-copy">
+                                                                <div class="sme-match-result-kicker">@candidate.Qid</div>
+                                                                <div class="sme-match-result-title">@candidate.Label</div>
+                                                                <div class="sme-match-result-meta">@BuildWikidataCandidateSubtitle(candidate)</div>
+                                                                <div class="sme-match-result-score">@FormatCandidateScore(candidate.Confidence) | @candidate.LinkStatusLabel</div>
+                                                                @if (BuildCandidateChips(candidate).Count > 0)
+                                                                {
+                                                                    <div class="sme-match-chip-row">
+                                                                        @foreach (var chip in BuildCandidateChips(candidate))
+                                                                        {
+                                                                            <span>@chip</span>
+                                                                        }
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                            <span class="sme-candidate-badge">@(candidate.IsApplicable ? "QID" : "Suggestion")</span>
+                                                        </MudButton>
+                                                        @if (IsCandidateSelected(candidateId))
+                                                        {
+                                                            @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
+                                                            <MudButton Variant="Variant.Filled"
+                                                                       Color="Color.Primary"
+                                                                       Class="sme-inline-btn sme-inline-btn--primary"
+                                                                       Disabled="@(!candidate.IsApplicable)"
+                                                                       OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
+                                                                Use This QID
+                                                            </MudButton>
+                                                        }
+                                                    </div>
+                                                }
+                                                <div class="sme-file-actions">
                                                     <MudButton Variant="Variant.Outlined"
                                                                Color="Color.Inherit"
-                                                               FullWidth="true"
-                                                               Class="sme-candidate-summary"
-                                                               OnClick="@(() => SelectCandidate(candidate))">
-                                                        <div class="sme-candidate-copy">
-                                                            <div class="sme-candidate-title">@candidate.Label</div>
-                                                            @if (!string.IsNullOrWhiteSpace(candidate.Description))
-                                                            {
-                                                                <div class="sme-candidate-description">@candidate.Description</div>
-                                                            }
-                                                            <div class="sme-candidate-meta">@candidate.LinkStatusLabel</div>
-                                                        </div>
-                                                        <span class="sme-candidate-badge">@(candidate.IsApplicable ? candidate.LinkState : "Suggestion")</span>
+                                                               Class="sme-inline-btn"
+                                                               OnClick="MarkWikidataMissingAsync">
+                                                        Mark Wikidata Missing
                                                     </MudButton>
-                                                    @if (IsCandidateSelected(GetCandidateId(candidate)))
-                                                    {
-                                                        @RenderSuggestedFields(GetCandidateId(candidate), candidate.SuggestedFields)
-                                                        <MudButton Variant="Variant.Filled"
-                                                                   Color="Color.Primary"
-                                                                   Class="sme-inline-btn sme-inline-btn--primary"
-                                                                   Disabled="@(!candidate.IsApplicable)"
-                                                                   OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
-                                                            Replace Wikidata Match
-                                                        </MudButton>
-                                                    }
+                                                    <MudButton Variant="Variant.Outlined"
+                                                               Color="Color.Inherit"
+                                                               Class="sme-inline-btn"
+                                                               OnClick="ClearWikidataMatchAsync">
+                                                        Clear QID
+                                                    </MudButton>
                                                 </div>
                                             }
-                                        }
-
-                                        @if (_canonicalSearchResponse.RetailCandidates.Count > 0)
-                                        {
-                                            <div class="sme-result-section-label">Retail results</div>
+                                            else
+                                            {
                                                 @foreach (var candidate in _canonicalSearchResponse.RetailCandidates)
                                                 {
-                                                    <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
-                                                    <MudButton Variant="Variant.Outlined"
-                                                               Color="Color.Inherit"
-                                                               FullWidth="true"
-                                                               Class="sme-candidate-summary"
-                                                               OnClick="@(() => SelectCandidate(candidate))">
-                                                        <div class="sme-candidate-copy">
-                                                            <div class="sme-candidate-title">@candidate.Title</div>
-                                                            <div class="sme-candidate-description">@BuildRetailCandidateSubtitle(candidate)</div>
-                                                            <div class="sme-candidate-meta">@candidate.LinkStatusLabel</div>
-                                                        </div>
-                                                        <span class="sme-candidate-badge">@(candidate.IsApplicable ? candidate.ProviderName : "Suggestion")</span>
-                                                    </MudButton>
-                                                    @if (IsCandidateSelected(GetCandidateId(candidate)))
-                                                    {
-                                                        @RenderSuggestedFields(GetCandidateId(candidate), candidate.SuggestedFields)
-                                                        <MudButton Variant="Variant.Filled"
-                                                                   Color="Color.Primary"
-                                                                   Class="sme-inline-btn sme-inline-btn--primary"
-                                                                   Disabled="@(!candidate.IsApplicable)"
-                                                                   OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
-                                                            Use Selected Retail Match
+                                                    var candidateId = GetCandidateId(candidate);
+                                                    <div class="sme-match-result-card @(IsCandidateSelected(candidateId) ? "sme-match-result-card--selected" : "")">
+                                                        <MudButton Variant="Variant.Text"
+                                                                   Color="Color.Inherit"
+                                                                   FullWidth="true"
+                                                                   Class="sme-match-result-summary"
+                                                                   OnClick="@(() => SelectCandidate(candidate))">
+                                                            <div class="sme-match-result-art">
+                                                                @if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
+                                                                {
+                                                                    <img src="@candidate.CoverUrl" alt="" />
+                                                                }
+                                                                else
+                                                                {
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 24px; opacity: 0.24;" />
+                                                                }
+                                                            </div>
+                                                            <div class="sme-match-result-copy">
+                                                                <div class="sme-match-result-kicker">@candidate.ProviderName</div>
+                                                                <div class="sme-match-result-title">@candidate.Title</div>
+                                                                <div class="sme-match-result-meta">@BuildRetailCandidateSubtitle(candidate)</div>
+                                                                <div class="sme-match-result-score">@FormatCandidateScore(GetRetailCandidateScore(candidate)) | @candidate.LinkStatusLabel</div>
+                                                                @if (BuildCandidateChips(candidate).Count > 0)
+                                                                {
+                                                                    <div class="sme-match-chip-row">
+                                                                        @foreach (var chip in BuildCandidateChips(candidate))
+                                                                        {
+                                                                            <span>@chip</span>
+                                                                        }
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                            <span class="sme-candidate-badge">@(candidate.IsApplicable ? candidate.ProviderName : "Suggestion")</span>
                                                         </MudButton>
-                                                    }
-                                                </div>
+                                                        @if (IsCandidateSelected(candidateId))
+                                                        {
+                                                            @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
+                                                            <MudButton Variant="Variant.Filled"
+                                                                       Color="Color.Primary"
+                                                                       Class="sme-inline-btn sme-inline-btn--primary"
+                                                                       Disabled="@(!candidate.IsApplicable)"
+                                                                       OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
+                                                                Use This Match
+                                                            </MudButton>
+                                                        }
+                                                    </div>
+                                                }
                                             }
-                                        }
-                                        @if (IsWikidataIntent)
-                                        {
-                                            <div class="sme-file-actions">
-                                                <MudButton Variant="Variant.Outlined"
-                                                           Color="Color.Inherit"
-                                                           Class="sme-inline-btn"
-                                                           OnClick="MarkWikidataMissingAsync">
-                                                    Mark Wikidata Missing
-                                                </MudButton>
-                                                <MudButton Variant="Variant.Outlined"
-                                                           Color="Color.Inherit"
-                                                           Class="sme-inline-btn"
-                                                           OnClick="ClearWikidataMatchAsync">
-                                                    Clear Wikidata Link
-                                                </MudButton>
-                                            </div>
-                                        }
+                                        </div>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(CanonicalSearchUnavailableReason))
+                                    {
+                                        <div class="sme-search-inline-hint">@CanonicalSearchUnavailableReason</div>
                                     }
                                 </section>
-                            }
-                            else if (!string.IsNullOrWhiteSpace(CanonicalSearchUnavailableReason))
-                            {
-                                <div class="sme-search-inline-hint">@CanonicalSearchUnavailableReason</div>
-                            }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="sme-search-inline-hint">Match and identity correction is available for one item at a time.</div>
                         }
 
                         @foreach (var group in GetGroupsForTab("links"))

@@ -108,6 +108,7 @@ public partial class SharedMediaEditorShell
     private string _activeScopeId = string.Empty;
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
+    private string _activeMatchSearchMode = "retail";
     private string _artworkUrlInput = string.Empty;
     private string? _artworkAddMenuAssetType;
     private string? _selectedCandidateId;
@@ -145,6 +146,7 @@ public partial class SharedMediaEditorShell
             .ToList();
     protected int ActiveTabIndex => GetSelectedIndex(Tabs.Select(tab => tab.Id), _activeTab);
     protected int CanonicalTargetIndex => GetSelectedIndex(QuickSearchTargets.Select(target => target.Key), _canonicalTargetGroup);
+    protected int MatchSearchModeIndex => string.Equals(_activeMatchSearchMode, "wikidata", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
@@ -152,6 +154,7 @@ public partial class SharedMediaEditorShell
         _identityIntent == MediaEditorIdentityIntent.None ? Request.IdentityIntent : _identityIntent;
     protected Guid EditorContextEntityId => _editorContext?.LaunchEntityId ?? LaunchEntityId;
     protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? EditorContextEntityId;
+    private Guid CanonicalEndpointEntityId => EditorContextEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
     protected bool IsArtworkBusy => _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
@@ -269,6 +272,16 @@ public partial class SharedMediaEditorShell
 
     private sealed record ContainerReturnState(Guid EntityId, string TabId, string Label, string? Context);
 
+    protected sealed record MatchCardDisplay(
+        string Badge,
+        string Title,
+        string? Creator,
+        string? Year,
+        string? Description,
+        string? CoverUrl,
+        IReadOnlyList<string> Chips,
+        string Note);
+
     protected override async Task OnInitializedAsync()
     {
         _activeTab = NormalizeTabId(string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab);
@@ -323,11 +336,11 @@ public partial class SharedMediaEditorShell
                 _history = historyTask.Result;
                 _artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = entityId };
                 _schema = MediaEditorSchemaCatalog.Resolve(_detail?.MediaType ?? Request.MediaType);
-                _selectedMediaType = _detail?.MediaType ?? Request.MediaType ?? "Books";
+                _selectedMediaType = NormalizeEditorMediaType(_detail?.MediaType ?? Request.MediaType);
             }
             else
             {
-                _selectedMediaType = _editorContext.MediaType;
+                _selectedMediaType = NormalizeEditorMediaType(_editorContext.MediaType);
                 _schema = MediaEditorSchemaCatalog.Resolve(_editorContext.MediaType);
                 _activeScopeId = !string.IsNullOrWhiteSpace(Request.InitialScope)
                     ? Request.InitialScope!
@@ -354,6 +367,7 @@ public partial class SharedMediaEditorShell
                 _reviewSummary = target.Summary;
                 _identityIntent = Request.IdentityIntent == MediaEditorIdentityIntent.None ? target.Intent : Request.IdentityIntent;
                 _primaryActionLabel = target.PrimaryActionLabel;
+                _activeMatchSearchMode = IsWikidataIntent ? "wikidata" : "retail";
             }
             else
             {
@@ -362,6 +376,7 @@ public partial class SharedMediaEditorShell
                 _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup)
                     ? (ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup)
                     : Request.InitialCanonicalTargetGroup!;
+                _activeMatchSearchMode = IsWikidataIntent ? "wikidata" : "retail";
             }
 
             if (IsFileScope)
@@ -428,7 +443,7 @@ public partial class SharedMediaEditorShell
         _artwork = state.Artwork;
         if (ActiveScope is not null)
             _artworkStates[BuildScopeStateKey(ActiveScope.FieldEntityId, ActiveScope.ScopeId)] = state.Artwork;
-        _selectedMediaType = _detail?.MediaType ?? _editorContext?.MediaType ?? Request.MediaType ?? "Books";
+        _selectedMediaType = NormalizeEditorMediaType(_detail?.MediaType ?? _editorContext?.MediaType ?? Request.MediaType);
         _schema = MediaEditorSchemaCatalog.Resolve(_selectedMediaType);
         _canonicalTargetGroup = ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup;
         _canonicalSearchQuery = BuildSuggestedSearchQuery();
@@ -582,8 +597,8 @@ public partial class SharedMediaEditorShell
 
     protected bool CanReclassifyMediaType =>
         IsSingleItem
-        && !IsFileScope
-        && (Request.Mode == SharedMediaEditorMode.Review || !string.IsNullOrWhiteSpace(_detail?.MediaType));
+        && !IsBatchMode
+        && !IsFileScope;
 
     protected IEnumerable<MediaEditorFieldGroup> GetGroupsForTab(string tabId)
     {
@@ -993,10 +1008,10 @@ public partial class SharedMediaEditorShell
 
         try
         {
-            var ok = await Orchestrator.ReclassifyMediaTypeAsync(CurrentEntityId, _selectedMediaType);
+            var ok = await ApiClient.ReclassifyMediaTypeAsync(CanonicalEndpointEntityId, _selectedMediaType);
             if (!ok)
             {
-                Snackbar.Add("Media type change failed.", Severity.Error);
+                Snackbar.Add(ApiClient.LastError ?? "Media type change failed.", Severity.Error);
                 return;
             }
 
@@ -1274,6 +1289,16 @@ public partial class SharedMediaEditorShell
         return Task.CompletedTask;
     }
 
+    protected Task OnMatchSearchModeChanged(int index)
+    {
+        _activeMatchSearchMode = index == 1 ? "wikidata" : "retail";
+        _canonicalSearchResponse = null;
+        _selectedCandidateId = null;
+        _selectedSuggestedFieldKeys.Clear();
+        _canonicalSearchQuery = BuildSuggestedSearchQuery();
+        return Task.CompletedTask;
+    }
+
     protected bool IsArtworkAddMenuOpen(string assetType) =>
         string.Equals(_artworkAddMenuAssetType, assetType, StringComparison.OrdinalIgnoreCase);
 
@@ -1542,10 +1567,10 @@ public partial class SharedMediaEditorShell
         try
         {
             var response = await ApiClient.SearchItemCanonicalAsync(
-                CurrentEntityId,
+                CanonicalEndpointEntityId,
                 new ItemCanonicalSearchRequestDto
                 {
-                    MediaType = _detail?.MediaType ?? Request.MediaType,
+                    MediaType = _selectedMediaType,
                     TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
                     TargetFieldGroup = _canonicalTargetGroup,
                     DraftFields = BuildDraftFields(),
@@ -1559,7 +1584,7 @@ public partial class SharedMediaEditorShell
 
             if (response is null)
             {
-                Snackbar.Add("Canonical search failed.", Severity.Error);
+                Snackbar.Add(ApiClient.LastError ?? "Canonical search failed.", Severity.Error);
                 return;
             }
 
@@ -1582,7 +1607,7 @@ public partial class SharedMediaEditorShell
     protected string GetCanonicalSearchSubtitle()
     {
         var label = GetCanonicalTargetLabel(_canonicalTargetGroup);
-        if (IsWikidataIntent)
+        if (IsWikidataSearchMode)
             return $"Search Wikidata directly for the correct {label.ToLowerInvariant()} identity.";
 
         return Request.Mode == SharedMediaEditorMode.Review
@@ -1620,8 +1645,11 @@ public partial class SharedMediaEditorShell
             or MediaEditorIdentityIntent.ConfirmWikidataMatch
             or MediaEditorIdentityIntent.MarkWikidataMissing;
 
+    private bool IsWikidataSearchMode =>
+        string.Equals(_activeMatchSearchMode, "wikidata", StringComparison.OrdinalIgnoreCase);
+
     private string GetCanonicalSearchMode() =>
-        IsWikidataIntent ? "wikidata_only" : "retail_only";
+        IsWikidataSearchMode ? "wikidata_only" : "retail_only";
 
     protected string GetCanonicalTargetLabel(string targetGroup) =>
         QuickSearchTargets.FirstOrDefault(target => string.Equals(target.Key, targetGroup, StringComparison.OrdinalIgnoreCase)).Label
@@ -1645,12 +1673,134 @@ public partial class SharedMediaEditorShell
         return parts.Count > 0 ? string.Join(" | ", parts) : "Provider candidate";
     }
 
-    protected void KeepCurrentCanonical()
+    protected string BuildWikidataCandidateSubtitle(UniverseCandidateDto candidate)
     {
-        _canonicalSearchResponse = null;
-        _selectedCandidateId = null;
-        Snackbar.Add("Kept the current canonical value.", Severity.Info);
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(candidate.InstanceOf))
+            parts.Add(candidate.InstanceOf);
+
+        if (!string.IsNullOrWhiteSpace(candidate.Year))
+            parts.Add(candidate.Year);
+
+        if (!string.IsNullOrWhiteSpace(candidate.Author))
+            parts.Add(candidate.Author);
+        else if (!string.IsNullOrWhiteSpace(candidate.Director))
+            parts.Add(candidate.Director);
+
+        if (!string.IsNullOrWhiteSpace(candidate.Description))
+            parts.Add(candidate.Description);
+
+        return parts.Count > 0 ? string.Join(" | ", parts) : "Wikidata candidate";
     }
+
+    protected IReadOnlyList<(string Label, string Value)> GetMatchStatusStripRows()
+    {
+        var summary = _editorContext?.IdentitySummary;
+        var provider = GetRetailMatchDisplayName(summary);
+        var providerId = summary?.ProviderItemId;
+        var qid = FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"));
+        var universe = FirstNonBlank(summary?.UniverseName, _detail?.UniverseSummary?.UniverseName, GetBaselineValue("series"));
+        var hasProvider = !string.IsNullOrWhiteSpace(provider) || !string.IsNullOrWhiteSpace(providerId);
+        var hasQid = !string.IsNullOrWhiteSpace(qid);
+
+        var rows = new List<(string Label, string Value)>
+        {
+            ("Status", GetMatchStatusLabel(summary, hasProvider, hasQid)),
+            ("Retail Provider", !string.IsNullOrWhiteSpace(provider) ? provider : "Not linked"),
+            ("Provider ID", !string.IsNullOrWhiteSpace(providerId) ? providerId! : "Not linked"),
+            ("Wikidata Identity", !string.IsNullOrWhiteSpace(qid) ? qid! : "No QID"),
+        };
+
+        if (!string.IsNullOrWhiteSpace(universe))
+            rows.Add(("Universe / Series", universe!));
+
+        return rows;
+    }
+
+    protected MatchCardDisplay BuildCurrentRetailMatchCard()
+    {
+        var summary = _editorContext?.IdentitySummary;
+        var provider = GetRetailMatchDisplayName(summary);
+        var providerId = summary?.ProviderItemId;
+        var title = FirstNonBlank(CurrentTargetTitle, _detail?.Title, GetBaselineValue("title"), "Untitled item")!;
+        var creator = FirstNonBlank(_detail?.Author, _detail?.Director, GetBaselineValue("author"), GetBaselineValue("director"), GetBaselineValue("artist"), GetBaselineValue("narrator"));
+        var year = FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"));
+        var description = FirstNonBlank(_detail?.Description, GetBaselineValue("description"));
+        var chips = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(providerId))
+            chips.Add(providerId!);
+
+        var qid = FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"));
+        if (!string.IsNullOrWhiteSpace(qid))
+            chips.Add($"Wikidata: {qid}");
+
+        return new MatchCardDisplay(
+            Badge: !string.IsNullOrWhiteSpace(provider) ? provider : "No retail match",
+            Title: title,
+            Creator: creator,
+            Year: year,
+            Description: description,
+            CoverUrl: CurrentCoverUrl,
+            Chips: chips,
+            Note: !string.IsNullOrWhiteSpace(provider)
+                ? "This file is currently matched to the retail provider record shown below."
+                : "This file does not have a confirmed retail provider match yet.");
+    }
+
+    protected MatchCardDisplay BuildCurrentWikidataMatchCard()
+    {
+        var summary = _editorContext?.IdentitySummary;
+        var qid = FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"));
+        var title = FirstNonBlank(GetBaselineValue("title"), CurrentTargetTitle, _detail?.Title, "No Wikidata identity")!;
+        var type = FirstNonBlank(GetBaselineValue("instance_of"), summary?.MatchLevel, _detail?.MediaType);
+        var year = FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"));
+        var description = FirstNonBlank(_detail?.Description, GetBaselineValue("description"));
+        var chips = new List<string>();
+
+        var providerId = summary?.ProviderItemId;
+        if (!string.IsNullOrWhiteSpace(providerId))
+            chips.Add(providerId!);
+
+        var provider = GetRetailMatchDisplayName(summary);
+        if (!string.IsNullOrWhiteSpace(provider))
+            chips.Add(provider);
+
+        return new MatchCardDisplay(
+            Badge: !string.IsNullOrWhiteSpace(qid) ? qid! : "No QID",
+            Title: title,
+            Creator: type,
+            Year: year,
+            Description: description,
+            CoverUrl: null,
+            Chips: chips,
+            Note: !string.IsNullOrWhiteSpace(qid)
+                ? "This file is currently linked to the Wikidata item shown below."
+                : "This file is not linked to a Wikidata item yet.");
+    }
+
+    protected IReadOnlyList<string> BuildCandidateChips(RetailCandidateDto candidate)
+    {
+        var chips = new List<string>();
+        AddCandidateChips(chips, candidate.BridgeIds);
+        AddCandidateChips(chips, candidate.QidFields);
+        return chips;
+    }
+
+    protected IReadOnlyList<string> BuildCandidateChips(UniverseCandidateDto candidate)
+    {
+        var chips = new List<string>();
+        AddCandidateChips(chips, candidate.BridgeIds);
+        AddCandidateChips(chips, candidate.QidFields);
+        return chips;
+    }
+
+    protected static double GetRetailCandidateScore(RetailCandidateDto candidate) =>
+        candidate.CompositeScore > 0 ? candidate.CompositeScore : candidate.Confidence;
+
+    protected static string FormatCandidateScore(double score) =>
+        score > 0 ? $"Score {score:P0}" : "Score unavailable";
 
     protected async Task SaveAsPreferenceOnlyAsync()
     {
@@ -1727,7 +1877,7 @@ public partial class SharedMediaEditorShell
             .ToDictionary(key => key, key => candidate.SuggestedFields[key], StringComparer.OrdinalIgnoreCase);
 
         var response = await ApiClient.ReplaceRetailMatchAsync(
-            CurrentEntityId,
+            CanonicalEndpointEntityId,
             new ReplaceRetailMatchRequestDto
             {
                 TargetFieldGroup = _canonicalTargetGroup,
@@ -1752,7 +1902,7 @@ public partial class SharedMediaEditorShell
             : candidate.Qid;
 
         var response = await ApiClient.ReplaceWikidataMatchAsync(
-            CurrentEntityId,
+            CanonicalEndpointEntityId,
             new ReplaceWikidataMatchRequestDto
             {
                 Action = "replace",
@@ -1766,7 +1916,7 @@ public partial class SharedMediaEditorShell
     protected async Task MarkWikidataMissingAsync()
     {
         var response = await ApiClient.ReplaceWikidataMatchAsync(
-            CurrentEntityId,
+            CanonicalEndpointEntityId,
             new ReplaceWikidataMatchRequestDto
             {
                 Action = "mark_missing",
@@ -1779,7 +1929,7 @@ public partial class SharedMediaEditorShell
     protected async Task ClearWikidataMatchAsync()
     {
         var response = await ApiClient.ReplaceWikidataMatchAsync(
-            CurrentEntityId,
+            CanonicalEndpointEntityId,
             new ReplaceWikidataMatchRequestDto
             {
                 Action = "clear",
@@ -1793,7 +1943,7 @@ public partial class SharedMediaEditorShell
     {
         if (response is null)
         {
-            Snackbar.Add("Match update failed.", Severity.Error);
+            Snackbar.Add(ApiClient.LastError ?? "Match update failed.", Severity.Error);
             return Task.CompletedTask;
         }
 
@@ -1813,7 +1963,7 @@ public partial class SharedMediaEditorShell
         Dictionary<string, string> qidFields)
     {
         var response = await ApiClient.ApplyItemCanonicalAsync(
-            CurrentEntityId,
+            CanonicalEndpointEntityId,
             new ItemCanonicalApplyRequestDto
             {
                 TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
@@ -1830,7 +1980,7 @@ public partial class SharedMediaEditorShell
 
         if (response is null)
         {
-            Snackbar.Add("Canonical apply failed.", Severity.Error);
+            Snackbar.Add(ApiClient.LastError ?? "Canonical apply failed.", Severity.Error);
             return;
         }
 
@@ -1946,6 +2096,32 @@ public partial class SharedMediaEditorShell
 
     private static string GetValue(IReadOnlyDictionary<string, string> values, string key) =>
         values.TryGetValue(key, out var value) ? value : string.Empty;
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
+    private static void AddCandidateChips(List<string> chips, IReadOnlyDictionary<string, string> values)
+    {
+        foreach (var (key, value) in values)
+        {
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                continue;
+
+            var label = key
+                .Replace("_id", "", StringComparison.OrdinalIgnoreCase)
+                .Replace("_qid", "", StringComparison.OrdinalIgnoreCase)
+                .Replace('_', ' ')
+                .Trim();
+
+            label = string.IsNullOrWhiteSpace(label)
+                ? "ID"
+                : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(label);
+
+            var chip = $"{label}: {value}";
+            if (!chips.Contains(chip, StringComparer.OrdinalIgnoreCase))
+                chips.Add(chip);
+        }
+    }
 
     private static string SeasonEpisodeLabel(IReadOnlyDictionary<string, string> values)
     {
@@ -3569,8 +3745,31 @@ public partial class SharedMediaEditorShell
 
     protected Task OnSelectedMediaTypeChanged(string value)
     {
-        _selectedMediaType = value;
+        _selectedMediaType = NormalizeEditorMediaType(value);
+        _schema = MediaEditorSchemaCatalog.Resolve(_selectedMediaType);
+        _canonicalTargetGroup = _schema.DefaultTargetGroup;
+        _canonicalSearchQuery = BuildSuggestedSearchQuery();
+        _canonicalSearchResponse = null;
+        _selectedCandidateId = null;
+        _selectedSuggestedFieldKeys.Clear();
         return Task.CompletedTask;
+    }
+
+    protected Task OnSelectedMediaTypeChanged(ChangeEventArgs args) =>
+        OnSelectedMediaTypeChanged(args.Value?.ToString() ?? string.Empty);
+
+    private static string NormalizeEditorMediaType(string? mediaType)
+    {
+        var normalized = ReviewTargetResolver.NormalizeMediaType(mediaType);
+        return normalized switch
+        {
+            "Unknown" => "Books",
+            "Movie" => "Movies",
+            "Audiobook" => "Audiobooks",
+            "Comic" => "Comics",
+            _ when string.IsNullOrWhiteSpace(normalized) => "Books",
+            _ => normalized,
+        };
     }
 
     protected string FormatUniverseStatus(string? status) =>

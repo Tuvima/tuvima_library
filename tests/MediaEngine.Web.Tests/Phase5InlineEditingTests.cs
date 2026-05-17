@@ -117,11 +117,62 @@ public sealed class Phase5InlineEditingTests
 
         Assert.Contains("GetRetailMatchDisplayName(summary)", code, StringComparison.Ordinal);
         Assert.Contains("(\"Retail Match\", !string.IsNullOrWhiteSpace(provider) ? provider : hasProviderEvidence ? \"Retail matched\" : \"Not linked\")", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("(\"Provider ID\"", code, StringComparison.Ordinal);
+        Assert.Contains("(\"Provider ID\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("(\"Match Source\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("NormalizeRetailProviderLabel(summary?.MatchSource)", code, StringComparison.Ordinal);
         Assert.Contains("Guid.TryParse(trimmed, out _)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("ProviderNameFromBridgeIdentifier", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_MatchIdentityTabUsesStructuredRetailAndWikidataWorkflow()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var styles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.css");
+
+        Assert.Contains("sme-match-status-strip", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-current-panel", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-search-panel", shell, StringComparison.Ordinal);
+        Assert.Contains("Current Identity", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-search-tabs", shell, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Retail\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Wikidata\"", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
+        Assert.Contains("Change Type", shell, StringComparison.Ordinal);
+        Assert.Contains("Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
+        Assert.Contains("ValueChanged=\"@((string value) => OnSelectedMediaTypeChanged(value))\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("sme-match-type-select", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Keep Match", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Keep QID", shell, StringComparison.Ordinal);
+        Assert.Contains("Clear QID", shell, StringComparison.Ordinal);
+        Assert.Contains("Use This Match", shell, StringComparison.Ordinal);
+        Assert.Contains("Use This QID", shell, StringComparison.Ordinal);
+        Assert.Contains("BuildCurrentRetailMatchCard", code, StringComparison.Ordinal);
+        Assert.Contains("BuildCurrentWikidataMatchCard", code, StringComparison.Ordinal);
+        Assert.Contains("BuildCandidateChips", code, StringComparison.Ordinal);
+        Assert.Contains("FormatCandidateScore", code, StringComparison.Ordinal);
+        Assert.Contains("CanonicalEndpointEntityId => EditorContextEntityId", code, StringComparison.Ordinal);
+        Assert.Contains("CanonicalEndpointEntityId,", code, StringComparison.Ordinal);
+        Assert.Contains("\"Unknown\" => \"Books\"", code, StringComparison.Ordinal);
+        Assert.Contains("MediaType = _selectedMediaType", code, StringComparison.Ordinal);
+        Assert.Contains("OnMatchSearchModeChanged", code, StringComparison.Ordinal);
+        Assert.Contains(".sme-match-workflow", styles, StringComparison.Ordinal);
+        Assert.Contains(".sme-match-result-card--selected", styles, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_MatchIdentityRefreshDoesNotRecreateVaultWorkbench()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+
+        Assert.DoesNotContain("/vault", shell, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Vault", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("workbench", shell, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("/vault", code, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Vault", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("workbench", code, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

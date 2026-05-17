@@ -443,7 +443,7 @@ public static partial class MetadataEndpoints
             {
                 ActionType = SystemActionType.MetadataManualOverride,
                 EntityId   = entityId,
-                Detail     = $"Manual override: {updatedKeys.Count} field(s) — {string.Join(", ", updatedKeys)}.",
+                Detail     = $"Manual override: {updatedKeys.Count} field(s) ? {string.Join(", ", updatedKeys)}.",
             }, ct);
 
             // 4. Broadcast so the Dashboard refreshes.
@@ -461,7 +461,7 @@ public static partial class MetadataEndpoints
             }
             catch
             {
-                // Non-fatal — write-back failure should not prevent override success.
+                // Non-fatal ? write-back failure should not prevent override success.
             }
 
             return Results.Ok(new MetadataOverrideResponse
@@ -487,6 +487,7 @@ public static partial class MetadataEndpoints
             IHydrationPipelineService pipeline,
             IEventPublisher publisher,
             ISystemActivityRepository activityRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.MediaType))
@@ -500,49 +501,116 @@ public static partial class MetadataEndpoints
             }
 
             var now = DateTimeOffset.UtcNow;
+            var requestedEntityId = entityId;
+            var targetAssetId = entityId;
+            Guid? targetWorkId = null;
 
-            // 1. Create a user-locked media_type claim at confidence 1.0.
-            var claim = new MetadataClaim
+            using (var conn = db.CreateConnection())
+            {
+                var assetRow = conn.QueryFirstOrDefault<(string AssetId, string WorkId)>(
+                    """
+                    SELECT ma.id AS AssetId, e.work_id AS WorkId
+                    FROM media_assets ma
+                    JOIN editions e ON e.id = ma.edition_id
+                    WHERE ma.id = @EntityId
+                    LIMIT 1;
+                    """,
+                    new { EntityId = entityId.ToString() });
+
+                if (!string.IsNullOrWhiteSpace(assetRow.AssetId)
+                    && Guid.TryParse(assetRow.AssetId, out var parsedAssetId))
+                {
+                    targetAssetId = parsedAssetId;
+                    if (Guid.TryParse(assetRow.WorkId, out var parsedWorkId))
+                        targetWorkId = parsedWorkId;
+                }
+                else
+                {
+                    var workAssetRow = conn.QueryFirstOrDefault<(string? AssetId, string WorkId)>(
+                        """
+                        SELECT ma.id AS AssetId, w.id AS WorkId
+                        FROM works w
+                        LEFT JOIN editions e ON e.work_id = w.id
+                        LEFT JOIN media_assets ma ON ma.edition_id = e.id
+                        WHERE w.id = @EntityId
+                        ORDER BY ma.id IS NULL, ma.id
+                        LIMIT 1;
+                        """,
+                        new { EntityId = entityId.ToString() });
+
+                    if (!string.IsNullOrWhiteSpace(workAssetRow.WorkId)
+                        && Guid.TryParse(workAssetRow.WorkId, out var parsedWorkId))
+                    {
+                        targetWorkId = parsedWorkId;
+                        if (!string.IsNullOrWhiteSpace(workAssetRow.AssetId)
+                            && Guid.TryParse(workAssetRow.AssetId, out var parsedWorkAssetId))
+                        {
+                            targetAssetId = parsedWorkAssetId;
+                        }
+                    }
+                }
+            }
+
+            // 1. Create user-locked media_type claims at confidence 1.0.
+            var claimEntityIds = new[] { (Guid?)targetAssetId, targetWorkId, requestedEntityId }
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+
+            var claims = claimEntityIds.Select(claimEntityId => new MetadataClaim
             {
                 Id           = Guid.NewGuid(),
-                EntityId     = entityId,
+                EntityId     = claimEntityId,
                 ProviderId   = WellKnownProviders.UserManual,
                 ClaimKey     = MetadataFieldConstants.MediaTypeField,
                 ClaimValue   = newMediaType.ToString(),
                 ClaimedAt    = now,
                 IsUserLocked = true,
-            };
-            await claimRepo.InsertBatchAsync([claim], ct);
+            }).ToList();
+            await claimRepo.InsertBatchAsync(claims, ct);
 
-            // 2. Upsert the canonical media_type value.
-            await canonicalRepo.UpsertBatchAsync([new CanonicalValue
+            // 2. Upsert canonical media_type values and the work discriminator used by detail/search screens.
+            await canonicalRepo.UpsertBatchAsync(claimEntityIds.Select(claimEntityId => new CanonicalValue
+                {
+                    EntityId     = claimEntityId,
+                    Key          = MetadataFieldConstants.MediaTypeField,
+                    Value        = newMediaType.ToString(),
+                    LastScoredAt = now,
+                    IsConflicted = false,
+                })
+                .ToList(), ct);
+
+            if (targetWorkId is { } workId)
             {
-                EntityId     = entityId,
-                Key          = MetadataFieldConstants.MediaTypeField,
-                Value        = newMediaType.ToString(),
-                LastScoredAt = now,
-                IsConflicted = false,
-            }], ct);
+                using var conn = db.CreateConnection();
+                await conn.ExecuteAsync(
+                    "UPDATE works SET media_type = @MediaType WHERE id = @WorkId;",
+                    new { MediaType = newMediaType.ToString(), WorkId = workId.ToString() });
+            }
 
             // 3. Resolve any pending AmbiguousMediaType review items for this entity.
             bool reviewResolved = false;
-            var reviews = await reviewRepo.GetByEntityAsync(entityId, ct);
-            foreach (var review in reviews.Where(r =>
-                r.Status == ReviewStatus.Pending &&
-                r.Trigger == ReviewTrigger.AmbiguousMediaType))
+            foreach (var reviewEntityId in claimEntityIds)
             {
-                await reviewRepo.UpdateStatusAsync(review.Id, ReviewStatus.Resolved, "user", ct);
-                reviewResolved = true;
+                var reviews = await reviewRepo.GetByEntityAsync(reviewEntityId, ct);
+                foreach (var review in reviews.Where(r =>
+                    r.Status == ReviewStatus.Pending &&
+                    r.Trigger == ReviewTrigger.AmbiguousMediaType))
+                {
+                    await reviewRepo.UpdateStatusAsync(review.Id, ReviewStatus.Resolved, "user", ct);
+                    reviewResolved = true;
+                }
             }
 
             // 4. Re-trigger hydration with the correct media type.
-            var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct);
+            var canonicals = await canonicalRepo.GetByEntityAsync(targetAssetId, ct);
             var hints = canonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
 
             await pipeline.EnqueueAsync(new HarvestRequest
             {
-                EntityId   = entityId,
+                EntityId   = targetAssetId,
                 EntityType = EntityType.MediaAsset,
                 MediaType  = newMediaType,
                 Hints      = hints,
@@ -552,7 +620,7 @@ public static partial class MetadataEndpoints
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.MetadataRefreshed,
-                EntityId   = entityId,
+                EntityId   = requestedEntityId,
                 EntityType = "MediaAsset",
                 Detail     = $"Media type reclassified to {newMediaType} by user.",
             }, ct);
@@ -560,7 +628,7 @@ public static partial class MetadataEndpoints
             // 6. Broadcast events.
             await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
             {
-                entity_id  = entityId,
+                entity_id  = requestedEntityId,
                 media_type = newMediaType.ToString(),
             }, ct);
 
@@ -568,20 +636,19 @@ public static partial class MetadataEndpoints
             {
                 await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
                 {
-                    entity_id = entityId,
+                    entity_id = requestedEntityId,
                     status    = "Resolved",
                 }, ct);
             }
 
             return Results.Ok(new ReclassifyResponse
             {
-                EntityId        = entityId,
+                EntityId        = requestedEntityId,
                 NewMediaType    = newMediaType.ToString(),
                 ReclassifiedAt  = now,
                 ReviewResolved  = reviewResolved,
             });
-        })
-        .WithName("ReclassifyMediaType")
+        })        .WithName("ReclassifyMediaType")
         .WithSummary("Reclassify a media asset to a different media type. Creates a user-locked claim and re-triggers hydration.")
         .Produces<ReclassifyResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
