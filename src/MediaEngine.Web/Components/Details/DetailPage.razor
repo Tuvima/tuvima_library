@@ -60,7 +60,8 @@
             else if (CurrentActiveTab is "contributors" or "people" or "credits" or "cast")
             {
                 <PeopleAndCharactersTab ContributorGroups="Model.ContributorGroups"
-                                        CharacterGroups="Model.CharacterGroups" />
+                                        CharacterGroups="Model.CharacterGroups"
+                                        IncludeCharacters="IncludeCharactersInPeopleTab" />
             }
             else if (CurrentActiveTab is "characters" or "portrayals")
             {
@@ -107,6 +108,8 @@
         VisibleTabs.Any(tab => string.Equals(tab.Key, ActiveTab, StringComparison.OrdinalIgnoreCase))
             ? VisibleTabs.First(tab => string.Equals(tab.Key, ActiveTab, StringComparison.OrdinalIgnoreCase)).Key
             : VisibleTabs.FirstOrDefault()?.Key ?? "overview";
+
+    private bool IncludeCharactersInPeopleTab => CurrentActiveTab is not "cast";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
 

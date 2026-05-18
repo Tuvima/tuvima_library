@@ -165,6 +165,7 @@ public sealed class DetailComposerService
         var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, entityType, ct);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
         var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
+        var relationships = BuildRelationshipStrip(detail, seriesPlacement);
 
         return new DetailPageViewModel
         {
@@ -205,8 +206,8 @@ public sealed class DetailComposerService
             PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
             CharacterGroups = characters,
             PreviewCharacters = characters.SelectMany(g => g.Characters).Take(12).ToList(),
-            RelationshipStrip = BuildRelationshipStrip(detail, seriesPlacement),
-            Tabs = BuildTabs(entityType, context, isAdminView, seriesPlacement is not null),
+            RelationshipStrip = relationships,
+            Tabs = BuildTabs(entityType, context, isAdminView, seriesPlacement is not null, HasUniverseRelationship(relationships)),
             MediaGroups = mediaGroups,
             IdentityStatus = ResolveIdentityStatus(detail.WikidataQid, detail.Status, detail.Confidence),
             LibraryStatus = LibraryStatus.Owned,
@@ -320,6 +321,7 @@ public sealed class DetailComposerService
             0,
             null,
             collectionLogo);
+        var relationships = BuildCollectionRelationships(row, entityType);
 
         return new DetailPageViewModel
         {
@@ -346,8 +348,8 @@ public sealed class DetailComposerService
             PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
             CharacterGroups = characterGroups,
             PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),
-            RelationshipStrip = BuildCollectionRelationships(row, entityType),
-            Tabs = BuildTabs(entityType, context, isAdminView),
+            RelationshipStrip = relationships,
+            Tabs = BuildTabs(entityType, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
             MediaGroups = BuildCollectionMediaGroups(entityType, works),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
@@ -449,6 +451,9 @@ public sealed class DetailComposerService
 
         var portrait = portraits.Select(p => ApiImageUrls.BuildCharacterPortraitUrl(p.Id, p.LocalImagePath, p.ImageUrl)).FirstOrDefault();
         var artwork = BuildArtwork(DetailEntityType.Character, null, null, null, null, portrait ?? row.ImageUrl, new Dictionary<string, string>(), [], 0, null);
+        IReadOnlyList<RelationshipGroup> relationships = string.IsNullOrWhiteSpace(row.UniverseQid)
+            ? []
+            : [new RelationshipGroup { Title = "Universe", Items = [new RelatedEntityChip { Id = row.UniverseQid!, EntityType = RelatedEntityType.Universe, Label = row.UniverseLabel ?? row.UniverseQid! }] }];
 
         return new DetailPageViewModel
         {
@@ -461,10 +466,8 @@ public sealed class DetailComposerService
             Metadata = [new MetadataPill { Label = "Character" }, .. MaybePill(row.UniverseLabel)],
             PrimaryActions = [new DetailAction { Key = "appearances", Label = "View Appearances", Icon = "auto_stories", IsPrimary = true }],
             OverflowActions = BuildOverflowActions(characterId, DetailEntityType.Character, isAdminView),
-            RelationshipStrip = string.IsNullOrWhiteSpace(row.UniverseQid)
-                ? []
-                : [new RelationshipGroup { Title = "Universe", Items = [new RelatedEntityChip { Id = row.UniverseQid!, EntityType = RelatedEntityType.Universe, Label = row.UniverseLabel ?? row.UniverseQid! }] }],
-            Tabs = BuildTabs(DetailEntityType.Character, context, isAdminView),
+            RelationshipStrip = relationships,
+            Tabs = BuildTabs(DetailEntityType.Character, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
@@ -520,7 +523,7 @@ public sealed class DetailComposerService
             CharacterGroups = characterGroups,
             PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = relationships,
-            Tabs = BuildTabs(DetailEntityType.Universe, context, isAdminView),
+            Tabs = BuildTabs(DetailEntityType.Universe, context, isAdminView, hasUniverse: true),
             MediaGroups = BuildCollectionMediaGroups(DetailEntityType.Universe, works),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
@@ -2667,29 +2670,43 @@ public sealed class DetailComposerService
         return actions.Where(a => !a.IsAdminOnly || isAdminView).ToList();
     }
 
-    private static IReadOnlyList<DetailTab> BuildTabs(DetailEntityType entityType, DetailPresentationContext context, bool isAdminView, bool hasSeries = false)
+    private static IReadOnlyList<DetailTab> BuildTabs(
+        DetailEntityType entityType,
+        DetailPresentationContext context,
+        bool isAdminView,
+        bool hasSeries = false,
+        bool hasUniverse = false)
     {
         string[] keys = entityType switch
         {
-            DetailEntityType.TvShow => ["episodes", "overview", "cast", "universe", "details"],
+            DetailEntityType.TvShow => hasUniverse ? ["episodes", "overview", "cast", "universe", "details"] : ["episodes", "overview", "cast", "details"],
+            DetailEntityType.TvSeason when hasUniverse => ["episodes", "overview", "cast", "universe", "details"],
             DetailEntityType.TvSeason => ["episodes", "overview", "cast", "details"],
-            DetailEntityType.Movie when hasSeries => ["overview", "cast", "universe", "related", "details"],
-            DetailEntityType.Movie => ["overview", "cast", "universe", "related", "details"],
-            DetailEntityType.TvEpisode => ["overview", "cast", "characters", "universe", "details"],
-            DetailEntityType.Book or DetailEntityType.Audiobook when hasSeries => ["overview", "credits", "chapters", "universe", "editions", "details"],
-            DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "credits", "chapters", "universe", "editions", "details"],
-            DetailEntityType.Work when hasSeries => ["overview", "credits", "formats", "chapters", "universe", "editions", "details"],
-            DetailEntityType.Work => ["overview", "credits", "formats", "chapters", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue when hasSeries => ["overview", "credits", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue => ["overview", "credits", "universe", "editions", "details"],
+            DetailEntityType.Movie when hasUniverse => ["overview", "cast", "universe", "details"],
+            DetailEntityType.Movie => ["overview", "cast", "details"],
+            DetailEntityType.MovieSeries when hasUniverse => ["overview", "media", "cast", "universe", "details"],
+            DetailEntityType.MovieSeries => ["overview", "media", "cast", "details"],
+            DetailEntityType.TvEpisode when hasUniverse => ["overview", "cast", "characters", "universe", "details"],
+            DetailEntityType.TvEpisode => ["overview", "cast", "characters", "details"],
+            DetailEntityType.Book or DetailEntityType.Audiobook when hasUniverse => ["overview", "credits", "universe", "details"],
+            DetailEntityType.Book or DetailEntityType.Audiobook => ["overview", "credits", "details"],
+            DetailEntityType.BookSeries when hasUniverse => ["overview", "works", "credits", "universe", "details"],
+            DetailEntityType.BookSeries => ["overview", "works", "credits", "details"],
+            DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "details"],
+            DetailEntityType.Work => ["overview", "credits", "formats", "details"],
+            DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "editions", "details"],
+            DetailEntityType.ComicIssue => ["overview", "credits", "editions", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "credits", "related", "details"],
             DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicArtist when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "related", "details"],
             DetailEntityType.Person => ["details"],
-            DetailEntityType.Character => ["overview", "appearances", "portrayals", "relationships", "universe", "details"],
+            DetailEntityType.Character when hasUniverse => ["overview", "appearances", "portrayals", "relationships", "universe", "details"],
+            DetailEntityType.Character => ["overview", "appearances", "portrayals", "relationships", "details"],
             DetailEntityType.Universe => ["overview", "timeline", "media", "characters", "people", "relationships", "details"],
-            _ when hasSeries => ["overview", "people", "characters", "universe", "related", "details"],
-            _ => ["overview", "people", "characters", "universe", "related", "details"],
+            _ when hasSeries && hasUniverse => ["overview", "people", "characters", "universe", "related", "details"],
+            _ when hasSeries => ["overview", "people", "characters", "related", "details"],
+            _ when hasUniverse => ["overview", "people", "characters", "universe", "related", "details"],
+            _ => ["overview", "people", "characters", "related", "details"],
         };
 
         var tabs = keys.Select(key => new DetailTab { Key = key, Label = ToTabLabel(key) }).ToList();
@@ -3019,6 +3036,11 @@ public sealed class DetailComposerService
 
         return groups;
     }
+
+    private static bool HasUniverseRelationship(IReadOnlyList<RelationshipGroup> relationships) =>
+        relationships.Any(group =>
+            string.Equals(group.Title, "Universe", StringComparison.OrdinalIgnoreCase) ||
+            group.Items.Any(item => item.EntityType == RelatedEntityType.Universe));
 
     private static HeroBrandViewModel? BuildHeroBrand(DetailEntityType entityType, string? label, string? imageUrl)
     {

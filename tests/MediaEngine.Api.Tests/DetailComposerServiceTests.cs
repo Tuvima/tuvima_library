@@ -152,14 +152,18 @@ public sealed class DetailComposerServiceTests
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
-        Assert.Contains("DetailEntityType.Movie when hasSeries => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Movie => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Movie when hasUniverse => [\"overview\", \"cast\", \"universe\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Movie => [\"overview\", \"cast\", \"details\"]", source);
+        Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"people\"", source);
-        Assert.Contains("DetailEntityType.TvShow => [\"episodes\", \"overview\", \"cast\", \"universe\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.TvShow => hasUniverse ? [\"episodes\", \"overview\", \"cast\", \"universe\", \"details\"] : [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
         Assert.Contains("DetailEntityType.TvSeason => [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.ComicIssue => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Book or DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"details\"]", source);
+        Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
+        Assert.Contains("HasUniverseRelationship(relationships)", source);
         Assert.Contains("sync-settings", source);
     }
 

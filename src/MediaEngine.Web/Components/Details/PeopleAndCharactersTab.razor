@@ -7,7 +7,7 @@
         {
             <ContributorsSection Groups="ContributorGroups" Embedded="true" />
         }
-        @if (CharacterGroups.Count > 0)
+        @if (IncludeCharacters && CharacterGroups.Count > 0)
         {
             <CharactersSection Groups="CharacterGroups" />
         }
@@ -17,4 +17,5 @@
 @code {
     [Parameter] public IReadOnlyList<CreditGroupViewModel> ContributorGroups { get; set; } = [];
     [Parameter] public IReadOnlyList<CharacterGroupViewModel> CharacterGroups { get; set; } = [];
+    [Parameter] public bool IncludeCharacters { get; set; } = true;
 }

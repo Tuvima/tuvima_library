@@ -3,6 +3,7 @@ using MediaEngine.Ingestion.DependencyInjection;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
+using MediaEngine.Storage.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -49,6 +50,70 @@ public sealed class IngestionLibraryRegistrationTests
         Assert.NotNull(provider.GetRequiredService<IFileWatcher>());
         Assert.NotNull(provider.GetRequiredService<IBackgroundWorker>());
         Assert.NotNull(provider.GetRequiredService<IProcessorRouter>());
+    }
+
+    [Fact]
+    public void AddMediaEngineIngestion_CreatesConfiguredSourcePathsWithoutNestedCategoryScaffolding()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"tuvima_ingestion_dirs_{Guid.NewGuid():N}");
+        string booksPath = Path.Combine(tempRoot, "watch", "books");
+        string moviesPath = Path.Combine(tempRoot, "watch", "movies");
+        string libraryRoot = Path.Combine(tempRoot, "library");
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+
+            var loader = new StubConfigurationLoader
+            {
+                Core = new CoreConfiguration
+                {
+                    LibraryRoot = libraryRoot,
+                },
+                Libraries = new LibrariesConfiguration
+                {
+                    Libraries =
+                    [
+                        new LibraryFolderConfig
+                        {
+                            Category = "Books",
+                            MediaTypes = ["Books", "Audiobooks"],
+                            SourcePaths = [booksPath],
+                        },
+                        new LibraryFolderConfig
+                        {
+                            Category = "Movies",
+                            MediaTypes = ["Movies"],
+                            SourcePath = moviesPath,
+                        },
+                    ],
+                },
+            };
+
+            services.AddMediaEngineIngestion(
+                new ConfigurationBuilder().Build(),
+                loader,
+                options =>
+                {
+                    options.ConfigureOptions = false;
+                    options.RegisterHostedService = false;
+                });
+
+            Assert.True(Directory.Exists(booksPath));
+            Assert.True(Directory.Exists(moviesPath));
+            Assert.True(Directory.Exists(Path.Combine(libraryRoot, ".data", "staging")));
+
+            Assert.False(Directory.Exists(Path.Combine(booksPath, "Books")));
+            Assert.False(Directory.Exists(Path.Combine(booksPath, "Movies")));
+            Assert.False(Directory.Exists(Path.Combine(moviesPath, "Books")));
+            Assert.False(Directory.Exists(Path.Combine(moviesPath, "Movies")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
     }
 
     private static string GetRepoFilePath(string relativePath) =>

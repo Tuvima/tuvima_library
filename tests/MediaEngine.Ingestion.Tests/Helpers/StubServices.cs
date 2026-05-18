@@ -247,7 +247,10 @@ internal sealed class TestProcessorLibraryItem : IProcessorRouter
 
 internal sealed class StubConfigurationLoader : IConfigurationLoader
 {
-    public CoreConfiguration LoadCore() => new();
+    public CoreConfiguration Core { get; set; } = new();
+    public LibrariesConfiguration Libraries { get; set; } = new();
+
+    public CoreConfiguration LoadCore() => Core;
     public void SaveCore(CoreConfiguration config) { }
     public ScoringSettings LoadScoring() => new();
     public void SaveScoring(ScoringSettings settings) { }
@@ -265,7 +268,7 @@ internal sealed class StubConfigurationLoader : IConfigurationLoader
     public void SaveTranscoding(TranscodingSettings settings) { }
     public FieldPriorityConfiguration LoadFieldPriorities() => new();
     public void SaveFieldPriorities(FieldPriorityConfiguration config) { }
-    public LibrariesConfiguration LoadLibraries() => new();
+    public LibrariesConfiguration LoadLibraries() => Libraries;
     public ProviderConfiguration? LoadProvider(string name) => null;
     public void SaveProvider(ProviderConfiguration config) { }
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];

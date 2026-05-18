@@ -170,9 +170,8 @@ public static class MediaEngineIngestionServiceCollectionExtensions
     {
         try
         {
-            var libsForSubfolders = configLoader.LoadLibraries();
-            string[] mediaTypeSubfolders = ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics"];
-            foreach (var lib in libsForSubfolders.Libraries)
+            var libraries = configLoader.LoadLibraries();
+            foreach (var lib in libraries.Libraries)
             {
                 var allPaths = (lib.SourcePaths is { Count: > 0 } ? lib.SourcePaths : [])
                     .Concat(string.IsNullOrWhiteSpace(lib.SourcePath) ? [] : [lib.SourcePath])
@@ -180,18 +179,12 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                     .Distinct(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var path in allPaths)
-                {
-                    if (!Directory.Exists(path))
-                        continue;
-
-                    foreach (var sub in mediaTypeSubfolders)
-                        Directory.CreateDirectory(Path.Combine(path, sub));
-                }
+                    Directory.CreateDirectory(path);
             }
         }
         catch
         {
-            // No libraries.json or directory creation failed - non-fatal.
+            // No libraries.json or source directory creation failed - non-fatal.
         }
 
         try

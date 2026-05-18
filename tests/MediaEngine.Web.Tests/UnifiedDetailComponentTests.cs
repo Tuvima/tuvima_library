@@ -226,6 +226,31 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
+    public void DetailPage_CastTabDoesNotInlineCharacters()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var peopleTab = ReadSource("src/MediaEngine.Web/Components/Details/PeopleAndCharactersTab.razor");
+
+        Assert.Contains("IncludeCharacters=\"IncludeCharactersInPeopleTab\"", source);
+        Assert.Contains("CurrentActiveTab is not \"cast\"", source);
+        Assert.Contains("IncludeCharacters && CharacterGroups.Count > 0", peopleTab);
+    }
+
+    [Fact]
+    public void CreditsTab_UsesCastLikeFluidCreditCards()
+    {
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+
+        Assert.Contains(".tl-credits-detail-card .tl-credit-grid", styles);
+        Assert.Contains("grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr))", styles);
+        Assert.Contains("align-content: start", styles);
+        Assert.Contains("align-items: start", styles);
+        Assert.Contains("align-self: start", styles);
+        Assert.Contains("max-width: 12rem", styles);
+        Assert.DoesNotContain("grid-template-columns: repeat(auto-fill, minmax(8.75rem, 9.75rem))", styles);
+    }
+
+    [Fact]
     public void OverviewTab_CombinesOverviewWithCredits()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/OverviewTab.razor");

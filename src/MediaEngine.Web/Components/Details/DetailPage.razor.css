@@ -2553,11 +2553,13 @@
 ::deep .tl-credits-detail-card {
     display: grid;
     gap: clamp(1.25rem, 2.2vw, 2rem);
+    align-content: start;
     min-height: clamp(28rem, 54vh, 44rem);
 }
 
 ::deep .tl-credits-detail-card .tl-credit-group {
     gap: 0.7rem;
+    align-content: start;
 }
 
 ::deep .tl-credits-detail-card .tl-credit-group:not(:first-child) {
@@ -2585,13 +2587,15 @@
 }
 
 ::deep .tl-credits-detail-card .tl-credit-grid {
-    grid-template-columns: repeat(auto-fill, minmax(8.75rem, 9.75rem));
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
     gap: clamp(0.75rem, 1.25vw, 1rem);
-    justify-content: start;
+    align-items: start;
 }
 
 ::deep .tl-credits-detail-card .tl-credit-card {
     width: 100%;
+    max-width: 12rem;
+    align-self: start;
     box-shadow: none;
 }
 
