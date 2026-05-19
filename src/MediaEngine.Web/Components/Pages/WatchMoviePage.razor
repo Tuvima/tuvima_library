@@ -1,5 +1,4 @@
 @page "/watch/movie/{WorkId:guid}"
-@page "/watch/movie/{WorkId:guid}/{Tab}"
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Details
 @using MediaEngine.Web.Services.Integration
@@ -34,7 +33,6 @@ else
 
 @code {
     [Parameter] public Guid WorkId { get; set; }
-    [Parameter] public string? Tab { get; set; }
 
     [SupplyParameterFromQuery(Name = "collectionId")]
     public Guid? CollectionId { get; set; }
@@ -45,11 +43,6 @@ else
     private DetailPageViewModel? _detail;
     private bool _loading = true;
     private string? _activeTab;
-    private static readonly HashSet<string> PreservedQueryKeys = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "collectionId",
-        "returnUrl",
-    };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -69,7 +62,7 @@ else
 
     private Task HandleTabChangedAsync(string tab)
     {
-        Nav.NavigateTo(BuildTabUrl(tab));
+        _activeTab = tab;
         return Task.CompletedTask;
     }
 
@@ -78,15 +71,7 @@ else
         if (_detail is null)
             return;
 
-        var resolution = DetailTabNavigation.Resolve(_detail, Tab);
+        var resolution = DetailTabNavigation.Resolve(_detail, _activeTab);
         _activeTab = resolution.ActiveTab;
-
-        if (resolution.ShouldRedirect)
-        {
-            Nav.NavigateTo(BuildTabUrl(resolution.ActiveTab), replace: true);
-        }
     }
-
-    private string BuildTabUrl(string? tab) =>
-        DetailTabNavigation.BuildUrl($"/watch/movie/{WorkId:D}", tab, Nav.ToAbsoluteUri(Nav.Uri), PreservedQueryKeys);
 }

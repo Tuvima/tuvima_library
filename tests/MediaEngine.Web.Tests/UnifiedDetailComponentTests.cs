@@ -437,19 +437,29 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void RoutePages_AcceptOptionalDetailTabSegments()
+    public void RoutePages_KeepDetailTabsInPageState()
     {
         var book = ReadSource("src/MediaEngine.Web/Components/Pages/BookDetail.razor");
         var unified = ReadSource("src/MediaEngine.Web/Components/Pages/UnifiedDetailPage.razor");
         var movie = ReadSource("src/MediaEngine.Web/Components/Pages/WatchMoviePage.razor");
         var show = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvShowPage.razor");
         var episode = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvEpisodePage.razor");
+        var routePages = new[] { book, unified, movie, show, episode };
 
-        Assert.Contains("@page \"/book/{Id:guid}/{Tab}\"", book);
-        Assert.Contains("@page \"/details/{EntityType}/{Id:guid}/{Tab}\"", unified);
-        Assert.Contains("@page \"/watch/movie/{WorkId:guid}/{Tab}\"", movie);
-        Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}/{Tab}\"", show);
-        Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}/{Tab}\"", episode);
+        Assert.Contains("@page \"/book/{Id:guid}\"", book);
+        Assert.Contains("@page \"/details/{EntityType}/{Id:guid}\"", unified);
+        Assert.Contains("@page \"/watch/movie/{WorkId:guid}\"", movie);
+        Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}\"", show);
+        Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}\"", episode);
+
+        foreach (var source in routePages)
+        {
+            Assert.Contains("_activeTab = tab;", source);
+            Assert.DoesNotContain("{Tab}", source);
+            Assert.DoesNotContain("BuildTabUrl", source);
+            Assert.DoesNotContain("DetailTabNavigation.BuildUrl", source);
+            Assert.DoesNotContain("Nav.NavigateTo(BuildTabUrl", source);
+        }
     }
 
     [Fact]

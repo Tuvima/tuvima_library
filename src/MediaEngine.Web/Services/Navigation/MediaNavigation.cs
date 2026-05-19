@@ -28,7 +28,7 @@ public static class MediaNavigation
 
     public static string ForCollectionMedia(string? mediaType, Guid collectionId, Guid? workId = null, string? tab = null)
     {
-        var route = NormalizeBucket(mediaType) switch
+        return NormalizeBucket(mediaType) switch
         {
             MediaBucket.Television => $"/watch/tv/show/{collectionId}",
             MediaBucket.Music => $"/listen/music/albums/{collectionId}",
@@ -36,13 +36,11 @@ public static class MediaNavigation
             MediaBucket.Read when workId.HasValue => ForMedia(mediaType, workId.Value, collectionId),
             _ => $"/collection/{collectionId}",
         };
-
-        return AppendTab(route, tab);
     }
 
     public static string ForMedia(string? mediaType, Guid workId, Guid? collectionId = null, string? tab = null)
     {
-        var route = NormalizeBucket(mediaType) switch
+        return NormalizeBucket(mediaType) switch
         {
             MediaBucket.Television when collectionId.HasValue => $"/watch/tv/show/{collectionId.Value}/episode/{workId}",
             MediaBucket.Television => $"/details/TvEpisode/{workId}?context=Watch",
@@ -56,21 +54,6 @@ public static class MediaNavigation
             MediaBucket.Read => $"/book/{workId}?mode=read",
             _ => $"/book/{workId}",
         };
-
-        return AppendTab(route, tab);
-    }
-
-    private static string AppendTab(string route, string? tab)
-    {
-        if (string.IsNullOrWhiteSpace(tab))
-        {
-            return route;
-        }
-
-        var queryStart = route.IndexOf('?', StringComparison.Ordinal);
-        var path = queryStart >= 0 ? route[..queryStart] : route;
-        var query = queryStart >= 0 ? route[queryStart..] : string.Empty;
-        return $"{path.TrimEnd('/')}/{Uri.EscapeDataString(tab)}{query}";
     }
 
     private static MediaBucket NormalizeBucket(string? mediaType)

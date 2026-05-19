@@ -54,21 +54,7 @@ public sealed class DetailTabNavigationTests
     }
 
     [Fact]
-    public void BuildUrl_AppendsTabBeforePreservedQueryString()
-    {
-        var url = DetailTabNavigation.BuildUrl(
-            "/watch/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-            "cast",
-            new Uri("http://localhost/watch/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?collectionId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb&ignored=1"),
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "collectionId" });
-
-        Assert.Equal(
-            "/watch/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/cast?collectionId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-            url);
-    }
-
-    [Fact]
-    public void MediaNavigation_AppendsDetailTabBeforeExistingQuery()
+    public void MediaNavigation_DoesNotCreateDetailTabUrls()
     {
         var workId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var collectionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -76,7 +62,7 @@ public sealed class DetailTabNavigationTests
         var route = MediaNavigation.ForMedia("Movies", workId, collectionId, "cast");
 
         Assert.Equal(
-            "/watch/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/cast?collectionId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "/watch/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?collectionId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
             route);
     }
 

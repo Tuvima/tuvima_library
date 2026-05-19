@@ -1,5 +1,4 @@
 using MediaEngine.Contracts.Details;
-using Microsoft.AspNetCore.WebUtilities;
 
 namespace MediaEngine.Web.Services.Navigation;
 
@@ -38,33 +37,6 @@ public static class DetailTabNavigation
             .Where(tab => !tab.IsAdminOnly || model.IsAdminView)
             .Where(tab => HasRenderableContent(model, tab.Key))
             .ToList();
-
-    public static string BuildUrl(string basePath, string? tab, Uri currentUri, IReadOnlySet<string>? preserveQueryKeys = null)
-    {
-        var path = string.IsNullOrWhiteSpace(tab)
-            ? basePath
-            : $"{basePath.TrimEnd('/')}/{Uri.EscapeDataString(tab)}";
-
-        var query = QueryHelpers.ParseQuery(currentUri.Query);
-        var preserved = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var (key, values) in query)
-        {
-            if (preserveQueryKeys is not null && !preserveQueryKeys.Contains(key))
-            {
-                continue;
-            }
-
-            if (values.Count > 0)
-            {
-                preserved[key] = values[0];
-            }
-        }
-
-        return preserved.Count == 0
-            ? path
-            : QueryHelpers.AddQueryString(path, preserved);
-    }
 
     private static string Normalize(string value)
     {
