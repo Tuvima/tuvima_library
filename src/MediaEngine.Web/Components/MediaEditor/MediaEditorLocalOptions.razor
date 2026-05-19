@@ -32,14 +32,26 @@
                     }
                     <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="sme-local-chip-box-icon" />
                 </div>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Inherit"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Outlined.Add"
-                           Class="sme-local-add-button"
-                           OnClick="AddGenreAsync">
-                    Add
-                </MudButton>
+                <div class="sme-local-add-actions">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Inherit"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Outlined.Add"
+                               Class="sme-local-add-button"
+                               OnClick="AddGenreAsync">
+                        Add
+                    </MudButton>
+                    @if (_addingGenre)
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Inherit"
+                                   Size="Size.Small"
+                                   Class="sme-local-cancel-button"
+                                   OnClick="CancelGenreAdd">
+                            Cancel
+                        </MudButton>
+                    }
+                </div>
             </div>
         </div>
 
@@ -70,14 +82,26 @@
                     }
                     <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="sme-local-chip-box-icon" />
                 </div>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Inherit"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Outlined.Add"
-                           Class="sme-local-add-button"
-                           OnClick="AddTagAsync">
-                    Add
-                </MudButton>
+                <div class="sme-local-add-actions">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Inherit"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Outlined.Add"
+                               Class="sme-local-add-button"
+                               OnClick="AddTagAsync">
+                        Add
+                    </MudButton>
+                    @if (_addingTag)
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Inherit"
+                                   Size="Size.Small"
+                                   Class="sme-local-cancel-button"
+                                   OnClick="CancelTagAdd">
+                            Cancel
+                        </MudButton>
+                    }
+                </div>
             </div>
         </div>
 
@@ -203,6 +227,18 @@
         }
 
         await AddListValueAsync(TagValue, _newTag, TagValueChanged);
+        _newTag = string.Empty;
+    }
+
+    private void CancelGenreAdd()
+    {
+        _addingGenre = false;
+        _newGenre = string.Empty;
+    }
+
+    private void CancelTagAdd()
+    {
+        _addingTag = false;
         _newTag = string.Empty;
     }
 

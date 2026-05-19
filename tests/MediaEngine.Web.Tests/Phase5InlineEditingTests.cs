@@ -149,8 +149,17 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Clear QID", shell, StringComparison.Ordinal);
         Assert.Contains("Use This Match", shell, StringComparison.Ordinal);
         Assert.Contains("Use This QID", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-current-identity-links", shell, StringComparison.Ordinal);
+        Assert.Contains("currentRetail.Links", shell, StringComparison.Ordinal);
+        Assert.Contains("currentQid.Links", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("currentRetail.Description", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("currentQid.Description", shell, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentRetailMatchCard", code, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentWikidataMatchCard", code, StringComparison.Ordinal);
+        Assert.Contains("IdentityLinkDisplay", code, StringComparison.Ordinal);
+        Assert.Contains("BuildProviderItemUrl", code, StringComparison.Ordinal);
+        Assert.Contains("https://www.themoviedb.org/", code, StringComparison.Ordinal);
+        Assert.Contains("https://www.wikidata.org/wiki/", code, StringComparison.Ordinal);
         Assert.Contains("BuildCandidateChips", code, StringComparison.Ordinal);
         Assert.Contains("FormatCandidateScore", code, StringComparison.Ordinal);
         Assert.Contains("CanonicalEndpointEntityId => EditorContextEntityId", code, StringComparison.Ordinal);
@@ -309,10 +318,14 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("key is \"genre\" or \"custom_tags\" or \"rating\" or \"comment\"", code, StringComparison.Ordinal);
         Assert.Contains("Genres <span>(Local)</span>", component, StringComparison.Ordinal);
         Assert.Contains("Tags <span>(Local)</span>", component, StringComparison.Ordinal);
+        Assert.Contains("CancelGenreAdd", component, StringComparison.Ordinal);
+        Assert.Contains("CancelTagAdd", component, StringComparison.Ordinal);
+        Assert.Contains("sme-local-cancel-button", component, StringComparison.Ordinal);
         Assert.Contains("User Notes", component, StringComparison.Ordinal);
         Assert.Contains("These notes are private and not written to metadata.", component, StringComparison.Ordinal);
         Assert.Contains("MudChip", component, StringComparison.Ordinal);
         Assert.Contains("MudIconButton", component, StringComparison.Ordinal);
+        Assert.DoesNotContain("Field(\"edition\", \"Edition\")", schema, StringComparison.Ordinal);
         Assert.Contains("Field(\"custom_tags\", \"Tags\")", schema, StringComparison.Ordinal);
         Assert.Contains("Add(values, \"custom_tags\"", schema, StringComparison.Ordinal);
     }

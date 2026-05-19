@@ -396,7 +396,6 @@ public static class MediaEditorSchemaCatalog
                 Field("studio", "Studio"),
                 Field("language", "Language")),
             Group("movie_options", "Options", "options",
-                Field("edition", "Edition"),
                 Field("genre", "Genre"),
                 Field("custom_tags", "Tags"),
                 Field("rating", "Rating"),

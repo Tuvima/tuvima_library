@@ -972,6 +972,34 @@
     line-height: 1.42;
 }
 
+.sme-current-identity-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.sme-current-identity-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    max-width: 100%;
+    padding: 3px 10px;
+    border: 1px solid rgba(139, 92, 246, 0.42);
+    border-radius: 7px;
+    background: rgba(109, 40, 217, 0.16);
+    color: #c4b5fd;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.sme-current-identity-links a:hover {
+    border-color: rgba(167, 139, 250, 0.72);
+    color: #ede9fe;
+}
+
 .sme-match-chip,
 .sme-match-chip-row span {
     display: inline-flex;

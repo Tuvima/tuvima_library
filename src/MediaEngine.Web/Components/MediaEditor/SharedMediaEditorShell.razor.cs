@@ -276,10 +276,12 @@ public partial class SharedMediaEditorShell
         string Title,
         string? Creator,
         string? Year,
-        string? Description,
         string? CoverUrl,
         IReadOnlyList<string> Chips,
+        IReadOnlyList<IdentityLinkDisplay> Links,
         string Note);
+
+    protected sealed record IdentityLinkDisplay(string Label, string Url);
 
     protected override async Task OnInitializedAsync()
     {
@@ -1712,28 +1714,25 @@ public partial class SharedMediaEditorShell
     {
         var summary = _editorContext?.IdentitySummary;
         var provider = GetRetailMatchDisplayName(summary);
-        var providerId = summary?.ProviderItemId;
+        var providerId = FirstNonBlank(summary?.ProviderItemId, GetBaselineValue("tmdb_id"), GetBaselineValue("imdb_id"), GetBaselineValue("comicvine_id"), GetBaselineValue("musicbrainz_id"), GetBaselineValue("asin"), GetBaselineValue("isbn"));
+        provider = FirstNonBlank(provider, InferProviderNameFromIdentifierFields()) ?? provider;
         var title = FirstNonBlank(CurrentTargetTitle, _detail?.Title, GetBaselineValue("title"), "Untitled item")!;
         var creator = FirstNonBlank(_detail?.Author, _detail?.Director, GetBaselineValue("author"), GetBaselineValue("director"), GetBaselineValue("artist"), GetBaselineValue("narrator"));
         var year = FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"));
-        var description = FirstNonBlank(_detail?.Description, GetBaselineValue("description"));
         var chips = new List<string>();
+        var links = BuildRetailIdentityLinks(provider, providerId);
 
-        if (!string.IsNullOrWhiteSpace(providerId))
+        if (!string.IsNullOrWhiteSpace(providerId) && links.Count == 0)
             chips.Add(providerId!);
-
-        var qid = FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"));
-        if (!string.IsNullOrWhiteSpace(qid))
-            chips.Add($"Wikidata: {qid}");
 
         return new MatchCardDisplay(
             Badge: !string.IsNullOrWhiteSpace(provider) ? provider : "No retail match",
             Title: title,
             Creator: creator,
             Year: year,
-            Description: description,
             CoverUrl: CurrentCoverUrl,
             Chips: chips,
+            Links: links,
             Note: !string.IsNullOrWhiteSpace(provider)
                 ? "This file is currently matched to the retail provider record shown below."
                 : "This file does not have a confirmed retail provider match yet.");
@@ -1746,8 +1745,8 @@ public partial class SharedMediaEditorShell
         var title = FirstNonBlank(GetBaselineValue("title"), CurrentTargetTitle, _detail?.Title, "No Wikidata identity")!;
         var type = FirstNonBlank(GetBaselineValue("instance_of"), summary?.MatchLevel, _detail?.MediaType);
         var year = FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"));
-        var description = FirstNonBlank(_detail?.Description, GetBaselineValue("description"));
         var chips = new List<string>();
+        var links = BuildWikidataIdentityLinks(qid);
 
         var providerId = summary?.ProviderItemId;
         if (!string.IsNullOrWhiteSpace(providerId))
@@ -1762,12 +1761,88 @@ public partial class SharedMediaEditorShell
             Title: title,
             Creator: type,
             Year: year,
-            Description: description,
             CoverUrl: null,
             Chips: chips,
+            Links: links,
             Note: !string.IsNullOrWhiteSpace(qid)
                 ? "This file is currently linked to the Wikidata item shown below."
                 : "This file is not linked to a Wikidata item yet.");
+    }
+
+    private IReadOnlyList<IdentityLinkDisplay> BuildRetailIdentityLinks(string? providerName, string? providerItemId)
+    {
+        var url = BuildProviderItemUrl(providerName, providerItemId);
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(providerItemId))
+            return [];
+
+        var provider = FormatProviderName(providerName, _selectedMediaType);
+        return [new IdentityLinkDisplay($"{provider}: {providerItemId}", url)];
+    }
+
+    private static IReadOnlyList<IdentityLinkDisplay> BuildWikidataIdentityLinks(string? qid)
+    {
+        if (string.IsNullOrWhiteSpace(qid))
+            return [];
+
+        var normalized = qid.Trim();
+        return [new IdentityLinkDisplay(normalized, $"https://www.wikidata.org/wiki/{Uri.EscapeDataString(normalized)}")];
+    }
+
+    private string? BuildProviderItemUrl(string? providerName, string? providerItemId)
+    {
+        if (string.IsNullOrWhiteSpace(providerName) || string.IsNullOrWhiteSpace(providerItemId))
+            return null;
+
+        var provider = NormalizeProviderKey(providerName);
+        var id = NormalizeProviderItemId(provider, providerItemId);
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        return provider switch
+        {
+            "tmdb" => $"https://www.themoviedb.org/{(IsTvMediaType() ? "tv" : "movie")}/{Uri.EscapeDataString(id)}",
+            "imdb" => $"https://www.imdb.com/title/{Uri.EscapeDataString(id)}",
+            "comicvine" or "comic_vine" => $"https://comicvine.gamespot.com/search/?q={Uri.EscapeDataString(id)}",
+            "musicbrainz" => $"https://musicbrainz.org/release/{Uri.EscapeDataString(id)}",
+            "google_books" => $"https://books.google.com/books?id={Uri.EscapeDataString(id)}",
+            "apple_api" or "apple_books" or "apple_music" => $"https://books.apple.com/us/book/id{Uri.EscapeDataString(id)}",
+            _ => null,
+        };
+    }
+
+    private bool IsTvMediaType() =>
+        string.Equals(ReviewTargetResolver.NormalizeMediaType(_selectedMediaType), "TV", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeProviderKey(string? providerName) =>
+        (providerName ?? string.Empty).Trim().ToLowerInvariant().Replace("-", "_", StringComparison.Ordinal);
+
+    private static string NormalizeProviderItemId(string providerKey, string providerItemId)
+    {
+        var id = providerItemId.Trim();
+        if (providerKey == "imdb" && id.StartsWith("imdb:", StringComparison.OrdinalIgnoreCase))
+            id = id[5..];
+        if (providerKey == "tmdb" && id.StartsWith("tmdb:", StringComparison.OrdinalIgnoreCase))
+            id = id[5..];
+
+        return id;
+    }
+
+    private string? InferProviderNameFromIdentifierFields()
+    {
+        if (!string.IsNullOrWhiteSpace(GetBaselineValue("tmdb_id")))
+            return "tmdb";
+        if (!string.IsNullOrWhiteSpace(GetBaselineValue("imdb_id")))
+            return "imdb";
+        if (!string.IsNullOrWhiteSpace(GetBaselineValue("comicvine_id")))
+            return "comicvine";
+        if (!string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_id")))
+            return "musicbrainz";
+        if (!string.IsNullOrWhiteSpace(GetBaselineValue("asin")))
+            return "apple_api";
+        if (!string.IsNullOrWhiteSpace(GetBaselineValue("isbn")))
+            return "google_books";
+
+        return null;
     }
 
     protected IReadOnlyList<string> BuildCandidateChips(RetailCandidateDto candidate)

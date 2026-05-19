@@ -82,7 +82,8 @@
 }
 
 ::deep .sme-local-add-button,
-::deep .sme-local-clear-button {
+::deep .sme-local-clear-button,
+::deep .sme-local-cancel-button {
     min-height: 44px;
     border-radius: 8px;
     border-color: rgba(148, 163, 184, 0.22) !important;
@@ -90,6 +91,19 @@
     font-weight: 750;
     text-transform: none;
     white-space: nowrap;
+}
+
+.sme-local-add-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: max-content;
+}
+
+::deep .sme-local-cancel-button {
+    min-width: 0;
+    padding-inline: 10px;
+    color: rgba(226, 232, 240, 0.68) !important;
 }
 
 .sme-local-rating-control {

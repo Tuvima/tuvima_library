@@ -388,9 +388,14 @@
                                                 {
                                                     <p>@currentRetail.Year</p>
                                                 }
-                                                @if (!string.IsNullOrWhiteSpace(currentRetail.Description))
+                                                @if (currentRetail.Links.Count > 0)
                                                 {
-                                                    <p>@currentRetail.Description</p>
+                                                    <div class="sme-current-identity-links">
+                                                        @foreach (var link in currentRetail.Links)
+                                                        {
+                                                            <a href="@link.Url" target="_blank" rel="noopener">@link.Label</a>
+                                                        }
+                                                    </div>
                                                 }
                                                 @if (currentRetail.Chips.Count > 0)
                                                 {
@@ -419,9 +424,14 @@
                                                 {
                                                     <p>@currentQid.Year</p>
                                                 }
-                                                @if (!string.IsNullOrWhiteSpace(currentQid.Description))
+                                                @if (currentQid.Links.Count > 0)
                                                 {
-                                                    <p>@currentQid.Description</p>
+                                                    <div class="sme-current-identity-links">
+                                                        @foreach (var link in currentQid.Links)
+                                                        {
+                                                            <a href="@link.Url" target="_blank" rel="noopener">@link.Label</a>
+                                                        }
+                                                    </div>
                                                 }
                                                 @if (currentQid.Chips.Count > 0)
                                                 {
