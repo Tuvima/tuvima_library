@@ -4,13 +4,14 @@
 <section class="collection-hub-section">
     <div class="collection-hub-section__header">
         <div>
-            <h2>@Title</h2>
+            <CollectionSectionLabel Label="@Title"
+                                    Icon="@Icon"
+                                    Status="@($"{Collections.Count} collection{(Collections.Count == 1 ? string.Empty : "s")}")" />
             @if (!string.IsNullOrWhiteSpace(Description))
             {
                 <p>@Description</p>
             }
         </div>
-        <span class="tl-chip-muted">@Collections.Count item(s)</span>
     </div>
 
     @if (Collections.Count == 0)
@@ -20,7 +21,7 @@
             <span>@EmptyText</span>
         </div>
     }
-    else if (ViewMode == "list")
+    else
     {
         <div class="collection-hub-section__list">
             @foreach (var collection in Collections)
@@ -29,25 +30,14 @@
                         class="collection-hub-row tl-card @(SelectedId == collection.Id ? "collection-hub-row--selected" : "")"
                         @onclick="() => OnSelect.InvokeAsync(collection)">
                     <div class="collection-hub-row__icon">
-                        <MudIcon Icon="@GetIcon(collection)" />
+                        <CollectionArtworkStack Collection="collection" PreferPinnedArtwork="false" />
                     </div>
                     <div class="collection-hub-row__copy">
                         <strong>@collection.Name</strong>
-                        <span>@collection.TypeLabel · @collection.FamilyLabel · @collection.ItemCount item(s)</span>
+                        <span>@collection.TypeLabel - @collection.FamilyLabel - @collection.ItemCount item@(collection.ItemCount == 1 ? string.Empty : "s")</span>
                     </div>
                     <CollectionHubStats Collection="collection" />
                 </button>
-            }
-        </div>
-    }
-    else
-    {
-        <div class="collection-hub-section__grid">
-            @foreach (var collection in Collections)
-            {
-                <CollectionHubCard Collection="collection"
-                                   Selected="@(SelectedId == collection.Id)"
-                                   OnSelect="OnSelect" />
             }
         </div>
     }
@@ -60,14 +50,6 @@
     [Parameter, EditorRequired] public IReadOnlyList<CollectionManagementCatalogViewModel> Collections { get; set; } = [];
     [Parameter] public Guid? SelectedId { get; set; }
     [Parameter] public string ViewMode { get; set; } = "grid";
+    [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.CollectionsBookmark;
     [Parameter] public EventCallback<CollectionManagementCatalogViewModel> OnSelect { get; set; }
-
-    private static string GetIcon(CollectionManagementCatalogViewModel collection) => collection.CollectionType switch
-    {
-        "System" => Icons.Material.Outlined.BookmarkAdded,
-        "Playlist" => Icons.Material.Outlined.QueueMusic,
-        "Smart" => Icons.Material.Outlined.AutoAwesome,
-        "Mix" => Icons.Material.Outlined.GraphicEq,
-        _ => Icons.Material.Outlined.CollectionsBookmark,
-    };
 }

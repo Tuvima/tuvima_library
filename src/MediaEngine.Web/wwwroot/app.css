@@ -2960,6 +2960,57 @@ textarea.tl-textarea,
     min-height: var(--tl-control-height-sm) !important;
 }
 
+.tl-filter-bar .mud-input-control,
+.tl-filter-bar .mud-input,
+.tl-filter-bar .mud-input-control-input-container,
+.tl-filter-bar .mud-input-slot,
+.tl-filter-bar .mud-input-outlined,
+.tl-filter-bar .mud-select,
+.tl-filter-bar .mud-select-input,
+.app-filter-bar .mud-input-control,
+.app-filter-bar .mud-input,
+.app-filter-bar .mud-input-control-input-container,
+.app-filter-bar .mud-input-slot,
+.app-filter-bar .mud-input-outlined,
+.app-filter-bar .mud-select,
+.app-filter-bar .mud-select-input,
+.settings-admin-panel .settings-field--compact .mud-input,
+.settings-admin-panel .settings-field--compact .mud-input-control-input-container,
+.settings-admin-panel .settings-field--compact .mud-input-slot,
+.settings-admin-panel .settings-field--compact .mud-input-outlined,
+.settings-admin-panel .settings-field--compact .mud-select,
+.settings-admin-panel .settings-field--compact .mud-select-input {
+    height: var(--tl-control-height-sm) !important;
+    min-height: var(--tl-control-height-sm) !important;
+    align-items: center !important;
+}
+
+.tl-filter-bar .mud-input-control,
+.app-filter-bar .mud-input-control,
+.settings-admin-panel .settings-field--compact .mud-input-control {
+    margin: 0 !important;
+}
+
+.tl-filter-bar .mud-input-slot,
+.tl-filter-bar .mud-select-input,
+.app-filter-bar .mud-input-slot,
+.app-filter-bar .mud-select-input,
+.settings-admin-panel .settings-field--compact .mud-input-slot,
+.settings-admin-panel .settings-field--compact .mud-select-input {
+    display: flex !important;
+    align-items: center !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 1 !important;
+}
+
+.tl-filter-bar .mud-input-adornment,
+.app-filter-bar .mud-input-adornment,
+.settings-admin-panel .settings-field--compact .mud-input-adornment {
+    align-self: center !important;
+    margin-top: 0 !important;
+}
+
 /* App shell controls are intentionally compact so they stay inside the fixed top bar. */
 .layout-shell__appbar.mud-appbar {
     height: var(--app-topbar-height) !important;

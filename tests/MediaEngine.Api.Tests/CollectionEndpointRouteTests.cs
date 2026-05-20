@@ -62,10 +62,23 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("ClassifyCollectionForCatalog", source, StringComparison.Ordinal);
         Assert.Contains("GetSystemCollectionKey", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionMediaCountsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionArtworkItemsAsync", source, StringComparison.Ordinal);
         Assert.Contains("Watchlist", source, StringComparison.Ordinal);
         Assert.Contains("Favorites", source, StringComparison.Ordinal);
         Assert.Contains("CollectionManagementCatalogDto", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("CollectionArtworkItemDto", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("ArtworkItems", dtoSource, StringComparison.Ordinal);
         Assert.Contains("CanToggleGlobal", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("PrimaryLaneOverride", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("SystemLaneForKey(systemKey)", source, StringComparison.Ordinal);
+        Assert.Contains("\"favorites\" => \"Listen\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"watchlist\" => \"Watch\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"reading-list\" => \"Read\"", source, StringComparison.Ordinal);
+        Assert.Contains("ShouldIncludeInManagementCatalog", source, StringComparison.Ordinal);
+        Assert.Contains("IsGeneratedTvShowContainer", source, StringComparison.Ordinal);
+        Assert.Contains("mediaCounts.WatchCount == mediaCounts.TvCount", source, StringComparison.Ordinal);
+        Assert.Contains("series_manifest_items series_item", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Title     = title ?? $\"Work", source, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

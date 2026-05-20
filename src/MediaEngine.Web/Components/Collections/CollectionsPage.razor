@@ -11,7 +11,7 @@
     <header class="tl-page-header collections-hub__header">
         <div>
             <h1 class="tl-page-title">Collections</h1>
-            <p class="tl-page-subtitle">Curated by you. Shared globally when an admin publishes them.</p>
+            <p class="tl-page-subtitle">Organize and explore playlists across read, watch, and listen.</p>
         </div>
         <div class="tl-action-bar">
             <MudButton Variant="Variant.Outlined"
@@ -30,6 +30,20 @@
     </header>
 
     <div class="tl-filter-bar collections-hub__filters">
+        <div class="collections-hub__tabs" role="tablist" aria-label="Collection filters">
+            @foreach (var tab in Tabs)
+            {
+                <button type="button"
+                        role="tab"
+                        aria-selected="@(tab.Id == _activeTab)"
+                        class="collections-hub-tab @(tab.Id == _activeTab ? "is-active" : "")"
+                        @onclick="() => SetActiveTab(tab.Id)">
+                    <MudIcon Icon="@tab.Icon" Size="Size.Small" />
+                    <span>@tab.Label</span>
+                </button>
+            }
+        </div>
+
         <MudTextField T="string"
                       Value="_searchText"
                       ValueChanged="OnSearchChanged"
@@ -41,28 +55,12 @@
                       AdornmentIcon="@Icons.Material.Outlined.Search"
                       Class="tl-field collections-hub__search" />
 
-        <MudTabs ActivePanelIndex="@ActiveTabIndex"
-                 ActivePanelIndexChanged="OnTabChanged"
-                 Rounded="false"
-                 Border="false"
-                 Elevation="0"
-                 Class="collections-hub__tabs">
-            @foreach (var tab in _tabs)
-            {
-                <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" />
-            }
-        </MudTabs>
-
         <MudSelect T="string" Value="_sortBy" ValueChanged="OnSortChanged" Variant="Variant.Outlined" Dense="true" Class="tl-field collections-hub__sort">
             <MudSelectItem T="string" Value="@("recent")">Recently Updated</MudSelectItem>
             <MudSelectItem T="string" Value="@("name")">Name</MudSelectItem>
             <MudSelectItem T="string" Value="@("items")">Item Count</MudSelectItem>
             <MudSelectItem T="string" Value="@("type")">Type</MudSelectItem>
         </MudSelect>
-
-        <MudIconButton Icon="@(_viewMode == "grid" ? Icons.Material.Outlined.ViewList : Icons.Material.Outlined.GridView)"
-                       OnClick="ToggleViewMode"
-                       aria-label="Toggle collection view mode" />
     </div>
 
     @if (_loading)
@@ -76,51 +74,88 @@
     {
         <div class="collections-hub__layout">
             <main class="collections-hub__main">
-                @if (FeaturedCollections.Count > 0)
+                @if (_activeTab is "all" or "cross")
                 {
-                    <section class="collections-hub__featured">
-                        @foreach (var collection in FeaturedCollections)
-                        {
-                            <CollectionHubCard Collection="collection"
-                                               Selected="@(SelectedCollection?.Id == collection.Id)"
-                                               OnSelect="SelectCollection" />
-                        }
-                    </section>
+                    <CollectionHubSection Title="CROSS-MEDIA COLLECTIONS"
+                                      Description="Premium collections spanning read, watch, and listen."
+                                      Collections="CrossMediaCollections"
+                                      SelectedId="SelectedCollection?.Id"
+                                      ViewMode="list"
+                                      Icon="@Icons.Material.Outlined.AllInclusive"
+                                      OnSelect="SelectCollection" />
                 }
 
-                <CollectionHubSection Title="@ActiveSectionTitle"
-                                      Description="@ActiveSectionDescription"
-                                      Collections="ActiveCollections"
-                                      SelectedId="SelectedCollection?.Id"
-                                      ViewMode="_viewMode"
-                                      OnSelect="SelectCollection" />
-
-                <div class="collections-hub__lane-grid">
-                    <CollectionHubSection Title="Watch"
+                @if (_activeTab is "all" or "watch")
+                {
+                    <CollectionHubSection Title="WATCH COLLECTIONS"
                                           Description="Watchlists and visual-media collections managed from Collections."
                                           Collections="WatchCollections"
                                           SelectedId="SelectedCollection?.Id"
-                                          ViewMode="_viewMode"
+                                          ViewMode="list"
+                                          Icon="@Icons.Material.Outlined.Movie"
                                           OnSelect="SelectCollection" />
-                    <CollectionHubSection Title="Listen"
+                }
+                @if (_activeTab is "all" or "listen")
+                {
+                    <CollectionHubSection Title="LISTEN COLLECTIONS"
                                           Description="Listening queues, music playlists, and audio-forward collections."
                                           Collections="ListenCollections"
                                           SelectedId="SelectedCollection?.Id"
-                                          ViewMode="_viewMode"
+                                          ViewMode="list"
+                                          Icon="@Icons.Material.Outlined.Album"
                                           OnSelect="SelectCollection" />
-                    <CollectionHubSection Title="Read"
+                }
+                @if (_activeTab is "all" or "read")
+                {
+                    <CollectionHubSection Title="READ COLLECTIONS"
                                           Description="Reading lists and book or comic collections."
                                           Collections="ReadCollections"
                                           SelectedId="SelectedCollection?.Id"
-                                          ViewMode="_viewMode"
+                                          ViewMode="list"
+                                          Icon="@Icons.Material.Outlined.MenuBook"
                                           OnSelect="SelectCollection" />
-                    <CollectionHubSection Title="Cross-Media"
-                                          Description="Collections that intentionally span multiple media types."
-                                          Collections="CrossMediaCollections"
+                }
+                @if (_activeTab is "all" or "global")
+                {
+                    <CollectionHubSection Title="GLOBAL COLLECTIONS"
+                                          Description="Shared collections visible across profiles."
+                                          Collections="GlobalCollections"
                                           SelectedId="SelectedCollection?.Id"
-                                          ViewMode="_viewMode"
+                                          ViewMode="list"
+                                          Icon="@Icons.Material.Outlined.Public"
                                           OnSelect="SelectCollection" />
-                </div>
+                }
+                @if (_activeTab is "system")
+                {
+                    <CollectionHubSection Title="SYSTEM COLLECTIONS"
+                                          Description="Built-in lists grouped by their media lane."
+                                          Collections="SystemCollections"
+                                          SelectedId="SelectedCollection?.Id"
+                                          ViewMode="list"
+                                          Icon="@Icons.Material.Outlined.BookmarkAdded"
+                                          OnSelect="SelectCollection" />
+                }
+                @if (_activeTab is "user")
+                {
+                    <CollectionHubSection Title="CREATED BY YOU"
+                                          Description="Private collections and playlists created by the active profile."
+                                          Collections="UserCollections"
+                                          SelectedId="SelectedCollection?.Id"
+                                          ViewMode="list"
+                                          Icon="@Icons.Material.Outlined.Person"
+                                          OnSelect="SelectCollection" />
+                }
+
+                @if (_activeTab is "all")
+                {
+                    <CollectionHubSection Title="RECENTLY USED"
+                                      Description="Collections with the most recent activity or updates."
+                                      Collections="RecentlyUsedCollections"
+                                      SelectedId="SelectedCollection?.Id"
+                                      ViewMode="list"
+                                      Icon="@Icons.Material.Outlined.History"
+                                      OnSelect="SelectCollection" />
+                }
             </main>
 
             <CollectionInlineInspector Collection="SelectedCollection"
@@ -132,45 +167,32 @@
 </div>
 
 @code {
-    private sealed record HubTab(string Id, string Label, string Icon);
+    private sealed record CollectionTab(string Id, string Label, string Icon);
 
-    private readonly HubTab[] _tabs =
+    private static readonly CollectionTab[] Tabs =
     [
-        new("mine", "My Collections", Icons.Material.Outlined.Person),
+        new("all", "All", Icons.Material.Outlined.CollectionsBookmark),
+        new("watch", "Watch", Icons.Material.Outlined.Movie),
+        new("listen", "Listen", Icons.Material.Outlined.Album),
+        new("read", "Read", Icons.Material.Outlined.MenuBook),
+        new("cross", "Cross-Media", Icons.Material.Outlined.AllInclusive),
         new("global", "Global", Icons.Material.Outlined.Public),
+        new("user", "Created by You", Icons.Material.Outlined.Person),
         new("system", "System", Icons.Material.Outlined.BookmarkAdded),
-        new("discover", "Discover", Icons.Material.Outlined.Explore),
     ];
 
     private readonly List<CollectionManagementCatalogViewModel> _collections = [];
     private ProfileViewModel? _activeProfile;
     private CollectionManagementCatalogViewModel? SelectedCollection { get; set; }
-    private string _activeTab = "mine";
     private string _searchText = string.Empty;
     private string _sortBy = "recent";
-    private string _viewMode = "grid";
+    private string _activeTab = "all";
     private bool _loading;
 
     private bool CanManageSharedCollections => _activeProfile?.Role is "Administrator" or "Curator";
 
-    private int ActiveTabIndex => Array.FindIndex(_tabs, tab => tab.Id == _activeTab) is var index && index >= 0 ? index : 0;
-
     private IReadOnlyList<CollectionManagementCatalogViewModel> FilteredCollections =>
         Sort(FilterBySearch(_collections));
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> ActiveCollections => _activeTab switch
-    {
-        "global" => FilteredCollections.Where(collection => collection.Family == "Global").ToList(),
-        "system" => FilteredCollections.Where(collection => collection.Family == "System").ToList(),
-        "discover" => FilteredCollections.Where(collection => collection.Family is "Global" or "Discover" || collection.IsFeatured).ToList(),
-        _ => FilteredCollections.Where(collection => collection.Family == "User").ToList(),
-    };
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> FeaturedCollections =>
-        FilteredCollections
-            .Where(collection => collection.IsFeatured || collection.IsGlobal)
-            .Take(3)
-            .ToList();
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> WatchCollections =>
         FilteredCollections.Where(collection => collection.PrimaryLane == "Watch").Take(8).ToList();
@@ -184,21 +206,20 @@
     private IReadOnlyList<CollectionManagementCatalogViewModel> CrossMediaCollections =>
         FilteredCollections.Where(collection => collection.PrimaryLane == "CrossMedia").Take(8).ToList();
 
-    private string ActiveSectionTitle => _activeTab switch
-    {
-        "global" => "Global Collections",
-        "system" => "System Collections",
-        "discover" => "Discover",
-        _ => "My Collections",
-    };
+    private IReadOnlyList<CollectionManagementCatalogViewModel> GlobalCollections =>
+        FilteredCollections.Where(collection => collection.Family == "Global").Take(8).ToList();
 
-    private string ActiveSectionDescription => _activeTab switch
-    {
-        "global" => "Admin-published collections available to every profile.",
-        "system" => "Built-in lists such as Watchlist, Favorites, Reading List, and Listening Queue.",
-        "discover" => "Featured and global collections surfaced for browsing.",
-        _ => "Private collections and playlists curated by the active profile.",
-    };
+    private IReadOnlyList<CollectionManagementCatalogViewModel> RecentlyUsedCollections =>
+        FilteredCollections
+            .OrderByDescending(collection => collection.ModifiedAt ?? collection.CreatedAt)
+            .Take(8)
+            .ToList();
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> SystemCollections =>
+        FilteredCollections.Where(collection => collection.Family == "System").ToList();
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> UserCollections =>
+        FilteredCollections.Where(collection => collection.Family == "User").ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -251,21 +272,16 @@
         return Task.CompletedTask;
     }
 
-    private Task OnTabChanged(int index)
-    {
-        if (index >= 0 && index < _tabs.Length)
-            _activeTab = _tabs[index].Id;
-
-        return Task.CompletedTask;
-    }
-
     private Task OnSortChanged(string value)
     {
         _sortBy = value;
         return Task.CompletedTask;
     }
 
-    private void ToggleViewMode() => _viewMode = _viewMode == "grid" ? "list" : "grid";
+    private void SetActiveTab(string id)
+    {
+        _activeTab = id;
+    }
 
     private Task SelectCollection(CollectionManagementCatalogViewModel collection)
     {

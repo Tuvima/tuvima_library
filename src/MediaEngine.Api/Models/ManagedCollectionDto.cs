@@ -170,12 +170,16 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
     [JsonPropertyName("can_toggle_global")]
     public bool CanToggleGlobal { get; init; }
 
+    [JsonPropertyName("artwork_items")]
+    public IReadOnlyList<CollectionArtworkItemDto> ArtworkItems { get; init; } = [];
+
     public static CollectionManagementCatalogDto FromDomain(
         Collection collection,
         int itemCount,
         Profile? activeProfile,
         CollectionCatalogClassification classification,
-        CollectionMediaCounts mediaCounts)
+        CollectionMediaCounts mediaCounts,
+        IReadOnlyList<CollectionArtworkItemDto>? artworkItems = null)
     {
         var baseDto = FromDomain(collection, itemCount, activeProfile);
         var isGlobal = string.Equals(baseDto.Visibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase);
@@ -212,10 +216,10 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
             CanShare = canManageGlobal,
             Family = classification.Family,
             SystemKey = classification.SystemKey,
-            PrimaryLane = mediaCounts.PrimaryLane,
+            PrimaryLane = classification.PrimaryLaneOverride ?? mediaCounts.PrimaryLane,
             IsGlobal = isGlobal,
             IsSystem = classification.IsSystem,
-            IsCrossMedia = mediaCounts.IsCrossMedia,
+            IsCrossMedia = classification.PrimaryLaneOverride is null && mediaCounts.IsCrossMedia,
             WatchCount = mediaCounts.WatchCount,
             ListenCount = mediaCounts.ListenCount,
             ReadCount = mediaCounts.ReadCount,
@@ -223,21 +227,42 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
             CanDelete = canEdit && !classification.IsSystem && CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType),
             CanRename = canEdit && !classification.IsSystem,
             CanToggleGlobal = canManageGlobal && !classification.IsSystem && CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType),
+            ArtworkItems = artworkItems ?? [],
         };
     }
+}
+
+public sealed class CollectionArtworkItemDto
+{
+    [JsonPropertyName("work_id")]
+    public Guid WorkId { get; init; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; init; } = string.Empty;
+
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; init; } = string.Empty;
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; init; }
+
+    [JsonPropertyName("artwork_shape")]
+    public string ArtworkShape { get; init; } = "square";
 }
 
 public sealed record CollectionCatalogClassification(
     string Family,
     string CollectionType,
     string? SystemKey,
-    bool IsSystem);
+    bool IsSystem,
+    string? PrimaryLaneOverride = null);
 
 public sealed record CollectionMediaCounts(
     int WatchCount,
     int ListenCount,
     int ReadCount,
-    int OtherCount)
+    int OtherCount,
+    int TvCount = 0)
 {
     public bool IsCrossMedia =>
         new[] { WatchCount, ListenCount, ReadCount, OtherCount }

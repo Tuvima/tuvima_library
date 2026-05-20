@@ -1,8 +1,10 @@
 .collections-hub {
     display: grid;
-    gap: var(--tl-page-gap);
-    max-width: 1480px;
-    margin: 0 auto;
+    gap: 22px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 4px clamp(18px, 2.4vw, 34px) 32px;
 }
 
 .collections-hub__header,
@@ -10,8 +12,15 @@
     align-items: center;
 }
 
+.collections-hub__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 20px;
+}
+
 .collections-hub__search {
-    min-width: min(360px, 100%);
+    width: min(420px, 100%);
+    min-width: min(320px, 100%);
 }
 
 .collections-hub__tabs {
@@ -27,10 +36,18 @@
     width: 190px;
 }
 
+.collections-hub__filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 420px) 190px;
+    gap: 12px;
+    padding: 0;
+}
+
 .collections-hub__layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(340px, 380px);
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 23vw, 410px);
+    gap: clamp(18px, 1.8vw, 28px);
+    align-items: start;
 }
 
 .collections-hub__main {
@@ -39,20 +56,38 @@
     min-width: 0;
 }
 
-.collections-hub__featured {
-    display: grid;
-    grid-template-columns: minmax(280px, 1.4fr) repeat(2, minmax(220px, 0.8fr));
-    gap: 14px;
+.collections-hub__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: auto;
 }
 
-.collections-hub__featured ::deep .collection-hub-card:first-child {
-    min-height: 260px;
+.collections-hub-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--app-radius-sm, 6px);
+    background: rgba(255, 255, 255, 0.035);
+    color: rgba(226, 232, 240, 0.72);
+    font-size: 0.8rem;
+    font-weight: 820;
+    cursor: pointer;
 }
 
-.collections-hub__lane-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 28px;
+.collections-hub-tab:hover,
+.collections-hub-tab.is-active {
+    border-color: color-mix(in srgb, var(--tl-accent-primary, #a78bfa) 44%, transparent);
+    background: color-mix(in srgb, var(--tl-accent-primary, #a78bfa) 22%, transparent);
+    color: #fff;
+}
+
+.collections-hub-tab .mud-icon-root {
+    color: color-mix(in srgb, var(--tl-accent-primary, #a78bfa) 84%, #fff);
 }
 
 .collections-hub__state {
@@ -65,9 +100,11 @@
 }
 
 @media (max-width: 1180px) {
-    .collections-hub__layout,
-    .collections-hub__lane-grid,
-    .collections-hub__featured {
+    .collections-hub__layout {
+        grid-template-columns: 1fr;
+    }
+
+    .collections-hub__filters {
         grid-template-columns: 1fr;
     }
 }
@@ -75,6 +112,7 @@
 @media (max-width: 760px) {
     .collections-hub__filters,
     .collections-hub__header {
+        grid-template-columns: 1fr;
         align-items: stretch;
     }
 

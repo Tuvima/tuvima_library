@@ -3,21 +3,7 @@
 
 <button type="button" class="@RootClass" @onclick="Select">
     <div class="collection-hub-card__art">
-        @if (!string.IsNullOrWhiteSpace(Collection.SquareArtworkUrl))
-        {
-            <img src="@Collection.SquareArtworkUrl" alt="" />
-        }
-        else
-        {
-            <MudIcon Icon="@Icon" Class="collection-hub-card__fallback-icon" />
-        }
-        <div class="collection-hub-card__badges">
-            <span class="tl-chip-muted">@Collection.FamilyLabel</span>
-            @if (Collection.IsFeatured)
-            {
-                <span class="tl-chip-muted">Featured</span>
-            }
-        </div>
+        <CollectionArtworkStack Collection="Collection" Mode="@ArtworkMode" PreferPinnedArtwork="@PreferPinnedArtwork" />
     </div>
 
     <div class="collection-hub-card__body">
@@ -29,7 +15,30 @@
         {
             <p>@Collection.Description</p>
         }
+        @if (UseListPreview && Collection.ArtworkItems.Count > 0)
+        {
+            <div class="collection-hub-card__preview-list">
+                @foreach (var item in Collection.ArtworkItems.Take(3))
+                {
+                    <div class="collection-hub-card__preview-row">
+                        @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                        {
+                            <img src="@item.CoverUrl" alt="" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.Album" Size="Size.Small" />
+                        }
+                        <span>@item.Title</span>
+                    </div>
+                }
+            </div>
+        }
         <CollectionHubStats Collection="Collection" />
+        <div class="collection-hub-card__meta">
+            <span>@Collection.FamilyLabel</span>
+            <span>@UpdatedLabel</span>
+        </div>
     </div>
 </button>
 
@@ -43,6 +52,7 @@
         "collection-hub-card",
         "tl-card",
         Selected ? "collection-hub-card--selected" : null,
+        $"collection-hub-card--{DisplayStyle}",
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private string Icon => Collection.CollectionType switch
@@ -53,6 +63,38 @@
         "Mix" => Icons.Material.Outlined.GraphicEq,
         _ => Icons.Material.Outlined.CollectionsBookmark,
     };
+
+    private string DisplayStyle => Collection.PrimaryLane switch
+    {
+        "Listen" => "list",
+        "Watch" => "watch",
+        "Read" => "read",
+        _ => "mixed",
+    };
+
+    private bool UseListPreview => Collection.CollectionType == "Playlist" || Collection.PrimaryLane == "Listen";
+    private bool PreferPinnedArtwork => !UseListPreview;
+    private string ArtworkMode => Collection.PrimaryLane switch
+    {
+        "Listen" => "listen-grid",
+        "Read" => "read-stack",
+        "Watch" => "watch-strip",
+        _ => "cross-media-collage",
+    };
+
+    private string UpdatedLabel
+    {
+        get
+        {
+            var timestamp = Collection.ModifiedAt ?? Collection.CreatedAt;
+            var age = DateTimeOffset.Now - timestamp;
+            if (age.TotalDays < 1)
+                return "Updated today";
+
+            var days = Math.Max(1, (int)Math.Round(age.TotalDays));
+            return $"Updated {days} day{(days == 1 ? string.Empty : "s")} ago";
+        }
+    }
 
     private Task Select() => OnSelect.InvokeAsync(Collection);
 }

@@ -384,6 +384,9 @@ public sealed class CollectionManagementCatalogViewModel
     [JsonPropertyName("can_toggle_global")]
     public bool CanToggleGlobal { get; set; }
 
+    [JsonPropertyName("artwork_items")]
+    public List<CollectionArtworkItemViewModel> ArtworkItems { get; set; } = [];
+
     public string ArtworkUrl => SquareArtworkUrl ?? string.Empty;
 
     public string TypeLabel => CollectionType switch
@@ -409,5 +412,23 @@ public sealed class CollectionManagementCatalogViewModel
         string.Equals(Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
 
     public string StatusLabel => !IsEnabled ? "Disabled" : ItemCount == 0 ? "Empty" : "Active";
+}
+
+public sealed class CollectionArtworkItemViewModel
+{
+    [JsonPropertyName("work_id")]
+    public Guid WorkId { get; set; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; set; } = string.Empty;
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
+
+    [JsonPropertyName("artwork_shape")]
+    public string ArtworkShape { get; set; } = "square";
 }
 

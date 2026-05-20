@@ -1,11 +1,13 @@
 @namespace MediaEngine.Web.Components.Collections
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Editing
 
 @inject IEngineApiClient ApiClient
+@inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject ISnackbar Snackbar
 
-<aside class="collection-inspector tl-card">
+<aside class="collection-inspector">
     @if (Collection is null)
     {
         <div class="collection-inspector__empty">
@@ -16,14 +18,7 @@
     else
     {
         <div class="collection-inspector__cover">
-            @if (!string.IsNullOrWhiteSpace(Collection.SquareArtworkUrl))
-            {
-                <img src="@Collection.SquareArtworkUrl" alt="" />
-            }
-            else
-            {
-                <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" />
-            }
+            <CollectionArtworkStack Collection="Collection" Large="true" />
             @if (Collection.CanEdit && !Collection.IsSystem)
             {
                 <label class="collection-inspector__cover-action">
@@ -37,18 +32,40 @@
         <div class="collection-inspector__content">
             <div class="collection-inspector__heading">
                 <div>
-                    <span class="tl-chip-muted">@Collection.FamilyLabel</span>
+                    <CollectionSectionLabel Label="@CategoryLabel"
+                                            Icon="@CategoryIcon"
+                                            Status="@($"{Collection.ItemCount} item{(Collection.ItemCount == 1 ? string.Empty : "s")}")" />
                     <h2>@Collection.Name</h2>
                     <p>@(string.IsNullOrWhiteSpace(Collection.Description) ? "No description yet." : Collection.Description)</p>
                 </div>
                 <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" OnClick="Close" aria-label="Close collection inspector" />
             </div>
 
-            <CollectionHubStats Collection="Collection" />
+            <div class="collection-inspector__actions" aria-label="Collection actions">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PlayArrow" Disabled="@(Collection.ItemCount == 0)">Play All</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.OpenInNew">Open</MudButton>
+                @if (Collection.ListenCount > 1 || Collection.WatchCount > 1)
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.Shuffle">Shuffle</MudButton>
+                }
+                @if (Collection.CanEdit)
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.Edit" OnClick="ToggleEditMode">
+                        @(_editing ? "Done" : "Edit")
+                    </MudButton>
+                }
+                <MudIconButton Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" aria-label="More collection actions" />
+            </div>
 
-            @if (Collection.CanEdit)
+            <section class="collection-inspector__section">
+                <CollectionSectionLabel Label="MEDIA MIX" Icon="@Icons.Material.Outlined.DonutSmall" />
+                <CollectionHubStats Collection="Collection" />
+            </section>
+
+            @if (Collection.CanEdit && _editing)
             {
-                <div class="tl-form-section">
+                <section class="collection-inspector__section collection-inspector__section--edit">
+                    <CollectionSectionLabel Label="COLLECTION DETAILS" Icon="@Icons.Material.Outlined.EditNote" Status="Editing inline" />
                     <MudTextField T="string"
                                   Value="_name"
                                   ValueChanged="value => _name = value"
@@ -63,16 +80,22 @@
                                   Lines="3"
                                   Variant="Variant.Outlined"
                                   Class="tl-field" />
-                </div>
 
-                <div class="collection-inspector__toggles tl-panel">
+                    <div class="collection-inspector__artwork-mode">
+                        <CollectionSectionLabel Label="PINNED ARTWORK" Icon="@Icons.Material.Outlined.PhotoLibrary" Status="Auto when empty" />
+                        <span>@(string.IsNullOrWhiteSpace(Collection.SquareArtworkUrl) ? "Using generated artwork from included items." : "Using uploaded pinned artwork.")</span>
+                    </div>
+                </section>
+
+                <section class="collection-inspector__toggles">
+                    <CollectionSectionLabel Label="VISIBILITY" Icon="@Icons.Material.Outlined.Visibility" />
                     @if (Collection.CanToggleGlobal)
                     {
                         <MudSwitch T="bool" Value="Collection.IsGlobal" ValueChanged="ToggleGlobalAsync" Color="Color.Primary" Label="Global" />
                     }
                     <MudSwitch T="bool" Value="Collection.IsEnabled" ValueChanged="ToggleEnabledAsync" Color="Color.Primary" Label="Enabled" />
                     <MudSwitch T="bool" Value="Collection.IsFeatured" ValueChanged="ToggleFeaturedAsync" Color="Color.Primary" Label="Featured on Home" />
-                </div>
+                </section>
 
                 <div class="tl-action-bar">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveBasicsAsync" Disabled="@_saving">
@@ -86,19 +109,18 @@
                     }
                 </div>
             }
-            else
+            else if (!Collection.CanEdit)
             {
-                <div class="collection-inspector__readonly tl-panel">
+                <div class="collection-inspector__readonly">
                     <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" />
                     <span>This collection is read-only for the active profile.</span>
                 </div>
             }
 
-            <div class="collection-inspector__items">
-                <div class="collection-inspector__section-title">
-                    <span>Items</span>
-                    <span>@_items.Count loaded</span>
-                </div>
+            <section class="collection-inspector__section">
+                <CollectionSectionLabel Label="INCLUDED ITEMS"
+                                        Icon="@Icons.Material.Outlined.PlaylistAddCheck"
+                                        Status="@($"{_items.Count} loaded")" />
 
                 @if (_loadingItems)
                 {
@@ -109,7 +131,7 @@
                 }
                 else
                 {
-                    @if (Collection.IsManual && Collection.CanEdit && !Collection.IsSystem)
+                    @if (_editing && Collection.IsManual && Collection.CanEdit && !Collection.IsSystem)
                     {
                         <MudTextField T="string"
                                       Value="_itemSearch"
@@ -164,7 +186,42 @@
                         }
                     </div>
                 }
-            </div>
+            </section>
+
+            <section class="collection-inspector__section collection-inspector__details">
+                <CollectionSectionLabel Label="COLLECTION DETAILS" Icon="@Icons.Material.Outlined.Info" />
+                <div class="collection-inspector__detail-grid">
+                    <span>Created by</span>
+                    <strong>@(Collection.IsGlobal ? "Tuvima" : "You")</strong>
+                    <span>Last updated</span>
+                    <strong>@UpdatedLabel</strong>
+                    <span>Visibility</span>
+                    <strong>@(Collection.IsGlobal ? "Global" : "Only Me")</strong>
+                    <span>Activity</span>
+                    <strong>@Collection.StatusLabel</strong>
+                </div>
+            </section>
+
+            <section class="collection-inspector__section collection-inspector__details">
+                <CollectionSectionLabel Label="ACTIVITY" Icon="@Icons.Material.Outlined.Timeline" />
+                <div class="collection-inspector__detail-grid">
+                    <span>Last updated</span>
+                    <strong>@UpdatedLabel</strong>
+                    <span>Items loaded</span>
+                    <strong>@_items.Count</strong>
+                </div>
+            </section>
+
+            @if (Collection.CanEdit)
+            {
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Inherit"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Outlined.Tune"
+                           OnClick="OpenFullManagerAsync">
+                    Manage Full Collection
+                </MudButton>
+            }
         </div>
     }
 </aside>
@@ -183,6 +240,7 @@
     private string _itemSearch = string.Empty;
     private bool _loadingItems;
     private bool _saving;
+    private bool _editing;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -190,6 +248,7 @@
         {
             _loadedCollectionId = null;
             _items.Clear();
+            _editing = false;
             return;
         }
 
@@ -199,9 +258,45 @@
         if (_loadedCollectionId != Collection.Id)
         {
             _loadedCollectionId = Collection.Id;
+            _editing = false;
             await LoadItemsAsync();
         }
     }
+
+    private string CategoryLabel => Collection?.PrimaryLane switch
+    {
+        "Read" => "READ COLLECTION",
+        "Listen" => "LISTEN COLLECTION",
+        "Watch" => "WATCH COLLECTION",
+        _ => "CROSS-MEDIA COLLECTION",
+    };
+
+    private string CategoryIcon => Collection?.PrimaryLane switch
+    {
+        "Read" => Icons.Material.Outlined.MenuBook,
+        "Listen" => Icons.Material.Outlined.Album,
+        "Watch" => Icons.Material.Outlined.Movie,
+        _ => Icons.Material.Outlined.AllInclusive,
+    };
+
+    private string UpdatedLabel
+    {
+        get
+        {
+            if (Collection is null)
+                return "Unknown";
+
+            var timestamp = Collection.ModifiedAt ?? Collection.CreatedAt;
+            var age = DateTimeOffset.Now - timestamp;
+            if (age.TotalDays < 1)
+                return "Today";
+
+            var days = Math.Max(1, (int)Math.Round(age.TotalDays));
+            return $"{days} day{(days == 1 ? string.Empty : "s")} ago";
+        }
+    }
+
+    private void ToggleEditMode() => _editing = !_editing;
 
     private async Task LoadItemsAsync()
     {
@@ -307,6 +402,46 @@
         var ok = await ApiClient.DeleteCollectionAsync(Collection.Id, ActiveProfileId);
         Snackbar.Add(ok ? "Collection deleted." : "Collection could not be deleted.", ok ? Severity.Success : Severity.Error);
         if (ok)
+            await OnChanged.InvokeAsync();
+    }
+
+    private async Task OpenFullManagerAsync()
+    {
+        if (Collection is null)
+            return;
+
+        var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
+        {
+            ActiveProfileId = ActiveProfileId,
+            CanManageSharedCollections = Collection.CanShare || Collection.CanToggleGlobal,
+            Mode = Collection.CollectionType == "Playlist" ? "Playlist" : "Collection",
+            EditingCollection = new CollectionListItemViewModel
+            {
+                Id = Collection.Id,
+                Name = Collection.Name,
+                Description = Collection.Description,
+                IconName = Collection.IconName,
+                CollectionType = Collection.CollectionType,
+                Resolution = Collection.Resolution,
+                Scope = Collection.Scope,
+                ProfileId = Collection.ProfileId,
+                Visibility = Collection.Visibility,
+                IsEnabled = Collection.IsEnabled,
+                IsFeatured = Collection.IsFeatured,
+                ItemCount = Collection.ItemCount,
+                RuleJson = Collection.RuleJson,
+                MatchMode = Collection.MatchMode,
+                SortField = Collection.SortField,
+                SortDirection = Collection.SortDirection,
+                LiveUpdating = Collection.LiveUpdating,
+                CoverUrl = Collection.SquareArtworkUrl,
+                CreatedAt = Collection.CreatedAt,
+                CanEdit = Collection.CanEdit,
+                CanShare = Collection.CanShare,
+            },
+        });
+
+        if (changed)
             await OnChanged.InvokeAsync();
     }
 

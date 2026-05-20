@@ -381,14 +381,21 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(cut.FindAll(".mud-tabs"));
             Assert.Empty(cut.FindAll(".mud-table"));
+            Assert.NotEmpty(cut.FindAll(".collections-hub__tabs"));
+            Assert.NotEmpty(cut.FindAll(".collections-hub-tab"));
             Assert.NotEmpty(cut.FindAll(".collection-hub-section"));
+            Assert.NotEmpty(cut.FindAll(".collection-hub-row"));
+            Assert.Empty(cut.FindAll(".collection-hub-card"));
             Assert.Single(cut.FindAll(".collection-inspector"));
             Assert.Contains("Summer Movies", cut.Markup);
             Assert.Contains("Quiet Reads", cut.Markup);
             Assert.Contains("Favorites", cut.Markup);
-            Assert.Contains("Cross-Media", cut.Markup);
+            Assert.Contains("CROSS-MEDIA COLLECTIONS", cut.Markup);
+            Assert.Contains("WATCH COLLECTIONS", cut.Markup);
+            Assert.Contains("LISTEN COLLECTIONS", cut.Markup);
+            Assert.Contains("READ COLLECTIONS", cut.Markup);
+            Assert.DoesNotContain("collections-hub__browse-types", cut.Markup);
         });
     }
 

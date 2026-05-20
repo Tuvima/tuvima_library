@@ -2061,7 +2061,11 @@ public static class CollectionEndpoints
                 var classification = ClassifyCollectionForCatalog(collection);
                 var itemCount = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, materializedCounts, ct);
                 var mediaCounts = await GetCollectionMediaCountsAsync(collection, collectionRepo, db, ct);
-                dtos.Add(CollectionManagementCatalogDto.FromDomain(collection, itemCount, activeProfile, classification, mediaCounts));
+                if (!ShouldIncludeInManagementCatalog(collection, classification, mediaCounts))
+                    continue;
+
+                var artworkItems = await GetCollectionArtworkItemsAsync(collection, collectionRepo, db, 4, ct);
+                dtos.Add(CollectionManagementCatalogDto.FromDomain(collection, itemCount, activeProfile, classification, mediaCounts, artworkItems));
             }
 
             return Results.Ok(dtos
@@ -2290,7 +2294,12 @@ public static class CollectionEndpoints
                         SELECT cv.key, cv.value
                         FROM canonical_values cv
                         WHERE cv.entity_id = @WorkId
-                          AND cv.key IN ('title', 'author')
+                          AND cv.key IN ('title', 'episode_title', 'show_name', 'author', 'artist')
+                        UNION ALL
+                        SELECT 'title', smi.item_label
+                        FROM series_manifest_items smi
+                        WHERE smi.linked_work_id = @WorkId
+                          AND smi.collection_id = @CollectionId
                         UNION ALL
                         SELECT 'media_type', w.media_type
                         FROM works w WHERE w.id = @WorkId
@@ -2305,6 +2314,10 @@ public static class CollectionEndpoints
                     p.ParameterName = "@WorkId";
                     p.Value = item.WorkId.ToString();
                     cmd.Parameters.Add(p);
+                    var collectionParam = cmd.CreateParameter();
+                    collectionParam.ParameterName = "@CollectionId";
+                    collectionParam.Value = id.ToString();
+                    cmd.Parameters.Add(collectionParam);
 
                     using var reader = cmd.ExecuteReader();
                     while (reader.Read())
@@ -2314,8 +2327,15 @@ public static class CollectionEndpoints
                         if (string.IsNullOrEmpty(val)) continue;
                         switch (key)
                         {
-                            case "title": title = val; break;
-                            case "author": creator = val; break;
+                            case "title":
+                            case "episode_title":
+                            case "show_name":
+                                title ??= val;
+                                break;
+                            case "author":
+                            case "artist":
+                                creator ??= val;
+                                break;
                             case "_asset_id": cover = $"/stream/{val}/cover"; break;
                             case "media_type": mediaType = val; break;
                         }
@@ -2325,7 +2345,7 @@ public static class CollectionEndpoints
                     {
                         Id        = item.Id,
                         WorkId    = item.WorkId,
-                        Title     = title ?? $"Work {item.WorkId.ToString("N")[..8]}",
+                        Title     = title ?? "Untitled",
                         Creator   = creator,
                         MediaType = mediaType ?? "Unknown",
                         CoverUrl  = cover,
@@ -3074,7 +3094,7 @@ public static class CollectionEndpoints
         var systemKey = GetSystemCollectionKey(collection);
         if (systemKey is not null)
         {
-            return new CollectionCatalogClassification("System", "System", systemKey, true);
+            return new CollectionCatalogClassification("System", "System", systemKey, true, SystemLaneForKey(systemKey));
         }
 
         var family = string.Equals(collection.Scope, "library", StringComparison.OrdinalIgnoreCase)
@@ -3103,6 +3123,47 @@ public static class CollectionEndpoints
         };
     }
 
+    private static string? SystemLaneForKey(string systemKey) => systemKey switch
+    {
+        "favorites" => "Listen",
+        "listening-queue" => "Listen",
+        "watchlist" => "Watch",
+        "currently-watching" => "Watch",
+        "reading-list" => "Read",
+        _ => null,
+    };
+
+    private static bool ShouldIncludeInManagementCatalog(
+        Collection collection,
+        CollectionCatalogClassification classification,
+        CollectionMediaCounts mediaCounts)
+    {
+        if (classification.IsSystem || string.Equals(classification.Family, "User", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+            return true;
+
+        if (IsGeneratedTvShowContainer(collection, mediaCounts))
+            return false;
+
+        return true;
+    }
+
+    private static bool IsGeneratedTvShowContainer(Collection collection, CollectionMediaCounts mediaCounts)
+    {
+        if (!string.Equals(collection.CollectionType, "Universe", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(collection.CollectionType, "Series", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(collection.CollectionType, "ContentGroup", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return mediaCounts.TvCount > 0
+            && mediaCounts.WatchCount == mediaCounts.TvCount
+            && mediaCounts.ListenCount == 0
+            && mediaCounts.ReadCount == 0
+            && mediaCounts.OtherCount == 0;
+    }
+
     private static async Task<CollectionMediaCounts> GetCollectionMediaCountsAsync(
         Collection collection,
         ICollectionRepository collectionRepo,
@@ -3127,8 +3188,12 @@ public static class CollectionEndpoints
         var listen = 0;
         var read = 0;
         var other = 0;
+        var tv = 0;
         foreach (var row in rows)
         {
+            if (string.Equals(row.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+                tv += row.Count;
+
             if (IsWatchMediaType(row.MediaType))
                 watch += row.Count;
             else if (IsListenMediaType(row.MediaType))
@@ -3139,7 +3204,7 @@ public static class CollectionEndpoints
                 other += row.Count;
         }
 
-        return new CollectionMediaCounts(watch, listen, read, other);
+        return new CollectionMediaCounts(watch, listen, read, other, tv);
     }
 
     private static async Task<IReadOnlyList<Guid>> GetCollectionWorkIdsAsync(
@@ -3167,6 +3232,82 @@ public static class CollectionEndpoints
         return collectionWithWorks?.Works.Select(work => work.Id).Distinct().ToList() ?? [];
     }
 
+    private static async Task<IReadOnlyList<CollectionArtworkItemDto>> GetCollectionArtworkItemsAsync(
+        Collection collection,
+        ICollectionRepository collectionRepo,
+        IDatabaseConnection db,
+        int limit,
+        CancellationToken ct)
+    {
+        var workIds = (await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct))
+            .Distinct()
+            .Take(Math.Clamp(limit, 1, 8))
+            .ToList();
+        if (workIds.Count == 0)
+            return [];
+
+        using var conn = db.CreateConnection();
+        var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
+        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var rows = (await conn.QueryAsync<CollectionArtworkItemRow>(new CommandDefinition(
+            $"""
+            WITH representative_assets AS (
+                SELECT e.work_id AS WorkId,
+                       MIN(ma.id) AS AssetId
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE e.work_id IN @WorkIds
+                  AND {visibleAssetPredicate}
+                GROUP BY e.work_id
+            )
+            SELECT w.id AS WorkId,
+                   COALESCE(
+                       NULLIF(title_work.value, ''),
+                       NULLIF(episode_title.value, ''),
+                       NULLIF(show_name.value, ''),
+                       NULLIF(series_item.item_label, ''),
+                       'Untitled'
+                   ) AS Title,
+                   w.media_type AS MediaType,
+                   COALESCE(
+                       NULLIF(cover_work.value, ''),
+                       CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
+                   ) AS CoverUrl
+            FROM works w
+            LEFT JOIN representative_assets ra ON ra.WorkId = w.id
+            LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
+            LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
+            LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
+            LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster')
+            LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id
+            WHERE w.id IN @WorkIds
+              AND {visibleWorkPredicate}
+            """,
+            new { WorkIds = workIds.Select(id => id.ToString()).ToArray() },
+            cancellationToken: ct))).ToList();
+
+        var rowById = rows
+            .Where(row => Guid.TryParse(row.WorkId, out _))
+            .GroupBy(row => Guid.Parse(row.WorkId))
+            .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
+
+        return workIds
+            .Where(rowById.ContainsKey)
+            .Select(id =>
+            {
+                var row = rowById[id];
+                return new CollectionArtworkItemDto
+                {
+                    WorkId = id,
+                    Title = string.IsNullOrWhiteSpace(row.Title) ? "Untitled" : row.Title,
+                    MediaType = row.MediaType ?? "Unknown",
+                    CoverUrl = row.CoverUrl,
+                    ArtworkShape = ArtworkShapeForMediaType(row.MediaType),
+                };
+            })
+            .ToList();
+    }
+
     private static bool IsWatchMediaType(string? mediaType) =>
         string.Equals(mediaType, "Movies", StringComparison.OrdinalIgnoreCase)
         || string.Equals(mediaType, "Movie", StringComparison.OrdinalIgnoreCase)
@@ -3184,6 +3325,28 @@ public static class CollectionEndpoints
         || string.Equals(mediaType, "Book", StringComparison.OrdinalIgnoreCase)
         || string.Equals(mediaType, "Comics", StringComparison.OrdinalIgnoreCase)
         || string.Equals(mediaType, "Comic", StringComparison.OrdinalIgnoreCase);
+
+    private static string ArtworkShapeForMediaType(string? mediaType)
+    {
+        if (IsReadMediaType(mediaType))
+            return "portrait";
+
+        if (IsWatchMediaType(mediaType))
+            return "landscape";
+
+        if (IsListenMediaType(mediaType))
+            return "square";
+
+        return "square";
+    }
+
+    private sealed class CollectionArtworkItemRow
+    {
+        public string WorkId { get; init; } = string.Empty;
+        public string? Title { get; init; }
+        public string? MediaType { get; init; }
+        public string? CoverUrl { get; init; }
+    }
 
     private static string? NormalizeCollectionArtworkMimeType(string? contentType, string extension)
     {
