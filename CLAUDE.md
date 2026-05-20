@@ -139,17 +139,22 @@ The Engine and Dashboard are two independent apps that communicate over HTTP + S
 
 | Folder | What it is | Role |
 |---|---|---|
-| `src/MediaEngine.Domain` | The Rulebook | Aggregates, entities, enums, constants, contracts. Pure business language. |
-| `src/MediaEngine.Storage` | The Filing Clerk | SQLite repositories, embedded schema bootstrap, startup migrations, config loading. |
-| `src/MediaEngine.Intelligence` | The Analyst | Priority Cascade, scoring, fuzzy matching, identity strategies. |
-| `src/MediaEngine.Processors` | The Scanner | Reads EPUB, audio, video, comic, and generic files for embedded metadata. |
-| `src/MediaEngine.Providers` | The Research Team | External metadata providers, hydration pipeline workers, reconciliation. |
-| `src/MediaEngine.Ingestion` | The Mail Room | Folder watchers, debounce, hashing, dedup, file organization. |
-| `src/MediaEngine.AI` | The Brain | Local model lifecycle, hardware benchmarking, AI features. |
-| `src/MediaEngine.Identity` | The Front Desk | Profiles, roles, multi-user rules. Small but important. |
-| `src/MediaEngine.Api` | The Reception Desk | Composition root: API endpoints, hosted services, SignalR, health checks. |
-| `src/MediaEngine.Web` | The Showroom | Blazor Server dashboard. |
-| `tests/` | The Quality Inspector | One test project per source project. |
+| `src/MediaEngine.Domain` | The Rulebook | Aggregates (`Collection`, `Edition`, `MediaAsset`, `Profile`, `Work`), 35+ entities, enums, constants, ~90 contract interfaces. Pure business language with no external package references. |
+| `src/MediaEngine.Contracts` | The Order Form | Serializable DTOs that cross the Engine↔Dashboard boundary — `Details/`, `Display/`, `Paging/`, `Playback/`, `Settings/`. Depends only on Domain. |
+| `src/MediaEngine.Application` | The Office Assistant | Read-model DTOs and service-interface contracts for cross-layer queries (`IJourneyReadService`, `IIngestionBatchReadService`, person/asset read services). Depends on Domain + Contracts only. |
+| `src/MediaEngine.Storage` | The Filing Clerk | SQLite repositories, embedded schema bootstrap, idempotent startup migrations (M-001…M-011+), `DatabaseConnection`, `ConfigurationDirectoryLoader` (multi-file JSON config with `.bak` fallback and hot reload). |
+| `src/MediaEngine.Intelligence` | The Analyst | Priority Cascade engine, scoring, fuzzy matching, identity strategies, `IdentityDecisionService`, `CollectionArbiter`, `ParentCollectionResolver`, `IdentityMatcher`. |
+| `src/MediaEngine.Processors` | The Scanner | Reads EPUB, audio, video, comic, PDF, and generic files for embedded metadata. Six processors plus extractors. |
+| `src/MediaEngine.Providers` | The Research Team | Config-driven and reconciliation adapters, hydration pipeline workers, ~24 enrichment/reconciliation services. The bulk of the runtime payload lives here. |
+| `src/MediaEngine.Ingestion` | The Mail Room | Folder watchers, debounce, hashing, dedup, file organization, write-back. `IngestionEngine` is the orchestration entry point. |
+| `src/MediaEngine.AI` | The Brain | Local model lifecycle, hardware benchmarking, 15 AI feature services (SmartLabeler, VibeTagger, TldrGenerator, QidDisambiguator, etc.), Llama + Whisper inference. |
+| `src/MediaEngine.Identity` | The Front Desk | Profiles, roles, multi-user rules. Small but important. Builds with `TreatWarningsAsErrors`. |
+| `src/MediaEngine.Plugins` | The Plug Socket | Plugin contracts (`ITuvimaPlugin`, `IPluginCapability`, `IPlaybackSegmentDetector`), manifest, models. In-process plugin model. |
+| `src/MediaEngine.Plugin.CommercialSkip` | A Plugin | Detects commercial breaks via Comskip (primary) or FFmpeg (fallback). Produces `playback-segment-detector` segments. |
+| `src/MediaEngine.Plugin.MediaSegments` | A Plugin | Detects opening credits / closing credits / recap segments. |
+| `src/MediaEngine.Api` | The Reception Desk | Composition root: 39 endpoint files, 236+ DI registrations in `Program.cs`, hosted services, SignalR `Intercom` hub, health checks. |
+| `src/MediaEngine.Web` | The Showroom | Blazor Server dashboard. Uses typed HTTP clients + SignalR; no direct database access. |
+| `tests/` | The Quality Inspector | One test project per source project. Strong guardrail suite (architecture boundary, DB connection, accessibility, smoke). Real SQLite temp DBs for Storage tests; hand-written spies, no Moq/NSubstitute. |
 
 ---
 
@@ -157,20 +162,39 @@ The Engine and Dashboard are two independent apps that communicate over HTTP + S
 
 > **Detail docs** live in `docs/architecture/*.md`. Each subsection below is a short summary — read the linked detail doc when working on a subsystem.
 
+> **Full architecture doc index** (21 files in `docs/architecture/`):
+> Subsystem deep-dives — [`ingestion-pipeline.md`](docs/architecture/ingestion-pipeline.md), [`scoring-and-cascade.md`](docs/architecture/scoring-and-cascade.md), [`hydration-and-providers.md`](docs/architecture/hydration-and-providers.md), [`universe-graph.md`](docs/architecture/universe-graph.md), [`ai-integration.md`](docs/architecture/ai-integration.md), [`collections.md`](docs/architecture/collections.md), [`dashboard-ui.md`](docs/architecture/dashboard-ui.md), [`security.md`](docs/architecture/security.md), [`localization.md`](docs/architecture/localization.md), [`target-state.md`](docs/architecture/target-state.md).
+> Boundaries & policy — [`api-boundaries.md`](docs/architecture/api-boundaries.md), [`api-boundary-debt.md`](docs/architecture/api-boundary-debt.md), [`project-boundaries.md`](docs/architecture/project-boundaries.md), [`storage-policy-adr.md`](docs/architecture/storage-policy-adr.md), [`storage-policy-review.md`](docs/architecture/storage-policy-review.md), [`configuration.md`](docs/architecture/configuration.md).
+> Cross-cutting — [`display-api.md`](docs/architecture/display-api.md), [`js-interop.md`](docs/architecture/js-interop.md), [`openapi-migration.md`](docs/architecture/openapi-migration.md), [`performance-and-large-libraries.md`](docs/architecture/performance-and-large-libraries.md), [`inline-media-editing.md`](docs/architecture/inline-media-editing.md).
+
 ### 3.1 — Ingestion Pipeline
 **Detail:** [`docs/architecture/ingestion-pipeline.md`](docs/architecture/ingestion-pipeline.md)
 
 Configured Library Folders tell the Engine where to look and what media to expect. Files go through Settle → Lock Check → Fingerprint → Scan → Identify → Stage 1 retail match → Move to organised library (if a title is found) → Stage 2 Wikidata enrichment. Items surface in the UI with a `RetailMatched` status as soon as Stage 1 produces a title — a QID is not required. The database tracks every status transition; rejected files land under `.data/staging/rejected/`. Work-level deduplication ensures duplicate files create new Editions under an existing Work instead of creating new Works. Config: `config/libraries.json`, `config/disambiguation.json`.
 
+Schema is maintained by idempotent startup migrations (`M-001` through `M-011+`) embedded in `DatabaseConnection.RunStartupChecks()`. Each migration is `PRAGMA table_info`-guarded so re-running on an already-migrated DB is a no-op.
+
 ### 3.2 — Priority Cascade Engine
 **Detail:** [`docs/architecture/scoring-and-cascade.md`](docs/architecture/scoring-and-cascade.md)
 
-When sources disagree, a four-tier cascade resolves the dispute: **Tier A** (user locks) → **Tier B** (per-field provider priority) → **Tier C** (Wikidata authority) → **Tier D** (highest confidence). AI improves matching quality (SmartLabeler, QidDisambiguator) but Wikidata remains the canonical authority. All claims are append-only; history is never lost. `IdentityDecisionService` (in `Intelligence/Services`) centralises accept/review/retry decisions using a `ConfidenceBand` (Exact / Strong / Provisional / Ambiguous / Insufficient) and a `ReviewRootCause`. Media-type-specific identity logic lives in `Intelligence/Strategies/` as `IMediaTypeIdentityStrategy` implementations. Config: `config/scoring.json`, `config/field_priorities.json`.
+When sources disagree, a four-tier cascade resolves the dispute: **Tier A** (user locks) → **Tier B** (per-field provider priority) → **Tier C** (Wikidata authority) → **Tier D** (highest confidence). AI improves matching quality (SmartLabeler, QidDisambiguator) but Wikidata remains the canonical authority. All claims are append-only; history is never lost.
+
+The Intelligence project's main public surface:
+
+- `PriorityCascadeEngine` — the four-tier waterfall implementation.
+- `IdentityDecisionService` (in `Intelligence/Services`) — accept/review/retry verdicts using a `ConfidenceBand` (Exact / Strong / Provisional / Ambiguous / Insufficient) and a `ReviewRootCause`.
+- `IdentityMatcher` — routes a candidate to the right media-type identity strategy.
+- `CollectionArbiter` — decides whether a Work belongs in a Collection.
+- `ParentCollectionResolver` — resolves parent/child collection hierarchy (Series→Universe).
+- `FuzzyMatchingService` — Levenshtein + phonetic name matching.
+- `Intelligence/Strategies/` — seven `IMediaTypeIdentityStrategy` implementations: `ExactMatchStrategy`, `BookIdentityStrategy`, `MovieIdentityStrategy`, `AudiobookIdentityStrategy`, `ComicIdentityStrategy`, `MusicIdentityStrategy`, `TvIdentityStrategy`.
+
+Config: `config/scoring.json`, `config/field_priorities.json`.
 
 ### 3.3 — Security
 **Detail:** [`docs/architecture/security.md`](docs/architecture/security.md)
 
-Every endpoint requires authentication except `/system/status` and localhost (when bypass is enabled). Three roles: Administrator (full), Curator (browse + metadata), Consumer (browse only). API keys are labelled and individually revocable. Rate-limiting policies (`key_generation`, `streaming`, `general`) are configured in `config/core.json`. Path traversal protection guards folder endpoints; the SignalR hub requires auth.
+Every endpoint requires authentication except `/system/status` and localhost (when bypass is enabled). Endpoints declare intent through extension guards (`RequireAdmin()`, `RequireAdminOrCurator()`, `RequireAnyRole()`). Three roles: Administrator (full), Curator (browse + metadata), Consumer (browse only). API keys are labelled and individually revocable. Rate-limiting policies (`key_generation`, `streaming`, `general`) are configured in `config/core.json`. Path traversal protection (`PathValidator`) guards folder endpoints. The SignalR `Intercom` hub is server-push only (no client-invokable methods) and is gated by `IntercomAuthFilter` registered in `Program.cs`.
 
 ### 3.4 — Dashboard UI
 **Detail:** [`docs/architecture/dashboard-ui.md`](docs/architecture/dashboard-ui.md)
@@ -230,13 +254,14 @@ A durable, two-stage enrichment pipeline runs after ingestion. `identity_jobs` r
 
 `SynchronousIdentityPipelineService` provides an inline implementation for synchronous callers.
 
-Enrichment is modular. `EnrichmentService` dispatches to dedicated workers: `CoverArtWorker`, `PersonEnrichmentWorker`, `ChildEntityWorker`, `FictionalEntityWorker`, `DescriptionEnrichmentWorker`, plus `ImageEnrichmentService` for Fanart.tv imagery. `PostPipelineService` auto-resolves stale review items when confidence improves.
+Enrichment is modular. `EnrichmentService` dispatches to dedicated workers: `CoverArtWorker`, `PersonEnrichmentWorker`, `PersonImageEnrichmentWorker`, `ChildEntityWorker`, `FictionalEntityWorker`, `DescriptionEnrichmentWorker`, `TextTrackEnrichmentWorker`, plus `ImageEnrichmentService` for Fanart.tv imagery. `PostPipelineService` auto-resolves stale review items when confidence improves. Provider adapters under `Providers/Adapters/` are config-driven (`ConfigDrivenAdapter`, `ReconciliationAdapter`), with only two hand-written REST providers (`LrclibTextTrackProvider`, `OpenSubtitlesTextTrackProvider`); all others are JSON-config-driven in `config/providers/`.
 
 Every retail candidate and Wikidata candidate is persisted (`retail_match_candidates`, `wikidata_bridge_candidates`) so the Review drawer can show full score breakdowns. Provider behaviour is driven by JSON config — adding a REST+JSON provider is a zero-code operation. See [`docs/reference/providers.md`](docs/reference/providers.md).
 
 ### 3.8 — Configuration Architecture
+**Detail:** [`docs/architecture/configuration.md`](docs/architecture/configuration.md)
 
-All settings live in `config/` as individual JSON files grouped by concern. Provider secrets (API keys) go in `config/secrets/` (gitignored).
+All settings live in `config/` as individual JSON files grouped by concern. Provider secrets (API keys) go in `config/secrets/` (gitignored). `ConfigurationDirectoryLoader` performs typed validation, throws `ConfigValidationException` on failure, keeps a `.bak` fallback for each file, and supports bounded hot reload.
 
 | File / folder | What it controls |
 |---|---|
@@ -265,18 +290,22 @@ AI is a core function, not an add-on. Model roles: **text_fast** (on-demand, sma
 
 ### 3.11 — Settings
 
-Settings at `/settings/{Section}` is the Dashboard's operational command centre. It's a two-row tab shell: a primary group-tabs row and a secondary section-tabs row. `SettingsNav` resolves routes and filters visibility by role. Current sections:
+Settings at `/settings/{Section}` is the Dashboard's operational command centre. It's a two-row tab shell: a primary group-tabs row and a secondary section-tabs row. `SettingsNav` resolves routes and filters visibility by role. Current sections (resolved from `src/MediaEngine.Web/Components/Settings/*Tab.razor`):
 
 | Group | Sections |
 |---|---|
-| **Overview** | Overview, Review |
-| **Preferences** | Profile, Playback |
-| **Library** | Folders |
-| **Providers** | Providers, Wikidata |
-| **Intelligence** | Models, Features, Vocabulary, Schedule |
-| **Server** | System, Security, Users, Activity, Maintenance, Setup |
+| **Overview** | `OverviewTab`, `SettingsReviewQueueTab`, `IngestionTasksTab`, `StatusDashboardTab` |
+| **Preferences** | `ProfileTab`, `PlaybackTab`, `PrivacyHistoryTab`, `OfflineDownloadsTab` |
+| **Library** | `LibrariesTab`, `EncodeSettingsTab`, `PlaybackDeliverySettingsTab` |
+| **Providers** | `ProviderPriorityTab`, `WikidataConfigTab`, `UniverseSettingsTab` |
+| **Intelligence** | `ModelsTab`, `AiFeaturesTab`, `VibeVocabularyTab`, `AiScheduleTab`, `LocalAiSettingsTab` |
+| **Plugins** | `PluginSettingsTab` |
+| **Server** | `SystemTab`, `SecurityTab`, `UsersTab`, `UsersAccessSettingsTab`, `ApiKeysTab`, `ActivityTab`, `MaintenanceTab`, `SetupTab`, `ServerGeneralTab`, `ConnectivityTab`, `GeneralTab`, `UserOverviewTab` |
+| **Tools** | `ProviderTesterToolTab`, `EnrichmentTesterToolTab` |
 
-Navigation is URL-driven: `/settings/review` deep-links straight into the review queue.
+Supporting components used inside tabs: `ProviderCard`, `WikidataConnectionPanel`, `CuratorsDrawer`, `MetadataEditDialog`, `MediaItemEditor`, `CollectionEditCoverCompare`, `FolderBrowserDialog`, `SettingsPlaceholder`, `SettingsSectionPanel`, `SettingsStatusBadge`, `MediaRail`, `MediaRailCard`, `DictionaryRows`, `IngestionLiveDashboard`, `IngestionStageRail`, `IngestionMetricStrip`, `IngestionActivityList`, `IngestionOverallProgressBand`, `IngestionDiagnosticsPanels`, `SearchResultCard`.
+
+Navigation is URL-driven: `/settings/review` deep-links straight into the review queue, `/settings/ingestion` opens the ingestion admin view.
 
 ### 3.12 — Review Queue (inside Settings)
 
@@ -542,6 +571,8 @@ Non-UI logic the Dashboard needs, organised by concern.
 
 | Subfolder | Key files | Purpose |
 |---|---|---|
+| `Branding/` | `StreamingServiceLogoResolver.cs` | Resolves streaming-service logos for display chips |
+| `Configuration/` | `DashboardConfigurationReader.cs`, `DashboardPaletteReloadService.cs` | Dashboard-side config read + palette hot-reload |
 | `Discovery/` | `DiscoveryComposerService.cs` | Builds the home-page discovery feed |
 | `Editing/` | `MediaEditorLauncherService.cs`, `CollectionEditorLauncherService.cs`, `*Models.cs` | Editor open/close state and DTOs |
 | `Integration/` | `EngineApiClient.cs` + `IEngineApiClient.cs`, `UIOrchestratorService.cs`, `UniverseStateContainer.cs`, `UniverseMapper.cs`, `ProviderCatalogueService.cs`, `IntercomEvents.cs` | All HTTP + SignalR communication with the Engine |
@@ -558,17 +589,18 @@ Reusable visual components, organised by feature slice.
 |---|---|
 | `Bento/` | `BentoGrid`, `BentoItem` — legacy glass-tile wrappers |
 | `Browse/` | `MediaBrowseShell`, `MediaBrowseHero`, `BrowseQueryBuilder`, `BrowseState`, `BrowseArtworkRules` — shared shell and extracted query/state/artwork helpers used by Read / Watch / Listen |
-| `Collections/` | `CollectionsPage`, `CollectionEditorShell` |
+| `Collections/` | `CollectionsPage`, `CollectionHubCard`, `CollectionHubSection`, `CollectionInlineInspector`, `CollectionArtworkStack`, `CollectionSectionLabel`, `CollectionEditorShell` |
+| `Details/` | Detail-page composition extracted from Pages. `DetailPage`, `DetailHero` (+ `DetailHeroPresentation`), `DetailTabs`, `OverviewTab`, `DetailsTab`, `EditionsTab`, `EpisodesTab`, `FormatsTab`, `PeopleAndCharactersTab`, `ChildrenListTab`, `SyncTab`, `IdentityTab`, `UniverseTab`, `CharactersSection`, `ContributorsSection`, `CreditGroupSection`, `CastCharacterPairCard`, `CharacterCreditCard`, `MusicArtistCreditCard`, `MusicTrackList`, `OwnedFormatsPanel`, `OptionalSyncPanel`, `PeoplePreviewStrip`, `PersonAvatar`, `PersonCreditCard`, `RelatedEntityChip`, `SeriesPlacementPanel`, `HeroBackdrop`, `HeroActionRow`, `HeroGenreChips`, `HeroMetadataPills`, `HeroProgressBlock`, `ManageActionsMenu`, `OverflowActionMenu`, `GeneratedIdentity`, `DescriptionAttribution` |
 | `Discovery/` | `DiscoveryHero`, `DiscoveryShelf`, `DiscoveryCard`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |
 | `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, status pills, and group drill-down components. Do not add Vault workflow components here. |
 | `Listen/` | `ListenNowPlayingBar`, `ListenTrackDataGrid` |
 | `MediaEditor/` | `SharedMediaEditorShell`, `SharedMediaBatchConfirmDialog` |
 | `Navigation/` | `TopBar`, `AppLogo`, `AppTabs`, `AppSelectorNav`, `CommandPalette` (Ctrl+K), `ProfileDropdown`, `MobileFilterBar` |
-| `Pages/` | All routed pages — see 6.4 |
+| `Pages/` | All routed pages — see §6.4 |
 | `Playback/` | Reader controls: `ReaderTopBar`, `ReaderBottomBar`, `ReaderTocDrawer`, `ReaderBookmarksPanel`, `ReaderHighlightsPanel`, `ReaderSettingsPanel`, `ReaderStatsOverlay`, `ReaderSearchPanel`, `ReaderContextMenu` |
 | `LibraryItems/` | Internal building blocks used by Library + Universe: `LibraryItemInspector`, `LibraryItemCard`, `LibraryItemGrid`, `Inspector*Section` panels, `LibraryItemActionsBar`, `LibraryItemBulkBar`, `LibraryItemBatchList`, `LibraryItemFilterBar`, `LibraryItemHelpers`, `ProvisionalFormPanel`, `ActivityItemCard`, `ReportProblemDialog` |
-| `Settings/` | Settings shell tabs — see §3.11 for the section list. Includes `OverviewTab`, `ProfileTab`, `PlaybackTab`, `LibrariesTab`, `ProviderPriorityTab`, `WikidataConfigTab`, `ModelsTab`, `AiFeaturesTab`, `VibeVocabularyTab`, `AiScheduleTab`, `SystemTab`, `SecurityTab`, `ApiKeysTab`, `UsersTab`, `ActivityTab`, `MaintenanceTab`, `SetupTab`, `GeneralTab`, `ServerGeneralTab`, `StatusDashboardTab`, `ConnectivityTab`, `UniverseSettingsTab`, `ProviderCard`, `WikidataConnectionPanel`, `CuratorsDrawer`, `MetadataEditDialog`, `MediaItemEditor`, `CollectionEditCoverCompare`, `FolderBrowserDialog`, `SettingsPlaceholder` |
+| `Settings/` | Settings shell tabs — see §3.11 for the section list and component inventory. |
 | `Shared/` | `AppIcon`, `AppIconCatalog`, `AppPageHeader`, `AppSurfaceCard`, `FuzzySearchField` — cross-cutting primitives |
 | `Universe/` | Hero, swimlane, and card components: `CollectionHero`, `CompactHero`, `HeroCarousel`, `PosterSwimlane`, `SwimlaneSection`, `LandscapeCard`, `SquareCard`, `WideCard`, `WorkCard`, `LibraryCard`, `PersonCard`, `PersonSwimlaneHeader`, `TrackRow`, `MetadataChips`, `ProgressIndicator`, `AmbientBackground`, `GlobalBackground`, `GreetingBar`, `AdaptationTree` + node, `FamilyTreeView`, `AlphabeticalGrid`, `CastComparison`, `BookDetailContent`, `CollectionShell`, `CollectionToolbar`, `LaneFilterBar`, `ManualEntryForm`, `MediaSearchPanel`, `MissingUniverseChip`, `PathFinderPanel`, `PendingFilesAlert`, `UniverseGuide` |
 | `Watch/` | `TvBrowsePage`, `WatchPlaybackSpecs`, `WatchTvStyles` |
@@ -577,7 +609,7 @@ Reusable visual components, organised by feature slice.
 
 | Folder | Purpose |
 |---|---|
-| `Models/ViewDTOs/` | Data shapes used ONLY by the Dashboard (`ProviderAccentMap.cs` sits at `Models/` root) |
+| `Models/ViewDTOs/` | Data shapes used ONLY by the Dashboard. For DTOs that cross the Engine↔Dashboard boundary, prefer `src/MediaEngine.Contracts/` instead. |
 | `Resources/` | `SharedStrings.resx` (+ `.fr` / `.de` / `.es`) plus generated `SharedStrings.cs` |
 | `Shared/` | Blazor app-host layout wrappers: `MainLayout`, `NavMenu`, `PopupLayout`, `ReaderLayout`, `DateFormatHelper`, `_Imports` |
 | `wwwroot/` | Static assets: images, CSS, JS (`cytoscape-interop.js`, `epub-reader.js`, `cover-popup.js`, `app.js`) |
@@ -587,7 +619,6 @@ Reusable visual components, organised by feature slice.
 | Route | Page | Purpose |
 |---|---|---|
 | `/` | `LibraryBrowsePage.razor` | Home — discovery landing |
-| `/home-legacy` | `Home.razor` | Legacy home (retained for reference) |
 | `/read`, `/read/{Tab}` | `ReadPage.razor` | Books + audiobooks browse |
 | `/read/{AssetId:guid}` | `EpubReader.razor` | In-browser EPUB reader |
 | `/watch`, `/watch/{Tab}` | `WatchPage.razor` | Movies + TV browse |
@@ -595,28 +626,31 @@ Reusable visual components, organised by feature slice.
 | `/watch/tv/show/{CollectionId:guid}` | `WatchTvShowPage.razor` | TV show detail |
 | `/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}` | `WatchTvEpisodePage.razor` | TV episode detail |
 | `/watch/player/{AssetId:guid}` | `WatchPlayerPage.razor` | Video player |
-| `/listen`, `/listen/music`, `/listen/music/{Section}`, `/listen/music/albums/{CollectionId:guid}`, `/listen/music/artists/{ArtistKey}`, `/listen/music/playlists/{CollectionId:guid}`, `/listen/music/playlists/system/{PlaylistKey}`, `/listen/audiobooks`, `/listen/audiobook/{WorkId:guid}` | `ListenPage.razor` | Music + audiobooks browse |
+| `/listen`, `/listen/music`, `/listen/music/{Section}`, `/listen/music/albums/{CollectionId:guid}`, `/listen/music/artists/{ArtistKey}`, `/listen/music/playlists/{CollectionId:guid}`, `/listen/music/playlists/system/{PlaylistKey}`, `/listen/audiobooks`, `/listen/audiobook/{WorkId:guid}` | `ListenPage.razor` (+ `.razor.cs` code-behind) | Music + audiobooks browse |
 | `/listen/player-popup` | `ListenPlayerPopupPage.razor` | Detached listen window |
 | `/collections` | `Collections.razor` | Browse / create / manage collections |
 | `/collection/{Id:guid}` | `CollectionDetail.razor` | Collection detail |
 | `/book/{Id:guid}` | `BookDetail.razor` | Book detail |
-| `/person/{Id:guid}` | `PersonDetail.razor` | Person detail |
+| `/detail/{Type}/{Id}` (and similar) | `UnifiedDetailPage.razor` | Unified detail surface (work / edition / collection / person) — uses `Components/Details/` slice |
 | `/universe/{Qid}/explore` | `ChronicleExplorer.razor` | Universe graph explorer |
 | `/search` | `SearchPage.razor` | Global search |
-| `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`) |
+| `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`, ingestion at `/settings/ingestion`) |
 | `/preferences` | `Preferences.razor` | User preferences shortcut |
 | `/server-settings` | `ServerSettings.razor` | Server controls shortcut |
-| `/review` | `ReviewRedirect.razor` | 301 redirect → `/settings/review` |
 | `/provider-tester`, `/tester` | `ProviderTester.razor`, `EnrichmentTester.razor` | Dev-only testers |
 | `/not-found`, `/Error` | `NotFound.razor`, `Error.razor` | Error pages |
+
+> **Note.** Earlier drafts referenced `PersonDetail.razor`, `Home.razor`, and `ReviewRedirect.razor`. Those files no longer exist on disk; person detail is served by `UnifiedDetailPage` via `Components/Details/`, and the `/review` redirect has been replaced by direct `/settings/review` navigation.
 
 ### 6.5 — Rules for adding new code
 
 | New code type | Where it goes |
 |---|---|
 | Engine HTTP call | `Services/Integration/EngineApiClient.cs` + `IEngineApiClient` |
-| Dashboard data shape | `Models/ViewDTOs/` |
+| Engine↔Dashboard DTO (crosses the boundary) | `src/MediaEngine.Contracts/<Concern>/` |
+| Dashboard-only view model | `Models/ViewDTOs/` |
 | Reusable visual component | `Components/<FeatureSlice>/` |
+| Detail-page tab or hero piece | `Components/Details/` |
 | Full routable page | `Components/Pages/` |
 | Settings section | `Components/Settings/<Name>Tab.razor` + register in `SettingsNav` |
 | Review-queue surface component | `Components/Library/` |
@@ -626,8 +660,13 @@ Reusable visual components, organised by feature slice.
 | Route-building helper | `Services/Navigation/` |
 | Editor launcher or state | `Services/Editing/` |
 | Theme or device setting | `Services/Theming/` |
+| Streaming-service logo / brand asset resolver | `Services/Branding/` |
+| Dashboard-side configuration reader or palette plumbing | `Services/Configuration/` |
 | Cross-cutting primitive | `Components/Shared/` |
 | Blazor host layout wrapper | `Shared/` |
+| Application-layer read-model DTO | `src/MediaEngine.Application/ReadModels/` |
+| Application-layer query service contract | `src/MediaEngine.Application/Services/IReadServices.cs` |
+| New plugin | New project `src/MediaEngine.Plugin.<Name>/` implementing `ITuvimaPlugin` from `MediaEngine.Plugins` |
 
 ---
 
