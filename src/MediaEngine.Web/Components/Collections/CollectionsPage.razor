@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Collections
+@namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
 
@@ -7,311 +7,281 @@
 @inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject ISnackbar Snackbar
 
-<div class="collections-layout">
-    <div class="collections-header">
-        <h1 class="collections-title">Collections</h1>
-        <p class="collections-subtitle">Manage saved collections, playlists, and shared sets. Browse-specific groups are generated dynamically on the Home and library views.</p>
-    </div>
+<div class="collections-hub tl-page">
+    <header class="tl-page-header collections-hub__header">
+        <div>
+            <h1 class="tl-page-title">Collections</h1>
+            <p class="tl-page-subtitle">Curated by you. Shared globally when an admin publishes them.</p>
+        </div>
+        <div class="tl-action-bar">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Outlined.QueueMusic"
+                       OnClick="OpenPlaylistBuilder">
+                New Playlist
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenCollectionBuilder">
+                New Collection
+            </MudButton>
+        </div>
+    </header>
 
-    <div class="collections-tab-row">
+    <div class="tl-filter-bar collections-hub__filters">
+        <MudTextField T="string"
+                      Value="_searchText"
+                      ValueChanged="OnSearchChanged"
+                      Placeholder="Search collections..."
+                      Variant="Variant.Outlined"
+                      Immediate="true"
+                      DebounceInterval="250"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                      Class="tl-field collections-hub__search" />
+
         <MudTabs ActivePanelIndex="@ActiveTabIndex"
                  ActivePanelIndexChanged="OnTabChanged"
                  Rounded="false"
                  Border="false"
                  Elevation="0"
-                 Class="collections-tab-bar">
+                 Class="collections-hub__tabs">
             @foreach (var tab in _tabs)
             {
-                <MudTabPanel Text="@FormatTabLabel(tab)" Icon="@tab.Icon" />
+                <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" />
             }
         </MudTabs>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Warning"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="OpenBuilder"
-                   Class="collections-add-btn">
-            New Collection
-        </MudButton>
-    </div>
 
-    <div class="collections-toolbar">
-        <MudTextField @bind-Value="_searchText"
-                      Placeholder="Search saved collections..."
-                      Variant="Variant.Outlined"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      Immediate="true"
-                      DebounceInterval="300"
-                      OnDebounceIntervalElapsed="OnSearchChanged"
-                      Class="collections-search"
-                      Style="max-width: 320px;" />
-
-        <MudSelect T="string" Value="_sortBy"
-                   Variant="Variant.Outlined"
-                   Dense="true"
-                   Style="max-width: 180px;"
-                   ValueChanged="OnSortChanged">
+        <MudSelect T="string" Value="_sortBy" ValueChanged="OnSortChanged" Variant="Variant.Outlined" Dense="true" Class="tl-field collections-hub__sort">
+            <MudSelectItem T="string" Value="@("recent")">Recently Updated</MudSelectItem>
             <MudSelectItem T="string" Value="@("name")">Name</MudSelectItem>
             <MudSelectItem T="string" Value="@("items")">Item Count</MudSelectItem>
-            <MudSelectItem T="string" Value="@("newest")">Newest</MudSelectItem>
             <MudSelectItem T="string" Value="@("type")">Type</MudSelectItem>
         </MudSelect>
+
+        <MudIconButton Icon="@(_viewMode == "grid" ? Icons.Material.Outlined.ViewList : Icons.Material.Outlined.GridView)"
+                       OnClick="ToggleViewMode"
+                       aria-label="Toggle collection view mode" />
     </div>
 
-    <MudPaper Elevation="0" Class="collections-table-wrap">
-        @if (_loading)
-        {
-            <div class="collections-loading">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-            </div>
-        }
-        else if (_filteredCollections.Count == 0)
-        {
-            <div class="collections-empty">
-                <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 48px; opacity: 0.3;" />
-                <p>No saved collections found for this profile.</p>
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="OpenBuilder">
-                    Create Collection
-                </MudButton>
-            </div>
-        }
-        else
-        {
-            <MudTable Items="@_filteredCollections"
-                      Dense="true"
-                      Hover="true"
-                      Breakpoint="Breakpoint.Md"
-                      Class="collections-table">
-                <HeaderContent>
-                    <MudTh Style="width: 44px;"></MudTh>
-                    <MudTh>Name</MudTh>
-                    <MudTh>Type</MudTh>
-                    <MudTh Style="text-align: center;">Access</MudTh>
-                    <MudTh Style="text-align: center;">Items</MudTh>
-                    <MudTh Style="text-align: center;">Status</MudTh>
-                    <MudTh Style="width: 80px;"></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Icon" Style="text-align: center;">
-                        <MudIcon Icon="@GetTypeIcon(context.CollectionType)"
-                                 Size="Size.Small"
-                                 Style="@($"color: {GetTypeColor(context.CollectionType)}; opacity: 0.85;")" />
-                    </MudTd>
-                    <MudTd DataLabel="Name">
-                        @if (context.CanEdit)
+    @if (_loading)
+    {
+        <div class="collections-hub__state tl-panel">
+            <MudProgressCircular Indeterminate="true" />
+            <span>Loading collections...</span>
+        </div>
+    }
+    else
+    {
+        <div class="collections-hub__layout">
+            <main class="collections-hub__main">
+                @if (FeaturedCollections.Count > 0)
+                {
+                    <section class="collections-hub__featured">
+                        @foreach (var collection in FeaturedCollections)
                         {
-                            <MudButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
-                                       Class="collections-name-action"
-                                       OnClick="@(() => OnCollectionClicked(context))">
-                                <div class="collections-name-cell">
-                                    @if (!string.IsNullOrWhiteSpace(context.CoverUrl))
-                                    {
-                                        <img src="@context.CoverUrl" class="collections-thumb" alt="" />
-                                    }
-                                    else
-                                    {
-                                        <div class="collections-thumb-placeholder">
-                                            <MudIcon Icon="@GetTypeIcon(context.CollectionType)" Size="Size.Small" />
-                                        </div>
-                                    }
-                                    <div class="collections-name-text">
-                                        <span class="collections-name">@context.Name</span>
-                                        @if (!string.IsNullOrWhiteSpace(context.Description))
-                                        {
-                                            <span class="collections-desc">@context.Description</span>
-                                        }
-                                    </div>
-                                </div>
-                            </MudButton>
+                            <CollectionHubCard Collection="collection"
+                                               Selected="@(SelectedCollection?.Id == collection.Id)"
+                                               OnSelect="SelectCollection" />
                         }
-                        else
-                        {
-                            <div class="collections-name-cell">
-                                @if (!string.IsNullOrWhiteSpace(context.CoverUrl))
-                                {
-                                    <img src="@context.CoverUrl" class="collections-thumb" alt="" />
-                                }
-                                else
-                                {
-                                    <div class="collections-thumb-placeholder">
-                                        <MudIcon Icon="@GetTypeIcon(context.CollectionType)" Size="Size.Small" />
-                                    </div>
-                                }
-                                <div class="collections-name-text">
-                                    <span class="collections-name">@context.Name</span>
-                                    @if (!string.IsNullOrWhiteSpace(context.Description))
-                                    {
-                                        <span class="collections-desc">@context.Description</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </MudTd>
-                    <MudTd DataLabel="Type">
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Variant="Variant.Outlined"
-                                 Class="collections-chip"
-                                 Style="@($"background: {GetTypeColor(context.CollectionType)}22; color: {GetTypeColor(context.CollectionType)}; border-color: {GetTypeColor(context.CollectionType)}55;")">
-                            @GetTypeLabel(context.CollectionType)
-                        </MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Access" Style="text-align: center;">
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Variant="Variant.Outlined"
-                                 Class="collections-chip"
-                                 Style="@($"background: {GetVisibilityColor(context)}22; color: {GetVisibilityColor(context)}; border-color: {GetVisibilityColor(context)}55;")">
-                            @GetVisibilityLabel(context)
-                        </MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Items" Style="text-align: center;">
-                        <span class="collections-muted">@context.ItemCount</span>
-                    </MudTd>
-                    <MudTd DataLabel="Status" Style="text-align: center;">
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Class="@GetStatusClass(context.Status)">
-                            @context.Status
-                        </MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Actions" Style="text-align: center;">
-                        <MudIconButton Icon="@(context.CanEdit ? Icons.Material.Outlined.Edit : Icons.Material.Outlined.Visibility)"
-                                       Size="Size.Small"
-                                       Disabled="@(!context.CanEdit)"
-                                       OnClick="@(() => OnEditCollection(context))"
-                                       aria-label="Edit collection" />
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        }
-    </MudPaper>
+                    </section>
+                }
 
+                <CollectionHubSection Title="@ActiveSectionTitle"
+                                      Description="@ActiveSectionDescription"
+                                      Collections="ActiveCollections"
+                                      SelectedId="SelectedCollection?.Id"
+                                      ViewMode="_viewMode"
+                                      OnSelect="SelectCollection" />
+
+                <div class="collections-hub__lane-grid">
+                    <CollectionHubSection Title="Watch"
+                                          Description="Watchlists and visual-media collections managed from Collections."
+                                          Collections="WatchCollections"
+                                          SelectedId="SelectedCollection?.Id"
+                                          ViewMode="_viewMode"
+                                          OnSelect="SelectCollection" />
+                    <CollectionHubSection Title="Listen"
+                                          Description="Listening queues, music playlists, and audio-forward collections."
+                                          Collections="ListenCollections"
+                                          SelectedId="SelectedCollection?.Id"
+                                          ViewMode="_viewMode"
+                                          OnSelect="SelectCollection" />
+                    <CollectionHubSection Title="Read"
+                                          Description="Reading lists and book or comic collections."
+                                          Collections="ReadCollections"
+                                          SelectedId="SelectedCollection?.Id"
+                                          ViewMode="_viewMode"
+                                          OnSelect="SelectCollection" />
+                    <CollectionHubSection Title="Cross-Media"
+                                          Description="Collections that intentionally span multiple media types."
+                                          Collections="CrossMediaCollections"
+                                          SelectedId="SelectedCollection?.Id"
+                                          ViewMode="_viewMode"
+                                          OnSelect="SelectCollection" />
+                </div>
+            </main>
+
+            <CollectionInlineInspector Collection="SelectedCollection"
+                                       ActiveProfileId="_activeProfile?.Id"
+                                       OnChanged="ReloadAfterEdit"
+                                       OnClose="ClearSelection" />
+        </div>
+    }
 </div>
 
 @code {
-    private IReadOnlyList<CollectionManagementTab> _tabs = [];
-    private string _activeTab = "all";
-    private string _searchText = string.Empty;
-    private string _sortBy = "name";
-    private bool _loading;
-    private ProfileViewModel? _activeProfile;
-    private List<CollectionListItemViewModel> _allCollections = [];
-    private List<CollectionListItemViewModel> _filteredCollections = [];
-    private bool CanManageSharedCollections =>
-        _activeProfile?.Role is "Administrator" or "Curator";
+    private sealed record HubTab(string Id, string Label, string Icon);
 
-    private int ActiveTabIndex => GetSelectedIndex(_tabs.Select(tab => tab.Id), _activeTab);
+    private readonly HubTab[] _tabs =
+    [
+        new("mine", "My Collections", Icons.Material.Outlined.Person),
+        new("global", "Global", Icons.Material.Outlined.Public),
+        new("system", "System", Icons.Material.Outlined.BookmarkAdded),
+        new("discover", "Discover", Icons.Material.Outlined.Explore),
+    ];
+
+    private readonly List<CollectionManagementCatalogViewModel> _collections = [];
+    private ProfileViewModel? _activeProfile;
+    private CollectionManagementCatalogViewModel? SelectedCollection { get; set; }
+    private string _activeTab = "mine";
+    private string _searchText = string.Empty;
+    private string _sortBy = "recent";
+    private string _viewMode = "grid";
+    private bool _loading;
+
+    private bool CanManageSharedCollections => _activeProfile?.Role is "Administrator" or "Curator";
+
+    private int ActiveTabIndex => Array.FindIndex(_tabs, tab => tab.Id == _activeTab) is var index && index >= 0 ? index : 0;
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> FilteredCollections =>
+        Sort(FilterBySearch(_collections));
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> ActiveCollections => _activeTab switch
+    {
+        "global" => FilteredCollections.Where(collection => collection.Family == "Global").ToList(),
+        "system" => FilteredCollections.Where(collection => collection.Family == "System").ToList(),
+        "discover" => FilteredCollections.Where(collection => collection.Family is "Global" or "Discover" || collection.IsFeatured).ToList(),
+        _ => FilteredCollections.Where(collection => collection.Family == "User").ToList(),
+    };
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> FeaturedCollections =>
+        FilteredCollections
+            .Where(collection => collection.IsFeatured || collection.IsGlobal)
+            .Take(3)
+            .ToList();
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> WatchCollections =>
+        FilteredCollections.Where(collection => collection.PrimaryLane == "Watch").Take(8).ToList();
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> ListenCollections =>
+        FilteredCollections.Where(collection => collection.PrimaryLane == "Listen").Take(8).ToList();
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> ReadCollections =>
+        FilteredCollections.Where(collection => collection.PrimaryLane == "Read").Take(8).ToList();
+
+    private IReadOnlyList<CollectionManagementCatalogViewModel> CrossMediaCollections =>
+        FilteredCollections.Where(collection => collection.PrimaryLane == "CrossMedia").Take(8).ToList();
+
+    private string ActiveSectionTitle => _activeTab switch
+    {
+        "global" => "Global Collections",
+        "system" => "System Collections",
+        "discover" => "Discover",
+        _ => "My Collections",
+    };
+
+    private string ActiveSectionDescription => _activeTab switch
+    {
+        "global" => "Admin-published collections available to every profile.",
+        "system" => "Built-in lists such as Watchlist, Favorites, Reading List, and Listening Queue.",
+        "discover" => "Featured and global collections surfaced for browsing.",
+        _ => "Private collections and playlists curated by the active profile.",
+    };
 
     protected override async Task OnInitializedAsync()
     {
         _activeProfile = await Orchestrator.GetActiveProfileAsync();
-        await LoadCollections();
+        await LoadCollectionsAsync();
     }
 
-    private async Task LoadCollections()
+    private async Task LoadCollectionsAsync()
     {
         _loading = true;
-        StateHasChanged();
-
         try
         {
-            var managedCollections = await ApiClient.GetManagedCollectionsAsync(_activeProfile?.Id);
-            _allCollections = managedCollections
-                .Select(collection => new CollectionListItemViewModel
-                {
-                    Id = collection.Id,
-                    Name = collection.Name,
-                    Description = collection.Description,
-                    IconName = collection.IconName,
-                    CollectionType = collection.CollectionType,
-                    Resolution = collection.Resolution,
-                    Scope = collection.Scope,
-                    ProfileId = collection.ProfileId,
-                    Visibility = collection.Visibility,
-                    IsEnabled = collection.IsEnabled,
-                    IsFeatured = collection.IsFeatured,
-                    ItemCount = collection.ItemCount,
-                    RuleJson = collection.RuleJson,
-                    MatchMode = collection.MatchMode,
-                    SortField = collection.SortField,
-                    SortDirection = collection.SortDirection,
-                    LiveUpdating = collection.LiveUpdating,
-                    CreatedAt = collection.CreatedAt,
-                    CanEdit = collection.CanEdit,
-                    CanShare = collection.CanShare,
-                })
-                .ToList();
-
-            UpdateTabs();
-            ApplyFilters();
+            var selectedId = SelectedCollection?.Id;
+            _collections.Clear();
+            _collections.AddRange(await ApiClient.GetCollectionManagementCatalogAsync(_activeProfile?.Id));
+            SelectedCollection = selectedId.HasValue
+                ? _collections.FirstOrDefault(collection => collection.Id == selectedId.Value)
+                : _collections.FirstOrDefault();
         }
         finally
         {
             _loading = false;
-            StateHasChanged();
         }
     }
 
-    private void UpdateTabs()
+    private IEnumerable<CollectionManagementCatalogViewModel> FilterBySearch(IEnumerable<CollectionManagementCatalogViewModel> collections)
     {
-        _tabs = CollectionManagementTabs.Build(_allCollections, _activeProfile?.Id);
+        if (string.IsNullOrWhiteSpace(_searchText))
+            return collections;
+
+        return collections.Where(collection =>
+            collection.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || (collection.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+            || collection.TypeLabel.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || collection.FamilyLabel.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void SwitchTab(string tabId)
+    private IReadOnlyList<CollectionManagementCatalogViewModel> Sort(IEnumerable<CollectionManagementCatalogViewModel> collections) =>
+        (_sortBy switch
+        {
+            "name" => collections.OrderBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase),
+            "items" => collections.OrderByDescending(collection => collection.ItemCount),
+            "type" => collections.OrderBy(collection => collection.CollectionType).ThenBy(collection => collection.Name),
+            _ => collections.OrderByDescending(collection => collection.ModifiedAt ?? collection.CreatedAt),
+        }).ToList();
+
+    private Task OnSearchChanged(string value)
     {
-        _activeTab = tabId;
-        ApplyFilters();
+        _searchText = value;
+        return Task.CompletedTask;
     }
 
     private Task OnTabChanged(int index)
     {
-        if (index < 0 || index >= _tabs.Count)
-        {
-            return Task.CompletedTask;
-        }
+        if (index >= 0 && index < _tabs.Length)
+            _activeTab = _tabs[index].Id;
 
-        SwitchTab(_tabs[index].Id);
         return Task.CompletedTask;
     }
 
-    private void ApplyFilters()
-    {
-        var query = CollectionManagementTabs.Filter(_allCollections, _activeTab, _activeProfile?.Id);
-
-        if (!string.IsNullOrWhiteSpace(_searchText))
-        {
-            query = query.Where(collection =>
-                collection.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-                || (collection.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
-        }
-
-        _filteredCollections = (_sortBy switch
-        {
-            "items" => query.OrderByDescending(collection => collection.ItemCount),
-            "newest" => query.OrderByDescending(collection => collection.CreatedAt),
-            "type" => query.OrderBy(collection => collection.CollectionType).ThenBy(collection => collection.Name),
-            _ => query.OrderBy(collection => collection.Name),
-        }).ToList();
-
-        StateHasChanged();
-    }
-
-    private Task OnSearchChanged(string text)
-    {
-        _searchText = text;
-        ApplyFilters();
-        return Task.CompletedTask;
-    }
-
-    private void OnSortChanged(string value)
+    private Task OnSortChanged(string value)
     {
         _sortBy = value;
-        ApplyFilters();
+        return Task.CompletedTask;
     }
 
-    private async Task OpenBuilder()
+    private void ToggleViewMode() => _viewMode = _viewMode == "grid" ? "list" : "grid";
+
+    private Task SelectCollection(CollectionManagementCatalogViewModel collection)
+    {
+        SelectedCollection = collection;
+        return Task.CompletedTask;
+    }
+
+    private async Task ReloadAfterEdit() => await LoadCollectionsAsync();
+
+    private void ClearSelection() => SelectedCollection = null;
+
+    private Task OpenCollectionBuilder() => OpenBuilder("Custom", true);
+
+    private Task OpenPlaylistBuilder() => OpenBuilder("Playlist", false);
+
+    private async Task OpenBuilder(string type, bool rulesEnabled)
     {
         if (_activeProfile is null)
         {
@@ -323,303 +293,12 @@
         {
             ActiveProfileId = _activeProfile.Id,
             CanManageSharedCollections = CanManageSharedCollections,
+            InitialCollectionType = type,
+            InitialRulesEnabled = rulesEnabled,
+            Mode = type == "Playlist" ? "Playlist" : "Collection",
         });
 
         if (changed)
-            await LoadCollections();
-    }
-
-    private async Task OnEditCollection(CollectionListItemViewModel collection)
-    {
-        if (!collection.CanEdit)
-        {
-            Snackbar.Add("This collection is read-only for the active profile.", Severity.Info);
-            return;
-        }
-
-        var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
-        {
-            EditingCollection = collection,
-            ActiveProfileId = _activeProfile?.Id,
-            CanManageSharedCollections = CanManageSharedCollections,
-        });
-
-        if (changed)
-            await LoadCollections();
-    }
-
-    private async Task OnCollectionClicked(CollectionListItemViewModel collection)
-    {
-        if (collection.CanEdit)
-            await OnEditCollection(collection);
-    }
-
-    private static string GetTypeIcon(string collectionType) => collectionType switch
-    {
-        "Smart" => Icons.Material.Outlined.AutoAwesome,
-        "System" => Icons.Material.Outlined.Bookmark,
-        "Mix" => Icons.Material.Outlined.Tune,
-        "Playlist" => Icons.Material.Outlined.QueueMusic,
-        "Custom" => Icons.Material.Outlined.FilterAlt,
-        _ => Icons.Material.Outlined.Collections,
-    };
-
-    private static string GetTypeColor(string collectionType) => collectionType switch
-    {
-        "Smart" => "#81C784",
-        "System" => "#4DB6AC",
-        "Mix" => "#CE93D8",
-        "Playlist" => "#FFB74D",
-        "Custom" => "var(--tl-status-warning)",
-        _ => "#90A4AE",
-    };
-
-    private static string GetTypeLabel(string collectionType) => collectionType switch
-    {
-        "Smart" => "Smart",
-        "System" => "System",
-        "Mix" => "Mix",
-        "Playlist" => "Playlist",
-        "Custom" => "Custom",
-        _ => collectionType,
-    };
-
-    private static string GetVisibilityLabel(CollectionListItemViewModel collection) =>
-        collection.IsShared ? "Shared" : "Private";
-
-    private static string GetVisibilityColor(CollectionListItemViewModel collection) =>
-        collection.IsShared ? "var(--tl-status-info)" : "#A78BFA";
-
-    private static string GetStatusClass(string status) =>
-        $"collections-status-pill collections-status-{status.ToLowerInvariant()}";
-
-    private static string FormatTabLabel(CollectionManagementTab tab) =>
-        tab.Count > 0 ? $"{tab.Label} ({tab.Count})" : tab.Label;
-
-    private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)
-    {
-        var index = 0;
-        foreach (var key in keys)
-        {
-            if (string.Equals(key, activeKey, StringComparison.OrdinalIgnoreCase))
-            {
-                return index;
-            }
-
-            index++;
-        }
-
-        return 0;
+            await LoadCollectionsAsync();
     }
 }
-
-<style>
-    .collections-layout {
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-
-    .collections-header {
-        margin-bottom: 24px;
-    }
-
-    .collections-title {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: rgba(248, 248, 248, 0.95);
-        margin: 0;
-    }
-
-    .collections-subtitle {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.9rem;
-        color: rgba(248, 248, 248, 0.5);
-        margin: 6px 0 0;
-        max-width: 780px;
-    }
-
-    .collections-tab-row,
-    .collections-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 16px;
-    }
-
-    .collections-tab-row {
-        border-bottom: 1px solid var(--tl-border-subtle);
-        padding-bottom: 12px;
-    }
-
-    .collections-tab-bar {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .collections-tab-bar .mud-tabs-toolbar {
-        padding: 0.3rem;
-    }
-
-    .collections-tab-bar .mud-tabs-panels {
-        display: none;
-    }
-
-    .collections-tab-bar .mud-tab {
-        border-radius: var(--app-radius-md);
-        min-height: 2.75rem;
-        background: rgba(255, 255, 255, 0.02);
-        color: rgba(248, 248, 248, 0.7);
-    }
-
-    .collections-tab-bar .mud-tab.mud-tab-active {
-        background: var(--tl-accent-primary-soft);
-        color: rgba(248, 248, 248, 0.95);
-    }
-
-    .collections-add-btn {
-        border-radius: var(--app-radius-md);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.85rem;
-        text-transform: none;
-    }
-
-    .collections-table-wrap {
-        border: 1px solid var(--tl-border-subtle);
-        border-radius: var(--app-radius-md);
-        background: rgba(7, 11, 19, 0.88);
-    }
-
-    .collections-loading,
-    .collections-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        padding: 48px 24px;
-        color: rgba(248, 248, 248, 0.6);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    }
-
-    .collections-table {
-        background: transparent;
-    }
-
-    .collections-table .mud-table-head th {
-        background: rgba(255, 255, 255, 0.03);
-        color: rgba(248, 248, 248, 0.55);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        padding: 14px 12px;
-    }
-
-    .collections-table .mud-table-row {
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .collections-table .mud-table-row:hover {
-        background: rgba(255, 255, 255, 0.02);
-    }
-
-    .collections-table .mud-table-cell {
-        padding: 14px 12px;
-        color: rgba(248, 248, 248, 0.86);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.9rem;
-    }
-
-    .collections-name-action {
-        padding: 0;
-        min-width: 0;
-        justify-content: flex-start;
-        text-transform: none;
-        color: inherit;
-    }
-
-    .collections-name-cell {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .collections-thumb,
-    .collections-thumb-placeholder {
-        width: 42px;
-        height: 58px;
-        border-radius: var(--app-radius-md);
-        object-fit: cover;
-        flex-shrink: 0;
-    }
-
-    .collections-thumb-placeholder {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--tl-divider);
-        color: rgba(248, 248, 248, 0.45);
-    }
-
-    .collections-name-text {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        min-width: 0;
-    }
-
-    .collections-name {
-        font-weight: 700;
-        color: rgba(248, 248, 248, 0.96);
-    }
-
-    .collections-desc {
-        color: rgba(248, 248, 248, 0.5);
-        font-size: 0.82rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .collections-chip,
-    .collections-status-pill {
-        border-radius: var(--app-radius-md);
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-    }
-
-    .collections-status-active {
-        background: var(--tl-status-success-soft) !important;
-        color: var(--tl-status-success) !important;
-    }
-
-    .collections-status-disabled {
-        background: var(--tl-border-subtle) !important;
-        color: rgba(248, 248, 248, 0.55) !important;
-    }
-
-    .collections-status-empty {
-        background: rgba(239, 159, 39, 0.14) !important;
-        color: var(--tl-status-warning) !important;
-    }
-
-    .collections-muted {
-        color: rgba(248, 248, 248, 0.66);
-    }
-
-    @@media (max-width: 960px) {
-        .collections-tab-row,
-        .collections-toolbar {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .collections-name-action {
-            width: 100%;
-        }
-    }
-</style>

@@ -458,6 +458,69 @@ internal class EngineApiClientStub : DispatchProxy
                 },
             });
 
+        _handlers[nameof(IEngineApiClient.GetCollectionManagementCatalogAsync)] =
+            _ => Task.FromResult(new List<CollectionManagementCatalogViewModel>
+            {
+                new()
+                {
+                    Id = Guid.Parse("10000000-0000-0000-0000-000000000001"),
+                    Name = "Summer Movies",
+                    Description = "Fast access to the current movie shortlist.",
+                    CollectionType = "Playlist",
+                    Family = "Global",
+                    Visibility = "shared",
+                    IsGlobal = true,
+                    IsEnabled = true,
+                    IsFeatured = true,
+                    ItemCount = 12,
+                    WatchCount = 12,
+                    PrimaryLane = "Watch",
+                    CreatedAt = DateTimeOffset.UtcNow.AddDays(-8),
+                    CanEdit = true,
+                    CanShare = true,
+                    CanToggleGlobal = true,
+                    CanRename = true,
+                    CanDelete = true,
+                },
+                new()
+                {
+                    Id = Guid.Parse("10000000-0000-0000-0000-000000000002"),
+                    Name = "Quiet Reads",
+                    Description = "A slower reading lane for long-form titles.",
+                    CollectionType = "Smart",
+                    Family = "User",
+                    Visibility = "private",
+                    IsEnabled = false,
+                    ItemCount = 0,
+                    ReadCount = 8,
+                    PrimaryLane = "Read",
+                    CreatedAt = DateTimeOffset.UtcNow.AddDays(-30),
+                    CanEdit = false,
+                    CanShare = false,
+                },
+                new()
+                {
+                    Id = Guid.Parse("10000000-0000-0000-0000-000000000003"),
+                    Name = "Favorites",
+                    Description = "Profile favorites across the library.",
+                    CollectionType = "System",
+                    Family = "System",
+                    SystemKey = "favorites",
+                    IsSystem = true,
+                    Visibility = "private",
+                    IsEnabled = true,
+                    ItemCount = 4,
+                    WatchCount = 1,
+                    ListenCount = 1,
+                    ReadCount = 2,
+                    PrimaryLane = "CrossMedia",
+                    IsCrossMedia = true,
+                    CreatedAt = DateTimeOffset.UtcNow.AddDays(-20),
+                    CanEdit = true,
+                    CanShare = false,
+                },
+            });
+
         _handlers[nameof(IEngineApiClient.GetDisplayHomeAsync)] =
             _ => Task.FromResult<DisplayPageDto?>(CreateDisplayPage("home", "Home"));
 

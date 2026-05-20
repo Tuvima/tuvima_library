@@ -5315,6 +5315,29 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<CollectionManagementCatalogViewModel>> GetCollectionManagementCatalogAsync(Guid? profileId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = AppendCollectionProfileQuery("/collections/management-catalog", profileId);
+            var collections = await _http.GetFromJsonAsync<List<CollectionManagementCatalogViewModel>>(url, ct) ?? [];
+            foreach (var collection in collections)
+            {
+                if (collection.SquareArtworkUrl is not null)
+                    collection.SquareArtworkUrl = AbsoluteUrl(collection.SquareArtworkUrl);
+            }
+
+            return collections;
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /collections/management-catalog failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     public async Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(Guid? profileId = null, CancellationToken ct = default)
     {
         try

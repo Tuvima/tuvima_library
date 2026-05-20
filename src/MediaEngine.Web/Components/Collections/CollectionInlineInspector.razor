@@ -1,0 +1,367 @@
+@namespace MediaEngine.Web.Components.Collections
+@using Microsoft.AspNetCore.Components.Forms
+@using MediaEngine.Web.Models.ViewDTOs
+
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<aside class="collection-inspector tl-card">
+    @if (Collection is null)
+    {
+        <div class="collection-inspector__empty">
+            <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" />
+            <span>Select a collection to inspect or edit it inline.</span>
+        </div>
+    }
+    else
+    {
+        <div class="collection-inspector__cover">
+            @if (!string.IsNullOrWhiteSpace(Collection.SquareArtworkUrl))
+            {
+                <img src="@Collection.SquareArtworkUrl" alt="" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" />
+            }
+            @if (Collection.CanEdit && !Collection.IsSystem)
+            {
+                <label class="collection-inspector__cover-action">
+                    <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Size="Size.Small" />
+                    <span>Cover</span>
+                    <InputFile OnChange="UploadCoverAsync" accept=".jpg,.jpeg,.png" />
+                </label>
+            }
+        </div>
+
+        <div class="collection-inspector__content">
+            <div class="collection-inspector__heading">
+                <div>
+                    <span class="tl-chip-muted">@Collection.FamilyLabel</span>
+                    <h2>@Collection.Name</h2>
+                    <p>@(string.IsNullOrWhiteSpace(Collection.Description) ? "No description yet." : Collection.Description)</p>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" OnClick="Close" aria-label="Close collection inspector" />
+            </div>
+
+            <CollectionHubStats Collection="Collection" />
+
+            @if (Collection.CanEdit)
+            {
+                <div class="tl-form-section">
+                    <MudTextField T="string"
+                                  Value="_name"
+                                  ValueChanged="value => _name = value"
+                                  Label="Name"
+                                  Disabled="@(!Collection.CanRename)"
+                                  Variant="Variant.Outlined"
+                                  Class="tl-field" />
+                    <MudTextField T="string"
+                                  Value="_description"
+                                  ValueChanged="value => _description = value"
+                                  Label="Description"
+                                  Lines="3"
+                                  Variant="Variant.Outlined"
+                                  Class="tl-field" />
+                </div>
+
+                <div class="collection-inspector__toggles tl-panel">
+                    @if (Collection.CanToggleGlobal)
+                    {
+                        <MudSwitch T="bool" Value="Collection.IsGlobal" ValueChanged="ToggleGlobalAsync" Color="Color.Primary" Label="Global" />
+                    }
+                    <MudSwitch T="bool" Value="Collection.IsEnabled" ValueChanged="ToggleEnabledAsync" Color="Color.Primary" Label="Enabled" />
+                    <MudSwitch T="bool" Value="Collection.IsFeatured" ValueChanged="ToggleFeaturedAsync" Color="Color.Primary" Label="Featured on Home" />
+                </div>
+
+                <div class="tl-action-bar">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveBasicsAsync" Disabled="@_saving">
+                        Save Changes
+                    </MudButton>
+                    @if (Collection.CanDelete)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="DeleteAsync" Disabled="@_saving">
+                            Delete
+                        </MudButton>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="collection-inspector__readonly tl-panel">
+                    <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" />
+                    <span>This collection is read-only for the active profile.</span>
+                </div>
+            }
+
+            <div class="collection-inspector__items">
+                <div class="collection-inspector__section-title">
+                    <span>Items</span>
+                    <span>@_items.Count loaded</span>
+                </div>
+
+                @if (_loadingItems)
+                {
+                    <div class="collection-inspector__state">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                        <span>Loading items...</span>
+                    </div>
+                }
+                else
+                {
+                    @if (Collection.IsManual && Collection.CanEdit && !Collection.IsSystem)
+                    {
+                        <MudTextField T="string"
+                                      Value="_itemSearch"
+                                      ValueChanged="SearchItemsAsync"
+                                      Placeholder="Search to add items"
+                                      Variant="Variant.Outlined"
+                                      Immediate="true"
+                                      DebounceInterval="300"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                                      Class="tl-field" />
+
+                        @if (_lookupItems.Count > 0)
+                        {
+                            <div class="collection-inspector__lookup">
+                                @foreach (var item in _lookupItems.Take(4))
+                                {
+                                    <button type="button" @onclick="() => AddItemAsync(item)">
+                                        <span>@item.Title</span>
+                                        <MudIcon Icon="@Icons.Material.Outlined.AddCircle" Size="Size.Small" />
+                                    </button>
+                                }
+                            </div>
+                        }
+                    }
+
+                    <div class="collection-inspector__item-list">
+                        @foreach (var item in _items.Take(8))
+                        {
+                            <div class="collection-inspector__item-row">
+                                @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                {
+                                    <img src="@item.CoverUrl" alt="" />
+                                }
+                                else
+                                {
+                                    <span class="collection-inspector__item-fallback"></span>
+                                }
+                                <div>
+                                    <strong>@item.Title</strong>
+                                    <span>@FormatItemMeta(item)</span>
+                                </div>
+                                @if (Collection.IsManual && Collection.CanEdit && !Collection.IsSystem)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Outlined.RemoveCircle"
+                                                   Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   OnClick="() => RemoveItemAsync(item)"
+                                                   aria-label="Remove item" />
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</aside>
+
+@code {
+    [Parameter] public CollectionManagementCatalogViewModel? Collection { get; set; }
+    [Parameter] public Guid? ActiveProfileId { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private readonly List<CollectionItemViewModel> _items = [];
+    private readonly List<CollectionMediaLookupItemViewModel> _lookupItems = [];
+    private Guid? _loadedCollectionId;
+    private string _name = string.Empty;
+    private string? _description;
+    private string _itemSearch = string.Empty;
+    private bool _loadingItems;
+    private bool _saving;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Collection is null)
+        {
+            _loadedCollectionId = null;
+            _items.Clear();
+            return;
+        }
+
+        _name = Collection.Name;
+        _description = Collection.Description;
+
+        if (_loadedCollectionId != Collection.Id)
+        {
+            _loadedCollectionId = Collection.Id;
+            await LoadItemsAsync();
+        }
+    }
+
+    private async Task LoadItemsAsync()
+    {
+        if (Collection is null)
+            return;
+
+        _loadingItems = true;
+        _lookupItems.Clear();
+        try
+        {
+            _items.Clear();
+            _items.AddRange(await ApiClient.GetCollectionItemsAsync(Collection.Id, 100, ActiveProfileId));
+        }
+        finally
+        {
+            _loadingItems = false;
+        }
+    }
+
+    private async Task SaveBasicsAsync()
+    {
+        if (Collection is null)
+            return;
+
+        _saving = true;
+        try
+        {
+            var ok = await ApiClient.UpdateCollectionAsync(
+                Collection.Id,
+                _name,
+                _description,
+                Collection.IconName,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                ActiveProfileId);
+
+            Snackbar.Add(ok ? "Collection updated." : "Collection could not be updated.", ok ? Severity.Success : Severity.Error);
+            if (ok)
+                await OnChanged.InvokeAsync();
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ToggleGlobalAsync(bool value)
+    {
+        if (Collection is null)
+            return;
+
+        var ok = await ApiClient.UpdateCollectionAsync(
+            Collection.Id,
+            null,
+            null,
+            null,
+            null,
+            null,
+            value ? "shared" : "private",
+            null,
+            null,
+            null,
+            null,
+            null,
+            ActiveProfileId);
+
+        Snackbar.Add(ok ? (value ? "Collection is now global." : "Collection is now private.") : "Visibility could not be updated.", ok ? Severity.Success : Severity.Error);
+        if (ok)
+            await OnChanged.InvokeAsync();
+    }
+
+    private async Task ToggleEnabledAsync(bool value)
+    {
+        if (Collection is null)
+            return;
+
+        var ok = await ApiClient.UpdateCollectionAsync(Collection.Id, null, null, null, null, null, null, null, null, null, value, null, ActiveProfileId);
+        if (ok)
+            await OnChanged.InvokeAsync();
+    }
+
+    private async Task ToggleFeaturedAsync(bool value)
+    {
+        if (Collection is null)
+            return;
+
+        var ok = await ApiClient.UpdateCollectionAsync(Collection.Id, null, null, null, null, null, null, null, null, null, null, value, ActiveProfileId);
+        if (ok)
+            await OnChanged.InvokeAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (Collection is null)
+            return;
+
+        var ok = await ApiClient.DeleteCollectionAsync(Collection.Id, ActiveProfileId);
+        Snackbar.Add(ok ? "Collection deleted." : "Collection could not be deleted.", ok ? Severity.Success : Severity.Error);
+        if (ok)
+            await OnChanged.InvokeAsync();
+    }
+
+    private async Task UploadCoverAsync(InputFileChangeEventArgs args)
+    {
+        if (Collection is null)
+            return;
+
+        await using var stream = args.File.OpenReadStream(5 * 1024 * 1024);
+        var ok = await ApiClient.UploadCollectionSquareArtworkAsync(Collection.Id, stream, args.File.Name, ActiveProfileId);
+        Snackbar.Add(ok ? "Cover updated." : "Cover could not be updated.", ok ? Severity.Success : Severity.Error);
+        if (ok)
+            await OnChanged.InvokeAsync();
+    }
+
+    private async Task SearchItemsAsync(string value)
+    {
+        _itemSearch = value;
+        _lookupItems.Clear();
+        if (Collection is null || string.IsNullOrWhiteSpace(value))
+            return;
+
+        _lookupItems.AddRange(await ApiClient.LookupCollectionMediaAsync(value, Collection.Id, null, 0, 8, ActiveProfileId));
+    }
+
+    private async Task AddItemAsync(CollectionMediaLookupItemViewModel item)
+    {
+        if (Collection is null)
+            return;
+
+        var ok = await ApiClient.AddCollectionItemAsync(Collection.Id, item.WorkId, ActiveProfileId);
+        if (ok)
+        {
+            _itemSearch = string.Empty;
+            _lookupItems.Clear();
+            await LoadItemsAsync();
+            await OnChanged.InvokeAsync();
+        }
+    }
+
+    private async Task RemoveItemAsync(CollectionItemViewModel item)
+    {
+        if (Collection is null)
+            return;
+
+        var ok = await ApiClient.RemoveCollectionItemAsync(Collection.Id, item.Id, ActiveProfileId);
+        if (ok)
+        {
+            await LoadItemsAsync();
+            await OnChanged.InvokeAsync();
+        }
+    }
+
+    private Task Close() => OnClose.InvokeAsync();
+
+    private static string FormatItemMeta(CollectionItemViewModel item) =>
+        string.Join(" · ", new[] { item.Creator, item.MediaType }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

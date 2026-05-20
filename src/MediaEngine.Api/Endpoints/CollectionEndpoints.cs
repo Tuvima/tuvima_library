@@ -2035,6 +2035,46 @@ public static class CollectionEndpoints
         .Produces<List<ManagedCollectionDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
+        // GET /collections/management-catalog — classified collection catalog for the Collections hub.
+        group.MapGet("/management-catalog", async (
+            Guid? profileId,
+            ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collections = await collectionRepo.GetAllAsync(ct);
+            var accessibleCollections = collections
+                .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
+                .ToList();
+
+            var materializedCounts = await collectionRepo.GetCollectionItemCountsAsync(
+                accessibleCollections
+                    .Where(collection => !string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase))
+                    .Select(collection => collection.Id),
+                ct);
+
+            var dtos = new List<CollectionManagementCatalogDto>();
+            foreach (var collection in accessibleCollections)
+            {
+                var classification = ClassifyCollectionForCatalog(collection);
+                var itemCount = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, materializedCounts, ct);
+                var mediaCounts = await GetCollectionMediaCountsAsync(collection, collectionRepo, db, ct);
+                dtos.Add(CollectionManagementCatalogDto.FromDomain(collection, itemCount, activeProfile, classification, mediaCounts));
+            }
+
+            return Results.Ok(dtos
+                .OrderBy(dto => dto.Family == "System" ? 0 : dto.Family == "Global" ? 1 : dto.Family == "User" ? 2 : 3)
+                .ThenByDescending(dto => dto.IsFeatured)
+                .ThenBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList());
+        })
+        .WithName("GetCollectionManagementCatalog")
+        .WithSummary("Returns all collections visible to the active profile with server-side family and lane classification for the Collections hub.")
+        .Produces<List<CollectionManagementCatalogDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
         // GET /collections/managed/counts — type → count for stats bar.
         group.MapGet("/managed/counts", async (
             Guid? profileId,
@@ -3028,6 +3068,122 @@ public static class CollectionEndpoints
 
         return await collectionRepo.GetCollectionItemCountAsync(collection.Id, ct);
     }
+
+    private static CollectionCatalogClassification ClassifyCollectionForCatalog(Collection collection)
+    {
+        var systemKey = GetSystemCollectionKey(collection);
+        if (systemKey is not null)
+        {
+            return new CollectionCatalogClassification("System", "System", systemKey, true);
+        }
+
+        var family = string.Equals(collection.Scope, "library", StringComparison.OrdinalIgnoreCase)
+            ? "Global"
+            : "User";
+        return new CollectionCatalogClassification(family, collection.CollectionType, null, false);
+    }
+
+    private static string? GetSystemCollectionKey(Collection collection)
+    {
+        var normalizedName = (collection.DisplayName ?? string.Empty).Trim();
+        if (normalizedName.Length == 0)
+            return null;
+
+        if (string.Equals(collection.CollectionType, "System", StringComparison.OrdinalIgnoreCase))
+            return normalizedName.ToLowerInvariant().Replace(' ', '-');
+
+        return normalizedName switch
+        {
+            "Watchlist" => "watchlist",
+            "Favorites" => "favorites",
+            "Reading List" => "reading-list",
+            "Listening Queue" => "listening-queue",
+            "Currently Watching" => "currently-watching",
+            _ => null,
+        };
+    }
+
+    private static async Task<CollectionMediaCounts> GetCollectionMediaCountsAsync(
+        Collection collection,
+        ICollectionRepository collectionRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        var workIds = await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct);
+        if (workIds.Count == 0)
+            return new CollectionMediaCounts(0, 0, 0, 0);
+
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<(string MediaType, int Count)>(
+            """
+            SELECT media_type AS MediaType, COUNT(*) AS Count
+            FROM works
+            WHERE id IN @WorkIds
+            GROUP BY media_type
+            """,
+            new { WorkIds = workIds.Select(id => id.ToString()).ToArray() });
+
+        var watch = 0;
+        var listen = 0;
+        var read = 0;
+        var other = 0;
+        foreach (var row in rows)
+        {
+            if (IsWatchMediaType(row.MediaType))
+                watch += row.Count;
+            else if (IsListenMediaType(row.MediaType))
+                listen += row.Count;
+            else if (IsReadMediaType(row.MediaType))
+                read += row.Count;
+            else
+                other += row.Count;
+        }
+
+        return new CollectionMediaCounts(watch, listen, read, other);
+    }
+
+    private static async Task<IReadOnlyList<Guid>> GetCollectionWorkIdsAsync(
+        Collection collection,
+        ICollectionRepository collectionRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        if (string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(collection.RuleJson))
+        {
+            var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
+            if (predicates.Count == 0)
+                return [];
+
+            var evaluator = new CollectionRuleEvaluator(db);
+            return evaluator.Evaluate(predicates, collection.MatchMode, collection.SortField, collection.SortDirection, 0);
+        }
+
+        var items = await collectionRepo.GetCollectionItemsAsync(collection.Id, 5000, ct);
+        if (items.Count > 0)
+            return items.Select(item => item.WorkId).Distinct().ToList();
+
+        var collectionWithWorks = await collectionRepo.GetCollectionWithWorksAsync(collection.Id, ct);
+        return collectionWithWorks?.Works.Select(work => work.Id).Distinct().ToList() ?? [];
+    }
+
+    private static bool IsWatchMediaType(string? mediaType) =>
+        string.Equals(mediaType, "Movies", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "Movie", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "TV", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "Video", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsListenMediaType(string? mediaType) =>
+        string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "Audio", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "Audiobook", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsReadMediaType(string? mediaType) =>
+        string.Equals(mediaType, "Books", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "Book", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "Comics", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mediaType, "Comic", StringComparison.OrdinalIgnoreCase);
 
     private static string? NormalizeCollectionArtworkMimeType(string? contentType, string extension)
     {

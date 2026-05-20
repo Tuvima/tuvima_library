@@ -913,6 +913,9 @@ public interface IEngineApiClient
     /// <summary>GET /collections/managed — all non-Universe collections for the managed collections surface.</summary>
     Task<List<ManagedCollectionViewModel>> GetManagedCollectionsAsync(Guid? profileId = null, CancellationToken ct = default);
 
+    /// <summary>GET /collections/management-catalog — classified collection data for the Collections hub.</summary>
+    Task<List<CollectionManagementCatalogViewModel>> GetCollectionManagementCatalogAsync(Guid? profileId = null, CancellationToken ct = default);
+
     /// <summary>GET /collections/managed/counts — collection count grouped by type for stats bar.</summary>
     Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(Guid? profileId = null, CancellationToken ct = default);
 

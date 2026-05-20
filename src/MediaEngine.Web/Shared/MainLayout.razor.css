@@ -37,7 +37,7 @@
 
 ::deep .layout-shell__appbar .mud-toolbar {
     display: grid !important;
-    grid-template-columns: minmax(24rem, 1fr) minmax(18rem, 30rem) minmax(18rem, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 30rem) minmax(0, 1fr);
     align-items: center;
     column-gap: 1.25rem;
     width: 100%;
@@ -48,6 +48,10 @@
 }
 
 .layout-shell__left-rail {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    z-index: 2;
     width: 100%;
     height: var(--app-topbar-height, 65px);
     min-width: 0;
@@ -140,7 +144,12 @@
 }
 
 .layout-shell__search-shell {
-    width: 100%;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    position: relative;
+    z-index: 1;
+    width: min(30rem, 100%);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -148,12 +157,14 @@
     max-width: 100%;
     padding-inline: 0;
     overflow: hidden;
+    pointer-events: none;
 }
 
 ::deep .layout-shell__search {
     width: 100%;
-    max-width: 26rem;
+    max-width: 30rem;
     margin: 0;
+    pointer-events: auto;
 }
 
 ::deep .layout-shell__search .mud-input-control {
@@ -171,6 +182,11 @@
 }
 
 .layout-shell__actions {
+    grid-column: 3;
+    grid-row: 1;
+    position: relative;
+    z-index: 2;
+    justify-self: stretch;
     width: 100%;
     min-width: 0;
     justify-content: flex-end;
@@ -374,8 +390,12 @@
 
 @media (max-width: 1100px) {
     ::deep .layout-shell__appbar .mud-toolbar {
-        grid-template-columns: minmax(20rem, 1fr) minmax(14rem, 22rem) minmax(13rem, auto);
+        grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem) minmax(0, 1fr);
         column-gap: 0.9rem;
+    }
+
+    .layout-shell__search-shell {
+        width: min(22rem, 100%);
     }
 
     ::deep .layout-shell__search {
@@ -395,7 +415,7 @@
 
 @media (max-width: 860px) {
     ::deep .layout-shell__appbar .mud-toolbar {
-        grid-template-columns: minmax(17rem, 1fr) minmax(10rem, 16rem) auto;
+        grid-template-columns: minmax(0, 1fr) minmax(10rem, 16rem) minmax(0, 1fr);
     }
 
     .layout-shell__brand-lockup-shell {
@@ -403,6 +423,10 @@
         height: 2.02rem;
         min-width: 8.2rem;
         min-height: 2.02rem;
+    }
+
+    .layout-shell__search-shell {
+        width: min(16rem, 100%);
     }
 
     ::deep .layout-shell__search {
@@ -442,6 +466,9 @@
     }
 
     .layout-shell__search-shell {
+        grid-column: 2;
+        justify-self: stretch;
+        width: 100%;
         padding-inline: 0;
     }
 

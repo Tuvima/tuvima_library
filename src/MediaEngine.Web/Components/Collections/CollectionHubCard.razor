@@ -1,0 +1,58 @@
+@namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Web.Models.ViewDTOs
+
+<button type="button" class="@RootClass" @onclick="Select">
+    <div class="collection-hub-card__art">
+        @if (!string.IsNullOrWhiteSpace(Collection.SquareArtworkUrl))
+        {
+            <img src="@Collection.SquareArtworkUrl" alt="" />
+        }
+        else
+        {
+            <MudIcon Icon="@Icon" Class="collection-hub-card__fallback-icon" />
+        }
+        <div class="collection-hub-card__badges">
+            <span class="tl-chip-muted">@Collection.FamilyLabel</span>
+            @if (Collection.IsFeatured)
+            {
+                <span class="tl-chip-muted">Featured</span>
+            }
+        </div>
+    </div>
+
+    <div class="collection-hub-card__body">
+        <div class="collection-hub-card__title-row">
+            <h3>@Collection.Name</h3>
+            <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Collection.Description))
+        {
+            <p>@Collection.Description</p>
+        }
+        <CollectionHubStats Collection="Collection" />
+    </div>
+</button>
+
+@code {
+    [Parameter, EditorRequired] public CollectionManagementCatalogViewModel Collection { get; set; } = default!;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public EventCallback<CollectionManagementCatalogViewModel> OnSelect { get; set; }
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "collection-hub-card",
+        "tl-card",
+        Selected ? "collection-hub-card--selected" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string Icon => Collection.CollectionType switch
+    {
+        "System" => Icons.Material.Outlined.BookmarkAdded,
+        "Playlist" => Icons.Material.Outlined.QueueMusic,
+        "Smart" => Icons.Material.Outlined.AutoAwesome,
+        "Mix" => Icons.Material.Outlined.GraphicEq,
+        _ => Icons.Material.Outlined.CollectionsBookmark,
+    };
+
+    private Task Select() => OnSelect.InvokeAsync(Collection);
+}

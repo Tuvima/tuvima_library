@@ -270,3 +270,144 @@ public sealed class ManagedCollectionViewModel
     };
 }
 
+/// <summary>
+/// Rich catalog item for the Collections hub. Classification is supplied by the
+/// Engine so the UI stays aligned with system/global/user rules.
+/// </summary>
+public sealed class CollectionManagementCatalogViewModel
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("icon_name")]
+    public string? IconName { get; set; }
+
+    [JsonPropertyName("square_artwork_url")]
+    public string? SquareArtworkUrl { get; set; }
+
+    [JsonPropertyName("collection_type")]
+    public string CollectionType { get; set; } = "Custom";
+
+    [JsonPropertyName("scope")]
+    public string Scope { get; set; } = "user";
+
+    [JsonPropertyName("profile_id")]
+    public Guid? ProfileId { get; set; }
+
+    [JsonPropertyName("visibility")]
+    public string Visibility { get; set; } = "private";
+
+    [JsonPropertyName("is_enabled")]
+    public bool IsEnabled { get; set; } = true;
+
+    [JsonPropertyName("is_featured")]
+    public bool IsFeatured { get; set; }
+
+    [JsonPropertyName("rule_json")]
+    public string? RuleJson { get; set; }
+
+    [JsonPropertyName("resolution")]
+    public string Resolution { get; set; } = "query";
+
+    [JsonPropertyName("match_mode")]
+    public string MatchMode { get; set; } = "all";
+
+    [JsonPropertyName("sort_field")]
+    public string? SortField { get; set; }
+
+    [JsonPropertyName("sort_direction")]
+    public string SortDirection { get; set; } = "desc";
+
+    [JsonPropertyName("live_updating")]
+    public bool LiveUpdating { get; set; } = true;
+
+    [JsonPropertyName("item_count")]
+    public int ItemCount { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "Active";
+
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+
+    [JsonPropertyName("modified_at")]
+    public DateTimeOffset? ModifiedAt { get; set; }
+
+    [JsonPropertyName("can_edit")]
+    public bool CanEdit { get; set; }
+
+    [JsonPropertyName("can_share")]
+    public bool CanShare { get; set; }
+
+    [JsonPropertyName("family")]
+    public string Family { get; set; } = "User";
+
+    [JsonPropertyName("system_key")]
+    public string? SystemKey { get; set; }
+
+    [JsonPropertyName("primary_lane")]
+    public string PrimaryLane { get; set; } = "CrossMedia";
+
+    [JsonPropertyName("is_global")]
+    public bool IsGlobal { get; set; }
+
+    [JsonPropertyName("is_system")]
+    public bool IsSystem { get; set; }
+
+    [JsonPropertyName("is_cross_media")]
+    public bool IsCrossMedia { get; set; } = true;
+
+    [JsonPropertyName("watch_count")]
+    public int WatchCount { get; set; }
+
+    [JsonPropertyName("listen_count")]
+    public int ListenCount { get; set; }
+
+    [JsonPropertyName("read_count")]
+    public int ReadCount { get; set; }
+
+    [JsonPropertyName("other_count")]
+    public int OtherCount { get; set; }
+
+    [JsonPropertyName("can_delete")]
+    public bool CanDelete { get; set; }
+
+    [JsonPropertyName("can_rename")]
+    public bool CanRename { get; set; }
+
+    [JsonPropertyName("can_toggle_global")]
+    public bool CanToggleGlobal { get; set; }
+
+    public string ArtworkUrl => SquareArtworkUrl ?? string.Empty;
+
+    public string TypeLabel => CollectionType switch
+    {
+        "System" => "System",
+        "Playlist" => "Playlist",
+        "Smart" => "Smart",
+        "Mix" => "Mix",
+        "Universe" => "Content Group",
+        "ContentGroup" => "Content Group",
+        _ => "Collection",
+    };
+
+    public string FamilyLabel => Family switch
+    {
+        "Global" => "Global",
+        "System" => "System",
+        "Discover" => "Discover",
+        _ => "My Collection",
+    };
+
+    public bool IsManual =>
+        string.Equals(Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
+
+    public string StatusLabel => !IsEnabled ? "Disabled" : ItemCount == 0 ? "Empty" : "Active";
+}
+

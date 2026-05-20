@@ -65,7 +65,7 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Single(cut.FindAll(".mud-appbar"));
-            Assert.Equal(3, cut.FindAll(".layout-shell__nav-link").Count);
+            Assert.Equal(4, cut.FindAll(".layout-shell__nav-link").Count);
             Assert.Empty(cut.FindAll(".layout-shell__mobile-menu"));
             Assert.Contains("Body content", cut.Markup);
             Assert.DoesNotContain("Home", cut.Markup);
@@ -365,7 +365,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void CollectionsPage_RendersMudTabsAndTableRows()
+    public void CollectionsPage_RendersHubSectionsAndInlineInspector()
     {
         var cut = Render(builder =>
         {
@@ -382,9 +382,13 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.NotEmpty(cut.FindAll(".mud-tabs"));
-            Assert.Single(cut.FindAll(".mud-table"));
+            Assert.Empty(cut.FindAll(".mud-table"));
+            Assert.NotEmpty(cut.FindAll(".collection-hub-section"));
+            Assert.Single(cut.FindAll(".collection-inspector"));
             Assert.Contains("Summer Movies", cut.Markup);
             Assert.Contains("Quiet Reads", cut.Markup);
+            Assert.Contains("Favorites", cut.Markup);
+            Assert.Contains("Cross-Media", cut.Markup);
         });
     }
 

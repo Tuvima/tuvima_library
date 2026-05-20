@@ -52,6 +52,22 @@ public sealed class CollectionEndpointRouteTests
         Assert.DoesNotContain("collectionRepo.GetAllAsync", searchSource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ManagementCatalog_ClassifiesCollectionsServerSide()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\ManagedCollectionDto.cs"));
+
+        Assert.Contains("/management-catalog", source, StringComparison.Ordinal);
+        Assert.Contains("ClassifyCollectionForCatalog", source, StringComparison.Ordinal);
+        Assert.Contains("GetSystemCollectionKey", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionMediaCountsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Watchlist", source, StringComparison.Ordinal);
+        Assert.Contains("Favorites", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionManagementCatalogDto", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("CanToggleGlobal", dtoSource, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

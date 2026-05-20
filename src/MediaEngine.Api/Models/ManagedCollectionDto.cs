@@ -7,7 +7,7 @@ namespace MediaEngine.Api.Models;
 /// DTO for non-Universe collections displayed in the managed collections surface.
 /// Includes management fields (enabled, featured, rules) not present in <see cref="CollectionDto"/>.
 /// </summary>
-public sealed class ManagedCollectionDto
+public class ManagedCollectionDto
 {
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
@@ -123,4 +123,143 @@ public sealed class ManagedCollectionDto
         CanEdit         = CollectionAccessPolicy.CanEdit(collection, activeProfile),
         CanShare        = CollectionAccessPolicy.CanManageSharedCollections(activeProfile),
     };
+}
+
+/// <summary>
+/// DTO for the rich Collections hub. This intentionally keeps classification
+/// decisions server-side so the UI does not guess system/global/user semantics.
+/// </summary>
+public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
+{
+    [JsonPropertyName("family")]
+    public string Family { get; init; } = "User";
+
+    [JsonPropertyName("system_key")]
+    public string? SystemKey { get; init; }
+
+    [JsonPropertyName("primary_lane")]
+    public string PrimaryLane { get; init; } = "CrossMedia";
+
+    [JsonPropertyName("is_global")]
+    public bool IsGlobal { get; init; }
+
+    [JsonPropertyName("is_system")]
+    public bool IsSystem { get; init; }
+
+    [JsonPropertyName("is_cross_media")]
+    public bool IsCrossMedia { get; init; }
+
+    [JsonPropertyName("watch_count")]
+    public int WatchCount { get; init; }
+
+    [JsonPropertyName("listen_count")]
+    public int ListenCount { get; init; }
+
+    [JsonPropertyName("read_count")]
+    public int ReadCount { get; init; }
+
+    [JsonPropertyName("other_count")]
+    public int OtherCount { get; init; }
+
+    [JsonPropertyName("can_delete")]
+    public bool CanDelete { get; init; }
+
+    [JsonPropertyName("can_rename")]
+    public bool CanRename { get; init; }
+
+    [JsonPropertyName("can_toggle_global")]
+    public bool CanToggleGlobal { get; init; }
+
+    public static CollectionManagementCatalogDto FromDomain(
+        Collection collection,
+        int itemCount,
+        Profile? activeProfile,
+        CollectionCatalogClassification classification,
+        CollectionMediaCounts mediaCounts)
+    {
+        var baseDto = FromDomain(collection, itemCount, activeProfile);
+        var isGlobal = string.Equals(baseDto.Visibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase);
+        var canEdit = CollectionAccessPolicy.CanEdit(collection, activeProfile);
+        var canManageGlobal = CollectionAccessPolicy.CanManageSharedCollections(activeProfile);
+
+        return new CollectionManagementCatalogDto
+        {
+            Id = baseDto.Id,
+            Name = baseDto.Name,
+            Description = baseDto.Description,
+            IconName = baseDto.IconName,
+            SquareArtworkUrl = baseDto.SquareArtworkUrl,
+            CollectionType = classification.CollectionType,
+            Scope = baseDto.Scope,
+            ProfileId = baseDto.ProfileId,
+            Visibility = baseDto.Visibility,
+            IsEnabled = baseDto.IsEnabled,
+            IsFeatured = baseDto.IsFeatured,
+            MinItems = baseDto.MinItems,
+            RuleJson = baseDto.RuleJson,
+            Resolution = baseDto.Resolution,
+            RuleHash = baseDto.RuleHash,
+            MatchMode = baseDto.MatchMode,
+            SortField = baseDto.SortField,
+            SortDirection = baseDto.SortDirection,
+            LiveUpdating = baseDto.LiveUpdating,
+            RefreshSchedule = baseDto.RefreshSchedule,
+            ItemCount = baseDto.ItemCount,
+            Status = baseDto.Status,
+            CreatedAt = baseDto.CreatedAt,
+            ModifiedAt = baseDto.ModifiedAt,
+            CanEdit = canEdit,
+            CanShare = canManageGlobal,
+            Family = classification.Family,
+            SystemKey = classification.SystemKey,
+            PrimaryLane = mediaCounts.PrimaryLane,
+            IsGlobal = isGlobal,
+            IsSystem = classification.IsSystem,
+            IsCrossMedia = mediaCounts.IsCrossMedia,
+            WatchCount = mediaCounts.WatchCount,
+            ListenCount = mediaCounts.ListenCount,
+            ReadCount = mediaCounts.ReadCount,
+            OtherCount = mediaCounts.OtherCount,
+            CanDelete = canEdit && !classification.IsSystem && CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType),
+            CanRename = canEdit && !classification.IsSystem,
+            CanToggleGlobal = canManageGlobal && !classification.IsSystem && CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType),
+        };
+    }
+}
+
+public sealed record CollectionCatalogClassification(
+    string Family,
+    string CollectionType,
+    string? SystemKey,
+    bool IsSystem);
+
+public sealed record CollectionMediaCounts(
+    int WatchCount,
+    int ListenCount,
+    int ReadCount,
+    int OtherCount)
+{
+    public bool IsCrossMedia =>
+        new[] { WatchCount, ListenCount, ReadCount, OtherCount }
+            .Count(count => count > 0) != 1;
+
+    public string PrimaryLane
+    {
+        get
+        {
+            if (IsCrossMedia)
+                return "CrossMedia";
+
+            if (WatchCount > 0)
+                return "Watch";
+
+            if (ListenCount > 0)
+                return "Listen";
+
+            if (ReadCount > 0)
+                return "Read";
+
+            return "CrossMedia";
+        }
+    }
 }

@@ -2968,9 +2968,14 @@ textarea.tl-textarea,
 }
 
 .layout-shell__appbar .mud-toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 30rem) minmax(0, 1fr) !important;
+    column-gap: 1.25rem !important;
+    width: 100% !important;
     height: var(--app-topbar-height) !important;
     min-height: var(--app-topbar-height) !important;
     align-items: center !important;
+    padding: 0 1.25rem !important;
     overflow: visible !important;
 }
 
@@ -2981,8 +2986,38 @@ textarea.tl-textarea,
     align-items: center !important;
 }
 
+.layout-shell__left-rail {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+.layout-shell__search-shell {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    justify-self: center !important;
+    position: relative !important;
+    z-index: 1 !important;
+    width: min(30rem, 100%) !important;
+    pointer-events: none !important;
+}
+
+.layout-shell__actions {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    position: relative !important;
+    z-index: 2 !important;
+    justify-self: stretch !important;
+    justify-content: flex-end !important;
+    width: 100% !important;
+}
+
 .layout-shell__search {
+    width: 100% !important;
+    max-width: 30rem !important;
     margin: 0 !important;
+    pointer-events: auto !important;
 }
 
 .layout-shell__search .mud-input-control {
@@ -3045,6 +3080,53 @@ body:has(.tl-detail-page) .layout-shell__appbar.mud-appbar {
 .layout-shell__appbar--detail .mud-toolbar,
 body:has(.tl-detail-page) .layout-shell__appbar .mud-toolbar {
     background: transparent !important;
+}
+
+@media (max-width: 1100px) {
+    .layout-shell__appbar .mud-toolbar {
+        grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem) minmax(0, 1fr) !important;
+        column-gap: 0.9rem !important;
+    }
+
+    .layout-shell__search-shell {
+        width: min(22rem, 100%) !important;
+    }
+
+    .layout-shell__search {
+        max-width: 22rem !important;
+    }
+}
+
+@media (max-width: 860px) {
+    .layout-shell__appbar .mud-toolbar {
+        grid-template-columns: minmax(0, 1fr) minmax(10rem, 16rem) minmax(0, 1fr) !important;
+    }
+
+    .layout-shell__search-shell {
+        width: min(16rem, 100%) !important;
+    }
+
+    .layout-shell__search {
+        max-width: 16rem !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .layout-shell__appbar .mud-toolbar {
+        grid-template-columns: auto minmax(0, 1fr) auto !important;
+        column-gap: 0.5rem !important;
+        padding: 0 0.7rem !important;
+    }
+
+    .layout-shell__search-shell {
+        grid-column: 2 !important;
+        justify-self: stretch !important;
+        width: 100% !important;
+    }
+
+    .layout-shell__search {
+        max-width: none !important;
+    }
 }
 
 .layout-shell__appbar--detail .layout-shell__nav-link,
