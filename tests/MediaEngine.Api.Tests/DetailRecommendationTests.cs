@@ -129,7 +129,7 @@ public sealed class DetailRecommendationTests : IDisposable
 
     private async Task<IReadOnlyList<MediaGroupingViewModel>> InvokeBuildWorkMediaGroupsAsync(Guid workId, DetailEntityType entityType)
     {
-        var composer = new DetailComposerService(_db, null!, null!, null!, null!, null!);
+        var composer = new DetailComposerService(_db, null!, null!, null!, null!, null!, null!);
         var method = typeof(DetailComposerService).GetMethod("BuildWorkMediaGroupsAsync", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new MissingMethodException(nameof(DetailComposerService), "BuildWorkMediaGroupsAsync");
 

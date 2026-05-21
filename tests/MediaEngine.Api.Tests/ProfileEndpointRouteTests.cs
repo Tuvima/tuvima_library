@@ -9,13 +9,18 @@ public sealed class ProfileEndpointRouteTests
 
         Assert.Contains("group.MapGet(\"/{id:guid}/overview\"", source, StringComparison.Ordinal);
         Assert.Contains("GetProfileOverview", source, StringComparison.Ordinal);
-        Assert.Contains("GetRecentByProfileAsync(id, 20, ct)", source, StringComparison.Ordinal);
-        Assert.Contains("ReadProfileOverviewItems(db, id", source, StringComparison.Ordinal);
-        Assert.Contains("FROM user_states us", source, StringComparison.Ordinal);
-        Assert.Contains("RecentlyAddedItems = recentlyAdded", source, StringComparison.Ordinal);
-        Assert.Contains("ConsumedSeconds = items.Sum(EstimateConsumedSeconds)", source, StringComparison.Ordinal);
+        Assert.Contains("IProfileOverviewReadService overviewReadService", source, StringComparison.Ordinal);
+        Assert.Contains("overviewReadService.GetOverviewAsync(id, ct)", source, StringComparison.Ordinal);
         Assert.Contains("Results.NotFound($\"Profile '{id}' not found.\")", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("IDatabaseConnection", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FROM user_states us", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetSystemStatus", source, StringComparison.Ordinal);
+
+        var serviceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\ProfileOverviewReadService.cs"));
+        Assert.Contains("GetRecentByProfileAsync(profileId, 20, ct)", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("FROM user_states us", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("RecentlyAddedItems = recentlyAdded", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ConsumedSeconds = items.Sum(EstimateConsumedSeconds)", serviceSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -48,7 +53,10 @@ public sealed class ProfileEndpointRouteTests
         {
             var candidate = Path.Combine(dir.FullName, relativePath);
             if (File.Exists(candidate))
+            {
                 return candidate;
+            }
+
             dir = dir.Parent;
         }
 

@@ -295,7 +295,7 @@ public sealed class DetailComposerServiceTests
     public void DetailComposer_PopulatesCastCharactersAndRelationshipsForCollectionSurfaces()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
-        var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs"));
+        var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/ReadServices/PersonCreditReadService.cs"));
 
         Assert.Contains("BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct)", source);
         Assert.Contains("BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct)", source);
@@ -308,8 +308,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => cast.Take(5).ToList()", source);
         Assert.Contains("Title = \"Actors\"", source);
         Assert.Contains(") AS RootWorkQid", creditSource);
-        Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, db, ct)", creditSource);
-        Assert.Contains("BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, canonicalArrayRepo, personRepo, ct)", creditSource);
+        Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, _db, ct)", creditSource);
+        Assert.Contains("BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, _canonicalArrayRepo, _personRepo, ct)", creditSource);
         Assert.Contains("CastRankMap.BuildAsync", creditSource);
         Assert.Contains("ORDER BY cpl.rowid", creditSource);
     }
@@ -375,7 +375,7 @@ public sealed class DetailComposerServiceTests
     public void DetailComposer_UsesRootShowTitlesAndClaimFallbacksForPeople()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
-        var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs"));
+        var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/ReadServices/PersonCreditReadService.cs"));
         var scoringSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/ScoringHelper.cs"));
         var retailWorker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/RetailMatchWorker.cs"));
         var bridgeWorker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/WikidataBridgeWorker.cs"));
@@ -422,7 +422,9 @@ public sealed class DetailComposerServiceTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
     }

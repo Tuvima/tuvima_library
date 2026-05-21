@@ -10,7 +10,8 @@ public sealed class PersonAndWorkEndpointRouteTests
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonEndpoints.cs"));
 
         Assert.Contains("group.MapGet(\"/{id:guid}/library-credits\"", source, StringComparison.Ordinal);
-        Assert.Contains("PersonCreditQueries.GetLibraryCreditsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("IPersonCreditReadService personCreditReadService", source, StringComparison.Ordinal);
+        Assert.Contains("personCreditReadService.GetLibraryCreditsAsync(id, ct)", source, StringComparison.Ordinal);
         Assert.Contains("group_members", source, StringComparison.Ordinal);
         Assert.Contains("member_of_groups", source, StringComparison.Ordinal);
         Assert.Contains("date_of_birth", source, StringComparison.Ordinal);
@@ -26,12 +27,13 @@ public sealed class PersonAndWorkEndpointRouteTests
     public void CharacterRoleQuery_UsesStoredWorkQidInsteadOfInferringFirstWork()
     {
         var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CharacterEndpoints.cs"));
-        var querySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonCreditQueries.cs"));
+        var querySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\PersonCreditReadService.cs"));
 
         Assert.Contains("group.MapGet(\"/persons/{personId:guid}/character-roles\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/portraits/{portraitId:guid}\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("PersonCreditQueries.GetCharacterRolesAsync", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("IPersonCreditReadService personCreditReadService", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("personCreditReadService.GetCharacterRolesAsync(personId, ct)", endpointSource, StringComparison.Ordinal);
         Assert.Contains("INNER JOIN works w", querySource, StringComparison.Ordinal);
         Assert.Contains("ON cpl.work_qid = COALESCE(", querySource, StringComparison.Ordinal);
         Assert.Contains("NULLIF(TRIM(w.wikidata_qid), '')", querySource, StringComparison.Ordinal);
@@ -48,8 +50,8 @@ public sealed class PersonAndWorkEndpointRouteTests
         var programSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DependencyInjection\ApiEndpointRouteBuilderExtensions.cs"));
 
         Assert.Contains("group.MapGet(\"/{workId:guid}/cast\"", workEndpointSource, StringComparison.Ordinal);
-        Assert.Contains("CastCreditQueries.BuildForWorkAsync", workEndpointSource, StringComparison.Ordinal);
-        Assert.Contains("CastCreditQueries.BuildForCollectionRootAsync", collectionEndpointSource, StringComparison.Ordinal);
+        Assert.Contains("personCreditReadService.BuildForWorkAsync(workId, ct)", workEndpointSource, StringComparison.Ordinal);
+        Assert.Contains("personCreditReadService.BuildForCollectionRootAsync", collectionEndpointSource, StringComparison.Ordinal);
         Assert.Contains("public List<CastCreditDto> TopCast { get; init; } = [];", dtoSource, StringComparison.Ordinal);
         Assert.Contains("app.MapWorkEndpoints();", programSource, StringComparison.Ordinal);
     }
@@ -57,7 +59,7 @@ public sealed class PersonAndWorkEndpointRouteTests
     [Fact]
     public void CastCreditQuery_QualifiesWorkIdentityColumns()
     {
-        var querySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonCreditQueries.cs"));
+        var querySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\PersonCreditReadService.cs"));
 
         Assert.Contains("SELECT w.id AS WorkId", querySource, StringComparison.Ordinal);
         Assert.Contains(")                                      AS WorkQid", querySource, StringComparison.Ordinal);

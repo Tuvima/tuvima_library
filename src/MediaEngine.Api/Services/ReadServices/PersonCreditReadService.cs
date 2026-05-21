@@ -1,25 +1,46 @@
+using System.Security.Cryptography;
+using System.Text;
 using Dapper;
+using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
-using System.Security.Cryptography;
-using System.Text;
 
-namespace MediaEngine.Api.Endpoints;
+namespace MediaEngine.Api.Services.ReadServices;
 
-internal static class CastCreditQueries
+public interface IPersonCreditReadService
+{
+    Task<List<CastCreditDto>> BuildForWorkAsync(Guid workId, CancellationToken ct);
+    Task<List<CastCreditDto>> BuildForCollectionRootAsync(Guid rootWorkId, string? rootWorkQid, CancellationToken ct);
+    Task<List<PersonGroupMemberDto>> GetGroupMembersAsync(Guid personId, bool isGroup, CancellationToken ct);
+    Task<List<PersonLibraryCreditDto>> GetLibraryCreditsAsync(Guid personId, CancellationToken ct);
+    Task<List<PersonCharacterRoleDto>> GetCharacterRolesAsync(Guid personId, CancellationToken ct);
+}
+
+public sealed class PersonCreditReadService : IPersonCreditReadService
 {
     private const int MaxCastCredits = 24;
 
-    public static async Task<List<CastCreditDto>> BuildForWorkAsync(
-        Guid workId,
+    private readonly ICanonicalValueArrayRepository _canonicalArrayRepo;
+    private readonly IPersonRepository _personRepo;
+    private readonly IDatabaseConnection _db;
+
+    public PersonCreditReadService(
         ICanonicalValueArrayRepository canonicalArrayRepo,
         IPersonRepository personRepo,
-        IDatabaseConnection db,
+        IDatabaseConnection db)
+    {
+        _canonicalArrayRepo = canonicalArrayRepo;
+        _personRepo = personRepo;
+        _db = db;
+    }
+
+    public async Task<List<CastCreditDto>> BuildForWorkAsync(
+        Guid workId,
         CancellationToken ct)
     {
-        using var conn = db.CreateConnection();
+        using var conn = _db.CreateConnection();
         var work = await conn.QueryFirstOrDefaultAsync<WorkIdentityRow>(
             """
             SELECT w.id AS WorkId,
@@ -72,63 +93,64 @@ internal static class CastCreditQueries
             new { workId = workId.ToString() });
 
         if (work is null)
+        {
             return [];
+        }
 
-        var workRankMap = await CastRankMap.BuildAsync(work.WorkId, canonicalArrayRepo, db, ct);
+        var workRankMap = await CastRankMap.BuildAsync(work.WorkId, _canonicalArrayRepo, _db, ct);
         var credits = new List<CastCreditDto>();
         var explicitCredits = string.IsNullOrWhiteSpace(work.WorkQid)
             ? []
-            : await BuildExplicitCastAsync(work.WorkQid, workRankMap, db, ct);
+            : await BuildExplicitCastAsync(work.WorkQid, workRankMap, _db, ct);
         AddUniqueCredits(credits, explicitCredits);
 
         var rootRankMap = work.RootWorkId.HasValue
-            ? await CastRankMap.BuildAsync(work.RootWorkId.Value, canonicalArrayRepo, db, ct)
+            ? await CastRankMap.BuildAsync(work.RootWorkId.Value, _canonicalArrayRepo, _db, ct)
             : CastRankMap.Empty;
         var rootExplicitCredits = string.IsNullOrWhiteSpace(work.RootWorkQid)
             || string.Equals(work.RootWorkQid, work.WorkQid, StringComparison.OrdinalIgnoreCase)
             ? []
-            : await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, db, ct);
+            : await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, _db, ct);
         AddUniqueCredits(credits, rootExplicitCredits);
 
-        var linkedActors = await BuildActorOnlyCreditsFromMediaLinksAsync(workId, workRankMap, db, ct);
+        var linkedActors = await BuildActorOnlyCreditsFromMediaLinksAsync(workId, workRankMap, _db, ct);
         AddUniqueCredits(credits, linkedActors);
 
-        var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(workId, canonicalArrayRepo, personRepo, ct);
+        var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(workId, _canonicalArrayRepo, _personRepo, ct);
         AddUniqueCredits(credits, fallbackCredits);
 
-        fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(workId, personRepo, db, ct);
+        fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(workId, _personRepo, _db, ct);
         AddUniqueCredits(credits, fallbackCredits);
 
         if (work.RootWorkId.HasValue && work.RootWorkId.Value != workId)
         {
-            fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, canonicalArrayRepo, personRepo, ct);
+            fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, _canonicalArrayRepo, _personRepo, ct);
             AddUniqueCredits(credits, fallbackCredits);
 
-            fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(work.RootWorkId.Value, personRepo, db, ct);
+            fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(work.RootWorkId.Value, _personRepo, _db, ct);
             AddUniqueCredits(credits, fallbackCredits);
         }
 
         return credits.Take(MaxCastCredits).ToList();
     }
 
-    public static async Task<List<CastCreditDto>> BuildForCollectionRootAsync(
+    public async Task<List<CastCreditDto>> BuildForCollectionRootAsync(
         Guid rootWorkId,
         string? rootWorkQid,
-        ICanonicalValueArrayRepository canonicalArrayRepo,
-        IPersonRepository personRepo,
-        IDatabaseConnection db,
         CancellationToken ct)
     {
-        var rankMap = await CastRankMap.BuildAsync(rootWorkId, canonicalArrayRepo, db, ct);
+        var rankMap = await CastRankMap.BuildAsync(rootWorkId, _canonicalArrayRepo, _db, ct);
         var explicitCredits = string.IsNullOrWhiteSpace(rootWorkQid)
             ? []
-            : await BuildExplicitCastAsync(rootWorkQid, rankMap, db, ct);
+            : await BuildExplicitCastAsync(rootWorkQid, rankMap, _db, ct);
         if (explicitCredits.Count > 0)
+        {
             return explicitCredits;
+        }
 
-        var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(rootWorkId, canonicalArrayRepo, personRepo, ct);
+        var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(rootWorkId, _canonicalArrayRepo, _personRepo, ct);
         AddUniqueCredits(explicitCredits, fallbackCredits);
-        fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(rootWorkId, personRepo, db, ct);
+        fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(rootWorkId, _personRepo, _db, ct);
         AddUniqueCredits(explicitCredits, fallbackCredits);
         return explicitCredits.Take(MaxCastCredits).ToList();
     }
@@ -143,10 +165,14 @@ internal static class CastCreditQueries
                     && string.Equals(existing.WikidataQid, credit.WikidataQid, StringComparison.OrdinalIgnoreCase))
                 || string.Equals(existing.Name, credit.Name, StringComparison.OrdinalIgnoreCase));
             if (!duplicate)
+            {
                 destination.Add(credit);
+            }
 
             if (destination.Count >= MaxCastCredits)
+            {
                 return;
+            }
         }
     }
 
@@ -308,12 +334,17 @@ internal static class CastCreditQueries
         foreach (var entry in castEntries.OrderBy(value => value.Ordinal).Take(MaxCastCredits))
         {
             if (string.IsNullOrWhiteSpace(entry.Value))
+            {
                 continue;
+            }
 
             Person? person = null;
             var qid = ExtractQid(entry.ValueQid);
             if (!string.IsNullOrWhiteSpace(qid))
+            {
                 person = await personRepo.FindByQidAsync(qid, ct);
+            }
+
             person ??= await personRepo.FindByNameAsync(entry.Value, ct);
 
             credits.Add(new CastCreditDto
@@ -358,7 +389,10 @@ internal static class CastCreditQueries
         {
             Person? person = null;
             if (!string.IsNullOrWhiteSpace(entry.Qid))
+            {
                 person = await personRepo.FindByQidAsync(entry.Qid, ct);
+            }
+
             person ??= await personRepo.FindByNameAsync(entry.Name, ct);
 
             credits.Add(new CastCreditDto
@@ -400,7 +434,9 @@ internal static class CastCreditQueries
         {
             var name = nameClaims[i].ClaimValue.Trim();
             if (string.IsNullOrWhiteSpace(name))
+            {
                 continue;
+            }
 
             qidByName.TryGetValue(name, out var qid);
             qid ??= i < qidClaims.Count ? qidClaims[i].Qid : null;
@@ -409,18 +445,24 @@ internal static class CastCreditQueries
                 : [];
             var key = qid ?? name;
             if (seen.Add(key))
+            {
                 entries.Add(new CastClaimEntry(name, qid, characters));
+            }
         }
 
         foreach (var parsed in qidClaims)
         {
             var name = FirstNonBlank(parsed.Label, parsed.Qid);
             if (string.IsNullOrWhiteSpace(name))
+            {
                 continue;
+            }
 
             var key = parsed.Qid ?? name;
             if (seen.Add(key))
+            {
                 entries.Add(new CastClaimEntry(name, parsed.Qid, []));
+            }
         }
 
         return entries;
@@ -454,12 +496,16 @@ internal static class CastCreditQueries
     private static (string? Qid, string? Label) ParseQidLabel(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return (null, null);
+        }
 
         var trimmed = value.Trim();
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
+        {
             return (ExtractQid(trimmed[..delimiter]), FirstNonBlank(trimmed[(delimiter + 2)..], null));
+        }
 
         return (ExtractQid(trimmed), null);
     }
@@ -467,12 +513,16 @@ internal static class CastCreditQueries
     private static string? ExtractQid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
+        {
             trimmed = trimmed[..delimiter].Trim();
+        }
 
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
@@ -524,14 +574,18 @@ internal static class CastCreditQueries
             foreach (var entry in assetCastEntries)
             {
                 if (map.Add(entry.ValueQid, entry.Value, nextRank))
+                {
                     nextRank++;
+                }
             }
 
             var castEntries = await canonicalArrayRepo.GetValuesAsync(workId, "cast_member", ct);
             foreach (var entry in castEntries.OrderBy(value => value.Ordinal))
             {
                 if (map.Add(entry.ValueQid, entry.Value, nextRank))
+                {
                     nextRank++;
+                }
             }
 
             var assetRows = (await conn.QueryAsync<CastClaimRow>(new CommandDefinition(
@@ -555,7 +609,9 @@ internal static class CastCreditQueries
             foreach (var entry in BuildCastEntriesFromClaims(assetRows))
             {
                 if (map.Add(entry.Qid, entry.Name, nextRank))
+                {
                     nextRank++;
+                }
             }
 
             var rows = (await conn.QueryAsync<CastClaimRow>(new CommandDefinition(
@@ -575,7 +631,9 @@ internal static class CastCreditQueries
             foreach (var entry in BuildCastEntriesFromClaims(rows))
             {
                 if (map.Add(entry.Qid, entry.Name, nextRank))
+                {
                     nextRank++;
+                }
             }
 
             return map;
@@ -620,7 +678,9 @@ internal static class CastCreditQueries
         private static string? NormalizeRankKey(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
+            {
                 return null;
+            }
 
             return string.Join(' ', value.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries))
                 .ToUpperInvariant();
@@ -678,17 +738,13 @@ internal static class CastCreditQueries
     }
 
     private sealed record CastClaimEntry(string Name, string? Qid, IReadOnlyList<string> Characters);
-}
 
-internal static class PersonCreditQueries
-{
-    public static async Task<List<PersonGroupMemberDto>> GetGroupMembersAsync(
+    public async Task<List<PersonGroupMemberDto>> GetGroupMembersAsync(
         Guid personId,
         bool isGroup,
-        IDatabaseConnection db,
         CancellationToken ct)
     {
-        using var conn = db.CreateConnection();
+        using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<PersonGroupMemberRow>(
             isGroup
                 ? """
@@ -718,12 +774,11 @@ internal static class PersonCreditQueries
             .ToList();
     }
 
-    public static async Task<List<PersonLibraryCreditDto>> GetLibraryCreditsAsync(
+    public async Task<List<PersonLibraryCreditDto>> GetLibraryCreditsAsync(
         Guid personId,
-        IDatabaseConnection db,
         CancellationToken ct)
     {
-        using var conn = db.CreateConnection();
+        using var conn = _db.CreateConnection();
         var baseRows = (await conn.QueryAsync<PersonLibraryCreditRow>(
             """
             SELECT w.id                                   AS WorkId,
@@ -905,7 +960,9 @@ internal static class PersonCreditQueries
             .Any(qid => charactersByWorkQid.ContainsKey(qid!));
 
         if (hasCharacterEvidence)
+        {
             return "Actor";
+        }
 
         var roles = rows
             .Select(row => row.Role)
@@ -916,7 +973,9 @@ internal static class PersonCreditQueries
             .ToList();
 
         if (roles.Count == 0)
+        {
             return "Credit";
+        }
 
         if (preferSeriesRole)
         {
@@ -924,7 +983,9 @@ internal static class PersonCreditQueries
                 role.Equals("Actor", StringComparison.OrdinalIgnoreCase)
                 || role.Equals("Voice Actor", StringComparison.OrdinalIgnoreCase));
             if (!string.IsNullOrWhiteSpace(seriesRole))
+            {
                 return seriesRole;
+            }
         }
 
         return roles[0];
@@ -950,15 +1011,11 @@ internal static class PersonCreditQueries
     private static bool IsTvMediaType(string? mediaType)
         => mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true;
 
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-
-    public static async Task<List<PersonCharacterRoleDto>> GetCharacterRolesAsync(
+    public async Task<List<PersonCharacterRoleDto>> GetCharacterRolesAsync(
         Guid personId,
-        IDatabaseConnection db,
         CancellationToken ct)
     {
-        using var conn = db.CreateConnection();
+        using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<PersonCharacterRoleRow>(
             """
             SELECT cpl.fictional_entity_id  AS FictionalEntityId,

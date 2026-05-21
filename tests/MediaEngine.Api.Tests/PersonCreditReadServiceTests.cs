@@ -1,15 +1,15 @@
-using MediaEngine.Api.Endpoints;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Storage;
 
 namespace MediaEngine.Api.Tests;
 
-public sealed class PersonCreditQueriesTests : IDisposable
+public sealed class PersonCreditReadServiceTests : IDisposable
 {
     private readonly string _dbPath;
     private readonly DatabaseConnection _db;
 
-    public PersonCreditQueriesTests()
+    public PersonCreditReadServiceTests()
     {
         DapperConfiguration.Configure();
         _dbPath = Path.Combine(Path.GetTempPath(), $"tuvima_person_credits_{Guid.NewGuid():N}.db");
@@ -94,7 +94,8 @@ public sealed class PersonCreditQueriesTests : IDisposable
             }
         }
 
-        var credits = await PersonCreditQueries.GetLibraryCreditsAsync(personId, _db, CancellationToken.None);
+        var service = CreateService();
+        var credits = await service.GetLibraryCreditsAsync(personId, CancellationToken.None);
 
         var credit = Assert.Single(credits);
         Assert.Equal(collectionId, credit.CollectionId);
@@ -153,15 +154,63 @@ public sealed class PersonCreditQueriesTests : IDisposable
             cmd.ExecuteNonQuery();
         }
 
-        var credits = await CastCreditQueries.BuildForWorkAsync(
-            workId,
-            new CanonicalValueArrayRepository(_db),
-            new PersonRepository(_db),
-            _db,
-            CancellationToken.None);
+        var service = CreateService();
+        var credits = await service.BuildForWorkAsync(workId, CancellationToken.None);
 
         var jeremy = Assert.Single(credits, credit => credit.Name == "Jeremy Renner");
         Assert.Equal(personId, jeremy.PersonId);
         Assert.Equal("Ian Donnelly", Assert.Single(jeremy.Characters).CharacterName);
     }
+
+    [Fact]
+    public async Task GetGroupMembersAsync_ReturnsMembersAndParentGroupsInNameOrder()
+    {
+        var groupId = Guid.NewGuid();
+        var firstMemberId = Guid.NewGuid();
+        var secondMemberId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO persons (id, name, is_group, created_at)
+                    VALUES ($groupId, 'The Test Group', 1, $now);
+                INSERT INTO persons (id, name, created_at)
+                    VALUES ($firstMemberId, 'Zed Member', $now);
+                INSERT INTO persons (id, name, created_at)
+                    VALUES ($secondMemberId, 'Amy Member', $now);
+                INSERT INTO person_group_members (group_id, member_id)
+                    VALUES ($groupId, $firstMemberId);
+                INSERT INTO person_group_members (group_id, member_id)
+                    VALUES ($groupId, $secondMemberId);
+                """;
+            cmd.Parameters.AddWithValue("$groupId", groupId.ToString("D"));
+            cmd.Parameters.AddWithValue("$firstMemberId", firstMemberId.ToString("D"));
+            cmd.Parameters.AddWithValue("$secondMemberId", secondMemberId.ToString("D"));
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var service = CreateService();
+
+        var members = await service.GetGroupMembersAsync(groupId, isGroup: true, CancellationToken.None);
+        var groups = await service.GetGroupMembersAsync(firstMemberId, isGroup: false, CancellationToken.None);
+
+        Assert.Equal(["Amy Member", "Zed Member"], members.Select(member => member.Name));
+        Assert.Equal("The Test Group", Assert.Single(groups).Name);
+    }
+
+    [Fact]
+    public async Task GetLibraryCreditsAsync_ReturnsEmptyListWhenPersonHasNoCredits()
+    {
+        var service = CreateService();
+
+        var credits = await service.GetLibraryCreditsAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Empty(credits);
+    }
+
+    private PersonCreditReadService CreateService() =>
+        new(new CanonicalValueArrayRepository(_db), new PersonRepository(_db), _db);
 }

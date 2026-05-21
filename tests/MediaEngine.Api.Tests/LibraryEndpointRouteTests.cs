@@ -15,6 +15,19 @@ public sealed class LibraryEndpointRouteTests
     }
 
     [Fact]
+    public void LibraryOverview_DelegatesOperationalAggregatesToReadService()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryEndpoints.cs"));
+        var serviceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\LibraryOverviewReadService.cs"));
+
+        Assert.Contains("ILibraryOverviewReadService overviewReadService", source, StringComparison.Ordinal);
+        Assert.Contains("overviewReadService.GetOverviewAggregatesAsync(ct)", source, StringComparison.Ordinal);
+        Assert.Contains("RecentlyAddedSql", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("FROM identity_jobs", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("PipelineSuccessRate = overview.PipelineSuccessRate", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LibraryEndpoints_HomeFeedUsesSharedVisibilityPredicateAndRichArtworkFields()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryEndpoints.cs"));

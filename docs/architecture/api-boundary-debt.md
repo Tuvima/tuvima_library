@@ -2,6 +2,11 @@
 
 Wave 7 removed direct database access from `SystemEndpoints.cs` by moving orphan-image reference queries into `OrphanImageReferenceReadService`.
 
+Sprint 2 removed profile overview SQL from `ProfileEndpoints.cs`, moved
+person and character credit projections into `PersonCreditReadService`, and
+carved the small operational aggregate portion of `GET /library/overview` into
+`LibraryOverviewReadService`.
+
 ## Compliant Endpoint Pattern
 
 Sprint 1 reinforced the guardrails around endpoint boundaries but did not pay
@@ -15,7 +20,12 @@ look like these existing patterns:
 - `SystemEndpoints.cs` delegates orphan-image reference checks to
   `IOrphanImageReferenceReadService`.
 - `PersonEndpoints.cs` uses focused person read services for aliases,
-  presence, works, and scoped person summaries.
+  presence, works, scoped person summaries, and person credit projections.
+- `ProfileEndpoints.cs` delegates account overview projection work to
+  `IProfileOverviewReadService`.
+- `LibraryEndpoints.cs` delegates overview operational aggregates to
+  `ILibraryOverviewReadService`; broader library browse and management SQL
+  remains legacy debt.
 
 The endpoint should stay an HTTP adapter: validate input, call a repository or
 read service, preserve cancellation flow, and return the established DTO shape.
@@ -33,16 +43,12 @@ SQL belongs in Storage repositories or focused API read services that use
 | `LibraryItemEndpoints.cs` | High | Item projection, review, mutation, and delete behavior are coupled. | `LibraryItemCommandService` plus read service |
 | `MetadataEndpoints.cs` | High | Metadata edit and provider matching behavior is broad. | `MetadataEditorService` |
 | `MetadataEndpoints.MediaEditorNavigator.cs` | Medium | API-specific navigation projections. | `MediaEditorNavigationReadService` |
-| `PersonCreditQueries.cs` | Medium | Complex person/character credit projections. | `PersonCreditReadService` |
-| `PersonEndpoints.cs` | Medium | Some direct query helpers remain around person details. | Extend existing person read services |
-| `ProfileEndpoints.cs` | Medium | Profile overview projections still query library/user state directly. | `ProfileOverviewReadService` |
 | `UniverseGraphEndpoints.cs` | High | Graph traversal and filtering needs focused regression tests. | `UniverseGraphReadService` |
 | `WorkEndpoints.cs` | Medium | Work detail projections include direct SQL. | `WorkReadService` |
 
 ## Recommended Order
 
-1. `ProfileEndpoints.cs` overview helpers.
-2. `PersonEndpoints.cs` remaining direct reads.
-3. `PersonCreditQueries.cs` as a dedicated read service.
-4. Small read-only portions of `LibraryEndpoints.cs`.
-5. Mutation-heavy metadata, item, collection, and universe graph files after stronger route-level tests exist.
+1. Continue small, test-backed read-only carve-outs from `LibraryEndpoints.cs`.
+2. Move `CharacterEndpoints.cs` graph projections behind a focused read service.
+3. Move `MetadataEndpoints.MediaEditorNavigator.cs` projections behind a focused read service.
+4. Mutation-heavy metadata, item, collection, and universe graph files after stronger route-level tests exist.

@@ -19,4 +19,9 @@ Engine endpoint files are HTTP adapters. They should validate route/query/body i
 4. Preserve cancellation token flow.
 5. Add endpoint behavior tests and service/repository tests for non-trivial queries.
 
+Current focused API read-service examples include `ProfileOverviewReadService`
+for account overview projections, `PersonCreditReadService` for person and
+character credit projections, and `LibraryOverviewReadService` for small
+operational overview aggregates.
+
 The current direct database endpoint allowlist is legacy debt. It should shrink over time and must not be treated as a pattern for new code.

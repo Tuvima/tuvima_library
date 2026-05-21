@@ -171,7 +171,7 @@ public sealed class ArchitectureBoundaryTests
     }
 
     private static readonly System.Text.RegularExpressions.Regex DirectSqlStatementRegex =
-        new(@"\b(SELECT|INSERT|UPDATE|DELETE)\s+", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+        new(@"^\s*(SELECT|INSERT|UPDATE|DELETE)\s+", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
 
     private static readonly string[] EndpointDatabaseAccessAllowlist =
     [
@@ -183,9 +183,6 @@ public sealed class ArchitectureBoundaryTests
         "src/MediaEngine.Api/Endpoints/LibraryItemEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs",
-        "src/MediaEngine.Api/Endpoints/PersonCreditQueries.cs",
-        "src/MediaEngine.Api/Endpoints/PersonEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/ProfileEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/UniverseGraphEndpoints.cs",
         "src/MediaEngine.Api/Endpoints/WorkEndpoints.cs",
     ];

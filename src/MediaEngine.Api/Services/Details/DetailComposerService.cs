@@ -1,9 +1,10 @@
-using Dapper;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using Dapper;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Services.Display;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
@@ -24,6 +25,7 @@ public sealed class DetailComposerService
     private readonly IEntityAssetRepository _entityAssets;
     private readonly ICanonicalValueArrayRepository _canonicalArrays;
     private readonly ISeriesManifestRepository _seriesManifests;
+    private readonly IPersonCreditReadService _personCredits;
 
     public DetailComposerService(
         IDatabaseConnection db,
@@ -31,7 +33,8 @@ public sealed class DetailComposerService
         IPersonRepository persons,
         IEntityAssetRepository entityAssets,
         ICanonicalValueArrayRepository canonicalArrays,
-        ISeriesManifestRepository seriesManifests)
+        ISeriesManifestRepository seriesManifests,
+        IPersonCreditReadService personCredits)
     {
         _db = db;
         _libraryItems = libraryItems;
@@ -39,6 +42,7 @@ public sealed class DetailComposerService
         _entityAssets = entityAssets;
         _canonicalArrays = canonicalArrays;
         _seriesManifests = seriesManifests;
+        _personCredits = personCredits;
     }
 
     public async Task<DetailPageViewModel?> BuildAsync(
@@ -65,7 +69,9 @@ public sealed class DetailComposerService
     {
         entityType = default;
         if (value.Contains("podcast", StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         var normalized = value.Replace("-", string.Empty).Replace("_", string.Empty);
         return Enum.TryParse(normalized, ignoreCase: true, out entityType);
@@ -87,19 +93,29 @@ public sealed class DetailComposerService
         int ownedFormatCount)
     {
         if (ownedFormatCount > 1 && entityType is DetailEntityType.Work or DetailEntityType.Book or DetailEntityType.Audiobook)
+        {
             return ArtworkPresentationMode.PairedEditionGradient;
+        }
 
         if (!string.IsNullOrWhiteSpace(backdropUrl) || !string.IsNullOrWhiteSpace(bannerUrl))
+        {
             return ArtworkPresentationMode.CinematicBackdrop;
+        }
 
         if (entityType is DetailEntityType.Person or DetailEntityType.MusicArtist && !string.IsNullOrWhiteSpace(portraitUrl))
+        {
             return ArtworkPresentationMode.PortraitEcho;
+        }
 
         if (!string.IsNullOrWhiteSpace(coverUrl) || !string.IsNullOrWhiteSpace(posterUrl))
+        {
             return ArtworkPresentationMode.ColorGradientFromArtwork;
+        }
 
         if (relatedArtworkCount > 1)
+        {
             return ArtworkPresentationMode.CollageGradient;
+        }
 
         return ArtworkPresentationMode.GeneratedIdentity;
     }
@@ -114,7 +130,9 @@ public sealed class DetailComposerService
     {
         var detail = await _libraryItems.GetDetailAsync(workId, ct);
         if (detail is null)
+        {
             return null;
+        }
 
         var values = detail.CanonicalValues.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
         var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
@@ -244,7 +262,9 @@ public sealed class DetailComposerService
             cancellationToken: ct));
 
         if (rawRow is null)
+        {
             return null;
+        }
 
         var row = new CollectionDetailRow(
             Guid.Parse(StringValue(rawRow.Id) ?? collectionId.ToString("D")),
@@ -266,7 +286,9 @@ public sealed class DetailComposerService
             ct);
         var works = await LoadCollectionWorksAsync(collectionId, rootWorkId, ct);
         if (entityType == DetailEntityType.Collection)
+        {
             entityType = InferCollectionEntityType(works);
+        }
 
         var relatedArt = works
             .SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })
@@ -366,15 +388,17 @@ public sealed class DetailComposerService
     {
         var person = await _persons.FindByIdAsync(personId, ct);
         if (person is null)
+        {
             return null;
+        }
 
-        var credits = await PersonCreditQueries.GetLibraryCreditsAsync(personId, _db, ct);
-        var characterRoles = await PersonCreditQueries.GetCharacterRolesAsync(personId, _db, ct);
+        var credits = await _personCredits.GetLibraryCreditsAsync(personId, ct);
+        var characterRoles = await _personCredits.GetCharacterRolesAsync(personId, ct);
         var aliases = await _persons.FindAliasesAsync(personId, ct);
-        var groupMembers = await PersonCreditQueries.GetGroupMembersAsync(personId, person.IsGroup, _db, ct);
+        var groupMembers = await _personCredits.GetGroupMembersAsync(personId, person.IsGroup, ct);
         var memberOfGroups = person.IsGroup
             ? []
-            : await PersonCreditQueries.GetGroupMembersAsync(personId, false, _db, ct);
+            : await _personCredits.GetGroupMembersAsync(personId, false, ct);
         var wikipediaUrl = await LoadPersonWikipediaUrlAsync(personId, ct);
         var artworkAssets = await _entityAssets.GetByEntityAsync(personId.ToString(), null, ct);
         var banner = PreferredAssetUrl(artworkAssets, "Banner");
@@ -433,7 +457,9 @@ public sealed class DetailComposerService
             cancellationToken: ct));
 
         if (row is null)
+        {
             return null;
+        }
 
         var portraits = await conn.QueryAsync<CharacterPortraitRow>(new CommandDefinition(
             """
@@ -498,7 +524,9 @@ public sealed class DetailComposerService
             cancellationToken: ct));
 
         if (row is null)
+        {
             return null;
+        }
 
         var works = await LoadCollectionWorksAsync(id, rootWorkId: null, ct);
         var relatedArt = works.Select(w => w.ArtworkUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(10).ToList();
@@ -597,7 +625,7 @@ public sealed class DetailComposerService
     private async Task<WorkContributorResult> BuildWorkContributorsAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, CancellationToken ct)
     {
         var cast = entityType is DetailEntityType.Movie or DetailEntityType.TvEpisode or DetailEntityType.TvSeason or DetailEntityType.TvShow
-            ? await CastCreditQueries.BuildForWorkAsync(workId, _canonicalArrays, _persons, _db, ct)
+            ? await _personCredits.BuildForWorkAsync(workId, ct)
             : [];
 
         return new WorkContributorResult(cast);
@@ -616,7 +644,9 @@ public sealed class DetailComposerService
         {
             var entries = await LoadContributorEntriesAsync(workId, canonicalArrayKey, value, canonicalValues, ct);
             if (entries.Count == 0)
+            {
                 return;
+            }
 
             var credits = new List<EntityCreditViewModel>();
             foreach (var entry in entries.Take(24))
@@ -657,7 +687,10 @@ public sealed class DetailComposerService
         await AddTextCreditAsync("Authors", CreditGroupType.Authors, detail.Author, "Author", "author");
         await AddTextCreditAsync("Narrators", CreditGroupType.Narrators, detail.Narrator, "Narrator", "narrator");
         if (detail.MediaType.Equals("Music", StringComparison.OrdinalIgnoreCase))
+        {
             await AddTextCreditAsync("Artists", CreditGroupType.PrimaryArtists, detail.Artist, "Artist", "artist");
+        }
+
         await AddTextCreditAsync("Directors", CreditGroupType.Directors, detail.Director, "Director", "director");
         await AddTextCreditAsync("Writers", CreditGroupType.Writers, detail.Writer, "Writer", "screenwriter");
         await AddTextCreditAsync("Composers", CreditGroupType.MusicCredits, detail.Composer, "Composer", "composer");
@@ -724,7 +757,9 @@ public sealed class DetailComposerService
         CreditGroupViewModel group)
     {
         if (entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode)
+        {
             return group.GroupType == CreditGroupType.Cast;
+        }
 
         return true;
     }
@@ -737,15 +772,30 @@ public sealed class DetailComposerService
         if (isVideo)
         {
             if (group.GroupType == CreditGroupType.Directors)
+            {
                 return ("Director", 0, true, 2);
+            }
+
             if (group.GroupType == CreditGroupType.Cast)
+            {
                 return ("Actors", 1, true, 12);
+            }
+
             if (group.GroupType == CreditGroupType.Writers)
+            {
                 return ("Writers", 2, false, 4);
+            }
+
             if (group.GroupType == CreditGroupType.Producers)
+            {
                 return ("Producers", 3, false, 4);
+            }
+
             if (group.GroupType == CreditGroupType.MusicCredits)
+            {
                 return ("Music", 4, false, 3);
+            }
+
             return (group.Title, 8, false, 4);
         }
 
@@ -792,7 +842,9 @@ public sealed class DetailComposerService
     private static IReadOnlyList<CreditGroupViewModel> SplitCastGroups(IReadOnlyList<EntityCreditViewModel> credits)
     {
         if (credits.Count == 0)
+        {
             return [];
+        }
 
         return
         [
@@ -827,7 +879,9 @@ public sealed class DetailComposerService
                 .ToList());
             entries = await PreferCollectivePseudonymContributorAsync(canonicalArrayKey, entries, ct);
             if (entries.Count > 0)
+            {
                 return entries;
+            }
         }
 
         foreach (var targetId in targetIds)
@@ -835,11 +889,15 @@ public sealed class DetailComposerService
             var claimEntries = await LoadContributorEntriesFromClaimsAsync(targetId, canonicalArrayKey, ct);
             claimEntries = await PreferCollectivePseudonymContributorAsync(canonicalArrayKey, claimEntries, ct);
             if (claimEntries.Count > 0)
+            {
                 return claimEntries;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(fallbackValue))
+        {
             return [];
+        }
 
         var fallbackEntries = SplitNames(fallbackValue)
             .Select((name, index) => new ContributorEntry(
@@ -857,17 +915,23 @@ public sealed class DetailComposerService
         CancellationToken ct)
     {
         if (!canonicalArrayKey.Equals("author", StringComparison.OrdinalIgnoreCase) || entries.Count <= 1)
+        {
             return entries;
+        }
 
         foreach (var entry in entries.OrderBy(entry => entry.SortOrder))
         {
             var qid = NormalizeQid(entry.Qid);
             if (string.IsNullOrWhiteSpace(qid))
+            {
                 continue;
+            }
 
             var person = await _persons.FindByQidAsync(qid, ct);
             if (person?.IsPseudonym != true)
+            {
                 continue;
+            }
 
             return entries
                 .Where(candidate => string.Equals(NormalizeQid(candidate.Qid), qid, StringComparison.OrdinalIgnoreCase))
@@ -898,7 +962,9 @@ public sealed class DetailComposerService
             cancellationToken: ct));
 
         if (row is null)
+        {
             return [workId];
+        }
 
         var ids = new List<Guid>();
         AddId(row.RootWorkId);
@@ -909,7 +975,9 @@ public sealed class DetailComposerService
         void AddId(Guid? id)
         {
             if (id.HasValue && !ids.Contains(id.Value))
+            {
                 ids.Add(id.Value);
+            }
         }
     }
 
@@ -935,7 +1003,9 @@ public sealed class DetailComposerService
             cancellationToken: ct))).ToList();
 
         if (rows.Count == 0)
+        {
             return [];
+        }
 
         var nameClaims = rows
             .Where(row => row.ClaimKey.Equals(canonicalArrayKey, StringComparison.OrdinalIgnoreCase))
@@ -957,7 +1027,9 @@ public sealed class DetailComposerService
             {
                 var name = FirstNonBlank(parsed.Label, parsed.Qid);
                 if (!string.IsNullOrWhiteSpace(name))
+                {
                     entries.Add(new ContributorEntry(name, parsed.Qid, entries.Count));
+                }
             }
 
             foreach (var claim in nameClaims)
@@ -966,7 +1038,9 @@ public sealed class DetailComposerService
                 if (string.IsNullOrWhiteSpace(name)
                     || LooksLikeAggregateContributorName(name)
                     || qidByName.ContainsKey(name))
+                {
                     continue;
+                }
 
                 entries.Add(new ContributorEntry(name, null, entries.Count));
             }
@@ -978,7 +1052,9 @@ public sealed class DetailComposerService
         {
             var name = nameClaims[i].ClaimValue.Trim();
             if (string.IsNullOrWhiteSpace(name))
+            {
                 continue;
+            }
 
             qidByName.TryGetValue(name, out var qid);
             qid ??= i < qidClaims.Count ? qidClaims[i].Qid : null;
@@ -989,7 +1065,9 @@ public sealed class DetailComposerService
         {
             var name = FirstNonBlank(parsed.Label, parsed.Qid);
             if (!string.IsNullOrWhiteSpace(name))
+            {
                 entries.Add(new ContributorEntry(name, parsed.Qid, entries.Count));
+            }
         }
 
         return DeduplicateContributorEntries(entries);
@@ -1024,7 +1102,9 @@ public sealed class DetailComposerService
         {
             var localSeries = await ResolveLocalSeriesOptionAsync(workId, entityType, detail.MediaType, ct);
             if (localSeries is null)
+            {
                 return null;
+            }
 
             availableSeries = [localSeries];
         }
@@ -1144,7 +1224,9 @@ public sealed class DetailComposerService
 
         items = SortSeriesItems(items);
         if (items.Count <= 1)
+        {
             return null;
+        }
 
         var currentIndex = Math.Max(0, items.FindIndex(i => i.IsCurrent));
         var current = items[currentIndex];
@@ -1181,7 +1263,9 @@ public sealed class DetailComposerService
     {
         var recommendations = await LoadMoreLikeThisItemsAsync(workId, entityType, ct);
         if (recommendations.Count == 0)
+        {
             return [];
+        }
 
         return
         [
@@ -1484,11 +1568,31 @@ public sealed class DetailComposerService
 
     private static DetailEntityType InferRecommendationEntityType(string? mediaType)
     {
-        if (mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.TvShow;
-        if (mediaType?.Contains("movie", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.Movie;
-        if (mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.MusicTrack;
-        if (mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.Audiobook;
-        if (mediaType?.Contains("comic", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.ComicIssue;
+        if (mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.TvShow;
+        }
+
+        if (mediaType?.Contains("movie", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.Movie;
+        }
+
+        if (mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.MusicTrack;
+        }
+
+        if (mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.Audiobook;
+        }
+
+        if (mediaType?.Contains("comic", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.ComicIssue;
+        }
+
         return DetailEntityType.Book;
     }
 
@@ -1514,13 +1618,24 @@ public sealed class DetailComposerService
     {
         var parts = new List<string>();
         if (row.MatchedPeople > 0)
+        {
             parts.Add(row.MatchedPeople == 1 ? "shared person" : "shared people");
+        }
+
         if (row.MatchedGenres > 0)
+        {
             parts.Add(row.MatchedGenres == 1 ? "shared genre" : "shared genres");
+        }
+
         if (row.MatchedAi > 0)
+        {
             parts.Add("similar mood and themes");
+        }
+
         if (row.YearScore >= 1.25)
+        {
             parts.Add("nearby year");
+        }
 
         return parts.Count == 0
             ? "Similar library item"
@@ -1531,7 +1646,9 @@ public sealed class DetailComposerService
     {
         var pills = new List<MetadataPill>();
         if (!string.IsNullOrWhiteSpace(row.Year))
+        {
             pills.Add(new MetadataPill { Label = row.Year!, Kind = "year" });
+        }
 
         var mediaType = InferRecommendationEntityType(row.MediaType);
         pills.Add(new MetadataPill { Label = FormatEntityType(mediaType), Kind = "media_type" });
@@ -1567,7 +1684,9 @@ public sealed class DetailComposerService
         AddSeriesOption(options, ExtractQid(GetDetailCanonicalValue(detail, "part_of_series_qid")), seriesTitle, mediaScope);
 
         if (options.Count == 0 && !string.IsNullOrWhiteSpace(seriesTitle))
+        {
             AddSeriesOption(options, seriesTitle, seriesTitle, mediaScope);
+        }
 
         return options;
     }
@@ -1575,10 +1694,14 @@ public sealed class DetailComposerService
     private static void AddSeriesOption(List<SeriesOptionViewModel> options, string? seriesId, string? title, string mediaScope)
     {
         if (string.IsNullOrWhiteSpace(seriesId))
+        {
             return;
+        }
 
         if (options.Any(option => string.Equals(option.SeriesId, seriesId, StringComparison.OrdinalIgnoreCase)))
+        {
             return;
+        }
 
         options.Add(new SeriesOptionViewModel
         {
@@ -1614,7 +1737,9 @@ public sealed class DetailComposerService
 
         var title = StringValue(row?.SeriesTitle);
         if (string.IsNullOrWhiteSpace(title))
+        {
             return null;
+        }
 
         var qid = ExtractQid(StringValue(row?.SeriesQid));
         return new SeriesOptionViewModel
@@ -1637,7 +1762,9 @@ public sealed class DetailComposerService
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(seriesQid))
+        {
             return items.ToList();
+        }
 
         var manifestItems = await _seriesManifests.GetItemsBySeriesQidAsync(seriesQid, ct);
         var scopedManifestItems = manifestItems
@@ -1645,10 +1772,14 @@ public sealed class DetailComposerService
             .ToList();
         var connectedManifestItems = BuildConnectedManifestSubset(scopedManifestItems, currentWorkQid);
         if (connectedManifestItems.Count > 1)
+        {
             scopedManifestItems = connectedManifestItems;
+        }
 
         if (scopedManifestItems.Count > 0)
+        {
             return MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType);
+        }
 
         return await MergeLegacySeriesMemberPlaceholdersAsync(items, seriesQid, entityType, ct);
     }
@@ -1659,14 +1790,18 @@ public sealed class DetailComposerService
     {
         var qid = ExtractQid(currentWorkQid);
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return [];
+        }
 
         var byQid = manifestItems
             .Where(item => !string.IsNullOrWhiteSpace(item.ItemQid))
             .GroupBy(item => item.ItemQid, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         if (!byQid.ContainsKey(qid))
+        {
             return [];
+        }
 
         var connected = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { qid };
         var pending = new Queue<string>();
@@ -1676,12 +1811,16 @@ public sealed class DetailComposerService
         {
             var current = pending.Dequeue();
             if (!byQid.TryGetValue(current, out var item))
+            {
                 continue;
+            }
 
             foreach (var neighbor in new[] { item.PreviousQid, item.NextQid }.Select(ExtractQid).Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>())
             {
                 if (byQid.ContainsKey(neighbor) && connected.Add(neighbor))
+                {
                     pending.Enqueue(neighbor);
+                }
             }
 
             foreach (var inbound in manifestItems.Where(candidate =>
@@ -1689,7 +1828,9 @@ public sealed class DetailComposerService
                 || string.Equals(ExtractQid(candidate.NextQid), current, StringComparison.OrdinalIgnoreCase)))
             {
                 if (connected.Add(inbound.ItemQid))
+                {
                     pending.Enqueue(inbound.ItemQid);
+                }
             }
         }
 
@@ -1727,15 +1868,22 @@ public sealed class DetailComposerService
                 && TryApplyManifestPositionToOwnedItem(merged, manifestItem, position, currentWorkId))
             {
                 if (position.HasValue)
+                {
                     ownedPositions.Add(position.Value);
+                }
+
                 continue;
             }
 
             if (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid))
+            {
                 continue;
+            }
 
             if (position.HasValue && ownedPositions.Contains(position.Value))
+            {
                 continue;
+            }
 
             merged.Add(new SeriesItemViewModel
             {
@@ -1765,11 +1913,15 @@ public sealed class DetailComposerService
             (manifestItem.LinkedWorkId.HasValue && string.Equals(item.Id, manifestItem.LinkedWorkId.Value.ToString("D"), StringComparison.OrdinalIgnoreCase))
             || (item.IsCurrent && currentWorkId != Guid.Empty && string.Equals(item.Id, currentWorkId.ToString("D"), StringComparison.OrdinalIgnoreCase)));
         if (index < 0)
+        {
             return false;
+        }
 
         var item = items[index];
         if (item.PositionNumber.HasValue && !string.IsNullOrWhiteSpace(item.PositionLabel))
+        {
             return true;
+        }
 
         items[index] = new SeriesItemViewModel
         {
@@ -1789,10 +1941,14 @@ public sealed class DetailComposerService
     private static bool IsManifestItemInMediaScope(SeriesManifestItemRecord item, DetailEntityType entityType)
     {
         if (item.LinkedWorkId.HasValue)
+        {
             return true;
+        }
 
         if (item.IsCollection)
+        {
             return false;
+        }
 
         var text = string.Join(' ', new[]
         {
@@ -1804,7 +1960,9 @@ public sealed class DetailComposerService
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
         if (string.IsNullOrWhiteSpace(text))
+        {
             return true;
+        }
 
         return entityType switch
         {
@@ -1852,7 +2010,9 @@ public sealed class DetailComposerService
         {
             var position = TryParseSeriesPosition(StringValue(member.Position));
             if (!position.HasValue || ownedPositions.Contains(position.Value))
+            {
                 continue;
+            }
 
             merged.Add(new SeriesItemViewModel
             {
@@ -1886,7 +2046,9 @@ public sealed class DetailComposerService
             .ToList();
 
         if (numbered.Count == 0)
+        {
             return unnumbered;
+        }
 
         var max = numbered.Keys.Max();
         var filled = new List<SeriesItemViewModel>(max);
@@ -2082,7 +2244,9 @@ public sealed class DetailComposerService
     private static Dictionary<string, string> ParseDisplayOverrides(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return new(StringComparer.OrdinalIgnoreCase);
+        }
 
         try
         {
@@ -2103,7 +2267,9 @@ public sealed class DetailComposerService
     private static string? ResolveDisplayTitleOverride(IReadOnlyDictionary<string, string> overrides, DetailEntityType entityType)
     {
         if (overrides.Count == 0)
+        {
             return null;
+        }
 
         var keys = entityType switch
         {
@@ -2118,7 +2284,9 @@ public sealed class DetailComposerService
         foreach (var key in keys)
         {
             if (overrides.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value.Trim();
+            }
         }
 
         return null;
@@ -2175,7 +2343,10 @@ public sealed class DetailComposerService
     {
         var merged = new Dictionary<string, string>(fallback, StringComparer.OrdinalIgnoreCase);
         foreach (var (key, value) in primary)
+        {
             merged[key] = value;
+        }
+
         return merged;
     }
 
@@ -2214,7 +2385,9 @@ public sealed class DetailComposerService
             IsWatchEntity(entityType) ? tagline : null);
 
         if (!string.IsNullOrWhiteSpace(shortDescription))
+        {
             return Task.FromResult(NormalizeHeroSummary(shortDescription));
+        }
 
         var canonicalSummary = FirstText(
             GetValue(canonicalValues, "wikidata_description"),
@@ -2222,7 +2395,9 @@ public sealed class DetailComposerService
             GetValue(canonicalValues, "summary"));
 
         if (!string.IsNullOrWhiteSpace(canonicalSummary))
+        {
             return Task.FromResult(NormalizeHeroSummary(canonicalSummary));
+        }
 
         return Task.FromResult(BuildFallbackHeroSummary(description));
     }
@@ -2287,11 +2462,15 @@ public sealed class DetailComposerService
             cancellationToken: ct));
 
         if (row is null)
+        {
             return new WorkArtworkFallback();
+        }
 
         var assetIdValue = StringValue(row.AssetId);
         if (!Guid.TryParse(assetIdValue, out Guid assetId))
+        {
             return new WorkArtworkFallback();
+        }
 
         return new WorkArtworkFallback
         {
@@ -2373,10 +2552,15 @@ public sealed class DetailComposerService
         AddPlain(pills, FormatCountLabel(GetValue(canonicalValues, "episode_count"), "episode"), "episode_count");
         AddPlain(pills, ResolveWatchQualityLabel(canonicalValues, detail.PlaybackSummary), "quality");
         if (HasSubtitles(canonicalValues, detail.PlaybackSummary))
+        {
             AddPlain(pills, "CC", "subtitles");
+        }
+
         AddPlain(pills, detail.Language, "audio");
         if (HasReadListenCompanion(entityType, formats))
+        {
             AddPlain(pills, BuildReadListenAvailabilityLabel(entityType, formats), "sync");
+        }
 
         return pills
             .Where(value => !string.IsNullOrWhiteSpace(value.Label))
@@ -2387,7 +2571,9 @@ public sealed class DetailComposerService
     private static ProgressViewModel? BuildFormatProgress(double? progressPct)
     {
         if (progressPct is not > 0)
+        {
             return null;
+        }
 
         var percent = Math.Clamp(progressPct.Value, 0, 100);
         return new ProgressViewModel
@@ -2403,7 +2589,9 @@ public sealed class DetailComposerService
         IReadOnlyList<OwnedFormatViewModel> formats)
     {
         if (!IsWatchEntity(entityType))
+        {
             return null;
+        }
 
         var progress = formats
             .Select(format => format.Progress)
@@ -2411,7 +2599,9 @@ public sealed class DetailComposerService
             .OrderByDescending(value => value!.Percent)
             .FirstOrDefault();
         if (progress is null)
+        {
             return null;
+        }
 
         var percent = Math.Clamp(progress.Percent, 0, 100);
         var runtimeSource = FirstNonBlank(formats.Select(format => format.Runtime).Prepend(runtime).ToArray());
@@ -2427,14 +2617,18 @@ public sealed class DetailComposerService
         IReadOnlyList<CollectionWorkSummary> works)
     {
         if (!IsWatchEntity(entityType))
+        {
             return null;
+        }
 
         var item = works
             .Where(work => work.ProgressPercent is > 0 and < 99.5)
             .OrderByDescending(work => work.ProgressPercent)
             .FirstOrDefault();
         if (item is null || item.ProgressPercent is null)
+        {
             return null;
+        }
 
         var percent = Math.Clamp(item.ProgressPercent.Value, 0, 100);
         return new ProgressViewModel
@@ -2596,7 +2790,9 @@ public sealed class DetailComposerService
     private static string BuildReadListenAvailabilityLabel(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
     {
         if (entityType == DetailEntityType.Audiobook)
+        {
             return "Ebook available";
+        }
 
         var audiobook = formats.FirstOrDefault(f => f.FormatType == MediaFormatType.Audiobook);
         var runtime = FormatRuntime(audiobook?.Runtime);
@@ -2711,24 +2907,33 @@ public sealed class DetailComposerService
 
         var tabs = keys.Select(key => new DetailTab { Key = key, Label = ToTabLabel(key) }).ToList();
         if (isAdminView)
+        {
             tabs.Add(new DetailTab { Key = "registry", Label = "Registry", IsAdminOnly = true });
+        }
+
         return tabs;
     }
 
     private static void AddPlain(List<MetadataPill> values, string? label, string kind)
     {
         if (!string.IsNullOrWhiteSpace(label))
+        {
             values.Add(new MetadataPill { Label = label, Kind = kind });
+        }
     }
 
     private static string? FormatCountLabel(string? value, string singular)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         if (!int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count))
+        {
             return trimmed;
+        }
 
         var label = count == 1 ? singular : singular + "s";
         return $"{count.ToString(CultureInfo.InvariantCulture)} {label}";
@@ -2737,7 +2942,9 @@ public sealed class DetailComposerService
     private static string? FormatRating(string? rating)
     {
         if (string.IsNullOrWhiteSpace(rating))
+        {
             return null;
+        }
 
         var trimmed = rating.Trim();
         return double.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
@@ -2751,7 +2958,9 @@ public sealed class DetailComposerService
     {
         var explicitQuality = FirstNonBlank(GetValue(canonicalValues, "quality"), GetValue(canonicalValues, "video_quality"));
         if (!string.IsNullOrWhiteSpace(explicitQuality))
+        {
             return NormalizeWatchQualityLabel(explicitQuality);
+        }
 
         return NormalizeWatchQualityLabel(playbackSummary?.VideoResolutionLabel);
     }
@@ -2759,7 +2968,9 @@ public sealed class DetailComposerService
     private static string? NormalizeWatchQualityLabel(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var normalized = value.Trim();
         return normalized.Equals("2160p", StringComparison.OrdinalIgnoreCase)
@@ -2780,14 +2991,20 @@ public sealed class DetailComposerService
     private static string? FormatRuntime(string? runtime)
     {
         if (string.IsNullOrWhiteSpace(runtime))
+        {
             return null;
+        }
 
         var trimmed = runtime.Trim();
         if (!double.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var minutes))
+        {
             return trimmed;
+        }
 
         if (minutes <= 0)
+        {
             return null;
+        }
 
         var totalMinutes = (int)Math.Round(minutes, MidpointRounding.AwayFromZero);
         var hours = totalMinutes / 60;
@@ -2802,11 +3019,15 @@ public sealed class DetailComposerService
     {
         var totalSeconds = TryParseDurationSeconds(runtime);
         if (totalSeconds is null or <= 0)
+        {
             return null;
+        }
 
         var remainingSeconds = totalSeconds.Value * (100d - Math.Clamp(progressPercent, 0, 100)) / 100d;
         if (remainingSeconds <= 60)
+        {
             return null;
+        }
 
         var remainingMinutes = (int)Math.Ceiling(remainingSeconds / 60d);
         var hours = remainingMinutes / 60;
@@ -2819,14 +3040,20 @@ public sealed class DetailComposerService
     private static int? TryParseDurationSeconds(string? duration)
     {
         if (string.IsNullOrWhiteSpace(duration))
+        {
             return null;
+        }
 
         var trimmed = duration.Trim();
         if (trimmed.Contains(':', StringComparison.Ordinal))
+        {
             return TryParseClockDurationSeconds(trimmed);
+        }
 
         if (!double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes) || minutes <= 0)
+        {
             return null;
+        }
 
         return (int)Math.Round(minutes * 60d, MidpointRounding.AwayFromZero);
     }
@@ -2834,11 +3061,15 @@ public sealed class DetailComposerService
     private static string? FormatTrackDuration(string? duration)
     {
         if (string.IsNullOrWhiteSpace(duration))
+        {
             return null;
+        }
 
         var trimmed = duration.Trim();
         if (trimmed.Contains(':', StringComparison.Ordinal))
+        {
             return trimmed;
+        }
 
         return FormatRuntime(trimmed);
     }
@@ -2852,7 +3083,9 @@ public sealed class DetailComposerService
             .ToList();
 
         if (seconds.Count == 0)
+        {
             return null;
+        }
 
         var totalSeconds = seconds.Sum();
         var totalMinutes = (int)Math.Round(totalSeconds / 60d, MidpointRounding.AwayFromZero);
@@ -2867,17 +3100,23 @@ public sealed class DetailComposerService
     private static int? TryParseClockDurationSeconds(string? duration)
     {
         if (string.IsNullOrWhiteSpace(duration) || !duration.Contains(':', StringComparison.Ordinal))
+        {
             return null;
+        }
 
         var parts = duration.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (parts.Length is < 2 or > 3)
+        {
             return null;
+        }
 
         var total = 0;
         foreach (var part in parts)
         {
             if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+            {
                 return null;
+            }
 
             total = (total * 60) + value;
         }
@@ -2891,12 +3130,16 @@ public sealed class DetailComposerService
     private static IEnumerable<string> SplitMetadataValues(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             yield break;
+        }
 
         foreach (var part in value.Split([',', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             if (!string.IsNullOrWhiteSpace(part))
+            {
                 yield return part;
+            }
         }
     }
 
@@ -2912,16 +3155,20 @@ public sealed class DetailComposerService
     private static ReadingListeningSyncCapabilityViewModel? BuildSyncCapability(Guid workId, IReadOnlyList<OwnedFormatViewModel> formats, MultiFormatState state)
     {
         if (state == MultiFormatState.SingleFormat)
+        {
             return null;
+        }
 
         var ebook = formats.FirstOrDefault(f => f.FormatType == MediaFormatType.Ebook);
         var audio = formats.FirstOrDefault(f => f.FormatType == MediaFormatType.Audiobook);
         if (ebook is null || audio is null)
+        {
             return new ReadingListeningSyncCapabilityViewModel
             {
                 State = SyncCapabilityState.NotApplicable,
                 Reason = "Read + Listen Sync only applies when both ebook and audiobook formats are owned.",
             };
+        }
 
         // Read/listen alignment plugs in here. Until alignment confidence exists, multi-format works default to separate progress.
         return new ReadingListeningSyncCapabilityViewModel
@@ -2938,15 +3185,30 @@ public sealed class DetailComposerService
     private static DetailEntityType InferWorkEntityType(string mediaType, LibraryItemDetail detail)
     {
         if (!string.IsNullOrWhiteSpace(detail.EpisodeNumber) || mediaType.Equals("TV", StringComparison.OrdinalIgnoreCase))
+        {
             return DetailEntityType.TvEpisode;
+        }
+
         if (mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase))
+        {
             return DetailEntityType.Movie;
+        }
+
         if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
+        {
             return DetailEntityType.Audiobook;
+        }
+
         if (mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("Cbz", StringComparison.OrdinalIgnoreCase))
+        {
             return DetailEntityType.ComicIssue;
+        }
+
         if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
+        {
             return DetailEntityType.MusicTrack;
+        }
+
         return DetailEntityType.Book;
     }
 
@@ -2954,32 +3216,71 @@ public sealed class DetailComposerService
     {
         var mediaTypes = works.Select(w => w.MediaType).ToList();
         if (mediaTypes.Any(m => m.Contains("TV", StringComparison.OrdinalIgnoreCase)) || works.Any(w => !string.IsNullOrWhiteSpace(w.Season)))
+        {
             return DetailEntityType.TvShow;
+        }
+
         if (mediaTypes.Any(m => m.Contains("movie", StringComparison.OrdinalIgnoreCase)))
+        {
             return DetailEntityType.MovieSeries;
+        }
+
         if (mediaTypes.Any(m => m.Contains("music", StringComparison.OrdinalIgnoreCase)))
+        {
             return DetailEntityType.MusicAlbum;
+        }
+
         if (mediaTypes.Any(m => m.Contains("comic", StringComparison.OrdinalIgnoreCase)))
+        {
             return DetailEntityType.ComicSeries;
+        }
+
         return DetailEntityType.Collection;
     }
 
     private static MediaFormatType ToFormatType(string mediaType, string? formatLabel)
     {
         var value = $"{mediaType} {formatLabel}".ToLowerInvariant();
-        if (value.Contains("audio")) return MediaFormatType.Audiobook;
-        if (value.Contains("epub") || value.Contains("ebook") || value.Contains("book")) return MediaFormatType.Ebook;
-        if (value.Contains("comic") || value.Contains("cbz")) return MediaFormatType.ComicIssue;
-        if (value.Contains("movie") || value.Contains("video")) return MediaFormatType.Movie;
-        if (value.Contains("music") || value.Contains("album")) return MediaFormatType.MusicAlbum;
-        if (value.Contains("tv")) return MediaFormatType.TvSeries;
+        if (value.Contains("audio"))
+        {
+            return MediaFormatType.Audiobook;
+        }
+
+        if (value.Contains("epub") || value.Contains("ebook") || value.Contains("book"))
+        {
+            return MediaFormatType.Ebook;
+        }
+
+        if (value.Contains("comic") || value.Contains("cbz"))
+        {
+            return MediaFormatType.ComicIssue;
+        }
+
+        if (value.Contains("movie") || value.Contains("video"))
+        {
+            return MediaFormatType.Movie;
+        }
+
+        if (value.Contains("music") || value.Contains("album"))
+        {
+            return MediaFormatType.MusicAlbum;
+        }
+
+        if (value.Contains("tv"))
+        {
+            return MediaFormatType.TvSeries;
+        }
+
         return MediaFormatType.Ebook;
     }
 
     private static string ToFormatDisplay(string mediaType, string? formatLabel)
     {
         if (!string.IsNullOrWhiteSpace(formatLabel))
+        {
             return formatLabel;
+        }
+
         return ToFormatType(mediaType, formatLabel) switch
         {
             MediaFormatType.Audiobook => "Audiobook",
@@ -2999,7 +3300,9 @@ public sealed class DetailComposerService
         MultiFormatState state)
     {
         if (state == (MultiFormatState)(-1))
+        {
             return "Book + Audiobook • Separate Progress";
+        }
 
         return entityType switch
         {
@@ -3045,10 +3348,14 @@ public sealed class DetailComposerService
     private static HeroBrandViewModel? BuildHeroBrand(DetailEntityType entityType, string? label, string? imageUrl)
     {
         if (entityType is not (DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode))
+        {
             return null;
+        }
 
         if (string.IsNullOrWhiteSpace(label) && string.IsNullOrWhiteSpace(imageUrl))
+        {
             return null;
+        }
 
         return new HeroBrandViewModel
         {
@@ -3125,7 +3432,9 @@ public sealed class DetailComposerService
         var episode = NormalizeEpisodeKey(work.Episode);
 
         if (!string.IsNullOrWhiteSpace(season) || !string.IsNullOrWhiteSpace(episode))
+        {
             return $"{season}:{episode}";
+        }
 
         return NormalizeTextKey(work.Title);
     }
@@ -3133,7 +3442,9 @@ public sealed class DetailComposerService
     private static string NormalizeEpisodeKey(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         var normalized = value.Trim().TrimStart('0');
         return normalized.Length == 0 ? "0" : normalized;
@@ -3169,9 +3480,15 @@ public sealed class DetailComposerService
     {
         var values = new List<MetadataPill>();
         if (!string.IsNullOrWhiteSpace(duration))
+        {
             values.Add(new MetadataPill { Label = duration, Kind = "duration" });
+        }
+
         if (!string.IsNullOrWhiteSpace(year))
+        {
             values.Add(new MetadataPill { Label = year, Kind = "year" });
+        }
+
         return values;
     }
 
@@ -3182,11 +3499,31 @@ public sealed class DetailComposerService
 
     private static DetailEntityType InferMediaItemEntityType(string mediaType, string? episode)
     {
-        if (!string.IsNullOrWhiteSpace(episode) || mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.TvEpisode;
-        if (mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.Movie;
-        if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.MusicTrack;
-        if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.Audiobook;
-        if (mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)) return DetailEntityType.ComicIssue;
+        if (!string.IsNullOrWhiteSpace(episode) || mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
+        {
+            return DetailEntityType.TvEpisode;
+        }
+
+        if (mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase))
+        {
+            return DetailEntityType.Movie;
+        }
+
+        if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
+        {
+            return DetailEntityType.MusicTrack;
+        }
+
+        if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
+        {
+            return DetailEntityType.Audiobook;
+        }
+
+        if (mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
+        {
+            return DetailEntityType.ComicIssue;
+        }
+
         return DetailEntityType.Book;
     }
 
@@ -3239,18 +3576,24 @@ public sealed class DetailComposerService
         CancellationToken ct)
     {
         if (entityType != DetailEntityType.TvShow)
+        {
             return await BuildCollectionTextCreditsAsync(collectionId, entityType, canonicalValues, ct);
+        }
 
         rootWorkId ??= works
             .Select(work => Guid.TryParse(work.Id, out var parsed) ? parsed : (Guid?)null)
             .FirstOrDefault(id => id.HasValue);
 
         if (!rootWorkId.HasValue)
+        {
             return [];
+        }
 
-        var cast = await CastCreditQueries.BuildForWorkAsync(rootWorkId.Value, _canonicalArrays, _persons, _db, ct);
+        var cast = await _personCredits.BuildForWorkAsync(rootWorkId.Value, ct);
         if (cast.Count == 0)
+        {
             return [];
+        }
 
         var credits = cast.Select((credit, index) => new EntityCreditViewModel
         {
@@ -3288,7 +3631,9 @@ public sealed class DetailComposerService
                 canonicalValues,
                 ct);
             if (entries.Count == 0)
+            {
                 return;
+            }
 
             var credits = new List<EntityCreditViewModel>();
             foreach (var entry in entries.Take(24))
@@ -3366,14 +3711,20 @@ public sealed class DetailComposerService
                 entry.Ordinal))
             .ToList());
         if (entries.Count > 0)
+        {
             return entries;
+        }
 
         entries = await LoadContributorEntriesFromClaimsAsync(collectionId, canonicalArrayKey, ct);
         if (entries.Count > 0)
+        {
             return entries;
+        }
 
         if (string.IsNullOrWhiteSpace(fallbackValue))
+        {
             return [];
+        }
 
         return DeduplicateContributorEntries(SplitNames(fallbackValue)
             .Select((name, index) => new ContributorEntry(
@@ -3386,7 +3737,9 @@ public sealed class DetailComposerService
     private async Task<IReadOnlyList<CharacterGroupViewModel>> BuildCollectionCharactersAsync(Guid collectionId, string? qid, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return [];
+        }
 
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<CollectionCharacterRow>(new CommandDefinition(
@@ -3440,7 +3793,9 @@ public sealed class DetailComposerService
     private async Task<IReadOnlyList<CreditGroupViewModel>> BuildUniverseCastGroupsAsync(string? qid, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return [];
+        }
 
         using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<UniversePerformerRow>(new CommandDefinition(
@@ -3541,7 +3896,9 @@ public sealed class DetailComposerService
     private async Task<IReadOnlyList<RelationshipGroup>> BuildUniverseRelationshipGroupsAsync(string? qid, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return [];
+        }
 
         using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<UniverseRelationshipRow>(new CommandDefinition(
@@ -3639,7 +3996,9 @@ public sealed class DetailComposerService
                 ? credit.EntityId
                 : $"{credit.EntityType}:{credit.DisplayName}";
             if (seen.Add(key))
+            {
                 yield return credit;
+            }
         }
     }
 
@@ -3680,7 +4039,9 @@ public sealed class DetailComposerService
         IReadOnlyDictionary<string, string> values)
     {
         if (entityType == DetailEntityType.MusicAlbum)
+        {
             return FirstNonBlank(GetValue(values, "album_artist"), GetValue(values, "artist"), works.Select(w => w.Artist).FirstOrDefault(a => !string.IsNullOrWhiteSpace(a)), "Album")!;
+        }
 
         var types = works.Select(w => FormatEntityType(InferMediaItemEntityType(w))).Distinct(StringComparer.OrdinalIgnoreCase).Take(3);
         return $"{FormatEntityType(entityType)} • {works.Count} item{(works.Count == 1 ? "" : "s")} • {string.Join(", ", types)}";
@@ -3764,7 +4125,9 @@ public sealed class DetailComposerService
             .ToList();
 
         if (mediaRoles.Count > 0)
+        {
             return mediaRoles;
+        }
 
         return fallbackRoles
             .Select(NormalizePersonRole)
@@ -3777,12 +4140,14 @@ public sealed class DetailComposerService
     private static string? NormalizePersonRole(string? role)
     {
         if (string.IsNullOrWhiteSpace(role))
+        {
             return null;
+        }
 
         var normalized = role.Trim().Replace('_', ' ').Replace('-', ' ');
         return normalized.ToLowerInvariant() switch
         {
-        "screenwriter" => "Writer",
+            "screenwriter" => "Writer",
             "writer" => "Writer",
             "voice actor" => "Voice Actor",
             "voiceactor" => "Voice Actor",
@@ -3844,10 +4209,14 @@ public sealed class DetailComposerService
             cancellationToken: ct));
 
         if (!string.IsNullOrWhiteSpace(description))
+        {
             return description;
+        }
 
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return null;
+        }
 
         var labelDescription = await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
             """
@@ -3869,7 +4238,9 @@ public sealed class DetailComposerService
     private static bool LooksLikeWikidataShortDescription(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         var trimmed = value.Trim();
         return trimmed.Length <= 220
@@ -3880,7 +4251,9 @@ public sealed class DetailComposerService
     private static DescriptionAttributionViewModel? BuildWikipediaDescriptionAttribution(string? description, string? wikipediaUrl)
     {
         if (string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(wikipediaUrl))
+        {
             return null;
+        }
 
         return new DescriptionAttributionViewModel
         {
@@ -3954,7 +4327,9 @@ public sealed class DetailComposerService
     private static void AddPersonExternalLink(List<PersonExternalLink> links, string key, string label, string? url, string iconLabel)
     {
         if (string.IsNullOrWhiteSpace(url))
+        {
             return;
+        }
 
         links.Add(new PersonExternalLink
         {
@@ -3968,13 +4343,17 @@ public sealed class DetailComposerService
     private static string? BuildSocialUrl(string platform, string? rawValue)
     {
         if (string.IsNullOrWhiteSpace(rawValue))
+        {
             return null;
+        }
 
         var value = rawValue.Trim();
         var isUrl = value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
         if (isUrl)
+        {
             return value;
+        }
 
         var handle = value.TrimStart('@');
         return platform switch
@@ -4005,25 +4384,39 @@ public sealed class DetailComposerService
     private static ArtworkSource ResolveArtworkSource(string? source)
     {
         if (string.IsNullOrWhiteSpace(source))
+        {
             return ArtworkSource.Generated;
+        }
+
         if (source.Contains("user", StringComparison.OrdinalIgnoreCase) || source.Contains("manual", StringComparison.OrdinalIgnoreCase))
+        {
             return ArtworkSource.User;
+        }
+
         return ArtworkSource.Provider;
     }
 
     private static CanonicalIdentityStatus ResolveIdentityStatus(string? qid, string? status, double? confidence)
     {
         if (!string.IsNullOrWhiteSpace(qid))
+        {
             return CanonicalIdentityStatus.WikidataLinked;
+        }
+
         if (status?.Contains("review", StringComparison.OrdinalIgnoreCase) == true || confidence is < 0.7)
+        {
             return CanonicalIdentityStatus.NeedsReview;
+        }
+
         return CanonicalIdentityStatus.ProviderMatched;
     }
 
     private static string? BuildSeriesPositionLabel(DetailEntityType type, int? position, int total, string seriesTitle)
     {
         if (!position.HasValue)
+        {
             return null;
+        }
 
         var prefix = type switch
         {
@@ -4038,21 +4431,50 @@ public sealed class DetailComposerService
     private static string? FormatSeasonEpisode(string? season, string? episode)
     {
         if (string.IsNullOrWhiteSpace(season) && string.IsNullOrWhiteSpace(episode))
+        {
             return null;
+        }
+
         if (string.IsNullOrWhiteSpace(season))
+        {
             return $"Episode {episode}";
+        }
+
         if (string.IsNullOrWhiteSpace(episode))
+        {
             return $"Season {season}";
+        }
+
         return $"S{season} E{episode}";
     }
 
     private static DetailEntityType MapMediaTypeToEntityType(string? mediaType)
     {
-        if (mediaType?.Contains("movie", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.Movie;
-        if (mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.TvEpisode;
-        if (mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.MusicTrack;
-        if (mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.Audiobook;
-        if (mediaType?.Contains("comic", StringComparison.OrdinalIgnoreCase) == true) return DetailEntityType.ComicIssue;
+        if (mediaType?.Contains("movie", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.Movie;
+        }
+
+        if (mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.TvEpisode;
+        }
+
+        if (mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.MusicTrack;
+        }
+
+        if (mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.Audiobook;
+        }
+
+        if (mediaType?.Contains("comic", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.ComicIssue;
+        }
+
         return DetailEntityType.Book;
     }
 
@@ -4078,12 +4500,30 @@ public sealed class DetailComposerService
     private static string PersonMediaGroupKey(string? mediaType, DetailPresentationContext context)
     {
         if (context == DetailPresentationContext.Listen && mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true)
+        {
             return "Music";
+        }
+
         if (context == DetailPresentationContext.Watch && (mediaType?.Contains("movie", StringComparison.OrdinalIgnoreCase) == true || mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true))
+        {
             return "Movies & TV";
-        if (mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true) return "Audiobooks";
-        if (mediaType?.Contains("book", StringComparison.OrdinalIgnoreCase) == true) return "Books";
-        if (mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true) return "Music";
+        }
+
+        if (mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "Audiobooks";
+        }
+
+        if (mediaType?.Contains("book", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "Books";
+        }
+
+        if (mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "Music";
+        }
+
         return FirstNonBlank(mediaType, "Works");
     }
 
@@ -4139,7 +4579,9 @@ public sealed class DetailComposerService
     private static string? NormalizeHeroSummary(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var normalized = string.Join(
             ' ',
@@ -4152,7 +4594,9 @@ public sealed class DetailComposerService
     private static string? BuildFallbackHeroSummary(string? description)
     {
         if (string.IsNullOrWhiteSpace(description))
+        {
             return null;
+        }
 
         var firstParagraph = description.Replace("\r", "\n", StringComparison.Ordinal)
             .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -4196,7 +4640,9 @@ public sealed class DetailComposerService
     private static string? StripUniverseSuffix(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         const string suffix = " universe";
         var trimmed = value.Trim();
@@ -4217,11 +4663,15 @@ public sealed class DetailComposerService
         foreach (var entry in entries.OrderBy(e => e.SortOrder))
         {
             if (string.IsNullOrWhiteSpace(entry.Name))
+            {
                 continue;
+            }
 
             var key = NormalizeQid(entry.Qid) ?? entry.Name.Trim();
             if (seen.Add(key))
+            {
                 result.Add(entry with { Name = entry.Name.Trim(), Qid = NormalizeQid(entry.Qid), SortOrder = result.Count });
+            }
         }
 
         return result;
@@ -4235,7 +4685,9 @@ public sealed class DetailComposerService
     {
         var raw = GetValue(canonicalValues, canonicalArrayKey + MetadataFieldConstants.CompanionQidSuffix);
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return null;
+        }
 
         var parsed = SplitCanonicalSegments(raw)
             .Select(ParseQidLabel)
@@ -4246,7 +4698,9 @@ public sealed class DetailComposerService
             !string.IsNullOrWhiteSpace(value.Label)
             && value.Label.Equals(name, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrWhiteSpace(byName.Qid))
+        {
             return byName.Qid;
+        }
 
         return index >= 0 && index < parsed.Count ? parsed[index].Qid : null;
     }
@@ -4260,12 +4714,16 @@ public sealed class DetailComposerService
     private static (string? Qid, string? Label) ParseQidLabel(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return (null, null);
+        }
 
         var trimmed = value.Trim();
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
+        {
             return (NormalizeQid(trimmed[..delimiter]), FirstNonBlank(trimmed[(delimiter + 2)..], null));
+        }
 
         return (NormalizeQid(trimmed), null);
     }
@@ -4273,12 +4731,16 @@ public sealed class DetailComposerService
     private static string? NormalizeQid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
+        {
             trimmed = trimmed[..delimiter].Trim();
+        }
 
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
@@ -4303,11 +4765,15 @@ public sealed class DetailComposerService
     private static int? TryParseSeriesPosition(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedInt))
+        {
             return parsedInt;
+        }
 
         var numericText = new string(trimmed
             .SkipWhile(c => !char.IsDigit(c))
@@ -4316,7 +4782,9 @@ public sealed class DetailComposerService
             .ToArray());
 
         if (double.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsedDouble))
+        {
             return (int)Math.Round(parsedDouble, MidpointRounding.AwayFromZero);
+        }
 
         return null;
     }
@@ -4324,15 +4792,25 @@ public sealed class DetailComposerService
     private static string? ExtractQid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var qid = value.Trim();
         if (qid.Contains("::", StringComparison.Ordinal))
+        {
             qid = qid.Split("::", 2, StringSplitOptions.TrimEntries)[0];
+        }
+
         if (qid.Contains("|||", StringComparison.Ordinal))
+        {
             qid = qid.Split("|||", 2, StringSplitOptions.TrimEntries)[0];
+        }
+
         if (qid.Contains('/', StringComparison.Ordinal))
+        {
             qid = qid[(qid.LastIndexOf('/') + 1)..];
+        }
 
         return string.IsNullOrWhiteSpace(qid) ? null : qid;
     }
@@ -4340,10 +4818,14 @@ public sealed class DetailComposerService
     private static string? StringValue(object? value)
     {
         if (value is null or DBNull)
+        {
             return null;
+        }
 
         if (value is byte[] bytes)
+        {
             return Encoding.UTF8.GetString(bytes);
+        }
 
         var text = Convert.ToString(value);
         return string.IsNullOrWhiteSpace(text) ? null : text;
@@ -4352,7 +4834,9 @@ public sealed class DetailComposerService
     private static string? ResolveCollectionArtworkUrl(string? value, string? assetIdValue, string kind, string? state)
     {
         if (!Guid.TryParse(assetIdValue, out var assetId))
+        {
             return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
 
         // Collection and TV-show detail pages are composed from representative
         // child works. Their downloaded artwork is stored on the child asset, so
@@ -4363,7 +4847,9 @@ public sealed class DetailComposerService
     private static int? IntValue(object? value)
     {
         if (value is null or DBNull)
+        {
             return null;
+        }
 
         return value switch
         {
@@ -4376,7 +4862,9 @@ public sealed class DetailComposerService
     private static double? DoubleValue(object? value)
     {
         if (value is null or DBNull)
+        {
             return null;
+        }
 
         return value switch
         {

@@ -1,6 +1,9 @@
+using System.Security.Cryptography;
+using System.Text;
+using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
-using Dapper;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
@@ -10,8 +13,6 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -59,7 +60,9 @@ public static class CollectionEndpoints
                 while (reader.Read())
                 {
                     if (Guid.TryParse(reader.GetString(0), out var wid))
+                    {
                         libraryWorkIds.Add(wid);
+                    }
                 }
             }
 
@@ -68,20 +71,30 @@ public static class CollectionEndpoints
             foreach (var collection in collections)
             {
                 var libraryWorks = collection.Works.Where(w => libraryWorkIds.Contains(w.Id)).ToList();
-                if (libraryWorks.Count == 0) continue;
+                if (libraryWorks.Count == 0)
+                {
+                    continue;
+                }
 
                 var filteredCollection = new Collection
                 {
-                    Id             = collection.Id,
-                    UniverseId     = collection.UniverseId,
-                    DisplayName    = collection.DisplayName,
-                    CreatedAt      = collection.CreatedAt,
+                    Id = collection.Id,
+                    UniverseId = collection.UniverseId,
+                    DisplayName = collection.DisplayName,
+                    CreatedAt = collection.CreatedAt,
                     UniverseStatus = collection.UniverseStatus,
-                    ParentCollectionId    = collection.ParentCollectionId,
-                    WikidataQid    = collection.WikidataQid,
+                    ParentCollectionId = collection.ParentCollectionId,
+                    WikidataQid = collection.WikidataQid,
                 };
-                foreach (var w in libraryWorks)         filteredCollection.Works.Add(w);
-                foreach (var r in collection.Relationships)    filteredCollection.Relationships.Add(r);
+                foreach (var w in libraryWorks)
+                {
+                    filteredCollection.Works.Add(w);
+                }
+
+                foreach (var r in collection.Relationships)
+                {
+                    filteredCollection.Relationships.Add(r);
+                }
 
                 filtered.Add(CollectionDto.FromDomain(filteredCollection));
             }
@@ -99,7 +112,9 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 2)
+            {
                 return Results.Ok(Array.Empty<SearchResultDto>());
+            }
 
             var query = q.Trim();
             var like = $"%{query}%";
@@ -239,17 +254,17 @@ public static class CollectionEndpoints
 
                     return new ParentCollectionDto
                     {
-                        Id             = h.Id,
-                        UniverseId     = h.UniverseId,
-                        DisplayName    = h.DisplayName,
-                        Description    = h.Description,
-                        WikidataQid    = h.WikidataQid,
-                        ParentCollectionId    = null,
+                        Id = h.Id,
+                        UniverseId = h.UniverseId,
+                        DisplayName = h.DisplayName,
+                        Description = h.Description,
+                        WikidataQid = h.WikidataQid,
+                        ParentCollectionId = null,
                         UniverseStatus = h.UniverseStatus,
-                        CreatedAt      = h.CreatedAt,
-                        ChildCollectionCount  = children.Count,
-                        MediaTypes     = string.Join(", ", mediaTypes),
-                        TotalWorks     = children.Sum(c => c.Works.Count),
+                        CreatedAt = h.CreatedAt,
+                        ChildCollectionCount = children.Count,
+                        MediaTypes = string.Join(", ", mediaTypes),
+                        TotalWorks = children.Sum(c => c.Works.Count),
                     };
                 })
                 .OrderBy(h => h.DisplayName)
@@ -268,10 +283,10 @@ public static class CollectionEndpoints
             var children = await collectionRepo.GetChildCollectionsAsync(id, ct);
             var result = children.Select(h => new
             {
-                id             = h.Id,
-                displayName    = h.DisplayName,
-                parentCollectionId    = h.ParentCollectionId,
-                createdAt      = h.CreatedAt,
+                id = h.Id,
+                displayName = h.DisplayName,
+                parentCollectionId = h.ParentCollectionId,
+                createdAt = h.CreatedAt,
                 universeStatus = h.UniverseStatus,
             }).ToList();
 
@@ -286,22 +301,28 @@ public static class CollectionEndpoints
         {
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
+            {
                 return Results.NotFound();
+            }
 
             if (!collection.ParentCollectionId.HasValue)
+            {
                 return Results.Ok(new { parentCollection = (object?)null });
+            }
 
             var parent = await collectionRepo.GetByIdAsync(collection.ParentCollectionId.Value, ct);
             if (parent is null)
+            {
                 return Results.Ok(new { parentCollection = (object?)null });
+            }
 
             return Results.Ok(new
             {
                 parentCollection = new
                 {
-                    id             = parent.Id,
-                    displayName    = parent.DisplayName,
-                    createdAt      = parent.CreatedAt,
+                    id = parent.Id,
+                    displayName = parent.DisplayName,
+                    createdAt = parent.CreatedAt,
                     universeStatus = parent.UniverseStatus,
                 }
             });
@@ -317,22 +338,24 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             var allCollections = await collectionRepo.GetAllAsync(ct);
-            var dtos    = allCollections.Select(CollectionDto.FromDomain).ToList();
+            var dtos = allCollections.Select(CollectionDto.FromDomain).ToList();
 
             var target = dtos.FirstOrDefault(h => h.Id == id);
             if (target is null)
+            {
                 return Results.NotFound($"Collection '{id}' not found.");
+            }
 
             int take = limit is > 0 ? limit.Value : 20;
 
             var targetSeries = GetCanonical(target.Works.FirstOrDefault(), "series");
             var targetAuthor = GetCanonical(target.Works.FirstOrDefault(), "author");
-            var targetGenre  = GetCanonical(target.Works.FirstOrDefault(), "genre");
+            var targetGenre = GetCanonical(target.Works.FirstOrDefault(), "genre");
 
-            var result   = new List<CollectionDto>();
-            var seen     = new HashSet<Guid> { id };
+            var result = new List<CollectionDto>();
+            var seen = new HashSet<Guid> { id };
             string reason = string.Empty;
-            string title  = string.Empty;
+            string title = string.Empty;
 
             // Stage 1: same series
             if (!string.IsNullOrWhiteSpace(targetSeries))
@@ -348,7 +371,7 @@ public static class CollectionEndpoints
                     result.AddRange(matches);
                     matches.ForEach(h => seen.Add(h.Id));
                     reason = "Same Series";
-                    title  = $"More in {targetSeries}";
+                    title = $"More in {targetSeries}";
                 }
             }
 
@@ -395,8 +418,8 @@ public static class CollectionEndpoints
             return Results.Ok(new RelatedCollectionsResponse
             {
                 SectionTitle = title,
-                Reason       = reason,
-                Collections         = result,
+                Reason = reason,
+                Collections = result,
             });
         })
         .WithName("GetRelatedCollections")
@@ -413,12 +436,15 @@ public static class CollectionEndpoints
             ICanonicalValueRepository canonicalRepo,
             ICanonicalValueArrayRepository canonicalArrayRepo,
             IPersonRepository personRepo,
+            IPersonCreditReadService personCreditReadService,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
             var collection = await collectionRepo.GetCollectionWithWorksAsync(collectionId, ct);
             if (collection is null)
+            {
                 return Results.NotFound();
+            }
 
             // Determine primary media type from the works.
             var primaryMediaType = collection.Works
@@ -471,22 +497,22 @@ public static class CollectionEndpoints
                 .Select(w =>
                 {
                     var workDto = WorkDto.FromDomain(w);
-                    string? title       = (isTv ? GetCanonical(workDto, "episode_title") : null)
+                    string? title = (isTv ? GetCanonical(workDto, "episode_title") : null)
                                          ?? GetCanonical(workDto, "title")
                                          ?? $"Work {w.Id.ToString("N")[..8]}";
-                    string? year        = GetCanonical(workDto, "release_year")
+                    string? year = GetCanonical(workDto, "release_year")
                                          ?? GetCanonical(workDto, "year");
-                    string? duration    = GetCanonical(workDto, "duration")
+                    string? duration = GetCanonical(workDto, "duration")
                                          ?? GetCanonical(workDto, "runtime");
-                    string? coverUrl    = BuildCoverStreamUrl(w);
+                    string? coverUrl = BuildCoverStreamUrl(w);
                     string? backgroundUrl = BuildBackgroundStreamUrl(w);
-                    string? bannerUrl   = BuildBannerStreamUrl(w);
-                    string? season      = GetCanonical(workDto, "season_number");
-                    string? episode     = GetCanonical(workDto, "episode_number");
+                    string? bannerUrl = BuildBannerStreamUrl(w);
+                    string? season = GetCanonical(workDto, "season_number");
+                    string? episode = GetCanonical(workDto, "episode_number");
                     string? trackNumber = GetCanonical(workDto, "track_number");
                     string? description = GetCanonical(workDto, "description");
-                    string? director    = GetCanonical(workDto, "director");
-                    string? writer      = GetCanonical(workDto, "writer");
+                    string? director = GetCanonical(workDto, "director");
+                    string? writer = GetCanonical(workDto, "writer");
                     string? releaseDate = NormalizeReleaseDate(
                         GetCanonical(workDto, "release_date")
                         ?? GetCanonical(workDto, "date")
@@ -496,8 +522,8 @@ public static class CollectionEndpoints
                     string status = w.WikidataStatus switch
                     {
                         "confirmed" => "Verified",
-                        "skipped"   => "Unlinked",
-                        _           => "Provisional",
+                        "skipped" => "Unlinked",
+                        _ => "Provisional",
                     };
 
                     // Pipeline stage stubs — state is derived from match/wikidata status.
@@ -519,28 +545,28 @@ public static class CollectionEndpoints
 
                     return new CollectionGroupWorkDto
                     {
-                        WorkId        = w.Id,
-                        Title         = title,
+                        WorkId = w.Id,
+                        Title = title,
                         Ordinal = w.Ordinal,
-                        Year          = year,
-                        Duration      = duration,
-                        CoverUrl      = coverUrl,
+                        Year = year,
+                        Duration = duration,
+                        CoverUrl = coverUrl,
                         BackgroundUrl = backgroundUrl,
-                        BannerUrl     = bannerUrl,
-                        HeroUrl       = null,
-                        WikidataQid   = w.WikidataQid,
-                        Season        = season,
-                        Episode       = episode,
-                        TrackNumber   = trackNumber,
-                        Status        = status,
-                        Description   = description,
-                        Director      = director,
-                        Writer        = writer,
-                        ReleaseDate   = releaseDate,
+                        BannerUrl = bannerUrl,
+                        HeroUrl = null,
+                        WikidataQid = w.WikidataQid,
+                        Season = season,
+                        Episode = episode,
+                        TrackNumber = trackNumber,
+                        Status = status,
+                        Description = description,
+                        Director = director,
+                        Writer = writer,
+                        ReleaseDate = releaseDate,
                         PlaybackSummary = BuildPlaybackSummaryFromWork(workDto),
-                        Stage1        = stage1,
-                        Stage2        = stage2,
-                        Stage3        = stage3,
+                        Stage1 = stage1,
+                        Stage2 = stage2,
+                        Stage3 = stage3,
                     };
                 })
                 .ToList();
@@ -548,11 +574,11 @@ public static class CollectionEndpoints
             // Collection-level header canonical values come from the topmost Work row.
             // Phase 4 — parent-scoped fields (author, director, artist, genre, cover,
             // network) live on the root parent Work, not on individual child works.
-            string? collectionCreator  = ParentCv("author") ?? ParentCv("artist");
+            string? collectionCreator = ParentCv("author") ?? ParentCv("artist");
             string? collectionDirector = isTv ? null : ParentCv("director");
-            string? collectionWriter   = ParentCv("writer");
-            string? collectionGenre    = ParentCv("genre");
-            string? collectionNetwork  = isTv ? ParentCv("network") : null;
+            string? collectionWriter = ParentCv("writer");
+            string? collectionGenre = ParentCv("genre");
+            string? collectionNetwork = isTv ? ParentCv("network") : null;
             string? collectionDescription = ParentCv("description");
             string? collectionTagline = ParentCv("tagline");
             string? collectionReleaseDate = NormalizeReleaseDate(
@@ -605,7 +631,7 @@ public static class CollectionEndpoints
 
             // Build the response — TV uses seasons grouping, Music uses album grouping, others use flat works list.
             List<CollectionGroupSeasonDto> seasons = [];
-            List<CollectionGroupWorkDto>   flatWorks = [];
+            List<CollectionGroupWorkDto> flatWorks = [];
 
             bool isMusic = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase);
 
@@ -617,8 +643,8 @@ public static class CollectionEndpoints
                     .Select(g => new CollectionGroupSeasonDto
                     {
                         SeasonNumber = g.Key,
-                        SeasonLabel  = $"Season {g.Key}",
-                        Episodes     = g.OrderBy(e => int.TryParse(e.Episode, out var en) ? en : e.Ordinal ?? int.MaxValue).ToList(),
+                        SeasonLabel = $"Season {g.Key}",
+                        Episodes = g.OrderBy(e => int.TryParse(e.Episode, out var en) ? en : e.Ordinal ?? int.MaxValue).ToList(),
                     })
                     .ToList();
             }
@@ -643,39 +669,36 @@ public static class CollectionEndpoints
                            && rootParentWorkId.HasValue;
             if (hasCast)
             {
-                topCast = await CastCreditQueries.BuildForCollectionRootAsync(
+                topCast = await personCreditReadService.BuildForCollectionRootAsync(
                     rootParentWorkId!.Value,
                     rootWorkQid,
-                    canonicalArrayRepo,
-                    personRepo,
-                    db,
                     ct);
             }
 
             var response = new CollectionGroupDetailDto
             {
-                CollectionId            = collection.Id,
-                DisplayName      = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
-                RootWorkId       = rootParentWorkId,
-                WikidataQid      = collection.WikidataQid,
+                CollectionId = collection.Id,
+                DisplayName = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
+                RootWorkId = rootParentWorkId,
+                WikidataQid = collection.WikidataQid,
                 PrimaryMediaType = primaryMediaType,
-                CoverUrl         = collectionCover,
-                BackgroundUrl    = collectionBackground,
-                BannerUrl        = collectionBanner,
-                Description      = collectionDescription,
-                Tagline          = collectionTagline,
-                Creator          = collectionCreator,
-                Director         = collectionDirector,
-                Writer           = collectionWriter,
-                ReleaseDate      = collectionReleaseDate,
-                YearRange        = yearRange,
-                Genre            = collectionGenre,
-                Network          = collectionNetwork,
-                SeasonCount      = isTv ? seasons.Count : null,
-                TopCast          = topCast,
-                TotalItems       = collection.Works.Count,
-                Seasons          = seasons,
-                Works            = flatWorks,
+                CoverUrl = collectionCover,
+                BackgroundUrl = collectionBackground,
+                BannerUrl = collectionBanner,
+                Description = collectionDescription,
+                Tagline = collectionTagline,
+                Creator = collectionCreator,
+                Director = collectionDirector,
+                Writer = collectionWriter,
+                ReleaseDate = collectionReleaseDate,
+                YearRange = yearRange,
+                Genre = collectionGenre,
+                Network = collectionNetwork,
+                SeasonCount = isTv ? seasons.Count : null,
+                TopCast = topCast,
+                TotalItems = collection.Works.Count,
+                Seasons = seasons,
+                Works = flatWorks,
             };
 
             return Results.Ok(response);
@@ -694,7 +717,9 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(collectionIdsParam))
+            {
                 return Results.BadRequest("collection_ids parameter is required");
+            }
 
             var collectionIds = collectionIdsParam.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(s => Guid.TryParse(s, out var id) ? id : (Guid?)null)
@@ -703,7 +728,9 @@ public static class CollectionEndpoints
                 .ToList();
 
             if (collectionIds.Count == 0)
+            {
                 return Results.BadRequest("No valid collection IDs provided");
+            }
 
             // Load all collections and build album-based seasons
             var allSeasons = new List<CollectionGroupSeasonDto>();
@@ -716,7 +743,10 @@ public static class CollectionEndpoints
             foreach (var collectionId in collectionIds)
             {
                 var collection = await collectionRepo.GetCollectionWithWorksAsync(collectionId, ct);
-                if (collection is null) continue;
+                if (collection is null)
+                {
+                    continue;
+                }
 
                 // Build owned track DTOs from collection.Works.
                 var ownedTracks = collection.Works
@@ -727,21 +757,21 @@ public static class CollectionEndpoints
                         var wDto = WorkDto.FromDomain(w);
                         return new CollectionGroupWorkDto
                         {
-                            WorkId        = w.Id,
-                            Title         = GetCanonical(wDto, "title") ?? $"Track {w.Id.ToString("N")[..8]}",
+                            WorkId = w.Id,
+                            Title = GetCanonical(wDto, "title") ?? $"Track {w.Id.ToString("N")[..8]}",
                             Ordinal = w.Ordinal,
-                            Year          = GetCanonical(wDto, "release_year") ?? GetCanonical(wDto, "year"),
-                            Duration      = GetCanonical(wDto, "duration") ?? GetCanonical(wDto, "runtime"),
-                            CoverUrl      = BuildCoverStreamUrl(w),
-                            WikidataQid   = w.WikidataQid,
-                            TrackNumber   = GetCanonical(wDto, "track_number"),
-                            Status        = w.WikidataStatus switch
+                            Year = GetCanonical(wDto, "release_year") ?? GetCanonical(wDto, "year"),
+                            Duration = GetCanonical(wDto, "duration") ?? GetCanonical(wDto, "runtime"),
+                            CoverUrl = BuildCoverStreamUrl(w),
+                            WikidataQid = w.WikidataQid,
+                            TrackNumber = GetCanonical(wDto, "track_number"),
+                            Status = w.WikidataStatus switch
                             {
                                 "confirmed" => "Verified",
-                                "skipped"   => "Unlinked",
-                                _           => "Provisional",
+                                "skipped" => "Unlinked",
+                                _ => "Provisional",
                             },
-                            IsOwned       = true,
+                            IsOwned = true,
                         };
                     })
                     .ToList();
@@ -765,7 +795,10 @@ public static class CollectionEndpoints
                     {
                         var dto = WorkDto.FromDomain(w);
                         childJson = GetCanonical(dto, MetadataFieldConstants.ChildEntitiesJson);
-                        if (!string.IsNullOrWhiteSpace(childJson)) break;
+                        if (!string.IsNullOrWhiteSpace(childJson))
+                        {
+                            break;
+                        }
                     }
                 }
 
@@ -780,11 +813,11 @@ public static class CollectionEndpoints
                 allSeasons.Add(new CollectionGroupSeasonDto
                 {
                     SeasonNumber = albumIndex,
-                    SeasonLabel  = collection.DisplayName ?? $"Album {albumIndex + 1}",
-                    CoverUrl     = albumCover,
-                    AlbumCollectionId   = collection.Id,
-                    Year         = albumYear,
-                    Episodes     = mergedTracks,
+                    SeasonLabel = collection.DisplayName ?? $"Album {albumIndex + 1}",
+                    CoverUrl = albumCover,
+                    AlbumCollectionId = collection.Id,
+                    Year = albumYear,
+                    Episodes = mergedTracks,
                 });
 
                 totalItems += mergedTracks.Count(t => t.IsOwned);
@@ -811,7 +844,9 @@ public static class CollectionEndpoints
                     {
                         artistPersonId = person.Id;
                         if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
+                        {
                             artistPhotoUrl = $"/persons/{person.Id}/headshot";
+                        }
                     }
                 }
                 catch { /* best-effort lookup */ }
@@ -819,18 +854,18 @@ public static class CollectionEndpoints
 
             var response = new CollectionGroupDetailDto
             {
-                CollectionId            = collectionIds[0],
-                DisplayName      = combinedCreator ?? "Unknown Artist",
+                CollectionId = collectionIds[0],
+                DisplayName = combinedCreator ?? "Unknown Artist",
                 PrimaryMediaType = "Music",
-                CoverUrl         = null, // artist view header uses ArtistPhotoUrl, not an album cover
-                Creator          = combinedCreator,
-                YearRange        = yearRange,
-                Genre            = combinedGenre,
-                TotalItems       = totalItems,
-                Seasons          = allSeasons,
-                Works            = [],
-                ArtistPhotoUrl   = artistPhotoUrl,
-                ArtistPersonId   = artistPersonId,
+                CoverUrl = null, // artist view header uses ArtistPhotoUrl, not an album cover
+                Creator = combinedCreator,
+                YearRange = yearRange,
+                Genre = combinedGenre,
+                TotalItems = totalItems,
+                Seasons = allSeasons,
+                Works = [],
+                ArtistPhotoUrl = artistPhotoUrl,
+                ArtistPersonId = artistPersonId,
             };
 
             return Results.Ok(response);
@@ -850,7 +885,9 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(artistName))
+            {
                 return Results.BadRequest("artistName parameter is required");
+            }
 
             using var conn = db.CreateConnection();
             using var cmd = conn.CreateCommand();
@@ -922,7 +959,10 @@ public static class CollectionEndpoints
                 combinedGenre ??= genre;
 
                 var year = releaseYear ?? yearVal;
-                if (!string.IsNullOrWhiteSpace(year)) allYears.Add(year);
+                if (!string.IsNullOrWhiteSpace(year))
+                {
+                    allYears.Add(year);
+                }
 
                 var albumKey = album ?? "Unknown Album";
                 if (!albumMap.TryGetValue(albumKey, out var tracks))
@@ -931,22 +971,30 @@ public static class CollectionEndpoints
                     albumMap[albumKey] = tracks;
                 }
                 if (!albumCovers.ContainsKey(albumKey))
+                {
                     albumCovers[albumKey] = cover;
+                }
+
                 if (!albumYears.ContainsKey(albumKey) || string.IsNullOrWhiteSpace(albumYears[albumKey]))
+                {
                     albumYears[albumKey] = year;
+                }
+
                 if (!albumChildJson.ContainsKey(albumKey) || string.IsNullOrWhiteSpace(albumChildJson[albumKey]))
+                {
                     albumChildJson[albumKey] = childJson;
+                }
 
                 tracks.Add(new CollectionGroupWorkDto
                 {
-                    WorkId      = workId,
-                    Title       = title ?? $"Track {workId.ToString("N")[..8]}",
-                    Year        = year,
-                    Duration    = duration ?? runtime,
-                    CoverUrl    = cover,
+                    WorkId = workId,
+                    Title = title ?? $"Track {workId.ToString("N")[..8]}",
+                    Year = year,
+                    Duration = duration ?? runtime,
+                    CoverUrl = cover,
                     TrackNumber = trackNum,
-                    Status      = "Provisional",
-                    IsOwned     = true,
+                    Status = "Provisional",
+                    IsOwned = true,
                 });
             }
 
@@ -970,11 +1018,11 @@ public static class CollectionEndpoints
                 return new CollectionGroupSeasonDto
                 {
                     SeasonNumber = idx,
-                    SeasonLabel  = albumKey,
-                    CoverUrl     = albumCover,
-                    Year         = albumYear,
-                    AlbumCollectionId   = null, // by-name lookup has no concrete collection id
-                    Episodes     = merged,
+                    SeasonLabel = albumKey,
+                    CoverUrl = albumCover,
+                    Year = albumYear,
+                    AlbumCollectionId = null, // by-name lookup has no concrete collection id
+                    Episodes = merged,
                 };
             }).ToList();
 
@@ -990,7 +1038,9 @@ public static class CollectionEndpoints
                     {
                         artistPersonId = person.Id;
                         if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
+                        {
                             artistPhotoUrl = $"/persons/{person.Id}/headshot";
+                        }
                     }
                 }
                 catch { /* best-effort lookup */ }
@@ -998,18 +1048,18 @@ public static class CollectionEndpoints
 
             var response = new CollectionGroupDetailDto
             {
-                CollectionId            = Guid.Empty,
-                DisplayName      = artistName,
+                CollectionId = Guid.Empty,
+                DisplayName = artistName,
                 PrimaryMediaType = "Music",
-                CoverUrl         = null,
-                Creator          = combinedCreator,
-                YearRange        = yearRange,
-                Genre            = combinedGenre,
-                TotalItems       = totalItems,
-                Seasons          = seasons,
-                Works            = [],
-                ArtistPhotoUrl   = artistPhotoUrl,
-                ArtistPersonId   = artistPersonId,
+                CoverUrl = null,
+                Creator = combinedCreator,
+                YearRange = yearRange,
+                Genre = combinedGenre,
+                TotalItems = totalItems,
+                Seasons = seasons,
+                Works = [],
+                ArtistPhotoUrl = artistPhotoUrl,
+                ArtistPersonId = artistPersonId,
             };
 
             return Results.Ok(response);
@@ -1032,23 +1082,25 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(groupField) || string.IsNullOrWhiteSpace(groupValue))
+            {
                 return Results.BadRequest("groupField and groupValue parameters are required");
+            }
 
             // Determine the secondary grouping field and sort fields based on the primary group
             var (secondaryGroup, sortFields) = groupField.ToLowerInvariant() switch
             {
-                "show_name"  => ("season_number", "season_number, episode_number, title"),
-                "artist"     => ("album", "album, CAST(track_number AS INTEGER), title"),
-                "series"     => ((string?)null, "CAST(series_index AS INTEGER), title"),
-                _            => ((string?)null, "title"),
+                "show_name" => ("season_number", "season_number, episode_number, title"),
+                "artist" => ("album", "album, CAST(track_number AS INTEGER), title"),
+                "series" => ((string?)null, "CAST(series_index AS INTEGER), title"),
+                _ => ((string?)null, "title"),
             };
 
             // Label for secondary groups
             var secondaryLabelPrefix = groupField.ToLowerInvariant() switch
             {
                 "show_name" => "Season ",
-                "artist"    => (string?)null, // use album name directly
-                _           => null,
+                "artist" => (string?)null, // use album name directly
+                _ => null,
             };
 
             using var conn = db.CreateConnection();
@@ -1232,9 +1284,13 @@ public static class CollectionEndpoints
                 var networkVal = reader.IsDBNull(reader.GetOrdinal("network")) ? null : reader.GetString(reader.GetOrdinal("network"));
                 // For TV, prefer network over director as the header creator
                 if (mediaType == "TV")
+                {
                     creator ??= networkVal ?? directorVal ?? artistVal;
+                }
                 else
+                {
                     creator ??= directorVal ?? artistVal;
+                }
 
                 combinedCreator ??= creator;
                 combinedCover ??= cover;
@@ -1243,7 +1299,10 @@ public static class CollectionEndpoints
                 combinedNetwork ??= networkVal;
 
                 var year = releaseYear ?? yearVal;
-                if (!string.IsNullOrWhiteSpace(year)) allYears.Add(year);
+                if (!string.IsNullOrWhiteSpace(year))
+                {
+                    allYears.Add(year);
+                }
 
                 // Build group key for sections
                 string sectionKey;
@@ -1265,16 +1324,16 @@ public static class CollectionEndpoints
 
                 items.Add(new CollectionGroupWorkDto
                 {
-                    WorkId       = workId,
-                    Title        = episodeTitle ?? title ?? $"Item {workId.ToString("N")[..8]}",
-                    Year         = year,
-                    Duration     = duration ?? runtime,
-                    CoverUrl     = cover,
-                    Episode      = episodeNum,
-                    TrackNumber  = trackNum,
-                    Ordinal      = int.TryParse(seqIndex, out var si) ? si : null,
-                    Status       = "Provisional",
-                    IsOwned      = true,
+                    WorkId = workId,
+                    Title = episodeTitle ?? title ?? $"Item {workId.ToString("N")[..8]}",
+                    Year = year,
+                    Duration = duration ?? runtime,
+                    CoverUrl = cover,
+                    Episode = episodeNum,
+                    TrackNumber = trackNum,
+                    Ordinal = int.TryParse(seqIndex, out var si) ? si : null,
+                    Status = "Provisional",
+                    IsOwned = true,
                 });
 
                 totalItems++;
@@ -1317,10 +1376,10 @@ public static class CollectionEndpoints
                     .Select((kvp, idx) => new CollectionGroupSeasonDto
                     {
                         SeasonNumber = int.TryParse(kvp.Key, out var sn) ? sn : idx,
-                        SeasonLabel  = secondaryLabelPrefix is not null
+                        SeasonLabel = secondaryLabelPrefix is not null
                             ? $"{secondaryLabelPrefix}{kvp.Key}"
                             : kvp.Key,
-                        Episodes     = kvp.Value,
+                        Episodes = kvp.Value,
                     })
                     .ToList();
                 flatWorks = [];
@@ -1333,17 +1392,17 @@ public static class CollectionEndpoints
 
             var response = new CollectionGroupDetailDto
             {
-                CollectionId            = Guid.Empty,
-                DisplayName      = groupValue,
+                CollectionId = Guid.Empty,
+                DisplayName = groupValue,
                 PrimaryMediaType = mediaType ?? "Unknown",
-                CoverUrl         = combinedCover,
-                Creator          = combinedCreator,
-                YearRange        = yearRange,
-                Genre            = combinedGenre,
-                Network          = combinedNetwork,
-                TotalItems       = totalItems,
-                Seasons          = seasons,
-                Works            = flatWorks,
+                CoverUrl = combinedCover,
+                Creator = combinedCreator,
+                YearRange = yearRange,
+                Genre = combinedGenre,
+                Network = combinedNetwork,
+                TotalItems = totalItems,
+                Seasons = seasons,
+                Works = flatWorks,
             };
 
             return Results.Ok(response);
@@ -1380,7 +1439,10 @@ public static class CollectionEndpoints
                     background = BuildBackgroundStreamUrl(w);
                     banner = BuildBannerStreamUrl(w);
                     logo = BuildLogoStreamUrl(w);
-                    if (cover is not null || background is not null || banner is not null || logo is not null) break;
+                    if (cover is not null || background is not null || banner is not null || logo is not null)
+                    {
+                        break;
+                    }
                 }
 
                 // Creator from first work.
@@ -1394,17 +1456,17 @@ public static class CollectionEndpoints
 
                 return new ContentGroupDto
                 {
-                    CollectionId            = h.Id,
-                    DisplayName      = h.DisplayName ?? $"Collection {h.Id.ToString("N")[..8]}",
-                    WikidataQid      = h.WikidataQid,
+                    CollectionId = h.Id,
+                    DisplayName = h.DisplayName ?? $"Collection {h.Id.ToString("N")[..8]}",
+                    WikidataQid = h.WikidataQid,
                     PrimaryMediaType = primaryMediaType,
-                    WorkCount        = h.Works.Count,
+                    WorkCount = h.Works.Count,
                     DistinctTitleCount = CountDistinctWorkTitles(h.Works),
-                    CoverUrl         = cover,
-                    BackgroundUrl    = background,
-                    BannerUrl        = banner,
-                    HeroUrl          = null,
-                    LogoUrl          = logo,
+                    CoverUrl = cover,
+                    BackgroundUrl = background,
+                    BannerUrl = banner,
+                    HeroUrl = null,
+                    LogoUrl = logo,
                     CoverAspectClass = GetCanonical(firstDto, "cover_aspect_class"),
                     SquareAspectClass = GetCanonical(firstDto, "square_aspect_class"),
                     BackgroundAspectClass = GetCanonical(firstDto, "background_aspect_class"),
@@ -1417,19 +1479,19 @@ public static class CollectionEndpoints
                     BackgroundHeightPx = ParseNullableInt(GetCanonical(firstDto, "background_height_px")),
                     BannerWidthPx = ParseNullableInt(GetCanonical(firstDto, "banner_width_px")),
                     BannerHeightPx = ParseNullableInt(GetCanonical(firstDto, "banner_height_px")),
-                    Description      = h.Description ?? GetCanonical(firstDto, "description"),
-                    Tagline          = GetCanonical(firstDto, "tagline"),
-                    Creator          = creator,
-                    Director         = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                    Description = h.Description ?? GetCanonical(firstDto, "description"),
+                    Tagline = GetCanonical(firstDto, "tagline"),
+                    Creator = creator,
+                    Director = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
                         ? null
                         : GetCanonical(firstDto, "director"),
-                    Writer           = GetCanonical(firstDto, "writer"),
-                    ReleaseDate      = releaseDate,
-                    UniverseStatus   = h.UniverseStatus,
-                    CreatedAt        = h.CreatedAt,
-                    Network          = GetCanonical(firstDto, "network"),
-                    Year             = GetCanonical(firstDto, "release_year") ?? GetCanonical(firstDto, "year"),
-                    SeasonCount      = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                    Writer = GetCanonical(firstDto, "writer"),
+                    ReleaseDate = releaseDate,
+                    UniverseStatus = h.UniverseStatus,
+                    CreatedAt = h.CreatedAt,
+                    Network = GetCanonical(firstDto, "network"),
+                    Year = GetCanonical(firstDto, "release_year") ?? GetCanonical(firstDto, "year"),
+                    SeasonCount = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
                         ? h.Works
                             .Select(work => GetCanonical(WorkDto.FromDomain(work), "season_number"))
                             .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -1485,7 +1547,10 @@ public static class CollectionEndpoints
             foreach (var collection in viewCollections)
             {
                 var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
-                if (predicates.Count == 0) continue;
+                if (predicates.Count == 0)
+                {
+                    continue;
+                }
 
                 // Evaluate collection rules to get entity_ids
                 var entityIds = evaluator.Evaluate(predicates, collection.MatchMode, collection.SortField, collection.SortDirection);
@@ -1493,7 +1558,10 @@ public static class CollectionEndpoints
                 log.LogInformation("[ByAlbum] Collection '{CollectionName}' (groupByField={GroupByField}) matched {WorkCount} works from CollectionRuleEvaluator",
                     collection.DisplayName, collection.GroupByField, entityIds.Count);
 
-                if (entityIds.Count == 0) continue;
+                if (entityIds.Count == 0)
+                {
+                    continue;
+                }
 
                 var groupByField = collection.GroupByField!;
 
@@ -1893,7 +1961,11 @@ public static class CollectionEndpoints
                     while (reader.Read())
                     {
                         var groupName = reader.IsDBNull(0) ? null : reader.GetString(0);
-                        if (string.IsNullOrWhiteSpace(groupName)) continue;
+                        if (string.IsNullOrWhiteSpace(groupName))
+                        {
+                            continue;
+                        }
+
                         rows.Add((
                             groupName,
                             reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
@@ -1944,7 +2016,9 @@ public static class CollectionEndpoints
                             {
                                 artistPersonId = person.Id;
                                 if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
+                                {
                                     artistPhotoUrl = $"/persons/{person.Id}/headshot";
+                                }
                             }
                         }
                         catch { /* best-effort — missing photo is fine */ }
@@ -1952,17 +2026,17 @@ public static class CollectionEndpoints
 
                     result.Add(new ContentGroupDto
                     {
-                        CollectionId            = collection.Id,
-                        DisplayName      = row.GroupName,
-                        WikidataQid      = null,
+                        CollectionId = collection.Id,
+                        DisplayName = row.GroupName,
+                        WikidataQid = null,
                         PrimaryMediaType = primaryMediaType,
-                        WorkCount        = row.WorkCount,
+                        WorkCount = row.WorkCount,
                         DistinctTitleCount = row.WorkCount,
-                        CoverUrl         = row.CoverUrl,
-                        BackgroundUrl    = row.BackgroundUrl,
-                        BannerUrl        = row.BannerUrl,
-                        HeroUrl          = row.HeroUrl,
-                        LogoUrl          = row.LogoUrl,
+                        CoverUrl = row.CoverUrl,
+                        BackgroundUrl = row.BackgroundUrl,
+                        BannerUrl = row.BannerUrl,
+                        HeroUrl = row.HeroUrl,
+                        LogoUrl = row.LogoUrl,
                         CoverAspectClass = row.CoverAspectClass,
                         SquareAspectClass = row.SquareAspectClass,
                         BackgroundAspectClass = row.BackgroundAspectClass,
@@ -1975,17 +2049,17 @@ public static class CollectionEndpoints
                         BackgroundHeightPx = row.BackgroundHeightPx,
                         BannerWidthPx = row.BannerWidthPx,
                         BannerHeightPx = row.BannerHeightPx,
-                        Description      = row.Description,
-                        Tagline          = row.Tagline,
-                        Creator          = row.Creator,
-                        UniverseStatus   = "Complete",
-                        CreatedAt        = collection.CreatedAt,
-                        ArtistPhotoUrl   = artistPhotoUrl,
-                        ArtistPersonId   = artistPersonId,
-                        Network          = row.Network,
-                        Year             = row.Year,
-                        SeasonCount      = row.SeasonCount,
-                        AlbumCount       = row.AlbumCount > 0 ? row.AlbumCount : null,
+                        Description = row.Description,
+                        Tagline = row.Tagline,
+                        Creator = row.Creator,
+                        UniverseStatus = "Complete",
+                        CreatedAt = collection.CreatedAt,
+                        ArtistPhotoUrl = artistPhotoUrl,
+                        ArtistPersonId = artistPersonId,
+                        Network = row.Network,
+                        Year = row.Year,
+                        SeasonCount = row.SeasonCount,
+                        AlbumCount = row.AlbumCount > 0 ? row.AlbumCount : null,
                     });
                 }
             }
@@ -2062,7 +2136,9 @@ public static class CollectionEndpoints
                 var itemCount = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, materializedCounts, ct);
                 var mediaCounts = await GetCollectionMediaCountsAsync(collection, collectionRepo, db, ct);
                 if (!ShouldIncludeInManagementCatalog(collection, classification, mediaCounts))
+                {
                     continue;
+                }
 
                 var artworkItems = await GetCollectionArtworkItemsAsync(collection, collectionRepo, db, 4, ct);
                 dtos.Add(CollectionManagementCatalogDto.FromDomain(collection, itemCount, activeProfile, classification, mediaCounts, artworkItems));
@@ -2116,9 +2192,15 @@ public static class CollectionEndpoints
             if (collectionId.HasValue)
             {
                 var collection = await collectionRepo.GetByIdAsync(collectionId.Value, ct);
-                if (collection is null) return Results.NotFound();
+                if (collection is null)
+                {
+                    return Results.NotFound();
+                }
+
                 if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
+                {
                     return Results.Forbid();
+                }
 
                 existingWorkIds = (await collectionRepo.GetCollectionItemsAsync(collectionId.Value, 1000, ct))
                     .Select(item => item.WorkId)
@@ -2259,9 +2341,15 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
 
             int take = limit is > 0 ? limit.Value : 20;
             var items = await collectionRepo.GetCollectionItemsAsync(id, take, ct);
@@ -2285,7 +2373,9 @@ public static class CollectionEndpoints
                 foreach (var item in items)
                 {
                     if (!visibleWorkIds.Contains(item.WorkId))
+                    {
                         continue;
+                    }
 
                     string? title = null, creator = null, mediaType = null, cover = null;
                     using var cmd = conn.CreateCommand();
@@ -2324,7 +2414,11 @@ public static class CollectionEndpoints
                     {
                         var key = reader.GetString(0);
                         var val = reader.IsDBNull(1) ? null : reader.GetString(1);
-                        if (string.IsNullOrEmpty(val)) continue;
+                        if (string.IsNullOrEmpty(val))
+                        {
+                            continue;
+                        }
+
                         switch (key)
                         {
                             case "title":
@@ -2343,12 +2437,12 @@ public static class CollectionEndpoints
 
                     dtos.Add(new CollectionItemDto
                     {
-                        Id        = item.Id,
-                        WorkId    = item.WorkId,
-                        Title     = title ?? "Untitled",
-                        Creator   = creator,
+                        Id = item.Id,
+                        WorkId = item.WorkId,
+                        Title = title ?? "Untitled",
+                        Creator = creator,
                         MediaType = mediaType ?? "Unknown",
-                        CoverUrl  = cover,
+                        CoverUrl = cover,
                         SortOrder = item.SortOrder,
                     });
                 }
@@ -2371,20 +2465,31 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
+
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
                 || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
             {
                 return Results.BadRequest("Only saved/manual collections support direct item membership.");
             }
             if (body.WorkId == Guid.Empty)
+            {
                 return Results.BadRequest("work_id is required.");
+            }
 
             var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
             if (existingItems.Any(item => item.WorkId == body.WorkId))
+            {
                 return Results.Ok();
+            }
 
             var nextSortOrder = existingItems.Count == 0
                 ? 1
@@ -2415,9 +2520,16 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
+
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
                 || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
             {
@@ -2426,7 +2538,9 @@ public static class CollectionEndpoints
 
             var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
             if (!existingItems.Any(item => item.Id == itemId))
+            {
                 return Results.NotFound();
+            }
 
             await collectionRepo.RemoveCollectionItemAsync(itemId, ct);
             return Results.Ok();
@@ -2445,9 +2559,16 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
+
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
                 || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
             {
@@ -2479,11 +2600,20 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
-            if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
-                return Results.Forbid();
-            if (string.IsNullOrWhiteSpace(collection.SquareArtworkPath) || !File.Exists(collection.SquareArtworkPath))
+            if (collection is null)
+            {
                 return Results.NotFound();
+            }
+
+            if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
+            {
+                return Results.Forbid();
+            }
+
+            if (string.IsNullOrWhiteSpace(collection.SquareArtworkPath) || !File.Exists(collection.SquareArtworkPath))
+            {
+                return Results.NotFound();
+            }
 
             var bytes = await File.ReadAllBytesAsync(collection.SquareArtworkPath, ct);
             return Results.File(
@@ -2511,25 +2641,44 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+            {
                 return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+            }
+
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
+
             if (!request.HasFormContentType)
+            {
                 return Results.BadRequest("Expected multipart form data.");
+            }
 
             var form = await request.ReadFormAsync(ct);
             var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
+            {
                 return Results.BadRequest("No file uploaded.");
+            }
+
             if (file.Length > 5 * 1024 * 1024)
+            {
                 return Results.BadRequest("Artwork must be 5 MB or smaller.");
+            }
 
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             var mimeType = NormalizeCollectionArtworkMimeType(file.ContentType, extension);
             if (mimeType is null)
+            {
                 return Results.BadRequest("Artwork must be a JPEG or PNG image.");
+            }
 
             dataPaths.EnsureRootExists();
             var directory = Path.Combine(dataPaths.Root, "collections", id.ToString("D"));
@@ -2567,14 +2716,25 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+            {
                 return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+            }
+
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
 
             if (!string.IsNullOrWhiteSpace(collection.SquareArtworkPath) && File.Exists(collection.SquareArtworkPath))
+            {
                 File.Delete(collection.SquareArtworkPath);
+            }
 
             await collectionRepo.UpdateCollectionSquareArtworkAsync(id, null, null, ct);
             return Results.Ok();
@@ -2594,9 +2754,15 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
 
             await collectionRepo.UpdateCollectionEnabledAsync(id, body.Enabled, ct);
             return Results.Ok();
@@ -2616,9 +2782,15 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
 
             await collectionRepo.UpdateCollectionFeaturedAsync(id, body.Featured, ct);
             return Results.Ok();
@@ -2638,13 +2810,19 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
 
             // For materialized collections, return works directly
             if (collection.Resolution == "materialized")
             {
                 var collectionWithWorks = await collectionRepo.GetCollectionWithWorksAsync(id, ct);
-                if (collectionWithWorks is null) return Results.NotFound();
+                if (collectionWithWorks is null)
+                {
+                    return Results.NotFound();
+                }
 
                 var take = limit ?? 0;
                 var works = take > 0 ? collectionWithWorks.Works.Take(take).ToList() : collectionWithWorks.Works;
@@ -2667,7 +2845,10 @@ public static class CollectionEndpoints
 
             // For query-resolved collections, evaluate rules
             var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
-            if (predicates.Count == 0) return Results.Ok(new List<CollectionResolvedItemDto>());
+            if (predicates.Count == 0)
+            {
+                return Results.Ok(new List<CollectionResolvedItemDto>());
+            }
 
             var evaluator = new CollectionRuleEvaluator(db);
             var entityIds = evaluator.Evaluate(predicates, collection.MatchMode, collection.SortField, collection.SortDirection, limit ?? 0);
@@ -2696,17 +2877,23 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(name))
+            {
                 return Results.BadRequest("name parameter is required");
+            }
 
             var definition = BuiltInBrowseCollectionCatalog.FindByName(name);
             var collection = definition?.ToCollection();
 
             if (collection is null)
+            {
                 return Results.NotFound($"No dynamic browse view found with name '{name}'");
+            }
 
             var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
             if (predicates.Count == 0)
+            {
                 return Results.Ok(new List<CollectionResolvedItemDto>());
+            }
 
             var evaluator = new CollectionRuleEvaluator(db);
             var entityIds = evaluator.Evaluate(
@@ -2735,7 +2922,10 @@ public static class CollectionEndpoints
             foreach (var p in placements)
             {
                 var collection = await collectionRepo.GetByIdAsync(p.CollectionId, ct);
-                if (collection is null || !collection.IsEnabled) continue;
+                if (collection is null || !collection.IsEnabled)
+                {
+                    continue;
+                }
 
                 result.Add(new
                 {
@@ -2761,7 +2951,10 @@ public static class CollectionEndpoints
             CollectionPreviewRequest body,
             IDatabaseConnection db) =>
         {
-            if (body.Rules.Count == 0) return Results.Ok(new { count = 0, items = new List<CollectionResolvedItemDto>() });
+            if (body.Rules.Count == 0)
+            {
+                return Results.Ok(new { count = 0, items = new List<CollectionResolvedItemDto>() });
+            }
 
             var evaluator = new CollectionRuleEvaluator(db);
             var entityIds = evaluator.Evaluate(body.Rules, body.MatchMode, limit: body.Limit > 0 ? body.Limit : 20);
@@ -2783,14 +2976,20 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(body.Name))
+            {
                 return Results.BadRequest("Collection name is required.");
+            }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(body.CollectionType))
+            {
                 return Results.BadRequest($"Collection type '{body.CollectionType}' is reserved for browse-only system data.");
+            }
 
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             if (activeProfile is null)
+            {
                 return Results.BadRequest("profileId is required to create a collection.");
+            }
 
             var normalizedVisibility = CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
             if (string.Equals(normalizedVisibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase)
@@ -2869,21 +3068,66 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
-            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
-                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
-                return Results.Forbid();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
 
-            if (body.Name is not null) collection.DisplayName = body.Name;
-            if (body.Description is not null) collection.Description = body.Description;
-            if (body.IconName is not null) collection.IconName = body.IconName;
-            if (body.MatchMode is not null) collection.MatchMode = body.MatchMode;
-            if (body.SortField is not null) collection.SortField = body.SortField;
-            if (body.SortDirection is not null) collection.SortDirection = body.SortDirection;
-            if (body.LiveUpdating.HasValue) collection.LiveUpdating = body.LiveUpdating.Value;
-            if (body.IsEnabled.HasValue) collection.IsEnabled = body.IsEnabled.Value;
-            if (body.IsFeatured.HasValue) collection.IsFeatured = body.IsFeatured.Value;
+            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+            {
+                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+            }
+
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
+                return Results.Forbid();
+            }
+
+            if (body.Name is not null)
+            {
+                collection.DisplayName = body.Name;
+            }
+
+            if (body.Description is not null)
+            {
+                collection.Description = body.Description;
+            }
+
+            if (body.IconName is not null)
+            {
+                collection.IconName = body.IconName;
+            }
+
+            if (body.MatchMode is not null)
+            {
+                collection.MatchMode = body.MatchMode;
+            }
+
+            if (body.SortField is not null)
+            {
+                collection.SortField = body.SortField;
+            }
+
+            if (body.SortDirection is not null)
+            {
+                collection.SortDirection = body.SortDirection;
+            }
+
+            if (body.LiveUpdating.HasValue)
+            {
+                collection.LiveUpdating = body.LiveUpdating.Value;
+            }
+
+            if (body.IsEnabled.HasValue)
+            {
+                collection.IsEnabled = body.IsEnabled.Value;
+            }
+
+            if (body.IsFeatured.HasValue)
+            {
+                collection.IsFeatured = body.IsFeatured.Value;
+            }
+
             if (!string.IsNullOrWhiteSpace(body.Visibility))
             {
                 var normalizedVisibility = CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
@@ -2913,7 +3157,9 @@ public static class CollectionEndpoints
             }
 
             if (string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+            {
                 collection.LiveUpdating = false;
+            }
 
             collection.ModifiedAt = DateTimeOffset.UtcNow;
             await collectionRepo.UpsertAsync(collection, ct);
@@ -2933,12 +3179,25 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null) return Results.NotFound();
+            if (collection is null)
+            {
+                return Results.NotFound();
+            }
+
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+            {
                 return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be deleted here.");
-            if (collection.CollectionType == "System") return Results.BadRequest("System collections cannot be deleted.");
+            }
+
+            if (collection.CollectionType == "System")
+            {
+                return Results.BadRequest("System collections cannot be deleted.");
+            }
+
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            {
                 return Results.Forbid();
+            }
 
             await collectionRepo.UpdateCollectionEnabledAsync(id, false, ct);
             return Results.Ok();
@@ -2983,7 +3242,9 @@ public static class CollectionEndpoints
             var values = new List<string>();
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
+            {
                 values.Add(reader.GetString(0));
+            }
 
             return Results.Ok(values);
         })
@@ -3056,7 +3317,9 @@ public static class CollectionEndpoints
         CancellationToken ct)
     {
         if (!profileId.HasValue)
+        {
             return null;
+        }
 
         return await profileRepo.GetByIdAsync(profileId.Value, ct);
     }
@@ -3073,7 +3336,9 @@ public static class CollectionEndpoints
         {
             var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
             if (predicates.Count == 0)
+            {
                 return 0;
+            }
 
             var evaluator = new CollectionRuleEvaluator(db);
             return evaluator.Evaluate(
@@ -3084,7 +3349,9 @@ public static class CollectionEndpoints
         }
 
         if (curatedCountByCollection is not null && curatedCountByCollection.TryGetValue(collection.Id, out var count))
+        {
             return count;
+        }
 
         return await collectionRepo.GetCollectionItemCountAsync(collection.Id, ct);
     }
@@ -3107,10 +3374,14 @@ public static class CollectionEndpoints
     {
         var normalizedName = (collection.DisplayName ?? string.Empty).Trim();
         if (normalizedName.Length == 0)
+        {
             return null;
+        }
 
         if (string.Equals(collection.CollectionType, "System", StringComparison.OrdinalIgnoreCase))
+        {
             return normalizedName.ToLowerInvariant().Replace(' ', '-');
+        }
 
         return normalizedName switch
         {
@@ -3139,13 +3410,19 @@ public static class CollectionEndpoints
         CollectionMediaCounts mediaCounts)
     {
         if (classification.IsSystem || string.Equals(classification.Family, "User", StringComparison.OrdinalIgnoreCase))
+        {
             return true;
+        }
 
         if (CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+        {
             return true;
+        }
 
         if (IsGeneratedTvShowContainer(collection, mediaCounts))
+        {
             return false;
+        }
 
         return true;
     }
@@ -3155,7 +3432,9 @@ public static class CollectionEndpoints
         if (!string.Equals(collection.CollectionType, "Universe", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(collection.CollectionType, "Series", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(collection.CollectionType, "ContentGroup", StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         return mediaCounts.TvCount > 0
             && mediaCounts.WatchCount == mediaCounts.TvCount
@@ -3172,7 +3451,9 @@ public static class CollectionEndpoints
     {
         var workIds = await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct);
         if (workIds.Count == 0)
+        {
             return new CollectionMediaCounts(0, 0, 0, 0);
+        }
 
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<(string MediaType, int Count)>(
@@ -3192,16 +3473,26 @@ public static class CollectionEndpoints
         foreach (var row in rows)
         {
             if (string.Equals(row.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+            {
                 tv += row.Count;
+            }
 
             if (IsWatchMediaType(row.MediaType))
+            {
                 watch += row.Count;
+            }
             else if (IsListenMediaType(row.MediaType))
+            {
                 listen += row.Count;
+            }
             else if (IsReadMediaType(row.MediaType))
+            {
                 read += row.Count;
+            }
             else
+            {
                 other += row.Count;
+            }
         }
 
         return new CollectionMediaCounts(watch, listen, read, other, tv);
@@ -3218,7 +3509,9 @@ public static class CollectionEndpoints
         {
             var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
             if (predicates.Count == 0)
+            {
                 return [];
+            }
 
             var evaluator = new CollectionRuleEvaluator(db);
             return evaluator.Evaluate(predicates, collection.MatchMode, collection.SortField, collection.SortDirection, 0);
@@ -3226,7 +3519,9 @@ public static class CollectionEndpoints
 
         var items = await collectionRepo.GetCollectionItemsAsync(collection.Id, 5000, ct);
         if (items.Count > 0)
+        {
             return items.Select(item => item.WorkId).Distinct().ToList();
+        }
 
         var collectionWithWorks = await collectionRepo.GetCollectionWithWorksAsync(collection.Id, ct);
         return collectionWithWorks?.Works.Select(work => work.Id).Distinct().ToList() ?? [];
@@ -3244,7 +3539,9 @@ public static class CollectionEndpoints
             .Take(Math.Clamp(limit, 1, 8))
             .ToList();
         if (workIds.Count == 0)
+        {
             return [];
+        }
 
         using var conn = db.CreateConnection();
         var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
@@ -3331,13 +3628,19 @@ public static class CollectionEndpoints
     private static string ArtworkShapeForMediaType(string? mediaType)
     {
         if (IsReadMediaType(mediaType))
+        {
             return "portrait";
+        }
 
         if (IsWatchMediaType(mediaType))
+        {
             return "landscape";
+        }
 
         if (IsListenMediaType(mediaType))
+        {
             return "square";
+        }
 
         return "square";
     }
@@ -3353,7 +3656,9 @@ public static class CollectionEndpoints
     private static string? NormalizeCollectionArtworkMimeType(string? contentType, string extension)
     {
         if (string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase) || extension == ".png")
+        {
             return "image/png";
+        }
 
         if (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
             || string.Equals(contentType, "image/jpg", StringComparison.OrdinalIgnoreCase)
@@ -3393,7 +3698,10 @@ public static class CollectionEndpoints
             .FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
             ?.Value;
         if (raw is not null && raw.Contains("|||", StringComparison.Ordinal) && !MultiValuedKeys.Contains(key))
+        {
             return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        }
+
         return raw;
     }
 
@@ -3402,7 +3710,11 @@ public static class CollectionEndpoints
     /// </summary>
     private static string? BuildCoverStreamUrl(Work? w)
     {
-        if (w is null) return null;
+        if (w is null)
+        {
+            return null;
+        }
+
         return w.CanonicalValues
             .FirstOrDefault(c =>
                 string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase)
@@ -3412,7 +3724,11 @@ public static class CollectionEndpoints
 
     private static string? BuildBackgroundStreamUrl(Work? w)
     {
-        if (w is null) return null;
+        if (w is null)
+        {
+            return null;
+        }
+
         return w.CanonicalValues
             .FirstOrDefault(c =>
                 string.Equals(c.Key, "background", StringComparison.OrdinalIgnoreCase)
@@ -3422,7 +3738,11 @@ public static class CollectionEndpoints
 
     private static string? BuildBannerStreamUrl(Work? w)
     {
-        if (w is null) return null;
+        if (w is null)
+        {
+            return null;
+        }
+
         return w.CanonicalValues
             .FirstOrDefault(c =>
                 string.Equals(c.Key, "banner", StringComparison.OrdinalIgnoreCase)
@@ -3432,7 +3752,10 @@ public static class CollectionEndpoints
 
     private static string? BuildLogoStreamUrl(Work? w)
     {
-        if (w is null) return null;
+        if (w is null)
+        {
+            return null;
+        }
 
         var canonicalLogo = w.CanonicalValues
             .FirstOrDefault(c =>
@@ -3440,7 +3763,9 @@ public static class CollectionEndpoints
                 || string.Equals(c.Key, "logo_url", StringComparison.OrdinalIgnoreCase))
             ?.Value;
         if (!string.IsNullOrWhiteSpace(canonicalLogo))
+        {
             return canonicalLogo;
+        }
 
         var assetId = w.CanonicalValues
             .Select(c => c.EntityId)
@@ -3486,10 +3811,14 @@ public static class CollectionEndpoints
     private static string? NormalizeReleaseDate(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         if (DateTimeOffset.TryParse(value, out var parsed))
+        {
             return parsed.ToString("MMMM d, yyyy");
+        }
 
         return value.Length > 10 && DateTime.TryParse(value, out var parsedDate)
             ? parsedDate.ToString("MMMM d, yyyy")
@@ -3502,7 +3831,9 @@ public static class CollectionEndpoints
     private static int? ReadNullableInt(System.Data.IDataRecord reader, int ordinal)
     {
         if (reader.IsDBNull(ordinal))
+        {
             return null;
+        }
 
         var raw = reader.GetValue(ordinal);
         return raw switch
@@ -3526,7 +3857,9 @@ public static class CollectionEndpoints
     private static string? FormatResolution(int? width, int? height)
     {
         if (width is null || height is null || width <= 0 || height <= 0)
+        {
             return null;
+        }
 
         var h = height.Value;
         return h switch
@@ -3543,7 +3876,9 @@ public static class CollectionEndpoints
     private static string? FormatAudioChannels(string? value)
     {
         if (!int.TryParse(value, out var parsed) || parsed <= 0)
+        {
             return null;
+        }
 
         return parsed switch
         {
@@ -3556,10 +3891,14 @@ public static class CollectionEndpoints
     private static string? FormatSubtitleSummary(IReadOnlyList<string> languages)
     {
         if (languages.Count == 0)
+        {
             return null;
+        }
 
         if (languages.Count == 1)
+        {
             return languages[0];
+        }
 
         return $"{languages[0]} + {languages.Count - 1} more";
     }
@@ -3567,7 +3906,9 @@ public static class CollectionEndpoints
     private static string? NormalizeCodec(string? codec)
     {
         if (string.IsNullOrWhiteSpace(codec))
+        {
             return null;
+        }
 
         return codec.ToLowerInvariant() switch
         {
@@ -3630,7 +3971,10 @@ public static class CollectionEndpoints
                 var title = trackEl.TryGetProperty("title", out var titleEl) && titleEl.ValueKind == System.Text.Json.JsonValueKind.String
                     ? titleEl.GetString()
                     : null;
-                if (string.IsNullOrWhiteSpace(title)) continue;
+                if (string.IsNullOrWhiteSpace(title))
+                {
+                    continue;
+                }
 
                 var ordinal = trackEl.TryGetProperty("ordinal", out var ordEl) && ordEl.ValueKind == System.Text.Json.JsonValueKind.Number
                     ? ordEl.GetInt32()
@@ -3644,16 +3988,16 @@ public static class CollectionEndpoints
                     {
                         merged.Add(new CollectionGroupWorkDto
                         {
-                            WorkId        = owned.WorkId,
-                            Title         = owned.Title,
+                            WorkId = owned.WorkId,
+                            Title = owned.Title,
                             Ordinal = ordinal,
-                            Year          = owned.Year,
-                            Duration      = owned.Duration,
-                            CoverUrl      = owned.CoverUrl ?? albumCover,
-                            WikidataQid   = owned.WikidataQid,
-                            TrackNumber   = ordinal.ToString(),
-                            Status        = owned.Status,
-                            IsOwned       = true,
+                            Year = owned.Year,
+                            Duration = owned.Duration,
+                            CoverUrl = owned.CoverUrl ?? albumCover,
+                            WikidataQid = owned.WikidataQid,
+                            TrackNumber = ordinal.ToString(),
+                            Status = owned.Status,
+                            IsOwned = true,
                         });
                     }
                     else
@@ -3667,13 +4011,13 @@ public static class CollectionEndpoints
                     // Unowned — synthesize a row from Wikidata data.
                     merged.Add(new CollectionGroupWorkDto
                     {
-                        WorkId        = Guid.Empty,
-                        Title         = title,
+                        WorkId = Guid.Empty,
+                        Title = title,
                         Ordinal = ordinal,
-                        TrackNumber   = ordinal.ToString(),
-                        CoverUrl      = albumCover,
-                        Status        = "Unowned",
-                        IsOwned       = false,
+                        TrackNumber = ordinal.ToString(),
+                        CoverUrl = albumCover,
+                        Status = "Unowned",
+                        IsOwned = false,
                     });
                 }
             }
@@ -3682,7 +4026,9 @@ public static class CollectionEndpoints
             foreach (var t in ownedTracks)
             {
                 if (!seenOwned.Contains(t.WorkId))
+                {
                     merged.Add(t);
+                }
             }
 
             return merged
@@ -3723,12 +4069,15 @@ public static class CollectionEndpoints
             string[]? arrayKeys = groupField.ToLowerInvariant() switch
             {
                 "show_name" => ["episodes", "seasons"],
-                "album"     => ["tracks"],
-                "series"    => ["issues"],
-                _           => null,
+                "album" => ["tracks"],
+                "series" => ["issues"],
+                _ => null,
             };
 
-            if (arrayKeys is null) return;
+            if (arrayKeys is null)
+            {
+                return;
+            }
 
             // TV episodes may be nested: root.seasons[].episodes[].
             if (groupField.Equals("show_name", StringComparison.OrdinalIgnoreCase)
@@ -3744,7 +4093,9 @@ public static class CollectionEndpoints
 
                     if (!seasonEl.TryGetProperty("episodes", out var epArr)
                         || epArr.ValueKind != System.Text.Json.JsonValueKind.Array)
+                    {
                         continue;
+                    }
 
                     MergeChildArray(sectionMap, epArr, seasonNum ?? "Unknown",
                         isEpisode: true, fallbackCover);
@@ -3791,7 +4142,9 @@ public static class CollectionEndpoints
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (!sectionMap.ContainsKey(sectionKey))
+        {
             sectionMap[sectionKey] = [];
+        }
 
         int wikiOrdinal = 0;
         foreach (var el in childArray.EnumerateArray())
@@ -3801,10 +4154,16 @@ public static class CollectionEndpoints
                 && tEl.ValueKind == System.Text.Json.JsonValueKind.String
                 ? tEl.GetString()
                 : null;
-            if (string.IsNullOrWhiteSpace(title)) continue;
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                continue;
+            }
 
             // Skip if an owned row with the same title is already in this section.
-            if (ownedTitles.Contains(title.Trim().ToLowerInvariant())) continue;
+            if (ownedTitles.Contains(title.Trim().ToLowerInvariant()))
+            {
+                continue;
+            }
 
             var ordinal = el.TryGetProperty("ordinal", out var oEl)
                 && oEl.ValueKind == System.Text.Json.JsonValueKind.Number
@@ -3820,21 +4179,24 @@ public static class CollectionEndpoints
 
             sectionMap[sectionKey].Add(new CollectionGroupWorkDto
             {
-                WorkId      = Guid.Empty,
-                Title       = title,
-                Ordinal     = ordinal,
-                Episode     = episodeNumStr,
+                WorkId = Guid.Empty,
+                Title = title,
+                Ordinal = ordinal,
+                Episode = episodeNumStr,
                 TrackNumber = isEpisode ? null : ordinal.ToString(),
-                CoverUrl    = fallbackCover,
-                Status      = "Unowned",
-                IsOwned     = false,
+                CoverUrl = fallbackCover,
+                Status = "Unowned",
+                IsOwned = false,
             });
         }
     }
 
     private static List<CollectionResolvedItemDto> ResolveEntityMetadata(IDatabaseConnection db, IReadOnlyList<Guid> entityIds)
     {
-        if (entityIds.Count == 0) return [];
+        if (entityIds.Count == 0)
+        {
+            return [];
+        }
 
         using var conn = db.CreateConnection();
         var result = new List<CollectionResolvedItemDto>();
@@ -3869,7 +4231,11 @@ public static class CollectionEndpoints
             {
                 var key = reader.GetString(0);
                 var val = reader.IsDBNull(1) ? null : reader.GetString(1);
-                if (string.IsNullOrEmpty(val)) continue;
+                if (string.IsNullOrEmpty(val))
+                {
+                    continue;
+                }
+
                 switch (key)
                 {
                     case "title": title = val; break;
@@ -4056,7 +4422,10 @@ public static class CollectionEndpoints
         IDatabaseConnection db,
         IReadOnlyList<Guid> entityIds)
     {
-        if (entityIds.Count == 0) return [];
+        if (entityIds.Count == 0)
+        {
+            return [];
+        }
 
         using var conn = db.CreateConnection();
         var result = new List<CollectionResolvedItemDto>(entityIds.Count);
@@ -4115,33 +4484,40 @@ public static class CollectionEndpoints
             {
                 var key = reader.GetString(0);
                 var val = reader.IsDBNull(1) ? "" : reader.GetString(1);
-                if (string.IsNullOrEmpty(val)) continue;
+                if (string.IsNullOrEmpty(val))
+                {
+                    continue;
+                }
                 // First occurrence of each key wins (Union order = Self then Parent).
                 if (!seen.ContainsKey(key))
+                {
                     seen[key] = val;
+                }
             }
 
-            seen.TryGetValue("title",      out var title);
-            seen.TryGetValue("author",     out var author);
-            seen.TryGetValue("director",   out var director);
-            seen.TryGetValue("artist",     out var artist);
-            seen.TryGetValue("year",       out var year);
+            seen.TryGetValue("title", out var title);
+            seen.TryGetValue("author", out var author);
+            seen.TryGetValue("director", out var director);
+            seen.TryGetValue("artist", out var artist);
+            seen.TryGetValue("year", out var year);
             seen.TryGetValue("media_type", out var mediaType);
 
             string? cover = null;
             if (seen.TryGetValue("_asset_id", out var assetId))
+            {
                 cover = $"/stream/{assetId}/cover";
+            }
 
             var creator = artist ?? author ?? director;
 
             result.Add(new CollectionResolvedItemDto
             {
-                EntityId  = entityId,
-                Title     = !string.IsNullOrEmpty(title) ? title : "Unknown",
-                Creator   = creator,
+                EntityId = entityId,
+                Title = !string.IsNullOrEmpty(title) ? title : "Unknown",
+                Creator = creator,
                 MediaType = !string.IsNullOrEmpty(mediaType) ? mediaType : "Unknown",
-                CoverUrl  = cover,
-                Year      = year,
+                CoverUrl = cover,
+                Year = year,
             });
         }
 
@@ -4152,30 +4528,47 @@ public static class CollectionEndpoints
     {
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(row.Creator))
+        {
             parts.Add(row.Creator);
+        }
+
         if (!string.IsNullOrWhiteSpace(row.Year))
+        {
             parts.Add(row.Year);
+        }
+
         if (!string.IsNullOrWhiteSpace(row.MediaType))
+        {
             parts.Add(row.MediaType);
+        }
+
         return parts.Count == 0 ? null : string.Join(" | ", parts);
     }
 
     private static string? BuildLookupParentContext(CollectionMediaLookupRow row)
     {
         if (string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase))
+        {
             return row.MediaType.Contains("Music", StringComparison.OrdinalIgnoreCase) ? "Album"
                 : row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase) ? "Series"
                 : row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase) ? "Series"
                 : row.MediaType.Contains("book", StringComparison.OrdinalIgnoreCase) ? "Series"
                 : "Container";
+        }
 
         if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
         {
             var parts = new List<string>();
             if (!string.IsNullOrWhiteSpace(row.ShowName))
+            {
                 parts.Add(row.ShowName);
+            }
+
             if (!string.IsNullOrWhiteSpace(row.SeasonNumber))
+            {
                 parts.Add($"Season {row.SeasonNumber}");
+            }
+
             return parts.Count == 0 ? null : string.Join(" / ", parts);
         }
 
@@ -4183,9 +4576,15 @@ public static class CollectionEndpoints
         {
             var parts = new List<string>();
             if (!string.IsNullOrWhiteSpace(row.Artist))
+            {
                 parts.Add(row.Artist);
+            }
+
             if (!string.IsNullOrWhiteSpace(row.Album))
+            {
                 parts.Add(row.Album);
+            }
+
             return parts.Count == 0 ? null : string.Join(" / ", parts);
         }
 
@@ -4197,25 +4596,51 @@ public static class CollectionEndpoints
         if (string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase))
         {
             if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
+            {
                 return $"/details/tvshow/{row.WorkId:D}?context=watch";
+            }
+
             if (row.MediaType.Contains("Music", StringComparison.OrdinalIgnoreCase))
+            {
                 return $"/details/musicalbum/{row.WorkId:D}?context=listen";
+            }
+
             if (row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
+            {
                 return $"/details/comicseries/{row.WorkId:D}?context=comics";
+            }
+
             if (row.MediaType.Contains("book", StringComparison.OrdinalIgnoreCase))
+            {
                 return $"/details/bookseries/{row.WorkId:D}?context=read";
+            }
         }
 
         if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
+        {
             return $"/details/tvepisode/{row.WorkId:D}?context=watch";
+        }
+
         if (row.MediaType.Contains("movie", StringComparison.OrdinalIgnoreCase))
+        {
             return $"/watch/movie/{row.WorkId:D}";
+        }
+
         if (row.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
+        {
             return $"/details/musictrack/{row.WorkId:D}?context=listen";
+        }
+
         if (row.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
+        {
             return $"/listen/audiobook/{row.WorkId:D}";
+        }
+
         if (row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
+        {
             return $"/details/comicissue/{row.WorkId:D}?context=comics";
+        }
+
         return $"/book/{row.WorkId:D}";
     }
 

@@ -1,8 +1,9 @@
-﻿using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Services;
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -19,49 +20,51 @@ public static class PersonEndpoints
             Guid id,
             IPersonRepository personRepo,
             IEntityAssetRepository assetRepo,
-            IDatabaseConnection db,
+            IPersonCreditReadService personCreditReadService,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
             if (person is null)
+            {
                 return Results.NotFound($"Person '{id}' not found.");
+            }
 
-            var groupMembers = await PersonCreditQueries.GetGroupMembersAsync(id, person.IsGroup, db, ct);
-            var memberOfGroups = await PersonCreditQueries.GetGroupMembersAsync(id, false, db, ct);
+            var groupMembers = await personCreditReadService.GetGroupMembersAsync(id, person.IsGroup, ct);
+            var memberOfGroups = await personCreditReadService.GetGroupMembersAsync(id, false, ct);
             var preferredBanner = await assetRepo.GetPreferredAsync(id.ToString(), "Banner", ct);
             var preferredBackground = await assetRepo.GetPreferredAsync(id.ToString(), "Background", ct);
             var preferredLogo = await assetRepo.GetPreferredAsync(id.ToString(), "Logo", ct);
 
             return Results.Ok(new
             {
-                id              = person.Id,
-                name            = person.Name,
-                roles           = person.Roles,
-                wikidata_qid    = person.WikidataQid,
-                headshot_url    = ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl),
-                biography       = person.Biography,
-                occupation      = person.Occupation,
-                date_of_birth   = person.DateOfBirth,
-                date_of_death   = person.DateOfDeath,
-                place_of_birth  = person.PlaceOfBirth,
-                place_of_death  = person.PlaceOfDeath,
-                nationality     = person.Nationality,
-                instagram       = person.Instagram,
-                twitter         = person.Twitter,
-                tiktok          = person.TikTok,
-                mastodon        = person.Mastodon,
-                website         = person.Website,
+                id = person.Id,
+                name = person.Name,
+                roles = person.Roles,
+                wikidata_qid = person.WikidataQid,
+                headshot_url = ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl),
+                biography = person.Biography,
+                occupation = person.Occupation,
+                date_of_birth = person.DateOfBirth,
+                date_of_death = person.DateOfDeath,
+                place_of_birth = person.PlaceOfBirth,
+                place_of_death = person.PlaceOfDeath,
+                nationality = person.Nationality,
+                instagram = person.Instagram,
+                twitter = person.Twitter,
+                tiktok = person.TikTok,
+                mastodon = person.Mastodon,
+                website = person.Website,
                 has_local_headshot = !string.IsNullOrEmpty(person.LocalHeadshotPath)
                                     && File.Exists(person.LocalHeadshotPath),
-                is_pseudonym    = person.IsPseudonym,
-                is_group        = person.IsGroup,
-                group_members   = person.IsGroup ? groupMembers : [],
+                is_pseudonym = person.IsPseudonym,
+                is_group = person.IsGroup,
+                group_members = person.IsGroup ? groupMembers : [],
                 member_of_groups = person.IsGroup ? [] : memberOfGroups,
-                banner_url      = preferredBanner is null ? null : $"/stream/artwork/{preferredBanner.Id}",
-                background_url  = preferredBackground is null ? null : $"/stream/artwork/{preferredBackground.Id}",
-                logo_url        = preferredLogo is null ? null : $"/stream/artwork/{preferredLogo.Id}",
-                created_at      = person.CreatedAt,
-                enriched_at     = person.EnrichedAt,
+                banner_url = preferredBanner is null ? null : $"/stream/artwork/{preferredBanner.Id}",
+                background_url = preferredBackground is null ? null : $"/stream/artwork/{preferredBackground.Id}",
+                logo_url = preferredLogo is null ? null : $"/stream/artwork/{preferredLogo.Id}",
+                created_at = person.CreatedAt,
+                enriched_at = person.EnrichedAt,
             });
         });
 
@@ -95,7 +98,9 @@ public static class PersonEndpoints
             var logger = loggerFactory.CreateLogger("MediaEngine.Api.PersonHeadshots");
             var person = await personRepo.FindByIdAsync(id, ct);
             if (person is null)
+            {
                 return Results.NotFound($"Person '{id}' not found.");
+            }
 
             // Try local headshot path first.
             if (!string.IsNullOrEmpty(person.LocalHeadshotPath)
@@ -222,14 +227,16 @@ public static class PersonEndpoints
         group.MapGet("/{id:guid}/library-credits", async (
             Guid id,
             IPersonRepository personRepo,
-            IDatabaseConnection db,
+            IPersonCreditReadService personCreditReadService,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
             if (person is null)
+            {
                 return Results.NotFound($"Person '{id}' not found.");
+            }
 
-            var credits = await PersonCreditQueries.GetLibraryCreditsAsync(id, db, ct);
+            var credits = await personCreditReadService.GetLibraryCreditsAsync(id, ct);
             return Results.Ok(credits);
         })
         .WithName("GetPersonLibraryCredits")
@@ -246,11 +253,15 @@ public static class PersonEndpoints
         {
             var person = await personRepo.FindByIdAsync(id, ct);
             if (person is null)
+            {
                 return Results.NotFound($"Person '{id}' not found.");
+            }
 
             var collectionIds = await personWorksReadService.GetCollectionIdsForPersonAsync(id, ct);
             if (collectionIds.Count == 0)
+            {
                 return Results.Ok(Array.Empty<MediaEngine.Api.Models.CollectionDto>());
+            }
 
             var allCollections = await collectionRepo.GetAllAsync(ct);
             var dtos = allCollections
@@ -321,17 +332,17 @@ public static class PersonEndpoints
             var results = filtered
                 .Select(p => new
                 {
-                    id                 = p.Id,
-                    name               = p.Name,
-                    roles              = p.Roles,
-                    wikidata_qid       = p.WikidataQid,
-                    headshot_url       = ApiImageUrls.BuildPersonHeadshotUrl(p.Id, p.LocalHeadshotPath, p.HeadshotUrl),
+                    id = p.Id,
+                    name = p.Name,
+                    roles = p.Roles,
+                    wikidata_qid = p.WikidataQid,
+                    headshot_url = ApiImageUrls.BuildPersonHeadshotUrl(p.Id, p.LocalHeadshotPath, p.HeadshotUrl),
                     has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
                                          && File.Exists(p.LocalHeadshotPath),
-                    is_pseudonym       = p.IsPseudonym,
-                    is_group           = p.IsGroup,
-                    biography          = p.Biography,
-                    occupation         = p.Occupation,
+                    is_pseudonym = p.IsPseudonym,
+                    is_group = p.IsGroup,
+                    biography = p.Biography,
+                    occupation = p.Occupation,
                 })
                 .ToList();
 
@@ -394,13 +405,17 @@ public static class PersonEndpoints
         };
 
         if (!string.IsNullOrWhiteSpace(extension))
+        {
             return extension;
+        }
 
         if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
         {
             extension = Path.GetExtension(uri.AbsolutePath);
             if (!string.IsNullOrWhiteSpace(extension))
+            {
                 return extension.ToLowerInvariant();
+            }
         }
 
         return ".jpg";
@@ -424,13 +439,19 @@ public static class PersonEndpoints
     private static bool IsLikelyImageBytes(byte[] bytes, string? contentType)
     {
         if (bytes.Length == 0)
+        {
             return false;
+        }
 
         if (contentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
+        {
             return true;
+        }
 
         if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
+        {
             return true;
+        }
 
         if (bytes.Length >= 8
             && bytes[0] == 0x89

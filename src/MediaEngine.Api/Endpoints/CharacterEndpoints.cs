@@ -1,3 +1,4 @@
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
@@ -35,7 +36,9 @@ public static class CharacterEndpoints
         {
             var portrait = await portraitRepo.FindByIdAsync(portraitId, ct);
             if (portrait is null)
+            {
                 return Results.NotFound($"Portrait '{portraitId}' not found.");
+            }
 
             if (!string.IsNullOrWhiteSpace(portrait.LocalImagePath) && File.Exists(portrait.LocalImagePath))
             {
@@ -53,11 +56,15 @@ public static class CharacterEndpoints
             using var client = httpFactory.CreateClient("cover_download");
             using var response = await client.GetAsync(imageUri, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return Results.NotFound("Portrait image source could not be retrieved.");
+            }
 
             var bytesFromSource = await response.Content.ReadAsByteArrayAsync(ct);
             if (bytesFromSource.Length == 0)
+            {
                 return Results.NotFound("Portrait image source was empty.");
+            }
 
             var localPath = string.IsNullOrWhiteSpace(portrait.LocalImagePath)
                 ? assetPaths.GetCharacterPortraitPath(
@@ -87,7 +94,7 @@ public static class CharacterEndpoints
             CancellationToken ct) =>
         {
             var portraits = await portraitRepo.GetByCharacterAsync(fictionalEntityId, ct);
-            var entity    = await entityRepo.FindByIdAsync(fictionalEntityId, ct);
+            var entity = await entityRepo.FindByIdAsync(fictionalEntityId, ct);
 
             var result = new List<object>(portraits.Count);
             foreach (var p in portraits)
@@ -95,13 +102,13 @@ public static class CharacterEndpoints
                 var person = await personRepo.FindByIdAsync(p.PersonId, ct);
                 result.Add(new
                 {
-                    id                  = p.Id,
-                    person_id           = p.PersonId,
-                    person_name         = person?.Name,
+                    id = p.Id,
+                    person_id = p.PersonId,
+                    person_name = person?.Name,
                     fictional_entity_id = p.FictionalEntityId,
-                    character_name      = entity?.Label,
-                    image_url           = ApiImageUrls.BuildCharacterPortraitUrl(p.Id, p.LocalImagePath, p.ImageUrl),
-                    is_default          = p.IsDefault,
+                    character_name = entity?.Label,
+                    image_url = ApiImageUrls.BuildCharacterPortraitUrl(p.Id, p.LocalImagePath, p.ImageUrl),
+                    is_default = p.IsDefault,
                 });
             }
 
@@ -120,7 +127,9 @@ public static class CharacterEndpoints
             var portraits = await portraitRepo.GetByCharacterAsync(fictionalEntityId, ct);
             var match = portraits.FirstOrDefault(p => p.Id == portraitId);
             if (match is null)
+            {
                 return Results.NotFound($"Portrait '{portraitId}' not found for character '{fictionalEntityId}'.");
+            }
 
             await portraitRepo.SetDefaultAsync(portraitId, ct);
             return Results.Ok(new { portrait_id = portraitId, is_default = true });
@@ -131,14 +140,16 @@ public static class CharacterEndpoints
         group.MapGet("/persons/{personId:guid}/character-roles", async (
             Guid personId,
             IPersonRepository personRepo,
-            IDatabaseConnection db,
+            IPersonCreditReadService personCreditReadService,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(personId, ct);
             if (person is null)
+            {
                 return Results.NotFound($"Person '{personId}' not found.");
+            }
 
-            var result = await PersonCreditQueries.GetCharacterRolesAsync(personId, db, ct);
+            var result = await personCreditReadService.GetCharacterRolesAsync(personId, ct);
             return Results.Ok(result);
         });
 
@@ -152,7 +163,7 @@ public static class CharacterEndpoints
             CancellationToken ct) =>
         {
             var characters = await entityRepo.GetByUniverseAndTypeAsync(universeQid, "Character", ct);
-            var entityIds  = characters.Select(e => e.Id).ToList();
+            var entityIds = characters.Select(e => e.Id).ToList();
 
             // Batch-fetch all portraits for these characters.
             var allPortraits = await portraitRepo.GetByCharacterBatchAsync(entityIds, ct);
@@ -176,16 +187,16 @@ public static class CharacterEndpoints
                 result.Add(new
                 {
                     fictional_entity_id = character.Id,
-                    character_name      = character.Label,
-                    default_actor_name  = actorName,
-                    default_actor_id    = defaultPortrait?.PersonId,
-                    portrait_url        = defaultPortrait is null
+                    character_name = character.Label,
+                    default_actor_name = actorName,
+                    default_actor_id = defaultPortrait?.PersonId,
+                    portrait_url = defaultPortrait is null
                         ? null
                         : ApiImageUrls.BuildCharacterPortraitUrl(
                             defaultPortrait.Id,
                             defaultPortrait.LocalImagePath,
                             defaultPortrait.ImageUrl),
-                    actor_count         = charPortraits?.Count ?? 0,
+                    actor_count = charPortraits?.Count ?? 0,
                 });
             }
 
@@ -202,11 +213,11 @@ public static class CharacterEndpoints
             var assets = await assetRepo.GetByEntityAsync(entityId, null, ct);
             var result = assets.Select(a => new
             {
-                id              = a.Id,
-                entity_id       = a.EntityId,
-                asset_type      = a.AssetTypeValue,
-                image_url       = a.ImageUrl,
-                is_preferred    = a.IsPreferred,
+                id = a.Id,
+                entity_id = a.EntityId,
+                asset_type = a.AssetTypeValue,
+                image_url = a.ImageUrl,
+                is_preferred = a.IsPreferred,
                 source_provider = a.SourceProvider,
             });
             return Results.Ok(result);
@@ -224,17 +235,19 @@ public static class CharacterEndpoints
             // IMetadataHarvestingService to enqueue a "universe_sweep" hint.
             var harvesting = sp.GetService<MediaEngine.Domain.Contracts.IMetadataHarvestingService>();
             if (harvesting is null)
+            {
                 return Results.Ok(new { triggered = false, message = "Harvesting service unavailable." });
+            }
 
             await harvesting.EnqueueAsync(new MediaEngine.Domain.Models.HarvestRequest
             {
-                EntityId   = Guid.Empty,
+                EntityId = Guid.Empty,
                 EntityType = MediaEngine.Domain.Enums.EntityType.Character,
-                MediaType  = MediaEngine.Domain.Enums.MediaType.Unknown,
-                Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                MediaType = MediaEngine.Domain.Enums.MediaType.Unknown,
+                Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["trigger_type"]  = "universe_sweep",
-                    ["requested_by"]  = "library_manual",
+                    ["trigger_type"] = "universe_sweep",
+                    ["requested_by"] = "library_manual",
                 },
             }, ct);
 
@@ -250,7 +263,9 @@ public static class CharacterEndpoints
         {
             var uriExtension = Path.GetExtension(imageUri.AbsolutePath);
             if (!string.IsNullOrWhiteSpace(uriExtension))
+            {
                 return uriExtension;
+            }
         }
 
         var directExtension = Path.GetExtension(imageUrl);

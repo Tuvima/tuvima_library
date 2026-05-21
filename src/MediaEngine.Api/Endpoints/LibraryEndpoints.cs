@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
@@ -26,7 +27,7 @@ public static class LibraryEndpoints
         // â”€â”€ GET /library/overview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         group.MapGet("/overview", async (
             ILibraryItemRepository libraryItemRepo,
-            IDatabaseConnection db,
+            ILibraryOverviewReadService overviewReadService,
             CancellationToken ct) =>
         {
             // 1. Four-state counts (Identified, InReview, Provisional, Rejected) + trigger breakdown
@@ -43,70 +44,31 @@ public static class LibraryEndpoints
             // 4. Review-ready count from the shared libraryItem projection
             var reviewTotal = fourState.InReview;
 
-            // 5. Remaining aggregates via direct SQL for fields not exposed
-            //    by existing repository interfaces.
-            using var conn = db.CreateConnection();
-
-            // Recently added counts (24h, 7d, 30d) â€” based on media_asset created_at
-            var now = DateTimeOffset.UtcNow;
-            var since24h = now.AddHours(-24).ToString("O");
-            var since7d  = now.AddDays(-7).ToString("O");
-            var since30d = now.AddDays(-30).ToString("O");
-
-            const string RecentlyAddedSql = """
-                SELECT COUNT(*)
-                FROM (
-                    SELECT e.work_id,
-                           MIN(mc.claimed_at) AS first_claimed_at
-                    FROM editions e
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    INNER JOIN metadata_claims mc ON mc.entity_id = ma.id
-                    GROUP BY e.work_id
-                ) added
-                WHERE julianday(added.first_claimed_at) >= julianday(@since);
-                """;
-
-            var added24h = await conn.ExecuteScalarAsync<int>(RecentlyAddedSql, new { since = since24h });
-            var added7d  = await conn.ExecuteScalarAsync<int>(RecentlyAddedSql, new { since = since7d });
-            var added30d = await conn.ExecuteScalarAsync<int>(RecentlyAddedSql, new { since = since30d });
-
-            // Pipeline state counts from identity_jobs
-            var pipelineRows = await conn.QueryAsync<(string State, int Count)>("""
-                SELECT state AS State, COUNT(*) AS Count
-                FROM identity_jobs
-                GROUP BY state
-                """);
-            var pipelineStates = pipelineRows.ToDictionary(r => r.State, r => r.Count);
-
-            // Pipeline success rate: Completed / (Completed + Failed)
-            pipelineStates.TryGetValue("Completed", out var completedCount);
-            pipelineStates.TryGetValue("Failed", out var failedCount);
-            var pipelineTotal = completedCount + failedCount;
-            var successRate = pipelineTotal > 0 ? (double)completedCount / pipelineTotal : 1.0;
+            var overview = await overviewReadService.GetOverviewAggregatesAsync(ct);
 
             var dto = new LibraryOverviewDto
             {
-                TotalItems          = ownedTotal,
-                Added24h            = added24h,
-                Added7d             = added7d,
-                Added30d            = added30d,
-                PipelineStates      = pipelineStates,
-                PipelineSuccessRate = Math.Round(successRate, 4),
-                ReviewCategories    = fourState.TriggerCounts.ToDictionary(kv => kv.Key, kv => kv.Value),
-                ReviewTotal         = reviewTotal,
-                WithQid             = projection.WithQid,
-                WithoutQid          = projection.WithoutQid,
-                EnrichedStage3      = projection.EnrichedStage3,
-                NotEnrichedStage3   = projection.NotEnrichedStage3,
-                UniverseAssigned    = projection.UniverseAssigned,
-                UniverseUnassigned  = projection.UniverseUnassigned,
-                StaleItems          = projection.StaleItems,
-                MediaTypeCounts     = mediaTypeCounts,
+                TotalItems = ownedTotal,
+                Added24h = overview.Added24h,
+                Added7d = overview.Added7d,
+                Added30d = overview.Added30d,
+                PipelineStates = overview.PipelineStates.ToDictionary(kv => kv.Key, kv => kv.Value),
+                PipelineSuccessRate = overview.PipelineSuccessRate,
+                ReviewCategories = fourState.TriggerCounts.ToDictionary(kv => kv.Key, kv => kv.Value),
+                ReviewTotal = reviewTotal,
+                WithQid = projection.WithQid,
+                WithoutQid = projection.WithoutQid,
+                EnrichedStage3 = projection.EnrichedStage3,
+                NotEnrichedStage3 = projection.NotEnrichedStage3,
+                UniverseAssigned = projection.UniverseAssigned,
+                UniverseUnassigned = projection.UniverseUnassigned,
+                StaleItems = projection.StaleItems,
+                MediaTypeCounts = mediaTypeCounts,
                 HiddenByQualityGate = projection.HiddenByQualityGate,
-                ArtPending          = projection.ArtPending,
-                RetailNeedsReview   = projection.RetailNeedsReview,
-                QidNoMatch          = projection.QidNoMatch,
-                CompletedWithArt    = projection.CompletedWithArt,
+                ArtPending = projection.ArtPending,
+                RetailNeedsReview = projection.RetailNeedsReview,
+                QidNoMatch = projection.QidNoMatch,
+                CompletedWithArt = projection.CompletedWithArt,
             };
 
             return Results.Ok(dto);
@@ -195,7 +157,9 @@ public static class LibraryEndpoints
                 .ToList();
 
             if (workRows.Count == 0)
+            {
                 return Results.Ok(new PagedResponse<LibraryWorkListItemDto>([], page.Offset, page.Limit, false));
+            }
 
             var assetIds = workRows.Select(row => row.AssetId).Distinct().ToArray();
             var rootWorkIds = workRows.Select(row => row.RootWorkId).Distinct().ToArray();
@@ -315,7 +279,9 @@ public static class LibraryEndpoints
             CancellationToken ct) =>
         {
             if (request.EntityIds.Count == 0 || request.FieldChanges.Count == 0)
+            {
                 return Results.BadRequest("Must provide entity IDs and field changes.");
+            }
 
             var targetMap = ResolveBatchEditTargets(db, request.EntityIds, request.FieldChanges);
             var targetIds = targetMap.Values
@@ -369,7 +335,9 @@ public static class LibraryEndpoints
             CancellationToken ct) =>
         {
             if (request.EntityIds.Count == 0 || request.FieldChanges.Count == 0)
+            {
                 return Results.BadRequest("Must provide entity IDs and field changes.");
+            }
 
             var updatedCount = 0;
             var failedIds = new List<Guid>();
@@ -393,7 +361,9 @@ public static class LibraryEndpoints
                     foreach (var change in request.FieldChanges)
                     {
                         if (!targets.TryGetValue(change.Key, out var targetId))
+                        {
                             targetId = entityId;
+                        }
 
                         var targetKey = (targetId, change.Key);
 
@@ -433,10 +403,14 @@ public static class LibraryEndpoints
             }
 
             if (claimsByTargetAndKey.Count > 0)
+            {
                 await claimRepo.InsertBatchAsync(claimsByTargetAndKey.Values.ToList(), ct);
+            }
 
             if (canonicalsByTargetAndKey.Count > 0)
+            {
                 await canonicalRepo.UpsertBatchAsync(canonicalsByTargetAndKey.Values.ToList(), ct);
+            }
 
             return Results.Ok(new LibraryBatchEditResult
             {
@@ -545,7 +519,9 @@ public static class LibraryEndpoints
                 """, new { workId });
 
             if (entityId is null)
+            {
                 return Results.NotFound();
+            }
 
             // Mark as reviewed/rejected so it doesn't reappear in the pending queue
             await canonicalRepo.UpsertBatchAsync([new CanonicalValue
@@ -595,11 +571,21 @@ public static class LibraryEndpoints
                         LIMIT 1
                         """, new { workId });
 
-                    if (string.IsNullOrEmpty(candidateQid)) continue;
+                    if (string.IsNullOrEmpty(candidateQid))
+                    {
+                        continue;
+                    }
 
                     // Strip URI prefix and label suffix if present
-                    if (candidateQid.Contains('/')) candidateQid = candidateQid.Split('/').Last();
-                    if (candidateQid.Contains("::")) candidateQid = candidateQid.Split("::")[0];
+                    if (candidateQid.Contains('/'))
+                    {
+                        candidateQid = candidateQid.Split('/').Last();
+                    }
+
+                    if (candidateQid.Contains("::"))
+                    {
+                        candidateQid = candidateQid.Split("::")[0];
+                    }
 
                     var collection = await collectionRepo.FindByQidAsync(candidateQid, ct);
                     if (collection is null)
@@ -698,7 +684,9 @@ public static class LibraryEndpoints
             .ToArray();
 
         if (ids.Length == 0)
+        {
             return [];
+        }
 
         const string sql = """
             SELECT entity_id AS EntityId, key AS [Key], value AS Value
@@ -735,7 +723,9 @@ public static class LibraryEndpoints
             .ToArray();
 
         if (ids.Length == 0)
+        {
             return [];
+        }
 
         const string sql = """
             SELECT entity_id AS EntityId, value AS Value, ordinal AS Ordinal
@@ -766,15 +756,21 @@ public static class LibraryEndpoints
         bool overwriteExisting)
     {
         if (source is null)
+        {
             return;
+        }
 
         foreach (var (key, value) in source)
         {
             if (string.IsNullOrWhiteSpace(value))
+            {
                 continue;
+            }
 
             if (overwriteExisting || !target.ContainsKey(key))
+            {
                 target[key] = value;
+            }
         }
     }
 
@@ -799,7 +795,9 @@ public static class LibraryEndpoints
             ?? GetCanonicalValue(canonicalValues, routeSegment);
 
         if (!string.IsNullOrWhiteSpace(canonical))
+        {
             return canonical;
+        }
 
         return HasPresentArtwork(assetValues, rootValues, stateKey)
             ? $"/stream/{assetId}/{routeSegment}"
@@ -822,7 +820,9 @@ public static class LibraryEndpoints
     {
         var result = new Dictionary<Guid, Dictionary<string, Guid>>();
         if (entityIds.Count == 0)
+        {
             return result;
+        }
 
         using var conn = db.CreateConnection();
         const string sql = """
@@ -856,7 +856,9 @@ public static class LibraryEndpoints
                 sql,
                 new { entityId = entityId.ToString() });
             if (row is null || row.AssetId == Guid.Empty)
+            {
                 continue;
+            }
 
             var mediaType = Enum.TryParse<MediaType>(row.MediaType, ignoreCase: true, out var parsed)
                 ? parsed

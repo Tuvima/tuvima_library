@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -43,17 +44,10 @@ public static class WorkEndpoints
 
         group.MapGet("/{workId:guid}/cast", async (
             Guid workId,
-            ICanonicalValueArrayRepository canonicalArrayRepo,
-            IPersonRepository personRepo,
-            IDatabaseConnection db,
+            IPersonCreditReadService personCreditReadService,
             CancellationToken ct) =>
         {
-            var cast = await CastCreditQueries.BuildForWorkAsync(
-                workId,
-                canonicalArrayRepo,
-                personRepo,
-                db,
-                ct);
+            var cast = await personCreditReadService.BuildForWorkAsync(workId, ct);
 
             return Results.Ok(cast);
         })

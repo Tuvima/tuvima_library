@@ -1,8 +1,10 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Dapper;
 using MediaEngine.Api.Endpoints;
+using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -13,7 +15,6 @@ using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
-using MediaEngine.Api.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Options;
 
@@ -383,16 +384,16 @@ public static class IntegrationTestEndpoints
 
     private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_api"]   = ["books", "audiobooks", "music"],
-        ["tmdb"]        = ["movies", "tv"],
-        ["comicvine"]   = ["comics"],
+        ["apple_api"] = ["books", "audiobooks", "music"],
+        ["tmdb"] = ["movies", "tv"],
+        ["comicvine"] = ["comics"],
     };
 
     private static readonly Dictionary<string, string> ProviderHealthUrls = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
-        ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
-        ["comicvine"]   = "https://comicvine.gamespot.com/api/search/?query=batman&resources=issue&limit=1&format=json&api_key=placeholder",
+        ["apple_api"] = "https://itunes.apple.com/search?term=test&limit=1",
+        ["tmdb"] = "https://api.themoviedb.org/3/configuration",
+        ["comicvine"] = "https://comicvine.gamespot.com/api/search/?query=batman&resources=issue&limit=1&format=json&api_key=placeholder",
     };
 
     private static HashSet<string> ParseTypes(HttpContext context)
@@ -465,9 +466,13 @@ public static class IntegrationTestEndpoints
             }
 
             if (health.TryGetValue(gatingProvider, out var status) && status.Healthy)
+            {
                 active.Add(type);
+            }
             else
+            {
                 skipped[type] = $"Provider '{gatingProvider}' unavailable ({(health.TryGetValue(gatingProvider!, out var s) ? s.Reason : "unknown")})";
+            }
         }
 
         return (active, skipped);
@@ -498,6 +503,7 @@ public static class IntegrationTestEndpoints
         IReviewQueueRepository reviewRepo,
         ICanonicalValueArrayRepository canonicalArrayRepo,
         IPersonRepository personRepo,
+        IPersonCreditReadService personCreditReadService,
         IEnumerable<IExternalMetadataProvider> providers,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
@@ -510,7 +516,10 @@ public static class IntegrationTestEndpoints
         // 1 = Stage 1 only (retail), 12 = Stage 1+2 (default), 123 = full pipeline
         int stages = 12;
         if (context.Request.Query.TryGetValue("stages", out var stagesParam) && int.TryParse(stagesParam, out var s))
+        {
             stages = s;
+        }
+
         report.StagesLevel = stages;
 
         DevHarnessWipeScope wipeScope;
@@ -550,186 +559,200 @@ public static class IntegrationTestEndpoints
         logger.LogInformation("â•‘   {StageLabel}                           â•‘", stageLabel);
         logger.LogInformation("â•‘   Active types: {Types}                  â•‘", typesLabel);
         if (skipReasons.Count > 0)
+        {
             logger.LogInformation("â•‘   Skipped: {Skipped}                     â•‘",
                 string.Join(", ", skipReasons.Select(s => $"{s.Key} ({s.Value})")));
+        }
+
         logger.LogInformation("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
 
         try
         {
-        // â”€â”€ Phase 1: Wipe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 1] Wiping harness state ({Scope})...", wipeScope);
-        try
-        {
-            DevHarnessResetResult resetResult = await resetService.WipeAsync(
-                wipeScope,
-                resumeWatcher: false,
-                ct);
-            report.WipeStatus = $"OK - {resetResult.Scope}";
-        }
-        catch (Exception ex)
-        {
-            report.WipeStatus = $"FAILED: {ex.Message}";
-            report.IssuesFound.Add($"Wipe failed: {ex.Message}");
-        }
-
-        // â”€â”€ Phase 2: Seed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 2] Seeding test files...");
-        try
-        {
-            int seeded = await SeedInternalAsync(options, configLoader, activeTypes, logger);
-            report.SeedStatus = $"OK â€” {seeded} files";
-            report.TotalFilesSeeded = seeded;
-        }
-        catch (Exception ex)
-        {
-            report.SeedStatus = $"FAILED: {ex.Message}";
-            report.IssuesFound.Add($"Seed failed: {ex.Message}");
-        }
-
-        // â”€â”€ Phase 3: Trigger scans and wait for ingestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // Brief settle to let file system flush.
-        await Task.Delay(2000, ct);
-
-        logger.LogInformation("[Phase 3] Triggering directory scans...");
-        var scanConfig = configLoader.LoadLibraries();
-        foreach (var lib in scanConfig.Libraries)
-        {
-            bool libraryIsActive =
-                activeTypes.Contains(NormalizeHarnessMediaTypeKey(lib.Category))
-                || lib.MediaTypes.Any(mt => activeTypes.Contains(NormalizeHarnessMediaTypeKey(mt)));
-
-            if (!libraryIsActive)
-                continue;
-
-            var sourcePaths = lib.SourcePaths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToList()
-                              ?? [];
-            if (sourcePaths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
-                sourcePaths.Add(lib.SourcePath);
-
-            foreach (var sourcePath in sourcePaths.Distinct(StringComparer.OrdinalIgnoreCase))
+            // â”€â”€ Phase 1: Wipe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            logger.LogInformation("[Phase 1] Wiping harness state ({Scope})...", wipeScope);
+            try
             {
-                if (!Directory.Exists(sourcePath))
-                    continue;
-
-                int fileCount = Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories).Length;
-                await ingestionEngine.ScanDirectory(sourcePath, lib.IncludeSubdirectories, ct);
-                logger.LogInformation("  Scan triggered: {Path} ({Category}, {Files} files)", sourcePath, lib.Category, fileCount);
+                DevHarnessResetResult resetResult = await resetService.WipeAsync(
+                    wipeScope,
+                    resumeWatcher: false,
+                    ct);
+                report.WipeStatus = $"OK - {resetResult.Scope}";
             }
-        }
+            catch (Exception ex)
+            {
+                report.WipeStatus = $"FAILED: {ex.Message}";
+                report.IssuesFound.Add($"Wipe failed: {ex.Message}");
+            }
 
-        var ingestionTimeout = ResolveIngestionTimeout(configLoader, stages, activeTypes.Count, logger);
-        logger.LogInformation("[Phase 3] Waiting for ingestion to complete (timeout: {Timeout})...", ingestionTimeout);
-        var ingestionSw = Stopwatch.StartNew();
-        bool ingestionComplete = await WaitForIngestionAsync(
-            db,
-            logger,
-            ingestionTimeout,
-            report.TotalFilesSeeded,
-            stages,
-            ct);
-        ingestionSw.Stop();
-        report.IngestionDuration = ingestionSw.Elapsed;
+            // â”€â”€ Phase 2: Seed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            logger.LogInformation("[Phase 2] Seeding test files...");
+            try
+            {
+                int seeded = await SeedInternalAsync(options, configLoader, activeTypes, logger);
+                report.SeedStatus = $"OK â€” {seeded} files";
+                report.TotalFilesSeeded = seeded;
+            }
+            catch (Exception ex)
+            {
+                report.SeedStatus = $"FAILED: {ex.Message}";
+                report.IssuesFound.Add($"Seed failed: {ex.Message}");
+            }
 
-        if (!ingestionComplete)
-        {
-            report.IssuesFound.Add($"Ingestion did not complete within {ingestionTimeout}");
-            logger.LogWarning("[Phase 3] Ingestion timeout â€” proceeding with partial results");
-        }
+            // â”€â”€ Phase 3: Trigger scans and wait for ingestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // Brief settle to let file system flush.
+            await Task.Delay(2000, ct);
 
-        // â”€â”€ Phase 4: Validate results per media type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 4] Validating ingestion results...");
-        await ValidateResultsAsync(libraryItemRepo, report, logger, ct);
+            logger.LogInformation("[Phase 3] Triggering directory scans...");
+            var scanConfig = configLoader.LoadLibraries();
+            foreach (var lib in scanConfig.Libraries)
+            {
+                bool libraryIsActive =
+                    activeTypes.Contains(NormalizeHarnessMediaTypeKey(lib.Category))
+                    || lib.MediaTypes.Any(mt => activeTypes.Contains(NormalizeHarnessMediaTypeKey(mt)));
 
-        // â”€â”€ Phase 4b: Library display validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 4b] Library display validation...");
-        await ValidateLibraryDisplayAsync(db, libraryItemRepo, report, stages, logger, ct);
+                if (!libraryIsActive)
+                {
+                    continue;
+                }
 
-        // â”€â”€ Phase 4c: File system and artwork validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        if (stages < 123)
-        {
-            logger.LogInformation("[Phase 4c] File system and artwork validation...");
-            await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
-        }
-        else
-        {
-            logger.LogInformation("[Phase 4c] Deferring file system validation until after Stage 3 artwork completes...");
-        }
+                var sourcePaths = lib.SourcePaths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToList()
+                                  ?? [];
+                if (sourcePaths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
+                {
+                    sourcePaths.Add(lib.SourcePath);
+                }
 
-        // â”€â”€ Phase 4d: Stage Gating Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 4d] Stage gating validation...");
-        await ValidateStageGatingAsync(libraryItemRepo, report, stages, logger, ct);
+                foreach (var sourcePath in sourcePaths.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    if (!Directory.Exists(sourcePath))
+                    {
+                        continue;
+                    }
 
-        // â”€â”€ Phase 4e: Reconciliation â€” expected vs. actual outcomes â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 4e] Running reconciliation pass...");
-        await RunReconciliationAsync(db, report, activeTypes, logger, ct);
+                    int fileCount = Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories).Length;
+                    await ingestionEngine.ScanDirectory(sourcePath, lib.IncludeSubdirectories, ct);
+                    logger.LogInformation("  Scan triggered: {Path} ({Category}, {Files} files)", sourcePath, lib.Category, fileCount);
+                }
+            }
 
-        logger.LogInformation("[Phase 4f] Validating description source priority and fallback storage...");
-        await ValidateDescriptionSourcesAsync(db, libraryItemRepo, report, logger, ct);
+            var ingestionTimeout = ResolveIngestionTimeout(configLoader, stages, activeTypes.Count, logger);
+            logger.LogInformation("[Phase 3] Waiting for ingestion to complete (timeout: {Timeout})...", ingestionTimeout);
+            var ingestionSw = Stopwatch.StartNew();
+            bool ingestionComplete = await WaitForIngestionAsync(
+                db,
+                logger,
+                ingestionTimeout,
+                report.TotalFilesSeeded,
+                stages,
+                ct);
+            ingestionSw.Stop();
+            report.IngestionDuration = ingestionSw.Elapsed;
 
-        logger.LogInformation("[Phase 4g] Validating cross-media series totals...");
-        await ValidateSeriesHarnessAsync(db, report, logger, ct);
+            if (!ingestionComplete)
+            {
+                report.IssuesFound.Add($"Ingestion did not complete within {ingestionTimeout}");
+                logger.LogWarning("[Phase 3] Ingestion timeout â€” proceeding with partial results");
+            }
 
-        // â”€â”€ Phase 5: Test manual search for review items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 5] Testing manual search on review items...");
-        await TestManualSearchAsync(libraryItemRepo, providers, report, logger, ct);
+            // â”€â”€ Phase 4: Validate results per media type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            logger.LogInformation("[Phase 4] Validating ingestion results...");
+            await ValidateResultsAsync(libraryItemRepo, report, logger, ct);
 
-        // â”€â”€ Phase 6: Check universe enrichment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        logger.LogInformation("[Phase 6] Checking universe enrichment...");
-        await CheckUniversesAsync(libraryItemRepo, report, logger, ct);
+            // â”€â”€ Phase 4b: Library display validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            logger.LogInformation("[Phase 4b] Library display validation...");
+            await ValidateLibraryDisplayAsync(db, libraryItemRepo, report, stages, logger, ct);
 
-        // â”€â”€ Phase 7: Stage 3 â€” Universe Enrichment (conditional) â”€â”€â”€â”€â”€â”€â”€â”€
-        if (stages >= 123)
-        {
-            logger.LogInformation("[Phase 7] Triggering Stage 3 Universe Enrichment...");
-            await RunStage3EnrichmentAsync(context, libraryItemRepo, db, report, logger, ct);
-            await Task.Delay(TimeSpan.FromSeconds(5), ct);
+            // â”€â”€ Phase 4c: File system and artwork validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            if (stages < 123)
+            {
+                logger.LogInformation("[Phase 4c] File system and artwork validation...");
+                await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
+            }
+            else
+            {
+                logger.LogInformation("[Phase 4c] Deferring file system validation until after Stage 3 artwork completes...");
+            }
 
-            logger.LogInformation("[Phase 7b] File system and Stage 3 artwork validation...");
-            report.FileSystemChecks.Clear();
-            report.WatchFolderChecks.Clear();
-            await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
-            ValidateStage3FanartAsync(report, logger);
-            await ValidateCharacterArtworkAsync(db, canonicalArrayRepo, personRepo, report, logger, ct);
-        }
+            // â”€â”€ Phase 4d: Stage Gating Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            logger.LogInformation("[Phase 4d] Stage gating validation...");
+            await ValidateStageGatingAsync(libraryItemRepo, report, stages, logger, ct);
 
-        sw.Stop();
-        report.TotalDuration = sw.Elapsed;
+            // â”€â”€ Phase 4e: Reconciliation â€” expected vs. actual outcomes â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            logger.LogInformation("[Phase 4e] Running reconciliation pass...");
+            await RunReconciliationAsync(db, report, activeTypes, logger, ct);
 
-        // â”€â”€ Generate HTML report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        string html = GenerateHtmlReport(report);
+            logger.LogInformation("[Phase 4f] Validating description source priority and fallback storage...");
+            await ValidateDescriptionSourcesAsync(db, libraryItemRepo, report, logger, ct);
 
-        // Save to disk â€” prefer repo root tools/reports/, fall back to CWD
-        string reportsDir = Path.Combine(
-            Path.GetDirectoryName(typeof(IntegrationTestEndpoints).Assembly.Location) ?? ".",
-            "..", "..", "..", "..", "..", "tools", "reports");
-        string? savedAbsolutePath = null;
-        try
-        {
-            if (!Directory.Exists(reportsDir))
-                reportsDir = Path.Combine(Directory.GetCurrentDirectory(), "tools", "reports");
-            if (!Directory.Exists(reportsDir))
-                Directory.CreateDirectory(reportsDir);
+            logger.LogInformation("[Phase 4g] Validating cross-media series totals...");
+            await ValidateSeriesHarnessAsync(db, report, logger, ct);
 
-            string fileName = $"integration-test-{DateTime.Now:yyyy-MM-dd-HHmmss}.html";
-            string filePath = Path.Combine(reportsDir, fileName);
-            await File.WriteAllTextAsync(filePath, html, ct);
-            savedAbsolutePath = Path.GetFullPath(filePath);
-            logger.LogInformation("[TEST] HTML report saved to: {Path}", savedAbsolutePath);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "[Report] Could not save report to disk");
-            report.IssuesFound.Add($"Report save failed: {ex.Message}");
-            html = GenerateHtmlReport(report);
-        }
+            // â”€â”€ Phase 5: Test manual search for review items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            logger.LogInformation("[Phase 5] Testing manual search on review items...");
+            await TestManualSearchAsync(libraryItemRepo, providers, report, logger, ct);
 
-        logger.LogInformation("â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
-        logger.LogInformation("â•‘   INTEGRATION TEST â€” Complete            â•‘");
-        logger.LogInformation("â•‘   Duration: {Duration}                   â•‘", report.TotalDuration);
-        logger.LogInformation("â•‘   Result: {Result}                       â•‘", report.OverallPass ? "PASS" : "ISSUES FOUND");
-        logger.LogInformation("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            // â”€â”€ Phase 6: Check universe enrichment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            logger.LogInformation("[Phase 6] Checking universe enrichment...");
+            await CheckUniversesAsync(libraryItemRepo, report, logger, ct);
 
-        return Results.Content(html, "text/html");
+            // â”€â”€ Phase 7: Stage 3 â€” Universe Enrichment (conditional) â”€â”€â”€â”€â”€â”€â”€â”€
+            if (stages >= 123)
+            {
+                logger.LogInformation("[Phase 7] Triggering Stage 3 Universe Enrichment...");
+                await RunStage3EnrichmentAsync(context, libraryItemRepo, db, report, logger, ct);
+                await Task.Delay(TimeSpan.FromSeconds(5), ct);
+
+                logger.LogInformation("[Phase 7b] File system and Stage 3 artwork validation...");
+                report.FileSystemChecks.Clear();
+                report.WatchFolderChecks.Clear();
+                await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
+                ValidateStage3FanartAsync(report, logger);
+                await ValidateCharacterArtworkAsync(db, personCreditReadService, report, logger, ct);
+            }
+
+            sw.Stop();
+            report.TotalDuration = sw.Elapsed;
+
+            // â”€â”€ Generate HTML report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            string html = GenerateHtmlReport(report);
+
+            // Save to disk â€” prefer repo root tools/reports/, fall back to CWD
+            string reportsDir = Path.Combine(
+                Path.GetDirectoryName(typeof(IntegrationTestEndpoints).Assembly.Location) ?? ".",
+                "..", "..", "..", "..", "..", "tools", "reports");
+            string? savedAbsolutePath = null;
+            try
+            {
+                if (!Directory.Exists(reportsDir))
+                {
+                    reportsDir = Path.Combine(Directory.GetCurrentDirectory(), "tools", "reports");
+                }
+
+                if (!Directory.Exists(reportsDir))
+                {
+                    Directory.CreateDirectory(reportsDir);
+                }
+
+                string fileName = $"integration-test-{DateTime.Now:yyyy-MM-dd-HHmmss}.html";
+                string filePath = Path.Combine(reportsDir, fileName);
+                await File.WriteAllTextAsync(filePath, html, ct);
+                savedAbsolutePath = Path.GetFullPath(filePath);
+                logger.LogInformation("[TEST] HTML report saved to: {Path}", savedAbsolutePath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[Report] Could not save report to disk");
+                report.IssuesFound.Add($"Report save failed: {ex.Message}");
+                html = GenerateHtmlReport(report);
+            }
+
+            logger.LogInformation("â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
+            logger.LogInformation("â•‘   INTEGRATION TEST â€” Complete            â•‘");
+            logger.LogInformation("â•‘   Duration: {Duration}                   â•‘", report.TotalDuration);
+            logger.LogInformation("â•‘   Result: {Result}                       â•‘", report.OverallPass ? "PASS" : "ISSUES FOUND");
+            logger.LogInformation("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+
+            return Results.Content(html, "text/html");
         }
         finally
         {
@@ -757,7 +780,9 @@ public static class IntegrationTestEndpoints
     private static string NormalizeHarnessMediaTypeKey(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         return value.Trim().ToLowerInvariant() switch
         {
@@ -814,7 +839,9 @@ public static class IntegrationTestEndpoints
         {
             var gate = configLoader.LoadCore().Pipeline.BatchGate;
             if (!gate.Enabled)
+            {
                 return fallback;
+            }
 
             // Stage 2 may intentionally wait for the batch gate before making
             // Wikidata calls. A full all-types Stage 1+2+3 run also performs
@@ -917,13 +944,19 @@ public static class IntegrationTestEndpoints
                 jobStateSummary);
 
             if (assetCount >= expectedCount && totalWorks > 0 && pendingCount == 0 && activeIdentityJobs == 0 && stableSnapshots >= 2)
+            {
                 return true;
+            }
 
             if (assetCount >= expectedCount && activeIdentityJobs == 0 && stableSnapshots >= 4)
+            {
                 return true;
+            }
 
             if (sawExpectedAssetCount && activeIdentityJobs == 0 && stableSnapshots >= 6)
+            {
                 return true;
+            }
 
             if (sawExpectedAssetCount && activeIdentityJobs > 0 && stableSnapshots >= 12)
             {
@@ -992,13 +1025,21 @@ public static class IntegrationTestEndpoints
                 mtResult.Items.Add(ir);
 
                 if (IsReviewStatus(item.Status))
+                {
                     mtResult.NeedsReview++;
+                }
                 else if (IsFailureStatus(item.Status))
+                {
                     mtResult.Failed++;
+                }
                 else if (IsIdentifiedStatus(item.Status))
+                {
                     mtResult.Identified++;
+                }
                 else
+                {
                     mtResult.NeedsReview++; // Default to review if unknown status
+                }
             }
 
             report.MediaTypeResults.Add(mtResult);
@@ -1013,8 +1054,13 @@ public static class IntegrationTestEndpoints
         // Check for expected media types that have zero items
         foreach (var expected in report.ActiveTypes.Select(t => t switch
         {
-            "books" => "Books", "audiobooks" => "Audiobooks", "movies" => "Movies",
-            "tv" => "TV", "music" => "Music", "comics" => "Comics", _ => t
+            "books" => "Books",
+            "audiobooks" => "Audiobooks",
+            "movies" => "Movies",
+            "tv" => "TV",
+            "music" => "Music",
+            "comics" => "Comics",
+            _ => t
         }))
         {
             if (!report.MediaTypeResults.Any(r => r.MediaType.Equals(expected, StringComparison.OrdinalIgnoreCase)))
@@ -1137,9 +1183,9 @@ public static class IntegrationTestEndpoints
             string? creator = item.MediaType.ToUpperInvariant() switch
             {
                 "BOOKS" or "AUDIOBOOKS" => detail?.Author,
-                "MOVIES" or "TV"        => detail?.Director,
-                "MUSIC"                 => detail?.Author ?? item.Author,
-                _                       => detail?.Author ?? item.Author,
+                "MOVIES" or "TV" => detail?.Director,
+                "MUSIC" => detail?.Author ?? item.Author,
+                _ => detail?.Author ?? item.Author,
             };
 
             var validStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -1162,20 +1208,20 @@ public static class IntegrationTestEndpoints
 
             var check = new LibraryCheckResult
             {
-                Title          = item.Title,
-                MediaType      = item.MediaType,
-                EntityId       = item.EntityId,
-                HasCoverArt    = !string.IsNullOrWhiteSpace(item.CoverUrl),
-                HasTitle       = !string.IsNullOrWhiteSpace(item.Title),
-                HasCreator     = !string.IsNullOrWhiteSpace(creator),
-                HasStatus      = !string.IsNullOrWhiteSpace(item.Status) && validStatuses.Contains(item.Status),
+                Title = item.Title,
+                MediaType = item.MediaType,
+                EntityId = item.EntityId,
+                HasCoverArt = !string.IsNullOrWhiteSpace(item.CoverUrl),
+                HasTitle = !string.IsNullOrWhiteSpace(item.Title),
+                HasCreator = !string.IsNullOrWhiteSpace(creator),
+                HasStatus = !string.IsNullOrWhiteSpace(item.Status) && validStatuses.Contains(item.Status),
                 HasRetailMatch = !string.IsNullOrWhiteSpace(item.RetailMatch) && item.RetailMatch != "none",
                 HasWikidataQid = !string.IsNullOrWhiteSpace(item.WikidataQid),
-                Status         = item.Status,
-                CoverUrl       = item.CoverUrl,
-                Creator        = creator,
-                RetailMatch    = item.RetailMatch,
-                WikidataQid    = item.WikidataQid,
+                Status = item.Status,
+                CoverUrl = item.CoverUrl,
+                Creator = creator,
+                RetailMatch = item.RetailMatch,
+                WikidataQid = item.WikidataQid,
                 RequiresCreator = creatorRequired,
                 ExpectedRetailProvider = expectedProvider,
                 ActualRetailProvider = actualProvider,
@@ -1186,19 +1232,39 @@ public static class IntegrationTestEndpoints
             report.LibraryChecks.Add(check);
 
             if (!check.HasTitle)
+            {
                 report.IssuesFound.Add($"Library: '{item.FileName}' has no title");
+            }
+
             if (creatorRequired && !check.HasCreator)
+            {
                 report.IssuesFound.Add($"Library: '{item.Title}' has no creator (author/director/artist)");
+            }
+
             if (!check.HasStatus)
+            {
                 report.IssuesFound.Add($"Library: '{item.Title}' has invalid or empty status: '{item.Status}'");
+            }
+
             if (!check.HasRetailMatch)
+            {
                 logger.LogWarning("  Library: '{Title}' missing retail match", item.Title);
+            }
+
             if (check.RequiresRetailProvider && !check.HasExpectedRetailProvider)
+            {
                 report.IssuesFound.Add($"Library: '{item.Title}' retail provider '{actualProvider ?? "unknown"}' did not match expected '{expectedProvider}'");
+            }
+
             if (!check.HasCoverArt)
+            {
                 logger.LogWarning("  Library: '{Title}' missing cover art", item.Title);
+            }
+
             if (stages >= 12 && !check.HasWikidataQid)
+            {
                 logger.LogWarning("  Library: '{Title}' missing Wikidata QID (Stage 2 expected)", item.Title);
+            }
         }
 
         int passCount = report.LibraryChecks.Count(v => v.Pass);
@@ -1213,10 +1279,16 @@ public static class IntegrationTestEndpoints
         // â”€â”€ Child entity validation (TV episodes, Music tracks) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         foreach (var item in validationItems)
         {
-            if (string.IsNullOrWhiteSpace(item.WikidataQid)) continue;
+            if (string.IsNullOrWhiteSpace(item.WikidataQid))
+            {
+                continue;
+            }
 
             var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
-            if (detail is null) continue;
+            if (detail is null)
+            {
+                continue;
+            }
 
             var canonMap = detail.CanonicalValues.ToDictionary(cv => cv.Key, cv => cv.Value, StringComparer.OrdinalIgnoreCase);
 
@@ -1229,14 +1301,24 @@ public static class IntegrationTestEndpoints
                 int.TryParse(hasEpisodesStr, out var episodeCount);
 
                 if (seasonCount == 0)
+                {
                     report.IssuesFound.Add($"Child entities: TV '{item.Title}' has no season_count");
+                }
+
                 if (episodeCount == 0)
+                {
                     logger.LogWarning("  Child entities: TV '{Title}' has no episode_count", item.Title);
+                }
+
                 if (string.IsNullOrWhiteSpace(hasChildren))
+                {
                     report.IssuesFound.Add($"Child entities: TV '{item.Title}' has no child_entities_json");
+                }
                 else
+                {
                     logger.LogInformation("  Child entities: TV '{Title}' â€” {Seasons} seasons, {Episodes} episodes",
                         item.Title, seasonCount, episodeCount);
+                }
             }
             else if (item.MediaType.Equals("Music", StringComparison.OrdinalIgnoreCase))
             {
@@ -1250,19 +1332,32 @@ public static class IntegrationTestEndpoints
                     || !string.IsNullOrWhiteSpace(hasChildren);
 
                 if (!requiresTrackManifest)
+                {
                     continue;
+                }
 
                 if (trackCount <= 0)
+                {
                     report.IssuesFound.Add($"Child entities: Music '{item.Title}' has no track_count");
+                }
+
                 if (string.IsNullOrWhiteSpace(hasChildren))
+                {
                     report.IssuesFound.Add($"Child entities: Music '{item.Title}' has no child_entities_json");
+                }
                 else if (childCount <= 0)
+                {
                     report.IssuesFound.Add($"Child entities: Music '{item.Title}' has invalid child_entities_json");
+                }
                 else if (trackCount > 0 && childCount < trackCount)
+                {
                     report.IssuesFound.Add($"Child entities: Music '{item.Title}' exposes {childCount} child rows but track_count is {trackCount}");
+                }
                 else
+                {
                     logger.LogInformation("  Child entities: Music '{Title}' â€” {Tracks} tracks",
                         item.Title, Math.Max(trackCount, childCount));
+                }
             }
         }
     }
@@ -1330,9 +1425,13 @@ public static class IntegrationTestEndpoints
                     : check.InStagingRoot;
 
                 if (assetIdsByPath.TryGetValue(NormalizeComparablePath(filePath), out var assetIdByPath))
+                {
                     resolvedAssetId = assetIdByPath;
+                }
                 else if (assetIds.TryGetValue(item.EntityId, out var assetIdByWork))
+                {
                     resolvedAssetId = assetIdByWork;
+                }
 
                 if (expectLibraryPlacement
                     && resolvedAssetId is Guid pathAssetId
@@ -1343,7 +1442,9 @@ public static class IntegrationTestEndpoints
                     check.RequiresTemplateMatch = !string.IsNullOrWhiteSpace(expectedPath);
                     check.PathMatchesTemplate = expectedPath is not null && PathsEqual(expectedPath, filePath);
                     if (!string.IsNullOrWhiteSpace(expectedPath))
+                    {
                         check.ExpectedRelativePath = Path.GetRelativePath(options.Value.LibraryRoot, expectedPath);
+                    }
                 }
                 else
                 {
@@ -1351,7 +1452,9 @@ public static class IntegrationTestEndpoints
                 }
 
                 if (check.FileExists)
+                {
                     check.HasLegacyHeroSidecar = File.Exists(Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "hero.jpg"));
+                }
 
                 if (check.FileExists && expectLibraryPlacement && expectedCoverArt)
                 {
@@ -1384,7 +1487,9 @@ public static class IntegrationTestEndpoints
                 check.HasStoredLegacyHero = File.Exists(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
 
                 if (assetCanonicals.TryGetValue(assetId, out var fanartMetadata))
+                {
                     check.HasFanartBridgeId = HasFanartBridgeId(fanartMetadata);
+                }
             }
 
             var optionalArtwork = ResolveOptionalArtworkState(item.EntityId, workHierarchy, optionalArtworkStates);
@@ -1438,14 +1543,16 @@ public static class IntegrationTestEndpoints
                 bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid);
                 var result = new StageGatingResult
                 {
-                    Title  = item.Title,
-                    Check  = "Stage 1 only: no Wikidata QID expected",
-                    Pass   = !hasQid,
+                    Title = item.Title,
+                    Check = "Stage 1 only: no Wikidata QID expected",
+                    Pass = !hasQid,
                     Detail = hasQid ? $"Unexpected QID: {item.WikidataQid}" : "Correctly absent",
                 };
                 report.StageGatingResults.Add(result);
                 if (hasQid)
+                {
                     report.IssuesFound.Add($"Stage gating: '{item.Title}' has QID '{item.WikidataQid}' but Stage 2 should not have run");
+                }
             }
             logger.LogInformation("  Stage 1 gating: {Pass}/{Total} items correctly have no QID",
                 report.StageGatingResults.Count(r => r.Pass), report.StageGatingResults.Count);
@@ -1467,9 +1574,9 @@ public static class IntegrationTestEndpoints
                 {
                     var result = new StageGatingResult
                     {
-                        Title  = item.Title,
-                        Check  = "Stage 2: retail match â†’ QID expected",
-                        Pass   = hasQid || retainedRetailWithoutQid,
+                        Title = item.Title,
+                        Check = "Stage 2: retail match â†’ QID expected",
+                        Pass = hasQid || retainedRetailWithoutQid,
                         Detail = hasQid
                             ? $"QID: {item.WikidataQid}"
                             : retainedRetailWithoutQid
@@ -1478,15 +1585,17 @@ public static class IntegrationTestEndpoints
                     };
                     report.StageGatingResults.Add(result);
                     if (!hasQid && !retainedRetailWithoutQid)
+                    {
                         logger.LogWarning("  Stage gating: '{Title}' has retail match but no QID", item.Title);
+                    }
                 }
                 else
                 {
                     var result = new StageGatingResult
                     {
-                        Title  = item.Title,
-                        Check  = "Stage 2: no retail match â†’ QID not expected",
-                        Pass   = true, // No retail match â€” QID absence is acceptable
+                        Title = item.Title,
+                        Check = "Stage 2: no retail match â†’ QID not expected",
+                        Pass = true, // No retail match â€” QID absence is acceptable
                         Detail = hasQid ? $"Bonus QID: {item.WikidataQid}" : "No retail, no QID â€” expected",
                     };
                     report.StageGatingResults.Add(result);
@@ -1532,14 +1641,26 @@ public static class IntegrationTestEndpoints
                 await Task.Delay(5000, ct);
                 int collectionCount;
                 using (var conn = db.CreateConnection())
+                {
                     collectionCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM collections WHERE parent_collection_id IS NOT NULL;");
+                }
 
-                if (lastCollectionCount.HasValue && collectionCount == lastCollectionCount.Value) stableCount++;
-                else stableCount = 0;
+                if (lastCollectionCount.HasValue && collectionCount == lastCollectionCount.Value)
+                {
+                    stableCount++;
+                }
+                else
+                {
+                    stableCount = 0;
+                }
+
                 lastCollectionCount = collectionCount;
 
                 logger.LogInformation("  Stage 3: {Collections} collections with parent, stable={Stable}", collectionCount, stableCount);
-                if (stableCount >= 3) break;
+                if (stableCount >= 3)
+                {
+                    break;
+                }
             }
 
             await WaitForArtworkActivityToSettleAsync(db, logger, TimeSpan.FromMinutes(2), ct);
@@ -1563,9 +1684,9 @@ public static class IntegrationTestEndpoints
 
                     var universeResult = new UniverseResult
                     {
-                        Name        = ph.DisplayName,
+                        Name = ph.DisplayName,
                         WikidataQid = ph.WikidataQid,
-                        Found       = true,
+                        Found = true,
                         SeriesCount = childCount,
                     };
                     // Count works under child collections
@@ -1640,6 +1761,7 @@ public static class IntegrationTestEndpoints
 
             int evidenceCount;
             using (var conn = db.CreateConnection())
+            {
                 evidenceCount = await conn.ExecuteScalarAsync<int>("""
                     SELECT
                         (SELECT COUNT(*) FROM entity_assets)
@@ -1647,15 +1769,22 @@ public static class IntegrationTestEndpoints
                            WHERE local_image_path IS NOT NULL
                              AND TRIM(local_image_path) <> '')
                     """);
+            }
 
             if (evidenceCount == lastEvidenceCount)
+            {
                 stableCount++;
+            }
             else
+            {
                 stableCount = 0;
+            }
 
             lastEvidenceCount = evidenceCount;
             if (stableCount >= 2)
+            {
                 break;
+            }
         }
 
         logger.LogInformation("  Stage 3 artwork evidence settled at {Count}", Math.Max(lastEvidenceCount, 0));
@@ -1760,14 +1889,15 @@ public static class IntegrationTestEndpoints
                 check.Series, check.MediaType, check.OwnedCount, check.KnownCount, check.HasManifest);
 
             if (!check.Pass)
+            {
                 report.IssuesFound.Add($"Series totals: {check.Series} ({check.MediaType}) did not meet harness expectations. {check.Detail}");
+            }
         }
     }
 
     private static async Task ValidateCharacterArtworkAsync(
         IDatabaseConnection db,
-        ICanonicalValueArrayRepository canonicalArrayRepo,
-        IPersonRepository personRepo,
+        IPersonCreditReadService personCreditReadService,
         TestReport report,
         ILogger logger,
         CancellationToken ct)
@@ -1775,7 +1905,9 @@ public static class IntegrationTestEndpoints
         report.CharacterArtworkChecks.Clear();
 
         if (!report.ActiveTypes.Contains("Movies"))
+        {
             return;
+        }
 
         var cases = new[]
         {
@@ -1784,13 +1916,14 @@ public static class IntegrationTestEndpoints
         };
 
         foreach (var expected in cases)
-            await ValidateCharacterArtworkCaseAsync(db, canonicalArrayRepo, personRepo, report, logger, expected, ct);
+        {
+            await ValidateCharacterArtworkCaseAsync(db, personCreditReadService, report, logger, expected, ct);
+        }
     }
 
     private static async Task ValidateCharacterArtworkCaseAsync(
         IDatabaseConnection db,
-        ICanonicalValueArrayRepository canonicalArrayRepo,
-        IPersonRepository personRepo,
+        IPersonCreditReadService personCreditReadService,
         TestReport report,
         ILogger logger,
         CharacterArtworkExpectation expected,
@@ -1897,7 +2030,7 @@ public static class IntegrationTestEndpoints
         check.HasDownloadedPortraitFile = !string.IsNullOrWhiteSpace(row?.PortraitLocalImagePath)
             && File.Exists(row.PortraitLocalImagePath);
 
-        var cast = await CastCreditQueries.BuildForWorkAsync(workId, canonicalArrayRepo, personRepo, db, ct);
+        var cast = await personCreditReadService.BuildForWorkAsync(workId, ct);
         var castEntry = cast
             .Select((credit, index) => new { Credit = credit, Position = index + 1 })
             .FirstOrDefault(entry =>
@@ -1930,7 +2063,9 @@ public static class IntegrationTestEndpoints
             check.HasDisplayCharacterImage);
 
         if (!check.Pass)
+        {
             report.IssuesFound.Add($"Character display: {expected.Title} does not safely display {expected.ActorName} as {expected.CharacterName} ({check.Detail})");
+        }
     }
 
     private sealed record CharacterArtworkExpectation(
@@ -1968,15 +2103,29 @@ public static class IntegrationTestEndpoints
     {
         var missing = new List<string>();
         if (!check.WorkFound)
+        {
             missing.Add("work row");
+        }
+
         if (!check.HasMovieScopedActorCharacterLink)
+        {
             missing.Add("movie-scoped actor-character link");
+        }
+
         if (!check.HasDisplayCharacterName)
+        {
             missing.Add("detail cast character name");
+        }
+
         if (!check.IsInPrimaryCastPreview)
+        {
             missing.Add("top cast preview position");
+        }
+
         if (check.HasUnverifiedPortrait)
+        {
             missing.Add("unverified TMDB tagged character portrait");
+        }
 
         return missing.Count == 0
             ? "No missing checks were recorded."
@@ -2165,7 +2314,9 @@ public static class IntegrationTestEndpoints
         {
             string key = $"{row.TitleLower}|{row.MediaTypeLower}";
             if (!coverArtByKey.TryGetValue(key, out var existing) || (row.HasStoredCoverArt && !existing))
+            {
                 coverArtByKey[key] = row.HasStoredCoverArt;
+            }
         }
 
         var retailProviderByKey = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -2173,7 +2324,9 @@ public static class IntegrationTestEndpoints
         {
             string k = $"{check.Title.ToLowerInvariant()}|{check.MediaType.ToLowerInvariant()}";
             if (!retailProviderByKey.ContainsKey(k) || !string.IsNullOrWhiteSpace(check.ActualRetailProvider))
+            {
                 retailProviderByKey[k] = check.ActualRetailProvider;
+            }
         }
 
         // Index by "title_lower|media_type_lower" â†’ (wikidata_qid, curator_state, review_trigger)
@@ -2205,11 +2358,11 @@ public static class IntegrationTestEndpoints
             string typeKey = mediaTypeLower switch
             {
                 "audiobooks" => "audiobooks",
-                "movies"     => "movies",
-                "tv"         => "tv",
-                "music"      => "music",
-                "comics"     => "comics",
-                _            => "books",
+                "movies" => "movies",
+                "tv" => "tv",
+                "music" => "music",
+                "comics" => "comics",
+                _ => "books",
             };
             if (report.SkippedTypes.ContainsKey(typeKey))
             {
@@ -2223,12 +2376,12 @@ public static class IntegrationTestEndpoints
                 // No matching Work row found
                 var item = new ReconciliationItemResult
                 {
-                    Title          = exp.Title,
-                    MediaType      = exp.MediaType,
-                    Expected       = expectedDesc,
-                    Actual         = "NotFound",
+                    Title = exp.Title,
+                    MediaType = exp.MediaType,
+                    Expected = expectedDesc,
+                    Actual = "NotFound",
                     Classification = "NotFound",
-                    Reason         = "No Work row found in database after ingestion",
+                    Reason = "No Work row found in database after ingestion",
                 };
                 summary.Mismatches.Add(item);
                 summary.ByClassification["NotFound"]++;
@@ -2236,12 +2389,12 @@ public static class IntegrationTestEndpoints
                 continue;
             }
 
-            bool hasQid       = !string.IsNullOrWhiteSpace(actual.WikidataQid) &&
+            bool hasQid = !string.IsNullOrWhiteSpace(actual.WikidataQid) &&
                                  !actual.WikidataQid!.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
-            bool hasReview    = !string.IsNullOrWhiteSpace(actual.ReviewTrigger);
+            bool hasReview = !string.IsNullOrWhiteSpace(actual.ReviewTrigger);
             string actualTrigger = actual.ReviewTrigger ?? "";
 
-            string actualDesc = hasQid   ? "Identified"
+            string actualDesc = hasQid ? "Identified"
                               : hasReview ? $"InReview ({actualTrigger})"
                               : "Unresolved";
 
@@ -2266,7 +2419,7 @@ public static class IntegrationTestEndpoints
                 {
                     // Unresolved but expected InReview â€” treat as WrongTrigger
                     classification = "WrongTrigger";
-                    actualDesc     = "Unresolved (no QID, no review entry)";
+                    actualDesc = "Unresolved (no QID, no review entry)";
                 }
             }
 
@@ -2281,7 +2434,7 @@ public static class IntegrationTestEndpoints
                     !string.Equals(exp.ExpectedQid, actual.WikidataQid, StringComparison.OrdinalIgnoreCase))
                 {
                     classification = "WrongQid";
-                    actualDesc     = $"Identified as {actual.WikidataQid} (expected {exp.ExpectedQid})";
+                    actualDesc = $"Identified as {actual.WikidataQid} (expected {exp.ExpectedQid})";
                 }
                 // MissingCoverArt: seed declares ExpectedCoverArt=true, but the
                 // central managed asset store has no preferred cover for this title.
@@ -2293,7 +2446,7 @@ public static class IntegrationTestEndpoints
                     if (coverArtByKey.TryGetValue(coverKey, out var hasCover) && !hasCover)
                     {
                         classification = "MissingCoverArt";
-                        actualDesc     = $"Identified{(actual.WikidataQid is { Length: > 0 } q ? $" as {q}" : "")} but no central stored artwork was persisted";
+                        actualDesc = $"Identified{(actual.WikidataQid is { Length: > 0 } q ? $" as {q}" : "")} but no central stored artwork was persisted";
                     }
                 }
 
@@ -2323,12 +2476,12 @@ public static class IntegrationTestEndpoints
             {
                 var item = new ReconciliationItemResult
                 {
-                    Title          = exp.Title,
-                    MediaType      = exp.MediaType,
-                    Expected       = expectedDesc,
-                    Actual         = actualDesc,
+                    Title = exp.Title,
+                    MediaType = exp.MediaType,
+                    Expected = expectedDesc,
+                    Actual = actualDesc,
                     Classification = classification,
-                    Reason         = exp.ExpectedReason,
+                    Reason = exp.ExpectedReason,
                 };
                 summary.Mismatches.Add(item);
                 logger.LogWarning("[Reconciliation] {Class}: '{Title}' ({Type}) â€” expected={Expected}, actual={Actual}",
@@ -2342,7 +2495,7 @@ public static class IntegrationTestEndpoints
         // The HTML report still pulls from ReconciliationSummary for backward compat.
         var structured = new ReconciliationReport
         {
-            Total   = summary.ExpectedTotal,
+            Total = summary.ExpectedTotal,
             Matched = summary.Matched,
         };
         // Matched items are not retained as individual rows by ReconciliationSummary
@@ -2351,24 +2504,24 @@ public static class IntegrationTestEndpoints
         for (int i = 0; i < summary.Matched; i++)
         {
             structured.Items.Add(new ReconciliationReportItem(
-                FileName:        "(matched)",
-                ExpectedStatus:  "Identified",
-                ActualStatus:    "Identified",
+                FileName: "(matched)",
+                ExpectedStatus: "Identified",
+                ActualStatus: "Identified",
                 ExpectedTrigger: null,
-                ActualTrigger:   null,
-                Matched:         true,
-                Reason:          null));
+                ActualTrigger: null,
+                Matched: true,
+                Reason: null));
         }
         foreach (var mismatch in summary.Mismatches)
         {
             structured.Items.Add(new ReconciliationReportItem(
-                FileName:        mismatch.Title,
-                ExpectedStatus:  mismatch.Expected,
-                ActualStatus:    mismatch.Actual,
+                FileName: mismatch.Title,
+                ExpectedStatus: mismatch.Expected,
+                ActualStatus: mismatch.Actual,
                 ExpectedTrigger: null,
-                ActualTrigger:   null,
-                Matched:         false,
-                Reason:          mismatch.Reason));
+                ActualTrigger: null,
+                Matched: false,
+                Reason: mismatch.Reason));
         }
         report.ReconciliationReport = structured;
 
@@ -2550,10 +2703,10 @@ public static class IntegrationTestEndpoints
         sb.AppendLine($"<h1>Tuvima Library â€” Integration Test Report {overallBadge}</h1>");
         string stageBadge = report.StagesLevel switch
         {
-            1   => "<span class=\"badge badge-info\">Stage 1</span>",
-            12  => "<span class=\"badge badge-info\">Stage 1+2</span>",
+            1 => "<span class=\"badge badge-info\">Stage 1</span>",
+            12 => "<span class=\"badge badge-info\">Stage 1+2</span>",
             123 => "<span class=\"badge badge-info\">Stage 1+2+3</span>",
-            _   => $"<span class=\"badge badge-warn\">Stage {report.StagesLevel}</span>",
+            _ => $"<span class=\"badge badge-warn\">Stage {report.StagesLevel}</span>",
         };
         string typesBadge = report.ActiveTypes.Count == AllTestableTypes.Length
             ? "<span class=\"badge badge-pass\">All Types</span>"
@@ -2571,18 +2724,36 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.LibraryChecks.Count(v => v.Pass).ToString() + "/" + report.LibraryChecks.Count, "Library Checks", "#22D3EE");
         SummaryCard(sb, report.FileSystemChecks.Count(f => f.Pass).ToString() + "/" + report.FileSystemChecks.Count, "Filesystem", "#38BDF8");
         if (report.DescriptionSourceChecks.Count > 0)
+        {
             SummaryCard(sb, report.DescriptionSourceChecks.Count(d => d.Pass) + "/" + report.DescriptionSourceChecks.Count, "Descriptions", "#34D399");
+        }
+
         if (report.SeriesHarnessChecks.Count > 0)
+        {
             SummaryCard(sb, report.SeriesHarnessChecks.Count(s => s.Pass) + "/" + report.SeriesHarnessChecks.Count, "Series Totals", "#818CF8");
+        }
+
         if (report.Stage3FanartSummaries.Count > 0)
+        {
             SummaryCard(sb, report.Stage3FanartSummaries.Sum(s => s.WithAnyFanart) + "/" + report.Stage3FanartSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
+        }
+
         if (report.CharacterArtworkChecks.Count > 0)
+        {
             SummaryCard(sb, report.CharacterArtworkChecks.Count(c => c.Pass) + "/" + report.CharacterArtworkChecks.Count, "Character Art", "#F59E0B");
+        }
+
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
         if (report.Reconciliation is not null)
+        {
             SummaryCard(sb, report.Reconciliation.Matched + "/" + report.Reconciliation.ExpectedTotal, "Reconciliation", "#F472B6");
+        }
+
         if (report.SkippedTypes.Count > 0)
+        {
             SummaryCard(sb, report.SkippedTypes.Count.ToString(), "Skipped Types", "#94A3B8");
+        }
+
         sb.AppendLine("</div>");
 
         // Provider health section
@@ -2609,7 +2780,10 @@ public static class IntegrationTestEndpoints
             sb.AppendLine("<table>");
             sb.AppendLine("<tr><th>Media Type</th><th>Reason</th></tr>");
             foreach (var (type, reason) in report.SkippedTypes.OrderBy(s => s.Key))
+            {
                 sb.AppendLine($"<tr><td>{Esc(type)}</td><td><span class=\"badge badge-skip\">{Esc(reason)}</span></td></tr>");
+            }
+
             sb.AppendLine("</table>");
         }
 
@@ -2619,7 +2793,10 @@ public static class IntegrationTestEndpoints
             sb.AppendLine("<h2>Issues Found</h2>");
             sb.AppendLine("<ul class=\"issues-list\">");
             foreach (var issue in report.IssuesFound)
+            {
                 sb.AppendLine($"  <li>{Esc(issue)}</li>");
+            }
+
             sb.AppendLine("</ul>");
         }
 
@@ -2627,8 +2804,12 @@ public static class IntegrationTestEndpoints
         sb.AppendLine("<h2>Results by Media Type</h2>");
         var mtColors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Books"] = "#5DCAA5", ["Audiobooks"] = "#A78BFA", ["Movies"] = "#60A5FA",
-            ["TV"] = "#FBBF24", ["Music"] = "#22D3EE", ["Comics"] = "#7C4DFF",
+            ["Books"] = "#5DCAA5",
+            ["Audiobooks"] = "#A78BFA",
+            ["Movies"] = "#60A5FA",
+            ["TV"] = "#FBBF24",
+            ["Music"] = "#22D3EE",
+            ["Comics"] = "#7C4DFF",
         };
 
         foreach (var mt in report.MediaTypeResults.OrderByDescending(m => m.Count))
@@ -2663,7 +2844,11 @@ public static class IntegrationTestEndpoints
         foreach (var (type, reason) in report.SkippedTypes.OrderBy(s => s.Key))
         {
             // Don't double-render if it already appeared in results
-            if (report.MediaTypeResults.Any(r => r.MediaType.Equals(type, StringComparison.OrdinalIgnoreCase))) continue;
+            if (report.MediaTypeResults.Any(r => r.MediaType.Equals(type, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
             sb.AppendLine("<div class=\"section\" style=\"opacity: 0.5;\">");
             sb.AppendLine($"<div class=\"media-type-header\"><span class=\"mt-dot\" style=\"background:#94A3B8\"></span><strong>{Esc(type)}</strong> <span class=\"badge badge-skip\">SKIPPED â€” {Esc(reason)}</span></div>");
             sb.AppendLine("</div>");
@@ -2926,29 +3111,32 @@ public static class IntegrationTestEndpoints
             var classOrder = new[] { "UnexpectedReview", "UnexpectedIdentified", "WrongTrigger", "WrongQid", "WrongProvider", "MissingCoverArt", "NotFound" };
             var classLabels = new Dictionary<string, string>
             {
-                ["UnexpectedReview"]    = "Unexpected Review (expected Identified, got InReview)",
+                ["UnexpectedReview"] = "Unexpected Review (expected Identified, got InReview)",
                 ["UnexpectedIdentified"] = "Unexpected Identified (expected InReview, got Identified)",
-                ["WrongTrigger"]        = "Wrong Trigger (in review, but wrong trigger)",
-                ["WrongQid"]            = "Wrong Wikidata QID (resolved, but to the wrong entity)",
-                ["WrongProvider"]       = "Wrong Retail Provider (matched, but from an unexpected provider)",
-                ["MissingCoverArt"]     = "Missing Cover Art (identified, but no cover downloaded)",
-                ["NotFound"]            = "Not Found (no Work row in database)",
+                ["WrongTrigger"] = "Wrong Trigger (in review, but wrong trigger)",
+                ["WrongQid"] = "Wrong Wikidata QID (resolved, but to the wrong entity)",
+                ["WrongProvider"] = "Wrong Retail Provider (matched, but from an unexpected provider)",
+                ["MissingCoverArt"] = "Missing Cover Art (identified, but no cover downloaded)",
+                ["NotFound"] = "Not Found (no Work row in database)",
             };
             var classColors = new Dictionary<string, string>
             {
-                ["UnexpectedReview"]    = "#E24B4A",
+                ["UnexpectedReview"] = "#E24B4A",
                 ["UnexpectedIdentified"] = "#E24B4A",
-                ["WrongTrigger"]        = "#EF9F27",
-                ["WrongQid"]            = "#E24B4A",
-                ["WrongProvider"]       = "#EF9F27",
-                ["MissingCoverArt"]     = "#EF9F27",
-                ["NotFound"]            = "#94A3B8",
+                ["WrongTrigger"] = "#EF9F27",
+                ["WrongQid"] = "#E24B4A",
+                ["WrongProvider"] = "#EF9F27",
+                ["MissingCoverArt"] = "#EF9F27",
+                ["NotFound"] = "#94A3B8",
             };
 
             foreach (var cls in classOrder)
             {
                 var items = recon.Mismatches.Where(m => m.Classification == cls).ToList();
-                if (items.Count == 0) continue;
+                if (items.Count == 0)
+                {
+                    continue;
+                }
 
                 string color = classColors.GetValueOrDefault(cls, "#888");
                 sb.AppendLine($"<details open><summary style=\"cursor:pointer;color:{color};font-weight:600\">&#x2717; {Esc(classLabels[cls])} ({items.Count})</summary>");
@@ -2990,9 +3178,21 @@ public static class IntegrationTestEndpoints
 
     private static string StatusClass(string? status)
     {
-        if (IsReviewStatus(status)) return "status-review";
-        if (IsFailureStatus(status)) return "status-failed";
-        if (IsIdentifiedStatus(status)) return "status-identified";
+        if (IsReviewStatus(status))
+        {
+            return "status-review";
+        }
+
+        if (IsFailureStatus(status))
+        {
+            return "status-failed";
+        }
+
+        if (IsIdentifiedStatus(status))
+        {
+            return "status-identified";
+        }
+
         return "status-unknown";
     }
 
@@ -3102,9 +3302,14 @@ public static class IntegrationTestEndpoints
         foreach (var row in rows)
         {
             if (!Guid.TryParse(row.EntityId, out var workId))
+            {
                 continue;
+            }
+
             if (string.IsNullOrWhiteSpace(row.LocalImagePath) || !File.Exists(row.LocalImagePath))
+            {
                 continue;
+            }
 
             if (!result.TryGetValue(workId, out var state))
             {
@@ -3174,7 +3379,9 @@ public static class IntegrationTestEndpoints
         while (current.HasValue && visited.Add(current.Value))
         {
             if (states.TryGetValue(current.Value, out var state))
+            {
                 merged.Merge(state);
+            }
 
             current = hierarchy.TryGetValue(current.Value, out var node)
                 ? node.ParentWorkId
@@ -3190,7 +3397,9 @@ public static class IntegrationTestEndpoints
     {
         var ids = entityIds.Distinct().ToList();
         if (ids.Count == 0)
+        {
             return [];
+        }
 
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<(string EntityId, string Key, string Value)>("""
@@ -3210,7 +3419,9 @@ public static class IntegrationTestEndpoints
         foreach (var row in rows)
         {
             if (!Guid.TryParse(row.EntityId, out var entityId))
+            {
                 continue;
+            }
 
             if (!maps.TryGetValue(entityId, out var map))
             {
@@ -3321,7 +3532,9 @@ public static class IntegrationTestEndpoints
         string size)
     {
         if (!preferredArtworkRecords.TryGetValue(ownerEntityId, out var artwork))
+        {
             return false;
+        }
 
         var renditionPath = size switch
         {
@@ -3344,7 +3557,9 @@ public static class IntegrationTestEndpoints
         Guid ownerEntityId)
     {
         if (!preferredArtworkRecords.TryGetValue(ownerEntityId, out var artwork))
+        {
             return false;
+        }
 
         return !string.IsNullOrWhiteSpace(artwork.PrimaryHex)
                && !string.IsNullOrWhiteSpace(artwork.SecondaryHex)
@@ -3386,7 +3601,9 @@ public static class IntegrationTestEndpoints
     {
         var ids = new List<Guid> { workId };
         if (assetIdsByWork.TryGetValue(workId, out var assetId))
+        {
             ids.Add(assetId);
+        }
 
         var visited = new HashSet<Guid> { workId };
         Guid? current = workId;
@@ -3428,10 +3645,14 @@ public static class IntegrationTestEndpoints
         IReadOnlyDictionary<Guid, string> providerNamesById)
     {
         if (!Guid.TryParse(providerId, out var id))
+        {
             return false;
+        }
 
         if (id == WellKnownProviders.Wikidata || id == WellKnownProviders.Wikipedia)
+        {
             return true;
+        }
 
         return providerNamesById.TryGetValue(id, out var name)
             && (name.Contains("wikidata", StringComparison.OrdinalIgnoreCase)
@@ -3443,7 +3664,9 @@ public static class IntegrationTestEndpoints
         IReadOnlyDictionary<Guid, string> providerNamesById)
     {
         if (!Guid.TryParse(providerId, out var id))
+        {
             return false;
+        }
 
         if (id == WellKnownProviders.AppleApi
             || id == WellKnownProviders.OpenLibrary
@@ -3470,7 +3693,9 @@ public static class IntegrationTestEndpoints
         IReadOnlyDictionary<Guid, string> providerNamesById)
     {
         if (!Guid.TryParse(providerId, out var id))
+        {
             return null;
+        }
 
         return providerNamesById.TryGetValue(id, out var name)
             ? name
@@ -3481,9 +3706,14 @@ public static class IntegrationTestEndpoints
     {
         var missing = new List<string>();
         if (!check.HasAnyDescription)
+        {
             missing.Add($"{check.DescriptionKey} missing");
+        }
+
         if (check.HasWikipediaDescription && !check.CanonicalUsesWikipedia)
+        {
             missing.Add($"canonical winner is {check.CanonicalProvider ?? "unknown"}, expected Wikipedia/Wikidata");
+        }
 
         return missing.Count == 0 ? "unknown description source issue" : string.Join("; ", missing);
     }
@@ -3511,11 +3741,15 @@ public static class IntegrationTestEndpoints
         foreach (var row in rows)
         {
             if (!Guid.TryParse(row.Id, out var providerId))
+            {
                 continue;
+            }
 
             var normalized = NormalizeProviderName(row.Name);
             if (string.IsNullOrWhiteSpace(normalized))
+            {
                 continue;
+            }
 
             providerNames[providerId] = normalized;
         }
@@ -3552,7 +3786,9 @@ public static class IntegrationTestEndpoints
             .FirstOrDefault(p => !IsNonRetailProvider(p));
 
         if (!string.IsNullOrWhiteSpace(provider))
+        {
             return provider;
+        }
 
         return NormalizeProviderName(detail.MatchSource);
     }
@@ -3573,7 +3809,9 @@ public static class IntegrationTestEndpoints
     private static string? NormalizeProviderName(string? providerName)
     {
         if (string.IsNullOrWhiteSpace(providerName))
+        {
             return null;
+        }
 
         Span<char> buffer = stackalloc char[providerName.Length];
         int index = 0;
@@ -3585,7 +3823,10 @@ public static class IntegrationTestEndpoints
             if (normalized == '_')
             {
                 if (previousUnderscore)
+                {
                     continue;
+                }
+
                 previousUnderscore = true;
             }
             else
@@ -3603,7 +3844,9 @@ public static class IntegrationTestEndpoints
     private static int CountChildEntities(string? childEntitiesJson)
     {
         if (string.IsNullOrWhiteSpace(childEntitiesJson))
+        {
             return 0;
+        }
 
         try
         {
@@ -3643,7 +3886,9 @@ public static class IntegrationTestEndpoints
     private static bool IsUnderRoot(string path, string? root)
     {
         if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(root))
+        {
             return false;
+        }
 
         string normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         string normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -3656,9 +3901,14 @@ public static class IntegrationTestEndpoints
     private static string ToDisplayPath(string path, IngestionOptions options)
     {
         if (IsUnderRoot(path, options.LibraryRoot))
+        {
             return $"library/{Path.GetRelativePath(options.LibraryRoot, path).Replace('\\', '/')}";
+        }
+
         if (IsUnderRoot(path, options.StagingPath))
+        {
             return $"staging/{Path.GetRelativePath(options.StagingPath, path).Replace('\\', '/')}";
+        }
 
         return path;
     }
@@ -3671,7 +3921,9 @@ public static class IntegrationTestEndpoints
         FileOrganizer organizer)
     {
         if (string.IsNullOrWhiteSpace(options.LibraryRoot) || string.IsNullOrWhiteSpace(filePath))
+        {
             return null;
+        }
 
         MediaType? mediaType = Enum.TryParse<MediaType>(item.MediaType, ignoreCase: true, out var parsed)
             ? parsed
@@ -3709,7 +3961,9 @@ public static class IntegrationTestEndpoints
                 .ToList();
 
             if (eligible.Count == 0)
+            {
                 continue;
+            }
 
             var summary = new Stage3FanartSummary
             {
@@ -3778,21 +4032,41 @@ public static class IntegrationTestEndpoints
     private static string DescribeFileSystemCheck(FileSystemCheckResult check)
     {
         if (!check.FileExists)
+        {
             return "File path is missing on disk";
+        }
+
         if (!check.LocationMatchesExpectation)
+        {
             return check.ExpectedLocation == "Library"
                 ? "File never reached the organized library"
                 : "File should still be in staging";
+        }
+
         if (check.RequiresTemplateMatch && !check.PathMatchesTemplate)
+        {
             return $"Template drift: expected {check.ExpectedRelativePath}";
+        }
+
         if (check.HasLegacyHeroSidecar)
+        {
             return "Legacy hero.jpg sidecar still exists next to the media file";
+        }
+
         if (check.HasStoredLegacyHero)
+        {
             return "Legacy hero.jpg still exists in the central asset store";
+        }
+
         if (check.RequiresSidecarArtwork && (!check.HasPoster || !check.HasPosterThumb))
+        {
             return "Sidecar artwork is incomplete next to the media file";
+        }
+
         if (check.RequiresStoredArtwork && (!check.HasStoredCover || !check.HasStoredCoverSmall || !check.HasStoredCoverMedium || !check.HasStoredCoverLarge || !check.HasStoredPalette))
+        {
             return "Stored artwork renditions or palette metadata are incomplete in the central asset store";
+        }
 
         return "OK";
     }
@@ -3847,7 +4121,9 @@ public static class IntegrationTestEndpoints
     private static int CountMediaFiles(string directory, ISet<string>? ignoredPaths = null)
     {
         if (!Directory.Exists(directory))
+        {
             return 0;
+        }
 
         try
         {
@@ -3865,7 +4141,9 @@ public static class IntegrationTestEndpoints
     private static int CountIgnoredMediaFiles(string directory, ISet<string> ignoredPaths)
     {
         if (!Directory.Exists(directory) || ignoredPaths.Count == 0)
+        {
             return 0;
+        }
 
         try
         {
@@ -3889,7 +4167,9 @@ public static class IntegrationTestEndpoints
     private static IEnumerable<string> EnumeratePosterCandidates(string mediaFilePath)
     {
         if (string.IsNullOrWhiteSpace(mediaFilePath))
+        {
             yield break;
+        }
 
         var dir = Path.GetDirectoryName(mediaFilePath) ?? string.Empty;
         var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
@@ -3903,14 +4183,18 @@ public static class IntegrationTestEndpoints
         })
         {
             if (yielded.Add(candidate))
+            {
                 yield return candidate;
+            }
         }
     }
 
     private static IEnumerable<string> EnumeratePosterThumbCandidates(string mediaFilePath)
     {
         if (string.IsNullOrWhiteSpace(mediaFilePath))
+        {
             yield break;
+        }
 
         var dir = Path.GetDirectoryName(mediaFilePath) ?? string.Empty;
         var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
@@ -3924,7 +4208,9 @@ public static class IntegrationTestEndpoints
         })
         {
             if (yielded.Add(candidate))
+            {
                 yield return candidate;
+            }
         }
     }
 
@@ -3938,7 +4224,11 @@ public static class IntegrationTestEndpoints
     {
         char[] invalid = Path.GetInvalidFileNameChars();
         var sb = new StringBuilder(title.Length);
-        foreach (char c in title) sb.Append(invalid.Contains(c) ? '_' : c);
+        foreach (char c in title)
+        {
+            sb.Append(invalid.Contains(c) ? '_' : c);
+        }
+
         return sb.ToString();
     }
 }

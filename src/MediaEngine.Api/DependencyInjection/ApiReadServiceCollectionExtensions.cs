@@ -14,6 +14,9 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<IPersonWorksReadService, PersonWorksReadService>();
         services.AddSingleton<IPersonAssetScopeReadService, PersonAssetScopeReadService>();
         services.AddSingleton<IOrphanImageReferenceReadService, OrphanImageReferenceReadService>();
+        services.AddSingleton<IProfileOverviewReadService, ProfileOverviewReadService>();
+        services.AddSingleton<IPersonCreditReadService, PersonCreditReadService>();
+        services.AddSingleton<ILibraryOverviewReadService, LibraryOverviewReadService>();
         return services;
     }
 }
