@@ -205,6 +205,12 @@ After Stage 1 providers return results, `RetailMatchScoringService` scores each 
 
 Candidate evidence is persisted with richer audit detail, including field scores, threshold path, rejection reasons, and whether the candidate came from grouped processing or single-item fallback.
 
+### Worker-Level Retail Candidate Decisions
+
+`RetailMatchScoringService` remains the shared field scoring implementation for automated retail matching and manual search. The Stage 1 worker now delegates worker-specific outcome metadata to `RetailCandidateScorer`: accepted, ambiguous, rejected, and failed decision labels; threshold path; rejection reasons; creator-evidence caps; weak-text cover-rescue rejection; and the score breakdown JSON persisted for candidate review.
+
+Keep new field-level matching math in `RetailMatchScoringService`. Keep worker outcome thresholds and candidate audit metadata in `RetailCandidateScorer` so the durable worker stays a coordinator rather than the owner of scoring rules.
+
 ---
 
 ## Wikidata Candidate Ranking

@@ -616,6 +616,11 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         "providers", "wikidata_reconciliation");
     if (reconConfig is not null)
     {
+        builder.Services.AddSingleton(sp =>
+            new MediaEngine.Providers.Services.CommonsImageResolver(
+                reconConfig,
+                sp.GetRequiredService<IHttpClientFactory>(),
+                sp.GetRequiredService<ILogger<MediaEngine.Providers.Services.CommonsImageResolver>>()));
         builder.Services.AddSingleton<ReconciliationAdapter>(sp =>
             new ReconciliationAdapter(
                 reconConfig,
@@ -624,7 +629,8 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
                 sp.GetRequiredService<IFuzzyMatchingService>(),
                 sp.GetRequiredService<IProviderResponseCacheRepository>(),
                 sp.GetRequiredService<IConfigurationLoader>(),
-                sp.GetService<Tuvima.Wikidata.WikidataReconciler>()));
+                sp.GetService<Tuvima.Wikidata.WikidataReconciler>(),
+                sp.GetRequiredService<MediaEngine.Providers.Services.CommonsImageResolver>()));
         builder.Services.AddSingleton<IExternalMetadataProvider>(
             sp => sp.GetRequiredService<ReconciliationAdapter>());
     }
@@ -699,6 +705,11 @@ builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
 builder.Services.AddSingleton<IUniverseEnrichmentScheduler>(sp => sp.GetRequiredService<MediaEngine.Api.Services.UniverseEnrichmentService>());
 builder.Services.AddSingleton<MediaEngine.Providers.Services.CollectionAssignmentService>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.WikidataSeriesManifestHydrationService>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.RetailRequestBuilder>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.RetailHttpThrottle>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.AppleRetailClient>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.TmdbRetailClient>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.RetailCandidateScorer>();
 
 // Pipeline workers
 builder.Services.AddSingleton<RetailMatchWorker>();

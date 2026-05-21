@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -18,6 +17,7 @@ using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Providers.Workers;
 
@@ -57,6 +57,9 @@ public sealed class RetailMatchWorker
     private readonly IImageCacheRepository? _imageCache;
     private readonly AssetPathService? _assetPaths;
     private readonly IAssetExportService? _assetExportService;
+    private readonly AppleRetailClient _appleClient;
+    private readonly TmdbRetailClient _tmdbClient;
+    private readonly RetailCandidateScorer _candidateScorer;
     private readonly ILogger<RetailMatchWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
@@ -69,15 +72,6 @@ public sealed class RetailMatchWorker
     /// — which is what enables one Apple album call to cover all its tracks.
     /// </summary>
     private readonly int _batchSize;
-
-    // iTunes throttle: 300 ms between calls (same as config). We track it here
-    // for the direct HTTP calls made by the group processors.
-    private DateTime _itunesLastCallUtc = DateTime.MinValue;
-    private readonly SemaphoreSlim _itunesThrottle = new(1, 1);
-
-    // TMDB throttle: 250 ms between calls.
-    private DateTime _tmdbLastCallUtc = DateTime.MinValue;
-    private readonly SemaphoreSlim _tmdbThrottle = new(1, 1);
 
     public RetailMatchWorker(
         IIdentityJobRepository jobRepo,
@@ -102,7 +96,10 @@ public sealed class RetailMatchWorker
         IImageCacheRepository? imageCache = null,
         AssetPathService? assetPaths = null,
         IAssetExportService? assetExportService = null,
-        ICanonicalValueArrayRepository? arrayRepo = null)
+        ICanonicalValueArrayRepository? arrayRepo = null,
+        AppleRetailClient? appleClient = null,
+        TmdbRetailClient? tmdbClient = null,
+        RetailCandidateScorer? candidateScorer = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -126,6 +123,17 @@ public sealed class RetailMatchWorker
         _imageCache = imageCache;
         _assetPaths = assetPaths;
         _assetExportService = assetExportService;
+        _appleClient = appleClient ?? new AppleRetailClient(
+            _httpFactory,
+            new RetailRequestBuilder(),
+            new RetailHttpThrottle(),
+            NullLogger<AppleRetailClient>.Instance);
+        _tmdbClient = tmdbClient ?? new TmdbRetailClient(
+            _httpFactory,
+            new RetailRequestBuilder(),
+            new RetailHttpThrottle(),
+            NullLogger<TmdbRetailClient>.Instance);
+        _candidateScorer = candidateScorer ?? new RetailCandidateScorer();
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
@@ -316,7 +324,7 @@ public sealed class RetailMatchWorker
         // A track search returns the exact track + its collectionId, so even when the
         // album name is ambiguous (remastered editions, deluxe versions), the track
         // anchors us to the correct album.
-        AppleTrackSearchMatch? trackSearchMatch = null;
+        MediaEngine.Providers.Services.AppleTrackSearchMatch? trackSearchMatch = null;
         string? collectionId = null;
         var resolvedVia = "track search";
 
@@ -329,7 +337,7 @@ public sealed class RetailMatchWorker
                 "Music: searching Apple iTunes by track '{Title}' / '{Artist}' ({TrackCount} queued track(s))",
                 title ?? "(unknown)", artist ?? "(unknown artist)", orderedGroupJobs.Count);
 
-            trackSearchMatch = await SearchAppleTrackAsync(artist, title, album, country, lang, ct);
+            trackSearchMatch = await _appleClient.SearchTrackAsync(artist, title, album, country, lang, ct);
             collectionId = trackSearchMatch?.CollectionId;
 
             if (trackSearchMatch is { SingleTrackRelease: true, TitleExact: true, ArtistExact: true })
@@ -367,7 +375,7 @@ public sealed class RetailMatchWorker
                 if (string.IsNullOrWhiteSpace(currentTitle))
                     continue;
 
-                var match = await SearchAppleTrackAsync(artist, currentTitle, album, country, lang, ct);
+                var match = await _appleClient.SearchTrackAsync(artist, currentTitle, album, country, lang, ct);
                 if (match is null)
                     continue;
 
@@ -398,7 +406,7 @@ public sealed class RetailMatchWorker
             _logger.LogInformation(
                 "Music: track search failed — falling back to album search for '{Album}' by '{Artist}'",
                 album, artist ?? "(unknown)");
-            collectionId = await SearchAppleAlbumAsync(artist, album, country, lang, ct);
+            collectionId = await _appleClient.SearchAlbumAsync(artist, album, country, lang, ct);
             resolvedVia = "album search";
         }
 
@@ -423,7 +431,7 @@ public sealed class RetailMatchWorker
         }
 
         // ── Step 3: Fetch all tracks for the album via lookup?id={collectionId}&entity=song.
-        var allTracks = await FetchAppleAlbumTracksAsync(collectionId, country, lang, ct);
+        var allTracks = await _appleClient.FetchAlbumTracksAsync(collectionId, country, lang, ct);
 
         if (allTracks.Count == 0)
         {
@@ -467,194 +475,6 @@ public sealed class RetailMatchWorker
     }
 
     /// <summary>
-    /// Searches Apple iTunes by track name (entity=musicTrack) to discover the
-    /// correct collectionId. Returns the collectionId from the best-matching track,
-    /// or null if no match passes the threshold.
-    /// </summary>
-    private async Task<AppleTrackSearchMatch?> SearchAppleTrackAsync(
-        string? artist, string? trackTitle, string? albumTitle, string country, string lang, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(trackTitle))
-            return null;
-
-        AppleTrackSearchMatch? bestMatch = null;
-
-        try
-        {
-            using var client = _httpFactory.CreateClient("apple_api");
-            foreach (var searchQuery in BuildAppleTrackSearchQueries(trackTitle, artist, albumTitle))
-            {
-                var query = Uri.EscapeDataString(searchQuery);
-                var url = $"https://itunes.apple.com/search?term={query}&entity=musicTrack&limit=10&country={country}&lang={lang}_{country}";
-
-                await ThrottleItunesAsync(ct);
-
-                var json = await client.GetFromJsonAsync<JsonNode>(url, ct);
-                var results = json?["results"]?.AsArray();
-                if (results is null || results.Count == 0)
-                    continue;
-
-                var currentMatch = EvaluateAppleTrackSearchResults(results, artist, trackTitle, albumTitle);
-                if (currentMatch is null)
-                    continue;
-
-                if (currentMatch.TitleExact && currentMatch.ArtistExact && currentMatch.SingleTrackRelease)
-                {
-                    var exactTrackName = currentMatch.Track["trackName"]?.GetValue<string>() ?? "(unknown)";
-                    _logger.LogInformation(
-                        "Music: Apple iTunes track search matched '{TrackName}' → collectionId={Id} (score={Score:F2}) for '{Artist}' / '{Title}'",
-                        exactTrackName, currentMatch.CollectionId, currentMatch.Score, artist ?? "—", trackTitle);
-                    return currentMatch;
-                }
-
-                if (bestMatch is null || currentMatch.Score > bestMatch.Score)
-                    bestMatch = currentMatch;
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex,
-                "RetailMatchWorker: Apple track search failed for '{Artist}' / '{Title}'",
-                artist ?? "—", trackTitle ?? "—");
-            return null;
-        }
-
-        if (bestMatch is { Score: >= 0.50 })
-        {
-            var bestTrackName = bestMatch.Track["trackName"]?.GetValue<string>() ?? "(unknown)";
-            _logger.LogInformation(
-                "Music: Apple iTunes track search matched '{TrackName}' → collectionId={Id} (score={Score:F2}) for '{Artist}' / '{Title}'",
-                bestTrackName, bestMatch.CollectionId, bestMatch.Score, artist ?? "—", trackTitle);
-            return bestMatch;
-        }
-
-        _logger.LogInformation(
-            "Music: Apple iTunes track search — best score {Score:F2} below threshold for '{Artist}' / '{Title}'",
-            bestMatch?.Score ?? 0.0, artist ?? "—", trackTitle);
-        return null;
-    }
-
-    /// <summary>
-    /// Searches Apple iTunes for an album entity by artist+album name.
-    /// Returns the collectionId string, or null if not found.
-    /// </summary>
-    private async Task<string?> SearchAppleAlbumAsync(
-        string? artist, string? album, string country, string lang, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(album))
-            return null;
-
-        var query = Uri.EscapeDataString($"{artist} {album}".Trim());
-        var url = $"https://itunes.apple.com/search?term={query}&entity=album&limit=10&country={country}&lang={lang}_{country}";
-
-        await ThrottleItunesAsync(ct);
-
-        try
-        {
-            using var client = _httpFactory.CreateClient("apple_api");
-            var json = await client.GetFromJsonAsync<JsonNode>(url, ct);
-
-            var results = json?["results"]?.AsArray();
-            if (results is null || results.Count == 0)
-                return null;
-
-            // Find best match by artist+album name overlap.
-            var searchQuery = $"{artist} {album}".Trim();
-            double bestScore = 0.0;
-            string? bestCollectionId = null;
-
-            foreach (var result in results)
-            {
-                if (result is null) continue;
-
-                var resultCollection = result["collectionName"]?.GetValue<string>();
-                var resultArtist     = result["artistName"]?.GetValue<string>();
-                var resultId         = result["collectionId"]?.GetValue<long?>() is { } id
-                    ? id.ToString()
-                    : null;
-
-                if (string.IsNullOrWhiteSpace(resultCollection) || resultId is null)
-                    continue;
-
-                // Score by album name similarity; artist is a secondary signal.
-                var albumScore  = ComputeWordOverlap(album ?? string.Empty, resultCollection);
-                var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
-                    ? ComputeWordOverlap(artist, resultArtist)
-                    : 0.0;
-
-                // Combined: album name is primary (0.7), artist is secondary (0.3).
-                var combined = albumScore * 0.7 + artistScore * 0.3;
-                if (combined > bestScore)
-                {
-                    bestScore = combined;
-                    bestCollectionId = resultId;
-                }
-            }
-
-            // Require at least a moderate match to avoid wrong albums.
-            if (bestScore >= 0.40)
-            {
-                _logger.LogInformation(
-                    "Music: Apple iTunes album search matched collectionId={Id} (score={Score:F2}) for '{Artist}' / '{Album}'",
-                    bestCollectionId, bestScore, artist ?? "—", album ?? "—");
-                return bestCollectionId;
-            }
-
-            _logger.LogInformation(
-                "Music: Apple iTunes album search — best score {Score:F2} below threshold for '{Artist}' / '{Album}'",
-                bestScore, artist ?? "—", album ?? "—");
-            return null;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex,
-                "RetailMatchWorker: Apple album search failed for '{Artist}' / '{Album}'",
-                artist ?? "—", album ?? "—");
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Fetches all tracks for the given Apple collectionId via lookup?entity=song.
-    /// Returns a list of raw JSON track nodes (wrapperType=track).
-    /// </summary>
-    private async Task<IReadOnlyList<JsonNode>> FetchAppleAlbumTracksAsync(
-        string collectionId, string country, string lang, CancellationToken ct)
-    {
-        var url = $"https://itunes.apple.com/lookup?id={collectionId}&entity=song&country={country}&lang={lang}_{country}";
-
-        await ThrottleItunesAsync(ct);
-
-        try
-        {
-            using var client = _httpFactory.CreateClient("apple_api");
-            var json = await client.GetFromJsonAsync<JsonNode>(url, ct);
-
-            var results = json?["results"]?.AsArray();
-            if (results is null || results.Count == 0)
-                return [];
-
-            // The first result is the collection itself (wrapperType=collection); skip it.
-            var tracks = new List<JsonNode>();
-            foreach (var node in results)
-            {
-                if (node is null) continue;
-                var wrapperType = node["wrapperType"]?.GetValue<string>();
-                if (string.Equals(wrapperType, "track", StringComparison.OrdinalIgnoreCase))
-                    tracks.Add(node);
-            }
-
-            return tracks;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex,
-                "RetailMatchWorker: Apple album track lookup failed for collectionId={Id}", collectionId);
-            return [];
-        }
-    }
-
-    /// <summary>
     /// Finds the best-matching track for the given job from the album track list,
     /// builds claims from that track's data, scores, and transitions the job.
     /// </summary>
@@ -692,7 +512,7 @@ public sealed class RetailMatchWorker
                 && DurationsCorroborate(fileDurationSeconds, candidateDurationSecondsForMatch);
 
             double matchScore = !string.IsNullOrWhiteSpace(fileTitle) && !string.IsNullOrWhiteSpace(trackName)
-                ? ComputeWordOverlap(fileTitle, trackName)
+                ? RetailTextSimilarity.ComputeWordOverlap(fileTitle, trackName)
                 : 0.0;
 
             if (trackNumberMatchesForMatch)
@@ -751,7 +571,7 @@ public sealed class RetailMatchWorker
         var strongSingleTrackIdentity = singleTrackRelease
             && retailScore.TitleScore >= 0.95
             && retailScore.AuthorScore >= 0.85;
-        var decision = EvaluateRetailDecision(
+        var decision = _candidateScorer.EvaluateDecision(
             fileHints,
             candidateTitle,
             candidateAuthor,
@@ -780,7 +600,7 @@ public sealed class RetailMatchWorker
             Creator          = candidateAuthor,
             Year             = candidateYear,
             ScoreTotal       = decision.FinalScore,
-            ScoreBreakdownJson = BuildScoreBreakdownJson(
+            ScoreBreakdownJson = _candidateScorer.BuildScoreBreakdownJson(
                 retailScore,
                 decision,
                 "grouped_music",
@@ -795,7 +615,7 @@ public sealed class RetailMatchWorker
                     ["candidate_duration_seconds"] = hasCandidateDuration ? candidateDurationSeconds : null,
                 }),
             BridgeIdsJson    = bridgeIdsJson,
-            ImageUrl         = BuildAppleCoverUrl(bestTrack["artworkUrl100"]?.GetValue<string>()),
+            ImageUrl         = RetailRequestBuilder.BuildAppleCoverUrl(bestTrack["artworkUrl100"]?.GetValue<string>()),
             Outcome          = decision.Outcome,
         };
 
@@ -928,27 +748,11 @@ public sealed class RetailMatchWorker
             track["artistId"]?.GetValue<long?>()?.ToString(), 0.90);
 
         // Cover art — scale up from 100px to full-res.
-        var artworkUrl = BuildAppleCoverUrl(track["artworkUrl100"]?.GetValue<string>());
+        var artworkUrl = RetailRequestBuilder.BuildAppleCoverUrl(track["artworkUrl100"]?.GetValue<string>());
         if (!string.IsNullOrWhiteSpace(artworkUrl))
             claims.Add(new ProviderClaim(MetadataFieldConstants.CoverUrl, artworkUrl, 0.90));
 
         return claims;
-    }
-
-    /// <summary>
-    /// Scales an Apple artwork URL from the 100px thumbnail to the maximum resolution.
-    /// Input: <c>https://…/100x100bb.jpg</c>
-    /// Output: <c>https://…/9999x9999bb.jpg</c> (Apple serves the best available size).
-    /// </summary>
-    private static string? BuildAppleCoverUrl(string? artworkUrl100)
-    {
-        if (string.IsNullOrWhiteSpace(artworkUrl100))
-            return null;
-
-        return System.Text.RegularExpressions.Regex.Replace(
-            artworkUrl100,
-            @"\d+x\d+bb\.jpg",
-            "9999x9999bb.jpg");
     }
 
     // ── TV group processing ──────────────────────────────────────────────────
@@ -1071,7 +875,10 @@ public sealed class RetailMatchWorker
             showName ?? "(unknown)",
             yearHint.HasValue ? $" (year={yearHint.Value})" : "",
             groupJobs.Count);
-        var (tvId, showPosterPath, matchedShowName) = await SearchTmdbShowAsync(showName, yearHint, tmdbApiKey, lang, country, ct);
+        var showSearch = await _tmdbClient.SearchShowAsync(showName, yearHint, tmdbApiKey, lang, country, ct);
+        var tvId = showSearch.TvId;
+        var showPosterPath = showSearch.PosterPath;
+        var matchedShowName = showSearch.MatchedShowName;
 
         if (tvId is null)
         {
@@ -1090,7 +897,7 @@ public sealed class RetailMatchWorker
             return;
         }
 
-        var showDetails = await FetchTmdbShowDetailsAsync(tvId, tmdbApiKey, lang, country, ct);
+        var showDetails = await _tmdbClient.FetchShowDetailsAsync(tvId, tmdbApiKey, lang, country, ct);
 
         // Step 2: Determine unique seasons needed (may be multiple if batch spans seasons).
         var seasonGroups = groupJobs
@@ -1107,7 +914,7 @@ public sealed class RetailMatchWorker
             if (!int.TryParse(season, out var seasonNumber))
                 seasonNumber = 1;
 
-            var episodes = await FetchTmdbSeasonEpisodesAsync(tvId, seasonNumber, tmdbApiKey, lang, country, ct);
+            var episodes = await _tmdbClient.FetchSeasonEpisodesAsync(tvId, seasonNumber, tmdbApiKey, lang, country, ct);
             foreach (var ep in episodes)
                 allEpisodes.Add((season, ep));
         }
@@ -1136,190 +943,6 @@ public sealed class RetailMatchWorker
                     job.Id, job.EntityId);
                 await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, ex.Message, ct);
             }
-        }
-    }
-
-    /// <summary>
-    /// Searches TMDB for a TV show by name. Returns the tv_id string and poster_path, or nulls if not found.
-    /// When <paramref name="yearHint"/> is supplied, the search is filtered server-side by
-    /// <c>first_air_date_year</c> and a year-match bonus is added during local scoring so
-    /// shows with the right premiere year outrank similarly-named shows from other eras.
-    /// Falls back to an unfiltered search if the year filter returns nothing.
-    /// </summary>
-    private async Task<(string? TvId, string? PosterPath, string? MatchedShowName)> SearchTmdbShowAsync(
-        string? showName, int? yearHint, string apiKey, string lang, string country, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(showName))
-            return (null, null, null);
-
-        var query   = Uri.EscapeDataString(showName.Trim());
-        var baseUrl = $"https://api.themoviedb.org/3/search/tv?query={query}&include_adult=false&language={lang}-{country}&page=1&api_key={apiKey}";
-        var url     = yearHint.HasValue
-            ? $"{baseUrl}&first_air_date_year={yearHint.Value}"
-            : baseUrl;
-
-        await ThrottleTmdbAsync(ct);
-
-        try
-        {
-            using var client = _httpFactory.CreateClient("tmdb");
-            var json = await client.GetFromJsonAsync<JsonNode>(url, ct);
-            var results = json?["results"]?.AsArray();
-
-            // If year-filtered search returned nothing, retry unfiltered (year may be wrong/missing on TMDB).
-            if ((results is null || results.Count == 0) && yearHint.HasValue)
-            {
-                _logger.LogInformation(
-                    "TV: TMDB year-filtered search returned 0 results for '{ShowName}' (year={Year}); retrying unfiltered",
-                    showName, yearHint.Value);
-                await ThrottleTmdbAsync(ct);
-                json = await client.GetFromJsonAsync<JsonNode>(baseUrl, ct);
-                results = json?["results"]?.AsArray();
-            }
-
-            if (results is null || results.Count == 0)
-                return (null, null, null);
-
-            // Pick the best match by show name similarity, biased by year proximity.
-            double bestScore = 0.0;
-            string? bestId = null;
-            string? bestPosterPath = null;
-            string? bestMatchedShowName = null;
-
-            foreach (var result in results)
-            {
-                if (result is null) continue;
-
-                var resultName = result["name"]?.GetValue<string>()
-                    ?? result["original_name"]?.GetValue<string>();
-                var resultId = result["id"]?.GetValue<long?>()?.ToString();
-
-                if (string.IsNullOrWhiteSpace(resultName) || resultId is null)
-                    continue;
-
-                var nameScore = ComputeWordOverlap(showName, resultName);
-
-                // Year bonus: +0.25 for exact match, +0.10 for ±1, -0.20 for >5 years off.
-                // This is enough to outrank a slightly higher name-similarity hit from
-                // the wrong era (e.g. "Shogun 2024" vs "Abarenbō Shōgun 1978").
-                var yearBonus = 0.0;
-                if (yearHint.HasValue)
-                {
-                    var firstAirDate = result["first_air_date"]?.GetValue<string>();
-                    if (!string.IsNullOrWhiteSpace(firstAirDate)
-                        && firstAirDate.Length >= 4
-                        && int.TryParse(firstAirDate.AsSpan(0, 4), out var resultYear))
-                    {
-                        var diff = Math.Abs(resultYear - yearHint.Value);
-                        yearBonus = diff switch
-                        {
-                            0     => 0.25,
-                            1     => 0.10,
-                            <= 5  => 0.0,
-                            _     => -0.20,
-                        };
-                    }
-                }
-
-                var score = Math.Clamp(nameScore + yearBonus, 0.0, 1.0);
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    bestId = resultId;
-                    bestPosterPath = result["poster_path"]?.GetValue<string>();
-                    bestMatchedShowName = resultName;
-                }
-            }
-
-            if (bestScore >= 0.40)
-            {
-                _logger.LogInformation(
-                    "TV: TMDB show search matched tv_id={Id} (score={Score:F2}) for '{ShowName}'{YearHint}",
-                    bestId, bestScore, showName,
-                    yearHint.HasValue ? $" (year={yearHint.Value})" : "");
-                return (bestId, bestPosterPath, bestMatchedShowName);
-            }
-
-            _logger.LogInformation(
-                "TV: TMDB show search — best score {Score:F2} below threshold for '{ShowName}'",
-                bestScore, showName);
-            return (null, null, null);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex,
-                "RetailMatchWorker: TMDB show search failed for '{ShowName}'", showName);
-            return (null, null, null);
-        }
-    }
-
-    /// <summary>
-    /// Fetches show-level TMDB details so series pages can use the provider tagline and overview.
-    /// </summary>
-    private async Task<JsonNode?> FetchTmdbShowDetailsAsync(
-        string tvId, string apiKey, string lang, string country, CancellationToken ct)
-    {
-        var url = $"https://api.themoviedb.org/3/tv/{tvId}?language={lang}-{country}&append_to_response=content_ratings&api_key={apiKey}";
-
-        await ThrottleTmdbAsync(ct);
-
-        try
-        {
-            using var client = _httpFactory.CreateClient("tmdb");
-            using var response = await client.GetAsync(url, ct);
-
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                return null;
-
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "RetailMatchWorker: TMDB show detail fetch failed for tv_id={TvId}", tvId);
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Fetches all episodes for a TMDB season. Returns the raw episode JSON nodes.
-    /// </summary>
-    private async Task<IReadOnlyList<JsonNode>> FetchTmdbSeasonEpisodesAsync(
-        string tvId, int seasonNumber, string apiKey, string lang, string country, CancellationToken ct)
-    {
-        var url = $"https://api.themoviedb.org/3/tv/{tvId}/season/{seasonNumber}?language={lang}-{country}&api_key={apiKey}";
-
-        await ThrottleTmdbAsync(ct);
-
-        try
-        {
-            using var client = _httpFactory.CreateClient("tmdb");
-            using var response = await client.GetAsync(url, ct);
-
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                return [];
-
-            response.EnsureSuccessStatusCode();
-
-            var json = await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct);
-            var episodes = json?["episodes"]?.AsArray();
-            if (episodes is null)
-                return [];
-
-            var result = new List<JsonNode>();
-            foreach (var ep in episodes)
-            {
-                if (ep is not null)
-                    result.Add(ep);
-            }
-            return result;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex,
-                "RetailMatchWorker: TMDB season fetch failed for tv_id={TvId} season={Season}",
-                tvId, seasonNumber);
-            return [];
         }
     }
 
@@ -1378,7 +1001,7 @@ public sealed class RetailMatchWorker
             }
             else if (!string.IsNullOrWhiteSpace(fileTitle) && !string.IsNullOrWhiteSpace(epTitle))
             {
-                matchScore = ComputeWordOverlap(fileTitle, epTitle);
+                matchScore = RetailTextSimilarity.ComputeWordOverlap(fileTitle, epTitle);
             }
 
             if (matchScore > bestMatchScore)
@@ -1405,7 +1028,7 @@ public sealed class RetailMatchWorker
         var showName     = fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var providerShowName = matchedShowName ?? showName;
-        var showPosterUrl = BuildTmdbImageUrl(showPosterPath);
+        var showPosterUrl = RetailRequestBuilder.BuildTmdbImageUrl(showPosterPath);
         var claims = BuildTvShowClaims(showDetails, tvId, providerShowName, showPosterUrl)
             .Concat(BuildTvEpisodeClaims(bestEpisode, tvId, providerShowName, fileSeason, showPosterUrl))
             .ToList();
@@ -1433,7 +1056,7 @@ public sealed class RetailMatchWorker
         bool episodeMatches = !string.IsNullOrWhiteSpace(fileEpisodeNumber)
             && !string.IsNullOrWhiteSpace(candidateEpisodeNum)
             && string.Equals(fileEpisodeNumber.Trim(), candidateEpisodeNum.Trim(), StringComparison.Ordinal);
-        bool showMatches = AreEquivalentNames(showName, providerShowName);
+        bool showMatches = RetailTextSimilarity.AreEquivalentNames(showName, providerShowName);
 
         double structuralAdjustment = 0.0;
         if (seasonMatches && episodeMatches)
@@ -1470,7 +1093,7 @@ public sealed class RetailMatchWorker
                 fileSeason, fileEpisodeNumber, candidateSeasonNum, candidateEpisodeNum,
                 structuralAdjustment, retailScore.CompositeScore, adjustedComposite, job.EntityId);
 
-        var decision = EvaluateRetailDecision(
+        var decision = _candidateScorer.EvaluateDecision(
             fileHints,
             candidateTitle,
             candidateAuthor,
@@ -1500,7 +1123,7 @@ public sealed class RetailMatchWorker
             Creator            = candidateAuthor,
             Year               = candidateYear,
             ScoreTotal         = decision.FinalScore,
-            ScoreBreakdownJson = BuildScoreBreakdownJson(
+            ScoreBreakdownJson = _candidateScorer.BuildScoreBreakdownJson(
                 retailScore,
                 decision,
                 "grouped_tv",
@@ -1686,7 +1309,7 @@ public sealed class RetailMatchWorker
         Add(MetadataFieldConstants.ShortDescription, showDetails?["overview"]?.GetValue<string>(), 0.84);
         Add(MetadataFieldConstants.Tagline, showDetails?["tagline"]?.GetValue<string>(), 0.78);
         Add(MetadataFieldConstants.Network, showDetails?["networks"]?[0]?["name"]?.GetValue<string>(), 0.85);
-        Add(MetadataFieldConstants.Cover, BuildTmdbImageUrl(showDetails?["poster_path"]?.GetValue<string>()) ?? fallbackPosterUrl, 0.90);
+        Add(MetadataFieldConstants.Cover, RetailRequestBuilder.BuildTmdbImageUrl(showDetails?["poster_path"]?.GetValue<string>()) ?? fallbackPosterUrl, 0.90);
         Add(BridgeIdKeys.TmdbId, showTvId, 1.0);
         Add(MetadataFieldConstants.Rating, showDetails?["vote_average"]?.GetValue<double?>()?.ToString("F1"), 0.80);
         Add("content_rating", ExtractTmdbTvContentRating(showDetails), 0.88);
@@ -1717,17 +1340,6 @@ public sealed class RetailMatchWorker
         return null;
     }
 
-    /// <summary>
-    /// Builds a TMDB still image URL from a still_path value.
-    /// </summary>
-    private static string? BuildTmdbImageUrl(string? stillPath)
-    {
-        if (string.IsNullOrWhiteSpace(stillPath))
-            return null;
-
-        return $"https://image.tmdb.org/t/p/w500{stillPath}";
-    }
-
     private async Task DownloadAndPersistTmdbEpisodeStillAsync(
         JsonNode episode,
         Guid episodeWorkId,
@@ -1736,7 +1348,7 @@ public sealed class RetailMatchWorker
         if (_entityAssetRepo is null || _assetPaths is null)
             return;
 
-        var stillUrl = BuildTmdbImageUrl(episode["still_path"]?.GetValue<string>());
+        var stillUrl = RetailRequestBuilder.BuildTmdbImageUrl(episode["still_path"]?.GetValue<string>());
         if (string.IsNullOrWhiteSpace(stillUrl))
             return;
 
@@ -1909,44 +1521,6 @@ public sealed class RetailMatchWorker
         return $"{(showName ?? string.Empty).Trim().ToLowerInvariant()}|{(season ?? "1").Trim()}";
     }
 
-    // ── Throttle helpers ─────────────────────────────────────────────────────
-
-    private async Task ThrottleItunesAsync(CancellationToken ct)
-    {
-        await _itunesThrottle.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            const int throttleMs = 300;
-            var elapsed = (DateTime.UtcNow - _itunesLastCallUtc).TotalMilliseconds;
-            if (elapsed < throttleMs)
-                await Task.Delay(TimeSpan.FromMilliseconds(throttleMs - elapsed), ct)
-                    .ConfigureAwait(false);
-            _itunesLastCallUtc = DateTime.UtcNow;
-        }
-        finally
-        {
-            _itunesThrottle.Release();
-        }
-    }
-
-    private async Task ThrottleTmdbAsync(CancellationToken ct)
-    {
-        await _tmdbThrottle.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            const int throttleMs = 250;
-            var elapsed = (DateTime.UtcNow - _tmdbLastCallUtc).TotalMilliseconds;
-            if (elapsed < throttleMs)
-                await Task.Delay(TimeSpan.FromMilliseconds(throttleMs - elapsed), ct)
-                    .ConfigureAwait(false);
-            _tmdbLastCallUtc = DateTime.UtcNow;
-        }
-        finally
-        {
-            _tmdbThrottle.Release();
-        }
-    }
-
     private (string Language, string MusicCountry, string RegionCountry) GetConfiguredLocale()
     {
         var core = _configLoader.LoadCore();
@@ -1960,54 +1534,6 @@ public sealed class RetailMatchWorker
             ? "US"
             : core.Country.Trim().ToUpperInvariant();
         return (language, regionCountry.ToLowerInvariant(), regionCountry);
-    }
-
-    // ── Word overlap similarity (mirror of ConfigDrivenAdapter) ───────────────
-
-    /// <summary>
-    /// F1 word-overlap similarity (0.0–1.0). Strips diacritics and normalises to lowercase.
-    /// </summary>
-    private static double ComputeWordOverlap(string a, string b)
-    {
-        var aWords = Tokenize(a);
-        var bWords = Tokenize(b);
-
-        if (aWords.Count == 0 || bWords.Count == 0)
-            return 0.0;
-
-        var coverage  = (double)aWords.Count(w => bWords.Contains(w)) / aWords.Count;
-        var precision = (double)bWords.Count(w => aWords.Contains(w)) / bWords.Count;
-
-        if (coverage + precision == 0) return 0.0;
-        return 2 * coverage * precision / (coverage + precision);
-    }
-
-    private static HashSet<string> Tokenize(string text)
-    {
-        return [.. StripDiacritics(text).ToLowerInvariant()
-            .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']'],
-                   StringSplitOptions.RemoveEmptyEntries)
-            .Where(w => w.Length >= 2)];
-    }
-
-    /// <summary>
-    /// Strips Unicode combining marks so "Shōgun" matches "Shogun" during
-    /// name comparison. Used by Tokenize to avoid losing matches to diacritics
-    /// in TMDB localized titles.
-    /// </summary>
-    private static string StripDiacritics(string text)
-    {
-        var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
-        var sb = new System.Text.StringBuilder(normalized.Length);
-        foreach (var c in normalized)
-        {
-            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
-                != System.Globalization.UnicodeCategory.NonSpacingMark)
-            {
-                sb.Append(c);
-            }
-        }
-        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 
     // ── Per-item fallback (Books, Audiobooks, Movies, Comics) ──────
@@ -2078,9 +1604,9 @@ public sealed class RetailMatchWorker
                 ?? claims.FirstOrDefault(c => string.Equals(c.Key, "issue_number", StringComparison.OrdinalIgnoreCase))
                     ?.Value;
 
-            var seriesMatches = AreEquivalentNames(fileSeries, candidateSeries);
+            var seriesMatches = RetailTextSimilarity.AreEquivalentNames(fileSeries, candidateSeries);
             var issueMatches = AreEquivalentOrdinals(fileIssue, candidateIssue);
-            var titleMatches = AreEquivalentNames(fileTitle, candidateTitle);
+            var titleMatches = RetailTextSimilarity.AreEquivalentNames(fileTitle, candidateTitle);
             var fileTitleContainsFileSeries = TitleContainsSeriesAnchor(fileTitle, fileSeries);
             var fileTitleContainsCandidateSeries = TitleContainsSeriesAnchor(fileTitle, candidateSeries);
             var candidateTitleContainsFileSeries = TitleContainsSeriesAnchor(candidateTitle, fileSeries);
@@ -2132,7 +1658,7 @@ public sealed class RetailMatchWorker
 
     private static string NormalizeComparableText(string text)
     {
-        var chars = StripDiacritics(text)
+        var chars = RetailTextSimilarity.StripDiacritics(text)
             .Replace("&", " and ", StringComparison.Ordinal)
             .ToLowerInvariant()
             .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
@@ -2140,17 +1666,6 @@ public sealed class RetailMatchWorker
 
         return string.Join(' ', new string(chars)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
-
-    private static bool AreEquivalentNames(string? left, string? right)
-    {
-        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
-            return false;
-
-        return string.Equals(
-            NormalizeComparableText(left),
-            NormalizeComparableText(right),
-            StringComparison.Ordinal);
     }
 
     private static bool TitleContainsSeriesAnchor(string? title, string? series)
@@ -2213,20 +1728,10 @@ public sealed class RetailMatchWorker
             && ordinal > 0;
     }
 
-    private sealed record AppleTrackSearchMatch(
-        string CollectionId,
-        JsonNode Track,
-        double Score,
-        bool TitleExact,
-        bool ArtistExact,
-        bool SingleTrackRelease,
-        bool AlbumExact,
-        double AlbumScore);
-
     private sealed record MusicGroupTrackSearchEvidence(
         Guid EntityId,
         string Title,
-        AppleTrackSearchMatch Match);
+        MediaEngine.Providers.Services.AppleTrackSearchMatch Match);
 
     private sealed record MusicGroupCollectionSelection(
         string CollectionId,
@@ -2234,110 +1739,6 @@ public sealed class RetailMatchWorker
         int AlbumExactCount,
         double TotalAlbumScore,
         double TotalScore);
-
-    private static IReadOnlyList<string> BuildAppleTrackSearchQueries(
-        string trackTitle,
-        string? artist,
-        string? albumTitle)
-    {
-        var queries = new List<string>
-        {
-            string.Join(' ', new[] { trackTitle, artist }.Where(v => !string.IsNullOrWhiteSpace(v)))
-        };
-
-        if (!string.IsNullOrWhiteSpace(albumTitle))
-        {
-            queries.Add(string.Join(' ', new[] { trackTitle, artist, albumTitle }
-                .Where(v => !string.IsNullOrWhiteSpace(v))));
-        }
-
-        return queries
-            .Where(q => !string.IsNullOrWhiteSpace(q))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static AppleTrackSearchMatch? EvaluateAppleTrackSearchResults(
-        JsonArray results,
-        string? artist,
-        string trackTitle,
-        string? albumTitle)
-    {
-        double bestScore = 0.0;
-        string? bestCollectionId = null;
-        JsonNode? bestTrack = null;
-        var bestTitleExact = false;
-        var bestArtistExact = false;
-        var bestSingleTrackRelease = false;
-        var bestAlbumExact = false;
-        var bestAlbumScore = 0.0;
-
-        foreach (var result in results)
-        {
-            if (result is null) continue;
-
-            var resultTrackName = result["trackName"]?.GetValue<string>();
-            var resultArtist = result["artistName"]?.GetValue<string>();
-            var resultAlbum = result["collectionName"]?.GetValue<string>();
-            var resultTrackCount = result["trackCount"]?.GetValue<long?>();
-            var resultId = result["collectionId"]?.GetValue<long?>() is { } id
-                ? id.ToString()
-                : null;
-
-            if (string.IsNullOrWhiteSpace(resultTrackName) || resultId is null)
-                continue;
-
-            var titleScore = ComputeWordOverlap(trackTitle, resultTrackName);
-            var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
-                ? ComputeWordOverlap(artist, resultArtist)
-                : 0.0;
-            var albumScore = !string.IsNullOrWhiteSpace(albumTitle) && !string.IsNullOrWhiteSpace(resultAlbum)
-                ? ComputeWordOverlap(albumTitle, resultAlbum)
-                : 0.0;
-            var titleExact = AreEquivalentNames(trackTitle, resultTrackName);
-            var artistExact = AreEquivalentNames(artist, resultArtist);
-            var albumExact = AreEquivalentNames(albumTitle, resultAlbum);
-            var singleTrackRelease = resultTrackCount == 1;
-
-            var combined = string.IsNullOrWhiteSpace(albumTitle)
-                ? titleScore * 0.65 + artistScore * 0.35
-                : titleScore * 0.50 + artistScore * 0.25 + albumScore * 0.25;
-
-            if (titleExact)
-                combined += 0.10;
-
-            if (artistExact)
-                combined += 0.15;
-
-            if (titleExact && artistExact && singleTrackRelease)
-                combined += 0.20;
-
-            combined = Math.Clamp(combined, 0.0, 1.0);
-            if (combined > bestScore)
-            {
-                bestScore = combined;
-                bestCollectionId = resultId;
-                bestTrack = result;
-                bestTitleExact = titleExact;
-                bestArtistExact = artistExact;
-                bestSingleTrackRelease = singleTrackRelease;
-                bestAlbumExact = albumExact;
-                bestAlbumScore = albumScore;
-            }
-        }
-
-        return bestScore >= 0.50 && bestCollectionId is not null && bestTrack is not null
-            ? new AppleTrackSearchMatch(
-                bestCollectionId,
-                bestTrack,
-                bestScore,
-                bestTitleExact,
-                bestArtistExact,
-                bestSingleTrackRelease,
-                bestAlbumExact,
-                bestAlbumScore)
-            : null;
-    }
 
     private static MusicGroupCollectionSelection SelectBestMusicGroupCollection(
         IReadOnlyList<MusicGroupTrackSearchEvidence> evidence)
@@ -2381,188 +1782,6 @@ public sealed class RetailMatchWorker
         var absoluteDiff = Math.Abs(fileDurationSeconds - candidateDurationSeconds);
         var relativeDiff = absoluteDiff / Math.Max(fileDurationSeconds, candidateDurationSeconds);
         return absoluteDiff <= 5 || relativeDiff <= 0.15;
-    }
-
-    private static double ComputeTextEvidence(
-        FieldMatchScores score,
-        bool creatorPresentOnBothSides,
-        bool yearPresentOnBothSides)
-    {
-        const double titleWeight = 0.60;
-        const double creatorWeight = 0.25;
-        const double yearWeight = 0.15;
-
-        var weightedScore = score.TitleScore * titleWeight;
-        var totalWeight = titleWeight;
-
-        if (creatorPresentOnBothSides)
-        {
-            weightedScore += score.AuthorScore * creatorWeight;
-            totalWeight += creatorWeight;
-        }
-
-        if (yearPresentOnBothSides)
-        {
-            weightedScore += score.YearScore * yearWeight;
-            totalWeight += yearWeight;
-        }
-
-        return totalWeight <= 0
-            ? 0.0
-            : Math.Round(weightedScore / totalWeight, 4);
-    }
-
-    private static RetailDecision EvaluateRetailDecision(
-        IReadOnlyDictionary<string, string> fileHints,
-        string? candidateTitle,
-        string? candidateCreator,
-        string? candidateYear,
-        FieldMatchScores retailScore,
-        double finalScore,
-        double retailAcceptThreshold,
-        double retailAmbiguousThreshold,
-        string matchContext,
-        string? fileCreatorOverride = null,
-        IReadOnlyList<string>? autoAcceptCapReasons = null)
-    {
-        const double weakCreatorThreshold = 0.55;
-        const double weakTextThreshold = 0.60;
-        const double weakTitleThreshold = 0.50;
-
-        _ = candidateTitle;
-
-        var fileCreator = fileCreatorOverride ?? GetPrimaryCreatorHint(fileHints);
-        var fileYear = GetPrimaryYearHint(fileHints);
-        candidateYear = NormalizeYearValue(candidateYear);
-
-        var creatorPresentOnBothSides = !string.IsNullOrWhiteSpace(fileCreator)
-            && !string.IsNullOrWhiteSpace(candidateCreator);
-        var yearPresentOnBothSides = !string.IsNullOrWhiteSpace(fileYear)
-            && !string.IsNullOrWhiteSpace(candidateYear);
-        var creatorDirectMatch = creatorPresentOnBothSides
-            && AreEquivalentNames(fileCreator, candidateCreator);
-        var creatorContradiction = creatorPresentOnBothSides
-            && !creatorDirectMatch
-            && retailScore.AuthorScore < weakCreatorThreshold;
-        var textEvidence = ComputeTextEvidence(
-            retailScore,
-            creatorPresentOnBothSides,
-            yearPresentOnBothSides);
-        var weakTextEvidence = retailScore.TitleScore < weakTitleThreshold
-            || textEvidence < weakTextThreshold;
-
-        var scoreWithoutCover = Math.Max(0.0, finalScore - retailScore.CoverArtScore);
-        var coverWouldRescueWeakText = retailScore.CoverArtScore > 0.0
-            && weakTextEvidence
-            && finalScore >= retailAmbiguousThreshold
-            && scoreWithoutCover < retailAmbiguousThreshold;
-
-        var rejectionReasons = new List<string>();
-
-        string outcome;
-        string thresholdPath;
-        if (finalScore >= retailAcceptThreshold)
-        {
-            outcome = "AutoAccepted";
-            thresholdPath = "accept_threshold";
-        }
-        else if (finalScore >= retailAmbiguousThreshold)
-        {
-            outcome = "Ambiguous";
-            thresholdPath = "ambiguous_threshold";
-        }
-        else
-        {
-            outcome = "Rejected";
-            thresholdPath = "below_ambiguous_threshold";
-        }
-
-        var autoAcceptBlocked = false;
-
-        if (creatorContradiction)
-        {
-            rejectionReasons.Add("creator_similarity_weak");
-            if (outcome == "AutoAccepted")
-            {
-                outcome = "Ambiguous";
-                thresholdPath = "accept_capped_to_review";
-                autoAcceptBlocked = true;
-            }
-        }
-
-        if (autoAcceptCapReasons is { Count: > 0 })
-        {
-            foreach (var reason in autoAcceptCapReasons.Where(r => !string.IsNullOrWhiteSpace(r)))
-            {
-                if (!rejectionReasons.Contains(reason, StringComparer.Ordinal))
-                    rejectionReasons.Add(reason);
-            }
-
-            if (outcome == "AutoAccepted")
-            {
-                outcome = "Ambiguous";
-                thresholdPath = "accept_capped_to_review";
-                autoAcceptBlocked = true;
-            }
-        }
-
-        if (coverWouldRescueWeakText)
-        {
-            if (!rejectionReasons.Contains("cover_cannot_rescue_weak_text", StringComparer.Ordinal))
-                rejectionReasons.Add("cover_cannot_rescue_weak_text");
-
-            outcome = "Rejected";
-            thresholdPath = "cover_rescue_rejected";
-            autoAcceptBlocked = true;
-        }
-
-        return new RetailDecision(
-            Outcome: outcome,
-            FinalScore: Math.Round(finalScore, 4),
-            ThresholdPath: thresholdPath,
-            RejectionReasons: rejectionReasons,
-            TextEvidence: textEvidence,
-            CreatorPresentOnBothSides: creatorPresentOnBothSides,
-            CreatorContradiction: creatorContradiction,
-            AutoAcceptBlocked: autoAcceptBlocked,
-            MatchContext: matchContext);
-    }
-
-    private static string BuildScoreBreakdownJson(
-        FieldMatchScores retailScore,
-        RetailDecision decision,
-        string matchContext,
-        IReadOnlyDictionary<string, object?>? extraEvidence = null,
-        double structuralBonus = 0.0)
-    {
-        var breakdown = new Dictionary<string, object?>
-        {
-            ["title"] = retailScore.TitleScore,
-            ["author"] = retailScore.AuthorScore,
-            ["year"] = retailScore.YearScore,
-            ["format"] = retailScore.FormatScore,
-            ["cross_field"] = retailScore.CrossFieldBoost,
-            ["cover"] = retailScore.CoverArtScore,
-            ["final_score"] = decision.FinalScore,
-            ["text_evidence"] = decision.TextEvidence,
-            ["threshold_path"] = decision.ThresholdPath,
-            ["rejection_reasons"] = decision.RejectionReasons,
-            ["match_context"] = matchContext,
-            ["creator_present_on_both_sides"] = decision.CreatorPresentOnBothSides,
-            ["creator_contradiction"] = decision.CreatorContradiction,
-            ["auto_accept_blocked"] = decision.AutoAcceptBlocked,
-        };
-
-        if (structuralBonus != 0.0)
-            breakdown["structural_bonus"] = structuralBonus;
-
-        if (extraEvidence is not null)
-        {
-            foreach (var pair in extraEvidence)
-                breakdown[pair.Key] = pair.Value;
-        }
-
-        return JsonSerializer.Serialize(breakdown);
     }
 
     private static int GetOutcomeRank(string outcome) => outcome switch
@@ -2708,7 +1927,7 @@ public sealed class RetailMatchWorker
                     hints, candidateTitle, candidateAuthor, candidateYear, mediaType,
                     structuralBonus: structuralBonus);
 
-                var decision = EvaluateRetailDecision(
+                var decision = _candidateScorer.EvaluateDecision(
                     hints,
                     candidateTitle,
                     candidateAuthor,
@@ -2736,7 +1955,7 @@ public sealed class RetailMatchWorker
                     Creator = candidateAuthor,
                     Year = candidateYear,
                     ScoreTotal = decision.FinalScore,
-                    ScoreBreakdownJson = BuildScoreBreakdownJson(
+                    ScoreBreakdownJson = _candidateScorer.BuildScoreBreakdownJson(
                         retailScore,
                         decision,
                         "single_item",
@@ -2909,17 +2128,6 @@ public sealed class RetailMatchWorker
                 job.EntityId, allCandidates.Count, bestScore);
         }
     }
-
-    private sealed record RetailDecision(
-        string Outcome,
-        double FinalScore,
-        string ThresholdPath,
-        IReadOnlyList<string> RejectionReasons,
-        double TextEvidence,
-        bool CreatorPresentOnBothSides,
-        bool CreatorContradiction,
-        bool AutoAcceptBlocked,
-        string MatchContext);
 
     private static Guid ResolveBridgeIdEntityId(WorkLineage? lineage, Guid assetId, string key)
     {

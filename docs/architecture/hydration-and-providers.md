@@ -82,6 +82,25 @@ field_mappings        JSON path extraction rules with named transforms, confiden
 
 **Metron title path validation:** `ConfigDrivenAdapter` validates a response before accepting it by checking that at least one recognised title field is non-empty. The recognised title field names for Metron are: `name`, `title`, `issue`, `series`, `volumeName`. The minimum F1 score for a title-only match (when no other metadata fields are present) is 0.40 — lowered from 0.80 to accommodate Metron's sparser response structure for single-issue lookups.
 
+### Sprint 6 Provider Decomposition
+
+Sprint 6 began the provider-side decomposition without changing provider outcomes. New provider logic should be added to focused collaborators instead of directly into workers or adapters.
+
+Current ownership:
+
+| Component | Responsibility |
+|---|---|
+| `ReconciliationAdapter` | Public `IExternalMetadataProvider` adapter and Stage 2 orchestration. |
+| `CommonsImageResolver` | Wikimedia Commons person image URL/download handling through the `headshot_download` named client. |
+| `RetailMatchWorker` | Durable Stage 1 leasing, grouped job coordination, and high-level retail flow. |
+| `RetailRequestBuilder` | Apple iTunes and TMDB request URL construction plus image URL helpers for touched retail paths. |
+| `RetailHttpThrottle` | Cancellation-aware Apple and TMDB pacing. |
+| `AppleRetailClient` | Apple search/lookup HTTP, JSON parsing, matching thresholds, and safe provider fallback. |
+| `TmdbRetailClient` | TMDB TV search/detail/season HTTP, retry/fallback behavior, and safe provider fallback. |
+| `RetailCandidateScorer` | Worker-level retail candidate outcome decisions and score breakdown JSON. |
+
+Provider HTTP calls still go through `IHttpClientFactory` and named clients (`apple_api`, `tmdb`, `wikidata_reconciliation`, `headshot_download`). Request construction, throttling, and provider-specific scoring should remain independently testable. Avoid adding new hardcoded provider URLs or threshold logic inside `RetailMatchWorker` or `ReconciliationAdapter`.
+
 ---
 
 ## 3. Two-Stage Hydration Pipeline

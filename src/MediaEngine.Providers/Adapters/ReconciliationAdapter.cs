@@ -9,9 +9,11 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Models;
+using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Adapters;
@@ -47,6 +49,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private readonly IConfigurationLoader? _configLoader;
     private readonly IFuzzyMatchingService _fuzzy;
     private readonly WikidataReconciler? _reconciler;
+    private readonly CommonsImageResolver _commonsImageResolver;
 
     // Parsed once at construction.
     private readonly Guid _providerId;
@@ -66,7 +69,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         IFuzzyMatchingService fuzzy,
         IProviderResponseCacheRepository? responseCache = null,
         IConfigurationLoader? configLoader = null,
-        WikidataReconciler? reconciler = null)
+        WikidataReconciler? reconciler = null,
+        CommonsImageResolver? commonsImageResolver = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpFactory);
@@ -80,6 +84,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         _responseCache = responseCache;
         _configLoader  = configLoader;
         _reconciler    = reconciler;
+        _commonsImageResolver = commonsImageResolver ?? new CommonsImageResolver(
+            config,
+            httpFactory,
+            NullLogger<CommonsImageResolver>.Instance);
 
         _providerId = !string.IsNullOrEmpty(config.ProviderId)
             ? Guid.Parse(config.ProviderId)
@@ -1248,41 +1256,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         string personFolderPath,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(commonsFilename) || string.IsNullOrWhiteSpace(personFolderPath))
-            return null;
-
-        try
-        {
-            var encodedName = Uri.EscapeDataString(commonsFilename.Replace(' ', '_'));
-            var url         = _config.Endpoints.CommonsFilePath + encodedName;
-            var ext         = Path.GetExtension(commonsFilename).ToLowerInvariant();
-            if (string.IsNullOrEmpty(ext))
-                ext = ".jpg";
-
-            using var client   = _httpFactory.CreateClient("headshot_download");
-            using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-
-            Directory.CreateDirectory(personFolderPath);
-            var destPath = Path.Combine(personFolderPath, $"headshot{ext}");
-
-            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            await using var file   = File.OpenWrite(destPath);
-            await stream.CopyToAsync(file, ct).ConfigureAwait(false);
-
-            _logger.LogInformation("{Provider}: downloaded headshot to {Path}", Name, destPath);
-            return destPath;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "{Provider}: failed to download headshot '{Filename}'",
-                Name, commonsFilename);
-            return null;
-        }
+        return await _commonsImageResolver.ResolveAndDownloadPersonImageAsync(
+            Name,
+            commonsFilename,
+            personFolderPath,
+            ct).ConfigureAwait(false);
     }
 
     private static string? GetEditionNarrator(EditionInfo edition)
