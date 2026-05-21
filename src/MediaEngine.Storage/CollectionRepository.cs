@@ -178,7 +178,7 @@ public sealed class CollectionRepository : ICollectionRepository
                             WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
                         };
                         works[workId] = work;
-                        collection.Works.Add(work);
+                        collection.AddWork(work);
                     }
                 }
             }
@@ -209,7 +209,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 var entityId = Guid.Parse(reader2.GetString(1));
                 if (works.TryGetValue(workId, out var work))
                 {
-                    work.CanonicalValues.Add(new CanonicalValue
+                    work.AddCanonicalValue(new CanonicalValue
                     {
                         EntityId     = entityId,
                         Key          = reader2.GetString(2),
@@ -242,7 +242,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 var collectionId = Guid.Parse(reader3.GetString(1));
                 if (collections.TryGetValue(collectionId, out var collection))
                 {
-                    collection.Relationships.Add(new CollectionRelationship
+                    collection.AddRelationship(new CollectionRelationship
                     {
                         Id           = Guid.Parse(reader3.GetString(0)),
                         CollectionId        = collectionId,
@@ -299,7 +299,7 @@ public sealed class CollectionRepository : ICollectionRepository
             FROM   collection_relationships WHERE collection_id = @hid;
             """, new { hid = collectionId.ToString() }).AsList();
 
-        collection.Relationships.AddRange(rels);
+        collection.AddRelationships(rels);
 
         return Task.FromResult<Collection?>(collection);
     }
@@ -1171,7 +1171,7 @@ public sealed class CollectionRepository : ICollectionRepository
                         WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
                     };
                     works[workId] = work;
-                    collection.Works.Add(work);
+                    collection.AddWork(work);
                 }
             }
         }
@@ -1202,7 +1202,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 var workId   = Guid.Parse(reader2.GetString(0));
                 if (works.TryGetValue(workId, out var work))
                 {
-                    work.CanonicalValues.Add(new CanonicalValue
+                    work.AddCanonicalValue(new CanonicalValue
                     {
                         EntityId     = Guid.Parse(reader2.GetString(1)),
                         Key          = reader2.GetString(2),
@@ -1295,7 +1295,7 @@ public sealed class CollectionRepository : ICollectionRepository
                             WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
                         };
                         works[workId] = work;
-                        collection.Works.Add(work);
+                        collection.AddWork(work);
                     }
                 }
             }
@@ -1328,7 +1328,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 var wid = Guid.Parse(reader2.GetString(0));
                 if (works.TryGetValue(wid, out var work))
                 {
-                    work.CanonicalValues.Add(new CanonicalValue
+                    work.AddCanonicalValue(new CanonicalValue
                     {
                         EntityId     = Guid.Parse(reader2.GetString(1)),
                         Key          = reader2.GetString(2),

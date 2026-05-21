@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Domain.Aggregates;
@@ -20,6 +21,20 @@ namespace MediaEngine.Domain.Aggregates;
 /// </summary>
 public sealed class Collection
 {
+    private readonly List<Work> _works = [];
+    private readonly ReadOnlyCollection<Work> _worksView;
+    private readonly List<CollectionRelationship> _relationships = [];
+    private readonly ReadOnlyCollection<CollectionRelationship> _relationshipsView;
+    private readonly List<Collection> _childCollections = [];
+    private readonly ReadOnlyCollection<Collection> _childCollectionsView;
+
+    public Collection()
+    {
+        _worksView = _works.AsReadOnly();
+        _relationshipsView = _relationships.AsReadOnly();
+        _childCollectionsView = _childCollections.AsReadOnly();
+    }
+
     /// <summary>Stable identifier. PK in <c>collections</c>.</summary>
     public Guid Id { get; set; }
 
@@ -140,18 +155,97 @@ public sealed class Collection
     /// This is the aggregate boundary: changes to a Collection and its Works
     /// MUST occur within a single transaction.
     /// </summary>
-    public List<Work> Works { get; set; } = [];
+    public IReadOnlyList<Work> Works => _worksView;
 
     /// <summary>
     /// Multi-dimensional grouping signals from Wikidata that define this Collection.
     /// Each relationship links to a Wikidata QID (franchise, series, universe, etc.).
     /// </summary>
-    public List<CollectionRelationship> Relationships { get; set; } = [];
+    public IReadOnlyList<CollectionRelationship> Relationships => _relationshipsView;
 
     /// <summary>
     /// Child Collections that belong to this Collection as a franchise/universe parent.
     /// Only populated when this Collection acts as a Parent Collection.
     /// Not loaded by default — requires explicit query.
     /// </summary>
-    public List<Collection> ChildCollections { get; set; } = [];
+    public IReadOnlyList<Collection> ChildCollections => _childCollectionsView;
+
+    public void AddWork(Work work)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+
+        if (work.Id != Guid.Empty && _works.Any(existing => existing.Id == work.Id))
+        {
+            return;
+        }
+
+        _works.Add(work);
+    }
+
+    public void AddWorks(IEnumerable<Work> works)
+    {
+        ArgumentNullException.ThrowIfNull(works);
+
+        foreach (var work in works)
+        {
+            AddWork(work);
+        }
+    }
+
+    public void AddRelationship(CollectionRelationship relationship)
+    {
+        ArgumentNullException.ThrowIfNull(relationship);
+
+        if (HasRelationship(relationship))
+        {
+            return;
+        }
+
+        _relationships.Add(relationship);
+    }
+
+    public void AddRelationships(IEnumerable<CollectionRelationship> relationships)
+    {
+        ArgumentNullException.ThrowIfNull(relationships);
+
+        foreach (var relationship in relationships)
+        {
+            AddRelationship(relationship);
+        }
+    }
+
+    public void AddChildCollection(Collection child)
+    {
+        ArgumentNullException.ThrowIfNull(child);
+
+        if (child.Id != Guid.Empty && _childCollections.Any(existing => existing.Id == child.Id))
+        {
+            return;
+        }
+
+        _childCollections.Add(child);
+    }
+
+    public void AddChildCollections(IEnumerable<Collection> children)
+    {
+        ArgumentNullException.ThrowIfNull(children);
+
+        foreach (var child in children)
+        {
+            AddChildCollection(child);
+        }
+    }
+
+    private bool HasRelationship(CollectionRelationship relationship)
+    {
+        if (relationship.Id != Guid.Empty)
+        {
+            return _relationships.Any(existing => existing.Id == relationship.Id);
+        }
+
+        return _relationships.Any(existing =>
+            existing.CollectionId == relationship.CollectionId &&
+            string.Equals(existing.RelType, relationship.RelType, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(existing.RelQid, relationship.RelQid, StringComparison.OrdinalIgnoreCase));
+    }
 }

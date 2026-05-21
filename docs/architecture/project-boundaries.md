@@ -9,5 +9,12 @@ Tuvima Library keeps project dependencies pointed inward so UI and endpoint work
 - `MediaEngine.Api` is the composition root. It wires Application/Domain abstractions to Storage and API read-service implementations.
 - `MediaEngine.Web` talks to the Engine through HTTP and SignalR. It must not reference `MediaEngine.Storage`.
 
+Domain aggregates expose child collections and property bags as read-only views.
+Normal mutation must go through named aggregate methods, such as `AddWork`,
+`AddEdition`, or `SetExternalIdentifier`. Repository materialization should use
+those same methods, or an explicitly named hydration helper if bulk loading ever
+requires one. Do not make Domain depend on serialization, Dapper, SQLite, HTTP,
+or UI concerns to support persistence.
+
 Endpoint methods should stay thin: validate route/query/body inputs, call a service or query object, and return HTTP results. SQL, row mapping, and fallback query rules belong in Storage or clearly named API read services.
 

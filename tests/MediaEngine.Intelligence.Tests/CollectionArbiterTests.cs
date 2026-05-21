@@ -29,7 +29,7 @@ public sealed class CollectionArbiterTests
         var arbiter = new CollectionArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var work = MakeWork("Dune", "Frank Herbert");
-        var collection  = MakeCollection(MakeWork("Dune", "Frank Herbert"));
+        var collection = MakeCollection(MakeWork("Dune", "Frank Herbert"));
 
         var decision = await arbiter.EvaluateAsync(
             work, [collection], new Dictionary<Guid, double>(), DefaultConfig);
@@ -48,7 +48,7 @@ public sealed class CollectionArbiterTests
         var arbiter = new CollectionArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var work = MakeWork("Dune", "Frank Herbert");
-        var collection  = MakeCollection(MakeWork("War and Peace", "Leo Tolstoy"));
+        var collection = MakeCollection(MakeWork("War and Peace", "Leo Tolstoy"));
 
         var decision = await arbiter.EvaluateAsync(
             work, [collection], new Dictionary<Guid, double>(), DefaultConfig);
@@ -90,7 +90,7 @@ public sealed class CollectionArbiterTests
 
         // Collection contains a different work with same title — but the work already
         // belongs to this collection, so the collection itself is skipped.
-        collection.Works.Add(MakeWork("Dune", "Frank Herbert"));
+        collection.AddWork(MakeWork("Dune", "Frank Herbert"));
 
         var decision = await arbiter.EvaluateAsync(
             work, [collection], new Dictionary<Guid, double>(), DefaultConfig);
@@ -107,9 +107,9 @@ public sealed class CollectionArbiterTests
         var journal = new StubJournal();
         var arbiter = new CollectionArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
-        var work     = MakeWork("Dune", "Frank Herbert");
-        var goodCollection  = MakeCollection(MakeWork("Dune", "Frank Herbert"));
-        var badCollection   = MakeCollection(MakeWork("Foundation", "Isaac Asimov"));
+        var work = MakeWork("Dune", "Frank Herbert");
+        var goodCollection = MakeCollection(MakeWork("Dune", "Frank Herbert"));
+        var badCollection = MakeCollection(MakeWork("Foundation", "Isaac Asimov"));
 
         var decision = await arbiter.EvaluateAsync(
             work, [badCollection, goodCollection], new Dictionary<Guid, double>(), DefaultConfig);
@@ -127,7 +127,7 @@ public sealed class CollectionArbiterTests
         var arbiter = new CollectionArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var work = MakeWork("Dune", "Frank Herbert");
-        var collection  = MakeCollection(MakeWork("Dune", "Frank Herbert"));
+        var collection = MakeCollection(MakeWork("Dune", "Frank Herbert"));
 
         await arbiter.EvaluateAsync(
             work, [collection], new Dictionary<Guid, double>(), DefaultConfig);
@@ -141,14 +141,18 @@ public sealed class CollectionArbiterTests
     private static Work MakeWork(string title, string author)
     {
         var work = new Work { Id = Guid.NewGuid() };
-        work.CanonicalValues.Add(new CanonicalValue
+        work.AddCanonicalValue(new CanonicalValue
         {
-            EntityId = work.Id, Key = "title", Value = title,
+            EntityId = work.Id,
+            Key = "title",
+            Value = title,
             LastScoredAt = DateTimeOffset.UtcNow,
         });
-        work.CanonicalValues.Add(new CanonicalValue
+        work.AddCanonicalValue(new CanonicalValue
         {
-            EntityId = work.Id, Key = "author", Value = author,
+            EntityId = work.Id,
+            Key = "author",
+            Value = author,
             LastScoredAt = DateTimeOffset.UtcNow,
         });
         return work;
@@ -157,7 +161,7 @@ public sealed class CollectionArbiterTests
     private static Collection MakeCollection(Work work)
     {
         var collection = new Collection { Id = Guid.NewGuid(), CreatedAt = DateTimeOffset.UtcNow };
-        collection.Works.Add(work);
+        collection.AddWork(work);
         return collection;
     }
 }

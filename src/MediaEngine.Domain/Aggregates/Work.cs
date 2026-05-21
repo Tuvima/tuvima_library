@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 
@@ -19,6 +20,23 @@ namespace MediaEngine.Domain.Aggregates;
 /// </summary>
 public sealed class Work
 {
+    private readonly Dictionary<string, string> _externalIdentifiers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ReadOnlyDictionary<string, string> _externalIdentifiersView;
+    private readonly List<Edition> _editions = [];
+    private readonly ReadOnlyCollection<Edition> _editionsView;
+    private readonly List<MetadataClaim> _metadataClaims = [];
+    private readonly ReadOnlyCollection<MetadataClaim> _metadataClaimsView;
+    private readonly List<CanonicalValue> _canonicalValues = [];
+    private readonly ReadOnlyCollection<CanonicalValue> _canonicalValuesView;
+
+    public Work()
+    {
+        _externalIdentifiersView = new ReadOnlyDictionary<string, string>(_externalIdentifiers);
+        _editionsView = _editions.AsReadOnly();
+        _metadataClaimsView = _metadataClaims.AsReadOnly();
+        _canonicalValuesView = _canonicalValues.AsReadOnly();
+    }
+
     /// <summary>Stable identifier. PK in <c>works</c>.</summary>
     public Guid Id { get; set; }
 
@@ -103,8 +121,7 @@ public sealed class Work
     /// files are later ingested, and by the enrichment pipeline to skip
     /// search and call providers directly.
     /// </summary>
-    public Dictionary<string, string> ExternalIdentifiers { get; set; }
-        = new(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string> ExternalIdentifiers => _externalIdentifiersView;
 
     /// <summary>
     /// Normalized find-or-create cache key. Populated only on parent Works
@@ -172,7 +189,7 @@ public sealed class Work
     /// <summary>
     /// All known physical editions of this Work (e.g. theatrical vs. director's cut).
     /// </summary>
-    public List<Edition> Editions { get; set; } = [];
+    public IReadOnlyList<Edition> Editions => _editionsView;
 
     // -------------------------------------------------------------------------
     // Metadata property bags
@@ -184,12 +201,76 @@ public sealed class Work
     /// <see cref="MetadataClaim.Confidence"/> levels.
     /// Append-only — historical claims are never removed.
     /// </summary>
-    public List<MetadataClaim> MetadataClaims { get; set; } = [];
+    public IReadOnlyList<MetadataClaim> MetadataClaims => _metadataClaimsView;
 
     /// <summary>
     /// The winning metadata values for this Work after the scoring engine has
     /// resolved competing claims.
     /// Each entry represents one resolved field in the property bag.
     /// </summary>
-    public List<CanonicalValue> CanonicalValues { get; set; } = [];
+    public IReadOnlyList<CanonicalValue> CanonicalValues => _canonicalValuesView;
+
+    public void SetExternalIdentifier(string key, string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentNullException.ThrowIfNull(value);
+
+        _externalIdentifiers[key] = value;
+    }
+
+    public void AddEdition(Edition edition)
+    {
+        ArgumentNullException.ThrowIfNull(edition);
+
+        if (edition.Id != Guid.Empty && _editions.Any(existing => existing.Id == edition.Id))
+        {
+            return;
+        }
+
+        _editions.Add(edition);
+    }
+
+    public void AddEditions(IEnumerable<Edition> editions)
+    {
+        ArgumentNullException.ThrowIfNull(editions);
+
+        foreach (var edition in editions)
+        {
+            AddEdition(edition);
+        }
+    }
+
+    public void AddMetadataClaim(MetadataClaim claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        _metadataClaims.Add(claim);
+    }
+
+    public void AddMetadataClaims(IEnumerable<MetadataClaim> claims)
+    {
+        ArgumentNullException.ThrowIfNull(claims);
+
+        foreach (var claim in claims)
+        {
+            AddMetadataClaim(claim);
+        }
+    }
+
+    public void AddCanonicalValue(CanonicalValue value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        _canonicalValues.Add(value);
+    }
+
+    public void AddCanonicalValues(IEnumerable<CanonicalValue> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        foreach (var value in values)
+        {
+            AddCanonicalValue(value);
+        }
+    }
 }

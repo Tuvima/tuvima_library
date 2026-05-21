@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Domain.Aggregates;
@@ -18,6 +19,20 @@ namespace MediaEngine.Domain.Aggregates;
 /// </summary>
 public sealed class Edition
 {
+    private readonly List<MediaAsset> _mediaAssets = [];
+    private readonly ReadOnlyCollection<MediaAsset> _mediaAssetsView;
+    private readonly List<MetadataClaim> _metadataClaims = [];
+    private readonly ReadOnlyCollection<MetadataClaim> _metadataClaimsView;
+    private readonly List<CanonicalValue> _canonicalValues = [];
+    private readonly ReadOnlyCollection<CanonicalValue> _canonicalValuesView;
+
+    public Edition()
+    {
+        _mediaAssetsView = _mediaAssets.AsReadOnly();
+        _metadataClaimsView = _metadataClaims.AsReadOnly();
+        _canonicalValuesView = _canonicalValues.AsReadOnly();
+    }
+
     /// <summary>Stable identifier. PK in <c>editions</c>.</summary>
     public Guid Id { get; set; }
 
@@ -46,7 +61,7 @@ public sealed class Edition
     /// Physical files associated with this Edition.
     /// Each asset carries a verified <see cref="MediaAsset.ContentHash"/>.
     /// </summary>
-    public List<MediaAsset> MediaAssets { get; set; } = [];
+    public IReadOnlyList<MediaAsset> MediaAssets => _mediaAssetsView;
 
     // -------------------------------------------------------------------------
     // Metadata property bags
@@ -57,12 +72,68 @@ public sealed class Edition
     /// Keyed by (<see cref="MetadataClaim.ClaimKey"/>, <see cref="MetadataClaim.ProviderId"/>).
     /// Append-only — NEVER remove historical claims.
     /// </summary>
-    public List<MetadataClaim> MetadataClaims { get; set; } = [];
+    public IReadOnlyList<MetadataClaim> MetadataClaims => _metadataClaimsView;
 
     /// <summary>
     /// Scored, authoritative values for this Edition derived from
     /// <see cref="MetadataClaims"/>.
     /// Keyed by <see cref="CanonicalValue.Key"/>.
     /// </summary>
-    public List<CanonicalValue> CanonicalValues { get; set; } = [];
+    public IReadOnlyList<CanonicalValue> CanonicalValues => _canonicalValuesView;
+
+    public void AddMediaAsset(MediaAsset asset)
+    {
+        ArgumentNullException.ThrowIfNull(asset);
+
+        if (asset.Id != Guid.Empty && _mediaAssets.Any(existing => existing.Id == asset.Id))
+        {
+            return;
+        }
+
+        _mediaAssets.Add(asset);
+    }
+
+    public void AddMediaAssets(IEnumerable<MediaAsset> assets)
+    {
+        ArgumentNullException.ThrowIfNull(assets);
+
+        foreach (var asset in assets)
+        {
+            AddMediaAsset(asset);
+        }
+    }
+
+    public void AddMetadataClaim(MetadataClaim claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        _metadataClaims.Add(claim);
+    }
+
+    public void AddMetadataClaims(IEnumerable<MetadataClaim> claims)
+    {
+        ArgumentNullException.ThrowIfNull(claims);
+
+        foreach (var claim in claims)
+        {
+            AddMetadataClaim(claim);
+        }
+    }
+
+    public void AddCanonicalValue(CanonicalValue value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        _canonicalValues.Add(value);
+    }
+
+    public void AddCanonicalValues(IEnumerable<CanonicalValue> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        foreach (var value in values)
+        {
+            AddCanonicalValue(value);
+        }
+    }
 }

@@ -62,12 +62,12 @@ public sealed class CollectionBrowseReadService(
 
             foreach (var work in libraryWorks)
             {
-                filteredCollection.Works.Add(work);
+                filteredCollection.AddWork(work);
             }
 
             foreach (var relationship in collection.Relationships)
             {
-                filteredCollection.Relationships.Add(relationship);
+                filteredCollection.AddRelationship(relationship);
             }
 
             filtered.Add(CollectionDto.FromDomain(filteredCollection));

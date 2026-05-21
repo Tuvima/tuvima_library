@@ -20,6 +20,12 @@ Every collection in Tuvima Library â€” an album, a TV show, a genre categor
 
 This model unifies what were previously separate systems (content groups, smart collections, system lists, playlists, AI mixes) into a single architecture. A collection is defined by its **rules** (what items belong), its **type** (how it's presented), and its **placements** (where it appears in the Dashboard).
 
+Domain note: `Collection`, `Work`, and `Edition` expose aggregate children and
+metadata property bags as read-only views. Code that changes membership or
+metadata history should use explicit domain methods such as `AddWork`,
+`AddRelationship`, `AddEdition`, `AddMetadataClaim`, and `AddCanonicalValue`.
+Metadata claims remain append-only.
+
 ---
 
 ## Collection Rules â€” The Universal Predicate Model

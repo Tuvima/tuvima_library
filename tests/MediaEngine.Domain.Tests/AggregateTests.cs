@@ -27,8 +27,8 @@ public class AggregateTests
     public void Collection_WithWorks_TracksChildren()
     {
         var collection = new Collection { Id = Guid.NewGuid(), DisplayName = "Dune" };
-        collection.Works.Add(new Work { Id = Guid.NewGuid(), CollectionId = collection.Id, MediaType = MediaType.Books });
-        collection.Works.Add(new Work { Id = Guid.NewGuid(), CollectionId = collection.Id, MediaType = MediaType.Movies });
+        collection.AddWork(new Work { Id = Guid.NewGuid(), CollectionId = collection.Id, MediaType = MediaType.Books });
+        collection.AddWork(new Work { Id = Guid.NewGuid(), CollectionId = collection.Id, MediaType = MediaType.Movies });
 
         Assert.Equal(2, collection.Works.Count);
         Assert.All(collection.Works, w => Assert.Equal(collection.Id, w.CollectionId));
