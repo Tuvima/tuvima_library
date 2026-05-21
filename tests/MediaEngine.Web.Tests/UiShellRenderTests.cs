@@ -365,7 +365,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void CollectionsPage_RendersHubSectionsAndInlineInspector()
+    public void CollectionsPage_RendersCardOnlyHubSections()
     {
         var cut = Render(builder =>
         {
@@ -385,9 +385,9 @@ public sealed class UiShellRenderTests : TestContext
             Assert.NotEmpty(cut.FindAll(".collections-hub__tabs"));
             Assert.NotEmpty(cut.FindAll(".collections-hub-tab"));
             Assert.NotEmpty(cut.FindAll(".collection-hub-section"));
-            Assert.NotEmpty(cut.FindAll(".collection-hub-row"));
-            Assert.Empty(cut.FindAll(".collection-hub-card"));
-            Assert.Single(cut.FindAll(".collection-inspector"));
+            Assert.NotEmpty(cut.FindAll(".collection-hub-card"));
+            Assert.Empty(cut.FindAll(".collection-hub-row"));
+            Assert.Empty(cut.FindAll(".collection-inspector"));
             Assert.Contains("Summer Movies", cut.Markup);
             Assert.Contains("Quiet Reads", cut.Markup);
             Assert.Contains("Favorites", cut.Markup);
@@ -395,6 +395,7 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("WATCH COLLECTIONS", cut.Markup);
             Assert.Contains("LISTEN COLLECTIONS", cut.Markup);
             Assert.Contains("READ COLLECTIONS", cut.Markup);
+            Assert.Contains("CONTINUE BROWSING", cut.Markup);
             Assert.DoesNotContain("collections-hub__browse-types", cut.Markup);
         });
     }

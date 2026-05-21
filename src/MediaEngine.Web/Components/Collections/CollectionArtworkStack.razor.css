@@ -114,6 +114,59 @@
     flex: 0.72 1 0;
 }
 
+.collection-artwork-stack--landscape-cascade {
+    display: block;
+    isolation: isolate;
+    background:
+        radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--collection-card-accent, var(--tl-accent-primary)) 38%, transparent), transparent 44%),
+        radial-gradient(circle at 84% 22%, color-mix(in srgb, var(--collection-card-accent-2, var(--tl-media-audio)) 28%, transparent), transparent 40%),
+        linear-gradient(135deg, rgba(16, 21, 36, 0.98), rgba(5, 8, 16, 0.99) 66%, rgba(10, 13, 22, 0.98));
+}
+
+.collection-artwork-stack--landscape-cascade::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        linear-gradient(90deg, rgba(3, 6, 12, 0.88) 0%, rgba(3, 6, 12, 0.56) 45%, rgba(3, 6, 12, 0.08) 100%),
+        linear-gradient(180deg, rgba(3, 6, 12, 0.06), rgba(3, 6, 12, 0.58));
+    pointer-events: none;
+}
+
+.collection-artwork-stack--landscape-cascade .collection-artwork-stack__tile {
+    position: absolute;
+    top: 12%;
+    bottom: 12%;
+    width: 24%;
+    border-radius: 7px;
+    transform-origin: center;
+}
+
+.collection-artwork-stack--landscape-cascade .collection-artwork-stack__tile:first-child {
+    right: 31%;
+    z-index: 2;
+    transform: translateY(4%) rotate(-5deg);
+}
+
+.collection-artwork-stack--landscape-cascade .collection-artwork-stack__tile:nth-child(2) {
+    right: 20%;
+    z-index: 3;
+    transform: translateY(-4%) rotate(-1deg);
+}
+
+.collection-artwork-stack--landscape-cascade .collection-artwork-stack__tile:nth-child(3) {
+    right: 10%;
+    z-index: 4;
+    transform: translateY(5%) rotate(2deg);
+}
+
+.collection-artwork-stack--landscape-cascade .collection-artwork-stack__tile:nth-child(4) {
+    right: 2%;
+    z-index: 5;
+    transform: translateY(-2%) rotate(5deg);
+}
+
 .collection-artwork-stack--pinned {
     padding: 0;
 }

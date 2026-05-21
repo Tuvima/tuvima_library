@@ -1217,7 +1217,7 @@ public static class DevSeedEndpoints
         var scannedPaths = new List<string>();
         foreach (var target in scanTargets)
         {
-            ingestionEngine.ScanDirectory(target.Path, target.IncludeSubdirectories);
+            await ingestionEngine.ScanDirectory(target.Path, target.IncludeSubdirectories, context.RequestAborted);
             scannedPaths.Add(target.Path);
             logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", target.Path);
         }
@@ -1229,7 +1229,7 @@ public static class DevSeedEndpoints
         string? watchDir = options.Value.WatchDirectory;
         if (scannedPaths.Count == 0 && !string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
         {
-            ingestionEngine.ScanDirectory(watchDir);
+            await ingestionEngine.ScanDirectory(watchDir, ct: context.RequestAborted);
             scannedPaths.Add(watchDir);
             logger.LogInformation("[FullTest] ScanDirectory triggered for legacy watch folder {Path}", watchDir);
         }

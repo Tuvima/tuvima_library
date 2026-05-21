@@ -43,16 +43,9 @@
     padding: 0;
 }
 
-.collections-hub__layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) clamp(340px, 23vw, 410px);
-    gap: clamp(18px, 1.8vw, 28px);
-    align-items: start;
-}
-
 .collections-hub__main {
     display: grid;
-    gap: 28px;
+    gap: 20px;
     min-width: 0;
 }
 
@@ -100,10 +93,6 @@
 }
 
 @media (max-width: 1180px) {
-    .collections-hub__layout {
-        grid-template-columns: 1fr;
-    }
-
     .collections-hub__filters {
         grid-template-columns: 1fr;
     }

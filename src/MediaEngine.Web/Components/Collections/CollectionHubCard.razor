@@ -1,43 +1,15 @@
 @namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Web.Models.ViewDTOs
 
-<button type="button" class="@RootClass" @onclick="Select">
+<button type="button" class="@RootClass" style="@RootStyle" @onclick="Select">
     <div class="collection-hub-card__art">
         <CollectionArtworkStack Collection="Collection" Mode="@ArtworkMode" PreferPinnedArtwork="@PreferPinnedArtwork" />
-    </div>
-
-    <div class="collection-hub-card__body">
-        <div class="collection-hub-card__title-row">
+        <div class="collection-hub-card__overlay">
             <h3>@Collection.Name</h3>
-            <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
-        </div>
-        @if (!string.IsNullOrWhiteSpace(Collection.Description))
-        {
-            <p>@Collection.Description</p>
-        }
-        @if (UseListPreview && Collection.ArtworkItems.Count > 0)
-        {
-            <div class="collection-hub-card__preview-list">
-                @foreach (var item in Collection.ArtworkItems.Take(3))
-                {
-                    <div class="collection-hub-card__preview-row">
-                        @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
-                        {
-                            <img src="@item.CoverUrl" alt="" />
-                        }
-                        else
-                        {
-                            <MudIcon Icon="@Icons.Material.Outlined.Album" Size="Size.Small" />
-                        }
-                        <span>@item.Title</span>
-                    </div>
-                }
-            </div>
-        }
-        <CollectionHubStats Collection="Collection" />
-        <div class="collection-hub-card__meta">
-            <span>@Collection.FamilyLabel</span>
-            <span>@UpdatedLabel</span>
+            <span>
+                <MudIcon Icon="@CountIcon" Size="Size.Small" />
+                @Collection.ItemCount item@(Collection.ItemCount == 1 ? string.Empty : "s")
+            </span>
         </div>
     </div>
 </button>
@@ -55,46 +27,41 @@
         $"collection-hub-card--{DisplayStyle}",
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private string Icon => Collection.CollectionType switch
-    {
-        "System" => Icons.Material.Outlined.BookmarkAdded,
-        "Playlist" => Icons.Material.Outlined.QueueMusic,
-        "Smart" => Icons.Material.Outlined.AutoAwesome,
-        "Mix" => Icons.Material.Outlined.GraphicEq,
-        _ => Icons.Material.Outlined.CollectionsBookmark,
-    };
+    private string RootStyle => $"--collection-card-accent: {AccentColor}; --collection-card-accent-2: {SecondaryAccentColor};";
 
     private string DisplayStyle => Collection.PrimaryLane switch
     {
-        "Listen" => "list",
+        "Listen" => "listen",
         "Watch" => "watch",
         "Read" => "read",
         _ => "mixed",
     };
 
-    private bool UseListPreview => Collection.CollectionType == "Playlist" || Collection.PrimaryLane == "Listen";
-    private bool PreferPinnedArtwork => !UseListPreview;
-    private string ArtworkMode => Collection.PrimaryLane switch
+    private bool PreferPinnedArtwork => false;
+    private string ArtworkMode => "landscape-cascade";
+    private string AccentColor => Collection.PrimaryLane switch
     {
-        "Listen" => "listen-grid",
-        "Read" => "read-stack",
-        "Watch" => "watch-strip",
-        _ => "cross-media-collage",
+        "Listen" => "var(--tl-media-audio)",
+        "Read" => "var(--tl-media-book)",
+        "Watch" => "var(--tl-media-video)",
+        _ => "var(--tl-accent-primary)",
     };
 
-    private string UpdatedLabel
+    private string SecondaryAccentColor => Collection.PrimaryLane switch
     {
-        get
-        {
-            var timestamp = Collection.ModifiedAt ?? Collection.CreatedAt;
-            var age = DateTimeOffset.Now - timestamp;
-            if (age.TotalDays < 1)
-                return "Updated today";
+        "Listen" => "var(--tl-media-book)",
+        "Read" => "var(--tl-media-comic)",
+        "Watch" => "var(--tl-media-comic)",
+        _ => "var(--tl-media-audio)",
+    };
 
-            var days = Math.Max(1, (int)Math.Round(age.TotalDays));
-            return $"Updated {days} day{(days == 1 ? string.Empty : "s")} ago";
-        }
-    }
+    private string CountIcon => Collection.PrimaryLane switch
+    {
+        "Listen" => Icons.Material.Outlined.MusicNote,
+        "Read" => Icons.Material.Outlined.MenuBook,
+        "Watch" => Icons.Material.Outlined.LocalMovies,
+        _ => Icons.Material.Outlined.CollectionsBookmark,
+    };
 
     private Task Select() => OnSelect.InvokeAsync(Collection);
 }

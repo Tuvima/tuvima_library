@@ -612,7 +612,7 @@ public static class IntegrationTestEndpoints
                     continue;
 
                 int fileCount = Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories).Length;
-                ingestionEngine.ScanDirectory(sourcePath, lib.IncludeSubdirectories);
+                await ingestionEngine.ScanDirectory(sourcePath, lib.IncludeSubdirectories, ct);
                 logger.LogInformation("  Scan triggered: {Path} ({Category}, {Files} files)", sourcePath, lib.Category, fileCount);
             }
         }

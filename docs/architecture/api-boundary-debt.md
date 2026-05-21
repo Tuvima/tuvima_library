@@ -2,6 +2,26 @@
 
 Wave 7 removed direct database access from `SystemEndpoints.cs` by moving orphan-image reference queries into `OrphanImageReferenceReadService`.
 
+## Compliant Endpoint Pattern
+
+Sprint 1 reinforced the guardrails around endpoint boundaries but did not pay
+down the full legacy SQL allowlist below. New and touched endpoint code should
+look like these existing patterns:
+
+- `ProgressEndpoints.cs` validates route/query input and delegates journey
+  projection work to `IJourneyReadService`.
+- `IngestionEndpoints.cs` keeps batch item projection behind
+  `IIngestionBatchReadService` instead of building SQL in the endpoint.
+- `SystemEndpoints.cs` delegates orphan-image reference checks to
+  `IOrphanImageReferenceReadService`.
+- `PersonEndpoints.cs` uses focused person read services for aliases,
+  presence, works, and scoped person summaries.
+
+The endpoint should stay an HTTP adapter: validate input, call a repository or
+read service, preserve cancellation flow, and return the established DTO shape.
+SQL belongs in Storage repositories or focused API read services that use
+`IDatabaseConnection.CreateConnection()` with a short-lived disposed connection.
+
 ## Remaining Allowlist
 
 | File | Risk | Reason still allowlisted | Suggested target |

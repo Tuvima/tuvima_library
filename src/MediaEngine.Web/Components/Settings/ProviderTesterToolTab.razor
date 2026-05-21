@@ -605,15 +605,15 @@
     protected override async Task OnInitializedAsync()
     {
         await Catalogue.GetCatalogueAsync();
-        RefreshProviderList();
+        await RefreshProviderListAsync();
         RefreshSearchableFields();
     }
 
-    private void OnMediaTypeChanged(string newType)
+    private async Task OnMediaTypeChanged(string newType)
     {
         _selectedMediaType = newType;
         _selectedProvider = "all";
-        RefreshProviderList();
+        await RefreshProviderListAsync();
         RefreshSearchableFields();
         _results = [];
         _universeResults = [];
@@ -623,9 +623,9 @@
         _expandedUniverseResult = null;
     }
 
-    private void RefreshProviderList()
+    private async Task RefreshProviderListAsync()
     {
-        var catalogue = Catalogue.GetCatalogueAsync().GetAwaiter().GetResult();
+        var catalogue = await Catalogue.GetCatalogueAsync();
         _filteredProviders = catalogue
             .Where(p => p.MediaTypes.Any(mt =>
                 string.Equals(mt, _selectedMediaType, StringComparison.OrdinalIgnoreCase) ||

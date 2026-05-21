@@ -3,6 +3,8 @@
   <PropertyGroup>
     <RootNamespace>MediaEngine.Api</RootNamespace>
     <AssemblyName>MediaEngine.Api</AssemblyName>
+    <!-- MediaInfo.Core.Native ships distro-specific Linux RIDs that .NET 8+ reports as NETSDK1206. Runtime probing remains handled by the package. -->
+    <NoWarn>$(NoWarn);NETSDK1206</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

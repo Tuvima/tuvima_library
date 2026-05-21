@@ -69,12 +69,16 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
     }
 
     /// <inheritdoc/>
-    public int PendingCount
+    public async Task<int> GetPendingCountAsync(CancellationToken ct = default)
     {
-        get
+        try
         {
-            try { return _repo.CountPendingAsync().GetAwaiter().GetResult(); }
-            catch { return 0; }
+            return await _repo.CountPendingAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Could not read deferred enrichment pending count");
+            throw;
         }
     }
 

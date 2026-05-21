@@ -32,7 +32,7 @@ public interface IIngestionEngine
     /// Called after a watch-folder hot-swap to pick up files that were already present.
     /// Duplicates are harmless — the hash-based duplicate check short-circuits them.
     /// </summary>
-    void ScanDirectory(string directory, bool includeSubdirectories = true);
+    Task ScanDirectory(string directory, bool includeSubdirectories = true, CancellationToken ct = default);
 
     /// <summary>
     /// Stops the FileSystemWatcher and clears the FSW event buffer without

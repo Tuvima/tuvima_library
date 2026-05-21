@@ -118,6 +118,22 @@ public sealed class DisplayContractTests
         Assert.Contains("DiscoveryComposerService.FromDisplayCard", browseShellSource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DisplayProjection_FallsBackThroughAssetAndWorkArtwork()
+    {
+        var workProjection = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayWorkProjectionReader.cs"));
+        var journeyProjection = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayJourneyProjectionReader.cs"));
+
+        Assert.Contains("entity_id = AssetId AND key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')", workProjection, StringComparison.Ordinal);
+        Assert.Contains("entity_id = WorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')", workProjection, StringComparison.Ordinal);
+        Assert.Contains("entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')", workProjection, StringComparison.Ordinal);
+        Assert.Contains("episode_still_url", workProjection, StringComparison.Ordinal);
+        Assert.Contains("episode_still_url", journeyProjection, StringComparison.Ordinal);
+        Assert.Contains("cv_cover_a", journeyProjection, StringComparison.Ordinal);
+        Assert.Contains("cv_cover_item", journeyProjection, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(cv_cover_a.value, cv_cover_item.value, cv_cover_w.value) AS CoverUrl", journeyProjection, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

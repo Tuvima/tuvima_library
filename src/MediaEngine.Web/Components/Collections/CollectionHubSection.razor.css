@@ -16,6 +16,29 @@
     font-size: 0.88rem;
 }
 
+.collection-hub-section__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+    gap: 22px 20px;
+}
+
+.collection-hub-section__view-all {
+    align-self: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--tl-accent-primary, #a78bfa);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.collection-hub-section__view-all:hover {
+    color: #fff;
+}
+
 .collection-hub-section__list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
@@ -98,6 +121,7 @@
 }
 
 @media (max-width: 720px) {
+    .collection-hub-section__grid,
     .collection-hub-section__list {
         grid-template-columns: 1fr;
     }

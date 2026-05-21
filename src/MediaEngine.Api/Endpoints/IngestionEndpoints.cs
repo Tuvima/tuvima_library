@@ -151,9 +151,10 @@ public static class IngestionEndpoints
 
         // ── POST /ingestion/rescan ──────────────────────────────────────────────
 
-        group.MapPost("/rescan", (
+        group.MapPost("/rescan", async (
             IIngestionEngine           engine,
-            IOptions<IngestionOptions> opts) =>
+            IOptions<IngestionOptions> opts,
+            CancellationToken ct) =>
         {
             var watchDir = opts.Value.WatchDirectory;
 
@@ -164,7 +165,7 @@ public static class IngestionEndpoints
             if (!Directory.Exists(watchDir))
                 return Results.BadRequest($"Watch directory does not exist: {watchDir}");
 
-            engine.ScanDirectory(watchDir, opts.Value.IncludeSubdirectories);
+            await engine.ScanDirectory(watchDir, opts.Value.IncludeSubdirectories, ct);
 
             return Results.Accepted(value: new { message = "Rescan triggered. Files will be processed shortly." });
         })

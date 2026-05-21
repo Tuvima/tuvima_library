@@ -4,6 +4,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
+@inject ILogger<MaintenanceTab> Logger
 @implements IDisposable
 <div class="tl-page">
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -283,10 +284,17 @@
 
     private async void HandleRetagCompleted(RetagSweepProgressDto ev)
     {
-        _retagProgress = ev;
-        _retagRunning  = false;
-        _retagState = await Orchestrator.GetRetagSweepStateAsync();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            _retagProgress = ev;
+            _retagRunning  = false;
+            _retagState = await Orchestrator.GetRetagSweepStateAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to handle completed re-tag sweep event");
+        }
     }
 
     private async Task ApplyRetagPendingAsync()

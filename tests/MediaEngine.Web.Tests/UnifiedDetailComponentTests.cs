@@ -422,7 +422,6 @@ public sealed class UnifiedDetailComponentTests
             "WatchTvShowPage.razor",
             "WatchTvEpisodePage.razor",
             "BookDetail.razor",
-            "CollectionDetail.razor",
             "UnifiedDetailPage.razor",
         };
         var pageSources = detailRoutes

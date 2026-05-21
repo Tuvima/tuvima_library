@@ -19,7 +19,7 @@ public interface IDeferredEnrichmentService
     Task<int> TriggerImmediateProcessingAsync(CancellationToken ct = default);
 
     /// <summary>
-    /// The approximate number of pending Pass 2 requests.
+    /// Gets the approximate number of pending Pass 2 requests.
     /// </summary>
-    int PendingCount { get; }
+    Task<int> GetPendingCountAsync(CancellationToken ct = default);
 }

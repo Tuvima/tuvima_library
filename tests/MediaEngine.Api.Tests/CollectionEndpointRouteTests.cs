@@ -63,6 +63,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("GetSystemCollectionKey", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionMediaCountsAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionArtworkItemsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("cover_asset", source, StringComparison.Ordinal);
         Assert.Contains("Watchlist", source, StringComparison.Ordinal);
         Assert.Contains("Favorites", source, StringComparison.Ordinal);
         Assert.Contains("CollectionManagementCatalogDto", dtoSource, StringComparison.Ordinal);

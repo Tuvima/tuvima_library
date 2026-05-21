@@ -1,0 +1,665 @@
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ArtworkPresentationMode
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ArtworkSet
+  BackdropUrl: System.String | nullability=nullable | accessors=get,init
+  BannerUrl: System.String | nullability=nullable | accessors=get,init
+  PosterUrl: System.String | nullability=nullable | accessors=get,init
+  CoverUrl: System.String | nullability=nullable | accessors=get,init
+  LogoUrl: System.String | nullability=nullable | accessors=get,init
+  PortraitUrl: System.String | nullability=nullable | accessors=get,init
+  CharacterImageUrl: System.String | nullability=nullable | accessors=get,init
+  RelatedArtworkUrls: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  DominantColors: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  PrimaryColor: System.String | nullability=nullable | accessors=get,init
+  SecondaryColor: System.String | nullability=nullable | accessors=get,init
+  AccentColor: System.String | nullability=nullable | accessors=get,init
+  HeroArtwork: MediaEngine.Contracts.Details.HeroArtworkViewModel | nullability=not-null | accessors=get,init
+  PresentationMode: MediaEngine.Contracts.Details.ArtworkPresentationMode | nullability=not-null | accessors=get,init
+  Source: MediaEngine.Contracts.Details.ArtworkSource | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ArtworkSource
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.AudioPositionViewModel
+  Label: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.CanonicalIdentityStatus
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ChapterSyncRowViewModel
+  Title: System.String | nullability=not-null | accessors=get,init
+  TextPosition: System.String | nullability=nullable | accessors=get,init
+  AudioPosition: System.String | nullability=nullable | accessors=get,init
+  Status: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.CharacterGroupType
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.CharacterGroupViewModel
+  Title: System.String | nullability=not-null | accessors=get,init
+  GroupType: MediaEngine.Contracts.Details.CharacterGroupType | nullability=not-null | accessors=get,init
+  Characters: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.EntityCreditViewModel> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.CreditGroupType
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.CreditGroupViewModel
+  Title: System.String | nullability=not-null | accessors=get,init
+  GroupType: MediaEngine.Contracts.Details.CreditGroupType | nullability=not-null | accessors=get,init
+  Credits: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.EntityCreditViewModel> | nullability=not-null | accessors=get,init
+  DisplayPriority: System.Int32 | nullability=not-null | accessors=get,init
+  IsInitiallyExpanded: System.Boolean | nullability=not-null | accessors=get,init
+  InitialVisibleCount: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DescriptionAttributionViewModel
+  SourceName: System.String | nullability=not-null | accessors=get,init
+  SourceUrl: System.String | nullability=nullable | accessors=get,init
+  LicenseName: System.String | nullability=not-null | accessors=get,init
+  LicenseUrl: System.String | nullability=nullable | accessors=get,init
+  Notice: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailAction
+  Key: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Icon: System.String | nullability=nullable | accessors=get,init
+  Route: System.String | nullability=nullable | accessors=get,init
+  Tooltip: System.String | nullability=nullable | accessors=get,init
+  IsPrimary: System.Boolean | nullability=not-null | accessors=get,init
+  IsDestructive: System.Boolean | nullability=not-null | accessors=get,init
+  IsAdminOnly: System.Boolean | nullability=not-null | accessors=get,init
+  IsDisabled: System.Boolean | nullability=not-null | accessors=get,init
+  IsStub: System.Boolean | nullability=not-null | accessors=get,init
+  DisplayStyle: System.String | nullability=nullable | accessors=get,init
+  Children: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailEditorTarget
+  EntityId: System.String | nullability=not-null | accessors=get,init
+  EntityKind: System.String | nullability=not-null | accessors=get,init
+  ContainerMode: System.String | nullability=not-null | accessors=get,init
+  InitialTab: System.String | nullability=nullable | accessors=get,init
+  InitialScope: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailEntityType
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
+  Id: System.String | nullability=not-null | accessors=get,init
+  EntityType: MediaEngine.Contracts.Details.DetailEntityType | nullability=not-null | accessors=get,init
+  PresentationContext: MediaEngine.Contracts.Details.DetailPresentationContext | nullability=not-null | accessors=get,init
+  EditorTarget: MediaEngine.Contracts.Details.DetailEditorTarget | nullability=nullable | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Tagline: System.String | nullability=nullable | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  DescriptionAttribution: MediaEngine.Contracts.Details.DescriptionAttributionViewModel | nullability=nullable | accessors=get,init
+  PersonDetails: MediaEngine.Contracts.Details.PersonDetailFacts | nullability=nullable | accessors=get,init
+  Artwork: MediaEngine.Contracts.Details.ArtworkSet | nullability=not-null | accessors=get,init
+  HeroBrand: MediaEngine.Contracts.Details.HeroBrandViewModel | nullability=nullable | accessors=get,init
+  Progress: MediaEngine.Contracts.Details.ProgressViewModel | nullability=nullable | accessors=get,init
+  OwnedFormats: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.OwnedFormatViewModel> | nullability=not-null | accessors=get,init
+  MultiFormatState: MediaEngine.Contracts.Details.MultiFormatState | nullability=not-null | accessors=get,init
+  ReadingListeningSync: MediaEngine.Contracts.Details.ReadingListeningSyncViewModel | nullability=nullable | accessors=get,init
+  SyncCapability: MediaEngine.Contracts.Details.ReadingListeningSyncCapabilityViewModel | nullability=nullable | accessors=get,init
+  SeriesPlacement: MediaEngine.Contracts.Details.SeriesPlacementViewModel | nullability=nullable | accessors=get,init
+  Metadata: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MetadataPill> | nullability=not-null | accessors=get,init
+  PrimaryActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
+  SecondaryActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
+  OverflowActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
+  ContributorGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.CreditGroupViewModel> | nullability=not-null | accessors=get,init
+  PreviewContributors: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.EntityCreditViewModel> | nullability=not-null | accessors=get,init
+  CharacterGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.CharacterGroupViewModel> | nullability=not-null | accessors=get,init
+  PreviewCharacters: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.EntityCreditViewModel> | nullability=not-null | accessors=get,init
+  RelationshipStrip: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.RelationshipGroup> | nullability=not-null | accessors=get,init
+  Tabs: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailTab> | nullability=not-null | accessors=get,init
+  MediaGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MediaGroupingViewModel> | nullability=not-null | accessors=get,init
+  IdentityStatus: MediaEngine.Contracts.Details.CanonicalIdentityStatus | nullability=not-null | accessors=get,init
+  LibraryStatus: MediaEngine.Contracts.Details.LibraryStatus | nullability=not-null | accessors=get,init
+  IsAdminView: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPresentationContext
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailTab
+  Key: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  IsAdminOnly: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.EntityCreditViewModel
+  EntityId: System.String | nullability=not-null | accessors=get,init
+  EntityType: MediaEngine.Contracts.Details.RelatedEntityType | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  ImageUrl: System.String | nullability=nullable | accessors=get,init
+  FallbackInitials: System.String | nullability=nullable | accessors=get,init
+  PrimaryRole: System.String | nullability=not-null | accessors=get,init
+  SecondaryRole: System.String | nullability=nullable | accessors=get,init
+  CharacterName: System.String | nullability=nullable | accessors=get,init
+  CharacterEntityId: System.String | nullability=nullable | accessors=get,init
+  CharacterImageUrl: System.String | nullability=nullable | accessors=get,init
+  SortOrder: System.Int32 | nullability=not-null | accessors=get,init
+  IsPrimary: System.Boolean | nullability=not-null | accessors=get,init
+  IsCanonical: System.Boolean | nullability=not-null | accessors=get,init
+  SourceName: System.String | nullability=nullable | accessors=get,init
+  SourceId: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.HeroArtworkMode
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.HeroArtworkViewModel
+  Url: System.String | nullability=nullable | accessors=get,init
+  Mode: MediaEngine.Contracts.Details.HeroArtworkMode | nullability=not-null | accessors=get,init
+  HasImage: System.Boolean | nullability=not-null | accessors=get,init
+  AspectRatio: System.Double? | nullability=nullable | accessors=get,init
+  BackgroundPosition: System.String | nullability=nullable | accessors=get,init
+  MobilePosition: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.HeroBrandViewModel
+  Label: System.String | nullability=nullable | accessors=get,init
+  ImageUrl: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.LibraryProgressState
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.LibraryStatus
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MediaFormatType
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MediaGroupingItemViewModel
+  Id: System.String | nullability=not-null | accessors=get,init
+  EntityType: MediaEngine.Contracts.Details.DetailEntityType | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  ArtworkUrl: System.String | nullability=nullable | accessors=get,init
+  TrackNumber: System.String | nullability=nullable | accessors=get,init
+  Duration: System.String | nullability=nullable | accessors=get,init
+  Artist: System.String | nullability=nullable | accessors=get,init
+  IsExplicit: System.Boolean | nullability=not-null | accessors=get,init
+  Quality: System.String | nullability=nullable | accessors=get,init
+  ProgressPercent: System.Double? | nullability=nullable | accessors=get,init
+  Metadata: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MetadataPill> | nullability=not-null | accessors=get,init
+  Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
+  IsOwned: System.Boolean | nullability=not-null | accessors=get,init
+  ProgressState: MediaEngine.Contracts.Details.LibraryProgressState | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MediaGroupingViewModel
+  Key: System.String | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MediaGroupingItemViewModel> | nullability=not-null | accessors=get,init
+  OwnedCount: System.Int32 | nullability=not-null | accessors=get,init
+  TotalCount: System.Int32 | nullability=not-null | accessors=get,init
+  MissingCount: System.Int32 | nullability=not-null | accessors=get,init
+  CompletionPercent: System.Double | nullability=not-null | accessors=get,init
+  InitiallyCollapsed: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MetadataPill
+  Label: System.String | nullability=not-null | accessors=get,init
+  Icon: System.String | nullability=nullable | accessors=get,init
+  Kind: System.String | nullability=nullable | accessors=get,init
+  Route: System.String | nullability=nullable | accessors=get,init
+  Tooltip: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MultiFormatState
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.OwnedFormatViewModel
+  Id: System.String | nullability=not-null | accessors=get,init
+  FormatType: MediaEngine.Contracts.Details.MediaFormatType | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  CoverUrl: System.String | nullability=nullable | accessors=get,init
+  EditionTitle: System.String | nullability=nullable | accessors=get,init
+  Publisher: System.String | nullability=nullable | accessors=get,init
+  ReleaseDate: System.String | nullability=nullable | accessors=get,init
+  PrimaryContributor: System.String | nullability=nullable | accessors=get,init
+  FileFormat: System.String | nullability=nullable | accessors=get,init
+  Runtime: System.String | nullability=nullable | accessors=get,init
+  PageCount: System.Int32? | nullability=nullable | accessors=get,init
+  ChapterCount: System.Int32? | nullability=nullable | accessors=get,init
+  Progress: MediaEngine.Contracts.Details.ProgressViewModel | nullability=nullable | accessors=get,init
+  Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.PersonDetailFacts
+  WikidataQid: System.String | nullability=nullable | accessors=get,init
+  WikidataUrl: System.String | nullability=nullable | accessors=get,init
+  Biography: System.String | nullability=nullable | accessors=get,init
+  Occupation: System.String | nullability=nullable | accessors=get,init
+  Roles: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  DateOfBirth: System.String | nullability=nullable | accessors=get,init
+  DateOfDeath: System.String | nullability=nullable | accessors=get,init
+  PlaceOfBirth: System.String | nullability=nullable | accessors=get,init
+  PlaceOfDeath: System.String | nullability=nullable | accessors=get,init
+  Nationality: System.String | nullability=nullable | accessors=get,init
+  IsPseudonym: System.Boolean | nullability=not-null | accessors=get,init
+  IsGroup: System.Boolean | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  EnrichedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  ExternalLinks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.PersonExternalLink> | nullability=not-null | accessors=get,init
+  Aliases: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.PersonRelatedLink> | nullability=not-null | accessors=get,init
+  GroupMembers: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.PersonRelatedLink> | nullability=not-null | accessors=get,init
+  MemberOfGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.PersonRelatedLink> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.PersonExternalLink
+  Key: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  Url: System.String | nullability=not-null | accessors=get,init
+  IconLabel: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.PersonRelatedLink
+  Id: System.String | nullability=not-null | accessors=get,init
+  Name: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Route: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ProgressViewModel
+  Percent: System.Double | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ReadingListeningSyncCapabilityViewModel
+  State: MediaEngine.Contracts.Details.SyncCapabilityState | nullability=not-null | accessors=get,init
+  Reason: System.String | nullability=nullable | accessors=get,init
+  EstimatedConfidence: System.Double? | nullability=nullable | accessors=get,init
+  TextEditionId: System.String | nullability=nullable | accessors=get,init
+  AudioEditionId: System.String | nullability=nullable | accessors=get,init
+  EnableAction: MediaEngine.Contracts.Details.DetailAction | nullability=nullable | accessors=get,init
+  PreviewAction: MediaEngine.Contracts.Details.DetailAction | nullability=nullable | accessors=get,init
+  SettingsAction: MediaEngine.Contracts.Details.DetailAction | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ReadingListeningSyncViewModel
+  WorkId: System.String | nullability=not-null | accessors=get,init
+  TextEditionId: System.String | nullability=not-null | accessors=get,init
+  AudioEditionId: System.String | nullability=not-null | accessors=get,init
+  Status: MediaEngine.Contracts.Details.SyncCapabilityState | nullability=not-null | accessors=get,init
+  Confidence: System.Double | nullability=not-null | accessors=get,init
+  CurrentChapterTitle: System.String | nullability=nullable | accessors=get,init
+  PercentComplete: System.Double | nullability=not-null | accessors=get,init
+  TextPosition: MediaEngine.Contracts.Details.TextPositionViewModel | nullability=nullable | accessors=get,init
+  AudioPosition: MediaEngine.Contracts.Details.AudioPositionViewModel | nullability=nullable | accessors=get,init
+  ChapterMap: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.ChapterSyncRowViewModel> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.RelatedEntityChip
+  Id: System.String | nullability=not-null | accessors=get,init
+  EntityType: MediaEngine.Contracts.Details.RelatedEntityType | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  Route: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.RelatedEntityType
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.RelationshipGroup
+  Title: System.String | nullability=not-null | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.RelatedEntityChip> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SeriesItemViewModel
+  Id: System.String | nullability=not-null | accessors=get,init
+  EntityType: MediaEngine.Contracts.Details.DetailEntityType | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  ArtworkUrl: System.String | nullability=nullable | accessors=get,init
+  PositionNumber: System.Int32? | nullability=nullable | accessors=get,init
+  PositionLabel: System.String | nullability=nullable | accessors=get,init
+  IsCurrent: System.Boolean | nullability=not-null | accessors=get,init
+  IsOwned: System.Boolean | nullability=not-null | accessors=get,init
+  ProgressState: MediaEngine.Contracts.Details.LibraryProgressState | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SeriesOptionViewModel
+  SeriesId: System.String | nullability=not-null | accessors=get,init
+  SeriesTitle: System.String | nullability=not-null | accessors=get,init
+  IsSelected: System.Boolean | nullability=not-null | accessors=get,init
+  IsDefault: System.Boolean | nullability=not-null | accessors=get,init
+  MediaScope: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SeriesOrderingType
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SeriesPlacementViewModel
+  SeriesId: System.String | nullability=not-null | accessors=get,init
+  SeriesTitle: System.String | nullability=not-null | accessors=get,init
+  SelectedSeriesId: System.String | nullability=not-null | accessors=get,init
+  CanChooseSeries: System.Boolean | nullability=not-null | accessors=get,init
+  CanSetDefaultSeries: System.Boolean | nullability=not-null | accessors=get,init
+  AvailableSeries: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SeriesOptionViewModel> | nullability=not-null | accessors=get,init
+  UniverseId: System.String | nullability=nullable | accessors=get,init
+  UniverseTitle: System.String | nullability=nullable | accessors=get,init
+  PositionNumber: System.Int32? | nullability=nullable | accessors=get,init
+  TotalKnownItems: System.Int32? | nullability=nullable | accessors=get,init
+  PositionLabel: System.String | nullability=nullable | accessors=get,init
+  OrderingType: MediaEngine.Contracts.Details.SeriesOrderingType | nullability=not-null | accessors=get,init
+  PreviousItem: MediaEngine.Contracts.Details.SeriesItemViewModel | nullability=nullable | accessors=get,init
+  CurrentItem: MediaEngine.Contracts.Details.SeriesItemViewModel | nullability=not-null | accessors=get,init
+  NextItem: MediaEngine.Contracts.Details.SeriesItemViewModel | nullability=nullable | accessors=get,init
+  OrderedItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SeriesItemViewModel> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SetDefaultSeriesRequest
+  SeriesId: System.String | nullability=not-null | accessors=get,init
+  SeriesTitle: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SyncCapabilityState
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.TextPositionViewModel
+  Label: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayActionDto
+  Type: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  WorkId: System.Guid? | nullability=nullable | accessors=get,init
+  AssetId: System.Guid? | nullability=nullable | accessors=get,init
+  CollectionId: System.Guid? | nullability=nullable | accessors=get,init
+  WebUrl: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayArtworkDto
+  CoverUrl: System.String | nullability=nullable | accessors=get,init
+  SquareUrl: System.String | nullability=nullable | accessors=get,init
+  BannerUrl: System.String | nullability=nullable | accessors=get,init
+  BackgroundUrl: System.String | nullability=nullable | accessors=get,init
+  LogoUrl: System.String | nullability=nullable | accessors=get,init
+  CoverWidthPx: System.Int32? | nullability=nullable | accessors=get,init
+  CoverHeightPx: System.Int32? | nullability=nullable | accessors=get,init
+  SquareWidthPx: System.Int32? | nullability=nullable | accessors=get,init
+  SquareHeightPx: System.Int32? | nullability=nullable | accessors=get,init
+  BannerWidthPx: System.Int32? | nullability=nullable | accessors=get,init
+  BannerHeightPx: System.Int32? | nullability=nullable | accessors=get,init
+  BackgroundWidthPx: System.Int32? | nullability=nullable | accessors=get,init
+  BackgroundHeightPx: System.Int32? | nullability=nullable | accessors=get,init
+  AccentColor: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  WorkId: System.Guid? | nullability=nullable | accessors=get,init
+  AssetId: System.Guid? | nullability=nullable | accessors=get,init
+  CollectionId: System.Guid? | nullability=nullable | accessors=get,init
+  MediaType: System.String | nullability=not-null | accessors=get,init
+  GroupingType: System.String | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Facts: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Artwork: MediaEngine.Contracts.Display.DisplayArtworkDto | nullability=not-null | accessors=get,init
+  PreferredShape: System.String | nullability=not-null | accessors=get,init
+  Presentation: System.String | nullability=not-null | accessors=get,init
+  TileTextMode: System.String | nullability=not-null | accessors=get,init
+  PreviewPlacement: System.String | nullability=not-null | accessors=get,init
+  Progress: MediaEngine.Contracts.Display.DisplayProgressDto | nullability=nullable | accessors=get,init
+  Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayActionDto> | nullability=not-null | accessors=get,init
+  Flags: MediaEngine.Contracts.Display.DisplayCardFlagsDto | nullability=not-null | accessors=get,init
+  SortTimestamp: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
+  IsPlayable: System.Boolean | nullability=not-null | accessors=get,init
+  IsReadable: System.Boolean | nullability=not-null | accessors=get,init
+  CanAddToCollection: System.Boolean | nullability=not-null | accessors=get,init
+  IsCollection: System.Boolean | nullability=not-null | accessors=get,init
+  IsFavorite: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayHeroDto
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Eyebrow: System.String | nullability=nullable | accessors=get,init
+  Artwork: MediaEngine.Contracts.Display.DisplayArtworkDto | nullability=not-null | accessors=get,init
+  Progress: MediaEngine.Contracts.Display.DisplayProgressDto | nullability=nullable | accessors=get,init
+  Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayActionDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayPageDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Hero: MediaEngine.Contracts.Display.DisplayHeroDto | nullability=nullable | accessors=get,init
+  Shelves: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayShelfDto> | nullability=not-null | accessors=get,init
+  Catalog: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayProgressDto
+  Percent: System.Double | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  LastAccessed: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  ResumeAction: MediaEngine.Contracts.Display.DisplayActionDto | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayShelfDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardDto> | nullability=not-null | accessors=get,init
+  SeeAllRoute: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayShelfPageDto
+  Shelf: MediaEngine.Contracts.Display.DisplayShelfDto | nullability=not-null | accessors=get,init
+  NextCursor: System.String | nullability=nullable | accessors=get,init
+  Offset: System.Int32 | nullability=not-null | accessors=get,init
+  Limit: System.Int32 | nullability=not-null | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Paging.MediaEngine.Contracts.Paging.PagedRequest
+  Offset: System.Int32 | nullability=not-null | accessors=get,init
+  Limit: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Paging.MediaEngine.Contracts.Paging.PagedResponse<T>
+  Items: System.Collections.Generic.IReadOnlyList<T> | nullability=not-null | accessors=get,init
+  Offset: System.Int32 | nullability=not-null | accessors=get,init
+  Limit: System.Int32 | nullability=not-null | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get,init
+  TotalCount: System.Int32? | nullability=nullable | accessors=get,init
+  NextCursor: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.EncodeJobDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  ProfileKey: System.String | nullability=not-null | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  ScheduledFor: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  StartedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  CompletedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  ProgressPct: System.Double | nullability=not-null | accessors=get,init
+  OutputPath: System.String | nullability=nullable | accessors=get,init
+  OutputBytes: System.Int64? | nullability=nullable | accessors=get,init
+  LastError: System.String | nullability=nullable | accessors=get,init
+  RetryCount: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.EncodeJobStatuses
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.ListeningSettingsDto
+  AudiobookDefaultSpeed: System.Decimal | nullability=not-null | accessors=get,set
+  SkipBackSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  SkipForwardSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  MusicCrossfade: System.Boolean | nullability=not-null | accessors=get,set
+  CrossfadeSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  DefaultSleepTimer: System.String | nullability=not-null | accessors=get,set
+  SkipSilence: System.Boolean | nullability=not-null | accessors=get,set
+  RememberPerTitlePlaybackSpeed: System.Boolean | nullability=not-null | accessors=get,set
+  OutputPreference: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.OfflineVariantDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  ProfileKey: System.String | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  DownloadUrl: System.String | nullability=nullable | accessors=get,init
+  FileSizeBytes: System.Int64? | nullability=nullable | accessors=get,init
+  Container: System.String | nullability=nullable | accessors=get,init
+  VideoCodec: System.String | nullability=nullable | accessors=get,init
+  AudioCodec: System.String | nullability=nullable | accessors=get,init
+  Width: System.Int32? | nullability=nullable | accessors=get,init
+  Height: System.Int32? | nullability=nullable | accessors=get,init
+  BitrateKbps: System.Int32? | nullability=nullable | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  ExpiresAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  SourceHash: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.OfflineVariantStatuses
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackChapterDto
+  Index: System.Int32 | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  StartSeconds: System.Double | nullability=not-null | accessors=get,init
+  EndSeconds: System.Double? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackDeliveryModes
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackDiagnosticsDto
+  FFmpegAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  FFmpegVersion: System.String | nullability=nullable | accessors=get,init
+  MediaInfoAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  MediaInfoVersion: System.String | nullability=nullable | accessors=get,init
+  ActiveJobs: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.EncodeJobDto> | nullability=not-null | accessors=get,init
+  Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackGeneralSettingsDto
+  ResumePlayback: System.Boolean | nullability=not-null | accessors=get,set
+  AskBeforeResuming: System.Boolean | nullability=not-null | accessors=get,set
+  MarkCompleteThresholdPercent: System.Int32 | nullability=not-null | accessors=get,set
+  TrackPartiallyPlayedItems: System.Boolean | nullability=not-null | accessors=get,set
+  SyncProgressBetweenBookAndAudiobook: System.Boolean | nullability=not-null | accessors=get,set
+  SpoilerSafeProgress: System.Boolean | nullability=not-null | accessors=get,set
+  UseBannerArtWhenAvailable: System.Boolean | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackManifestDto
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  Client: System.String | nullability=not-null | accessors=get,init
+  MediaType: System.String | nullability=not-null | accessors=get,init
+  SourceExtension: System.String | nullability=not-null | accessors=get,init
+  RecommendedDelivery: System.String | nullability=not-null | accessors=get,init
+  DirectPlaySupported: System.Boolean | nullability=not-null | accessors=get,init
+  DirectStreamUrl: System.String | nullability=nullable | accessors=get,init
+  HlsUrl: System.String | nullability=nullable | accessors=get,init
+  Profile: MediaEngine.Contracts.Playback.PlaybackProfileDto | nullability=not-null | accessors=get,init
+  AudioTracks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackTrackDto> | nullability=not-null | accessors=get,init
+  SubtitleTracks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackSubtitleTrackDto> | nullability=not-null | accessors=get,init
+  Chapters: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackChapterDto> | nullability=not-null | accessors=get,init
+  OfflineVariants: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.OfflineVariantDto> | nullability=not-null | accessors=get,init
+  Resume: MediaEngine.Contracts.Playback.PlaybackResumeDto | nullability=nullable | accessors=get,init
+  Segments: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackSegmentDto> | nullability=not-null | accessors=get,init
+  Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  ConversionReason: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackPreferenceValues
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackProfileDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  PreferredDelivery: System.String | nullability=not-null | accessors=get,init
+  SupportedContainers: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  SupportedVideoCodecs: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  SupportedAudioCodecs: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  SupportedSubtitleFormats: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  MaxHeight: System.Int32? | nullability=nullable | accessors=get,init
+  MaxBitrateKbps: System.Int32? | nullability=nullable | accessors=get,init
+  SupportsPlaybackSpeed: System.Boolean | nullability=not-null | accessors=get,init
+  SupportsAlternateAudio: System.Boolean | nullability=not-null | accessors=get,init
+  SupportsSubtitles: System.Boolean | nullability=not-null | accessors=get,init
+  SupportsOfflineDownloads: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackResumeDto
+  ProgressPct: System.Double | nullability=not-null | accessors=get,init
+  PositionSeconds: System.Double? | nullability=nullable | accessors=get,init
+  LastAccessed: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackSegmentDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  Kind: System.String | nullability=not-null | accessors=get,init
+  StartSeconds: System.Double | nullability=not-null | accessors=get,init
+  EndSeconds: System.Double? | nullability=nullable | accessors=get,init
+  Confidence: System.Double | nullability=not-null | accessors=get,init
+  Source: System.String | nullability=not-null | accessors=get,init
+  PluginId: System.String | nullability=nullable | accessors=get,init
+  IsSkippable: System.Boolean | nullability=not-null | accessors=get,init
+  ReviewStatus: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackSubtitleTrackDto
+  Index: System.Int32 | nullability=not-null | accessors=get,init
+  Language: System.String | nullability=nullable | accessors=get,init
+  Codec: System.String | nullability=nullable | accessors=get,init
+  DisplayName: System.String | nullability=nullable | accessors=get,init
+  IsDefault: System.Boolean | nullability=not-null | accessors=get,init
+  IsForced: System.Boolean | nullability=not-null | accessors=get,init
+  DeliveryUrl: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackTrackDto
+  Index: System.Int32 | nullability=not-null | accessors=get,init
+  Kind: System.String | nullability=not-null | accessors=get,init
+  Language: System.String | nullability=nullable | accessors=get,init
+  Codec: System.String | nullability=nullable | accessors=get,init
+  DisplayName: System.String | nullability=nullable | accessors=get,init
+  IsDefault: System.Boolean | nullability=not-null | accessors=get,init
+  Channels: System.Int32? | nullability=nullable | accessors=get,init
+  BitrateKbps: System.Int32? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.QueueEncodeRequestDto
+  ProfileKey: System.String | nullability=not-null | accessors=get,init
+  ScheduledFor: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.ReaderManifestDto
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  Client: System.String | nullability=not-null | accessors=get,init
+  MediaType: System.String | nullability=not-null | accessors=get,init
+  ReaderKind: System.String | nullability=not-null | accessors=get,init
+  ResourceBaseUrl: System.String | nullability=nullable | accessors=get,init
+  PageCount: System.Int32? | nullability=nullable | accessors=get,init
+  Chapters: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackChapterDto> | nullability=not-null | accessors=get,init
+  Resume: MediaEngine.Contracts.Playback.PlaybackResumeDto | nullability=nullable | accessors=get,init
+  Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.ReadingSettingsDto
+  ReadingMode: System.String | nullability=not-null | accessors=get,set
+  FontSizePercent: System.Int32 | nullability=not-null | accessors=get,set
+  Theme: System.String | nullability=not-null | accessors=get,set
+  LineSpacing: System.String | nullability=not-null | accessors=get,set
+  Margins: System.String | nullability=not-null | accessors=get,set
+  KeepScreenAwake: System.Boolean | nullability=not-null | accessors=get,set
+  ShowChapterProgress: System.Boolean | nullability=not-null | accessors=get,set
+  ShowPageNumbers: System.Boolean | nullability=not-null | accessors=get,set
+  DefaultComicMode: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.SubtitleLanguageSettingsDto
+  DefaultSubtitleLanguage: System.String | nullability=not-null | accessors=get,set
+  ForcedSubtitlesMode: System.String | nullability=not-null | accessors=get,set
+  AudioLanguage: System.String | nullability=not-null | accessors=get,set
+  SubtitleSize: System.String | nullability=not-null | accessors=get,set
+  SubtitleBackground: System.Boolean | nullability=not-null | accessors=get,set
+  SubtitlePosition: System.String | nullability=not-null | accessors=get,set
+  SubtitleStyle: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.UserPlaybackSettingsDto
+  ProfileId: System.Guid | nullability=not-null | accessors=get,set
+  General: MediaEngine.Contracts.Playback.PlaybackGeneralSettingsDto | nullability=not-null | accessors=get,set
+  Watching: MediaEngine.Contracts.Playback.WatchingSettingsDto | nullability=not-null | accessors=get,set
+  Listening: MediaEngine.Contracts.Playback.ListeningSettingsDto | nullability=not-null | accessors=get,set
+  Reading: MediaEngine.Contracts.Playback.ReadingSettingsDto | nullability=not-null | accessors=get,set
+  Subtitles: MediaEngine.Contracts.Playback.SubtitleLanguageSettingsDto | nullability=not-null | accessors=get,set
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.WatchingSettingsDto
+  DefaultPlaybackSpeed: System.Decimal | nullability=not-null | accessors=get,set
+  SkipBackSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  SkipForwardSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  AutoplayNextEpisode: System.Boolean | nullability=not-null | accessors=get,set
+  ContinueFromCredits: System.Boolean | nullability=not-null | accessors=get,set
+  PreferHeroBanners: System.Boolean | nullability=not-null | accessors=get,set
+  RememberPerTitlePlaybackSpeed: System.Boolean | nullability=not-null | accessors=get,set
+  PreferredVideoQuality: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryPreferencesSettings
+  ShowUnowned: System.Boolean | nullability=not-null | accessors=get,set
+  ViewModes: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MediaTypePipeline
+  Strategy: MediaEngine.Domain.Enums.ProviderStrategy | nullability=not-null | accessors=get,set
+  Providers: System.Collections.Generic.List<MediaEngine.Contracts.Settings.PipelineProviderEntry> | nullability=not-null | accessors=get,set
+  FieldPriorities: System.Collections.Generic.Dictionary<System.String, System.Collections.Generic.List<System.String>> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PipelineConfiguration
+  Pipelines: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Settings.MediaTypePipeline> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PipelineProviderEntry
+  Rank: System.Int32 | nullability=not-null | accessors=get,set
+  Name: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.TranscodingQualityProfile
+  Name: System.String | nullability=not-null | accessors=get,set
+  Resolution: System.String | nullability=not-null | accessors=get,set
+  Codec: System.String | nullability=not-null | accessors=get,set
+  AudioCodec: System.String | nullability=not-null | accessors=get,set
+  Container: System.String | nullability=not-null | accessors=get,set
+  Bitrate: System.String | nullability=not-null | accessors=get,set
+  SizeGuidance: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.TranscodingSettings
+  FfmpegBinaryPath: System.String | nullability=not-null | accessors=get,set
+  FfprobeBinaryPath: System.String | nullability=not-null | accessors=get,set
+  HardwareAcceleration: System.String | nullability=not-null | accessors=get,set
+  MaxConcurrentTranscodes: System.Int32 | nullability=not-null | accessors=get,set
+  ShadowStorageLimitGb: System.Int32 | nullability=not-null | accessors=get,set
+  QualityProfiles: System.Collections.Generic.List<MediaEngine.Contracts.Settings.TranscodingQualityProfile> | nullability=not-null | accessors=get,set
+  ScheduledEncodesEnabled: System.Boolean | nullability=not-null | accessors=get,set
+  MaintenanceWindow: System.String | nullability=not-null | accessors=get,set
+  VariantCachePath: System.String | nullability=not-null | accessors=get,set
+  VariantRetentionDays: System.Int32 | nullability=not-null | accessors=get,set
+  CleanupLruEnabled: System.Boolean | nullability=not-null | accessors=get,set
+  DefaultMobileProfile: System.String | nullability=not-null | accessors=get,set
+

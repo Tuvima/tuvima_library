@@ -12,6 +12,12 @@
                 <p>@Description</p>
             }
         </div>
+        @if (ShowViewAll && OnViewAll.HasDelegate)
+        {
+            <button type="button" class="collection-hub-section__view-all" @onclick="OnViewAll">
+                View All
+            </button>
+        }
     </div>
 
     @if (Collections.Count == 0)
@@ -21,7 +27,7 @@
             <span>@EmptyText</span>
         </div>
     }
-    else
+    else if (ViewMode == "list")
     {
         <div class="collection-hub-section__list">
             @foreach (var collection in Collections)
@@ -41,6 +47,17 @@
             }
         </div>
     }
+    else
+    {
+        <div class="collection-hub-section__grid">
+            @foreach (var collection in Collections)
+            {
+                <CollectionHubCard Collection="collection"
+                                   Selected="@(SelectedId == collection.Id)"
+                                   OnSelect="OnSelect" />
+            }
+        </div>
+    }
 </section>
 
 @code {
@@ -51,5 +68,7 @@
     [Parameter] public Guid? SelectedId { get; set; }
     [Parameter] public string ViewMode { get; set; } = "grid";
     [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.CollectionsBookmark;
+    [Parameter] public bool ShowViewAll { get; set; }
     [Parameter] public EventCallback<CollectionManagementCatalogViewModel> OnSelect { get; set; }
+    [Parameter] public EventCallback OnViewAll { get; set; }
 }

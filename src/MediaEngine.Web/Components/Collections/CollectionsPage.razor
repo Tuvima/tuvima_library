@@ -6,6 +6,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <div class="collections-hub tl-page">
     <header class="tl-page-header collections-hub__header">
@@ -14,12 +15,6 @@
             <p class="tl-page-subtitle">Organize and explore playlists across read, watch, and listen.</p>
         </div>
         <div class="tl-action-bar">
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Inherit"
-                       StartIcon="@Icons.Material.Outlined.QueueMusic"
-                       OnClick="OpenPlaylistBuilder">
-                New Playlist
-            </MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
@@ -72,97 +67,60 @@
     }
     else
     {
-        <div class="collections-hub__layout">
-            <main class="collections-hub__main">
-                @if (_activeTab is "all" or "cross")
-                {
-                    <CollectionHubSection Title="CROSS-MEDIA COLLECTIONS"
-                                      Description="Premium collections spanning read, watch, and listen."
-                                      Collections="CrossMediaCollections"
-                                      SelectedId="SelectedCollection?.Id"
-                                      ViewMode="list"
-                                      Icon="@Icons.Material.Outlined.AllInclusive"
-                                      OnSelect="SelectCollection" />
-                }
-
-                @if (_activeTab is "all" or "watch")
-                {
-                    <CollectionHubSection Title="WATCH COLLECTIONS"
-                                          Description="Watchlists and visual-media collections managed from Collections."
-                                          Collections="WatchCollections"
-                                          SelectedId="SelectedCollection?.Id"
-                                          ViewMode="list"
-                                          Icon="@Icons.Material.Outlined.Movie"
-                                          OnSelect="SelectCollection" />
-                }
-                @if (_activeTab is "all" or "listen")
-                {
-                    <CollectionHubSection Title="LISTEN COLLECTIONS"
-                                          Description="Listening queues, music playlists, and audio-forward collections."
-                                          Collections="ListenCollections"
-                                          SelectedId="SelectedCollection?.Id"
-                                          ViewMode="list"
-                                          Icon="@Icons.Material.Outlined.Album"
-                                          OnSelect="SelectCollection" />
-                }
-                @if (_activeTab is "all" or "read")
-                {
-                    <CollectionHubSection Title="READ COLLECTIONS"
-                                          Description="Reading lists and book or comic collections."
-                                          Collections="ReadCollections"
-                                          SelectedId="SelectedCollection?.Id"
-                                          ViewMode="list"
-                                          Icon="@Icons.Material.Outlined.MenuBook"
-                                          OnSelect="SelectCollection" />
-                }
-                @if (_activeTab is "all" or "global")
-                {
-                    <CollectionHubSection Title="GLOBAL COLLECTIONS"
-                                          Description="Shared collections visible across profiles."
-                                          Collections="GlobalCollections"
-                                          SelectedId="SelectedCollection?.Id"
-                                          ViewMode="list"
-                                          Icon="@Icons.Material.Outlined.Public"
-                                          OnSelect="SelectCollection" />
-                }
-                @if (_activeTab is "system")
-                {
-                    <CollectionHubSection Title="SYSTEM COLLECTIONS"
-                                          Description="Built-in lists grouped by their media lane."
-                                          Collections="SystemCollections"
-                                          SelectedId="SelectedCollection?.Id"
-                                          ViewMode="list"
-                                          Icon="@Icons.Material.Outlined.BookmarkAdded"
-                                          OnSelect="SelectCollection" />
-                }
-                @if (_activeTab is "user")
-                {
-                    <CollectionHubSection Title="CREATED BY YOU"
-                                          Description="Private collections and playlists created by the active profile."
-                                          Collections="UserCollections"
-                                          SelectedId="SelectedCollection?.Id"
-                                          ViewMode="list"
-                                          Icon="@Icons.Material.Outlined.Person"
-                                          OnSelect="SelectCollection" />
-                }
-
-                @if (_activeTab is "all")
-                {
-                    <CollectionHubSection Title="RECENTLY USED"
-                                      Description="Collections with the most recent activity or updates."
+        <main class="collections-hub__main">
+            @if (_activeTab is "all")
+            {
+                <CollectionHubSection Title="CONTINUE BROWSING"
                                       Collections="RecentlyUsedCollections"
-                                      SelectedId="SelectedCollection?.Id"
-                                      ViewMode="list"
+                                      ShowViewAll="false"
+                                      ViewMode="grid"
                                       Icon="@Icons.Material.Outlined.History"
-                                      OnSelect="SelectCollection" />
-                }
-            </main>
+                                      OnSelect="OpenCollection" />
+            }
 
-            <CollectionInlineInspector Collection="SelectedCollection"
-                                       ActiveProfileId="_activeProfile?.Id"
-                                       OnChanged="ReloadAfterEdit"
-                                       OnClose="ClearSelection" />
-        </div>
+            @if (_activeTab is "all" or "cross")
+            {
+                <CollectionHubSection Title="CROSS-MEDIA COLLECTIONS"
+                                  Collections="CrossMediaCollections"
+                                  ShowViewAll="@(IsAllTab && CrossMediaCollections.Count < CrossMediaCollectionTotal)"
+                                  ViewMode="grid"
+                                  Icon="@Icons.Material.Outlined.AllInclusive"
+                                  OnSelect="OpenCollection"
+                                  OnViewAll="ShowCrossMediaCollections" />
+            }
+
+            @if (_activeTab is "all" or "watch")
+            {
+                <CollectionHubSection Title="WATCH COLLECTIONS"
+                                      Collections="WatchCollections"
+                                      ShowViewAll="@(IsAllTab && WatchCollections.Count < WatchCollectionTotal)"
+                                      ViewMode="grid"
+                                      Icon="@Icons.Material.Outlined.Movie"
+                                      OnSelect="OpenCollection"
+                                      OnViewAll="ShowWatchCollections" />
+            }
+            @if (_activeTab is "all" or "listen")
+            {
+                <CollectionHubSection Title="LISTEN COLLECTIONS"
+                                      Collections="ListenCollections"
+                                      ShowViewAll="@(IsAllTab && ListenCollections.Count < ListenCollectionTotal)"
+                                      ViewMode="grid"
+                                      Icon="@Icons.Material.Outlined.Album"
+                                      OnSelect="OpenCollection"
+                                      OnViewAll="ShowListenCollections" />
+            }
+            @if (_activeTab is "all" or "read")
+            {
+                <CollectionHubSection Title="READ COLLECTIONS"
+                                      Collections="ReadCollections"
+                                      ShowViewAll="@(IsAllTab && ReadCollections.Count < ReadCollectionTotal)"
+                                      ViewMode="grid"
+                                      Icon="@Icons.Material.Outlined.MenuBook"
+                                      OnSelect="OpenCollection"
+                                      OnViewAll="ShowReadCollections" />
+            }
+        </main>
+
     }
 </div>
 
@@ -176,50 +134,45 @@
         new("listen", "Listen", Icons.Material.Outlined.Album),
         new("read", "Read", Icons.Material.Outlined.MenuBook),
         new("cross", "Cross-Media", Icons.Material.Outlined.AllInclusive),
-        new("global", "Global", Icons.Material.Outlined.Public),
-        new("user", "Created by You", Icons.Material.Outlined.Person),
-        new("system", "System", Icons.Material.Outlined.BookmarkAdded),
     ];
 
     private readonly List<CollectionManagementCatalogViewModel> _collections = [];
     private ProfileViewModel? _activeProfile;
-    private CollectionManagementCatalogViewModel? SelectedCollection { get; set; }
     private string _searchText = string.Empty;
     private string _sortBy = "recent";
     private string _activeTab = "all";
     private bool _loading;
 
     private bool CanManageSharedCollections => _activeProfile?.Role is "Administrator" or "Curator";
+    private bool IsAllTab => _activeTab == "all";
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> FilteredCollections =>
         Sort(FilterBySearch(_collections));
 
+    private int SectionLimit => _activeTab == "all" ? 4 : int.MaxValue;
+
+    private int WatchCollectionTotal => FilteredCollections.Count(collection => collection.PrimaryLane == "Watch");
+    private int ListenCollectionTotal => FilteredCollections.Count(collection => collection.PrimaryLane == "Listen");
+    private int ReadCollectionTotal => FilteredCollections.Count(collection => collection.PrimaryLane == "Read");
+    private int CrossMediaCollectionTotal => FilteredCollections.Count(collection => collection.PrimaryLane == "CrossMedia");
+
     private IReadOnlyList<CollectionManagementCatalogViewModel> WatchCollections =>
-        FilteredCollections.Where(collection => collection.PrimaryLane == "Watch").Take(8).ToList();
+        FilteredCollections.Where(collection => collection.PrimaryLane == "Watch").Take(SectionLimit).ToList();
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> ListenCollections =>
-        FilteredCollections.Where(collection => collection.PrimaryLane == "Listen").Take(8).ToList();
+        FilteredCollections.Where(collection => collection.PrimaryLane == "Listen").Take(SectionLimit).ToList();
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> ReadCollections =>
-        FilteredCollections.Where(collection => collection.PrimaryLane == "Read").Take(8).ToList();
+        FilteredCollections.Where(collection => collection.PrimaryLane == "Read").Take(SectionLimit).ToList();
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> CrossMediaCollections =>
-        FilteredCollections.Where(collection => collection.PrimaryLane == "CrossMedia").Take(8).ToList();
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> GlobalCollections =>
-        FilteredCollections.Where(collection => collection.Family == "Global").Take(8).ToList();
+        FilteredCollections.Where(collection => collection.PrimaryLane == "CrossMedia").Take(SectionLimit).ToList();
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> RecentlyUsedCollections =>
         FilteredCollections
             .OrderByDescending(collection => collection.ModifiedAt ?? collection.CreatedAt)
-            .Take(8)
+            .Take(4)
             .ToList();
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> SystemCollections =>
-        FilteredCollections.Where(collection => collection.Family == "System").ToList();
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> UserCollections =>
-        FilteredCollections.Where(collection => collection.Family == "User").ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -232,12 +185,8 @@
         _loading = true;
         try
         {
-            var selectedId = SelectedCollection?.Id;
             _collections.Clear();
             _collections.AddRange(await ApiClient.GetCollectionManagementCatalogAsync(_activeProfile?.Id));
-            SelectedCollection = selectedId.HasValue
-                ? _collections.FirstOrDefault(collection => collection.Id == selectedId.Value)
-                : _collections.FirstOrDefault();
         }
         finally
         {
@@ -283,19 +232,18 @@
         _activeTab = id;
     }
 
-    private Task SelectCollection(CollectionManagementCatalogViewModel collection)
+    private void ShowCrossMediaCollections() => SetActiveTab("cross");
+    private void ShowWatchCollections() => SetActiveTab("watch");
+    private void ShowListenCollections() => SetActiveTab("listen");
+    private void ShowReadCollections() => SetActiveTab("read");
+
+    private Task OpenCollection(CollectionManagementCatalogViewModel collection)
     {
-        SelectedCollection = collection;
+        Nav.NavigateTo($"/collection/{collection.Id:D}");
         return Task.CompletedTask;
     }
 
-    private async Task ReloadAfterEdit() => await LoadCollectionsAsync();
-
-    private void ClearSelection() => SelectedCollection = null;
-
     private Task OpenCollectionBuilder() => OpenBuilder("Custom", true);
-
-    private Task OpenPlaylistBuilder() => OpenBuilder("Playlist", false);
 
     private async Task OpenBuilder(string type, bool rulesEnabled)
     {

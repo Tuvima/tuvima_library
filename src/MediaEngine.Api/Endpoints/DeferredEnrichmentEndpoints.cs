@@ -34,12 +34,14 @@ public static class DeferredEnrichmentEndpoints
         .RequireAdmin();
 
         // ── GET /metadata/pass2/status ───────────────────────────────────────
-        group.MapGet("/status", (
-            IDeferredEnrichmentService deferredService) =>
+        group.MapGet("/status", async (
+            IDeferredEnrichmentService deferredService,
+            CancellationToken ct) =>
         {
+            var pendingCount = await deferredService.GetPendingCountAsync(ct);
             return Results.Ok(new
             {
-                pending_count    = deferredService.PendingCount,
+                pending_count    = pendingCount,
                 two_pass_enabled = true,
             });
         })

@@ -1,54 +1,524 @@
 @page "/collection/{Id:guid}"
-@using MediaEngine.Contracts.Details
-@using MediaEngine.Web.Components.Details
+@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
 @namespace MediaEngine.Web.Components.Pages
 
-<PageTitle>@((_detail?.Title ?? "Collection")) - Tuvima</PageTitle>
+<PageTitle>@((_collection?.Name ?? "Collection")) - Tuvima</PageTitle>
 
 @if (_loading)
 {
-    <div class="tl-detail-page">
-        <div class="tl-glass-panel">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
-        </div>
+    <div class="collection-detail-page collection-detail-page--state">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" />
     </div>
 }
-else if (_detail is null)
+else if (_collection is null)
 {
-    <div class="tl-detail-page">
-        <div class="tl-glass-panel">
-            <MudText Typo="Typo.h5">Collection unavailable</MudText>
-            <MudText Typo="Typo.body2">This collection could not be loaded from your library.</MudText>
+    <div class="collection-detail-page collection-detail-page--state">
+        <div class="collection-detail-empty">
+            <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" />
+            <h1>Collection unavailable</h1>
+            <p>This collection could not be loaded from your library.</p>
         </div>
     </div>
 }
 else
 {
-    <DetailPage Model="_detail" OnActionSelected="HandleActionAsync" />
+    <article class="tl-detail-page collection-detail-page">
+        <section class="@HeroClass" style="@HeroStyle">
+            <div class="collection-detail-hero__wash"></div>
+            <div class="collection-detail-hero__content">
+                <div class="collection-detail-eyebrow">
+                    <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" Size="Size.Small" />
+                    <span>@CollectionLabel</span>
+                </div>
+
+                <h1>@_collection.Name</h1>
+                <p>@DescriptionText</p>
+
+                <div class="collection-detail-meta" aria-label="Collection summary">
+                    <span>@ItemCountLabel</span>
+                    @foreach (var count in MediaCounts)
+                    {
+                        <span class="collection-detail-meta__chip" title="@count.Label">
+                            <MudIcon Icon="@count.Icon" Size="Size.Small" />
+                            <strong>@count.Count</strong>
+                        </span>
+                    }
+                </div>
+            </div>
+
+            <div class="collection-detail-hero__cascade" aria-hidden="true">
+                @foreach (var art in HeroArtwork.Select((item, index) => new { item, index }))
+                {
+                    <div class="collection-detail-hero-card collection-detail-hero-card--@art.index">
+                        @if (!string.IsNullOrWhiteSpace(art.item.CoverUrl))
+                        {
+                            <img src="@art.item.CoverUrl" alt="" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@IconForMediaType(art.item.MediaType)" />
+                        }
+                    </div>
+                }
+            </div>
+        </section>
+
+        <main class="collection-detail-overview">
+            <div class="collection-detail-overview__main">
+                <div class="collection-detail-section-heading">
+                    <div>
+                        <div class="collection-detail-eyebrow collection-detail-eyebrow--small">
+                            <MudIcon Icon="@Icons.Material.Outlined.ViewComfyAlt" Size="Size.Small" />
+                            <span>OVERVIEW</span>
+                        </div>
+                        <h2>Included Items</h2>
+                    </div>
+                </div>
+
+                @if (_loadingItems)
+                {
+                    <div class="collection-detail-loading">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                        <span>Loading collection items...</span>
+                    </div>
+                }
+                else if (_items.Count == 0)
+                {
+                    <div class="collection-detail-empty collection-detail-empty--inline">
+                        <MudIcon Icon="@Icons.Material.Outlined.LibraryAdd" />
+                        <h3>No items yet</h3>
+                        <p>Add books, movies, shows, audio, or comics to build this collection.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var group in ItemGroups)
+                    {
+                        <section class="collection-detail-item-group">
+                            <div class="collection-detail-item-group__heading">
+                                <span>@group.Label</span>
+                                <small>@($"{group.Items.Count} {Pluralize("item", group.Items.Count)}")</small>
+                            </div>
+
+                            <div class="collection-detail-item-grid">
+                                @foreach (var item in group.Items)
+                                {
+                                    <article class="collection-detail-item-card">
+                                        <button type="button" class="collection-detail-item-card__art" @onclick="() => OpenItem(item)">
+                                            @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                            {
+                                                <img src="@item.CoverUrl" alt="" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@IconForMediaType(item.MediaType)" />
+                                            }
+                                        </button>
+                                        <div class="collection-detail-item-card__copy">
+                                            <button type="button" @onclick="() => OpenItem(item)">@DisplayTitle(item)</button>
+                                            <span>@FormatItemMeta(item)</span>
+                                        </div>
+                                        @if (CanManageItems)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Outlined.RemoveCircle"
+                                                           Size="Size.Small"
+                                                           Color="Color.Error"
+                                                           OnClick="() => RemoveItemAsync(item)"
+                                                           aria-label="@($"Remove {DisplayTitle(item)}")" />
+                                        }
+                                    </article>
+                                }
+                            </div>
+                        </section>
+                    }
+                }
+            </div>
+
+            <aside class="collection-detail-editor">
+                <div class="collection-detail-eyebrow collection-detail-eyebrow--small">
+                    <MudIcon Icon="@Icons.Material.Outlined.EditNote" Size="Size.Small" />
+                    <span>EDIT COLLECTION</span>
+                </div>
+
+                @if (CanManageItems)
+                {
+                    <h2>Add or Remove Items</h2>
+                    <p>Search the library to add works. Remove existing items from the overview cards.</p>
+
+                    <MudTextField T="string"
+                                  Value="_itemSearch"
+                                  ValueChanged="SearchItemsAsync"
+                                  Placeholder="Search library items"
+                                  Variant="Variant.Outlined"
+                                  Immediate="true"
+                                  DebounceInterval="300"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Outlined.Search"
+                                  Class="tl-field collection-detail-editor__search" />
+
+                    @if (_lookupItems.Count > 0)
+                    {
+                        <div class="collection-detail-lookup">
+                            @foreach (var result in _lookupItems.Take(8))
+                            {
+                                <div class="collection-detail-lookup__row">
+                                    @if (!string.IsNullOrWhiteSpace(result.ArtworkUrl))
+                                    {
+                                        <img src="@result.ArtworkUrl" alt="" />
+                                    }
+                                    else
+                                    {
+                                        <span class="collection-detail-lookup__fallback">
+                                            <MudIcon Icon="@IconForMediaType(result.MediaType)" Size="Size.Small" />
+                                        </span>
+                                    }
+                                    <div>
+                                        <strong>@result.Title</strong>
+                                        <span>@FormatLookupMeta(result)</span>
+                                    </div>
+                                    <MudIconButton Icon="@(result.AlreadyInCollection ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.AddCircle)"
+                                                   Size="Size.Small"
+                                                   Color="@(result.AlreadyInCollection ? Color.Success : Color.Primary)"
+                                                   Disabled="@result.AlreadyInCollection"
+                                                   OnClick="() => AddItemAsync(result)"
+                                                   aria-label="@($"Add {result.Title}")" />
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_itemSearch))
+                    {
+                        <div class="collection-detail-editor__note">No matching library items found.</div>
+                    }
+                }
+                else
+                {
+                    <h2>Managed Collection</h2>
+                    <p>@ReadOnlyReason</p>
+                }
+
+                <div class="collection-detail-editor__facts">
+                    <div>
+                        <span>Type</span>
+                        <strong>@CollectionLabel</strong>
+                    </div>
+                    <div>
+                        <span>Items</span>
+                        <strong>@_items.Count</strong>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </article>
 }
 
 @code {
+    private sealed record HeroArtworkItem(Guid WorkId, string Title, string MediaType, string? CoverUrl);
+    private sealed record ItemGroup(string Label, IReadOnlyList<CollectionItemViewModel> Items);
+    private sealed record MediaCountChip(string Label, string Icon, int Count);
+
     [Parameter] public Guid Id { get; set; }
 
-    private DetailPageViewModel? _detail;
+    private readonly List<CollectionManagementCatalogViewModel> _catalog = [];
+    private readonly List<CollectionItemViewModel> _items = [];
+    private readonly List<CollectionMediaLookupItemViewModel> _lookupItems = [];
+    private CollectionManagementCatalogViewModel? _collection;
+    private ProfileViewModel? _activeProfile;
+    private Guid? _loadedCollectionId;
     private bool _loading = true;
+    private bool _loadingItems;
+    private string _itemSearch = string.Empty;
+
+    private bool CanManageItems => _collection?.IsManual == true && _collection.CanEdit && !_collection.IsSystem;
+
+    private string CollectionLabel
+    {
+        get
+        {
+            if (_collection?.IsSystem == true)
+                return "SYSTEM COLLECTION";
+
+            return _collection?.IsManual == true ? "CUSTOM COLLECTION" : "CURATED COLLECTION";
+        }
+    }
+
+    private string HeroClass => $"collection-detail-hero collection-detail-hero--{(_collection?.PrimaryLane ?? "CrossMedia").ToLowerInvariant()}";
+
+    private string HeroStyle => _collection?.PrimaryLane switch
+    {
+        "Read" => "--collection-accent-rgb: 177, 130, 255; --collection-warm-rgb: 199, 147, 88;",
+        "Listen" => "--collection-accent-rgb: 142, 105, 255; --collection-warm-rgb: 76, 190, 214;",
+        "Watch" => "--collection-accent-rgb: 166, 126, 255; --collection-warm-rgb: 226, 132, 62;",
+        _ => "--collection-accent-rgb: 168, 116, 255; --collection-warm-rgb: 226, 171, 75;",
+    };
+
+    private string DescriptionText =>
+        !string.IsNullOrWhiteSpace(_collection?.Description)
+            ? _collection.Description!
+            : "A curated collection from your Tuvima Library.";
+
+    private string ItemCountLabel => $"{_items.Count} {Pluralize("item", _items.Count)}";
+
+    private IReadOnlyList<MediaCountChip> MediaCounts =>
+        _items
+            .GroupBy(item => MediaCountKey(item.MediaType))
+            .Select(group => new MediaCountChip(group.Key.Label, group.Key.Icon, group.Count()))
+            .OrderBy(chip => MediaCountSort(chip.Label))
+            .ToList();
+
+    private string ReadOnlyReason
+    {
+        get
+        {
+            if (_collection?.IsSystem == true)
+                return "This is a system collection. Its membership is managed by the relevant user action.";
+
+            if (_collection?.IsManual != true)
+                return "This collection is generated from library rules, so item membership is not edited directly here.";
+
+            return "The active profile does not have permission to edit this collection.";
+        }
+    }
+
+    private IReadOnlyList<HeroArtworkItem> HeroArtwork
+    {
+        get
+        {
+            var fromItems = _items
+                .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
+                .OrderBy(item => StableHash(Id, item.WorkId))
+                .Take(6)
+                .Select(item => new HeroArtworkItem(item.WorkId, DisplayTitle(item), item.MediaType, item.CoverUrl))
+                .ToList();
+
+            if (fromItems.Count > 0)
+                return fromItems;
+
+            return (_collection?.ArtworkItems ?? [])
+                .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
+                .OrderBy(item => StableHash(Id, item.WorkId))
+                .Take(6)
+                .Select(item => new HeroArtworkItem(item.WorkId, item.Title, item.MediaType, item.CoverUrl))
+                .ToList();
+        }
+    }
+
+    private IReadOnlyList<ItemGroup> ItemGroups
+    {
+        get
+        {
+            var groups = new[]
+            {
+                new ItemGroup("Watch", _items.Where(item => LaneForMediaType(item.MediaType) == "Watch").OrderBy(item => item.SortOrder).ToList()),
+                new ItemGroup("Listen", _items.Where(item => LaneForMediaType(item.MediaType) == "Listen").OrderBy(item => item.SortOrder).ToList()),
+                new ItemGroup("Read", _items.Where(item => LaneForMediaType(item.MediaType) == "Read").OrderBy(item => item.SortOrder).ToList()),
+                new ItemGroup("Other", _items.Where(item => LaneForMediaType(item.MediaType) == "Other").OrderBy(item => item.SortOrder).ToList()),
+            };
+
+            return groups.Where(group => group.Items.Count > 0).ToList();
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
+        if (_loadedCollectionId == Id)
+            return;
+
+        _loadedCollectionId = Id;
         _loading = true;
-        _detail = await ApiClient.GetDetailPageAsync(DetailEntityType.Collection, Id, DetailPresentationContext.Default);
-        _loading = false;
+        _collection = null;
+        _items.Clear();
+        _lookupItems.Clear();
+        _itemSearch = string.Empty;
+
+        try
+        {
+            _activeProfile ??= await Orchestrator.GetActiveProfileAsync();
+            _catalog.Clear();
+            _catalog.AddRange(await ApiClient.GetCollectionManagementCatalogAsync(_activeProfile?.Id));
+            _collection = _catalog.FirstOrDefault(collection => collection.Id == Id);
+
+            if (_collection is not null)
+                await LoadItemsAsync();
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
-    private Task HandleActionAsync(DetailAction action)
+    private async Task LoadItemsAsync()
     {
-        if (!string.IsNullOrWhiteSpace(action.Route))
-            Nav.NavigateTo(action.Route);
+        _loadingItems = true;
+        try
+        {
+            _items.Clear();
+            _items.AddRange(await ApiClient.GetCollectionItemsAsync(Id, 500, _activeProfile?.Id));
+        }
+        finally
+        {
+            _loadingItems = false;
+        }
+    }
 
-        return Task.CompletedTask;
+    private async Task SearchItemsAsync(string value)
+    {
+        _itemSearch = value;
+        _lookupItems.Clear();
+
+        if (_collection is null || string.IsNullOrWhiteSpace(value) || !CanManageItems)
+            return;
+
+        _lookupItems.AddRange(await ApiClient.LookupCollectionMediaAsync(value, _collection.Id, null, 0, 12, _activeProfile?.Id));
+    }
+
+    private async Task AddItemAsync(CollectionMediaLookupItemViewModel item)
+    {
+        if (_collection is null || item.AlreadyInCollection)
+            return;
+
+        var ok = await ApiClient.AddCollectionItemAsync(_collection.Id, item.WorkId, _activeProfile?.Id);
+        Snackbar.Add(ok ? "Item added to collection." : "Item could not be added.", ok ? Severity.Success : Severity.Error);
+
+        if (ok)
+        {
+            _itemSearch = string.Empty;
+            _lookupItems.Clear();
+            await LoadItemsAsync();
+        }
+    }
+
+    private async Task RemoveItemAsync(CollectionItemViewModel item)
+    {
+        if (_collection is null)
+            return;
+
+        var ok = await ApiClient.RemoveCollectionItemAsync(_collection.Id, item.Id, _activeProfile?.Id);
+        Snackbar.Add(ok ? "Item removed from collection." : "Item could not be removed.", ok ? Severity.Success : Severity.Error);
+
+        if (ok)
+            await LoadItemsAsync();
+    }
+
+    private void OpenItem(CollectionItemViewModel item)
+    {
+        if (item.WorkId != Guid.Empty)
+            Nav.NavigateTo($"/details/Work/{item.WorkId:D}");
+    }
+
+    private static string DisplayTitle(CollectionItemViewModel item) =>
+        string.IsNullOrWhiteSpace(item.Title) ? "Untitled item" : item.Title;
+
+    private static string FormatItemMeta(CollectionItemViewModel item) =>
+        string.Join(" · ", new[] { item.Creator, NormalizeMediaType(item.MediaType) }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string FormatLookupMeta(CollectionMediaLookupItemViewModel item) =>
+        string.Join(" · ", new[] { item.Creator, NormalizeMediaType(item.MediaType), item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string NormalizeMediaType(string? mediaType) => mediaType switch
+    {
+        "Audiobooks" => "Audiobook",
+        "Books" => "Book",
+        "Comics" => "Comic",
+        "Movies" => "Movie",
+        _ => mediaType ?? string.Empty,
+    };
+
+    private static string LaneForMediaType(string? mediaType)
+    {
+        if (string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Audio", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Audiobook", StringComparison.OrdinalIgnoreCase))
+            return "Listen";
+
+        if (string.Equals(mediaType, "Books", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Book", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Comics", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Comic", StringComparison.OrdinalIgnoreCase))
+            return "Read";
+
+        if (string.Equals(mediaType, "Movies", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Movie", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Video", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Shows", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Show", StringComparison.OrdinalIgnoreCase))
+            return "Watch";
+
+        return "Other";
+    }
+
+    private static (string Label, string Icon) MediaCountKey(string? mediaType)
+    {
+        if (string.Equals(mediaType, "Movies", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Movie", StringComparison.OrdinalIgnoreCase))
+            return ("Movies", Icons.Material.Outlined.Movie);
+
+        if (string.Equals(mediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Shows", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Show", StringComparison.OrdinalIgnoreCase))
+            return ("TV", Icons.Material.Outlined.Tv);
+
+        if (string.Equals(mediaType, "Books", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Book", StringComparison.OrdinalIgnoreCase))
+            return ("Books", Icons.Material.Outlined.MenuBook);
+
+        if (string.Equals(mediaType, "Comics", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Comic", StringComparison.OrdinalIgnoreCase))
+            return ("Comics", Icons.Material.Outlined.AutoStories);
+
+        if (string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Audiobook", StringComparison.OrdinalIgnoreCase))
+            return ("Audiobooks", Icons.Material.Outlined.Headphones);
+
+        if (string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Audio", StringComparison.OrdinalIgnoreCase))
+            return ("Music", Icons.Material.Outlined.Album);
+
+        if (string.Equals(mediaType, "Video", StringComparison.OrdinalIgnoreCase))
+            return ("Video", Icons.Material.Outlined.SmartDisplay);
+
+        return ("Other", Icons.Material.Outlined.CollectionsBookmark);
+    }
+
+    private static int MediaCountSort(string label) => label switch
+    {
+        "Movies" => 0,
+        "TV" => 1,
+        "Books" => 2,
+        "Comics" => 3,
+        "Audiobooks" => 4,
+        "Music" => 5,
+        "Video" => 6,
+        _ => 7,
+    };
+
+    private static string IconForMediaType(string? mediaType) => LaneForMediaType(mediaType) switch
+    {
+        "Read" => Icons.Material.Outlined.MenuBook,
+        "Listen" => Icons.Material.Outlined.Album,
+        "Watch" => Icons.Material.Outlined.Movie,
+        _ => Icons.Material.Outlined.CollectionsBookmark,
+    };
+
+    private static string Pluralize(string noun, int count) => count == 1 ? noun : $"{noun}s";
+
+    private static int StableHash(Guid collectionId, Guid workId)
+    {
+        var bytes = collectionId.ToByteArray().Concat(workId.ToByteArray()).ToArray();
+        unchecked
+        {
+            var hash = 17;
+            foreach (var value in bytes)
+                hash = (hash * 31) + value;
+            return hash;
+        }
     }
 }

@@ -31,27 +31,27 @@ public sealed class DisplayJourneyProjectionReader
                 cv_genre_w.value AS Genre,
                 cv_series_w.value AS Series,
                 cv_narrator_w.value AS Narrator,
-                cv_cover_w.value AS CoverUrl,
-                cv_square_w.value AS SquareUrl,
-                cv_background_w.value AS BackgroundUrl,
-                cv_banner_w.value AS BannerUrl,
-                cv_logo_w.value AS LogoUrl,
-                cv_cover_state_w.value AS CoverState,
-                cv_square_state_w.value AS SquareState,
-                cv_background_state_w.value AS BackgroundState,
-                cv_banner_state_w.value AS BannerState,
-                cv_logo_state_w.value AS LogoState,
+                COALESCE(cv_cover_a.value, cv_cover_item.value, cv_cover_w.value) AS CoverUrl,
+                COALESCE(cv_square_a.value, cv_square_item.value, cv_square_w.value) AS SquareUrl,
+                COALESCE(cv_background_a.value, cv_background_item.value, cv_background_w.value) AS BackgroundUrl,
+                COALESCE(cv_banner_a.value, cv_banner_item.value, cv_banner_w.value) AS BannerUrl,
+                COALESCE(cv_logo_a.value, cv_logo_item.value, cv_logo_w.value) AS LogoUrl,
+                COALESCE(cv_cover_state_a.value, cv_cover_state_item.value, cv_cover_state_w.value) AS CoverState,
+                COALESCE(cv_square_state_a.value, cv_square_state_item.value, cv_square_state_w.value) AS SquareState,
+                COALESCE(cv_background_state_a.value, cv_background_state_item.value, cv_background_state_w.value) AS BackgroundState,
+                COALESCE(cv_banner_state_a.value, cv_banner_state_item.value, cv_banner_state_w.value) AS BannerState,
+                COALESCE(cv_logo_state_a.value, cv_logo_state_item.value, cv_logo_state_w.value) AS LogoState,
                 cv_season_a.value AS SeasonNumber,
                 cv_episode_a.value AS EpisodeNumber,
                 cv_track_a.value AS TrackNumber,
-                cv_cover_width_w.value AS CoverWidthPx,
-                cv_cover_height_w.value AS CoverHeightPx,
-                cv_square_width_w.value AS SquareWidthPx,
-                cv_square_height_w.value AS SquareHeightPx,
-                cv_banner_width_w.value AS BannerWidthPx,
-                cv_banner_height_w.value AS BannerHeightPx,
-                cv_background_width_w.value AS BackgroundWidthPx,
-                cv_background_height_w.value AS BackgroundHeightPx,
+                NULL AS CoverWidthPx,
+                NULL AS CoverHeightPx,
+                NULL AS SquareWidthPx,
+                NULL AS SquareHeightPx,
+                NULL AS BannerWidthPx,
+                NULL AS BannerHeightPx,
+                NULL AS BackgroundWidthPx,
+                NULL AS BackgroundHeightPx,
                 cv_accent_w.value AS AccentColor
             FROM user_states us
             JOIN media_assets ma ON ma.id = us.asset_id
@@ -68,11 +68,31 @@ public sealed class DisplayJourneyProjectionReader
             LEFT JOIN canonical_values cv_genre_w ON cv_genre_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_genre_w.key = 'genre'
             LEFT JOIN canonical_values cv_series_w ON cv_series_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_series_w.key = 'series'
             LEFT JOIN canonical_values cv_narrator_w ON cv_narrator_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_narrator_w.key = 'narrator'
-            LEFT JOIN canonical_values cv_cover_w ON cv_cover_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_cover_w.key IN ('cover_url', 'cover')
+            LEFT JOIN canonical_values cv_cover_a ON cv_cover_a.entity_id = ma.id AND cv_cover_a.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cv_square_a ON cv_square_a.entity_id = ma.id AND cv_square_a.key IN ('square_url', 'square')
+            LEFT JOIN canonical_values cv_background_a ON cv_background_a.entity_id = ma.id AND cv_background_a.key IN ('background_url', 'background', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cv_banner_a ON cv_banner_a.entity_id = ma.id AND cv_banner_a.key IN ('banner_url', 'banner', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cv_logo_a ON cv_logo_a.entity_id = ma.id AND cv_logo_a.key IN ('logo_url', 'logo')
+            LEFT JOIN canonical_values cv_cover_item ON cv_cover_item.entity_id = w.id AND cv_cover_item.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cv_square_item ON cv_square_item.entity_id = w.id AND cv_square_item.key IN ('square_url', 'square')
+            LEFT JOIN canonical_values cv_background_item ON cv_background_item.entity_id = w.id AND cv_background_item.key IN ('background_url', 'background', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cv_banner_item ON cv_banner_item.entity_id = w.id AND cv_banner_item.key IN ('banner_url', 'banner', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cv_logo_item ON cv_logo_item.entity_id = w.id AND cv_logo_item.key IN ('logo_url', 'logo')
+            LEFT JOIN canonical_values cv_cover_w ON cv_cover_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_cover_w.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values cv_square_w ON cv_square_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_square_w.key IN ('square_url', 'square')
-            LEFT JOIN canonical_values cv_background_w ON cv_background_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_background_w.key IN ('background_url', 'background')
-            LEFT JOIN canonical_values cv_banner_w ON cv_banner_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_banner_w.key IN ('banner_url', 'banner')
+            LEFT JOIN canonical_values cv_background_w ON cv_background_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_background_w.key IN ('background_url', 'background', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cv_banner_w ON cv_banner_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_banner_w.key IN ('banner_url', 'banner', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values cv_logo_w ON cv_logo_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_logo_w.key IN ('logo_url', 'logo')
+            LEFT JOIN canonical_values cv_cover_state_a ON cv_cover_state_a.entity_id = ma.id AND cv_cover_state_a.key = 'cover_state'
+            LEFT JOIN canonical_values cv_square_state_a ON cv_square_state_a.entity_id = ma.id AND cv_square_state_a.key = 'square_state'
+            LEFT JOIN canonical_values cv_background_state_a ON cv_background_state_a.entity_id = ma.id AND cv_background_state_a.key = 'background_state'
+            LEFT JOIN canonical_values cv_banner_state_a ON cv_banner_state_a.entity_id = ma.id AND cv_banner_state_a.key = 'banner_state'
+            LEFT JOIN canonical_values cv_logo_state_a ON cv_logo_state_a.entity_id = ma.id AND cv_logo_state_a.key = 'logo_state'
+            LEFT JOIN canonical_values cv_cover_state_item ON cv_cover_state_item.entity_id = w.id AND cv_cover_state_item.key = 'cover_state'
+            LEFT JOIN canonical_values cv_square_state_item ON cv_square_state_item.entity_id = w.id AND cv_square_state_item.key = 'square_state'
+            LEFT JOIN canonical_values cv_background_state_item ON cv_background_state_item.entity_id = w.id AND cv_background_state_item.key = 'background_state'
+            LEFT JOIN canonical_values cv_banner_state_item ON cv_banner_state_item.entity_id = w.id AND cv_banner_state_item.key = 'banner_state'
+            LEFT JOIN canonical_values cv_logo_state_item ON cv_logo_state_item.entity_id = w.id AND cv_logo_state_item.key = 'logo_state'
             LEFT JOIN canonical_values cv_cover_state_w ON cv_cover_state_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_cover_state_w.key = 'cover_state'
             LEFT JOIN canonical_values cv_square_state_w ON cv_square_state_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_square_state_w.key = 'square_state'
             LEFT JOIN canonical_values cv_background_state_w ON cv_background_state_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_background_state_w.key = 'background_state'
@@ -81,14 +101,6 @@ public sealed class DisplayJourneyProjectionReader
             LEFT JOIN canonical_values cv_season_a ON cv_season_a.entity_id = ma.id AND cv_season_a.key = 'season_number'
             LEFT JOIN canonical_values cv_episode_a ON cv_episode_a.entity_id = ma.id AND cv_episode_a.key = 'episode_number'
             LEFT JOIN canonical_values cv_track_a ON cv_track_a.entity_id = ma.id AND cv_track_a.key = 'track_number'
-            LEFT JOIN canonical_values cv_cover_width_w ON cv_cover_width_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_cover_width_w.key = 'cover_width_px'
-            LEFT JOIN canonical_values cv_cover_height_w ON cv_cover_height_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_cover_height_w.key = 'cover_height_px'
-            LEFT JOIN canonical_values cv_square_width_w ON cv_square_width_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_square_width_w.key = 'square_width_px'
-            LEFT JOIN canonical_values cv_square_height_w ON cv_square_height_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_square_height_w.key = 'square_height_px'
-            LEFT JOIN canonical_values cv_banner_width_w ON cv_banner_width_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_banner_width_w.key = 'banner_width_px'
-            LEFT JOIN canonical_values cv_banner_height_w ON cv_banner_height_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_banner_height_w.key = 'banner_height_px'
-            LEFT JOIN canonical_values cv_background_width_w ON cv_background_width_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_background_width_w.key = 'background_width_px'
-            LEFT JOIN canonical_values cv_background_height_w ON cv_background_height_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_background_height_w.key = 'background_height_px'
             LEFT JOIN canonical_values cv_accent_w ON cv_accent_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_accent_w.key = 'artwork_accent_hex'
             WHERE us.progress_pct > 0 AND us.progress_pct < 99.5
             GROUP BY us.asset_id

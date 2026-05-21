@@ -10,7 +10,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Deterministic>true</Deterministic>
     <LangVersion>latest</LangVersion>
-    <!-- Treat nullable warnings as errors to catch nullability regressions at compile time. -->
-    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 </Project>

@@ -67,29 +67,54 @@ public sealed class DisplayWorkProjectionReader
                 (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'season_number' LIMIT 1) AS SeasonNumber,
                 (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'episode_number' LIMIT 1) AS EpisodeNumber,
                 (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'track_number' LIMIT 1) AS TrackNumber,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url', 'cover') LIMIT 1) AS CoverUrl,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('square_url', 'square') LIMIT 1) AS SquareUrl,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('banner_url', 'banner') LIMIT 1) AS BannerUrl,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url', 'background') LIMIT 1) AS BackgroundUrl,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('logo_url', 'logo') LIMIT 1) AS LogoUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1)
+                ) AS CoverUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('square_url', 'square') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('square_url', 'square') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('square_url', 'square') LIMIT 1)
+                ) AS SquareUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('banner_url', 'banner', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('banner_url', 'banner', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('banner_url', 'banner', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1)
+                ) AS BannerUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('background_url', 'background', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('background_url', 'background', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url', 'background', 'episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1)
+                ) AS BackgroundUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('logo_url', 'logo') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('logo_url', 'logo') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('logo_url', 'logo') LIMIT 1)
+                ) AS LogoUrl,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'cover_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'cover_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'cover_state' LIMIT 1)) AS CoverState,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'square_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'square_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_state' LIMIT 1)) AS SquareState,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'banner_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'banner_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_state' LIMIT 1)) AS BannerState,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'background_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'background_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'background_state' LIMIT 1)) AS BackgroundState,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'logo_state' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'logo_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'logo_state' LIMIT 1)) AS LogoState,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'cover_width_px' LIMIT 1) AS CoverWidthPx,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'cover_height_px' LIMIT 1) AS CoverHeightPx,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_width_px' LIMIT 1) AS SquareWidthPx,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_height_px' LIMIT 1) AS SquareHeightPx,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_width_px' LIMIT 1) AS BannerWidthPx,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_height_px' LIMIT 1) AS BannerHeightPx,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'background_width_px' LIMIT 1) AS BackgroundWidthPx,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'background_height_px' LIMIT 1) AS BackgroundHeightPx,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('cover_width_px', 'episode_still_width_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('cover_width_px', 'episode_still_width_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_width_px', 'episode_still_width_px') LIMIT 1)) AS CoverWidthPx,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('cover_height_px', 'episode_still_height_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('cover_height_px', 'episode_still_height_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_height_px', 'episode_still_height_px') LIMIT 1)) AS CoverHeightPx,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'square_width_px' LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'square_width_px' LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_width_px' LIMIT 1)) AS SquareWidthPx,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'square_height_px' LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'square_height_px' LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_height_px' LIMIT 1)) AS SquareHeightPx,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('banner_width_px', 'episode_still_width_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('banner_width_px', 'episode_still_width_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('banner_width_px', 'episode_still_width_px') LIMIT 1)) AS BannerWidthPx,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('banner_height_px', 'episode_still_height_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('banner_height_px', 'episode_still_height_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('banner_height_px', 'episode_still_height_px') LIMIT 1)) AS BannerHeightPx,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('background_width_px', 'episode_still_width_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('background_width_px', 'episode_still_width_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_width_px', 'episode_still_width_px') LIMIT 1)) AS BackgroundWidthPx,
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('background_height_px', 'episode_still_height_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('background_height_px', 'episode_still_height_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_height_px', 'episode_still_height_px') LIMIT 1)) AS BackgroundHeightPx,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artwork_accent_hex' LIMIT 1) AS AccentColor
             FROM ranked_assets
             WHERE AssetRank = 1

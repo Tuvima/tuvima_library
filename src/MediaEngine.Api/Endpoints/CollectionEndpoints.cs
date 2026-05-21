@@ -2181,8 +2181,8 @@ public static class CollectionEndpoints
                 LEFT JOIN canonical_values artist_root ON artist_root.entity_id = COALESCE(gp.id, p.id, w.id) AND artist_root.key IN ('artist', 'album_artist')
                 LEFT JOIN canonical_values year_work ON year_work.entity_id = w.id AND year_work.key IN ('year', 'release_year')
                 LEFT JOIN canonical_values year_root ON year_root.entity_id = COALESCE(gp.id, p.id, w.id) AND year_root.key IN ('year', 'release_year')
-                LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster')
-                LEFT JOIN canonical_values cover_root ON cover_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_root.key IN ('cover_url', 'cover', 'poster_url', 'poster')
+                LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
+                LEFT JOIN canonical_values cover_root ON cover_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_root.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
                 LEFT JOIN canonical_values show_work ON show_work.entity_id = w.id AND show_work.key = 'show_name'
                 LEFT JOIN canonical_values show_root ON show_root.entity_id = COALESCE(gp.id, p.id, w.id) AND show_root.key IN ('show_name', 'title')
                 LEFT JOIN canonical_values season_work ON season_work.entity_id = w.id AND season_work.key = 'season_number'
@@ -2192,7 +2192,7 @@ public static class CollectionEndpoints
                 LEFT JOIN canonical_values author_asset ON author_asset.entity_id = ra.AssetId AND author_asset.key = 'author'
                 LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ra.AssetId AND artist_asset.key IN ('artist', 'album_artist')
                 LEFT JOIN canonical_values year_asset ON year_asset.entity_id = ra.AssetId AND year_asset.key IN ('year', 'release_year')
-                LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster')
+                LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
                 LEFT JOIN canonical_values season_asset ON season_asset.entity_id = ra.AssetId AND season_asset.key = 'season_number'
                 LEFT JOIN canonical_values album_asset ON album_asset.entity_id = ra.AssetId AND album_asset.key = 'album'
                 WHERE w.work_kind != 'catalog'
@@ -3270,6 +3270,7 @@ public static class CollectionEndpoints
                    ) AS Title,
                    w.media_type AS MediaType,
                    COALESCE(
+                       NULLIF(cover_asset.value, ''),
                        NULLIF(cover_work.value, ''),
                        CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
                    ) AS CoverUrl
@@ -3278,7 +3279,8 @@ public static class CollectionEndpoints
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
             LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
             LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
-            LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster')
+            LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id
             WHERE w.id IN @WorkIds
               AND {visibleWorkPredicate}

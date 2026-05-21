@@ -16,6 +16,7 @@
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject ILogger<MediaBrowseShell> Logger
 
 <div class="browse-shell">
     @if (!_isGroupDrilldown && _hero is not null)
@@ -323,18 +324,25 @@
 
     private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        if (_navigatingInternally)
+        try
         {
-            _navigatingInternally = false;
-            return;
-        }
+            if (_navigatingInternally)
+            {
+                _navigatingInternally = false;
+                return;
+            }
 
-        ReadUrlState();
-        await InvokeAsync(async () =>
+            ReadUrlState();
+            await InvokeAsync(async () =>
+            {
+                await LoadBrowseContentAsync();
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex)
         {
-            await LoadBrowseContentAsync();
-            StateHasChanged();
-        });
+            Logger.LogError(ex, "Failed to handle browse route change");
+        }
     }
 
     private void ReadUrlState()

@@ -279,7 +279,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
             && Directory.Exists(_options.WatchDirectory))
         {
-            ScanExistingFiles(_options.WatchDirectory, _options.IncludeSubdirectories);
+            await ScanExistingFilesAsync(_options.WatchDirectory, _options.IncludeSubdirectories, stoppingToken)
+                .ConfigureAwait(false);
         }
 
         // Start the polling fallback in the background.
@@ -337,7 +338,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
             && Directory.Exists(_options.WatchDirectory))
         {
-            ScanExistingFiles(_options.WatchDirectory, _options.IncludeSubdirectories);
+            _ = ScanExistingFilesAsync(_options.WatchDirectory, _options.IncludeSubdirectories, CancellationToken.None)
+                .ContinueWith(
+                    task => _logger.LogError(task.Exception, "Initial scan failed after IIngestionEngine.Start"),
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted,
+                    TaskScheduler.Default);
         }
     }
 
@@ -346,8 +352,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         => await StopAsync(ct).ConfigureAwait(false);
 
     /// <inheritdoc/>
-    void IIngestionEngine.ScanDirectory(string directory, bool includeSubdirectories)
-        => ScanExistingFiles(directory, includeSubdirectories);
+    Task IIngestionEngine.ScanDirectory(string directory, bool includeSubdirectories, CancellationToken ct)
+        => ScanExistingFilesAsync(directory, includeSubdirectories, ct);
 
     /// <inheritdoc/>
     void IIngestionEngine.PauseWatcher()
@@ -2078,7 +2084,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// Duplicates are harmless: step 5 (hash-based duplicate check) in
     /// <see cref="ProcessCandidateAsync"/> short-circuits them instantly.
     /// </summary>
-    private void ScanExistingFiles(string directory, bool includeSubdirectories)
+    private async Task ScanExistingFilesAsync(string directory, bool includeSubdirectories, CancellationToken ct = default)
     {
         var searchOption = includeSubdirectories
             ? SearchOption.AllDirectories
@@ -2096,12 +2102,19 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         HashSet<string> knownPaths;
         try
         {
-            var rawPaths = _assetRepo.GetAllFilePathsAsync().GetAwaiter().GetResult();
+            var rawPaths = await _assetRepo.GetAllFilePathsAsync(ct).ConfigureAwait(false);
             knownPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var p in rawPaths)
             {
-                try { knownPaths.Add(Path.GetFullPath(p)); }
-                catch { /* malformed path — ignore */ }
+                try
+                {
+                    knownPaths.Add(Path.GetFullPath(p));
+                }
+                catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException or System.Security.SecurityException)
+                {
+                    // Best effort: a malformed stored path should not block startup scanning.
+                    _logger.LogDebug(ex, "Skipping malformed stored file path during initial scan");
+                }
             }
         }
         catch (Exception ex)
@@ -2119,6 +2132,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             foreach (var filePath in Directory.EnumerateFiles(directory, "*.*", searchOption))
             {
+                ct.ThrowIfCancellationRequested();
                 // Skip files inside the .data directory — staging, images, and database
                 // live here and must not be re-ingested automatically.
                 if (filePath.Contains(Path.DirectorySeparatorChar + ".data" + Path.DirectorySeparatorChar,
@@ -2176,15 +2190,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Persist a batch record now that we know the exact file count.
             try
             {
-                _batchRepo.CreateAsync(new IngestionBatch
+                await _batchRepo.CreateAsync(new IngestionBatch
                 {
                     Id          = batchId,
                     Status      = "running",
                     SourcePath  = directory,
                     FilesTotal  = count,
                     StartedAt   = DateTimeOffset.UtcNow,
-                }).GetAwaiter().GetResult();
-                PublishInitialBatchProgressAsync(batchId, count).GetAwaiter().GetResult();
+                }, ct).ConfigureAwait(false);
+                await PublishInitialBatchProgressAsync(batchId, count).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -2912,7 +2926,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// <summary>
     /// Adds an FSW/poll-sourced file event to the collection buffer.
     /// Resets the quiet-period timer. Events that already carry a BatchId
-    /// (e.g. from <see cref="ScanExistingFiles"/>) are passed directly to
+    /// (e.g. from <see cref="ScanExistingFilesAsync"/>) are passed directly to
     /// the debounce queue.
     /// </summary>
     private bool BufferFswEvent(FileEvent evt)

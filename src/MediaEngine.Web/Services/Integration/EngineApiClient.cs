@@ -5325,6 +5325,12 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 if (collection.SquareArtworkUrl is not null)
                     collection.SquareArtworkUrl = AbsoluteUrl(collection.SquareArtworkUrl);
+
+                foreach (var artworkItem in collection.ArtworkItems)
+                {
+                    if (artworkItem.CoverUrl is not null)
+                        artworkItem.CoverUrl = AbsoluteUrl(artworkItem.CoverUrl);
+                }
             }
 
             return collections;

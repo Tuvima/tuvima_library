@@ -149,8 +149,11 @@ public static class SettingsEndpoints
             IFileWatcher         fileWatcher,
             IIngestionEngine     ingestionEngine,
             IEventPublisher      publisher,
+            ILoggerFactory       loggerFactory,
             CancellationToken    ct) =>
         {
+            var logger = loggerFactory.CreateLogger("MediaEngine.Api.Endpoints.SettingsEndpoints");
+
             // Path traversal validation.
             if (!string.IsNullOrWhiteSpace(request.WatchDirectory))
             {
@@ -180,14 +183,26 @@ public static class SettingsEndpoints
             if (!string.IsNullOrWhiteSpace(request.WatchDirectory)
                 && Directory.Exists(request.WatchDirectory))
             {
-                try { fileWatcher.UpdateDirectory(request.WatchDirectory); }
-                catch (Exception) { /* non-fatal: watcher swap failed; path is persisted to config. */ }
+                try
+                {
+                    fileWatcher.UpdateDirectory(request.WatchDirectory);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Watcher hot-swap failed for {WatchDirectory}; saved configuration remains active", request.WatchDirectory);
+                }
 
                 // Scan existing files in the new watch directory so files that were
                 // already present before the hot-swap are picked up.  Duplicates are
                 // harmless — the pipeline's hash check short-circuits them.
-                try { ingestionEngine.ScanDirectory(request.WatchDirectory); }
-                catch (Exception) { /* non-fatal */ }
+                try
+                {
+                    await ingestionEngine.ScanDirectory(request.WatchDirectory, ct: ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Initial scan failed for updated watch directory {WatchDirectory}", request.WatchDirectory);
+                }
             }
 
             // Broadcast the new active watch path to all connected Dashboard circuits.

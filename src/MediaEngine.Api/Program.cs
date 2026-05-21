@@ -927,7 +927,7 @@ app.MapDevelopmentEngineEndpoints();
 {
     var collectionRepo = app.Services.GetRequiredService<ICollectionRepository>();
     var db = app.Services.GetRequiredService<IDatabaseConnection>();
-    MediaEngine.Api.Services.CollectionSeeder.SeedManagedCollectionsAsync(collectionRepo, db).GetAwaiter().GetResult();
+    await MediaEngine.Api.Services.CollectionSeeder.SeedManagedCollectionsAsync(collectionRepo, db);
 }
 
 app.Run();
