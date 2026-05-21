@@ -269,7 +269,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void MediaEditorNavigator_UsesSettableRowsForSqliteMaterialization()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs"));
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/ReadServices/MediaEditorNavigationReadService.cs"));
 
         Assert.Contains("private sealed class NavigatorTreeRow", source);
         Assert.Contains("public long? Ordinal { get; init; }", source);

@@ -9,21 +9,17 @@ public sealed class CollectionEndpointRouteTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
 
-        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", source, StringComparison.Ordinal);
-        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", source, StringComparison.Ordinal);
-        Assert.Contains("cv_logo_present", source, StringComparison.Ordinal);
-        Assert.Contains("THEN '/stream/' || g.first_asset_id || '/logo' END AS logo_url", source, StringComparison.Ordinal);
-        Assert.Contains("cover_width_px", source, StringComparison.Ordinal);
-        Assert.Contains("DistinctTitleCount = CountDistinctWorkTitles(h.Works)", source, StringComparison.Ordinal);
+        var readServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionMediaLookupReadService.cs"));
+        Assert.Contains("ICollectionBrowseReadService browseReadService", source, StringComparison.Ordinal);
+        Assert.Contains("ICollectionSearchReadService searchReadService", source, StringComparison.Ordinal);
+        Assert.Contains("ICollectionMediaLookupReadService mediaLookupReadService", source, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", readServiceSource, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", readServiceSource, StringComparison.Ordinal);
         Assert.Contains("Description = row.Description", source, StringComparison.Ordinal);
         Assert.Contains("Tagline = row.Tagline", source, StringComparison.Ordinal);
         Assert.Contains("Network = row.Network", source, StringComparison.Ordinal);
         Assert.Contains("SeasonCount = row.SeasonCount", source, StringComparison.Ordinal);
         Assert.Contains("LogoUrl = row.LogoUrl", source, StringComparison.Ordinal);
-        Assert.Contains("@IsMusicAlbumGroup = 1 THEN COALESCE", source, StringComparison.Ordinal);
-        Assert.Contains("cv_parent_album.entity_id = wa.root_work_id", source, StringComparison.Ordinal);
-        Assert.Contains("cv_asset_album.entity_id = wa.asset_id", source, StringComparison.Ordinal);
-        Assert.Contains("cv_parent_album.entity_id = COALESCE(gp.id, p.id, w.id)", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
         Assert.Contains("MapDelete(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
@@ -39,6 +35,7 @@ public sealed class CollectionEndpointRouteTests
     public void CollectionSearch_UsesSqlBackedQueryInsteadOfLoadingAllCollections()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var serviceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionSearchReadService.cs"));
         var searchStart = source.IndexOf("group.MapGet(\"/search\"", StringComparison.Ordinal);
         var nextRoute = source.IndexOf("group.MapGet(\"/parents\"", StringComparison.Ordinal);
 
@@ -46,10 +43,26 @@ public sealed class CollectionEndpointRouteTests
         Assert.True(nextRoute > searchStart);
 
         var searchSource = source[searchStart..nextRoute];
-        Assert.Contains("QueryAsync<CollectionSearchRow>", searchSource, StringComparison.Ordinal);
-        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", searchSource, StringComparison.Ordinal);
-        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", searchSource, StringComparison.Ordinal);
+        Assert.Contains("searchReadService.SearchAsync(q, ct)", searchSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("IDatabaseConnection db", searchSource, StringComparison.Ordinal);
+        Assert.Contains("QueryAsync<CollectionSearchRow>", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", serviceSource, StringComparison.Ordinal);
         Assert.DoesNotContain("collectionRepo.GetAllAsync", searchSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CollectionReadRoutes_DelegateMigratedProjectionSqlToReadServices()
+    {
+        var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var registrations = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DependencyInjection\ApiReadServiceCollectionExtensions.cs"));
+
+        Assert.Contains("ICollectionBrowseReadService browseReadService", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("ICollectionSearchReadService searchReadService", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("ICollectionMediaLookupReadService mediaLookupReadService", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<ICollectionBrowseReadService, CollectionBrowseReadService>", registrations, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>", registrations, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>", registrations, StringComparison.Ordinal);
     }
 
     [Fact]

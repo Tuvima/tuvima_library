@@ -7,6 +7,15 @@ person and character credit projections into `PersonCreditReadService`, and
 carved the small operational aggregate portion of `GET /library/overview` into
 `LibraryOverviewReadService`.
 
+Sprint 4 moved the first collection read routes behind focused API read
+services: `CollectionBrowseReadService` for `GET /collections/`,
+`CollectionSearchReadService` for `GET /collections/search`, and
+`CollectionMediaLookupReadService` for `GET /collections/media-lookup` plus
+curated item metadata projection. It also moved media editor navigator,
+membership suggestion, preview, and apply logic into
+`MediaEditorNavigationReadService`, and moved `GET /metadata/claims/{entityId}`
+into `MetadataClaimHistoryReadService`.
+
 ## Compliant Endpoint Pattern
 
 Sprint 1 reinforced the guardrails around endpoint boundaries but did not pay
@@ -37,12 +46,12 @@ SQL belongs in Storage repositories or focused API read services that use
 | File | Risk | Reason still allowlisted | Suggested target |
 | --- | --- | --- | --- |
 | `CharacterEndpoints.cs` | Medium | Character graph projections combine several relationship tables. | `CharacterReadService` |
-| `CollectionEndpoints.cs` | High | Mixed collection reads, writes, ordering, and management behavior. | Split `CollectionReadService` and storage repositories |
+| `CollectionEndpoints.cs` | High | Browse/search/media lookup read routes were extracted in Sprint 4; large group/detail, system-view, management catalog, preview, artwork, and mutation workflows still mix reads and commands. | Continue splitting focused collection detail, management, and command services |
 | `ItemCanonicalEndpoints.cs` | Medium | Canonical value mutation paths need careful contract preservation. | `ItemCanonicalService` |
 | `LibraryEndpoints.cs` | High | Broad browse and management surface with paging/sort behavior. | `LibraryBrowseReadService` |
 | `LibraryItemEndpoints.cs` | High | Item projection, review, mutation, and delete behavior are coupled. | `LibraryItemCommandService` plus read service |
-| `MetadataEndpoints.cs` | High | Metadata edit and provider matching behavior is broad. | `MetadataEditorService` |
-| `MetadataEndpoints.MediaEditorNavigator.cs` | Medium | API-specific navigation projections. | `MediaEditorNavigationReadService` |
+| `MetadataEndpoints.cs` | High | Claim history was extracted in Sprint 4; metadata edit, artwork, provider matching, editor-context, and cache behavior remains broad. | `MetadataEditorService` and focused artwork/editor-context read services |
+| `MetadataEndpoints.MediaEditorNavigator.cs` | Low | Route mapping is now thin, but the file remains listed until follow-up confirms no direct database access returns during membership apply hardening. | Remove after guardrail coverage confirms the new service boundary |
 | `UniverseGraphEndpoints.cs` | High | Graph traversal and filtering needs focused regression tests. | `UniverseGraphReadService` |
 | `WorkEndpoints.cs` | Medium | Work detail projections include direct SQL. | `WorkReadService` |
 

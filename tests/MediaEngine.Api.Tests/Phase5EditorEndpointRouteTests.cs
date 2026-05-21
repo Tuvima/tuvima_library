@@ -31,19 +31,22 @@ public sealed class Phase5EditorEndpointRouteTests
         var navigator = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs");
         var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
 
-        Assert.Contains("compact_ordinal_label", navigator, StringComparison.Ordinal);
-        Assert.Contains("technical_badges", navigator, StringComparison.Ordinal);
-        Assert.Contains("primary_asset_id", navigator, StringComparison.Ordinal);
-        Assert.Contains("is_clickable", navigator, StringComparison.Ordinal);
-        Assert.Contains("BuildNavigatorTechnicalBadges", navigator, StringComparison.Ordinal);
-        Assert.Contains("playback_inspection_cache", navigator, StringComparison.Ordinal);
-        Assert.Contains("file_size_bytes", navigator, StringComparison.Ordinal);
-        Assert.Contains("video_width", navigator, StringComparison.Ordinal);
-        Assert.Contains("disc_number", navigator, StringComparison.Ordinal);
-        Assert.Contains("display_overrides_json", navigator, StringComparison.Ordinal);
-        Assert.Contains("GetDisplayOverrideValue(value, \"episode_title\", \"title\", \"display_title\")", navigator, StringComparison.Ordinal);
-        Assert.Contains("GetDisplayOverrideValue(value, \"title\", \"display_title\")", navigator, StringComparison.Ordinal);
-        Assert.Contains("GetDisplayOverrideValue(value, \"display_subtitle\")", navigator, StringComparison.Ordinal);
+        var navigatorService = ReadSource("src/MediaEngine.Api/Services/ReadServices/MediaEditorNavigationReadService.cs");
+        Assert.Contains("IMediaEditorNavigationReadService navigationReadService", navigator, StringComparison.Ordinal);
+        Assert.Contains("IMediaEditorMembershipReadService membershipReadService", navigator, StringComparison.Ordinal);
+        Assert.Contains("compact_ordinal_label", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("technical_badges", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("primary_asset_id", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("is_clickable", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("BuildNavigatorTechnicalBadges", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("playback_inspection_cache", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("file_size_bytes", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("video_width", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("disc_number", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("display_overrides_json", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayOverrideValue(value, \"episode_title\", \"title\", \"display_title\")", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayOverrideValue(value, \"title\", \"display_title\")", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayOverrideValue(value, \"display_subtitle\")", navigatorService, StringComparison.Ordinal);
         Assert.Contains("IsContainerEditorLaunch(launch)", metadata, StringComparison.Ordinal);
         Assert.Contains("!string.Equals(launch.WorkKind, \"child\"", metadata, StringComparison.Ordinal);
     }
@@ -55,7 +58,9 @@ public sealed class Phase5EditorEndpointRouteTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
     }

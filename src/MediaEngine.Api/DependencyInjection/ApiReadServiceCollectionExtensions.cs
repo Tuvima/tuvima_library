@@ -17,6 +17,13 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<IProfileOverviewReadService, ProfileOverviewReadService>();
         services.AddSingleton<IPersonCreditReadService, PersonCreditReadService>();
         services.AddSingleton<ILibraryOverviewReadService, LibraryOverviewReadService>();
+        services.AddSingleton<IMetadataClaimHistoryReadService, MetadataClaimHistoryReadService>();
+        services.AddSingleton<ICollectionBrowseReadService, CollectionBrowseReadService>();
+        services.AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>();
+        services.AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>();
+        services.AddSingleton<MediaEditorNavigationReadService>();
+        services.AddSingleton<IMediaEditorNavigationReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());
+        services.AddSingleton<IMediaEditorMembershipReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());
         return services;
     }
 }

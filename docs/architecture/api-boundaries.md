@@ -21,7 +21,10 @@ Engine endpoint files are HTTP adapters. They should validate route/query/body i
 
 Current focused API read-service examples include `ProfileOverviewReadService`
 for account overview projections, `PersonCreditReadService` for person and
-character credit projections, and `LibraryOverviewReadService` for small
-operational overview aggregates.
+character credit projections, `LibraryOverviewReadService` for small
+operational overview aggregates, `CollectionSearchReadService` and
+`CollectionMediaLookupReadService` for collection browse/search projections,
+`MediaEditorNavigationReadService` for editor navigator projections, and
+`MetadataClaimHistoryReadService` for claim history aggregation.
 
 The current direct database endpoint allowlist is legacy debt. It should shrink over time and must not be treated as a pattern for new code.

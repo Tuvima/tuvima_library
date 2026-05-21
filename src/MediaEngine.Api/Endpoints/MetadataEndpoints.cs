@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -43,46 +44,11 @@ public static partial class MetadataEndpoints
         // -- GET /metadata/claims/{entityId} ----------------------------------
         group.MapGet("/claims/{entityId:guid}", async (
             Guid entityId,
-            IMetadataClaimRepository claimRepo,
-            IDatabaseConnection db,
+            IMetadataClaimHistoryReadService claimHistoryReadService,
             CancellationToken ct) =>
         {
-            // First try direct lookup — covers assets/editions queried by their own ID.
-            var claims = await claimRepo.GetByEntityAsync(entityId, ct);
-
-            // If no claims found, entityId might be a Work ID. Look up all asset IDs
-            // that belong to editions of this work and return their claims combined.
-            if (claims.Count == 0)
-            {
-                using var conn = db.CreateConnection();
-                var assetIds = conn.Query<string>("""
-                    SELECT ma.id FROM media_assets ma
-                    JOIN editions e ON ma.edition_id = e.id
-                    WHERE e.work_id = @WorkId
-                    """, new { WorkId = entityId.ToString() }).ToList();
-
-                if (assetIds.Count > 0)
-                {
-                    var allClaims = new List<Domain.Entities.MetadataClaim>();
-                    foreach (var assetId in assetIds)
-                    {
-                        if (Guid.TryParse(assetId, out var assetGuid))
-                        {
-                            var assetClaims = await claimRepo.GetByEntityAsync(assetGuid, ct);
-                            allClaims.AddRange(assetClaims);
-                        }
-                    }
-                    // Deduplicate by (entity_id, claim_key, claim_value) — keep one per unique combination
-                    claims = allClaims
-                        .GroupBy(c => (c.ClaimKey, c.ClaimValue, c.ProviderId))
-                        .Select(g => g.OrderByDescending(c => c.Confidence).First())
-                        .OrderBy(c => c.ClaimedAt)
-                        .ToList();
-                }
-            }
-
-            var dtos = claims.Select(ClaimDto.FromDomain).ToList();
-            return Results.Ok(dtos);
+            var claims = await claimHistoryReadService.GetClaimHistoryAsync(entityId, ct);
+            return Results.Ok(claims);
         })
         .WithName("GetClaimHistory")
         .WithSummary("Returns all metadata claims for a Work or Edition, ordered by claimed_at.")
@@ -648,7 +614,8 @@ public static partial class MetadataEndpoints
                 ReclassifiedAt  = now,
                 ReviewResolved  = reviewResolved,
             });
-        })        .WithName("ReclassifyMediaType")
+        })
+        .WithName("ReclassifyMediaType")
         .WithSummary("Reclassify a media asset to a different media type. Creates a user-locked claim and re-triggers hydration.")
         .Produces<ReclassifyResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)

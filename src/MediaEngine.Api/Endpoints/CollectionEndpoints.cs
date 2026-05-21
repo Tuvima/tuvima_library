@@ -37,69 +37,11 @@ public static class CollectionEndpoints
         .Produces(StatusCodes.Status404NotFound);
 
         group.MapGet("/", async (
-            ICollectionRepository collectionRepo,
-            IDatabaseConnection db,
+            ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
         {
-            var collections = await collectionRepo.GetAllAsync(ct);
-
-            // Collect work IDs that have at least one non-staging media asset
-            var libraryWorkIds = new HashSet<Guid>();
-            using (var conn = db.CreateConnection())
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = """
-                    SELECT DISTINCT e.work_id
-                    FROM editions e
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
-                      AND ma.file_path_root NOT LIKE '%\.data\staging\%'
-                      AND ma.file_path_root NOT LIKE '%/.data\staging/%'
-                    """;
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
-                {
-                    if (Guid.TryParse(reader.GetString(0), out var wid))
-                    {
-                        libraryWorkIds.Add(wid);
-                    }
-                }
-            }
-
-            // Filter collections: only include works that are in the library (not staging)
-            var filtered = new List<CollectionDto>();
-            foreach (var collection in collections)
-            {
-                var libraryWorks = collection.Works.Where(w => libraryWorkIds.Contains(w.Id)).ToList();
-                if (libraryWorks.Count == 0)
-                {
-                    continue;
-                }
-
-                var filteredCollection = new Collection
-                {
-                    Id = collection.Id,
-                    UniverseId = collection.UniverseId,
-                    DisplayName = collection.DisplayName,
-                    CreatedAt = collection.CreatedAt,
-                    UniverseStatus = collection.UniverseStatus,
-                    ParentCollectionId = collection.ParentCollectionId,
-                    WikidataQid = collection.WikidataQid,
-                };
-                foreach (var w in libraryWorks)
-                {
-                    filteredCollection.Works.Add(w);
-                }
-
-                foreach (var r in collection.Relationships)
-                {
-                    filteredCollection.Relationships.Add(r);
-                }
-
-                filtered.Add(CollectionDto.FromDomain(filteredCollection));
-            }
-
-            return Results.Ok(filtered);
+            var collections = await browseReadService.GetAllAsync(ct);
+            return Results.Ok(collections);
         })
         .WithName("GetAllCollections")
         .WithSummary("List all media collections with their works and canonical metadata values.")
@@ -108,115 +50,10 @@ public static class CollectionEndpoints
 
         group.MapGet("/search", async (
             string? q,
-            IDatabaseConnection db,
+            ICollectionSearchReadService searchReadService,
             CancellationToken ct) =>
         {
-            if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 2)
-            {
-                return Results.Ok(Array.Empty<SearchResultDto>());
-            }
-
-            var query = q.Trim();
-            var like = $"%{query}%";
-            var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
-            var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-
-            using var conn = db.CreateConnection();
-            var rows = (await conn.QueryAsync<CollectionSearchRow>(new CommandDefinition($"""
-                WITH matched AS (
-                    SELECT
-                        w.id AS WorkId,
-                        w.collection_id AS CollectionId,
-                        w.media_type AS MediaType,
-                        COALESCE(
-                            title_asset.value,
-                            episode_title.value,
-                            title_work.value,
-                            original_title.value,
-                            'Work ' || substr(w.id, 1, 8)
-                        ) AS Title,
-                        COALESCE(
-                            author_asset.value,
-                            artist_asset.value,
-                            director_asset.value,
-                            author_work.value,
-                            artist_work.value,
-                            director_work.value
-                        ) AS Author,
-                        COALESCE(
-                            c.display_name,
-                            collection_title.value,
-                            substr(COALESCE(w.collection_id, w.id), 1, 8)
-                        ) AS CollectionDisplayName,
-                        COALESCE(
-                            cover_asset.value,
-                            cover_url_asset.value,
-                            cover_work.value,
-                            cover_url_work.value
-                        ) AS CoverUrl,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY w.id
-                            ORDER BY
-                                CASE WHEN title_asset.value IS NULL AND title_work.value IS NULL THEN 1 ELSE 0 END,
-                                ma.id
-                        ) AS RowNumber
-                    FROM works w
-                    INNER JOIN editions e ON e.work_id = w.id
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    LEFT JOIN collections c ON c.id = w.collection_id
-                    LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ma.id AND title_asset.key = 'title'
-                    LEFT JOIN canonical_values episode_title ON episode_title.entity_id = ma.id AND episode_title.key = 'episode_title'
-                    LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
-                    LEFT JOIN canonical_values original_title ON original_title.entity_id = w.id AND original_title.key = 'original_title'
-                    LEFT JOIN canonical_values author_asset ON author_asset.entity_id = ma.id AND author_asset.key = 'author'
-                    LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ma.id AND artist_asset.key = 'artist'
-                    LEFT JOIN canonical_values director_asset ON director_asset.entity_id = ma.id AND director_asset.key = 'director'
-                    LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
-                    LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key = 'artist'
-                    LEFT JOIN canonical_values director_work ON director_work.entity_id = w.id AND director_work.key = 'director'
-                    LEFT JOIN canonical_values collection_title ON collection_title.entity_id = w.collection_id AND collection_title.key = 'title'
-                    LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ma.id AND cover_asset.key = 'cover'
-                    LEFT JOIN canonical_values cover_url_asset ON cover_url_asset.entity_id = ma.id AND cover_url_asset.key = 'cover_url'
-                    LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key = 'cover'
-                    LEFT JOIN canonical_values cover_url_work ON cover_url_work.entity_id = w.id AND cover_url_work.key = 'cover_url'
-                    WHERE w.work_kind != 'parent'
-                      AND {visibleWorkPredicate}
-                      AND {visibleAssetPredicate}
-                      AND (
-                          c.display_name LIKE @like COLLATE NOCASE
-                          OR EXISTS (
-                              SELECT 1
-                              FROM canonical_values cv
-                              WHERE cv.entity_id IN (ma.id, w.id, w.collection_id)
-                                AND cv.value LIKE @like COLLATE NOCASE
-                          )
-                      )
-                )
-                SELECT WorkId,
-                       CollectionId,
-                       MediaType,
-                       Title,
-                       Author,
-                       CollectionDisplayName,
-                       CoverUrl
-                FROM matched
-                WHERE RowNumber = 1
-                ORDER BY Title COLLATE NOCASE
-                LIMIT 20;
-                """, new { like }, cancellationToken: ct)))
-                .ToList();
-
-            var results = rows.Select(row => new SearchResultDto
-            {
-                WorkId = row.WorkId,
-                CollectionId = row.CollectionId,
-                Title = row.Title,
-                Author = row.Author,
-                MediaType = row.MediaType,
-                CollectionDisplayName = row.CollectionDisplayName,
-                CoverUrl = row.CoverUrl,
-            }).ToList();
-
+            var results = await searchReadService.SearchAsync(q, ct);
             return Results.Ok(results);
         })
         .WithName("SearchCollections")
@@ -2184,7 +2021,7 @@ public static class CollectionEndpoints
             Guid? profileId,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
-            IDatabaseConnection db,
+            ICollectionMediaLookupReadService mediaLookupReadService,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
@@ -2207,122 +2044,7 @@ public static class CollectionEndpoints
                     .ToHashSet();
             }
 
-            var take = Math.Clamp(limit ?? 24, 1, 100);
-            var skip = Math.Max(0, offset ?? 0);
-            var query = (q ?? string.Empty).Trim();
-            var searchLike = string.IsNullOrWhiteSpace(query) ? null : $"%{query}%";
-            var requestedMediaTypes = (mediaTypes ?? string.Empty)
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .ToArray();
-
-            using var conn = db.CreateConnection();
-            var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
-            var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-            var rows = (await conn.QueryAsync<CollectionMediaLookupRow>(new CommandDefinition(
-                $"""
-                WITH RECURSIVE work_descendants(root_id, work_id, depth) AS (
-                    SELECT id, id, 0
-                    FROM works
-                    UNION ALL
-                    SELECT work_descendants.root_id, child.id, work_descendants.depth + 1
-                    FROM works child
-                    INNER JOIN work_descendants ON child.parent_work_id = work_descendants.work_id
-                ),
-                representative_assets AS (
-                    SELECT work_descendants.root_id AS WorkId,
-                           MIN(ma.id) AS AssetId
-                    FROM work_descendants
-                    INNER JOIN editions e ON e.work_id = work_descendants.work_id
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE {visibleAssetPredicate}
-                    GROUP BY work_descendants.root_id
-                )
-                SELECT w.id AS WorkId,
-                       w.media_type AS MediaType,
-                       w.work_kind AS WorkKind,
-                       w.ordinal AS Ordinal,
-                       ra.AssetId,
-                       COALESCE(NULLIF(episode_title.value, ''), NULLIF(title_work.value, ''), NULLIF(title_asset.value, ''), 'Untitled') AS Title,
-                       COALESCE(NULLIF(author_work.value, ''), NULLIF(artist_work.value, ''), NULLIF(artist_root.value, ''), NULLIF(author_asset.value, ''), NULLIF(artist_asset.value, '')) AS Creator,
-                       COALESCE(NULLIF(year_work.value, ''), NULLIF(year_asset.value, ''), NULLIF(year_root.value, '')) AS Year,
-                       COALESCE(NULLIF(cover_work.value, ''), NULLIF(cover_asset.value, ''), NULLIF(cover_root.value, '')) AS ArtworkUrl,
-                       COALESCE(NULLIF(show_root.value, ''), NULLIF(show_work.value, ''), NULLIF(title_root.value, '')) AS ShowName,
-                       COALESCE(NULLIF(season_work.value, ''), NULLIF(season_asset.value, '')) AS SeasonNumber,
-                       COALESCE(NULLIF(album_root.value, ''), NULLIF(album_work.value, ''), NULLIF(album_asset.value, '')) AS Album,
-                       COALESCE(NULLIF(artist_root.value, ''), NULLIF(artist_work.value, ''), NULLIF(artist_asset.value, '')) AS Artist
-                FROM works w
-                LEFT JOIN works p ON p.id = w.parent_work_id
-                LEFT JOIN works gp ON gp.id = p.parent_work_id
-                LEFT JOIN representative_assets ra ON ra.WorkId = w.id
-                LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
-                LEFT JOIN canonical_values title_root ON title_root.entity_id = COALESCE(gp.id, p.id, w.id) AND title_root.key = 'title'
-                LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
-                LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
-                LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist')
-                LEFT JOIN canonical_values artist_root ON artist_root.entity_id = COALESCE(gp.id, p.id, w.id) AND artist_root.key IN ('artist', 'album_artist')
-                LEFT JOIN canonical_values year_work ON year_work.entity_id = w.id AND year_work.key IN ('year', 'release_year')
-                LEFT JOIN canonical_values year_root ON year_root.entity_id = COALESCE(gp.id, p.id, w.id) AND year_root.key IN ('year', 'release_year')
-                LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
-                LEFT JOIN canonical_values cover_root ON cover_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_root.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
-                LEFT JOIN canonical_values show_work ON show_work.entity_id = w.id AND show_work.key = 'show_name'
-                LEFT JOIN canonical_values show_root ON show_root.entity_id = COALESCE(gp.id, p.id, w.id) AND show_root.key IN ('show_name', 'title')
-                LEFT JOIN canonical_values season_work ON season_work.entity_id = w.id AND season_work.key = 'season_number'
-                LEFT JOIN canonical_values album_work ON album_work.entity_id = w.id AND album_work.key = 'album'
-                LEFT JOIN canonical_values album_root ON album_root.entity_id = COALESCE(gp.id, p.id, w.id) AND album_root.key = 'album'
-                LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ra.AssetId AND title_asset.key = 'title'
-                LEFT JOIN canonical_values author_asset ON author_asset.entity_id = ra.AssetId AND author_asset.key = 'author'
-                LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ra.AssetId AND artist_asset.key IN ('artist', 'album_artist')
-                LEFT JOIN canonical_values year_asset ON year_asset.entity_id = ra.AssetId AND year_asset.key IN ('year', 'release_year')
-                LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
-                LEFT JOIN canonical_values season_asset ON season_asset.entity_id = ra.AssetId AND season_asset.key = 'season_number'
-                LEFT JOIN canonical_values album_asset ON album_asset.entity_id = ra.AssetId AND album_asset.key = 'album'
-                WHERE w.work_kind != 'catalog'
-                  AND ra.AssetId IS NOT NULL
-                  AND {visibleWorkPredicate}
-                  AND (@mediaTypeCount = 0 OR w.media_type IN @mediaTypes)
-                  AND (
-                        @searchLike IS NULL
-                     OR title_work.value LIKE @searchLike
-                     OR title_asset.value LIKE @searchLike
-                     OR episode_title.value LIKE @searchLike
-                     OR author_work.value LIKE @searchLike
-                     OR artist_work.value LIKE @searchLike
-                     OR artist_root.value LIKE @searchLike
-                     OR album_root.value LIKE @searchLike
-                     OR album_work.value LIKE @searchLike
-                     OR show_root.value LIKE @searchLike
-                     OR show_work.value LIKE @searchLike
-                  )
-                ORDER BY Title COLLATE NOCASE, w.id
-                LIMIT @limit OFFSET @offset;
-                """,
-                new
-                {
-                    searchLike,
-                    mediaTypes = requestedMediaTypes,
-                    mediaTypeCount = requestedMediaTypes.Length,
-                    limit = take,
-                    offset = skip,
-                },
-                cancellationToken: ct))).ToList();
-
-            var results = rows.Select(row => new CollectionMediaLookupDto
-            {
-                WorkId = row.WorkId,
-                Title = row.Title,
-                Subtitle = BuildLookupSubtitle(row),
-                Creator = row.Creator,
-                MediaType = row.MediaType,
-                Year = row.Year,
-                ArtworkUrl = !string.IsNullOrWhiteSpace(row.ArtworkUrl)
-                    ? row.ArtworkUrl
-                    : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value}/cover" : null,
-                ParentContext = BuildLookupParentContext(row),
-                Route = BuildLookupRoute(row),
-                AlreadyInCollection = existingWorkIds.Contains(row.WorkId),
-            }).ToList();
-
+            var results = await mediaLookupReadService.LookupAsync(q, mediaTypes, existingWorkIds, offset, limit, ct);
             return Results.Ok(results);
         })
         .WithName("LookupCollectionMedia")
@@ -2336,7 +2058,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
             Guid? profileId,
-            IDatabaseConnection db,
+            ICollectionMediaLookupReadService mediaLookupReadService,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
@@ -2351,103 +2073,9 @@ public static class CollectionEndpoints
                 return Results.Forbid();
             }
 
-            int take = limit is > 0 ? limit.Value : 20;
+            var take = limit is > 0 ? limit.Value : 20;
             var items = await collectionRepo.GetCollectionItemsAsync(id, take, ct);
-
-            // Resolve work metadata from canonical_values
-            var dtos = new List<CollectionItemDto>();
-            if (items.Count > 0)
-            {
-                using var conn = db.CreateConnection();
-                var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
-                var visibleWorkIds = (await conn.QueryAsync<Guid>(
-                    $"""
-                    SELECT w.id
-                    FROM works w
-                    WHERE w.id IN @ids
-                      AND {visibleWorkPredicate}
-                    """,
-                    new { ids = items.Select(item => item.WorkId.ToString()).ToArray() }))
-                    .ToHashSet();
-
-                foreach (var item in items)
-                {
-                    if (!visibleWorkIds.Contains(item.WorkId))
-                    {
-                        continue;
-                    }
-
-                    string? title = null, creator = null, mediaType = null, cover = null;
-                    using var cmd = conn.CreateCommand();
-                    var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-                    cmd.CommandText = $"""
-                        SELECT cv.key, cv.value
-                        FROM canonical_values cv
-                        WHERE cv.entity_id = @WorkId
-                          AND cv.key IN ('title', 'episode_title', 'show_name', 'author', 'artist')
-                        UNION ALL
-                        SELECT 'title', smi.item_label
-                        FROM series_manifest_items smi
-                        WHERE smi.linked_work_id = @WorkId
-                          AND smi.collection_id = @CollectionId
-                        UNION ALL
-                        SELECT 'media_type', w.media_type
-                        FROM works w WHERE w.id = @WorkId
-                        UNION ALL
-                        SELECT '_asset_id', MIN(ma.id)
-                        FROM editions e
-                        INNER JOIN media_assets ma ON ma.edition_id = e.id
-                        WHERE e.work_id = @WorkId
-                          AND {visibleAssetPredicate}
-                        """;
-                    var p = cmd.CreateParameter();
-                    p.ParameterName = "@WorkId";
-                    p.Value = item.WorkId.ToString();
-                    cmd.Parameters.Add(p);
-                    var collectionParam = cmd.CreateParameter();
-                    collectionParam.ParameterName = "@CollectionId";
-                    collectionParam.Value = id.ToString();
-                    cmd.Parameters.Add(collectionParam);
-
-                    using var reader = cmd.ExecuteReader();
-                    while (reader.Read())
-                    {
-                        var key = reader.GetString(0);
-                        var val = reader.IsDBNull(1) ? null : reader.GetString(1);
-                        if (string.IsNullOrEmpty(val))
-                        {
-                            continue;
-                        }
-
-                        switch (key)
-                        {
-                            case "title":
-                            case "episode_title":
-                            case "show_name":
-                                title ??= val;
-                                break;
-                            case "author":
-                            case "artist":
-                                creator ??= val;
-                                break;
-                            case "_asset_id": cover = $"/stream/{val}/cover"; break;
-                            case "media_type": mediaType = val; break;
-                        }
-                    }
-
-                    dtos.Add(new CollectionItemDto
-                    {
-                        Id = item.Id,
-                        WorkId = item.WorkId,
-                        Title = title ?? "Untitled",
-                        Creator = creator,
-                        MediaType = mediaType ?? "Unknown",
-                        CoverUrl = cover,
-                        SortOrder = item.SortOrder,
-                    });
-                }
-            }
-
+            var dtos = await mediaLookupReadService.ResolveItemsAsync(id, items, ct);
             return Results.Ok(dtos);
         })
         .WithName("GetCollectionItems")

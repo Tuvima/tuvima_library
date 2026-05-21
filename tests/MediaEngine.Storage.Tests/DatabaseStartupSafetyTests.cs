@@ -1,3 +1,5 @@
+using System.Data;
+using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage.Tests;
@@ -27,7 +29,9 @@ public sealed class DatabaseStartupSafetyTests
         ];
 
         foreach (var table in requiredTables)
+        {
             Assert.True(TableExists(conn, table), $"Required table '{table}' was not created.");
+        }
 
         string[] requiredIndexes =
         [
@@ -38,7 +42,9 @@ public sealed class DatabaseStartupSafetyTests
         ];
 
         foreach (var index in requiredIndexes)
+        {
             Assert.True(IndexExists(conn, index), $"Required index '{index}' was not created.");
+        }
 
         Assert.Equal("wal", Scalar(conn, "PRAGMA journal_mode;").ToLowerInvariant());
         Assert.Equal("1", Scalar(conn, "PRAGMA foreign_keys;"));
@@ -103,6 +109,70 @@ public sealed class DatabaseStartupSafetyTests
         Assert.True(Convert.ToInt32(cmd.ExecuteScalar()) > 0);
     }
 
+    [Fact]
+    public void Open_ReusesSharedStartupConnection()
+    {
+        using var fixture = TempDatabase.Create();
+
+        var first = fixture.Database.Open();
+        var second = fixture.Database.Open();
+
+        Assert.Same(first, second);
+        Assert.Equal(ConnectionState.Open, first.State);
+    }
+
+    [Fact]
+    public void Dispose_ClosesSharedStartupConnection()
+    {
+        var fixture = TempDatabase.Create();
+        var startup = fixture.Database.Open();
+
+        fixture.Dispose();
+
+        Assert.Equal(ConnectionState.Closed, startup.State);
+    }
+
+    [Fact]
+    public void Vacuum_RemainsCallableAfterStartup()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        fixture.Database.Vacuum();
+
+        using var conn = fixture.Database.CreateConnection();
+        Assert.Equal("ok", Scalar(conn, "PRAGMA integrity_check;"));
+    }
+
+    [Fact]
+    public async Task WriteLock_SerializesAndCanBeReacquired()
+    {
+        using var fixture = TempDatabase.Create();
+
+        await fixture.Database.AcquireWriteLockAsync();
+        var waiterStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waiterAcquired = false;
+
+        var waiter = Task.Run(async () =>
+        {
+            waiterStarted.SetResult();
+            await fixture.Database.AcquireWriteLockAsync();
+            waiterAcquired = true;
+            fixture.Database.ReleaseWriteLock();
+        });
+
+        await waiterStarted.Task;
+        await Task.Delay(50);
+        Assert.False(waiterAcquired);
+
+        fixture.Database.ReleaseWriteLock();
+        await waiter;
+
+        await fixture.Database.AcquireWriteLockAsync();
+        fixture.Database.ReleaseWriteLock();
+    }
+
     private static bool TableExists(SqliteConnection conn, string name) =>
         Exists(conn, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $name;", name);
 
@@ -152,7 +222,9 @@ public sealed class DatabaseStartupSafetyTests
             try
             {
                 if (File.Exists(path))
+                {
                     File.Delete(path);
+                }
             }
             catch
             {
