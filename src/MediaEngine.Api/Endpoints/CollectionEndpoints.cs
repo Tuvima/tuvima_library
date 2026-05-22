@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Dapper;
@@ -2058,6 +2059,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
             ICollectionMediaLookupReadService mediaLookupReadService,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
@@ -2075,8 +2077,11 @@ public static class CollectionEndpoints
                     return Results.Forbid();
                 }
 
-                existingWorkIds = (await collectionRepo.GetCollectionItemsAsync(collectionId.Value, 1000, ct))
-                    .Select(item => item.WorkId)
+                var existingItems = await collectionRepo.GetCollectionItemsAsync(collectionId.Value, 1000, ct);
+                existingWorkIds = (await GetCollectionCatalogDisplayWorkIdsAsync(
+                        existingItems.Select(item => item.WorkId),
+                        db,
+                        ct))
                     .ToHashSet();
             }
 
@@ -2147,6 +2152,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
             Guid? profileId,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
@@ -2171,8 +2177,10 @@ public static class CollectionEndpoints
                 return Results.BadRequest("work_id is required.");
             }
 
+            var collectionWorkId = await ResolveCollectionMembershipWorkIdAsync(body.WorkId, db, ct);
             var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
-            if (existingItems.Any(item => item.WorkId == body.WorkId))
+            var existingDisplayWorkIds = await GetCollectionCatalogDisplayWorkIdsAsync(existingItems.Select(item => item.WorkId), db, ct);
+            if (existingDisplayWorkIds.Contains(collectionWorkId))
             {
                 return Results.Ok();
             }
@@ -2185,7 +2193,7 @@ public static class CollectionEndpoints
             {
                 Id = Guid.NewGuid(),
                 CollectionId = id,
-                WorkId = body.WorkId,
+                WorkId = collectionWorkId,
                 SortOrder = nextSortOrder,
                 AddedAt = DateTimeOffset.UtcNow,
             }, ct);
@@ -3212,6 +3220,16 @@ public static class CollectionEndpoints
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
+    private static string? ToNullableText(object? value) =>
+        value switch
+        {
+            null => null,
+            string text when string.IsNullOrWhiteSpace(text) => null,
+            string text => text,
+            byte[] bytes => System.Text.Encoding.UTF8.GetString(bytes),
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture),
+        };
+
     private static async Task<bool> HasKnownSeriesManifestAsync(
         Collection collection,
         ISeriesManifestRepository manifestRepo,
@@ -3446,6 +3464,15 @@ public static class CollectionEndpoints
             .ToList();
     }
 
+    private static async Task<Guid> ResolveCollectionMembershipWorkIdAsync(
+        Guid sourceWorkId,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        var displayIds = await GetCollectionCatalogDisplayWorkIdsAsync([sourceWorkId], db, ct);
+        return displayIds.Count == 0 ? sourceWorkId : displayIds[0];
+    }
+
     private static async Task<List<CollectionItemDto>> ResolveCollectionWorkIdsToItemsAsync(
         Guid collectionId,
         IReadOnlyList<Guid> workIds,
@@ -3489,16 +3516,29 @@ public static class CollectionEndpoints
                        NULLIF(episode_title.value, ''),
                        NULLIF(show_name.value, ''),
                        NULLIF(series_item.item_label, ''),
+                       (
+                           SELECT NULLIF(CAST(descendant_title.value AS TEXT), '')
+                           FROM work_tree title_tree
+                           INNER JOIN canonical_values descendant_title ON descendant_title.entity_id = title_tree.WorkId
+                           WHERE title_tree.RootWorkId = w.id
+                             AND descendant_title.key IN ('show_name', 'title')
+                           ORDER BY CASE descendant_title.key WHEN 'show_name' THEN 0 ELSE 1 END
+                           LIMIT 1
+                       ),
                        'Untitled'
                    ) AS Title,
-                   COALESCE(NULLIF(author_work.value, ''), NULLIF(artist_work.value, ''), NULLIF(director_work.value, '')) AS Creator,
+                   COALESCE(
+                       NULLIF(CAST(author_work.value AS TEXT), ''),
+                       NULLIF(CAST(artist_work.value AS TEXT), ''),
+                       NULLIF(CAST(director_work.value AS TEXT), '')
+                   ) AS Creator,
                    w.media_type AS MediaType,
                    COALESCE(
                        NULLIF(cover_asset.value, ''),
                        NULLIF(cover_work.value, ''),
                        CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
                    ) AS CoverUrl,
-                   COALESCE(w.ordinal, series_item.position, 999999) AS SortOrder
+                   COALESCE(w.ordinal, series_item.sort_order, 999999) AS SortOrder
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
@@ -3521,16 +3561,19 @@ public static class CollectionEndpoints
             },
             cancellationToken: ct))).ToList();
 
-        return rows.Select(row => new CollectionItemDto
-        {
-            Id = DeterministicCollectionItemId(collectionId, row.WorkId),
-            WorkId = row.WorkId,
-            Title = row.Title,
-            Creator = row.Creator,
-            MediaType = row.MediaType,
-            CoverUrl = row.CoverUrl,
-            SortOrder = row.SortOrder,
-        }).ToList();
+        return rows
+            .GroupBy(row => row.WorkId)
+            .Select(group => group.OrderBy(row => row.SortOrder).ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase).First())
+            .Select(row => new CollectionItemDto
+            {
+                Id = DeterministicCollectionItemId(collectionId, row.WorkId),
+                WorkId = row.WorkId,
+                Title = row.Title,
+                Creator = ToNullableText(row.Creator),
+                MediaType = row.MediaType,
+                CoverUrl = row.CoverUrl,
+                SortOrder = row.SortOrder,
+            }).ToList();
     }
 
     private static Guid DeterministicCollectionItemId(Guid collectionId, Guid workId)
@@ -3558,8 +3601,7 @@ public static class CollectionEndpoints
         int limit,
         CancellationToken ct)
     {
-        var workIds = sourceWorkIds
-            .Distinct()
+        var workIds = (await GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, db, ct))
             .Take(Math.Clamp(limit, 1, 8))
             .ToList();
         if (workIds.Count == 0)
@@ -4732,13 +4774,15 @@ public static class CollectionEndpoints
         string? Album,
         string? Artist);
 
-    private sealed record GeneratedCollectionItemRow(
-        Guid WorkId,
-        string Title,
-        string? Creator,
-        string MediaType,
-        string? CoverUrl,
-        int SortOrder);
+    private sealed class GeneratedCollectionItemRow
+    {
+        public Guid WorkId { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public object? Creator { get; init; }
+        public string MediaType { get; init; } = string.Empty;
+        public string? CoverUrl { get; init; }
+        public int SortOrder { get; init; }
+    }
 
     private sealed record CollectionDisplayWorkRow(string WorkId);
 

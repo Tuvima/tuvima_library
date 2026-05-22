@@ -57,7 +57,7 @@
     justify-content: space-between;
     gap: clamp(1.4rem, 4vw, 3.2rem);
     overflow: hidden;
-    padding: clamp(9rem, 20vh, 13rem) clamp(1.25rem, 5vw, 5.5rem) clamp(1.85rem, 4vh, 2.75rem);
+    padding: clamp(7rem, 13vh, 9.5rem) clamp(1.25rem, 5vw, 5.5rem) clamp(5rem, 10vh, 8rem);
     isolation: isolate;
     background:
         radial-gradient(circle at 82% 38%, rgba(var(--collection-accent-rgb), 0.32), transparent 26rem),
@@ -181,9 +181,9 @@
     position: relative;
     align-self: center;
     justify-self: end;
-    width: min(46vw, 46rem);
-    min-width: 34rem;
-    min-height: min(50rem, 78vh);
+    width: min(54vw, 58rem);
+    min-width: 42rem;
+    min-height: min(62rem, 86vh);
     border-radius: 1.25rem;
 }
 

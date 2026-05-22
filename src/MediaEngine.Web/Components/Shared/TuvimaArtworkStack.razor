@@ -92,14 +92,14 @@
     private string SlotStyle(int index, ArtworkShape shape)
     {
         var slot = ResolveSlot(index, shape);
-        return $"--artwork-width:{slot.Width};--x:{slot.X};--y:{slot.Y};--rotate:{slot.Rotate};--scale:{slot.Scale};--z:{slot.Z};";
+        return $"--artwork-width:{slot.Width};--left:{slot.Left};--top:{slot.Top};--rotate:{slot.Rotate};--scale:{slot.Scale};--z:{slot.Z};";
     }
 
     private StackSlot ResolveSlot(int index, ArtworkShape shape)
     {
         var count = VisibleArtwork.Count;
         if (count == 1)
-            return new("38%", "-50%", "-50%", "0deg", "1", 5);
+            return new("38%", "50%", "50%", "0deg", "1", 5);
 
         var layout = LayoutClass;
         return layout switch
@@ -116,29 +116,29 @@
         {
             2 =>
             [
-                new StackSlot("34%", "-66%", "-48%", "-3deg", ".98", 2),
-                new StackSlot("34%", "-28%", "-42%", "3deg", "1", 3),
+                new StackSlot("34%", "38%", "50%", "-2deg", ".98", 2),
+                new StackSlot("34%", "62%", "48%", "2deg", "1", 3),
             ],
             3 =>
             [
-                new StackSlot("32%", "-67%", "-55%", "-3deg", ".98", 2),
-                new StackSlot("35%", "-34%", "-52%", "2deg", "1", 4),
-                new StackSlot("31%", "-51%", "-18%", "-1deg", ".96", 3),
+                new StackSlot("30%", "27%", "45%", "-2deg", ".98", 2),
+                new StackSlot("34%", "53%", "38%", "1deg", "1", 4),
+                new StackSlot("30%", "45%", "68%", "0deg", ".98", 3),
             ],
             4 =>
             [
-                new StackSlot("31%", "-70%", "-56%", "-2deg", ".98", 2),
-                new StackSlot("35%", "-42%", "-60%", "1deg", "1", 4),
-                new StackSlot("31%", "-20%", "-48%", "2deg", ".98", 3),
-                new StackSlot("32%", "-51%", "-18%", "-1deg", "1", 5),
+                new StackSlot("29%", "21%", "43%", "-1deg", ".98", 2),
+                new StackSlot("31%", "49%", "34%", "0deg", "1", 4),
+                new StackSlot("29%", "76%", "48%", "1deg", ".98", 3),
+                new StackSlot("31%", "50%", "69%", "0deg", "1", 5),
             ],
             _ =>
             [
-                new StackSlot("31%", "-74%", "-57%", "-1deg", ".98", 2),
-                new StackSlot("35%", "-47%", "-63%", "0deg", "1", 4),
-                new StackSlot("31%", "-19%", "-51%", "1deg", ".98", 3),
-                new StackSlot("31%", "-63%", "-19%", "0deg", ".98", 5),
-                new StackSlot("32%", "-38%", "-14%", "0deg", "1.02", 6),
+                new StackSlot("28%", "18%", "42%", "-1deg", ".98", 2),
+                new StackSlot("31%", "48%", "30%", "0deg", "1", 4),
+                new StackSlot("28%", "78%", "45%", "1deg", ".98", 3),
+                new StackSlot("30%", "36%", "70%", "0deg", ".98", 5),
+                new StackSlot("30%", "58%", "68%", "0deg", "1.02", 6),
             ],
         };
 
@@ -154,29 +154,29 @@
         {
             2 =>
             [
-                new StackSlot("34%", "-58%", "-48%", "-3deg", ".98", 2),
-                new StackSlot("34%", "-35%", "-40%", "3deg", "1", 3),
+                new StackSlot("34%", "42%", "50%", "-2deg", ".98", 2),
+                new StackSlot("34%", "60%", "43%", "2deg", "1", 3),
             ],
             3 =>
             [
-                new StackSlot("30%", "-64%", "-54%", "-3deg", ".96", 2),
-                new StackSlot("34%", "-43%", "-48%", "2deg", "1", 4),
-                new StackSlot("30%", "-54%", "-24%", "-1deg", ".98", 3),
+                new StackSlot("30%", "34%", "45%", "-2deg", ".96", 2),
+                new StackSlot("34%", "56%", "41%", "1deg", "1", 4),
+                new StackSlot("30%", "46%", "67%", "0deg", ".98", 3),
             ],
             4 =>
             [
-                new StackSlot("29%", "-66%", "-56%", "-2deg", ".96", 2),
-                new StackSlot("31%", "-43%", "-58%", "1deg", ".99", 4),
-                new StackSlot("29%", "-25%", "-42%", "2deg", ".96", 3),
-                new StackSlot("31%", "-51%", "-22%", "-1deg", "1", 5),
+                new StackSlot("29%", "28%", "43%", "-1deg", ".96", 2),
+                new StackSlot("31%", "51%", "35%", "1deg", ".99", 4),
+                new StackSlot("29%", "74%", "46%", "1deg", ".96", 3),
+                new StackSlot("31%", "48%", "69%", "0deg", "1", 5),
             ],
             _ =>
             [
-                new StackSlot("28%", "-70%", "-56%", "-2deg", ".94", 2),
-                new StackSlot("31%", "-48%", "-61%", "1deg", "1", 4),
-                new StackSlot("28%", "-25%", "-49%", "2deg", ".95", 3),
-                new StackSlot("30%", "-60%", "-24%", "-1deg", ".98", 5),
-                new StackSlot("31%", "-38%", "-19%", "0deg", "1.02", 6),
+                new StackSlot("28%", "25%", "43%", "-1deg", ".94", 2),
+                new StackSlot("31%", "50%", "33%", "1deg", "1", 4),
+                new StackSlot("28%", "76%", "45%", "1deg", ".95", 3),
+                new StackSlot("30%", "36%", "69%", "0deg", ".98", 5),
+                new StackSlot("31%", "61%", "69%", "0deg", "1.02", 6),
             ],
         };
 
@@ -189,29 +189,29 @@
         {
             2 =>
             [
-                new StackSlot("30%", "-59%", "-55%", "-3deg", ".98", 2),
-                new StackSlot("30%", "-36%", "-49%", "3deg", "1", 3),
+                new StackSlot("30%", "40%", "48%", "-2deg", ".98", 2),
+                new StackSlot("30%", "61%", "45%", "2deg", "1", 3),
             ],
             3 =>
             [
-                new StackSlot("28%", "-67%", "-58%", "-3deg", ".96", 2),
-                new StackSlot("31%", "-44%", "-56%", "1deg", "1", 4),
-                new StackSlot("28%", "-53%", "-20%", "-1deg", ".98", 3),
+                new StackSlot("28%", "29%", "44%", "-2deg", ".96", 2),
+                new StackSlot("31%", "54%", "40%", "1deg", "1", 4),
+                new StackSlot("28%", "45%", "69%", "0deg", ".98", 3),
             ],
             4 =>
             [
-                new StackSlot("27%", "-70%", "-58%", "-2deg", ".97", 2),
-                new StackSlot("30%", "-45%", "-61%", "1deg", "1", 4),
-                new StackSlot("27%", "-22%", "-52%", "2deg", ".96", 3),
-                new StackSlot("29%", "-50%", "-18%", "-1deg", "1", 5),
+                new StackSlot("27%", "22%", "43%", "-1deg", ".97", 2),
+                new StackSlot("30%", "48%", "37%", "1deg", "1", 4),
+                new StackSlot("27%", "74%", "47%", "1deg", ".96", 3),
+                new StackSlot("29%", "51%", "70%", "0deg", "1", 5),
             ],
             _ =>
             [
-                new StackSlot("27%", "-74%", "-58%", "-2deg", ".97", 2),
-                new StackSlot("30%", "-49%", "-64%", "0deg", "1", 4),
-                new StackSlot("27%", "-22%", "-53%", "1deg", ".96", 3),
-                new StackSlot("27%", "-64%", "-20%", "-1deg", ".98", 5),
-                new StackSlot("30%", "-40%", "-16%", "0deg", "1.02", 6),
+                new StackSlot("27%", "18%", "42%", "-1deg", ".97", 2),
+                new StackSlot("30%", "45%", "34%", "0deg", "1", 4),
+                new StackSlot("27%", "75%", "45%", "1deg", ".96", 3),
+                new StackSlot("27%", "34%", "71%", "0deg", ".98", 5),
+                new StackSlot("30%", "58%", "69%", "0deg", "1.02", 6),
             ],
         };
 
@@ -236,7 +236,7 @@
         }
     }
 
-    private sealed record StackSlot(string Width, string X, string Y, string Rotate, string Scale, int Z);
+    private sealed record StackSlot(string Width, string Left, string Top, string Rotate, string Scale, int Z);
 }
 
 <style>
@@ -289,8 +289,8 @@
         --artwork-radius: clamp(.55rem, 1.2vw, .9rem);
         --artwork-ratio: 2 / 3;
         position: absolute;
-        left: 50%;
-        top: 50%;
+        left: var(--left);
+        top: var(--top);
         width: var(--artwork-width);
         aspect-ratio: var(--artwork-ratio);
         overflow: hidden;
@@ -301,7 +301,7 @@
             0 24px 70px rgba(0, 0, 0, .45),
             0 10px 26px rgba(0, 0, 0, .28),
             0 0 0 1px rgba(255, 255, 255, .08);
-        transform: translate(var(--x), var(--y)) rotate(var(--rotate)) scale(var(--scale));
+        transform: translate(-50%, -50%) rotate(var(--rotate)) scale(var(--scale));
         transform-origin: center center;
         z-index: var(--z);
     }
@@ -356,6 +356,28 @@
 
     .artwork-stack--hero .artwork-stack__item {
         --artwork-radius: clamp(.75rem, 1.1vw, 1rem);
+        top: calc(var(--top) - 5%);
+        width: calc(var(--artwork-width) * 1.72);
+    }
+
+    .artwork-stack--hero {
+        min-height: clamp(46rem, 84vh, 64rem);
+        overflow: visible;
+    }
+
+    .artwork-stack--hero .artwork-stack__stage {
+        background: transparent;
+        overflow: visible;
+    }
+
+    .artwork-stack--hero .artwork-stack__stage::before,
+    .artwork-stack--hero .artwork-stack__stage::after {
+        display: none;
+    }
+
+    .artwork-stack--card .artwork-stack__item,
+    .artwork-stack--compact .artwork-stack__item {
+        left: min(96%, calc(var(--left) + 18%));
     }
 
     @@media (max-width: 720px) {

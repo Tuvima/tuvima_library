@@ -170,6 +170,16 @@ public sealed class CollectionsHubTests
         Assert.Contains("--artwork-ratio: 1 / 1", source, StringComparison.Ordinal);
         Assert.Contains("--artwork-ratio: 2 / 3", source, StringComparison.Ordinal);
         Assert.Contains("--artwork-ratio: 16 / 9", source, StringComparison.Ordinal);
+        Assert.Contains("--left", source, StringComparison.Ordinal);
+        Assert.Contains("--top", source, StringComparison.Ordinal);
+        Assert.Contains("translate(-50%, -50%)", source, StringComparison.Ordinal);
+        Assert.Contains("calc(var(--left) + 18%)", source, StringComparison.Ordinal);
+        Assert.Contains("width: calc(var(--artwork-width) * 1.72)", source, StringComparison.Ordinal);
+        Assert.Contains("top: calc(var(--top) - 5%)", source, StringComparison.Ordinal);
+        Assert.Contains("min-height: clamp(46rem, 84vh, 64rem)", source, StringComparison.Ordinal);
+        Assert.Contains("overflow: visible", source, StringComparison.Ordinal);
+        Assert.Contains(".artwork-stack--hero .artwork-stack__stage", source, StringComparison.Ordinal);
+        Assert.Contains("background: transparent", source, StringComparison.Ordinal);
         Assert.Contains("artwork-stack--all-square", source, StringComparison.Ordinal);
         Assert.Contains("artwork-stack--all-portrait", source, StringComparison.Ordinal);
         Assert.Contains("artwork-stack--mixed", source, StringComparison.Ordinal);
