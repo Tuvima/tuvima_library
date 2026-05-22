@@ -77,10 +77,17 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("GetCollectionMediaCountsAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionArtworkItemsAsync", source, StringComparison.Ordinal);
         Assert.Contains("cover_asset", source, StringComparison.Ordinal);
+        Assert.Contains("artwork_primary_hex", source, StringComparison.Ordinal);
+        Assert.Contains("artwork_secondary_hex", source, StringComparison.Ordinal);
+        Assert.Contains("artwork_accent_hex", source, StringComparison.Ordinal);
+        Assert.Contains("preferred_cover.primary_hex", source, StringComparison.Ordinal);
         Assert.Contains("Watchlist", source, StringComparison.Ordinal);
         Assert.Contains("Favorites", source, StringComparison.Ordinal);
         Assert.Contains("CollectionManagementCatalogDto", dtoSource, StringComparison.Ordinal);
         Assert.Contains("CollectionArtworkItemDto", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("PrimaryColor", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("SecondaryColor", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("AccentColor", dtoSource, StringComparison.Ordinal);
         Assert.Contains("ArtworkItems", dtoSource, StringComparison.Ordinal);
         Assert.Contains("CanToggleGlobal", dtoSource, StringComparison.Ordinal);
         Assert.Contains("PrimaryLaneOverride", dtoSource, StringComparison.Ordinal);
@@ -115,6 +122,8 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("mediaCounts.WatchCount == mediaCounts.TvCount", source, StringComparison.Ordinal);
         Assert.Contains("displayNameOverride", dtoSource, StringComparison.Ordinal);
         Assert.Contains("series_manifest_items series_item", source, StringComparison.Ordinal);
+        Assert.Contains("return \"portrait\";", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("return \"landscape\";", source, StringComparison.Ordinal);
         Assert.Contains("TotalCount", dtoSource, StringComparison.Ordinal);
         Assert.DoesNotContain("Title     = title ?? $\"Work", source, StringComparison.Ordinal);
     }

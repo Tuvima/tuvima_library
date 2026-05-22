@@ -95,6 +95,7 @@ public sealed class DiscoveryCardViewModel
     public string? HeroUrl { get; init; }
     public string? LogoUrl { get; init; }
     public IReadOnlyList<string> PreviewImages { get; init; } = [];
+    public IReadOnlyList<ArtworkStackItem> ArtworkStackItems { get; init; } = [];
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
     public IReadOnlyList<DiscoveryMediaCountViewModel> MediaCounts { get; init; } = [];
@@ -104,6 +105,7 @@ public sealed class DiscoveryCardViewModel
     public IReadOnlyList<string> VibeTags { get; init; } = [];
     public string MediaKind { get; init; } = string.Empty;
     public string AccentColor { get; init; } = "var(--tl-status-info)";
+    public string SecondaryAccentColor { get; init; } = "#111827";
     public DiscoveryCardShape Shape { get; init; } = DiscoveryCardShape.Portrait;
     public DiscoveryCardPresentation Presentation { get; init; } = DiscoveryCardPresentation.Default;
     public DiscoverySurfaceKind SurfaceKind { get; init; } = DiscoverySurfaceKind.CoverPortrait;

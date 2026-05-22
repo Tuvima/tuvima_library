@@ -247,6 +247,15 @@ public sealed class CollectionArtworkItemDto
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 
+    [JsonPropertyName("primary_color")]
+    public string? PrimaryColor { get; init; }
+
+    [JsonPropertyName("secondary_color")]
+    public string? SecondaryColor { get; init; }
+
+    [JsonPropertyName("accent_color")]
+    public string? AccentColor { get; init; }
+
     [JsonPropertyName("artwork_shape")]
     public string ArtworkShape { get; init; } = "square";
 }

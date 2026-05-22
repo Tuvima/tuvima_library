@@ -52,20 +52,13 @@ else
                 </div>
             </div>
 
-            <div class="collection-detail-hero__cascade" aria-hidden="true">
-                @foreach (var art in HeroArtwork.Select((item, index) => new { item, index }))
-                {
-                    <div class="collection-detail-hero-card collection-detail-hero-card--@art.index">
-                        @if (!string.IsNullOrWhiteSpace(art.item.CoverUrl))
-                        {
-                            <img src="@art.item.CoverUrl" alt="" />
-                        }
-                        else
-                        {
-                            <MudIcon Icon="@IconForMediaType(art.item.MediaType)" />
-                        }
-                    </div>
-                }
+            <div class="collection-detail-hero__cascade">
+                <TuvimaArtworkStack Items="@HeroArtworkStackItems"
+                                    Seed="@Id.ToString("D")"
+                                    Variant="ArtworkStackVariant.Hero"
+                                    MaxVisible="5"
+                                    IsDecorative="true"
+                                    Class="collection-detail-artwork-stack" />
             </div>
         </section>
 
@@ -219,9 +212,9 @@ else
 }
 
 @code {
-    private sealed record HeroArtworkItem(Guid WorkId, string Title, string MediaType, string? CoverUrl);
     private sealed record ItemGroup(string Label, IReadOnlyList<CollectionItemViewModel> Items);
     private sealed record MediaCountChip(string Label, string Icon, int Count);
+    private sealed record PaletteColors(string PrimaryRgb, string SecondaryRgb);
 
     [Parameter] public Guid Id { get; set; }
 
@@ -250,13 +243,25 @@ else
 
     private string HeroClass => $"collection-detail-hero collection-detail-hero--{(_collection?.PrimaryLane ?? "CrossMedia").ToLowerInvariant()}";
 
-    private string HeroStyle => _collection?.PrimaryLane switch
+    private string HeroStyle
     {
-        "Read" => "--collection-accent-rgb: 177, 130, 255; --collection-warm-rgb: 199, 147, 88;",
-        "Listen" => "--collection-accent-rgb: 142, 105, 255; --collection-warm-rgb: 76, 190, 214;",
-        "Watch" => "--collection-accent-rgb: 166, 126, 255; --collection-warm-rgb: 226, 132, 62;",
-        _ => "--collection-accent-rgb: 168, 116, 255; --collection-warm-rgb: 226, 171, 75;",
-    };
+        get
+        {
+            var palette = ResolveHeroPalette();
+            if (palette is not null)
+            {
+                return $"--collection-accent-rgb: {palette.PrimaryRgb}; --collection-warm-rgb: {palette.SecondaryRgb};";
+            }
+
+            return _collection?.PrimaryLane switch
+            {
+                "Read" => "--collection-accent-rgb: 177, 130, 255; --collection-warm-rgb: 199, 147, 88;",
+                "Listen" => "--collection-accent-rgb: 142, 105, 255; --collection-warm-rgb: 76, 190, 214;",
+                "Watch" => "--collection-accent-rgb: 166, 126, 255; --collection-warm-rgb: 226, 132, 62;",
+                _ => "--collection-accent-rgb: 168, 116, 255; --collection-warm-rgb: 226, 171, 75;",
+            };
+        }
+    }
 
     private string DescriptionText =>
         !string.IsNullOrWhiteSpace(_collection?.Description)
@@ -288,25 +293,28 @@ else
         }
     }
 
-    private IReadOnlyList<HeroArtworkItem> HeroArtwork
+    private IReadOnlyList<ArtworkStackItem> HeroArtworkStackItems
     {
         get
         {
-            var fromItems = _items
-                .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
-                .OrderBy(item => StableHash(Id, item.WorkId))
-                .Take(6)
-                .Select(item => new HeroArtworkItem(item.WorkId, DisplayTitle(item), item.MediaType, item.CoverUrl))
+            var fromCatalog = (_collection?.ArtworkItems ?? [])
+                .Select(ToArtworkStackItem)
+                .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
                 .ToList();
 
-            if (fromItems.Count > 0)
-                return fromItems;
+            if (fromCatalog.Count > 0)
+                return fromCatalog;
 
-            return (_collection?.ArtworkItems ?? [])
+            return _items
                 .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
-                .OrderBy(item => StableHash(Id, item.WorkId))
-                .Take(6)
-                .Select(item => new HeroArtworkItem(item.WorkId, item.Title, item.MediaType, item.CoverUrl))
+                .Select(item => new ArtworkStackItem
+                {
+                    Id = item.WorkId.ToString("D"),
+                    Title = DisplayTitle(item),
+                    ImageUrl = item.CoverUrl ?? string.Empty,
+                    MediaType = item.MediaType,
+                    Shape = ToArtworkShape(null, item.MediaType),
+                })
                 .ToList();
         }
     }
@@ -523,4 +531,106 @@ else
             return hash;
         }
     }
+
+    private static ArtworkStackItem ToArtworkStackItem(CollectionArtworkItemViewModel item) => new()
+    {
+        Id = item.WorkId.ToString("D"),
+        Title = item.Title,
+        ImageUrl = item.CoverUrl ?? string.Empty,
+        MediaType = item.MediaType,
+        Shape = ToArtworkShape(item.ArtworkShape, item.MediaType),
+    };
+
+    private static ArtworkShape ToArtworkShape(string? shape, string? mediaType)
+    {
+        if (string.Equals(shape, "square", StringComparison.OrdinalIgnoreCase))
+            return ArtworkShape.Square;
+
+        if (string.Equals(shape, "wide", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(shape, "landscape", StringComparison.OrdinalIgnoreCase))
+            return ArtworkShape.Wide;
+
+        if (string.Equals(shape, "portrait", StringComparison.OrdinalIgnoreCase))
+            return ArtworkShape.Portrait;
+
+        return LaneForMediaType(mediaType) == "Listen"
+            ? ArtworkShape.Square
+            : ArtworkShape.Portrait;
+    }
+
+    private PaletteColors? ResolveHeroPalette()
+    {
+        if (_collection is null)
+        {
+            return null;
+        }
+
+        var candidates = _collection.ArtworkItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.PrimaryColor)
+                || !string.IsNullOrWhiteSpace(item.SecondaryColor)
+                || !string.IsNullOrWhiteSpace(item.AccentColor))
+            .OrderBy(item => StableHash(_collection.Id, item.WorkId))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var index = (StableHash(_collection.Id, _collection.Id) & int.MaxValue) % candidates.Count;
+        var selected = candidates[index];
+        var primary = FirstNonBlank(selected.PrimaryColor, selected.AccentColor, selected.SecondaryColor);
+        var secondary = FirstNonBlank(selected.SecondaryColor, selected.AccentColor, selected.PrimaryColor);
+        var primaryRgb = ToRgbCss(primary);
+        var secondaryRgb = ToRgbCss(secondary);
+
+        return primaryRgb is null || secondaryRgb is null
+            ? null
+            : new PaletteColors(primaryRgb, secondaryRgb);
+    }
+
+    private static string? ToRgbCss(string? color)
+    {
+        if (string.IsNullOrWhiteSpace(color))
+        {
+            return null;
+        }
+
+        var value = color.Trim();
+        if (value.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) && value.EndsWith(')'))
+        {
+            return value[4..^1];
+        }
+
+        if (!value.StartsWith('#'))
+        {
+            return null;
+        }
+
+        var hex = value[1..];
+        if (hex.Length == 3)
+        {
+            hex = string.Concat(hex.Select(character => $"{character}{character}"));
+        }
+
+        if (hex.Length != 6)
+        {
+            return null;
+        }
+
+        try
+        {
+            var red = Convert.ToInt32(hex[..2], 16);
+            var green = Convert.ToInt32(hex[2..4], 16);
+            var blue = Convert.ToInt32(hex[4..], 16);
+            return $"{red}, {green}, {blue}";
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

@@ -47,14 +47,20 @@ public sealed class CollectionsHubTests
         Assert.Contains("Continue browsing", source, StringComparison.Ordinal);
         Assert.Contains("Mode = \"Collection\"", source, StringComparison.Ordinal);
         Assert.Contains("MediaKind = \"Collection\"", source, StringComparison.Ordinal);
+        Assert.Contains("PaletteArtwork(collection)", source, StringComparison.Ordinal);
+        Assert.Contains("SecondaryAccentColor = secondaryAccentColor", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Mode = type == \"Playlist\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaKind = \"Playlist\"", source, StringComparison.Ordinal);
         Assert.Contains("browse-hero__carousel", heroSource, StringComparison.Ordinal);
         Assert.Contains("FooterContent", heroSource, StringComparison.Ordinal);
         var cardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\DiscoveryCard.razor"));
         Assert.Contains("is-collection-card", cardSource, StringComparison.Ordinal);
-        Assert.Contains("discovery-card-collection-art-row", cardSource, StringComparison.Ordinal);
+        Assert.Contains("--discovery-secondary-accent", cardSource, StringComparison.Ordinal);
+        Assert.Contains("<TuvimaArtworkStack", cardSource, StringComparison.Ordinal);
+        Assert.Contains("CollectionArtworkStackItems", cardSource, StringComparison.Ordinal);
         Assert.Contains("discovery-card-collection-copy", cardSource, StringComparison.Ordinal);
+        Assert.Contains("ArtworkStackItems = artworkStackItems", source, StringComparison.Ordinal);
+        Assert.Contains("ToArtworkShape(item.ArtworkShape, item.MediaType)", source, StringComparison.Ordinal);
         Assert.Contains("PrimaryNavigationUrl = $\"/collection/{collection.Id:D}\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("READ COLLECTIONS", source, StringComparison.Ordinal);
         Assert.DoesNotContain("LISTEN COLLECTIONS", source, StringComparison.Ordinal);
@@ -113,7 +119,11 @@ public sealed class CollectionsHubTests
         Assert.Contains("collection-detail-hero", source, StringComparison.Ordinal);
         Assert.Contains("EDIT COLLECTION", source, StringComparison.Ordinal);
         Assert.Contains("OVERVIEW", source, StringComparison.Ordinal);
-        Assert.Contains("HeroArtwork", source, StringComparison.Ordinal);
+        Assert.Contains("HeroArtworkStackItems", source, StringComparison.Ordinal);
+        Assert.Contains("<TuvimaArtworkStack", source, StringComparison.Ordinal);
+        Assert.Contains("Variant=\"ArtworkStackVariant.Hero\"", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveHeroPalette", source, StringComparison.Ordinal);
+        Assert.Contains("ToRgbCss", source, StringComparison.Ordinal);
         Assert.Contains("ItemGroups", source, StringComparison.Ordinal);
         Assert.Contains("tl-detail-page collection-detail-page", source, StringComparison.Ordinal);
         Assert.Contains("GENERATED COLLECTION", source, StringComparison.Ordinal);
@@ -138,10 +148,36 @@ public sealed class CollectionsHubTests
         Assert.Contains("align-items: center", css, StringComparison.Ordinal);
         Assert.Contains("align-self: center", css, StringComparison.Ordinal);
         Assert.DoesNotContain("transform: translateY", css, StringComparison.Ordinal);
-        Assert.Contains("object-fit: contain", css, StringComparison.Ordinal);
+        Assert.Contains("collection-detail-artwork-stack", css, StringComparison.Ordinal);
         Assert.Contains("collection-detail-hero__cascade", css, StringComparison.Ordinal);
         Assert.Contains("collection-detail-item-grid", css, StringComparison.Ordinal);
         Assert.Contains("position: sticky", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TuvimaArtworkStack_IsGenericSeededAndShapeAware()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\TuvimaArtworkStack.razor"));
+        var modelSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Models\ViewDTOs\ArtworkStackModels.cs"));
+
+        Assert.Contains("public sealed class ArtworkStackItem", modelSource, StringComparison.Ordinal);
+        Assert.Contains("public enum ArtworkShape", modelSource, StringComparison.Ordinal);
+        Assert.Contains("public enum ArtworkStackVariant", modelSource, StringComparison.Ordinal);
+        Assert.Contains("[Parameter] public IReadOnlyList<ArtworkStackItem> Items", source, StringComparison.Ordinal);
+        Assert.Contains("[Parameter] public string Seed", source, StringComparison.Ordinal);
+        Assert.Contains("OrderBy(item => StableHash", source, StringComparison.Ordinal);
+        Assert.Contains("data-shape=\"@ShapeValue(slot.item.Shape)\"", source, StringComparison.Ordinal);
+        Assert.Contains("--artwork-ratio: 1 / 1", source, StringComparison.Ordinal);
+        Assert.Contains("--artwork-ratio: 2 / 3", source, StringComparison.Ordinal);
+        Assert.Contains("--artwork-ratio: 16 / 9", source, StringComparison.Ordinal);
+        Assert.Contains("artwork-stack--all-square", source, StringComparison.Ordinal);
+        Assert.Contains("artwork-stack--all-portrait", source, StringComparison.Ordinal);
+        Assert.Contains("artwork-stack--mixed", source, StringComparison.Ordinal);
+        Assert.Contains("nth-of-type(n + 4)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FeaturedCover", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("PrimaryCover", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("BestCover", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Collection", modelSource, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

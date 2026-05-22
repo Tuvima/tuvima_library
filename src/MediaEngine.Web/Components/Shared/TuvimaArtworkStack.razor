@@ -1,0 +1,371 @@
+@namespace MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="artwork-stack @VariantClass @LayoutClass @Class"
+     data-count="@VisibleArtwork.Count"
+     aria-hidden="@(IsDecorative ? "true" : null)"
+     aria-label="@(!IsDecorative ? AriaLabel : null)"
+     role="@(!IsDecorative ? "img" : null)">
+    <div class="artwork-stack__stage">
+        @if (VisibleArtwork.Count == 0)
+        {
+            <div class="artwork-stack__placeholder">
+                <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
+            </div>
+        }
+        else
+        {
+            @foreach (var slot in VisibleArtwork.Select((item, index) => new { item, index }))
+            {
+                <div class="artwork-stack__item"
+                     data-shape="@ShapeValue(slot.item.Shape)"
+                     style="@SlotStyle(slot.index, slot.item.Shape)">
+                    <img src="@slot.item.ImageUrl"
+                         alt="@(IsDecorative ? string.Empty : slot.item.Title)"
+                         loading="lazy" />
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ArtworkStackItem> Items { get; set; } = [];
+    [Parameter] public string Seed { get; set; } = string.Empty;
+    [Parameter] public ArtworkStackVariant Variant { get; set; } = ArtworkStackVariant.Card;
+    [Parameter] public int? MaxVisible { get; set; }
+    [Parameter] public bool IsDecorative { get; set; } = true;
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool PreferShapeBalancedLayout { get; set; } = true;
+
+    private IReadOnlyList<ArtworkStackItem> VisibleArtwork
+    {
+        get
+        {
+            var maxVisible = Math.Clamp(MaxVisible ?? DefaultVisibleCount, 1, 7);
+            return Items
+                .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+                .Select(item => new ArtworkStackItem
+                {
+                    Id = item.Id,
+                    Title = item.Title,
+                    ImageUrl = item.ImageUrl,
+                    MediaType = item.MediaType,
+                    Shape = item.Shape,
+                })
+                .OrderBy(item => StableHash($"{Seed}|{item.Id}|{item.ImageUrl}"))
+                .Take(maxVisible)
+                .ToList();
+        }
+    }
+
+    private int DefaultVisibleCount => Variant switch
+    {
+        ArtworkStackVariant.Compact => 3,
+        ArtworkStackVariant.Card => 4,
+        ArtworkStackVariant.Hero => 5,
+        ArtworkStackVariant.Dense => 5,
+        _ => 4,
+    };
+
+    private string VariantClass => $"artwork-stack--{Variant.ToString().ToLowerInvariant()}";
+
+    private string LayoutClass
+    {
+        get
+        {
+            if (VisibleArtwork.Count == 0)
+                return "artwork-stack--empty";
+
+            var distinctShapes = VisibleArtwork.Select(item => item.Shape).Distinct().ToList();
+            if (PreferShapeBalancedLayout && distinctShapes.Count == 1 && distinctShapes[0] == ArtworkShape.Square)
+                return "artwork-stack--all-square";
+
+            if (PreferShapeBalancedLayout && distinctShapes.Count == 1 && distinctShapes[0] == ArtworkShape.Portrait)
+                return "artwork-stack--all-portrait";
+
+            return "artwork-stack--mixed";
+        }
+    }
+
+    private string SlotStyle(int index, ArtworkShape shape)
+    {
+        var slot = ResolveSlot(index, shape);
+        return $"--artwork-width:{slot.Width};--x:{slot.X};--y:{slot.Y};--rotate:{slot.Rotate};--scale:{slot.Scale};--z:{slot.Z};";
+    }
+
+    private StackSlot ResolveSlot(int index, ArtworkShape shape)
+    {
+        var count = VisibleArtwork.Count;
+        if (count == 1)
+            return new("38%", "-50%", "-50%", "0deg", "1", 5);
+
+        var layout = LayoutClass;
+        return layout switch
+        {
+            "artwork-stack--all-square" => ResolveSquareSlot(index, count),
+            "artwork-stack--all-portrait" => ResolvePortraitSlot(index, count),
+            _ => ResolveMixedSlot(index, count, shape),
+        };
+    }
+
+    private static StackSlot ResolveMixedSlot(int index, int count, ArtworkShape shape)
+    {
+        StackSlot[] slots = count switch
+        {
+            2 =>
+            [
+                new StackSlot("34%", "-66%", "-48%", "-3deg", ".98", 2),
+                new StackSlot("34%", "-28%", "-42%", "3deg", "1", 3),
+            ],
+            3 =>
+            [
+                new StackSlot("32%", "-67%", "-55%", "-3deg", ".98", 2),
+                new StackSlot("35%", "-34%", "-52%", "2deg", "1", 4),
+                new StackSlot("31%", "-51%", "-18%", "-1deg", ".96", 3),
+            ],
+            4 =>
+            [
+                new StackSlot("31%", "-70%", "-56%", "-2deg", ".98", 2),
+                new StackSlot("35%", "-42%", "-60%", "1deg", "1", 4),
+                new StackSlot("31%", "-20%", "-48%", "2deg", ".98", 3),
+                new StackSlot("32%", "-51%", "-18%", "-1deg", "1", 5),
+            ],
+            _ =>
+            [
+                new StackSlot("31%", "-74%", "-57%", "-1deg", ".98", 2),
+                new StackSlot("35%", "-47%", "-63%", "0deg", "1", 4),
+                new StackSlot("31%", "-19%", "-51%", "1deg", ".98", 3),
+                new StackSlot("31%", "-63%", "-19%", "0deg", ".98", 5),
+                new StackSlot("32%", "-38%", "-14%", "0deg", "1.02", 6),
+            ],
+        };
+
+        return slots[Math.Min(index, slots.Length - 1)] with
+        {
+            Width = shape == ArtworkShape.Wide ? "38%" : slots[Math.Min(index, slots.Length - 1)].Width,
+        };
+    }
+
+    private static StackSlot ResolveSquareSlot(int index, int count)
+    {
+        StackSlot[] slots = count switch
+        {
+            2 =>
+            [
+                new StackSlot("34%", "-58%", "-48%", "-3deg", ".98", 2),
+                new StackSlot("34%", "-35%", "-40%", "3deg", "1", 3),
+            ],
+            3 =>
+            [
+                new StackSlot("30%", "-64%", "-54%", "-3deg", ".96", 2),
+                new StackSlot("34%", "-43%", "-48%", "2deg", "1", 4),
+                new StackSlot("30%", "-54%", "-24%", "-1deg", ".98", 3),
+            ],
+            4 =>
+            [
+                new StackSlot("29%", "-66%", "-56%", "-2deg", ".96", 2),
+                new StackSlot("31%", "-43%", "-58%", "1deg", ".99", 4),
+                new StackSlot("29%", "-25%", "-42%", "2deg", ".96", 3),
+                new StackSlot("31%", "-51%", "-22%", "-1deg", "1", 5),
+            ],
+            _ =>
+            [
+                new StackSlot("28%", "-70%", "-56%", "-2deg", ".94", 2),
+                new StackSlot("31%", "-48%", "-61%", "1deg", "1", 4),
+                new StackSlot("28%", "-25%", "-49%", "2deg", ".95", 3),
+                new StackSlot("30%", "-60%", "-24%", "-1deg", ".98", 5),
+                new StackSlot("31%", "-38%", "-19%", "0deg", "1.02", 6),
+            ],
+        };
+
+        return slots[Math.Min(index, slots.Length - 1)];
+    }
+
+    private static StackSlot ResolvePortraitSlot(int index, int count)
+    {
+        StackSlot[] slots = count switch
+        {
+            2 =>
+            [
+                new StackSlot("30%", "-59%", "-55%", "-3deg", ".98", 2),
+                new StackSlot("30%", "-36%", "-49%", "3deg", "1", 3),
+            ],
+            3 =>
+            [
+                new StackSlot("28%", "-67%", "-58%", "-3deg", ".96", 2),
+                new StackSlot("31%", "-44%", "-56%", "1deg", "1", 4),
+                new StackSlot("28%", "-53%", "-20%", "-1deg", ".98", 3),
+            ],
+            4 =>
+            [
+                new StackSlot("27%", "-70%", "-58%", "-2deg", ".97", 2),
+                new StackSlot("30%", "-45%", "-61%", "1deg", "1", 4),
+                new StackSlot("27%", "-22%", "-52%", "2deg", ".96", 3),
+                new StackSlot("29%", "-50%", "-18%", "-1deg", "1", 5),
+            ],
+            _ =>
+            [
+                new StackSlot("27%", "-74%", "-58%", "-2deg", ".97", 2),
+                new StackSlot("30%", "-49%", "-64%", "0deg", "1", 4),
+                new StackSlot("27%", "-22%", "-53%", "1deg", ".96", 3),
+                new StackSlot("27%", "-64%", "-20%", "-1deg", ".98", 5),
+                new StackSlot("30%", "-40%", "-16%", "0deg", "1.02", 6),
+            ],
+        };
+
+        return slots[Math.Min(index, slots.Length - 1)];
+    }
+
+    private static string ShapeValue(ArtworkShape shape) => shape switch
+    {
+        ArtworkShape.Square => "square",
+        ArtworkShape.Wide => "wide",
+        _ => "portrait",
+    };
+
+    private static int StableHash(string value)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var character in value)
+                hash = (hash * 31) + character;
+            return hash & int.MaxValue;
+        }
+    }
+
+    private sealed record StackSlot(string Width, string X, string Y, string Rotate, string Scale, int Z);
+}
+
+<style>
+    .artwork-stack {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        min-height: 10rem;
+        overflow: hidden;
+        border-radius: inherit;
+        isolation: isolate;
+        pointer-events: none;
+    }
+
+    .artwork-stack__stage {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background:
+            radial-gradient(circle at 35% 40%, rgba(245, 158, 80, .18), transparent 44%),
+            radial-gradient(circle at 70% 50%, rgba(124, 92, 255, .18), transparent 48%),
+            linear-gradient(135deg, rgba(3, 7, 14, .92), rgba(12, 17, 29, .74) 54%, rgba(3, 7, 13, .96));
+    }
+
+    .artwork-stack__stage::before {
+        content: "";
+        position: absolute;
+        inset: 8%;
+        z-index: 0;
+        background:
+            radial-gradient(circle at 35% 40%, rgba(245, 158, 80, .22), transparent 45%),
+            radial-gradient(circle at 70% 50%, rgba(124, 92, 255, .20), transparent 48%),
+            radial-gradient(circle at 55% 70%, rgba(45, 212, 191, .12), transparent 44%);
+        filter: blur(44px);
+        opacity: .9;
+    }
+
+    .artwork-stack__stage::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background:
+            linear-gradient(90deg, rgba(2, 6, 16, .72), transparent 38%, rgba(2, 6, 16, .28)),
+            linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(2, 6, 16, .34));
+        pointer-events: none;
+    }
+
+    .artwork-stack__item {
+        --artwork-radius: clamp(.55rem, 1.2vw, .9rem);
+        --artwork-ratio: 2 / 3;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: var(--artwork-width);
+        aspect-ratio: var(--artwork-ratio);
+        overflow: hidden;
+        border-radius: var(--artwork-radius);
+        background: rgba(255, 255, 255, .04);
+        border: 1px solid rgba(255, 255, 255, .13);
+        box-shadow:
+            0 24px 70px rgba(0, 0, 0, .45),
+            0 10px 26px rgba(0, 0, 0, .28),
+            0 0 0 1px rgba(255, 255, 255, .08);
+        transform: translate(var(--x), var(--y)) rotate(var(--rotate)) scale(var(--scale));
+        transform-origin: center center;
+        z-index: var(--z);
+    }
+
+    .artwork-stack__item[data-shape="square"] {
+        --artwork-ratio: 1 / 1;
+    }
+
+    .artwork-stack__item[data-shape="portrait"] {
+        --artwork-ratio: 2 / 3;
+    }
+
+    .artwork-stack__item[data-shape="wide"] {
+        --artwork-ratio: 16 / 9;
+    }
+
+    .artwork-stack__item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .artwork-stack__placeholder {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: min(42%, 12rem);
+        aspect-ratio: 1 / 1;
+        color: rgba(226, 232, 240, .38);
+        border: 1px solid rgba(255, 255, 255, .12);
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, .04);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, .34);
+        transform: translate(-50%, -50%);
+    }
+
+    .artwork-stack__placeholder ::deep .mud-icon-root {
+        font-size: clamp(2.2rem, 7vw, 4.2rem);
+    }
+
+    .artwork-stack--compact .artwork-stack__item {
+        --artwork-radius: .55rem;
+    }
+
+    .artwork-stack--card .artwork-stack__item {
+        --artwork-radius: .62rem;
+    }
+
+    .artwork-stack--hero .artwork-stack__item {
+        --artwork-radius: clamp(.75rem, 1.1vw, 1rem);
+    }
+
+    @@media (max-width: 720px) {
+        .artwork-stack__item:nth-of-type(n + 4) {
+            display: none;
+        }
+
+        .artwork-stack__item {
+            width: calc(var(--artwork-width) * 1.18);
+            border-radius: .7rem;
+        }
+    }
+</style>

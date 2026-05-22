@@ -430,6 +430,15 @@ public sealed class CollectionArtworkItemViewModel
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
 
+    [JsonPropertyName("primary_color")]
+    public string? PrimaryColor { get; set; }
+
+    [JsonPropertyName("secondary_color")]
+    public string? SecondaryColor { get; set; }
+
+    [JsonPropertyName("accent_color")]
+    public string? AccentColor { get; set; }
+
     [JsonPropertyName("artwork_shape")]
     public string ArtworkShape { get; set; } = "square";
 }

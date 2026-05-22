@@ -3605,14 +3605,46 @@ public static class CollectionEndpoints
                        NULLIF(cover_asset.value, ''),
                        NULLIF(cover_work.value, ''),
                        CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
-                   ) AS CoverUrl
+                   ) AS CoverUrl,
+                   COALESCE(
+                       NULLIF(primary_work.value, ''),
+                       NULLIF(cover_primary_work.value, ''),
+                       NULLIF(preferred_cover.primary_hex, '')
+                   ) AS PrimaryColor,
+                   COALESCE(
+                       NULLIF(secondary_work.value, ''),
+                       NULLIF(cover_secondary_work.value, ''),
+                       NULLIF(preferred_cover.secondary_hex, '')
+                   ) AS SecondaryColor,
+                   COALESCE(
+                       NULLIF(accent_work.value, ''),
+                       NULLIF(dominant_work.value, ''),
+                       NULLIF(cover_accent_work.value, ''),
+                       NULLIF(preferred_cover.accent_hex, '')
+                   ) AS AccentColor
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
+            LEFT JOIN entity_assets preferred_cover ON preferred_cover.id = (
+                SELECT ea.id
+                FROM entity_assets ea
+                WHERE ea.entity_id = w.id
+                  AND ea.entity_type = 'Work'
+                  AND ea.asset_type IN ('CoverArt', 'SquareArt', 'Background', 'Banner')
+                ORDER BY ea.is_preferred DESC, ea.created_at DESC, ea.id
+                LIMIT 1
+            )
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
             LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
             LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
             LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values primary_work ON primary_work.entity_id = w.id AND primary_work.key = 'artwork_primary_hex'
+            LEFT JOIN canonical_values secondary_work ON secondary_work.entity_id = w.id AND secondary_work.key = 'artwork_secondary_hex'
+            LEFT JOIN canonical_values accent_work ON accent_work.entity_id = w.id AND accent_work.key = 'artwork_accent_hex'
+            LEFT JOIN canonical_values dominant_work ON dominant_work.entity_id = w.id AND dominant_work.key = 'dominant_color'
+            LEFT JOIN canonical_values cover_primary_work ON cover_primary_work.entity_id = w.id AND cover_primary_work.key = 'cover_primary_hex'
+            LEFT JOIN canonical_values cover_secondary_work ON cover_secondary_work.entity_id = w.id AND cover_secondary_work.key = 'cover_secondary_hex'
+            LEFT JOIN canonical_values cover_accent_work ON cover_accent_work.entity_id = w.id AND cover_accent_work.key = 'cover_accent_hex'
             LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id
             WHERE w.id IN @WorkIds
               AND ({visibleWorkPredicate} OR ra.AssetId IS NOT NULL)
@@ -3636,6 +3668,9 @@ public static class CollectionEndpoints
                     Title = string.IsNullOrWhiteSpace(row.Title) ? "Untitled" : row.Title,
                     MediaType = row.MediaType ?? "Unknown",
                     CoverUrl = row.CoverUrl,
+                    PrimaryColor = row.PrimaryColor,
+                    SecondaryColor = row.SecondaryColor,
+                    AccentColor = row.AccentColor,
                     ArtworkShape = ArtworkShapeForMediaType(row.MediaType),
                 };
             })
@@ -3669,7 +3704,7 @@ public static class CollectionEndpoints
 
         if (IsWatchMediaType(mediaType))
         {
-            return "landscape";
+            return "portrait";
         }
 
         if (IsListenMediaType(mediaType))
@@ -3686,6 +3721,9 @@ public static class CollectionEndpoints
         public string? Title { get; init; }
         public string? MediaType { get; init; }
         public string? CoverUrl { get; init; }
+        public string? PrimaryColor { get; init; }
+        public string? SecondaryColor { get; init; }
+        public string? AccentColor { get; init; }
     }
 
     private static string? NormalizeCollectionArtworkMimeType(string? contentType, string extension)

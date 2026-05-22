@@ -8,7 +8,7 @@
 
 <div class="discovery-card tl-card-hover--media @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @HoverPlacementClass @(Item.IsCollection ? "is-collection-card" : "") @(_expanded ? "is-expanded" : "")"
      @ref="_cardRef"
-     style="--discovery-accent: @Item.AccentColor;"
+     style="--discovery-accent: @Item.AccentColor; --discovery-secondary-accent: @Item.SecondaryAccentColor;"
      tabindex="0"
      @onkeydown="HandleKeyDown">
     <div class="discovery-card-frame">
@@ -16,15 +16,12 @@
             @if (ShowCollectionBanner)
             {
                 <div class="discovery-card-collection-wash"></div>
-                @if (PreviewImages.Count > 0)
-                {
-                    <div class="discovery-card-collection-art-row" aria-hidden="true">
-                        @for (var index = 0; index < PreviewImages.Count; index++)
-                        {
-                            <img src="@PreviewImages[index]" alt="" class="discovery-card-collection-art" style="@GetCollectionArtStyle(index)" loading="lazy" />
-                        }
-                    </div>
-                }
+                <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
+                                    Seed="@CollectionStackSeed"
+                                    Variant="ArtworkStackVariant.Card"
+                                    MaxVisible="4"
+                                    IsDecorative="true"
+                                    Class="discovery-card-artwork-stack" />
             }
             else if (ShowPreviewStack)
             {
@@ -315,6 +312,20 @@
         .Take(5)
         .ToList();
 
+    private IReadOnlyList<ArtworkStackItem> CollectionArtworkStackItems =>
+        Item.ArtworkStackItems.Count > 0
+            ? Item.ArtworkStackItems
+            : PreviewImages.Select((image, index) => new ArtworkStackItem
+            {
+                Id = $"{Item.Id:D}:{index}",
+                Title = Item.Title,
+                ImageUrl = image,
+                MediaType = Item.MediaKind,
+                Shape = ArtworkShape.Portrait,
+            }).ToList();
+
+    private string CollectionStackSeed => Item.CollectionId?.ToString("D") ?? Item.Id.ToString("D");
+
     private IReadOnlyList<DiscoveryMediaCountViewModel> CollectionMediaCounts => Item.MediaCounts
         .Where(count => count.Count > 0)
         .Take(4)
@@ -353,7 +364,7 @@
         _ => "clamp(430px, 40vw, 560px)",
     };
 
-    private string HoverPanelStyle => $"--discovery-accent: {Item.AccentColor}; --discovery-hover-panel-width: {HoverPanelWidth};";
+    private string HoverPanelStyle => $"--discovery-accent: {Item.AccentColor}; --discovery-secondary-accent: {Item.SecondaryAccentColor}; --discovery-hover-panel-width: {HoverPanelWidth};";
 
     private string PrimaryIcon => Item.MediaKind switch
     {
@@ -524,30 +535,6 @@
         },
     };
 
-    private string GetCollectionArtStyle(int index)
-    {
-        var zIndex = 10 + index;
-        var left = 4 + index * 17;
-        var top = index switch
-        {
-            0 => 18,
-            1 => 8,
-            2 => 22,
-            3 => 12,
-            _ => 26,
-        };
-        var rotation = index switch
-        {
-            0 => -7,
-            1 => -3,
-            2 => 2,
-            3 => 6,
-            _ => 9,
-        };
-
-        return $"left:{left}%;top:{top}%;z-index:{zIndex};transform:rotate({rotation}deg);";
-    }
-
     private static string? FirstNonBlank(params string?[] values) => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private void HandleHoverImageError()
@@ -608,10 +595,9 @@
     .discovery-card-gradient { position:absolute; inset:0; pointer-events:none; }
     .discovery-card-gradient.is-banner-gradient { background:linear-gradient(180deg,rgba(0,0,0,.02) 0%,rgba(2,6,16,.18) 42%,rgba(2,6,16,.88) 100%),linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--discovery-accent) 18%,transparent) 100%); }
     .discovery-card-gradient.is-cover-gradient { background:linear-gradient(180deg,rgba(255,255,255,.02) 0%,rgba(255,255,255,0) 34%,rgba(2,6,16,.42) 100%),linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--discovery-accent) 12%,transparent) 100%); }
-    .discovery-card.is-collection-card .discovery-card-media { background:radial-gradient(circle at 22% 28%,color-mix(in srgb,var(--discovery-accent) 34%,transparent),transparent 38%),radial-gradient(circle at 82% 78%,color-mix(in srgb,var(--discovery-accent) 18%,#0f172a 12%),transparent 44%),linear-gradient(110deg,color-mix(in srgb,var(--discovery-accent) 15%,#05070d) 0%,#111827 48%,#05070d 100%); border-color:rgba(255,255,255,.12); }
-    .discovery-card-collection-wash { position:absolute; inset:0; background:linear-gradient(90deg,rgba(4,7,13,.96) 0%,rgba(4,7,13,.72) 43%,rgba(4,7,13,.28) 70%,rgba(4,7,13,.76) 100%),linear-gradient(180deg,rgba(255,255,255,.035) 0%,rgba(2,6,16,.62) 100%); z-index:1; }
-    .discovery-card-collection-art-row { position:absolute; inset:0 0 0 auto; width:58%; z-index:2; overflow:hidden; mask-image:linear-gradient(90deg,transparent 0%,#000 18%,#000 100%); }
-    .discovery-card-collection-art { position:absolute; height:78%; width:31%; min-width:96px; object-fit:cover; border-radius:var(--app-radius-md); opacity:.96; filter:saturate(1.02) contrast(1.04); box-shadow:-18px 18px 34px rgba(0,0,0,.34),0 0 0 1px rgba(255,255,255,.14); transform-origin:center center; }
+    .discovery-card.is-collection-card .discovery-card-media { background:radial-gradient(circle at 22% 28%,color-mix(in srgb,var(--discovery-accent) 38%,transparent),transparent 40%),radial-gradient(circle at 82% 78%,color-mix(in srgb,var(--discovery-secondary-accent) 34%,#0f172a 10%),transparent 46%),linear-gradient(110deg,color-mix(in srgb,var(--discovery-accent) 18%,#05070d) 0%,color-mix(in srgb,var(--discovery-secondary-accent) 20%,#111827) 52%,#05070d 100%); border-color:rgba(255,255,255,.12); }
+    .discovery-card-collection-wash { position:absolute; inset:0; background:linear-gradient(90deg,rgba(4,7,13,.96) 0%,rgba(4,7,13,.7) 43%,rgba(4,7,13,.24) 70%,rgba(4,7,13,.76) 100%),linear-gradient(180deg,color-mix(in srgb,var(--discovery-accent) 8%,rgba(255,255,255,.035)) 0%,color-mix(in srgb,var(--discovery-secondary-accent) 14%,rgba(2,6,16,.62)) 100%); z-index:1; }
+    .discovery-card-artwork-stack { position:absolute; inset:0; z-index:2; border-radius:inherit; }
     .discovery-card-collection-copy { position:absolute; left:18px; right:43%; top:50%; transform:translateY(-50%); z-index:3; display:flex; flex-direction:column; gap:12px; min-width:0; pointer-events:none; }
     .discovery-card-collection-title { font-family:var(--app-font-sans, 'Nunito', sans-serif); font-size:clamp(1rem, .72vw + .72rem, 1.24rem); line-height:1.15; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:rgba(248,250,252,.98); text-shadow:0 2px 14px rgba(0,0,0,.72); display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
     .discovery-card-collection-counts { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }

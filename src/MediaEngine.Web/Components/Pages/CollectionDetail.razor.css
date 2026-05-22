@@ -184,77 +184,12 @@
     width: min(46vw, 46rem);
     min-width: 34rem;
     min-height: min(50rem, 78vh);
+    border-radius: 1.25rem;
 }
 
-.collection-detail-hero-card {
+.collection-detail-artwork-stack {
     position: absolute;
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 0.65rem;
-    background: rgba(11, 17, 28, 0.92);
-    box-shadow: 0 2rem 4rem rgba(0, 0, 0, 0.36);
-}
-
-.collection-detail-hero-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    object-position: center;
-}
-
-.collection-detail-hero-card ::deep .mud-icon-root {
-    color: rgba(192, 159, 255, 0.78);
-    font-size: 3rem;
-}
-
-.collection-detail-hero-card--0 {
-    left: 3%;
-    top: 0;
-    width: 44%;
-    aspect-ratio: 2 / 3;
-    z-index: 4;
-}
-
-.collection-detail-hero-card--1 {
-    right: 0;
-    top: 10%;
-    width: 46%;
-    aspect-ratio: 2 / 3;
-    z-index: 3;
-}
-
-.collection-detail-hero-card--2 {
-    left: 30%;
-    top: 36%;
-    width: 42%;
-    aspect-ratio: 2 / 3;
-    z-index: 5;
-}
-
-.collection-detail-hero-card--3 {
-    right: 0;
-    bottom: 2%;
-    width: 40%;
-    aspect-ratio: 2 / 3;
-    z-index: 2;
-}
-
-.collection-detail-hero-card--4 {
-    left: 0;
-    bottom: 2%;
-    width: 36%;
-    aspect-ratio: 2 / 3;
-    z-index: 1;
-}
-
-.collection-detail-hero-card--5 {
-    right: 34%;
-    top: 13%;
-    width: 28%;
-    aspect-ratio: 2 / 3;
-    z-index: 6;
+    inset: 0;
 }
 
 .collection-detail-overview {
