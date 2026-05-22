@@ -782,7 +782,7 @@ public sealed class CollectionRepository : ICollectionRepository
             FROM   collections h
             INNER JOIN collection_relationships hr ON hr.collection_id = h.id
             WHERE  hr.rel_qid = @qid
-              AND  hr.rel_type IN ('franchise', 'fictional_universe')
+              AND  hr.rel_type IN ('series', 'franchise', 'fictional_universe')
               AND  h.parent_collection_id IS NULL
               AND  COALESCE(h.collection_type, 'Universe') <> 'ContentGroup'
             LIMIT  1;
@@ -798,10 +798,12 @@ public sealed class CollectionRepository : ICollectionRepository
 
         using var conn = _db.CreateConnection();
         var results = conn.Query<string>("""
-            SELECT DISTINCT collection_id
-            FROM   collection_relationships
-            WHERE  rel_qid  = @qid
-              AND  rel_type IN ('franchise', 'fictional_universe');
+            SELECT DISTINCT hr.collection_id
+            FROM   collection_relationships hr
+            INNER JOIN collections h ON h.id = hr.collection_id
+            WHERE  hr.rel_qid  = @qid
+              AND  hr.rel_type IN ('series', 'franchise', 'fictional_universe')
+              AND  COALESCE(h.collection_type, 'ContentGroup') IN ('ContentGroup', 'Series');
             """, new { qid })
             .Select(Guid.Parse)
             .ToList();

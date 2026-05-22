@@ -118,13 +118,13 @@ public interface ICollectionRepository
     /// <summary>Sets or clears the parent Collection for a given Collection.</summary>
     Task SetParentCollectionAsync(Guid collectionId, Guid? parentCollectionId, CancellationToken ct = default);
 
-    /// <summary>Finds a Parent Collection by franchise/universe QID from collection_relationships.</summary>
+    /// <summary>Finds a Parent Collection by broader series/franchise/universe QID from collection_relationships.</summary>
     Task<Collection?> FindParentCollectionByRelationshipAsync(string qid, CancellationToken ct = default);
 
     /// <summary>
     /// Returns the IDs of all Collections that have a <c>collection_relationships</c> row with the given
-    /// QID and a rel_type in ("franchise", "fictional_universe").
-    /// Used by <c>ParentCollectionResolver</c> to find sibling Collections that share a franchise.
+    /// QID and a rel_type in ("series", "franchise", "fictional_universe").
+    /// Used by <c>ParentCollectionResolver</c> to find sibling shelf Collections that share a rollup.
     /// </summary>
     Task<IReadOnlyList<Guid>> FindCollectionIdsByFranchiseQidAsync(string qid, CancellationToken ct = default);
 

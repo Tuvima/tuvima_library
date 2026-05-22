@@ -1994,6 +1994,11 @@ public static class CollectionEndpoints
             foreach (var group in candidates.GroupBy(candidate => candidate.Grouping?.Key ?? candidate.Collection.Id.ToString("D"), StringComparer.OrdinalIgnoreCase))
             {
                 var entries = group.ToList();
+                if (!ShouldIncludeCatalogGroup(entries))
+                {
+                    continue;
+                }
+
                 var representative = SelectCatalogRepresentative(entries);
                 var workIds = entries
                     .SelectMany(entry => entry.WorkIds)
@@ -3198,7 +3203,30 @@ public static class CollectionEndpoints
             return aggregation;
         }
 
+        if (TryGetRelationshipAggregation(collection, "series", out aggregation))
+        {
+            return aggregation;
+        }
+
         return null;
+    }
+
+    private static bool ShouldIncludeCatalogGroup(IReadOnlyList<CollectionManagementCatalogCandidate> entries)
+    {
+        var generatedEntries = entries
+            .Where(entry => IsGeneratedSeriesCollection(entry.Collection))
+            .ToList();
+
+        if (generatedEntries.Count == 0)
+        {
+            return true;
+        }
+
+        return generatedEntries
+            .Where(entry => entry.Collection.Works.Count > 0)
+            .Select(entry => entry.Collection.Id)
+            .Distinct()
+            .Count() >= 2;
     }
 
     private static bool TryGetRelationshipAggregation(

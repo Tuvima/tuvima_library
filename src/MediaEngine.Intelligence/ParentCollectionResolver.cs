@@ -7,14 +7,12 @@ using Microsoft.Extensions.Logging;
 namespace MediaEngine.Intelligence;
 
 /// <summary>
-/// Examines Collection relationships to detect franchise-level groupings and promote
-/// sibling Collections under a common Parent Collection.
+/// Examines Collection relationships to detect broader rollup groupings and promote
+/// sibling shelf Collections under a common Parent Collection.
 ///
-/// A Parent Collection is created when either:
-/// 1. 2+ Collections share a <see cref="CollectionRelationship"/> with the same
-///    <c>rel_qid</c> and a <c>rel_type</c> in ("franchise", "fictional_universe"), or
-/// 2. A single ContentGroup Collection exposes a broader franchise/universe QID that is
-///    different from the Collection's own <c>wikidata_qid</c>.
+/// A Parent Collection is created when 2+ shelf Collections share a
+/// <see cref="CollectionRelationship"/> with the same <c>rel_qid</c> and a
+/// <c>rel_type</c> in ("series", "franchise", "fictional_universe").
 ///
 /// The Parent Collection is itself a Collection row with <c>parent_collection_id = NULL</c>,
 /// its <see cref="Collection.DisplayName"/> taken from the relationship's
@@ -23,8 +21,9 @@ namespace MediaEngine.Intelligence;
 /// </summary>
 public sealed class ParentCollectionResolver : IParentCollectionResolver
 {
-    private static readonly HashSet<string> FranchiseRelTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> RollupRelTypes = new(StringComparer.OrdinalIgnoreCase)
     {
+        "series",
         "franchise",
         "fictional_universe",
     };
@@ -37,7 +36,7 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
         ArgumentNullException.ThrowIfNull(collectionRepo);
         ArgumentNullException.ThrowIfNull(logger);
         _collectionRepo = collectionRepo;
-        _logger  = logger;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -45,142 +44,113 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
     {
         ct.ThrowIfCancellationRequested();
 
-        // 1. Load the Collection row (lightweight — no Works, no relationships).
         var collection = await _collectionRepo.GetByIdAsync(collectionId, ct).ConfigureAwait(false);
         if (collection is null)
         {
-            _logger.LogWarning("ParentCollectionResolver: Hub {CollectionId} not found — skipping.", collectionId);
+            _logger.LogWarning("ParentCollectionResolver: Collection {CollectionId} not found; skipping.", collectionId);
             return;
         }
 
-        // 2. Idempotency guard: already has a parent.
         if (collection.ParentCollectionId is not null)
         {
             _logger.LogDebug(
-                "ParentCollectionResolver: Hub {CollectionId} already has parent {ParentCollectionId} — no-op.",
+                "ParentCollectionResolver: Collection {CollectionId} already has parent {ParentCollectionId}; no-op.",
                 collectionId, collection.ParentCollectionId);
             return;
         }
 
-        // 3. Load this Collection's relationships.
         var relationships = await _collectionRepo.GetRelationshipsAsync(collectionId, ct).ConfigureAwait(false);
-
-        // 4. Filter for franchise / fictional_universe relationships.
-        var franchiseRels = relationships
-            .Where(r => FranchiseRelTypes.Contains(r.RelType))
+        var rollupRels = relationships
+            .Where(r => RollupRelTypes.Contains(r.RelType))
             .ToList();
 
-        if (franchiseRels.Count == 0)
+        if (rollupRels.Count == 0)
         {
             _logger.LogDebug(
-                "ParentCollectionResolver: Hub {CollectionId} has no franchise relationships — no-op.",
+                "ParentCollectionResolver: Collection {CollectionId} has no rollup relationships; no-op.",
                 collectionId);
             return;
         }
 
-        // 5. Process each franchise QID.
-        foreach (var rel in franchiseRels)
+        foreach (var rel in rollupRels)
         {
             ct.ThrowIfCancellationRequested();
-            await ProcessFranchiseAsync(collection, rel, ct).ConfigureAwait(false);
+            await ProcessRollupAsync(collection, rel, ct).ConfigureAwait(false);
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    private async Task ProcessFranchiseAsync(
+    private async Task ProcessRollupAsync(
         Collection collection,
         CollectionRelationship rel,
         CancellationToken ct)
     {
         var collectionId = collection.Id;
-        string qid   = rel.RelQid;
-        string label = rel.RelLabel ?? qid;
+        var qid = rel.RelQid;
+        var label = rel.RelLabel ?? qid;
 
-        // a) Check if a Parent Collection already exists for this franchise QID.
+        if (string.Equals(collection.WikidataQid, qid, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug(
+                "ParentCollectionResolver: Ignoring self-match for Collection {CollectionId} (rollup QID {Qid}).",
+                collectionId,
+                qid);
+            return;
+        }
+
         var existing = await _collectionRepo.FindParentCollectionByRelationshipAsync(qid, ct).ConfigureAwait(false);
-
         if (existing is not null && existing.Id != collectionId)
         {
-            // Parent Collection exists — assign this Collection as a child if not already done.
-            // (FindParentCollectionByRelationshipAsync returns collections with parent_collection_id IS NULL,
-            //  so existing is always a proper Parent Collection row.)
             _logger.LogInformation(
-                "ParentCollectionResolver: Assigning Collection {CollectionId} to existing Parent Collection {ParentCollectionId} (franchise QID {Qid}).",
+                "ParentCollectionResolver: Assigning Collection {CollectionId} to existing Parent Collection {ParentCollectionId} (rollup QID {Qid}).",
                 collectionId, existing.Id, qid);
 
             await _collectionRepo.SetParentCollectionAsync(collectionId, existing.Id, ct).ConfigureAwait(false);
             return;
         }
 
-        if (existing is not null)
-        {
-            _logger.LogDebug(
-                "ParentCollectionResolver: Ignoring self-match for Collection {CollectionId} (franchise QID {Qid}).",
-                collectionId,
-                qid);
-        }
-
-        // b) No Parent Collection yet — check whether 2+ sibling Collections share this QID.
         var siblingIds = await _collectionRepo.FindCollectionIdsByFranchiseQidAsync(qid, ct).ConfigureAwait(false);
-        var hasBroaderUniverseQid =
-            !string.IsNullOrWhiteSpace(collection.WikidataQid)
-            && !string.Equals(collection.WikidataQid, qid, StringComparison.OrdinalIgnoreCase);
-
-        // Filter out collections that already have a parent (they've been processed before).
-        // We collect IDs to re-parent after creating the new Parent Collection.
-        // Note: We include the current collection in the sibling set — it will be set too.
-        if (siblingIds.Count < 2 && !hasBroaderUniverseQid)
+        if (siblingIds.Count < 2)
         {
-            // Only one Collection (this one) carries this franchise QID — not enough to form a group.
             _logger.LogDebug(
-                "ParentCollectionResolver: Only {Count} Collection(s) share franchise QID {Qid} — not enough to form a Parent Collection.",
+                "ParentCollectionResolver: Only {Count} shelf Collection(s) share rollup QID {Qid}; no parent created.",
                 siblingIds.Count, qid);
             return;
         }
 
-        // c) Create the new Parent Collection.
         var parentCollection = new Collection
         {
-            Id             = Guid.NewGuid(),
-            DisplayName    = label,
-            CreatedAt      = DateTimeOffset.UtcNow,
+            Id = Guid.NewGuid(),
+            DisplayName = label,
+            CreatedAt = DateTimeOffset.UtcNow,
             UniverseStatus = "Unknown",
             CollectionType = "Universe",
-            Resolution     = "materialized",
-            // ParentCollectionId remains null — Parent Collections are top-level.
+            Resolution = "materialized",
+            WikidataQid = qid,
         };
 
         await _collectionRepo.UpsertAsync(parentCollection, ct).ConfigureAwait(false);
 
         _logger.LogInformation(
-            "ParentCollectionResolver: Created Parent Collection {ParentCollectionId} '{Label}' for franchise QID {Qid} " +
-            "({SiblingCount} sibling(s), broaderMatch={HasBroaderUniverseQid}).",
-            parentCollection.Id, label, qid, siblingIds.Count, hasBroaderUniverseQid);
+            "ParentCollectionResolver: Created Parent Collection {ParentCollectionId} '{Label}' for rollup QID {Qid} ({SiblingCount} sibling(s)).",
+            parentCollection.Id, label, qid, siblingIds.Count);
 
-        // d) Add a franchise relationship to the Parent Collection so future calls to
-        //    FindParentCollectionByRelationshipAsync can locate it.
         var parentRel = new CollectionRelationship
         {
-            Id           = Guid.NewGuid(),
-            CollectionId        = parentCollection.Id,
-            RelType      = rel.RelType,
-            RelQid       = qid,
-            RelLabel     = rel.RelLabel,
-            Confidence   = rel.Confidence,
+            Id = Guid.NewGuid(),
+            CollectionId = parentCollection.Id,
+            RelType = rel.RelType,
+            RelQid = qid,
+            RelLabel = rel.RelLabel,
+            Confidence = rel.Confidence,
             DiscoveredAt = DateTimeOffset.UtcNow,
         };
 
         await _collectionRepo.InsertRelationshipsAsync([parentRel], ct).ConfigureAwait(false);
 
-        // e) Assign all sibling Collections (that don't yet have a parent) to the new Parent Collection.
         foreach (var siblingId in siblingIds)
         {
             ct.ThrowIfCancellationRequested();
 
-            // Skip collections that already have a parent assigned from a previous resolution pass.
             var sibling = await _collectionRepo.GetByIdAsync(siblingId, ct).ConfigureAwait(false);
             if (sibling is null || sibling.ParentCollectionId is not null)
                 continue;
@@ -188,7 +158,7 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
             await _collectionRepo.SetParentCollectionAsync(siblingId, parentCollection.Id, ct).ConfigureAwait(false);
 
             _logger.LogInformation(
-                "ParentCollectionResolver: Hub {CollectionId} assigned to Parent Collection {ParentCollectionId} (franchise QID {Qid}).",
+                "ParentCollectionResolver: Collection {CollectionId} assigned to Parent Collection {ParentCollectionId} (rollup QID {Qid}).",
                 siblingId, parentCollection.Id, qid);
         }
     }

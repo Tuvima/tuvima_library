@@ -53,6 +53,8 @@ Tuvima is a unified media intelligence platform that runs entirely on the user's
 
 A **Universe** is a creative world — the books, films, audiobooks, comics, and music that belong together because their metadata says so. A **Series** is a sub-grouping within a Universe — a specific sequence or collection of related works.
 
+Current product rule: a Series is the lane-level shelf shown in Read, Watch, or Listen. A broader Universe/Collection is shown on `/collections` only when a shared series/franchise/universe relationship connects multiple shelves. A single shelf, such as only owning the Matrix films, stays in Watch and does not duplicate itself as a top-level Collection. Multiple formats of one work are variants, not collection triggers.
+
 Matching is automatic: when the Engine discovers that a novel, its film adaptation, and an audiobook share the same author, franchise identifiers, or Wikidata Q-identifier, it groups them into the same Universe. Users browse by creative world, not by file type.
 
 > *Example: The "Dune" Universe might contain:*

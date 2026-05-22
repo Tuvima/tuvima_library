@@ -20,6 +20,8 @@ Every collection in Tuvima Library â€” an album, a TV show, a genre categor
 
 This model unifies what were previously separate systems (content groups, smart collections, system lists, playlists, AI mixes) into a single architecture. A collection is defined by its **rules** (what items belong), its **type** (how it's presented), and its **placements** (where it appears in the Dashboard).
 
+Product role note: lane-level shelves and top-level Collections are intentionally different surfaces. A generated book series, movie series, TV show, music album, or audiobook series is a **shelf** and belongs in Read, Watch, or Listen. The Collections page shows broader rollups only when a shared series/franchise/universe relationship connects at least two shelves. A single shelf, even with multiple items, stays out of the Collections hub; ebook/audiobook variants of the same work also do not trigger a rollup.
+
 Domain note: `Collection`, `Work`, and `Edition` expose aggregate children and
 metadata property bags as read-only views. Code that changes membership or
 metadata history should use explicit domain methods such as `AddWork`,
@@ -180,7 +182,7 @@ These collections power the **container views** in the current media surfaces's 
 | Books | Series name (+ author) | Sequence index ascending | "Dune Novels â€” Frank Herbert" |
 | Audiobooks | Series name (+ author) | Sequence index ascending | "First Law â€” Joe Abercrombie" |
 | Comics | Series name | Issue number ascending | "Saga â€” Brian K. Vaughan" |
-| Movies | Franchise name | Release year ascending | "Star Wars" |
+| Movies | Film series name | Release year ascending | "The Matrix film series" |
 
 ---
 

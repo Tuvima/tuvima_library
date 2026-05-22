@@ -30,9 +30,9 @@ Drop your files into a folder. Tuvima reads each one, figures out what it is usi
 
 ### One story, every format
 
-When Tuvima discovers that your Dune ebook, Dune audiobook, and Dune film belong to the same creative world, it groups them together into a single entry called a **Series**. Click it, and you see every version of the story you own â€” read, listen, or watch. No switching apps.
+Tuvima keeps immediate groups in the media lane where they belong. A book series appears in **Read**, a film series appears in **Watch**, and an album appears in **Listen**. These lane-level groups are shelves: they answer "what should I read, watch, or listen to next?"
 
-Related Series are grouped into **Universes** â€” the Dune novels, the Dune films, and the Dune audiobooks all live under the "Dune" Universe. [Learn more about Universes and Series.](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/)
+The **Collections** view is reserved for broader worlds that connect multiple shelves. Dune novels plus Dune films can roll up into a Dune collection. Owning only one film series, such as The Matrix movies, stays as a Watch shelf and does not duplicate itself as a top-level collection. Multiple formats of the same work, such as an ebook and audiobook, are treated as variants, not separate collection triggers. [Learn more about Universes and Series.](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/)
 
 ### How Tuvima compares
 

@@ -87,6 +87,34 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
     }
 
     [Fact]
+    public async Task RelationshipRollupQueries_IncludeBroaderSeriesRelationshipsForShelfCollections()
+    {
+        var repo = new CollectionRepository(_db);
+        var lotr = CreateCollection("The Lord of the Rings", "ContentGroup");
+        var hobbit = CreateCollection("The Hobbit trilogy", "ContentGroup");
+        var parentUniverse = CreateCollection("Peter Jackson's Middle-earth film series", "Universe");
+
+        await repo.UpsertAsync(lotr);
+        await repo.UpsertAsync(hobbit);
+        await repo.UpsertAsync(parentUniverse);
+        await repo.InsertRelationshipsAsync(
+        [
+            CreateRelationship(lotr.Id, "series", "Q26214973", "Peter Jackson's Middle-earth film series"),
+            CreateRelationship(hobbit.Id, "series", "Q26214973", "Peter Jackson's Middle-earth film series"),
+            CreateRelationship(parentUniverse.Id, "series", "Q26214973", "Peter Jackson's Middle-earth film series"),
+        ]);
+
+        var shelfIds = await repo.FindCollectionIdsByFranchiseQidAsync("Q26214973");
+        var parent = await repo.FindParentCollectionByRelationshipAsync("Q26214973");
+
+        Assert.Contains(lotr.Id, shelfIds);
+        Assert.Contains(hobbit.Id, shelfIds);
+        Assert.DoesNotContain(parentUniverse.Id, shelfIds);
+        Assert.NotNull(parent);
+        Assert.Equal(parentUniverse.Id, parent!.Id);
+    }
+
+    [Fact]
     public async Task UpdateCollectionSquareArtworkAsync_RoundTripsMetadata()
     {
         var repo = new CollectionRepository(_db);

@@ -1,0 +1,24 @@
+namespace MediaEngine.Providers.Tests;
+
+public sealed class CollectionAssignmentServiceTests
+{
+    [Fact]
+    public void CollectionAssignment_UsesSeriesAsShelfAndDoesNotFallbackToBroadUniverse()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\CollectionAssignmentService.cs"));
+        var resolveStart = source.IndexOf("private static (string? Qid, string? Label) ResolveParentQid", StringComparison.Ordinal);
+        Assert.True(resolveStart >= 0);
+
+        var resolveEnd = source.IndexOf("private static bool TryGetQid", resolveStart, StringComparison.Ordinal);
+        Assert.True(resolveEnd > resolveStart);
+
+        var resolveSource = source[resolveStart..resolveEnd];
+        Assert.Contains("TryGetQid(lookup, \"series\"", resolveSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryGetQid(lookup, \"franchise\"", resolveSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryGetQid(lookup, \"fictional_universe\"", resolveSource, StringComparison.Ordinal);
+        Assert.Contains("multiple shelves share them", source, StringComparison.Ordinal);
+    }
+
+    private static string GetRepoFilePath(string relativePath) =>
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+}

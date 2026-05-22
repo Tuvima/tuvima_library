@@ -21,6 +21,8 @@
 
 **Rule:** Anything the user sees (UI labels, column headers, tab names) uses the user-facing name. Internal code names (ParentCollection, Collection) stay in the domain/engine layer only.
 
+**Shelf vs Collection rule:** Read, Watch, and Listen show immediate shelves: book series, movie series, TV shows, music albums, and audio series. The Collections page shows broader rollups only when a shared series/franchise/universe relationship connects at least two shelves. A single shelf, even with multiple works, remains in its lane; multiple formats of one Work are variants and do not create a rollup.
+
 ---
 
 ## Universal Collection Model
@@ -57,7 +59,7 @@ Operators: eq, neq, contains, gt, lt, between, in, like. Match mode: ALL (AND) o
 
 ### Content Groups
 
-Created during ingestion by `MediaEntityChainFactory` — albums, TV shows, book series work immediately when files are scanned, not waiting for Wikidata. Power the container views in media lane container views.
+Created during ingestion by `MediaEntityChainFactory` and enriched by canonical QID assignment. Albums, TV shows, book series, and movie series power the shelves in Read, Watch, and Listen. They become eligible for a top-level Collections rollup only when another shelf shares a broader series/franchise/universe relationship.
 
 ### Collection Placements
 

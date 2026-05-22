@@ -31,25 +31,81 @@ public sealed class ParentCollectionResolverTests : IDisposable
     }
 
     [Fact]
-    public async Task ResolveParentCollectionAsync_CreatesParentForBroaderFranchiseQid()
+    public async Task ResolveParentCollectionAsync_CreatesParentForSharedBroaderFranchiseQid()
     {
-        var child = CreateCollection("Dune", "ContentGroup", "Q6095696");
+        var books = CreateCollection("Dune book series", "ContentGroup", "Q6095696");
+        var movies = CreateCollection("Dune film series", "ContentGroup", "Q109300883");
+        await _repo.UpsertAsync(books);
+        await _repo.UpsertAsync(movies);
+        await _repo.InsertRelationshipsAsync(
+        [
+            CreateRelationship(books.Id, "franchise", "Q18011049", "Dune"),
+            CreateRelationship(movies.Id, "franchise", "Q18011049", "Dune"),
+        ]);
+
+        await _resolver.ResolveParentCollectionAsync(books.Id);
+
+        var refreshedBooks = await _repo.GetByIdAsync(books.Id);
+        var refreshedMovies = await _repo.GetByIdAsync(movies.Id);
+        Assert.NotNull(refreshedBooks);
+        Assert.NotNull(refreshedBooks!.ParentCollectionId);
+        Assert.NotNull(refreshedMovies);
+        Assert.Equal(refreshedBooks.ParentCollectionId, refreshedMovies!.ParentCollectionId);
+
+        var parent = await _repo.GetByIdAsync(refreshedBooks.ParentCollectionId!.Value);
+        Assert.NotNull(parent);
+        Assert.Equal("Universe", parent!.CollectionType);
+        Assert.Equal("Dune", parent.DisplayName);
+        Assert.Equal("Q18011049", parent.WikidataQid);
+
+        var children = await _repo.GetChildCollectionsAsync(parent.Id);
+        Assert.Contains(children, candidate => candidate.Id == books.Id);
+        Assert.Contains(children, candidate => candidate.Id == movies.Id);
+    }
+
+    [Fact]
+    public async Task ResolveParentCollectionAsync_DoesNotCreateParentForSingleBroaderFranchiseShelf()
+    {
+        var child = CreateCollection("The Matrix film series", "ContentGroup", "Q1228705");
         await _repo.UpsertAsync(child);
-        await _repo.InsertRelationshipsAsync([CreateRelationship(child.Id, "franchise", "Q18011049", "Dune")]);
+        await _repo.InsertRelationshipsAsync([CreateRelationship(child.Id, "franchise", "Q83495", "The Matrix")]);
 
         await _resolver.ResolveParentCollectionAsync(child.Id);
 
         var refreshedChild = await _repo.GetByIdAsync(child.Id);
         Assert.NotNull(refreshedChild);
-        Assert.NotNull(refreshedChild!.ParentCollectionId);
+        Assert.Null(refreshedChild!.ParentCollectionId);
 
-        var parent = await _repo.GetByIdAsync(refreshedChild.ParentCollectionId!.Value);
+        var parent = await _repo.FindParentCollectionByRelationshipAsync("Q83495");
+        Assert.Null(parent);
+    }
+
+    [Fact]
+    public async Task ResolveParentCollectionAsync_CreatesParentForSharedBroaderSeriesQid()
+    {
+        var lotr = CreateCollection("The Lord of the Rings", "ContentGroup", "Q190214");
+        var hobbit = CreateCollection("The Hobbit trilogy", "ContentGroup", "Q74331");
+        await _repo.UpsertAsync(lotr);
+        await _repo.UpsertAsync(hobbit);
+        await _repo.InsertRelationshipsAsync(
+        [
+            CreateRelationship(lotr.Id, "series", "Q26214973", "Peter Jackson's Middle-earth film series"),
+            CreateRelationship(hobbit.Id, "series", "Q26214973", "Peter Jackson's Middle-earth film series"),
+        ]);
+
+        await _resolver.ResolveParentCollectionAsync(hobbit.Id);
+
+        var refreshedLotr = await _repo.GetByIdAsync(lotr.Id);
+        var refreshedHobbit = await _repo.GetByIdAsync(hobbit.Id);
+        Assert.NotNull(refreshedLotr);
+        Assert.NotNull(refreshedHobbit);
+        Assert.NotNull(refreshedHobbit!.ParentCollectionId);
+        Assert.Equal(refreshedHobbit.ParentCollectionId, refreshedLotr!.ParentCollectionId);
+
+        var parent = await _repo.GetByIdAsync(refreshedHobbit.ParentCollectionId!.Value);
         Assert.NotNull(parent);
-        Assert.Equal("Universe", parent!.CollectionType);
-        Assert.Equal("Dune", parent.DisplayName);
-
-        var children = await _repo.GetChildCollectionsAsync(parent.Id);
-        Assert.Contains(children, candidate => candidate.Id == child.Id);
+        Assert.Equal("Peter Jackson's Middle-earth film series", parent!.DisplayName);
+        Assert.Equal("Q26214973", parent.WikidataQid);
     }
 
     [Fact]

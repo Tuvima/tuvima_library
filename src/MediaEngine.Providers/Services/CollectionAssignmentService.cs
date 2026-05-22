@@ -10,8 +10,9 @@ namespace MediaEngine.Providers.Services;
 /// <summary>
 /// Assigns works to ContentGroup collections based on Wikidata QID relationships.
 /// After Stage 2 resolves a QID, this service reads the work's canonical values
-/// (series_qid, franchise_qid, fictional_universe_qid) and creates or finds
-/// a Collection for the parent entity (album, TV show, book series, etc.).
+/// (series_qid plus broader franchise/universe relationships) and creates or
+/// finds a Collection for the immediate shelf entity (album, TV show, book
+/// series, movie series, etc.).
 ///
 /// Uses <see cref="ICollectionRepository.FindByQidAsync"/> to avoid duplicates and
 /// <see cref="ICollectionRepository.AssignWorkToCollectionAsync"/> to set the FK.
@@ -68,10 +69,9 @@ public sealed class CollectionAssignmentService
         var canonicals = await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct);
         var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
 
-        // Try to find a parent QID from Wikidata relationship properties.
-        // Priority: series_qid (P179) > franchise_qid (P8345) > fictional_universe_qid (P1434)
-        // We use the most specific level for collection assignment — an album or TV show,
-        // not the broader franchise/universe.
+        // Try to find an immediate shelf QID. Broader franchise/universe
+        // values are relationships on the shelf and become Collections only
+        // when multiple shelves share them.
         var (parentQid, parentLabel) = ResolveParentQid(lookup);
 
         if (string.IsNullOrWhiteSpace(parentQid))
@@ -151,8 +151,8 @@ public sealed class CollectionAssignmentService
     }
 
     /// <summary>
-    /// Extracts the most specific parent QID from canonical values.
-    /// Priority: series (P179) → franchise (P8345) → fictional_universe (P1434).
+    /// Extracts the immediate shelf QID from canonical values.
+    /// Series (P179) drives lane shelves; franchise/universe values are rollup relationships.
     /// Returns the QID and human-readable label.
     /// </summary>
     private static (string? Qid, string? Label) ResolveParentQid(
@@ -160,14 +160,6 @@ public sealed class CollectionAssignmentService
     {
         // Try series first (most specific: album, TV show, book series)
         if (TryGetQid(lookup, "series", out var qid, out var label))
-            return (qid, label);
-
-        // Then franchise
-        if (TryGetQid(lookup, "franchise", out qid, out label))
-            return (qid, label);
-
-        // Then fictional universe (broadest)
-        if (TryGetQid(lookup, "fictional_universe", out qid, out label))
             return (qid, label);
 
         return (null, null);

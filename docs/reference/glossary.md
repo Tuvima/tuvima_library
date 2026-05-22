@@ -25,7 +25,7 @@ The winning metadata value for a field after the Priority Cascade resolves compe
 A single metadata value from a specific source with a confidence score. Claims are append-only and remain available for audit even when they do not win.
 
 **Collection**
-See **Series**. The codebase often uses `Collection` where the product surface says **Series**.
+A broad rollup shown on the Collections page. Collections are reserved for worlds or IPs that connect multiple shelves, such as Dune novels plus Dune films. The codebase also uses `Collection` for historical storage rows, so check context when reading code.
 
 ---
 
@@ -109,7 +109,10 @@ The first identity stage. Retail providers search external catalogues, return ca
 ## S
 
 **Series**
-A grouping of related works, such as a book series, film series, or album grouping.
+A lane-level shelf: a grouping of related works such as a book series, film series, TV show, or album. Series appear in Read, Watch, or Listen and do not automatically become Collections.
+
+**Shelf**
+The immediate browse unit inside Read, Watch, or Listen. Examples include a movie series tile in Watch, a book series tile in Read, or an album tile in Listen. One shelf alone does not create a Collections-page rollup.
 
 **Staging**
 The safe on-disk holding area where files live between ingestion and final organisation. Staging is not the same thing as main browse surfaces visibility; an item can be staged, known to the system, and still hidden from the main browse surfaces until the quality gate is satisfied.
@@ -119,7 +122,7 @@ The safe on-disk holding area where files live between ingestion and final organ
 ## U
 
 **Universe**
-A franchise-level grouping above Series that links related works into a wider creative world.
+A franchise-level or world-level grouping above shelves. A Universe becomes visible as a Collection only when it connects multiple shelves; multiple formats of one work do not create a Universe tile by themselves.
 
 ---
 

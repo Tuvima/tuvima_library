@@ -103,6 +103,9 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("GetCollectionCatalogAggregation(collection)", source, StringComparison.Ordinal);
         Assert.Contains("fictional_universe", source, StringComparison.Ordinal);
         Assert.Contains("franchise", source, StringComparison.Ordinal);
+        Assert.Contains("TryGetRelationshipAggregation(collection, \"series\"", source, StringComparison.Ordinal);
+        Assert.Contains("ShouldIncludeCatalogGroup(entries)", source, StringComparison.Ordinal);
+        Assert.Contains(".Count() >= 2", source, StringComparison.Ordinal);
         Assert.Contains("SelectMany(entry => entry.WorkIds)", source, StringComparison.Ordinal);
         Assert.Contains("ISeriesManifestRepository manifestRepo", source, StringComparison.Ordinal);
         Assert.Contains("HasKnownSeriesManifestAsync(collection, manifestRepo, ct)", source, StringComparison.Ordinal);

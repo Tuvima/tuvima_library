@@ -43,11 +43,21 @@ Library
 
 Each level serves a different purpose:
 
-- **Universe** â€” the franchise or creative world. Groups everything that belongs to the same story across all formats.
-- **Series** â€” a sub-grouping within a Universe. Organizes related works into meaningful collections (the novels as one Series, the films as another).
+- **Universe** â€” the franchise or creative world. Groups multiple related shelves when the library contains enough structure to justify a broader collection.
+- **Series** â€” a lane-level shelf. Organizes related works into an ordered group, such as the novels as one shelf and the films as another.
 - **Work** â€” a single title. "Dune Part One" is one Work, regardless of how many files or formats you own.
 - **Edition** â€” a specific version of a Work. The standard theatrical cut and the director's cut are two Editions of the same Work.
 - **Media Asset** â€” the actual file on disk. One Edition might have multiple Assets (e.g., the video file and its external subtitle files).
+
+---
+
+## Shelves vs Collections
+
+Tuvima shows immediate ordered groups as **shelves** inside Read, Watch, and Listen. A book series belongs in Read, a movie series belongs in Watch, and a music album belongs in Listen. A shelf is useful even when it is the only related group you own.
+
+The Collections page is stricter. It shows broader creative worlds only when they connect multiple shelves. Owning only the Matrix films creates a Watch shelf for the Matrix film series, not a top-level Matrix collection. Owning Middle-earth books plus film trilogies can create a Middle-earth collection because it connects several shelves.
+
+Multiple formats of the same work do not create a collection. An ebook and audiobook for the same title are variants of one Work. A standalone story with a book and film adaptation, such as The Martian, does not become a Collections tile unless the library also contains a broader series/shelf structure that justifies a rollup.
 
 ---
 
@@ -61,7 +71,7 @@ The primary signals are Wikidata relationship properties:
 - **P179 (part of series)** â€” links a work to its series
 - **P361 (part of)** â€” broader membership (e.g., a spin-off that's part of a larger franchise)
 
-When the Engine successfully identifies a book and fetches its Wikidata properties, it gets these relationship values as QIDs (Wikidata identifiers). It then looks up those QIDs to find their labels. Two items that share the same franchise QID belong in the same Universe.
+When the Engine successfully identifies a work and fetches its Wikidata properties, it gets these relationship values as QIDs (Wikidata identifiers). It then looks up those QIDs to find their labels. A shared franchise or universe QID is a rollup candidate; it becomes a visible Collection only when it connects multiple shelves instead of merely duplicating one lane-level series.
 
 Secondary signals also contribute: shared author, shared narrative roots, shared characters detected by the Universe Graph. Shared author alone doesn't necessarily create a Universe â€” an author might write in completely unrelated genres â€” but combined with shared series membership or franchise identifiers, the grouping becomes clear.
 
@@ -88,9 +98,9 @@ What defines a Series is **shared contextual metadata** â€” the same Wikida
 
 Not everything belongs to a franchise. A standalone novel with no series membership, no adaptations, and no franchise connections lives directly under the Library â€” no Universe wrapper needed.
 
-Only when the Engine discovers franchise-level relationships does it promote related Series under a common Universe. A Series that belongs to no larger creative world appears at the top level on its own.
+Only when the Engine discovers a broader relationship shared by multiple shelves does it promote those shelves under a common Collection. A single Series that belongs to no larger visible grouping stays in its Read, Watch, or Listen lane.
 
-This also means the grouping can evolve. A standalone Series might later be recognized as part of a Universe when the Engine identifies a film adaptation in your collection, or when Wikidata gains new relationship data about that franchise.
+This also means the grouping can evolve. A standalone shelf might later become part of a Collection when another related shelf appears in your library, or when Wikidata gains new relationship data that connects multiple shelves.
 
 ---
 
