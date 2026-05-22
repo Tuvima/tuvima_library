@@ -135,6 +135,9 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("collection-detail-back", css, StringComparison.Ordinal);
         Assert.Contains("font-family: Georgia", css, StringComparison.Ordinal);
         Assert.Contains("min-height: clamp(680px, 86vh, 920px)", css, StringComparison.Ordinal);
+        Assert.Contains("align-items: center", css, StringComparison.Ordinal);
+        Assert.Contains("align-self: center", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("transform: translateY", css, StringComparison.Ordinal);
         Assert.Contains("object-fit: contain", css, StringComparison.Ordinal);
         Assert.Contains("collection-detail-hero__cascade", css, StringComparison.Ordinal);
         Assert.Contains("collection-detail-item-grid", css, StringComparison.Ordinal);

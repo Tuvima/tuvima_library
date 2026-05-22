@@ -1972,7 +1972,7 @@ public static class CollectionEndpoints
             {
                 var classification = ClassifyCollectionForCatalog(collection);
                 var workIds = await GetCollectionCatalogDisplayWorkIdsAsync(
-                    await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct),
+                    await GetCollectionCatalogSourceWorkIdsAsync(collection, accessibleCollections, collectionRepo, db, ct),
                     db,
                     ct);
                 var itemCount = GetManagedCollectionItemCount(collection, materializedCounts, workIds);
@@ -3125,7 +3125,7 @@ public static class CollectionEndpoints
             return true;
         }
 
-        if (IsGeneratedSeriesCollection(collection) && string.IsNullOrWhiteSpace(collection.WikidataQid))
+        if (IsGeneratedSeriesCollection(collection) && GetCollectionCatalogAggregation(collection) is null)
         {
             return false;
         }
@@ -3168,13 +3168,6 @@ public static class CollectionEndpoints
         if (TryGetRelationshipAggregation(collection, "franchise", out aggregation))
         {
             return aggregation;
-        }
-
-        if (!string.IsNullOrWhiteSpace(collection.WikidataQid))
-        {
-            return new CollectionCatalogAggregation(
-                $"collection:{NormalizeCatalogQid(collection.WikidataQid)}",
-                collection.DisplayName);
         }
 
         return null;
@@ -3370,12 +3363,53 @@ public static class CollectionEndpoints
                 .ToList();
 
         var workIds = new List<Guid>();
-        foreach (var collection in siblingCollections)
+        foreach (var collection in ExpandWithChildCollections(siblingCollections, accessibleCollections))
         {
             workIds.AddRange(await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct));
         }
 
         return await GetCollectionCatalogDisplayWorkIdsAsync(workIds, db, ct);
+    }
+
+    private static async Task<IReadOnlyList<Guid>> GetCollectionCatalogSourceWorkIdsAsync(
+        Collection collection,
+        IReadOnlyList<Collection> accessibleCollections,
+        ICollectionRepository collectionRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        var workIds = new List<Guid>();
+        foreach (var sourceCollection in ExpandWithChildCollections([collection], accessibleCollections))
+        {
+            workIds.AddRange(await GetCollectionWorkIdsAsync(sourceCollection, collectionRepo, db, ct));
+        }
+
+        return workIds.Distinct().ToList();
+    }
+
+    private static IReadOnlyList<Collection> ExpandWithChildCollections(
+        IReadOnlyList<Collection> collections,
+        IReadOnlyList<Collection> accessibleCollections)
+    {
+        var result = new List<Collection>();
+        var queue = new Queue<Collection>(collections);
+        var seen = new HashSet<Guid>();
+        while (queue.Count > 0)
+        {
+            var collection = queue.Dequeue();
+            if (!seen.Add(collection.Id))
+            {
+                continue;
+            }
+
+            result.Add(collection);
+            foreach (var child in accessibleCollections.Where(candidate => candidate.ParentCollectionId == collection.Id))
+            {
+                queue.Enqueue(child);
+            }
+        }
+
+        return result;
     }
 
     private static async Task<IReadOnlyList<Guid>> GetCollectionCatalogDisplayWorkIdsAsync(
@@ -3390,7 +3424,7 @@ public static class CollectionEndpoints
         }
 
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<Guid>(new CommandDefinition(
+        var rows = await conn.QueryAsync<CollectionDisplayWorkRow>(new CommandDefinition(
             """
             SELECT DISTINCT
                    CASE
@@ -3405,7 +3439,11 @@ public static class CollectionEndpoints
             new { WorkIds = workIds.Select(id => id.ToString("D")).ToArray() },
             cancellationToken: ct));
 
-        return rows.Distinct().ToList();
+        return rows
+            .Select(row => Guid.TryParse(row.WorkId, out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
     }
 
     private static async Task<List<CollectionItemDto>> ResolveCollectionWorkIdsToItemsAsync(
@@ -3414,7 +3452,8 @@ public static class CollectionEndpoints
         IDatabaseConnection db,
         CancellationToken ct)
     {
-        if (workIds.Count == 0)
+        var displayWorkIds = await GetCollectionCatalogDisplayWorkIdsAsync(workIds, db, ct);
+        if (displayWorkIds.Count == 0)
         {
             return [];
         }
@@ -3478,7 +3517,7 @@ public static class CollectionEndpoints
             new
             {
                 CollectionId = collectionId.ToString("D"),
-                WorkIds = workIds.Select(id => id.ToString("D")).ToArray(),
+                WorkIds = displayWorkIds.Select(id => id.ToString("D")).ToArray(),
             },
             cancellationToken: ct))).ToList();
 
@@ -4662,6 +4701,8 @@ public static class CollectionEndpoints
         string MediaType,
         string? CoverUrl,
         int SortOrder);
+
+    private sealed record CollectionDisplayWorkRow(string WorkId);
 
     private sealed record CollectionCatalogAggregation(string Key, string? Label);
 

@@ -53,7 +53,7 @@
     min-height: clamp(680px, 86vh, 920px);
     display: grid;
     grid-template-columns: minmax(0, 48rem) minmax(34rem, 46rem);
-    align-items: end;
+    align-items: center;
     justify-content: space-between;
     gap: clamp(1.4rem, 4vw, 3.2rem);
     overflow: hidden;
@@ -90,8 +90,8 @@
 
 .collection-detail-hero__content {
     justify-self: start;
+    align-self: center;
     max-width: 48rem;
-    transform: translateY(clamp(1rem, 5vh, 4rem));
 }
 
 .collection-detail-eyebrow {

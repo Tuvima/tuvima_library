@@ -99,11 +99,15 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("SelectMany(entry => entry.WorkIds)", source, StringComparison.Ordinal);
         Assert.Contains("ISeriesManifestRepository manifestRepo", source, StringComparison.Ordinal);
         Assert.Contains("HasKnownSeriesManifestAsync(collection, manifestRepo, ct)", source, StringComparison.Ordinal);
-        Assert.Contains("string.IsNullOrWhiteSpace(collection.WikidataQid)", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionCatalogAggregation(collection) is null", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("collection:{NormalizeCatalogQid(collection.WikidataQid)}", source, StringComparison.Ordinal);
         Assert.Contains("mediaCounts.TotalCount < 2 && !hasKnownSeriesManifest", source, StringComparison.Ordinal);
         Assert.Contains("manifest?.TotalCount > 1", source, StringComparison.Ordinal);
         Assert.Contains("ResolveCollectionWorkIdsToItemsAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetAggregatedCollectionWorkIdsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionCatalogSourceWorkIdsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ExpandWithChildCollections", source, StringComparison.Ordinal);
+        Assert.Contains("candidate.ParentCollectionId == collection.Id", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogDisplayWorkIdsAsync", source, StringComparison.Ordinal);
         Assert.Contains("COALESCE(gp.id, p.id, w.id)", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct)", source, StringComparison.Ordinal);
