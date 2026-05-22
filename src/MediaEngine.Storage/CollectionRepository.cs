@@ -640,15 +640,51 @@ public sealed class CollectionRepository : ICollectionRepository
             );
             """);
 
-        // Pass 2: Remove works that have no editions (after pass 1).
+        // Pass 2: Remove non-parent works that have no editions (after pass 1).
+        // Parent works are real containers for albums, TV shows, seasons, and
+        // series; they are cleaned up only after their child graph is empty.
         total += conn.Execute("""
             DELETE FROM works
-            WHERE id NOT IN (
+            WHERE work_kind != 'parent'
+              AND id NOT IN (
                 SELECT DISTINCT work_id FROM editions
             );
             """);
 
-        // Pass 3: Remove collections that have no works (after pass 2),
+        // Pass 3: Remove empty auto-created parents from the bottom up. This
+        // removes empty seasons before their shows, and empty albums after their
+        // last track disappears. User-retained parents are preserved.
+        while (true)
+        {
+            var emptyParentIds = conn.Query<string>("""
+                SELECT p.id
+                FROM works p
+                WHERE p.work_kind = 'parent'
+                  AND COALESCE(p.is_catalog_only, 0) = 0
+                  AND NOT EXISTS (SELECT 1 FROM editions e WHERE e.work_id = p.id)
+                  AND NOT EXISTS (SELECT 1 FROM works child WHERE child.parent_work_id = p.id)
+                  AND NOT EXISTS (SELECT 1 FROM collection_items ci WHERE ci.work_id = p.id)
+                  AND NOT EXISTS (SELECT 1 FROM entity_assets ea WHERE ea.entity_id = p.id AND COALESCE(ea.is_user_override, 0) = 1)
+                  AND COALESCE(NULLIF(p.display_overrides_json, ''), '') = '';
+                """).ToList();
+
+            if (emptyParentIds.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var parentId in emptyParentIds)
+            {
+                conn.Execute("DELETE FROM entity_assets WHERE entity_id = @parentId AND COALESCE(is_user_override, 0) = 0;", new { parentId });
+                conn.Execute("DELETE FROM canonical_values WHERE entity_id = @parentId;", new { parentId });
+                conn.Execute("DELETE FROM metadata_claims WHERE entity_id = @parentId;", new { parentId });
+                conn.Execute("DELETE FROM review_queue WHERE entity_id = @parentId;", new { parentId });
+                conn.Execute("UPDATE series_manifest_items SET linked_work_id = NULL WHERE linked_work_id = @parentId;", new { parentId });
+                total += conn.Execute("DELETE FROM works WHERE id = @parentId;", new { parentId });
+            }
+        }
+
+        // Pass 4: Remove collections that have no works (after pass 2/3),
         // including their child collection_relationships rows.
         conn.Execute("""
             DELETE FROM collection_relationships

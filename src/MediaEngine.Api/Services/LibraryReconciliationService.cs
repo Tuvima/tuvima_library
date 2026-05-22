@@ -7,6 +7,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Services;
 
 namespace MediaEngine.Api.Services;
 
@@ -41,6 +42,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly IReviewQueueRepository       _reviewRepo;
     private readonly ICollectionRepository              _collectionRepo;
     private readonly IEventPublisher              _publisher;
+    private readonly WorkHierarchyMaintenanceService _hierarchyMaintenance;
     private readonly IConfigurationLoader         _configLoader;
     private readonly AssetPathService             _assetPaths;
     private readonly ImagePathService             _imagePaths;
@@ -71,6 +73,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         IReviewQueueRepository      reviewRepo,
         ICollectionRepository              collectionRepo,
         IEventPublisher             publisher,
+        WorkHierarchyMaintenanceService hierarchyMaintenance,
         IConfigurationLoader        configLoader,
         AssetPathService            assetPaths,
         ImagePathService            imagePaths,
@@ -85,6 +88,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         _reviewRepo    = reviewRepo;
         _collectionRepo       = collectionRepo;
         _publisher     = publisher;
+        _hierarchyMaintenance = hierarchyMaintenance;
         _configLoader  = configLoader;
         _assetPaths    = assetPaths;
         _imagePaths    = imagePaths;
@@ -250,6 +254,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         if (missingCount > 0)
         {
             hierarchyPruned = await _collectionRepo.PruneOrphanedHierarchyAsync(ct);
+            hierarchyPruned += await _hierarchyMaintenance.CleanupEmptyParentsAsync(ct);
             if (hierarchyPruned > 0)
             {
                 _logger.LogInformation(

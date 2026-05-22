@@ -494,6 +494,7 @@ builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
 builder.Services.AddSingleton<IWorkRepository,           WorkRepository>();
 builder.Services.AddSingleton<ISeriesManifestRepository, SeriesManifestRepository>();
 builder.Services.AddSingleton<HierarchyResolver>();
+builder.Services.AddSingleton<WorkHierarchyMaintenanceService>();
 builder.Services.AddSingleton<WorkClaimRouter>();
 builder.Services.AddSingleton<CatalogUpsertService>();
 builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory>();
@@ -657,6 +658,7 @@ builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopu
 builder.Services.AddSingleton<IUniverseGraphQueryService,       UniverseGraphQueryService>();
 builder.Services.AddSingleton<ICharacterPortraitRepository,      CharacterPortraitRepository>();
 builder.Services.AddSingleton<IEntityAssetRepository,            EntityAssetRepository>();
+builder.Services.AddSingleton<IArtworkPaletteService,            ArtworkPaletteService>();
 builder.Services.AddSingleton<ITextTrackRepository,              TextTrackRepository>();
 builder.Services.AddSingleton<ILoreDeltaService,                LoreDeltaService>();
 builder.Services.AddSingleton<IEraActorResolverService,         EraActorResolverService>();
@@ -742,6 +744,7 @@ builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>()
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
 builder.Services.AddSingleton<IIngestionOperationsStatusService, IngestionOperationsStatusService>();
 builder.Services.AddHostedService<ActivityPruningService>();
+builder.Services.AddHostedService<HierarchyRepairStartupService>();
 builder.Services.AddHostedService<RejectedFileCleanupService>();
 builder.Services.AddHostedService<RetagSweepWorker>();
 builder.Services.AddHostedService<MissingUniverseSweepService>();

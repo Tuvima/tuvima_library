@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
@@ -7,6 +8,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Services;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -533,6 +535,7 @@ public static class LibraryItemEndpoints
             Guid entityId,
             IDatabaseConnection db,
             ImagePathService imagePaths,
+            WorkHierarchyMaintenanceService hierarchyMaintenance,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
@@ -541,6 +544,7 @@ public static class LibraryItemEndpoints
             string? collectionId = null;
             string? workTitle = null;
             string? wikidataQid = null;
+            Guid? parentWorkId = null;
             Guid firstAssetId = Guid.Empty;
 
             using (var conn = db.CreateConnection())
@@ -569,13 +573,14 @@ public static class LibraryItemEndpoints
                 // Get collection ID and QID for cleanup
                 using (var cmd2 = conn.CreateCommand())
                 {
-                    cmd2.CommandText = "SELECT collection_id, wikidata_qid FROM works WHERE id = @workId";
+                    cmd2.CommandText = "SELECT collection_id, wikidata_qid, parent_work_id FROM works WHERE id = @workId";
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
                         collectionId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
                         wikidataQid = reader2.IsDBNull(1) ? null : reader2.GetString(1);
+                        parentWorkId = reader2.IsDBNull(2) ? null : Guid.Parse(reader2.GetString(2));
                     }
                 }
 
@@ -649,11 +654,14 @@ public static class LibraryItemEndpoints
             // 4. Delete the work (CASCADE handles editions → media_assets → claims → canonical_values)
             using (var conn = db.CreateConnection())
             {
+                conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId.ToString("D") });
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "DELETE FROM works WHERE id = @workId";
                 cmd.Parameters.AddWithValue("@workId", entityId.ToString());
                 cmd.ExecuteNonQuery();
             }
+
+            await hierarchyMaintenance.CleanupEmptyParentsAsync(parentWorkId, ct);
 
             // 5. Clean up .images/ directory — only after DB delete so QID sibling check is valid
             if (firstAssetId != Guid.Empty)
@@ -908,6 +916,7 @@ public static class LibraryItemEndpoints
             BatchLibraryItemRequest request,
             IDatabaseConnection db,
             ImagePathService imagePaths,
+            WorkHierarchyMaintenanceService hierarchyMaintenance,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
@@ -925,6 +934,7 @@ public static class LibraryItemEndpoints
                     string? collectionId      = null;
                     string? workTitle  = null;
                     string? wikidataQid = null;
+                    Guid? parentWorkId = null;
                     Guid firstAssetId = Guid.Empty;
 
                     using (var conn = db.CreateConnection())
@@ -951,13 +961,14 @@ public static class LibraryItemEndpoints
 
                         using (var cmd2 = conn.CreateCommand())
                         {
-                            cmd2.CommandText = "SELECT collection_id, wikidata_qid FROM works WHERE id = @workId";
+                            cmd2.CommandText = "SELECT collection_id, wikidata_qid, parent_work_id FROM works WHERE id = @workId";
                             cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                             using var reader2 = cmd2.ExecuteReader();
                             if (reader2.Read())
                             {
                                 collectionId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
                                 wikidataQid = reader2.IsDBNull(1) ? null : reader2.GetString(1);
+                                parentWorkId = reader2.IsDBNull(2) ? null : Guid.Parse(reader2.GetString(2));
                             }
                         }
 
@@ -1021,11 +1032,14 @@ public static class LibraryItemEndpoints
 
                     using (var conn = db.CreateConnection())
                     {
+                        conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId.ToString("D") });
                         using var cmd = conn.CreateCommand();
                         cmd.CommandText = "DELETE FROM works WHERE id = @workId";
                         cmd.Parameters.AddWithValue("@workId", entityId.ToString());
                         cmd.ExecuteNonQuery();
                     }
+
+                    await hierarchyMaintenance.CleanupEmptyParentsAsync(parentWorkId, ct);
 
                     // Clean up .images/ after DB delete so QID sibling check is valid
                     if (firstAssetId != Guid.Empty)

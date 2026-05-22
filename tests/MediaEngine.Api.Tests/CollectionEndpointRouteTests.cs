@@ -116,7 +116,9 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("ExpandWithChildCollections", source, StringComparison.Ordinal);
         Assert.Contains("candidate.ParentCollectionId == collection.Id", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogDisplayWorkIdsAsync", source, StringComparison.Ordinal);
-        Assert.Contains("COALESCE(gp.id, p.id, w.id)", source, StringComparison.Ordinal);
+        Assert.Contains("WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("parent_by_key.parent_key = LOWER(TRIM(CAST(show_name.value AS TEXT)))", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("parent_value.key IN ('show_name', 'title')", source, StringComparison.Ordinal);
         Assert.Contains("ResolveCollectionMembershipWorkIdAsync(body.WorkId, db, ct)", source, StringComparison.Ordinal);
         Assert.Contains("existingDisplayWorkIds.Contains(collectionWorkId)", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, db, ct)", source, StringComparison.Ordinal);
@@ -131,7 +133,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.DoesNotContain("Title     = title ?? $\"Work", source, StringComparison.Ordinal);
 
         var lookupSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionMediaLookupReadService.cs"));
-        Assert.Contains("WHEN w.media_type = 'TV' THEN COALESCE(gp.id, p.id, w.id)", lookupSource, StringComparison.Ordinal);
+        Assert.Contains("WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)", lookupSource, StringComparison.Ordinal);
         Assert.Contains("BuildLookupRoute(row)", lookupSource, StringComparison.Ordinal);
         Assert.Contains(".GroupBy(row => row.WorkId)", lookupSource, StringComparison.Ordinal);
     }

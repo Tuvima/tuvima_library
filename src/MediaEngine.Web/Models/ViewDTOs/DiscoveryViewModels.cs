@@ -1,3 +1,5 @@
+using MediaEngine.Domain.Models;
+
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 public enum DiscoveryCardShape
@@ -106,6 +108,7 @@ public sealed class DiscoveryCardViewModel
     public string MediaKind { get; init; } = string.Empty;
     public string AccentColor { get; init; } = "var(--tl-status-info)";
     public string SecondaryAccentColor { get; init; } = "#111827";
+    public ArtworkPalette? ArtworkPalette { get; init; }
     public DiscoveryCardShape Shape { get; init; } = DiscoveryCardShape.Portrait;
     public DiscoveryCardPresentation Presentation { get; init; } = DiscoveryCardPresentation.Default;
     public DiscoverySurfaceKind SurfaceKind { get; init; } = DiscoverySurfaceKind.CoverPortrait;

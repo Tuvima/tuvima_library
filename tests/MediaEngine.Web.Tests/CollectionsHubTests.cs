@@ -48,6 +48,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("Mode = \"Collection\"", source, StringComparison.Ordinal);
         Assert.Contains("MediaKind = \"Collection\"", source, StringComparison.Ordinal);
         Assert.Contains("PaletteArtwork(collection)", source, StringComparison.Ordinal);
+        Assert.Contains("ArtworkPalette = collection.ArtworkPalette", source, StringComparison.Ordinal);
         Assert.Contains("SecondaryAccentColor = secondaryAccentColor", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Mode = type == \"Playlist\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaKind = \"Playlist\"", source, StringComparison.Ordinal);
@@ -59,8 +60,21 @@ public sealed class CollectionsHubTests
         Assert.Contains("<TuvimaArtworkStack", cardSource, StringComparison.Ordinal);
         Assert.Contains("CollectionArtworkStackItems", cardSource, StringComparison.Ordinal);
         Assert.Contains("discovery-card-collection-copy", cardSource, StringComparison.Ordinal);
+        Assert.Contains("ShowMediaKindBadge => !ShowCollectionBanner", cardSource, StringComparison.Ordinal);
+        Assert.Contains("16 / 7.25", cardSource, StringComparison.Ordinal);
+        Assert.Contains("discovery-card-artwork-stack--collection-tile", cardSource, StringComparison.Ordinal);
+        Assert.Contains("Palette=\"@Item.ArtworkPalette\"", cardSource, StringComparison.Ordinal);
+        Assert.Contains("--art-bg-base", cardSource, StringComparison.Ordinal);
+        Assert.Contains("inset:0 10px 0 38%", cardSource, StringComparison.Ordinal);
+        Assert.Contains("background:transparent; overflow:visible", cardSource, StringComparison.Ordinal);
+        Assert.Contains("left:min(90%, calc(var(--left) + 10%))", cardSource, StringComparison.Ordinal);
         Assert.Contains("ArtworkStackItems = artworkStackItems", source, StringComparison.Ordinal);
         Assert.Contains("ToArtworkShape(item.ArtworkShape, item.MediaType)", source, StringComparison.Ordinal);
+        Assert.Contains("\"Video\", collection.WatchCount", source, StringComparison.Ordinal);
+        Assert.Contains("\"Audio\", collection.ListenCount", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Watch\", collection.WatchCount", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Listen\", collection.ListenCount", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Read\", collection.ReadCount", source, StringComparison.Ordinal);
         Assert.Contains("PrimaryNavigationUrl = $\"/collection/{collection.Id:D}\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("READ COLLECTIONS", source, StringComparison.Ordinal);
         Assert.DoesNotContain("LISTEN COLLECTIONS", source, StringComparison.Ordinal);
@@ -121,6 +135,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("OVERVIEW", source, StringComparison.Ordinal);
         Assert.Contains("HeroArtworkStackItems", source, StringComparison.Ordinal);
         Assert.Contains("<TuvimaArtworkStack", source, StringComparison.Ordinal);
+        Assert.Contains("Palette=\"@_collection.ArtworkPalette\"", source, StringComparison.Ordinal);
         Assert.Contains("Variant=\"ArtworkStackVariant.Hero\"", source, StringComparison.Ordinal);
         Assert.Contains("ResolveHeroPalette", source, StringComparison.Ordinal);
         Assert.Contains("ToRgbCss", source, StringComparison.Ordinal);
@@ -165,6 +180,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("public enum ArtworkStackVariant", modelSource, StringComparison.Ordinal);
         Assert.Contains("[Parameter] public IReadOnlyList<ArtworkStackItem> Items", source, StringComparison.Ordinal);
         Assert.Contains("[Parameter] public string Seed", source, StringComparison.Ordinal);
+        Assert.Contains("[Parameter] public MediaEngine.Domain.Models.ArtworkPalette? Palette", source, StringComparison.Ordinal);
+        Assert.Contains("Palette?.CssVariableStyle", source, StringComparison.Ordinal);
         Assert.Contains("OrderBy(item => StableHash", source, StringComparison.Ordinal);
         Assert.Contains("data-shape=\"@ShapeValue(slot.item.Shape)\"", source, StringComparison.Ordinal);
         Assert.Contains("--artwork-ratio: 1 / 1", source, StringComparison.Ordinal);

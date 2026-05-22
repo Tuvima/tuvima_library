@@ -9,6 +9,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
@@ -1953,6 +1954,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             ISeriesManifestRepository manifestRepo,
             IProfileRepository profileRepo,
+            IArtworkPaletteService artworkPaletteService,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -2004,6 +2006,23 @@ public static class CollectionEndpoints
                 }
 
                 var artworkItems = await GetCollectionArtworkItemsAsync(workIds, db, 4, ct);
+                var artworkPalette = await artworkPaletteService.GeneratePaletteAsync(
+                    artworkItems
+                        .Select(item => new ArtworkPaletteSource
+                        {
+                            Id = item.WorkId.ToString("D"),
+                            ImageUrl = item.CoverUrl ?? string.Empty,
+                            LocalPath = item.LocalImagePath,
+                            MediaType = TryParseMediaType(item.MediaType),
+                            Shape = TryParseArtworkShape(item.ArtworkShape),
+                        })
+                        .ToList(),
+                    new ArtworkPaletteOptions
+                    {
+                        StableSeed = representative.Collection.Id.ToString("D"),
+                        MaxImagesToAnalyze = 5,
+                    },
+                    ct);
                 var displayName = entries.Count > 1
                     ? representative.Grouping?.Label
                     : null;
@@ -2015,6 +2034,7 @@ public static class CollectionEndpoints
                     representative.Classification,
                     mediaCounts,
                     artworkItems,
+                    artworkPalette,
                     displayName));
             }
 
@@ -3446,7 +3466,8 @@ public static class CollectionEndpoints
             """
             SELECT DISTINCT
                    CASE
-                       WHEN w.media_type = 'TV' THEN COALESCE(gp.id, p.id, w.id)
+                       WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)
+                       WHEN w.work_kind = 'parent' AND p.id IS NOT NULL THEN COALESCE(gp.id, p.id, w.id)
                        ELSE w.id
                    END AS WorkId
             FROM works w
@@ -3663,7 +3684,12 @@ public static class CollectionEndpoints
                        NULLIF(dominant_work.value, ''),
                        NULLIF(cover_accent_work.value, ''),
                        NULLIF(preferred_cover.accent_hex, '')
-                   ) AS AccentColor
+                   ) AS AccentColor,
+                   COALESCE(
+                       NULLIF(preferred_cover.local_image_path_s, ''),
+                       NULLIF(preferred_cover.local_image_path_m, ''),
+                       NULLIF(preferred_cover.local_image_path, '')
+                   ) AS LocalImagePath
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
             LEFT JOIN entity_assets preferred_cover ON preferred_cover.id = (
@@ -3714,6 +3740,7 @@ public static class CollectionEndpoints
                     SecondaryColor = row.SecondaryColor,
                     AccentColor = row.AccentColor,
                     ArtworkShape = ArtworkShapeForMediaType(row.MediaType),
+                    LocalImagePath = row.LocalImagePath,
                 };
             })
             .ToList();
@@ -3757,6 +3784,27 @@ public static class CollectionEndpoints
         return "square";
     }
 
+    private static MediaType? TryParseMediaType(string? mediaType) =>
+        Enum.TryParse<MediaType>(mediaType, ignoreCase: true, out var parsed)
+            ? parsed
+            : mediaType switch
+            {
+                "Movie" => MediaType.Movies,
+                "Book" => MediaType.Books,
+                "Audiobook" => MediaType.Audiobooks,
+                "Comic" => MediaType.Comics,
+                "Shows" or "Show" => MediaType.TV,
+                _ => null,
+            };
+
+    private static ArtworkShape? TryParseArtworkShape(string? shape) => shape?.Trim().ToLowerInvariant() switch
+    {
+        "square" => ArtworkShape.Square,
+        "portrait" => ArtworkShape.Portrait,
+        "wide" or "landscape" => ArtworkShape.Wide,
+        _ => null,
+    };
+
     private sealed class CollectionArtworkItemRow
     {
         public string WorkId { get; init; } = string.Empty;
@@ -3766,6 +3814,7 @@ public static class CollectionEndpoints
         public string? PrimaryColor { get; init; }
         public string? SecondaryColor { get; init; }
         public string? AccentColor { get; init; }
+        public string? LocalImagePath { get; init; }
     }
 
     private static string? NormalizeCollectionArtworkMimeType(string? contentType, string extension)

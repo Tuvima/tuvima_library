@@ -60,10 +60,10 @@
     padding: clamp(7rem, 13vh, 9.5rem) clamp(1.25rem, 5vw, 5.5rem) clamp(5rem, 10vh, 8rem);
     isolation: isolate;
     background:
-        radial-gradient(circle at 82% 38%, rgba(var(--collection-accent-rgb), 0.32), transparent 26rem),
-        radial-gradient(circle at 48% 58%, rgba(var(--collection-warm-rgb), 0.28), transparent 32rem),
-        linear-gradient(115deg, rgba(4, 8, 16, 0.98), rgba(13, 17, 27, 0.82) 48%, rgba(3, 7, 12, 0.98));
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        radial-gradient(circle at 82% 38%, var(--art-bg-glow, rgba(var(--collection-accent-rgb), 0.32)), transparent 26rem),
+        radial-gradient(circle at 48% 58%, var(--art-bg-glow-secondary, rgba(var(--collection-warm-rgb), 0.28)), transparent 32rem),
+        var(--art-bg-gradient, linear-gradient(115deg, rgba(4, 8, 16, 0.98), rgba(13, 17, 27, 0.82) 48%, rgba(3, 7, 12, 0.98)));
+    border-bottom: 1px solid var(--art-bg-border, rgba(255, 255, 255, 0.08));
 }
 
 .collection-detail-hero::before {
@@ -72,7 +72,7 @@
     inset: 0;
     z-index: -2;
     background:
-        linear-gradient(90deg, rgba(2, 5, 10, 0.98) 0%, rgba(2, 5, 10, 0.7) 44%, transparent 78%),
+        linear-gradient(90deg, var(--art-bg-overlay, rgba(2, 5, 10, 0.98)) 0%, rgba(2, 5, 10, 0.7) 44%, transparent 78%),
         radial-gradient(ellipse at 64% 28%, rgba(var(--collection-warm-rgb), 0.18), transparent 38rem);
 }
 
@@ -83,9 +83,9 @@
     opacity: 0.52;
     filter: blur(18px) saturate(1.1);
     background:
-        linear-gradient(135deg, rgba(var(--collection-accent-rgb), 0.44), transparent 38%),
+        linear-gradient(135deg, var(--art-bg-glow, rgba(var(--collection-accent-rgb), 0.44)), transparent 38%),
         linear-gradient(40deg, transparent 26%, rgba(var(--collection-warm-rgb), 0.34) 54%, transparent 82%),
-        #060a12;
+        var(--art-bg-base-dark, #060a12);
 }
 
 .collection-detail-hero__content {

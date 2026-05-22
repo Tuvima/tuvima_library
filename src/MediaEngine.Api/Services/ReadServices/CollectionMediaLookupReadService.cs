@@ -64,12 +64,13 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                 GROUP BY work_descendants.root_id
             )
             SELECT CASE
-                       WHEN w.media_type = 'TV' THEN COALESCE(gp.id, p.id, w.id)
+                       WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)
+                       WHEN w.work_kind = 'parent' AND p.id IS NOT NULL THEN COALESCE(gp.id, p.id, w.id)
                        ELSE w.id
                    END AS WorkId,
                    w.media_type AS MediaType,
                    CASE
-                       WHEN w.media_type = 'TV' AND COALESCE(gp.id, p.id, w.id) != w.id THEN 'parent'
+                       WHEN COALESCE(gp.id, p.id, w.id) != w.id THEN 'parent'
                        ELSE w.work_kind
                    END AS WorkKind,
                    w.ordinal AS Ordinal,
@@ -183,7 +184,8 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                 SELECT requested.ItemId,
                        requested.SortOrder,
                        CASE
-                           WHEN w.media_type = 'TV' THEN COALESCE(gp.id, p.id, w.id)
+                           WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)
+                           WHEN w.work_kind = 'parent' AND p.id IS NOT NULL THEN COALESCE(gp.id, p.id, w.id)
                            ELSE w.id
                        END AS WorkId
                 FROM requested

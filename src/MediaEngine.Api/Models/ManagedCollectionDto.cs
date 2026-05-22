@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Api.Models;
 
@@ -173,6 +174,9 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
     [JsonPropertyName("artwork_items")]
     public IReadOnlyList<CollectionArtworkItemDto> ArtworkItems { get; init; } = [];
 
+    [JsonPropertyName("artwork_palette")]
+    public ArtworkPalette ArtworkPalette { get; init; } = ArtworkPalette.TuvimaDefault();
+
     public static CollectionManagementCatalogDto FromDomain(
         Collection collection,
         int itemCount,
@@ -180,6 +184,7 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
         CollectionCatalogClassification classification,
         CollectionMediaCounts mediaCounts,
         IReadOnlyList<CollectionArtworkItemDto>? artworkItems = null,
+        ArtworkPalette? artworkPalette = null,
         string? displayNameOverride = null)
     {
         var baseDto = FromDomain(collection, itemCount, activeProfile);
@@ -229,6 +234,7 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
             CanRename = canEdit && !classification.IsSystem,
             CanToggleGlobal = canManageGlobal && !classification.IsSystem && CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType),
             ArtworkItems = artworkItems ?? [],
+            ArtworkPalette = artworkPalette ?? ArtworkPalette.TuvimaDefault(),
         };
     }
 }
@@ -258,6 +264,9 @@ public sealed class CollectionArtworkItemDto
 
     [JsonPropertyName("artwork_shape")]
     public string ArtworkShape { get; init; } = "square";
+
+    [JsonIgnore]
+    public string? LocalImagePath { get; init; }
 }
 
 public sealed record CollectionCatalogClassification(

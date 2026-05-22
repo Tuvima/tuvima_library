@@ -1,6 +1,7 @@
 using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
+using MediaEngine.Providers.Services;
 using SkiaSharp;
 
 namespace MediaEngine.Providers.Helpers;
@@ -34,7 +35,7 @@ public static class ArtworkVariantHelper
         asset.HeightPx = bitmap.Height;
         asset.AspectClass = ClassifyAspect(bitmap.Width, bitmap.Height);
 
-        var palette = ExtractPalette(bitmap);
+        var palette = ArtworkPaletteColorEngine.ExtractLegacyPalette(bitmap);
         asset.PrimaryHex = palette.PrimaryHex;
         asset.SecondaryHex = palette.SecondaryHex;
         asset.AccentHex = palette.AccentHex;
@@ -155,121 +156,4 @@ public static class ArtworkVariantHelper
             : ".jpg";
     }
 
-    private static ArtworkPalette ExtractPalette(SKBitmap bitmap)
-    {
-        using var sample = bitmap.Resize(
-            new SKImageInfo(
-                Math.Max(8, Math.Min(48, bitmap.Width)),
-                Math.Max(8, Math.Min(48, bitmap.Height)),
-                SKColorType.Bgra8888,
-                bitmap.AlphaType),
-            new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-
-        var source = sample ?? bitmap;
-        var buckets = new Dictionary<int, int>();
-
-        for (var y = 0; y < source.Height; y++)
-        {
-            for (var x = 0; x < source.Width; x++)
-            {
-                var color = source.GetPixel(x, y);
-                if (color.Alpha < 24)
-                {
-                    continue;
-                }
-
-                var packed = QuantizeColor(color);
-                buckets[packed] = buckets.TryGetValue(packed, out var count) ? count + 1 : 1;
-            }
-        }
-
-        var colors = buckets
-            .OrderByDescending(pair => pair.Value)
-            .Select(pair => ToColor(pair.Key))
-            .ToList();
-
-        var primary = colors.FirstOrDefault(IsUsablePaletteColor);
-        if (primary == default)
-        {
-            primary = colors.FirstOrDefault();
-        }
-
-        var secondary = colors.FirstOrDefault(color => IsDistinct(primary, color) && IsUsablePaletteColor(color));
-        if (secondary == default)
-        {
-            secondary = colors.FirstOrDefault(color => IsDistinct(primary, color));
-        }
-
-        var accent = colors
-            .OrderByDescending(GetAccentScore)
-            .FirstOrDefault(color => IsDistinct(primary, color) && IsDistinct(secondary, color));
-        if (accent == default)
-        {
-            accent = secondary != default ? secondary : primary;
-        }
-
-        var primaryHex = ToHex(primary == default ? new SKColor(93, 202, 165) : primary);
-        var secondaryHex = ToHex(secondary == default ? Blend(primary, SKColors.Black, 0.35f) : secondary);
-        var accentHex = ToHex(accent == default ? Blend(primary, SKColors.White, 0.2f) : accent);
-
-        return new ArtworkPalette(primaryHex, secondaryHex, accentHex);
-    }
-
-    private static int QuantizeColor(SKColor color)
-    {
-        var red = color.Red / 32;
-        var green = color.Green / 32;
-        var blue = color.Blue / 32;
-        return (red << 16) | (green << 8) | blue;
-    }
-
-    private static SKColor ToColor(int packed)
-    {
-        var red = ((packed >> 16) & 0xFF) * 32;
-        var green = ((packed >> 8) & 0xFF) * 32;
-        var blue = (packed & 0xFF) * 32;
-        return new SKColor((byte)Math.Min(red, 255), (byte)Math.Min(green, 255), (byte)Math.Min(blue, 255));
-    }
-
-    private static bool IsUsablePaletteColor(SKColor color)
-    {
-        var brightness = (0.299 * color.Red) + (0.587 * color.Green) + (0.114 * color.Blue);
-        return brightness is > 18 and < 244;
-    }
-
-    private static bool IsDistinct(SKColor left, SKColor right)
-    {
-        if (left == default || right == default)
-        {
-            return false;
-        }
-
-        var red = left.Red - right.Red;
-        var green = left.Green - right.Green;
-        var blue = left.Blue - right.Blue;
-        return (red * red) + (green * green) + (blue * blue) > 1800;
-    }
-
-    private static double GetAccentScore(SKColor color)
-    {
-        var max = Math.Max(color.Red, Math.Max(color.Green, color.Blue));
-        var min = Math.Min(color.Red, Math.Min(color.Green, color.Blue));
-        var saturation = max == 0 ? 0d : (max - min) / (double)max;
-        var brightness = (0.299 * color.Red) + (0.587 * color.Green) + (0.114 * color.Blue);
-        return saturation * 1000d + brightness;
-    }
-
-    private static SKColor Blend(SKColor source, SKColor target, float amount)
-    {
-        var clamped = Math.Clamp(amount, 0f, 1f);
-        return new SKColor(
-            (byte)Math.Round((source.Red * (1 - clamped)) + (target.Red * clamped)),
-            (byte)Math.Round((source.Green * (1 - clamped)) + (target.Green * clamped)),
-            (byte)Math.Round((source.Blue * (1 - clamped)) + (target.Blue * clamped)));
-    }
-
-    private static string ToHex(SKColor color) =>
-        $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";
-
-    private sealed record ArtworkPalette(string PrimaryHex, string SecondaryHex, string AccentHex);
 }

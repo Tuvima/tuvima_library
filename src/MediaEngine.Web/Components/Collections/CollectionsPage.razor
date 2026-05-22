@@ -310,6 +310,7 @@
             MediaKind = "Collection",
             AccentColor = accentColor,
             SecondaryAccentColor = secondaryAccentColor,
+            ArtworkPalette = collection.ArtworkPalette,
             Shape = DiscoveryCardShape.Landscape,
             Presentation = presentation,
             SurfaceKind = DiscoverySurfaceKind.BannerLandscape,
@@ -370,17 +371,17 @@
         var counts = new List<DiscoveryMediaCountViewModel>();
         if (collection.WatchCount > 0)
         {
-            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.Movie, "Watch", collection.WatchCount));
+            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.PlayArrow, "Video", collection.WatchCount));
         }
 
         if (collection.ListenCount > 0)
         {
-            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.Headphones, "Listen", collection.ListenCount));
+            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.Headphones, "Audio", collection.ListenCount));
         }
 
         if (collection.ReadCount > 0)
         {
-            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.MenuBook, "Read", collection.ReadCount));
+            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.MenuBook, "Books", collection.ReadCount));
         }
 
         if (collection.OtherCount > 0)
@@ -430,11 +431,13 @@
     {
         "Movies" => 0,
         "TV" => 1,
-        "Books" => 2,
-        "Audiobooks" => 3,
-        "Music" => 4,
-        "Comics" => 5,
-        _ => 6,
+        "Video" => 2,
+        "Books" => 3,
+        "Audiobooks" => 4,
+        "Audio" => 5,
+        "Music" => 6,
+        "Comics" => 7,
+        _ => 8,
     };
 
     private static DiscoveryCardPresentation ResolvePresentation(CollectionManagementCatalogViewModel collection)

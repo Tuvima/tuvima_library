@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -386,6 +387,9 @@ public sealed class CollectionManagementCatalogViewModel
 
     [JsonPropertyName("artwork_items")]
     public List<CollectionArtworkItemViewModel> ArtworkItems { get; set; } = [];
+
+    [JsonPropertyName("artwork_palette")]
+    public ArtworkPalette ArtworkPalette { get; set; } = ArtworkPalette.TuvimaDefault();
 
     public string ArtworkUrl => SquareArtworkUrl ?? string.Empty;
 

@@ -58,6 +58,7 @@ else
                                     Variant="ArtworkStackVariant.Hero"
                                     MaxVisible="5"
                                     IsDecorative="true"
+                                    Palette="@_collection.ArtworkPalette"
                                     Class="collection-detail-artwork-stack" />
             </div>
         </section>
@@ -250,7 +251,7 @@ else
             var palette = ResolveHeroPalette();
             if (palette is not null)
             {
-                return $"--collection-accent-rgb: {palette.PrimaryRgb}; --collection-warm-rgb: {palette.SecondaryRgb};";
+                return $"--collection-accent-rgb: {palette.PrimaryRgb}; --collection-warm-rgb: {palette.SecondaryRgb}; {_collection?.ArtworkPalette.CssVariableStyle}";
             }
 
             return _collection?.PrimaryLane switch
