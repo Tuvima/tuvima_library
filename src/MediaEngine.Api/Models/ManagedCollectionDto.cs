@@ -179,7 +179,8 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
         Profile? activeProfile,
         CollectionCatalogClassification classification,
         CollectionMediaCounts mediaCounts,
-        IReadOnlyList<CollectionArtworkItemDto>? artworkItems = null)
+        IReadOnlyList<CollectionArtworkItemDto>? artworkItems = null,
+        string? displayNameOverride = null)
     {
         var baseDto = FromDomain(collection, itemCount, activeProfile);
         var isGlobal = string.Equals(baseDto.Visibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase);
@@ -189,7 +190,7 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
         return new CollectionManagementCatalogDto
         {
             Id = baseDto.Id,
-            Name = baseDto.Name,
+            Name = string.IsNullOrWhiteSpace(displayNameOverride) ? baseDto.Name : displayNameOverride,
             Description = baseDto.Description,
             IconName = baseDto.IconName,
             SquareArtworkUrl = baseDto.SquareArtworkUrl,

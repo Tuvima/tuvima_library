@@ -1967,20 +1967,54 @@ public static class CollectionEndpoints
                     .Select(collection => collection.Id),
                 ct);
 
-            var dtos = new List<CollectionManagementCatalogDto>();
+            var candidates = new List<CollectionManagementCatalogCandidate>();
             foreach (var collection in accessibleCollections)
             {
                 var classification = ClassifyCollectionForCatalog(collection);
-                var itemCount = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, materializedCounts, ct);
-                var mediaCounts = await GetCollectionMediaCountsAsync(collection, collectionRepo, db, ct);
+                var workIds = await GetCollectionCatalogDisplayWorkIdsAsync(
+                    await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct),
+                    db,
+                    ct);
+                var itemCount = GetManagedCollectionItemCount(collection, materializedCounts, workIds);
+                var mediaCounts = await GetCollectionMediaCountsAsync(workIds, db, ct);
                 var hasKnownSeriesManifest = await HasKnownSeriesManifestAsync(collection, manifestRepo, ct);
                 if (!ShouldIncludeInManagementCatalog(collection, classification, mediaCounts, hasKnownSeriesManifest))
                 {
                     continue;
                 }
 
-                var artworkItems = await GetCollectionArtworkItemsAsync(collection, collectionRepo, db, 4, ct);
-                dtos.Add(CollectionManagementCatalogDto.FromDomain(collection, itemCount, activeProfile, classification, mediaCounts, artworkItems));
+                var grouping = GetCollectionCatalogAggregation(collection);
+                candidates.Add(new CollectionManagementCatalogCandidate(collection, classification, grouping, workIds, itemCount, mediaCounts));
+            }
+
+            var dtos = new List<CollectionManagementCatalogDto>();
+            foreach (var group in candidates.GroupBy(candidate => candidate.Grouping?.Key ?? candidate.Collection.Id.ToString("D"), StringComparer.OrdinalIgnoreCase))
+            {
+                var entries = group.ToList();
+                var representative = SelectCatalogRepresentative(entries);
+                var workIds = entries
+                    .SelectMany(entry => entry.WorkIds)
+                    .Distinct()
+                    .ToList();
+                var mediaCounts = await GetCollectionMediaCountsAsync(workIds, db, ct);
+                if (IsGeneratedTvShowContainer(representative.Collection, mediaCounts))
+                {
+                    continue;
+                }
+
+                var artworkItems = await GetCollectionArtworkItemsAsync(workIds, db, 4, ct);
+                var displayName = entries.Count > 1
+                    ? representative.Grouping?.Label
+                    : null;
+
+                dtos.Add(CollectionManagementCatalogDto.FromDomain(
+                    representative.Collection,
+                    workIds.Count,
+                    activeProfile,
+                    representative.Classification,
+                    mediaCounts,
+                    artworkItems,
+                    displayName));
             }
 
             return Results.Ok(dtos
@@ -2078,7 +2112,15 @@ public static class CollectionEndpoints
 
             var take = limit is > 0 ? limit.Value : 20;
             List<CollectionItemDto> dtos;
-            if (string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+            if (IsGeneratedSeriesCollection(collection))
+            {
+                var workIds = (await GetAggregatedCollectionWorkIdsAsync(id, activeProfile, collectionRepo, db, ct))
+                    .Distinct()
+                    .Take(take)
+                    .ToList();
+                dtos = await ResolveCollectionWorkIdsToItemsAsync(id, workIds, db, ct);
+            }
+            else if (string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
             {
                 var items = await collectionRepo.GetCollectionItemsAsync(id, take, ct);
                 dtos = await mediaLookupReadService.ResolveItemsAsync(id, items, ct);
@@ -3000,6 +3042,20 @@ public static class CollectionEndpoints
         return await collectionRepo.GetCollectionItemCountAsync(collection.Id, ct);
     }
 
+    private static int GetManagedCollectionItemCount(
+        Collection collection,
+        IReadOnlyDictionary<Guid, int> curatedCountByCollection,
+        IReadOnlyList<Guid> workIds)
+    {
+        if (!string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase)
+            && curatedCountByCollection.TryGetValue(collection.Id, out var count))
+        {
+            return Math.Max(count, workIds.Count);
+        }
+
+        return workIds.Count;
+    }
+
     private static CollectionCatalogClassification ClassifyCollectionForCatalog(Collection collection)
     {
         var systemKey = GetSystemCollectionKey(collection);
@@ -3079,11 +3135,6 @@ public static class CollectionEndpoints
             return false;
         }
 
-        if (IsGeneratedTvShowContainer(collection, mediaCounts))
-        {
-            return false;
-        }
-
         return true;
     }
 
@@ -3091,6 +3142,82 @@ public static class CollectionEndpoints
         => string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
             || string.Equals(collection.CollectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase)
             || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase);
+
+    private static CollectionManagementCatalogCandidate SelectCatalogRepresentative(
+        IReadOnlyList<CollectionManagementCatalogCandidate> entries)
+    {
+        return entries
+            .OrderByDescending(entry => entry.MediaCounts.TotalCount)
+            .ThenByDescending(entry => entry.ItemCount)
+            .ThenBy(entry => entry.Collection.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .First();
+    }
+
+    private static CollectionCatalogAggregation? GetCollectionCatalogAggregation(Collection collection)
+    {
+        if (!IsGeneratedSeriesCollection(collection))
+        {
+            return null;
+        }
+
+        if (TryGetRelationshipAggregation(collection, "fictional_universe", out var aggregation))
+        {
+            return aggregation;
+        }
+
+        if (TryGetRelationshipAggregation(collection, "franchise", out aggregation))
+        {
+            return aggregation;
+        }
+
+        if (!string.IsNullOrWhiteSpace(collection.WikidataQid))
+        {
+            return new CollectionCatalogAggregation(
+                $"collection:{NormalizeCatalogQid(collection.WikidataQid)}",
+                collection.DisplayName);
+        }
+
+        return null;
+    }
+
+    private static bool TryGetRelationshipAggregation(
+        Collection collection,
+        string relationshipType,
+        out CollectionCatalogAggregation aggregation)
+    {
+        var relationship = collection.Relationships
+            .FirstOrDefault(candidate => string.Equals(candidate.RelType, relationshipType, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(candidate.RelQid));
+        if (relationship is null)
+        {
+            aggregation = default!;
+            return false;
+        }
+
+        aggregation = new CollectionCatalogAggregation(
+            $"{relationshipType}:{NormalizeCatalogQid(relationship.RelQid)}",
+            FirstNonBlank(relationship.RelLabel, collection.DisplayName));
+        return true;
+    }
+
+    private static string NormalizeCatalogQid(string qid)
+    {
+        var value = qid.Contains('/') ? qid.Split('/')[^1] : qid;
+        if (value.Contains("|||", StringComparison.Ordinal))
+        {
+            value = value.Split("|||", 2)[0];
+        }
+
+        if (value.Contains("::", StringComparison.Ordinal))
+        {
+            value = value.Split("::", 2)[0];
+        }
+
+        return value.Trim();
+    }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static async Task<bool> HasKnownSeriesManifestAsync(
         Collection collection,
@@ -3132,20 +3259,29 @@ public static class CollectionEndpoints
         CancellationToken ct)
     {
         var workIds = await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct);
+        return await GetCollectionMediaCountsAsync(workIds, db, ct);
+    }
+
+    private static async Task<CollectionMediaCounts> GetCollectionMediaCountsAsync(
+        IReadOnlyList<Guid> workIds,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
         if (workIds.Count == 0)
         {
             return new CollectionMediaCounts(0, 0, 0, 0);
         }
 
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string MediaType, int Count)>(
-            """
-            SELECT media_type AS MediaType, COUNT(*) AS Count
-            FROM works
-            WHERE id IN @WorkIds
-            GROUP BY media_type
-            """,
-            new { WorkIds = workIds.Select(id => id.ToString()).ToArray() });
+        var rows = await conn.QueryAsync<(string MediaType, int Count)>(new CommandDefinition(
+                """
+                SELECT media_type AS MediaType, COUNT(*) AS Count
+                FROM works
+                WHERE id IN @WorkIds
+                GROUP BY media_type
+                """,
+                new { WorkIds = workIds.Select(id => id.ToString()).ToArray() },
+                cancellationToken: ct));
 
         var watch = 0;
         var listen = 0;
@@ -3209,6 +3345,69 @@ public static class CollectionEndpoints
         return collectionWithWorks?.Works.Select(work => work.Id).Distinct().ToList() ?? [];
     }
 
+    private static async Task<IReadOnlyList<Guid>> GetAggregatedCollectionWorkIdsAsync(
+        Guid collectionId,
+        Profile? activeProfile,
+        ICollectionRepository collectionRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        var accessibleCollections = (await collectionRepo.GetAllAsync(ct))
+            .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
+            .ToList();
+        var target = accessibleCollections.FirstOrDefault(collection => collection.Id == collectionId);
+        if (target is null)
+        {
+            return [];
+        }
+
+        var targetGrouping = GetCollectionCatalogAggregation(target);
+        var siblingCollections = targetGrouping is null
+            ? new List<Collection> { target }
+            : accessibleCollections
+                .Where(collection => IsGeneratedSeriesCollection(collection)
+                    && string.Equals(GetCollectionCatalogAggregation(collection)?.Key, targetGrouping.Key, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+        var workIds = new List<Guid>();
+        foreach (var collection in siblingCollections)
+        {
+            workIds.AddRange(await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct));
+        }
+
+        return await GetCollectionCatalogDisplayWorkIdsAsync(workIds, db, ct);
+    }
+
+    private static async Task<IReadOnlyList<Guid>> GetCollectionCatalogDisplayWorkIdsAsync(
+        IEnumerable<Guid> sourceWorkIds,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        var workIds = sourceWorkIds.Distinct().ToList();
+        if (workIds.Count == 0)
+        {
+            return [];
+        }
+
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<Guid>(new CommandDefinition(
+            """
+            SELECT DISTINCT
+                   CASE
+                       WHEN w.media_type = 'TV' THEN COALESCE(gp.id, p.id, w.id)
+                       ELSE w.id
+                   END AS WorkId
+            FROM works w
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            WHERE w.id IN @WorkIds;
+            """,
+            new { WorkIds = workIds.Select(id => id.ToString("D")).ToArray() },
+            cancellationToken: ct));
+
+        return rows.Distinct().ToList();
+    }
+
     private static async Task<List<CollectionItemDto>> ResolveCollectionWorkIdsToItemsAsync(
         Guid collectionId,
         IReadOnlyList<Guid> workIds,
@@ -3225,14 +3424,25 @@ public static class CollectionEndpoints
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var rows = (await conn.QueryAsync<GeneratedCollectionItemRow>(new CommandDefinition(
             $"""
-            WITH representative_assets AS (
-                SELECT e.work_id AS WorkId,
+            WITH RECURSIVE work_tree(RootWorkId, WorkId) AS (
+                SELECT w.id AS RootWorkId,
+                       w.id AS WorkId
+                FROM works w
+                WHERE w.id IN @WorkIds
+                UNION ALL
+                SELECT work_tree.RootWorkId,
+                       child.id AS WorkId
+                FROM works child
+                INNER JOIN work_tree ON child.parent_work_id = work_tree.WorkId
+            ),
+            representative_assets AS (
+                SELECT work_tree.RootWorkId AS WorkId,
                        MIN(ma.id) AS AssetId
-                FROM editions e
+                FROM work_tree
+                INNER JOIN editions e ON e.work_id = work_tree.WorkId
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE e.work_id IN @WorkIds
-                  AND {visibleAssetPredicate}
-                GROUP BY e.work_id
+                WHERE {visibleAssetPredicate}
+                GROUP BY work_tree.RootWorkId
             )
             SELECT w.id AS WorkId,
                    COALESCE(
@@ -3262,7 +3472,7 @@ public static class CollectionEndpoints
             LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id AND series_item.collection_id = @CollectionId
             WHERE w.id IN @WorkIds
-              AND {visibleWorkPredicate}
+              AND ({visibleWorkPredicate} OR ra.AssetId IS NOT NULL)
             ORDER BY SortOrder, Title COLLATE NOCASE, w.id;
             """,
             new
@@ -3299,6 +3509,18 @@ public static class CollectionEndpoints
     {
         var workIds = (await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct))
             .Distinct()
+            .ToList();
+        return await GetCollectionArtworkItemsAsync(workIds, db, limit, ct);
+    }
+
+    private static async Task<IReadOnlyList<CollectionArtworkItemDto>> GetCollectionArtworkItemsAsync(
+        IReadOnlyList<Guid> sourceWorkIds,
+        IDatabaseConnection db,
+        int limit,
+        CancellationToken ct)
+    {
+        var workIds = sourceWorkIds
+            .Distinct()
             .Take(Math.Clamp(limit, 1, 8))
             .ToList();
         if (workIds.Count == 0)
@@ -3311,14 +3533,25 @@ public static class CollectionEndpoints
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var rows = (await conn.QueryAsync<CollectionArtworkItemRow>(new CommandDefinition(
             $"""
-            WITH representative_assets AS (
-                SELECT e.work_id AS WorkId,
+            WITH RECURSIVE work_tree(RootWorkId, WorkId) AS (
+                SELECT w.id AS RootWorkId,
+                       w.id AS WorkId
+                FROM works w
+                WHERE w.id IN @WorkIds
+                UNION ALL
+                SELECT work_tree.RootWorkId,
+                       child.id AS WorkId
+                FROM works child
+                INNER JOIN work_tree ON child.parent_work_id = work_tree.WorkId
+            ),
+            representative_assets AS (
+                SELECT work_tree.RootWorkId AS WorkId,
                        MIN(ma.id) AS AssetId
-                FROM editions e
+                FROM work_tree
+                INNER JOIN editions e ON e.work_id = work_tree.WorkId
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE e.work_id IN @WorkIds
-                  AND {visibleAssetPredicate}
-                GROUP BY e.work_id
+                WHERE {visibleAssetPredicate}
+                GROUP BY work_tree.RootWorkId
             )
             SELECT w.id AS WorkId,
                    COALESCE(
@@ -3343,7 +3576,7 @@ public static class CollectionEndpoints
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id
             WHERE w.id IN @WorkIds
-              AND {visibleWorkPredicate}
+              AND ({visibleWorkPredicate} OR ra.AssetId IS NOT NULL)
             """,
             new { WorkIds = workIds.Select(id => id.ToString()).ToArray() },
             cancellationToken: ct))).ToList();
@@ -4429,4 +4662,14 @@ public static class CollectionEndpoints
         string MediaType,
         string? CoverUrl,
         int SortOrder);
+
+    private sealed record CollectionCatalogAggregation(string Key, string? Label);
+
+    private sealed record CollectionManagementCatalogCandidate(
+        Collection Collection,
+        CollectionCatalogClassification Classification,
+        CollectionCatalogAggregation? Grouping,
+        IReadOnlyList<Guid> WorkIds,
+        int ItemCount,
+        CollectionMediaCounts MediaCounts);
 }
