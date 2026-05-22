@@ -1679,9 +1679,9 @@ public sealed class DetailComposerService
         var defaultSeriesTitle = FirstText(GetDetailCanonicalValue(detail, "default_series_label"), GetDetailCanonicalValue(detail, "default_series"));
 
         AddSeriesOption(options, defaultSeriesQid, defaultSeriesTitle, mediaScope);
-        AddSeriesOption(options, ExtractQid(GetDetailCanonicalValue(detail, "series_qid")), seriesTitle, mediaScope);
-        AddSeriesOption(options, ExtractQid(GetDetailCanonicalValue(detail, "part_of_the_series_qid")), seriesTitle, mediaScope);
-        AddSeriesOption(options, ExtractQid(GetDetailCanonicalValue(detail, "part_of_series_qid")), seriesTitle, mediaScope);
+        AddSeriesOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "series_qid"), seriesTitle, mediaScope);
+        AddSeriesOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "part_of_the_series_qid"), seriesTitle, mediaScope);
+        AddSeriesOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "part_of_series_qid"), seriesTitle, mediaScope);
 
         if (options.Count == 0 && !string.IsNullOrWhiteSpace(seriesTitle))
         {
@@ -1689,6 +1689,12 @@ public sealed class DetailComposerService
         }
 
         return options;
+    }
+
+    private static void AddSeriesOptionFromCanonicalQid(List<SeriesOptionViewModel> options, string? rawQidValue, string? title, string mediaScope)
+    {
+        var parsed = ParseQidLabel(rawQidValue);
+        AddSeriesOption(options, parsed.Qid, FirstText(title, parsed.Label), mediaScope);
     }
 
     private static void AddSeriesOption(List<SeriesOptionViewModel> options, string? seriesId, string? title, string mediaScope)
@@ -1771,7 +1777,7 @@ public sealed class DetailComposerService
             .Where(item => IsManifestItemInMediaScope(item, entityType))
             .ToList();
         var connectedManifestItems = BuildConnectedManifestSubset(scopedManifestItems, currentWorkQid);
-        if (connectedManifestItems.Count > 1)
+        if (connectedManifestItems.Count > 1 && IsWatchEntityType(entityType))
         {
             scopedManifestItems = connectedManifestItems;
         }
@@ -1856,6 +1862,11 @@ public sealed class DetailComposerService
             .Select(item => ExtractQid(item.Id))
             .Where(qid => !string.IsNullOrWhiteSpace(qid))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var ownedTitles = merged
+            .Where(item => item.IsOwned)
+            .Select(item => NormalizeSeriesTitle(item.Title))
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var manifestItem in manifestItems)
         {
@@ -1866,6 +1877,19 @@ public sealed class DetailComposerService
 
             if ((isLinkedOwned || string.Equals(manifestItem.ItemQid, currentQid, StringComparison.OrdinalIgnoreCase))
                 && TryApplyManifestPositionToOwnedItem(merged, manifestItem, position, currentWorkId))
+            {
+                if (position.HasValue)
+                {
+                    ownedPositions.Add(position.Value);
+                }
+
+                continue;
+            }
+
+            var normalizedManifestTitle = NormalizeSeriesTitle(manifestItem.ItemLabel);
+            if (!string.IsNullOrWhiteSpace(normalizedManifestTitle)
+                && ownedTitles.Contains(normalizedManifestTitle)
+                && TryApplyManifestPositionToOwnedItemByTitle(merged, normalizedManifestTitle, position, manifestItem.RawOrdinal))
             {
                 if (position.HasValue)
                 {
@@ -1901,6 +1925,41 @@ public sealed class DetailComposerService
             .OrderBy(item => item.PositionNumber ?? int.MaxValue)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static bool TryApplyManifestPositionToOwnedItemByTitle(
+        List<SeriesItemViewModel> items,
+        string normalizedTitle,
+        int? position,
+        string? rawOrdinal)
+    {
+        var index = items.FindIndex(item =>
+            item.IsOwned
+            && string.Equals(NormalizeSeriesTitle(item.Title), normalizedTitle, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        var item = items[index];
+        if (item.PositionNumber.HasValue && !string.IsNullOrWhiteSpace(item.PositionLabel))
+        {
+            return true;
+        }
+
+        items[index] = new SeriesItemViewModel
+        {
+            Id = item.Id,
+            EntityType = item.EntityType,
+            Title = item.Title,
+            ArtworkUrl = item.ArtworkUrl,
+            PositionNumber = item.PositionNumber ?? position,
+            PositionLabel = FirstNonBlank(item.PositionLabel, position?.ToString(CultureInfo.InvariantCulture), rawOrdinal),
+            IsCurrent = item.IsCurrent,
+            IsOwned = item.IsOwned,
+            ProgressState = item.ProgressState,
+        };
+        return true;
     }
 
     private static bool TryApplyManifestPositionToOwnedItem(
@@ -1977,6 +2036,13 @@ public sealed class DetailComposerService
             _ => true,
         };
     }
+
+    private static bool IsWatchEntityType(DetailEntityType entityType)
+        => entityType is DetailEntityType.Movie
+            or DetailEntityType.MovieSeries
+            or DetailEntityType.TvShow
+            or DetailEntityType.TvSeason
+            or DetailEntityType.TvEpisode;
 
     private static bool ContainsAny(string value, params string[] needles)
         => needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
@@ -2081,6 +2147,22 @@ public sealed class DetailComposerService
             .OrderBy(item => item.PositionNumber ?? int.MaxValue)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private static string? NormalizeSeriesTitle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = new string(value
+            .Trim()
+            .ToLowerInvariant()
+            .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
+            .ToArray());
+
+        return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
 
     private async Task<IReadOnlyList<CollectionWorkSummary>> LoadCollectionWorksAsync(Guid collectionId, Guid? rootWorkId, CancellationToken ct)
     {

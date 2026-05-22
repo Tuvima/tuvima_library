@@ -365,7 +365,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void CollectionsPage_RendersCardOnlyHubSections()
+    public void CollectionsPage_RendersCentralizedBrowseShell()
     {
         var cut = Render(builder =>
         {
@@ -382,20 +382,29 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Empty(cut.FindAll(".mud-table"));
-            Assert.NotEmpty(cut.FindAll(".collections-hub__tabs"));
-            Assert.NotEmpty(cut.FindAll(".collections-hub-tab"));
-            Assert.NotEmpty(cut.FindAll(".collection-hub-section"));
-            Assert.NotEmpty(cut.FindAll(".collection-hub-card"));
+            Assert.NotEmpty(cut.FindAll(".browse-shell"));
+            Assert.NotEmpty(cut.FindAll(".browse-hero"));
+            Assert.NotEmpty(cut.FindAll(".browse-hero__carousel"));
+            Assert.NotEmpty(cut.FindAll(".browse-shell__search"));
+            Assert.NotEmpty(cut.FindAll(".browse-shell__sort"));
+            Assert.NotEmpty(cut.FindAll(".browse-shell__grid"));
+            Assert.NotEmpty(cut.FindAll(".discovery-card"));
+            Assert.Empty(cut.FindAll(".collections-hub__tabs"));
+            Assert.Empty(cut.FindAll(".collections-hub-tab"));
+            Assert.Empty(cut.FindAll(".collection-hub-section"));
+            Assert.Empty(cut.FindAll(".collection-hub-card"));
             Assert.Empty(cut.FindAll(".collection-hub-row"));
             Assert.Empty(cut.FindAll(".collection-inspector"));
             Assert.Contains("Summer Movies", cut.Markup);
             Assert.Contains("Quiet Reads", cut.Markup);
             Assert.Contains("Favorites", cut.Markup);
-            Assert.Contains("CROSS-MEDIA COLLECTIONS", cut.Markup);
-            Assert.Contains("WATCH COLLECTIONS", cut.Markup);
-            Assert.Contains("LISTEN COLLECTIONS", cut.Markup);
-            Assert.Contains("READ COLLECTIONS", cut.Markup);
-            Assert.Contains("CONTINUE BROWSING", cut.Markup);
+            Assert.Contains("Continue browsing", cut.Markup);
+            Assert.Contains("Search collections", cut.Markup);
+            Assert.Contains("Recently Updated", cut.Markup);
+            Assert.DoesNotContain("CROSS-MEDIA COLLECTIONS", cut.Markup);
+            Assert.DoesNotContain("WATCH COLLECTIONS", cut.Markup);
+            Assert.DoesNotContain("LISTEN COLLECTIONS", cut.Markup);
+            Assert.DoesNotContain("READ COLLECTIONS", cut.Markup);
             Assert.DoesNotContain("collections-hub__browse-types", cut.Markup);
         });
     }

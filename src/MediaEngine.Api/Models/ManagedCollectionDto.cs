@@ -264,6 +264,8 @@ public sealed record CollectionMediaCounts(
     int OtherCount,
     int TvCount = 0)
 {
+    public int TotalCount => WatchCount + ListenCount + ReadCount + OtherCount;
+
     public bool IsCrossMedia =>
         new[] { WatchCount, ListenCount, ReadCount, OtherCount }
             .Count(count => count > 0) != 1;

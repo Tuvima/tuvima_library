@@ -19,62 +19,79 @@ public sealed class CollectionsHubTests
     }
 
     [Fact]
-    public void CollectionsPage_UsesCardOnlyHubSections()
+    public void CollectionsPage_UsesCentralizedBrowseShell()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor"));
+        var heroSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseHero.razor"));
+        var browseShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor"));
+        var browseShellStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\BrowseShellStyles.razor"));
 
         Assert.Contains("GetCollectionManagementCatalogAsync", source, StringComparison.Ordinal);
-        Assert.Contains("READ COLLECTIONS", source, StringComparison.Ordinal);
-        Assert.Contains("LISTEN COLLECTIONS", source, StringComparison.Ordinal);
-        Assert.Contains("WATCH COLLECTIONS", source, StringComparison.Ordinal);
-        Assert.Contains("CROSS-MEDIA COLLECTIONS", source, StringComparison.Ordinal);
-        Assert.Contains("CONTINUE BROWSING", source, StringComparison.Ordinal);
-        Assert.Contains("collections-hub__tabs", source, StringComparison.Ordinal);
-        Assert.Contains("collections-hub-tab", source, StringComparison.Ordinal);
-        Assert.Contains("OpenCollection", source, StringComparison.Ordinal);
+        Assert.Contains("<BrowseShellStyles", source, StringComparison.Ordinal);
+        Assert.Contains("<BrowseShellStyles", browseShellSource, StringComparison.Ordinal);
+        Assert.Contains(".browse-shell__grid", browseShellStylesSource, StringComparison.Ordinal);
+        Assert.Contains("display: flex", browseShellStylesSource, StringComparison.Ordinal);
+        Assert.Contains("flex-wrap: wrap", browseShellStylesSource, StringComparison.Ordinal);
+        Assert.Contains("browse-shell collections-browse", source, StringComparison.Ordinal);
+        Assert.Contains("<MediaBrowseHero", source, StringComparison.Ordinal);
+        Assert.Contains("<DiscoveryCard", source, StringComparison.Ordinal);
+        Assert.Contains("Shape = DiscoveryCardShape.Landscape", source, StringComparison.Ordinal);
+        Assert.Contains("SurfaceKind = DiscoverySurfaceKind.BannerLandscape", source, StringComparison.Ordinal);
+        Assert.Contains("TileTextMode = DiscoveryTileTextMode.CoverOnly", source, StringComparison.Ordinal);
+        Assert.Contains("Take(5)", source, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__search", source, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__sort", source, StringComparison.Ordinal);
+        Assert.Contains("Search collections", source, StringComparison.Ordinal);
+        Assert.Contains("Recently Updated", source, StringComparison.Ordinal);
+        Assert.Contains("Item Count", source, StringComparison.Ordinal);
+        Assert.Contains("Continue browsing", source, StringComparison.Ordinal);
+        Assert.Contains("browse-hero__carousel", heroSource, StringComparison.Ordinal);
+        Assert.Contains("FooterContent", heroSource, StringComparison.Ordinal);
+        var cardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\DiscoveryCard.razor"));
+        Assert.Contains("is-collection-card", cardSource, StringComparison.Ordinal);
+        Assert.Contains("discovery-card-collection-art-row", cardSource, StringComparison.Ordinal);
+        Assert.Contains("discovery-card-collection-copy", cardSource, StringComparison.Ordinal);
+        Assert.Contains("PrimaryNavigationUrl = $\"/collection/{collection.Id:D}\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("READ COLLECTIONS", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LISTEN COLLECTIONS", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("WATCH COLLECTIONS", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CROSS-MEDIA COLLECTIONS", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("collections-hub__tabs", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("collections-hub-tab", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GLOBAL COLLECTIONS", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SYSTEM COLLECTIONS", source, StringComparison.Ordinal);
         Assert.DoesNotContain("CREATED BY YOU", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<CollectionInlineInspector", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<CollectionHubSection", source, StringComparison.Ordinal);
         Assert.DoesNotContain("collections-table-wrap", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<MudTable", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void InlineInspector_ExposesGlobalToggleOnlyWhenAllowed()
+    public void CollectionsHub_RemovesOldLaneComponentsAndCss()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionInlineInspector.razor"));
+        var collectionsPath = GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections");
+        var removedFiles = new[]
+        {
+            "CollectionsPage.razor.css",
+            "CollectionHubSection.razor",
+            "CollectionHubSection.razor.css",
+            "CollectionHubCard.razor",
+            "CollectionHubCard.razor.css",
+            "CollectionHubStats.razor",
+            "CollectionHubStats.razor.css",
+            "CollectionArtworkStack.razor",
+            "CollectionArtworkStack.razor.css",
+            "CollectionInlineInspector.razor",
+            "CollectionInlineInspector.razor.css",
+            "CollectionSectionLabel.razor",
+            "CollectionSectionLabel.razor.css",
+        };
 
-        Assert.Contains("Collection.CanToggleGlobal", source, StringComparison.Ordinal);
-        Assert.Contains("ToggleGlobalAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Value=\"Collection.IsGlobal\"", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void CollectionsComponents_UseDetailLanguageArtworkAndContextSections()
-    {
-        var sectionSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionHubSection.razor"));
-        var inspectorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionInlineInspector.razor"));
-
-        Assert.Contains("<CollectionArtworkStack", sectionSource, StringComparison.Ordinal);
-        Assert.Contains("<CollectionHubCard", sectionSource, StringComparison.Ordinal);
-        Assert.Contains("collection-hub-section__grid", sectionSource, StringComparison.Ordinal);
-        Assert.Contains("View All", sectionSource, StringComparison.Ordinal);
-        Assert.Contains("collection-hub-row", sectionSource, StringComparison.Ordinal);
-        var sectionCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionHubSection.razor.css"));
-        Assert.Contains("collection-hub-section__grid", sectionCss, StringComparison.Ordinal);
-        var cardCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionHubCard.razor.css"));
-        Assert.Contains("text-transform: uppercase", cardCss, StringComparison.Ordinal);
-        Assert.Contains("-webkit-line-clamp: 2", cardCss, StringComparison.Ordinal);
-        Assert.Contains("aspect-ratio: 16 / 9", cardCss, StringComparison.Ordinal);
-        Assert.Contains("<CollectionSectionLabel", sectionSource, StringComparison.Ordinal);
-        Assert.Contains("MEDIA MIX", inspectorSource, StringComparison.Ordinal);
-        Assert.Contains("INCLUDED ITEMS", inspectorSource, StringComparison.Ordinal);
-        Assert.Contains("COLLECTION DETAILS", inspectorSource, StringComparison.Ordinal);
-        Assert.Contains("VISIBILITY", inspectorSource, StringComparison.Ordinal);
-        Assert.Contains("ACTIVITY", inspectorSource, StringComparison.Ordinal);
-        Assert.Contains("ToggleEditMode", inspectorSource, StringComparison.Ordinal);
-        Assert.Contains("Manage Full Collection", inspectorSource, StringComparison.Ordinal);
+        foreach (var file in removedFiles)
+        {
+            Assert.False(File.Exists(Path.Combine(collectionsPath, file)), $"{file} should stay removed.");
+        }
     }
 
     [Fact]

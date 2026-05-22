@@ -49,6 +49,7 @@
 
 @code {
     [Parameter] public BrowseHeroViewModel? Hero { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
 
     private RenderFragment RenderCopy() => @<div>
         <div class="browse-hero__eyebrow">@Hero!.Eyebrow</div>
@@ -97,6 +98,11 @@
                 </button>
             }
         </div>
+
+        @if (FooterContent is not null)
+        {
+            @FooterContent
+        }
     </div>;
 
     private RenderFragment RenderCover() => @<div class="browse-hero__cover-frame" style="@($"--browse-hero-cover-aspect: {Hero?.CoverAspectRatioCss ?? "2 / 3"};")">
@@ -318,6 +324,63 @@
         background: var(--tl-bg-surface-raised);
         color: var(--tl-text-primary);
         border: 1px solid var(--tl-border-default);
+    }
+
+    .browse-hero__carousel {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+        max-width: min(100%, 760px);
+    }
+
+    .browse-hero__carousel-rail {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .browse-hero__carousel-rail::-webkit-scrollbar {
+        display: none;
+    }
+
+    .browse-hero__carousel-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 170px;
+        max-width: 220px;
+        min-height: 48px;
+        padding: 6px 10px;
+        border: 1px solid var(--tl-border-subtle);
+        border-radius: var(--tl-radius-sm);
+        background: rgba(255, 255, 255, 0.045);
+        color: var(--tl-text-secondary);
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .browse-hero__carousel-chip.is-active {
+        border-color: var(--tl-border-strong);
+        background: var(--tl-accent-primary-soft);
+        color: var(--tl-text-primary);
+    }
+
+    .browse-hero__carousel-chip img {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--tl-radius-xs);
+        object-fit: cover;
+        flex: 0 0 auto;
+    }
+
+    .browse-hero__carousel-chip span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.78rem;
+        font-weight: 800;
     }
 
     .browse-hero__art {

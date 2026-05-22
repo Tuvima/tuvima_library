@@ -51,6 +51,8 @@ public enum DiscoveryPreviewPlacement
     Bottom,
 }
 
+public sealed record DiscoveryMediaCountViewModel(string Icon, string Label, int Count);
+
 public sealed class DiscoveryHeroViewModel
 {
     public string Eyebrow { get; init; } = string.Empty;
@@ -95,6 +97,7 @@ public sealed class DiscoveryCardViewModel
     public IReadOnlyList<string> PreviewImages { get; init; } = [];
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
+    public IReadOnlyList<DiscoveryMediaCountViewModel> MediaCounts { get; init; } = [];
     public IReadOnlyList<string> ContextLines { get; init; } = [];
     public IReadOnlyList<string> HoverFacts { get; init; } = [];
     public string? Tldr { get; init; }

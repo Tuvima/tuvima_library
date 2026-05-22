@@ -1,4 +1,6 @@
 @namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Web.Components.Browse
+@using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
 
@@ -8,171 +10,161 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
-<div class="collections-hub tl-page">
-    <header class="tl-page-header collections-hub__header">
-        <div>
-            <h1 class="tl-page-title">Collections</h1>
-            <p class="tl-page-subtitle">Organize and explore playlists across read, watch, and listen.</p>
-        </div>
-        <div class="tl-action-bar">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="OpenCollectionBuilder">
-                New Collection
-            </MudButton>
-        </div>
-    </header>
+<BrowseShellStyles />
 
-    <div class="tl-filter-bar collections-hub__filters">
-        <div class="collections-hub__tabs" role="tablist" aria-label="Collection filters">
-            @foreach (var tab in Tabs)
-            {
-                <button type="button"
-                        role="tab"
-                        aria-selected="@(tab.Id == _activeTab)"
-                        class="collections-hub-tab @(tab.Id == _activeTab ? "is-active" : "")"
-                        @onclick="() => SetActiveTab(tab.Id)">
-                    <MudIcon Icon="@tab.Icon" Size="Size.Small" />
-                    <span>@tab.Label</span>
-                </button>
-            }
+<div class="browse-shell collections-browse">
+    @if (CurrentHero is not null)
+    {
+        var heroCollection = RecentCollections[_heroIndex % RecentCollections.Count];
+        <MediaBrowseHero Hero="@CurrentHero">
+            <FooterContent>
+                @if (RecentCollections.Count > 1)
+                {
+                    <div class="browse-hero__carousel" aria-label="Recent collections">
+                        <MudIconButton Icon="@Icons.Material.Outlined.ChevronLeft"
+                                       Size="Size.Small"
+                                       aria-label="Previous collection"
+                                       OnClick="PreviousHero" />
+                        <div class="browse-hero__carousel-rail">
+                            @foreach (var collection in RecentCollections.Take(8))
+                            {
+                                <button type="button"
+                                        class="browse-hero__carousel-chip @(collection.Id == heroCollection.Id ? "is-active" : null)"
+                                        @onclick="() => SelectHero(collection)">
+                                    @if (!string.IsNullOrWhiteSpace(PrimaryArtwork(collection)))
+                                    {
+                                        <img src="@PrimaryArtwork(collection)" alt="" />
+                                    }
+                                    <span>@collection.Name</span>
+                                </button>
+                            }
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Outlined.ChevronRight"
+                                       Size="Size.Small"
+                                       aria-label="Next collection"
+                                       OnClick="NextHero" />
+                    </div>
+                }
+            </FooterContent>
+        </MediaBrowseHero>
+    }
+
+    <div class="browse-shell__toolbar-anchor">
+        <div class="browse-shell__toolbar-panel">
+            <div class="browse-shell__tab-row">
+                <div class="browse-shell__title-block">
+                    <div class="browse-shell__title-eyebrow">Tuvima Library</div>
+                    <div class="browse-shell__title-text">Collections</div>
+                </div>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenCollectionBuilder"
+                           Class="browse-shell__back">
+                    New Collection
+                </MudButton>
+            </div>
+
+            <div class="browse-shell__toolbar">
+                <MudTextField T="string"
+                              Value="_searchText"
+                              ValueChanged="OnSearchChanged"
+                              Placeholder="Search collections"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              DebounceInterval="250"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                              Class="browse-shell__search" />
+
+                <div class="browse-shell__controls">
+                    <MudSelect T="string"
+                               Value="_sortBy"
+                               ValueChanged="OnSortChanged"
+                               Label="Sort"
+                               Variant="Variant.Outlined"
+                               Dense="true"
+                               Class="browse-shell__sort">
+                        <MudSelectItem T="string" Value="@("recent")">Recently Updated</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("name")">Name</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("items")">Item Count</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("type")">Type</MudSelectItem>
+                    </MudSelect>
+                </div>
+            </div>
         </div>
-
-        <MudTextField T="string"
-                      Value="_searchText"
-                      ValueChanged="OnSearchChanged"
-                      Placeholder="Search collections..."
-                      Variant="Variant.Outlined"
-                      Immediate="true"
-                      DebounceInterval="250"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Outlined.Search"
-                      Class="tl-field collections-hub__search" />
-
-        <MudSelect T="string" Value="_sortBy" ValueChanged="OnSortChanged" Variant="Variant.Outlined" Dense="true" Class="tl-field collections-hub__sort">
-            <MudSelectItem T="string" Value="@("recent")">Recently Updated</MudSelectItem>
-            <MudSelectItem T="string" Value="@("name")">Name</MudSelectItem>
-            <MudSelectItem T="string" Value="@("items")">Item Count</MudSelectItem>
-            <MudSelectItem T="string" Value="@("type")">Type</MudSelectItem>
-        </MudSelect>
     </div>
 
     @if (_loading)
     {
-        <div class="collections-hub__state tl-panel">
-            <MudProgressCircular Indeterminate="true" />
-            <span>Loading collections...</span>
+        <div class="browse-shell__loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: var(--tl-text-faint);" />
+        </div>
+    }
+    else if (CollectionCards.Count == 0)
+    {
+        <div class="browse-shell__empty">
+            <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" Style="font-size: 52px; opacity: 0.16;" />
+            <h3>No collections found</h3>
+            <p>Collections appear when the Engine finds Wikidata-backed universes or when you create one.</p>
         </div>
     }
     else
     {
-        <main class="collections-hub__main">
-            @if (_activeTab is "all")
+        <div class="browse-shell__grid">
+            @foreach (var card in CollectionCards)
             {
-                <CollectionHubSection Title="CONTINUE BROWSING"
-                                      Collections="RecentlyUsedCollections"
-                                      ShowViewAll="false"
-                                      ViewMode="grid"
-                                      Icon="@Icons.Material.Outlined.History"
-                                      OnSelect="OpenCollection" />
+                <DiscoveryCard Item="@card" @key="card.Id" />
             }
-
-            @if (_activeTab is "all" or "cross")
-            {
-                <CollectionHubSection Title="CROSS-MEDIA COLLECTIONS"
-                                  Collections="CrossMediaCollections"
-                                  ShowViewAll="@(IsAllTab && CrossMediaCollections.Count < CrossMediaCollectionTotal)"
-                                  ViewMode="grid"
-                                  Icon="@Icons.Material.Outlined.AllInclusive"
-                                  OnSelect="OpenCollection"
-                                  OnViewAll="ShowCrossMediaCollections" />
-            }
-
-            @if (_activeTab is "all" or "watch")
-            {
-                <CollectionHubSection Title="WATCH COLLECTIONS"
-                                      Collections="WatchCollections"
-                                      ShowViewAll="@(IsAllTab && WatchCollections.Count < WatchCollectionTotal)"
-                                      ViewMode="grid"
-                                      Icon="@Icons.Material.Outlined.Movie"
-                                      OnSelect="OpenCollection"
-                                      OnViewAll="ShowWatchCollections" />
-            }
-            @if (_activeTab is "all" or "listen")
-            {
-                <CollectionHubSection Title="LISTEN COLLECTIONS"
-                                      Collections="ListenCollections"
-                                      ShowViewAll="@(IsAllTab && ListenCollections.Count < ListenCollectionTotal)"
-                                      ViewMode="grid"
-                                      Icon="@Icons.Material.Outlined.Album"
-                                      OnSelect="OpenCollection"
-                                      OnViewAll="ShowListenCollections" />
-            }
-            @if (_activeTab is "all" or "read")
-            {
-                <CollectionHubSection Title="READ COLLECTIONS"
-                                      Collections="ReadCollections"
-                                      ShowViewAll="@(IsAllTab && ReadCollections.Count < ReadCollectionTotal)"
-                                      ViewMode="grid"
-                                      Icon="@Icons.Material.Outlined.MenuBook"
-                                      OnSelect="OpenCollection"
-                                      OnViewAll="ShowReadCollections" />
-            }
-        </main>
-
+        </div>
     }
 </div>
 
 @code {
-    private sealed record CollectionTab(string Id, string Label, string Icon);
-
-    private static readonly CollectionTab[] Tabs =
-    [
-        new("all", "All", Icons.Material.Outlined.CollectionsBookmark),
-        new("watch", "Watch", Icons.Material.Outlined.Movie),
-        new("listen", "Listen", Icons.Material.Outlined.Album),
-        new("read", "Read", Icons.Material.Outlined.MenuBook),
-        new("cross", "Cross-Media", Icons.Material.Outlined.AllInclusive),
-    ];
-
     private readonly List<CollectionManagementCatalogViewModel> _collections = [];
     private ProfileViewModel? _activeProfile;
     private string _searchText = string.Empty;
     private string _sortBy = "recent";
-    private string _activeTab = "all";
     private bool _loading;
+    private int _heroIndex;
 
     private bool CanManageSharedCollections => _activeProfile?.Role is "Administrator" or "Curator";
-    private bool IsAllTab => _activeTab == "all";
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> FilteredCollections =>
         Sort(FilterBySearch(_collections));
 
-    private int SectionLimit => _activeTab == "all" ? 4 : int.MaxValue;
-
-    private int WatchCollectionTotal => FilteredCollections.Count(collection => collection.PrimaryLane == "Watch");
-    private int ListenCollectionTotal => FilteredCollections.Count(collection => collection.PrimaryLane == "Listen");
-    private int ReadCollectionTotal => FilteredCollections.Count(collection => collection.PrimaryLane == "Read");
-    private int CrossMediaCollectionTotal => FilteredCollections.Count(collection => collection.PrimaryLane == "CrossMedia");
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> WatchCollections =>
-        FilteredCollections.Where(collection => collection.PrimaryLane == "Watch").Take(SectionLimit).ToList();
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> ListenCollections =>
-        FilteredCollections.Where(collection => collection.PrimaryLane == "Listen").Take(SectionLimit).ToList();
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> ReadCollections =>
-        FilteredCollections.Where(collection => collection.PrimaryLane == "Read").Take(SectionLimit).ToList();
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> CrossMediaCollections =>
-        FilteredCollections.Where(collection => collection.PrimaryLane == "CrossMedia").Take(SectionLimit).ToList();
-
-    private IReadOnlyList<CollectionManagementCatalogViewModel> RecentlyUsedCollections =>
-        FilteredCollections
+    private IReadOnlyList<CollectionManagementCatalogViewModel> RecentCollections =>
+        _collections
             .OrderByDescending(collection => collection.ModifiedAt ?? collection.CreatedAt)
-            .Take(4)
+            .Take(8)
             .ToList();
+
+    private BrowseHeroViewModel? CurrentHero
+    {
+        get
+        {
+            if (RecentCollections.Count == 0)
+                return null;
+
+            var collection = RecentCollections[_heroIndex % RecentCollections.Count];
+            return new BrowseHeroViewModel
+            {
+                Variant = BrowseHeroVariant.Read,
+                Eyebrow = "Continue browsing",
+                Title = collection.Name,
+                Subtitle = CollectionSubtitle(collection),
+                Description = collection.Description,
+                CoverUrl = PrimaryArtwork(collection),
+                BackgroundUrl = HeroBackground(collection),
+                PrimaryActionLabel = "Open collection",
+                PrimaryNavigationUrl = $"/collection/{collection.Id:D}",
+            };
+        }
+    }
+
+    private IReadOnlyList<DiscoveryCardViewModel> CollectionCards =>
+        FilteredCollections.Select(ToDiscoveryCard).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -187,6 +179,7 @@
         {
             _collections.Clear();
             _collections.AddRange(await ApiClient.GetCollectionManagementCatalogAsync(_activeProfile?.Id));
+            _heroIndex = Math.Clamp(_heroIndex, 0, Math.Max(0, _collections.Count - 1));
         }
         finally
         {
@@ -203,15 +196,15 @@
             collection.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
             || (collection.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
             || collection.TypeLabel.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-            || collection.FamilyLabel.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+            || collection.CollectionType.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
     }
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> Sort(IEnumerable<CollectionManagementCatalogViewModel> collections) =>
         (_sortBy switch
         {
             "name" => collections.OrderBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase),
-            "items" => collections.OrderByDescending(collection => collection.ItemCount),
-            "type" => collections.OrderBy(collection => collection.CollectionType).ThenBy(collection => collection.Name),
+            "items" => collections.OrderByDescending(collection => collection.ItemCount).ThenBy(collection => collection.Name),
+            "type" => collections.OrderBy(collection => collection.TypeLabel).ThenBy(collection => collection.Name),
             _ => collections.OrderByDescending(collection => collection.ModifiedAt ?? collection.CreatedAt),
         }).ToList();
 
@@ -227,15 +220,30 @@
         return Task.CompletedTask;
     }
 
-    private void SetActiveTab(string id)
+    private void PreviousHero()
     {
-        _activeTab = id;
+        if (RecentCollections.Count == 0)
+            return;
+
+        _heroIndex = (_heroIndex - 1 + RecentCollections.Count) % RecentCollections.Count;
     }
 
-    private void ShowCrossMediaCollections() => SetActiveTab("cross");
-    private void ShowWatchCollections() => SetActiveTab("watch");
-    private void ShowListenCollections() => SetActiveTab("listen");
-    private void ShowReadCollections() => SetActiveTab("read");
+    private void NextHero()
+    {
+        if (RecentCollections.Count == 0)
+            return;
+
+        _heroIndex = (_heroIndex + 1) % RecentCollections.Count;
+    }
+
+    private void SelectHero(CollectionManagementCatalogViewModel collection)
+    {
+        var index = RecentCollections.ToList().FindIndex(item => item.Id == collection.Id);
+        if (index >= 0)
+        {
+            _heroIndex = index;
+        }
+    }
 
     private Task OpenCollection(CollectionManagementCatalogViewModel collection)
     {
@@ -265,4 +273,192 @@
         if (changed)
             await LoadCollectionsAsync();
     }
+
+    private static DiscoveryCardViewModel ToDiscoveryCard(CollectionManagementCatalogViewModel collection)
+    {
+        var previewImages = collection.ArtworkItems
+            .Select(item => item.CoverUrl)
+            .Where(url => !string.IsNullOrWhiteSpace(url))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToList();
+        var primaryArtwork = PrimaryArtwork(collection);
+        var presentation = ResolvePresentation(collection);
+        var mediaKind = collection.CollectionType switch
+        {
+            "ContentGroup" or "Universe" or "Series" => "Collection",
+            "Playlist" => "Playlist",
+            _ => "Collection",
+        };
+
+        return new DiscoveryCardViewModel
+        {
+            Id = collection.Id,
+            CollectionId = collection.Id,
+            Title = collection.Name,
+            Subtitle = CollectionSubtitle(collection),
+            Description = collection.Description,
+            CoverUrl = primaryArtwork,
+            BackgroundUrl = HeroBackground(collection),
+            PreviewImages = previewImages,
+            StatusText = collection.StatusLabel,
+            MetaText = null,
+            MediaCounts = BuildMediaCounts(collection),
+            ContextLines = BuildContextLines(collection),
+            HoverFacts = BuildHoverFacts(collection),
+            MediaKind = mediaKind,
+            AccentColor = "var(--tl-accent-primary)",
+            Shape = DiscoveryCardShape.Landscape,
+            Presentation = presentation,
+            SurfaceKind = DiscoverySurfaceKind.BannerLandscape,
+            HoverLayout = DiscoveryHoverLayout.BannerPopover,
+            TileTextMode = DiscoveryTileTextMode.CoverOnly,
+            TileImageUrl = HeroBackground(collection) ?? primaryArtwork,
+            HoverImageUrl = primaryArtwork,
+            HeroBackgroundImageUrl = HeroBackground(collection),
+            NavigationUrl = $"/collection/{collection.Id:D}",
+            PrimaryNavigationUrl = $"/collection/{collection.Id:D}",
+            DetailsNavigationUrl = $"/collection/{collection.Id:D}",
+            PrimaryActionLabel = "Open",
+            Creator = null,
+            CollectionKey = collection.CollectionType,
+            SortTimestamp = collection.ModifiedAt ?? collection.CreatedAt,
+            IsCollection = true,
+        };
+    }
+
+    private static IReadOnlyList<string> BuildContextLines(CollectionManagementCatalogViewModel collection)
+    {
+        var lines = new List<string>();
+        if (collection.ArtworkItems.Count > 0)
+        {
+            lines.Add(string.Join(" / ", collection.ArtworkItems.Take(3).Select(item => item.Title)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(collection.Description))
+        {
+            lines.Add(collection.Description);
+        }
+
+        return lines;
+    }
+
+    private static IReadOnlyList<string> BuildHoverFacts(CollectionManagementCatalogViewModel collection) =>
+    [
+        .. BuildMediaCountLabels(collection),
+        collection.IsGlobal ? "Shared" : "Personal",
+    ];
+
+    private static IReadOnlyList<DiscoveryMediaCountViewModel> BuildMediaCounts(CollectionManagementCatalogViewModel collection)
+    {
+        var artworkCounts = collection.ArtworkItems
+            .GroupBy(item => NormalizeMediaType(item.MediaType), StringComparer.OrdinalIgnoreCase)
+            .Where(group => !string.IsNullOrWhiteSpace(group.Key))
+            .Select(group => ToMediaCount(group.Key, group.Count()))
+            .Where(count => count.Count > 0)
+            .ToList();
+
+        if (artworkCounts.Count > 0)
+        {
+            return artworkCounts
+                .OrderBy(count => MediaCountSort(count.Label))
+                .ToList();
+        }
+
+        var counts = new List<DiscoveryMediaCountViewModel>();
+        if (collection.WatchCount > 0)
+        {
+            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.Movie, "Watch", collection.WatchCount));
+        }
+
+        if (collection.ListenCount > 0)
+        {
+            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.Headphones, "Listen", collection.ListenCount));
+        }
+
+        if (collection.ReadCount > 0)
+        {
+            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.MenuBook, "Read", collection.ReadCount));
+        }
+
+        if (collection.OtherCount > 0)
+        {
+            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
+        }
+
+        return counts;
+    }
+
+    private static IReadOnlyList<string> BuildMediaCountLabels(CollectionManagementCatalogViewModel collection) =>
+        BuildMediaCounts(collection)
+            .Select(count => $"{count.Count} {count.Label}")
+            .ToList();
+
+    private static DiscoveryMediaCountViewModel ToMediaCount(string mediaType, int count) => mediaType switch
+    {
+        "Movies" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.Movie, "Movies", count),
+        "TV" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.LiveTv, "TV", count),
+        "Music" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.MusicNote, "Music", count),
+        "Audiobooks" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.Headphones, "Audiobooks", count),
+        "Comics" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.AutoStories, "Comics", count),
+        "Books" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.MenuBook, "Books", count),
+        _ => new DiscoveryMediaCountViewModel(Icons.Material.Filled.Theaters, "Media", count),
+    };
+
+    private static string NormalizeMediaType(string? mediaType)
+    {
+        var value = mediaType ?? string.Empty;
+        if (value.Contains("tv", StringComparison.OrdinalIgnoreCase) || value.Contains("show", StringComparison.OrdinalIgnoreCase))
+            return "TV";
+        if (value.Contains("movie", StringComparison.OrdinalIgnoreCase) || value.Contains("film", StringComparison.OrdinalIgnoreCase))
+            return "Movies";
+        if (value.Contains("audio", StringComparison.OrdinalIgnoreCase))
+            return "Audiobooks";
+        if (value.Contains("music", StringComparison.OrdinalIgnoreCase) || value.Contains("song", StringComparison.OrdinalIgnoreCase) || value.Contains("album", StringComparison.OrdinalIgnoreCase))
+            return "Music";
+        if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
+            return "Comics";
+        if (value.Contains("book", StringComparison.OrdinalIgnoreCase) || value.Contains("epub", StringComparison.OrdinalIgnoreCase))
+            return "Books";
+
+        return string.Empty;
+    }
+
+    private static int MediaCountSort(string label) => label switch
+    {
+        "Movies" => 0,
+        "TV" => 1,
+        "Books" => 2,
+        "Audiobooks" => 3,
+        "Music" => 4,
+        "Comics" => 5,
+        _ => 6,
+    };
+
+    private static DiscoveryCardPresentation ResolvePresentation(CollectionManagementCatalogViewModel collection)
+    {
+        if (collection.WatchCount > 0 && collection.ReadCount == 0 && collection.ListenCount == 0)
+            return DiscoveryCardPresentation.MovieSeries;
+
+        if (collection.ListenCount > 0 && collection.ReadCount == 0 && collection.WatchCount == 0)
+            return DiscoveryCardPresentation.AudiobookSeries;
+
+        if (collection.ReadCount > 0 && collection.WatchCount == 0 && collection.ListenCount == 0)
+            return DiscoveryCardPresentation.BookSeries;
+
+        return DiscoveryCardPresentation.Default;
+    }
+
+    private static string CollectionSubtitle(CollectionManagementCatalogViewModel collection) =>
+        string.Join(" / ", BuildMediaCountLabels(collection));
+
+    private static string? PrimaryArtwork(CollectionManagementCatalogViewModel collection) =>
+        FirstNonBlank(collection.SquareArtworkUrl, collection.ArtworkItems.FirstOrDefault()?.CoverUrl);
+
+    private static string? HeroBackground(CollectionManagementCatalogViewModel collection) =>
+        FirstNonBlank(collection.ArtworkItems.Skip(1).FirstOrDefault()?.CoverUrl, PrimaryArtwork(collection));
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

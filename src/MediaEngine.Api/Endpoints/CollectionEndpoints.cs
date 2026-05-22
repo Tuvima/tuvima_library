@@ -1950,6 +1950,7 @@ public static class CollectionEndpoints
         group.MapGet("/management-catalog", async (
             Guid? profileId,
             ICollectionRepository collectionRepo,
+            ISeriesManifestRepository manifestRepo,
             IProfileRepository profileRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
@@ -1972,7 +1973,8 @@ public static class CollectionEndpoints
                 var classification = ClassifyCollectionForCatalog(collection);
                 var itemCount = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, materializedCounts, ct);
                 var mediaCounts = await GetCollectionMediaCountsAsync(collection, collectionRepo, db, ct);
-                if (!ShouldIncludeInManagementCatalog(collection, classification, mediaCounts))
+                var hasKnownSeriesManifest = await HasKnownSeriesManifestAsync(collection, manifestRepo, ct);
+                if (!ShouldIncludeInManagementCatalog(collection, classification, mediaCounts, hasKnownSeriesManifest))
                 {
                     continue;
                 }
@@ -3035,7 +3037,8 @@ public static class CollectionEndpoints
     private static bool ShouldIncludeInManagementCatalog(
         Collection collection,
         CollectionCatalogClassification classification,
-        CollectionMediaCounts mediaCounts)
+        CollectionMediaCounts mediaCounts,
+        bool hasKnownSeriesManifest)
     {
         if (classification.IsSystem || string.Equals(classification.Family, "User", StringComparison.OrdinalIgnoreCase))
         {
@@ -3047,6 +3050,16 @@ public static class CollectionEndpoints
             return true;
         }
 
+        if (IsGeneratedSeriesCollection(collection) && string.IsNullOrWhiteSpace(collection.WikidataQid))
+        {
+            return false;
+        }
+
+        if (mediaCounts.TotalCount < 2 && !hasKnownSeriesManifest)
+        {
+            return false;
+        }
+
         if (IsGeneratedTvShowContainer(collection, mediaCounts))
         {
             return false;
@@ -3055,11 +3068,28 @@ public static class CollectionEndpoints
         return true;
     }
 
+    private static async Task<bool> HasKnownSeriesManifestAsync(
+        Collection collection,
+        ISeriesManifestRepository manifestRepo,
+        CancellationToken ct)
+    {
+        if (!IsGeneratedSeriesCollection(collection))
+        {
+            return false;
+        }
+
+        var manifest = await manifestRepo.GetViewByCollectionIdAsync(collection.Id, ct);
+        return manifest?.TotalCount > 1;
+    }
+
+    private static bool IsGeneratedSeriesCollection(Collection collection)
+        => string.Equals(collection.CollectionType, "Universe", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.CollectionType, "Series", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.CollectionType, "ContentGroup", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsGeneratedTvShowContainer(Collection collection, CollectionMediaCounts mediaCounts)
     {
-        if (!string.Equals(collection.CollectionType, "Universe", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(collection.CollectionType, "Series", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(collection.CollectionType, "ContentGroup", StringComparison.OrdinalIgnoreCase))
+        if (!IsGeneratedSeriesCollection(collection))
         {
             return false;
         }
