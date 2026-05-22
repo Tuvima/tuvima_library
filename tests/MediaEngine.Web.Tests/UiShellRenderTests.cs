@@ -395,9 +395,10 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Empty(cut.FindAll(".collection-hub-card"));
             Assert.Empty(cut.FindAll(".collection-hub-row"));
             Assert.Empty(cut.FindAll(".collection-inspector"));
-            Assert.Contains("Summer Movies", cut.Markup);
-            Assert.Contains("Quiet Reads", cut.Markup);
-            Assert.Contains("Favorites", cut.Markup);
+            Assert.Contains("Dune Universe", cut.Markup);
+            Assert.Contains("Middle-earth", cut.Markup);
+            Assert.Contains("Weekend Picks", cut.Markup);
+            Assert.DoesNotContain("Playlist", cut.Markup);
             Assert.Contains("Continue browsing", cut.Markup);
             Assert.Contains("Search collections", cut.Markup);
             Assert.Contains("Recently Updated", cut.Markup);

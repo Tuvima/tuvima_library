@@ -45,6 +45,10 @@ public sealed class CollectionsHubTests
         Assert.Contains("Recently Updated", source, StringComparison.Ordinal);
         Assert.Contains("Item Count", source, StringComparison.Ordinal);
         Assert.Contains("Continue browsing", source, StringComparison.Ordinal);
+        Assert.Contains("Mode = \"Collection\"", source, StringComparison.Ordinal);
+        Assert.Contains("MediaKind = \"Collection\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Mode = type == \"Playlist\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MediaKind = \"Playlist\"", source, StringComparison.Ordinal);
         Assert.Contains("browse-hero__carousel", heroSource, StringComparison.Ordinal);
         Assert.Contains("FooterContent", heroSource, StringComparison.Ordinal);
         var cardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\DiscoveryCard.razor"));
@@ -112,7 +116,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("HeroArtwork", source, StringComparison.Ordinal);
         Assert.Contains("ItemGroups", source, StringComparison.Ordinal);
         Assert.Contains("tl-detail-page collection-detail-page", source, StringComparison.Ordinal);
-        Assert.Contains("CURATED COLLECTION", source, StringComparison.Ordinal);
+        Assert.Contains("GENERATED COLLECTION", source, StringComparison.Ordinal);
         Assert.Contains("CUSTOM COLLECTION", source, StringComparison.Ordinal);
         Assert.Contains("MediaCountKey", source, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.Tv", source, StringComparison.Ordinal);

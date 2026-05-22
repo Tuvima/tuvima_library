@@ -2061,6 +2061,7 @@ public static class CollectionEndpoints
             IProfileRepository profileRepo,
             Guid? profileId,
             ICollectionMediaLookupReadService mediaLookupReadService,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
@@ -2076,8 +2077,21 @@ public static class CollectionEndpoints
             }
 
             var take = limit is > 0 ? limit.Value : 20;
-            var items = await collectionRepo.GetCollectionItemsAsync(id, take, ct);
-            var dtos = await mediaLookupReadService.ResolveItemsAsync(id, items, ct);
+            List<CollectionItemDto> dtos;
+            if (string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+            {
+                var items = await collectionRepo.GetCollectionItemsAsync(id, take, ct);
+                dtos = await mediaLookupReadService.ResolveItemsAsync(id, items, ct);
+            }
+            else
+            {
+                var workIds = (await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct))
+                    .Distinct()
+                    .Take(take)
+                    .ToList();
+                dtos = await ResolveCollectionWorkIdsToItemsAsync(id, workIds, db, ct);
+            }
+
             return Results.Ok(dtos);
         })
         .WithName("GetCollectionItems")
@@ -3040,6 +3054,11 @@ public static class CollectionEndpoints
         CollectionMediaCounts mediaCounts,
         bool hasKnownSeriesManifest)
     {
+        if (IsPlaylistCatalogCollection(collection))
+        {
+            return false;
+        }
+
         if (classification.IsSystem || string.Equals(classification.Family, "User", StringComparison.OrdinalIgnoreCase))
         {
             return true;
@@ -3067,6 +3086,11 @@ public static class CollectionEndpoints
 
         return true;
     }
+
+    private static bool IsPlaylistCatalogCollection(Collection collection)
+        => string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.CollectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<bool> HasKnownSeriesManifestAsync(
         Collection collection,
@@ -3183,6 +3207,87 @@ public static class CollectionEndpoints
 
         var collectionWithWorks = await collectionRepo.GetCollectionWithWorksAsync(collection.Id, ct);
         return collectionWithWorks?.Works.Select(work => work.Id).Distinct().ToList() ?? [];
+    }
+
+    private static async Task<List<CollectionItemDto>> ResolveCollectionWorkIdsToItemsAsync(
+        Guid collectionId,
+        IReadOnlyList<Guid> workIds,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        if (workIds.Count == 0)
+        {
+            return [];
+        }
+
+        using var conn = db.CreateConnection();
+        var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
+        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var rows = (await conn.QueryAsync<GeneratedCollectionItemRow>(new CommandDefinition(
+            $"""
+            WITH representative_assets AS (
+                SELECT e.work_id AS WorkId,
+                       MIN(ma.id) AS AssetId
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE e.work_id IN @WorkIds
+                  AND {visibleAssetPredicate}
+                GROUP BY e.work_id
+            )
+            SELECT w.id AS WorkId,
+                   COALESCE(
+                       NULLIF(title_work.value, ''),
+                       NULLIF(episode_title.value, ''),
+                       NULLIF(show_name.value, ''),
+                       NULLIF(series_item.item_label, ''),
+                       'Untitled'
+                   ) AS Title,
+                   COALESCE(NULLIF(author_work.value, ''), NULLIF(artist_work.value, ''), NULLIF(director_work.value, '')) AS Creator,
+                   w.media_type AS MediaType,
+                   COALESCE(
+                       NULLIF(cover_asset.value, ''),
+                       NULLIF(cover_work.value, ''),
+                       CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
+                   ) AS CoverUrl,
+                   COALESCE(w.ordinal, series_item.position, 999999) AS SortOrder
+            FROM works w
+            LEFT JOIN representative_assets ra ON ra.WorkId = w.id
+            LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
+            LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
+            LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
+            LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
+            LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist')
+            LEFT JOIN canonical_values director_work ON director_work.entity_id = w.id AND director_work.key = 'director'
+            LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id AND series_item.collection_id = @CollectionId
+            WHERE w.id IN @WorkIds
+              AND {visibleWorkPredicate}
+            ORDER BY SortOrder, Title COLLATE NOCASE, w.id;
+            """,
+            new
+            {
+                CollectionId = collectionId.ToString("D"),
+                WorkIds = workIds.Select(id => id.ToString("D")).ToArray(),
+            },
+            cancellationToken: ct))).ToList();
+
+        return rows.Select(row => new CollectionItemDto
+        {
+            Id = DeterministicCollectionItemId(collectionId, row.WorkId),
+            WorkId = row.WorkId,
+            Title = row.Title,
+            Creator = row.Creator,
+            MediaType = row.MediaType,
+            CoverUrl = row.CoverUrl,
+            SortOrder = row.SortOrder,
+        }).ToList();
+    }
+
+    private static Guid DeterministicCollectionItemId(Guid collectionId, Guid workId)
+    {
+        var bytes = collectionId.ToByteArray().Concat(workId.ToByteArray()).ToArray();
+        return new Guid(System.Security.Cryptography.MD5.HashData(bytes));
     }
 
     private static async Task<IReadOnlyList<CollectionArtworkItemDto>> GetCollectionArtworkItemsAsync(
@@ -4316,4 +4421,12 @@ public static class CollectionEndpoints
         string? SeasonNumber,
         string? Album,
         string? Artist);
+
+    private sealed record GeneratedCollectionItemRow(
+        Guid WorkId,
+        string Title,
+        string? Creator,
+        string MediaType,
+        string? CoverUrl,
+        int SortOrder);
 }

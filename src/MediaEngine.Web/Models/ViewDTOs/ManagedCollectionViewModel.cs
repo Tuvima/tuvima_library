@@ -395,9 +395,11 @@ public sealed class CollectionManagementCatalogViewModel
         "Playlist" => "Playlist",
         "Smart" => "Smart",
         "Mix" => "Mix",
-        "Universe" => "Content Group",
-        "ContentGroup" => "Content Group",
-        _ => "Collection",
+        "Custom" => "Custom Collection",
+        "Universe" => "Generated Collection",
+        "Series" => "Generated Collection",
+        "ContentGroup" => "Generated Collection",
+        _ => IsManual ? "Custom Collection" : "Generated Collection",
     };
 
     public string FamilyLabel => Family switch

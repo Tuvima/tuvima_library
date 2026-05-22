@@ -244,7 +244,7 @@ else
             if (_collection?.IsSystem == true)
                 return "SYSTEM COLLECTION";
 
-            return _collection?.IsManual == true ? "CUSTOM COLLECTION" : "CURATED COLLECTION";
+            return _collection?.IsManual == true ? "CUSTOM COLLECTION" : "GENERATED COLLECTION";
         }
     }
 
@@ -261,7 +261,9 @@ else
     private string DescriptionText =>
         !string.IsNullOrWhiteSpace(_collection?.Description)
             ? _collection.Description!
-            : "A curated collection from your Tuvima Library.";
+            : _collection?.IsManual == true
+                ? "A custom collection from your Tuvima Library."
+                : "A generated collection from your Tuvima Library.";
 
     private string ItemCountLabel => $"{_items.Count} {Pluralize("item", _items.Count)}";
 
@@ -280,7 +282,7 @@ else
                 return "This is a system collection. Its membership is managed by the relevant user action.";
 
             if (_collection?.IsManual != true)
-                return "This collection is generated from library rules, so item membership is not edited directly here.";
+                return "This collection is generated from Wikidata and library relationships, so item membership is not edited directly here.";
 
             return "The active profile does not have permission to edit this collection.";
         }

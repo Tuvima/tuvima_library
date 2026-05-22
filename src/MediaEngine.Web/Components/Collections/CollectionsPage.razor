@@ -251,9 +251,7 @@
         return Task.CompletedTask;
     }
 
-    private Task OpenCollectionBuilder() => OpenBuilder("Custom", true);
-
-    private async Task OpenBuilder(string type, bool rulesEnabled)
+    private async Task OpenCollectionBuilder()
     {
         if (_activeProfile is null)
         {
@@ -265,9 +263,9 @@
         {
             ActiveProfileId = _activeProfile.Id,
             CanManageSharedCollections = CanManageSharedCollections,
-            InitialCollectionType = type,
-            InitialRulesEnabled = rulesEnabled,
-            Mode = type == "Playlist" ? "Playlist" : "Collection",
+            InitialCollectionType = "Custom",
+            InitialRulesEnabled = true,
+            Mode = "Collection",
         });
 
         if (changed)
@@ -285,12 +283,6 @@
             .ToList();
         var primaryArtwork = PrimaryArtwork(collection);
         var presentation = ResolvePresentation(collection);
-        var mediaKind = collection.CollectionType switch
-        {
-            "ContentGroup" or "Universe" or "Series" => "Collection",
-            "Playlist" => "Playlist",
-            _ => "Collection",
-        };
 
         return new DiscoveryCardViewModel
         {
@@ -307,7 +299,7 @@
             MediaCounts = BuildMediaCounts(collection),
             ContextLines = BuildContextLines(collection),
             HoverFacts = BuildHoverFacts(collection),
-            MediaKind = mediaKind,
+            MediaKind = "Collection",
             AccentColor = "var(--tl-accent-primary)",
             Shape = DiscoveryCardShape.Landscape,
             Presentation = presentation,

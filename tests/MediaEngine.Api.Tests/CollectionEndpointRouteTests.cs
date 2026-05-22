@@ -89,11 +89,16 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("\"watchlist\" => \"Watch\"", source, StringComparison.Ordinal);
         Assert.Contains("\"reading-list\" => \"Read\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldIncludeInManagementCatalog", source, StringComparison.Ordinal);
+        Assert.Contains("IsPlaylistCatalogCollection(collection)", source, StringComparison.Ordinal);
+        Assert.Contains("\"PlaylistFolder\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"Smart\"", source, StringComparison.Ordinal);
         Assert.Contains("ISeriesManifestRepository manifestRepo", source, StringComparison.Ordinal);
         Assert.Contains("HasKnownSeriesManifestAsync(collection, manifestRepo, ct)", source, StringComparison.Ordinal);
         Assert.Contains("string.IsNullOrWhiteSpace(collection.WikidataQid)", source, StringComparison.Ordinal);
         Assert.Contains("mediaCounts.TotalCount < 2 && !hasKnownSeriesManifest", source, StringComparison.Ordinal);
         Assert.Contains("manifest?.TotalCount > 1", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveCollectionWorkIdsToItemsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct)", source, StringComparison.Ordinal);
         Assert.Contains("IsGeneratedTvShowContainer", source, StringComparison.Ordinal);
         Assert.Contains("mediaCounts.WatchCount == mediaCounts.TvCount", source, StringComparison.Ordinal);
         Assert.Contains("series_manifest_items series_item", source, StringComparison.Ordinal);
