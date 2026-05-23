@@ -158,6 +158,8 @@ The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v3.
 5. **Fallback:** When bridge lookup does not produce a usable candidate and title hints are present, the bridge resolver performs typed text fallback internally. The adapter keeps a small application-level fallback pass for historical parity.
 6. **Claim and diagnostics follow-up:** After every successful resolution, the adapter calls `ExtendAsync` over the known bridge P-codes to populate `WikidataResolveResult.Claims` and `CollectedBridgeIds`, and it also carries `BridgeDiagnostics`, ranked candidates, and rollup details from the package result.
 
+Manual Wikidata searches from the editor and automated fallback reconciliation both flow through `ReconciliationAdapter`'s shared request builder before calling `Tuvima.Wikidata`. Exact QID searches such as `Q155653` are passed through as identity lookups, so the package fetches the entity directly and still applies the configured media type constraints. Creator hints are only added to written-work searches where they help disambiguate titles; they are not appended to exact QIDs, movies, or TV searches.
+
 ### Preferred Bridge ID Order (per media type)
 
 The hydration config specifies which bridge IDs to try first per media type:

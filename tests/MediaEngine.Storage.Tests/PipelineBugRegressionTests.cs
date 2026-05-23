@@ -98,6 +98,27 @@ public sealed class PipelineBugRegressionTests
     }
 
     [Fact]
+    public void InstanceOfClasses_MoviesIncludesAnimatedAndAnimeFilms()
+    {
+        var root = FindRepoRoot();
+        var json = File.ReadAllText(
+            Path.Combine(root, "config", "providers", "wikidata_reconciliation.json"));
+        var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOpts);
+        Assert.NotNull(config);
+
+        Assert.True(config!.InstanceOfClasses.ContainsKey("Movies"),
+            "instance_of_classes must contain a 'Movies' key.");
+
+        var movieTypes = config.InstanceOfClasses["Movies"];
+
+        // Q202866 = animated film, Q20650540 = anime film.
+        // Spirited Away is directly instance_of Q20650540, so direct QID and
+        // title searches must keep it in the Movies result set.
+        Assert.Contains("Q202866", movieTypes);
+        Assert.Contains("Q20650540", movieTypes);
+    }
+
+    [Fact]
     public void InstanceOfClasses_CoversAllResolvableMediaTypes()
     {
         var root = FindRepoRoot();

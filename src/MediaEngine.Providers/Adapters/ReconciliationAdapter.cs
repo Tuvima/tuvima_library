@@ -3770,10 +3770,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private static Dictionary<string, string>? BuildTitleSearchConstraints(ProviderLookupRequest request)
     {
         var c = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (!string.IsNullOrWhiteSpace(request.Author))
+        if (!IsExactWikidataQid(request.Title)
+            && request.MediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Comics
+            && !string.IsNullOrWhiteSpace(request.Author))
             c["P50"] = request.Author;
         return c.Count > 0 ? c : null;
     }
+
+    private static bool IsExactWikidataQid(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && System.Text.RegularExpressions.Regex.IsMatch(
+            value.Trim(),
+            @"^Q[1-9]\d*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     /// <summary>
     /// Splits a multi-author/creator string on common separators: " &amp; ", " and ", ", ".

@@ -100,13 +100,15 @@ public sealed class SearchService : ISearchService
         try
         {
             // Search Wikidata via Reconciliation API.
-            // When local_author is provided, append it to the query for disambiguation.
             // The Wikidata wbsearchentities API uses the full query string for matching —
-            // property constraints (P50) only filter/re-score results after the initial search,
-            // so "Die Verwandlung" alone won't find the Kafka novella, but
-            // "Die Verwandlung Franz Kafka" will.
-            var searchQuery = request.Query;
-            if (!string.IsNullOrWhiteSpace(request.LocalAuthor)
+            // Written-work creator hints improve ambiguous title searches, but
+            // exact QID searches and film title searches must stay focused on
+            // the user-entered identity text.
+            var searchQuery = request.Query.Trim();
+            var isExactQidQuery = IsExactWikidataQid(searchQuery);
+            var shouldUseCreatorHint = ShouldUseCreatorHintForUniverseQuery(mediaType, isExactQidQuery);
+            if (shouldUseCreatorHint
+                && !string.IsNullOrWhiteSpace(request.LocalAuthor)
                 && !searchQuery.Contains(request.LocalAuthor, StringComparison.OrdinalIgnoreCase))
             {
                 searchQuery = $"{searchQuery} {request.LocalAuthor}";
@@ -118,7 +120,7 @@ public sealed class SearchService : ISearchService
                 EntityType = EntityType.Work,
                 MediaType  = mediaType,
                 Title      = searchQuery,
-                Author     = request.LocalAuthor,
+                Author     = shouldUseCreatorHint ? request.LocalAuthor : null,
                 BaseUrl    = GetProviderBaseUrl(wikidataProvider.Name, providerEndpoints),
                 Language   = language,
                 Country    = country,
@@ -523,6 +525,15 @@ public sealed class SearchService : ISearchService
         };
         return Enum.TryParse<MediaType>(normalized, ignoreCase: true, out var mt) ? mt : MediaType.Unknown;
     }
+
+    private static bool IsExactWikidataQid(string value) =>
+        System.Text.RegularExpressions.Regex.IsMatch(
+            value.Trim(),
+            @"^Q[1-9]\d*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private static bool ShouldUseCreatorHintForUniverseQuery(MediaType mediaType, bool isExactQidQuery) =>
+        !isExactQidQuery && mediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Comics;
 
     private static double EstimateConfidence(string? tier) => tier switch
     {
