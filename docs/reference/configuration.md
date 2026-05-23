@@ -12,7 +12,7 @@ tags:
 
 # Configuration Reference
 
-All configuration lives in the `config/` directory as individual JSON files grouped by concern. Config files are committed to git. Provider secrets (API keys, passwords) go in `config/secrets/` (gitignored). Adding a new REST+JSON provider requires only a config file â€” no code changes.
+All configuration lives in the `config/` directory as individual JSON files grouped by concern. Config files are committed to git. Provider secrets (API keys, passwords) go in `config/secrets/` (gitignored). Adding a new REST+JSON provider requires only a config file - no code changes.
 
 ---
 
@@ -27,10 +27,10 @@ Core Engine settings. Restart required for changes to take effect.
 | `data_root` | string | `""` | Root directory for all internal Engine storage (`.data/`). Must be set before first run. |
 | `watch_directory` | string | `""` | Legacy single-directory watch. Prefer `config/libraries.json` for multi-folder setups. |
 | `library_root` | string | `""` | Root directory where the Engine places organized media after promotion. |
-| `organization_template` | string | â€” | Default file organization template. Tokens: `{Category}`, `{Title}`, `{Qid}`, `{Ext}`. |
-| `organization_templates` | object | â€” | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |
+| `organization_template` | string | - | Default file organization template. Tokens: `{Category}`, `{Title}`, `{Qid}`, `{Ext}`. |
+| `organization_templates` | object | - | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |
 | `server_name` | string | `"Tuvima Library"` | Display name shown in the Dashboard title bar and system status. |
-| `language` | object | â€” | Language preferences. See sub-fields below. |
+| `language` | object | - | Language preferences. See sub-fields below. |
 | `language.display` | string | `"en"` | UI display language (BCP-47 code). Controls Dashboard localization. |
 | `language.metadata` | string | `"en"` | Language used for provider queries (titles, descriptions). |
 | `language.additional` | string[] | `[]` | Additional content languages accepted (BCP-47 codes). |
@@ -62,7 +62,7 @@ AI/ML subsystem configuration. Controls model selection, feature toggles, vibe v
 | `text_cjk.path` | string | Path to the Qwen 2.5 3B Instruct model. Auto-downloads only when CJK languages (ja/ko/zh/zh-TW) are in language preferences. Available on High and Medium hardware tiers. |
 | `text_cjk.context_size` | int | Model context window size. |
 | `audio.path` | string | Path to Whisper Medium model. Used for speech-to-text and audio language detection. |
-| `audio.language` | string | `"auto"` â€” automatic language detection. Set to a BCP-47 code to force a specific language. |
+| `audio.language` | string | `"auto"` - automatic language detection. Set to a BCP-47 code to force a specific language. |
 
 ### features
 
@@ -84,7 +84,7 @@ Boolean toggles. All default to `true` unless noted.
 
 ### vibe_vocabulary
 
-Per-media-type lists of vibe descriptors across four dimensions. Each media type has 25â€“30 entries total.
+Per-media-type lists of vibe descriptors across four dimensions. Each media type has 25-30 entries total.
 
 | Key | Description |
 |---|---|
@@ -187,8 +187,8 @@ Defines the Library Folders the Engine monitors. Contains a `libraries` array; e
 | `media_types` | string[] | Media types expected in this folder. Accepted values: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`. |
 | `source_path` | string | Absolute path to the folder to monitor. |
 | `library_root` | string | Destination root for promoted files from this library. Overrides the global `library_root` if set. |
-| `intake_mode` | string | `"watch"` â€” continuous file monitoring. `"import"` â€” one-time scan of existing collection. |
-| `import_action` | string | `"move"` â€” move files after ingestion. `"copy"` â€” copy and leave originals in place. |
+| `intake_mode` | string | `"watch"` - continuous file monitoring. `"import"` - one-time scan of existing collection. |
+| `import_action` | string | `"move"` - move files after ingestion. `"copy"` - copy and leave originals in place. |
 | `include_subdirectories` | bool | Whether to recurse into subdirectories. |
 
 ---
@@ -226,7 +226,7 @@ Controls how resolved metadata is written back into file tags.
 
 ## config/providers/
 
-One JSON file per metadata provider. All provider files are self-contained â€” adding a new REST+JSON provider requires only dropping a config file and restarting. Provider secrets go in `config/secrets/` (gitignored).
+One JSON file per metadata provider. All provider files are self-contained - adding a new REST+JSON provider requires only dropping a config file and restarting. Provider secrets go in `config/secrets/` (gitignored).
 
 | File | Provider | Stage | Language Strategy |
 |---|---|---|---|
@@ -250,7 +250,7 @@ One JSON file per metadata provider. All provider files are self-contained â€
 | TV | `tvposter`, `showbackground`, `hdtvlogo`, `clearlogo`, `tvbanner`, `hdclearart`, `clearart`, `seasonposter`, `seasonthumb`, `tvthumb`, `characterart` |
 | Music | `albumcover`, `artistbackground`, `musiclogo`, `cdart` |
 
-### wikidata_reconciliation.json — Single Source of Truth
+### wikidata_reconciliation.json - Single Source of Truth
 
 This file is the authoritative configuration for all Wikidata-related behaviour. In addition to the common provider fields above, it contains:
 
@@ -263,10 +263,10 @@ This file is the authoritative configuration for all Wikidata-related behaviour.
 | `data_extension` | Properties fetched during the Data Extension API call after QID resolution. |
 
 **Removed config files (consolidated here):**
-- `config/cirrus-type-filters.json` — merged into `instance_of_classes`
-- `config/edition-pivot.json` — merged into `edition_pivot`
-- `config/universe/wikidata.json` — property map moved to `docs/reference/wikidata-property-map.md`; instance_of_classes already present here
-- `config/slots.json` — replaced by `config/pipelines.json`
+- `config/cirrus-type-filters.json` - merged into `instance_of_classes`
+- `config/edition-pivot.json` - merged into `edition_pivot`
+- `config/universe/wikidata.json` - property map moved to `docs/reference/wikidata-property-map.md`; instance_of_classes already present here
+- `config/slots.json` - replaced by `config/pipelines.json`
 
 ### Common provider fields
 
@@ -278,7 +278,7 @@ This file is the authoritative configuration for all Wikidata-related behaviour.
 | `base_url` | string | Provider API base URL. |
 | `priority` | int | Tier B cascade priority. Lower numbers = higher priority within the same tier. |
 | `media_types` | string[] | Which media types this provider serves. |
-| `language_strategy` | string | `"source"` â€” always English. `"localized"` â€” user's metadata language. `"both"` â€” query twice and merge. |
+| `language_strategy` | string | `"source"` - always English. `"localized"` - user's metadata language. `"both"` - query twice and merge. |
 | `rate_limit_ms` | int | Minimum milliseconds between requests to this provider. |
 | `cache_ttl_hours` | int | How long provider responses are cached in `provider_response_cache`. |
 
@@ -286,7 +286,7 @@ This file is the authoritative configuration for all Wikidata-related behaviour.
 
 ## config/ui/
 
-UI settings are layered: global defaults â†’ device profile â†’ user profile â†’ resolved effective settings.
+UI settings are layered: global defaults -> device profile -> user profile -> resolved effective settings.
 
 ### config/ui/global.json
 
@@ -295,8 +295,8 @@ Global UI defaults applied to all devices and users unless overridden.
 | Field | Type | Description |
 |---|---|---|
 | `theme` | string | Always `"dark"`. The Dashboard is dark-mode-only. |
-| `accent_color` | string | `"#C9922E"` â€” fixed golden amber accent. Do not change. |
-| `poster_aspect_ratio` | string | `"2:3"` â€” standard cover art card ratio. |
+| `accent_color` | string | `"#C9922E"` - fixed golden amber accent. Do not change. |
+| `poster_aspect_ratio` | string | `"2:3"` - standard cover art card ratio. |
 | `default_view_mode` | string | `"list"` or `"grid"`. Default media library view mode. |
 
 ### config/ui/devices/*.json

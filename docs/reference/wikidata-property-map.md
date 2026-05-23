@@ -12,7 +12,7 @@ tags:
 
 # Wikidata Property Map
 
-> **Stage 3 Planning Reference:** These property definitions document the Wikidata P-codes used across the enrichment pipeline. The Lore & Narrative properties (P840, P674, P921, P1434, P144, P4584) are reserved for the Stage 3 Universe Enrichment feature. Since the project uses the Tuvima.Wikidata library for API access, these properties are consumed through the library's sub-services — the config-level property map has been moved to this reference doc until Stage 3 design determines the actual integration shape.
+> **Stage 3 Planning Reference:** These property definitions document the Wikidata P-codes used across the enrichment pipeline. The Lore & Narrative properties (P840, P674, P921, P1434, P144, P4584) are reserved for the Stage 3 Universe Enrichment feature. Since the project uses the Tuvima.Wikidata library for API access, these properties are consumed through the library's sub-services - the config-level property map has been moved to this reference doc until Stage 3 design determines the actual integration shape.
 
 ---
 
@@ -31,7 +31,7 @@ tags:
 
 ---
 
-## People Properties — Work Scope
+## People Properties - Work Scope
 
 | P-code | Claim Key | Scope | Confidence | Notes |
 |--------|-----------|-------|------------|-------|
@@ -46,7 +46,7 @@ tags:
 
 ---
 
-## People Properties — Person Scope
+## People Properties - Person Scope
 
 | P-code | Claim Key | Scope | Confidence | Notes |
 |--------|-----------|-------|------------|-------|
@@ -124,9 +124,9 @@ Bridge identifiers are external IDs used to cross-reference Wikidata entities wi
 
 ---
 
-## Social Pivot Properties — Person Scope
+## Social Pivot Properties - Person Scope
 
-Used to populate actionable social links on Person entities (see Universe Graph & Chronicle Engine, §3.9).
+Used to populate actionable social links on Person entities (see Universe Graph & Chronicle Engine, section 3.9).
 
 | P-code | Claim Key | Platform |
 |--------|-----------|----------|
@@ -144,9 +144,9 @@ Confidence values indicate the strength of trust assigned to a claim when it ent
 
 | Value | Meaning |
 |-------|---------|
-| 0.9 | High confidence — Wikidata is the primary authority for this field |
-| 0.85 | Good confidence — used for person-scope properties and identifiers |
-| 0.8 | Moderate confidence — lore/narrative properties where Wikidata coverage varies |
+| 0.9 | High confidence - Wikidata is the primary authority for this field |
+| 0.85 | Good confidence - used for person-scope properties and identifiers |
+| 0.8 | Moderate confidence - lore/narrative properties where Wikidata coverage varies |
 
 For the `author` field specifically, a non-Wikidata claim with strictly higher confidence than the best Wikidata P50 claim wins in Tier C of the cascade (to honour deliberately reduced P50 author confidence of 0.75 and preserve embedded pen names at 0.95). All other fields follow standard Tier C Wikidata authority.
 

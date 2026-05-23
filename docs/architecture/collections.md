@@ -1,6 +1,6 @@
 ---
 title: "Universal Parameterized Collection System"
-summary: "Architecture of the universal collection model â€” every collection is a parameterized query container with normalized filter predicates."
+summary: "Architecture of the universal collection model - every collection is a parameterized query container with normalized filter predicates."
 audience: "developer"
 category: "architecture"
 product_area: "concepts"
@@ -16,7 +16,7 @@ tags:
 
 ## Overview
 
-Every collection in Tuvima Library â€” an album, a TV show, a genre category, a user playlist, an AI recommendation â€” is a **collection**. A collection is a parameterized query container: a set of normalized filter predicates that resolve to a collection of items. The collection type determines how it looks and who controls it, but the underlying mechanism is always the same.
+Every collection in Tuvima Library - an album, a TV show, a genre category, a user playlist, an AI recommendation - is a **collection**. A collection is a parameterized query container: a set of normalized filter predicates that resolve to a collection of items. The collection type determines how it looks and who controls it, but the underlying mechanism is always the same.
 
 This model unifies what were previously separate systems (content groups, smart collections, system lists, playlists, AI mixes) into a single architecture. A collection is defined by its **rules** (what items belong), its **type** (how it's presented), and its **placements** (where it appears in the Dashboard).
 
@@ -30,7 +30,7 @@ Metadata claims remain append-only.
 
 ---
 
-## Collection Rules â€” The Universal Predicate Model
+## Collection Rules - The Universal Predicate Model
 
 Every collection stores its membership criteria as a JSON array of predicates. Each predicate is a simple object:
 
@@ -65,8 +65,8 @@ A collection's full rule set might look like:
 
 Each collection has a `match_mode` that controls how predicates combine:
 
-- **ALL** (default) â€” item must satisfy every predicate (AND logic)
-- **ANY** â€” item must satisfy at least one predicate (OR logic)
+- **ALL** (default) - item must satisfy every predicate (AND logic)
+- **ANY** - item must satisfy at least one predicate (OR logic)
 
 ### Field Vocabulary
 
@@ -99,8 +99,8 @@ Rules reference fields from six categories:
 
 | Field | Description | Example use |
 |-------|-------------|-------------|
-| `user_rating` | User star rating (1â€“5) | `user_rating gt 3` |
-| `provider_rating` | Retail provider rating (0â€“5) | `provider_rating gt 4` |
+| `user_rating` | User star rating (1-5) | `user_rating gt 3` |
+| `provider_rating` | Retail provider rating (0-5) | `provider_rating gt 4` |
 | `play_count` | Times played/read | `play_count gt 5` |
 | `completion_status` | Not Started / In Progress / Completed | `completion_status eq "Not Started"` |
 | `in_list` | Membership in a system list | `in_list eq "Favorites"` |
@@ -133,13 +133,13 @@ Rules reference fields from six categories:
 
 ---
 
-## Collection Types â€” Presentation Hints
+## Collection Types - Presentation Hints
 
-The collection type is a **presentation hint** â€” it tells the Dashboard how to render the collection, who owns it, and what the user can do with it. The underlying rule mechanism is the same for all types.
+The collection type is a **presentation hint** - it tells the Dashboard how to render the collection, who owns it, and what the user can do with it. The underlying rule mechanism is the same for all types.
 
 | Type | Created by | Resolution | Scoped to | Editable | Drillable |
 |------|-----------|------------|-----------|----------|-----------|
-| **ContentGroup** | Engine (during ingestion) | Materialized | Library | Read-only | Yes â€” navigates to sub-page |
+| **ContentGroup** | Engine (during ingestion) | Materialized | Library | Read-only | Yes - navigates to sub-page |
 | **Smart** | Engine (auto-generated from templates) | Query-resolved | Library | Disable/enable, feature, adjust threshold | No |
 | **System** | System (pre-created, always present) | Materialized | User (per profile) | Add/remove/reorder items | No |
 | **Mix** | Engine + AI (from taste profile) | Materialized | User (per profile) | Enable/disable | No |
@@ -150,16 +150,16 @@ The collection type is a **presentation hint** â€” it tells the Dashboard h
 
 Collections resolve their items in one of two ways:
 
-- **Query-resolved** â€” the Engine evaluates the collection's predicates against the data store at display time. Items are always fresh. Used by Smart collections and Custom collections.
-- **Materialized** â€” items are explicitly linked to the collection in the data store. Membership changes when files are ingested (ContentGroup), when the user adds/removes items (System, Playlist), or when the AI refreshes recommendations (Mix).
+- **Query-resolved** - the Engine evaluates the collection's predicates against the data store at display time. Items are always fresh. Used by Smart collections and Custom collections.
+- **Materialized** - items are explicitly linked to the collection in the data store. Membership changes when files are ingested (ContentGroup), when the user adds/removes items (System, Playlist), or when the AI refreshes recommendations (Mix).
 
 Query-resolved collections store their predicates in the `rule_json` column. Materialized collections may also have rules (for display purposes or re-evaluation) but their membership is tracked via the `collection_works` junction table.
 
 ---
 
-## ContentGroup Collections â€” Created at Ingestion
+## ContentGroup Collections - Created at Ingestion
 
-ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic series. They are created **during ingestion** by `MediaEntityChainFactory`, not during Wikidata enrichment â€” so they work immediately when files are scanned.
+ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic series. They are created **during ingestion** by `MediaEntityChainFactory`, not during Wikidata enrichment - so they work immediately when files are scanned.
 
 When a file is ingested:
 1. The processor extracts grouping metadata (show name, album name, series name).
@@ -168,8 +168,8 @@ When a file is ingested:
 4. The new Work is linked to the collection.
 
 ContentGroup collections have additional fields:
-- **`group_by_field`** â€” the metadata field that defines the group (e.g. `series`, `album`, `show`)
-- **`sort_field`** / **`sort_direction`** â€” default ordering for items (e.g. episode number ascending, track number ascending)
+- **`group_by_field`** - the metadata field that defines the group (e.g. `series`, `album`, `show`)
+- **`sort_field`** / **`sort_direction`** - default ordering for items (e.g. episode number ascending, track number ascending)
 
 These collections power the **container views** in the current media surfaces's media tabs. When you switch TV to "By Show" view, the table displays ContentGroup collections filtered to TV. Clicking a container navigates to `MediaGroupPage.razor` with the show's seasons and episodes.
 
@@ -177,16 +177,16 @@ These collections power the **container views** in the current media surfaces's 
 
 | Media type | Group identity | Sort default | Example |
 |-----------|---------------|-------------|---------|
-| TV | Show name | Season â†’ Episode ascending | "Breaking Bad" |
-| Music | Album name (+ artist) | Track number ascending | "OK Computer â€” Radiohead" |
-| Books | Series name (+ author) | Sequence index ascending | "Dune Novels â€” Frank Herbert" |
-| Audiobooks | Series name (+ author) | Sequence index ascending | "First Law â€” Joe Abercrombie" |
-| Comics | Series name | Issue number ascending | "Saga â€” Brian K. Vaughan" |
+| TV | Show name | Season -> Episode ascending | "Breaking Bad" |
+| Music | Album name (+ artist) | Track number ascending | "OK Computer - Radiohead" |
+| Books | Series name (+ author) | Sequence index ascending | "Dune Novels - Frank Herbert" |
+| Audiobooks | Series name (+ author) | Sequence index ascending | "First Law - Joe Abercrombie" |
+| Comics | Series name | Issue number ascending | "Saga - Brian K. Vaughan" |
 | Movies | Film series name | Release year ascending | "The Matrix film series" |
 
 ---
 
-## Smart Collections â€” Auto-Generated from Library Data
+## Smart Collections - Auto-Generated from Library Data
 
 Smart collections are auto-generated from library metadata using templates. One collection is created per qualifying instance (one per genre, one per decade, etc.). Minimum item thresholds prevent clutter from one-off entries.
 
@@ -204,13 +204,13 @@ Smart collections are auto-generated from library metadata using templates. One 
 | **Highest Rated** | `provider_rating gt 4` | Always shown | Any | Star |
 | **Unrated** | `user_rating eq "unrated"` | Always shown | Any | Circle-dashed |
 
-Smart collections refresh automatically â€” their rules are re-evaluated as the library changes.
+Smart collections refresh automatically - their rules are re-evaluated as the library changes.
 
 ### Configuration
 
-- **Generation threshold** â€” adjustable minimum item count per template (default 3 or 5 depending on template)
-- **Featured toggle** â€” pin a collection to appear prominently on the relevant media lane page
-- **Enabled toggle** â€” disable to hide from browsing without deleting
+- **Generation threshold** - adjustable minimum item count per template (default 3 or 5 depending on template)
+- **Featured toggle** - pin a collection to appear prominently on the relevant media lane page
+- **Enabled toggle** - disable to hide from browsing without deleting
 
 These are managed on the Collections page (`/collections`).
 
@@ -218,7 +218,7 @@ These are managed on the Collections page (`/collections`).
 
 ## System Lists
 
-Pre-created lists for progress tracking. One per media type family, always present, cannot be deleted. Per-user â€” each user profile has their own instances.
+Pre-created lists for progress tracking. One per media type family, always present, cannot be deleted. Per-user - each user profile has their own instances.
 
 | List | Media types accepted | Progress tracking | Default "Add to" target for |
 |------|---------------------|-------------------|-----------------------------|
@@ -230,7 +230,7 @@ Pre-created lists for progress tracking. One per media type family, always prese
 
 System lists support:
 - Add/remove items (via library browsing actions)
-- Reorder items (drag to reorder â€” "I want to read this next")
+- Reorder items (drag to reorder - "I want to read this next")
 - Progress tracking per item (not started / in progress / completed, with position)
 
 System lists do not support: rename, delete, change media type scope, creation of new system lists.
@@ -248,7 +248,7 @@ Engine-generated per-user collections powered by the AI Taste Profiling feature.
 | **Discovery Queue** | In your library, matches your taste, untouched | Daily |
 | **New For You** | Recently added items matching taste profile | On new ingestion |
 | **Because You Liked [X]** | Items similar to a specific highly-rated item (vibe + genre overlap) | On rating change |
-| **Taste Mix: [cluster]** | Per taste cluster â€” your atmospheric sci-fi cluster, your cozy mystery cluster | Weekly |
+| **Taste Mix: [cluster]** | Per taste cluster - your atmospheric sci-fi cluster, your cozy mystery cluster | Weekly |
 | **On Repeat** | Current obsessions (high consumption recently) | Daily |
 | **Rediscover** | Things you loved 6+ months ago but haven't touched since | Weekly |
 
@@ -256,8 +256,8 @@ Personalised mixes use: genres (from Wikidata/retail), vibe tags (AI-generated),
 
 ### Configuration
 
-- **Enabled toggle** â€” per mix type, disable to hide for all users
-- No other configuration â€” the AI handles everything
+- **Enabled toggle** - per mix type, disable to hide for all users
+- No other configuration - the AI handles everything
 
 ---
 
@@ -269,23 +269,23 @@ User-created, user-owned collections. Unlimited in number. Any media type.
 
 Traditional playlists where the user hand-picks items. Items are explicitly linked.
 
-- **Create** â€” from the My Library page ("+ New Playlist") or the Collections page
-- **Rename / Delete** â€” from within the playlist detail page
-- **Add items** â€” from library browsing via the "Add to Playlist..." picker
-- **Remove items** â€” from within the playlist detail page
-- **Reorder** â€” drag to reorder within the playlist
-- **Progress tracking** â€” optional toggle per playlist
-- **Artwork** â€” auto-composed from items' cover art. User can upload a custom override.
+- **Create** - from the My Library page ("+ New Playlist") or the Collections page
+- **Rename / Delete** - from within the playlist detail page
+- **Add items** - from library browsing via the "Add to Playlist..." picker
+- **Remove items** - from within the playlist detail page
+- **Reorder** - drag to reorder within the playlist
+- **Progress tracking** - optional toggle per playlist
+- **Artwork** - auto-composed from items' cover art. User can upload a custom override.
 
 ### Custom Collections (Query-Resolved)
 
-Smart collections built with the collection builder. Items auto-populate from user-defined rules. This is the successor to the previous "Smart Playlist" concept â€” now a first-class collection type rather than a playlist sub-type.
+Smart collections built with the collection builder. Items auto-populate from user-defined rules. This is the successor to the previous "Smart Playlist" concept - now a first-class collection type rather than a playlist sub-type.
 
-- **Create** â€” from the Collections page (`/collections`) via the collection builder
-- **Edit rules** â€” from the collection detail page (opens collection builder)
-- **Rename / Delete** â€” from the collection detail page
-- **Live update** â€” items auto-add/remove as they match or stop matching rules (toggleable via `live_updating` flag, default on)
-- **Artwork** â€” auto-composed from matched items' cover art. User can upload a custom override.
+- **Create** - from the Collections page (`/collections`) via the collection builder
+- **Edit rules** - from the collection detail page (opens collection builder)
+- **Rename / Delete** - from the collection detail page
+- **Live update** - items auto-add/remove as they match or stop matching rules (toggleable via `live_updating` flag, default on)
+- **Artwork** - auto-composed from matched items' cover art. User can upload a custom override.
 
 Custom collections do not support: manual add/remove of items, manual reordering (sort rules control order).
 
@@ -297,24 +297,24 @@ The collection builder is an Apple Music Smart Playlist-inspired filter interfac
 
 ### Builder Layout
 
-1. **Collection name** â€” text field at top
-2. **Match mode** â€” toggle: Match ALL rules / Match ANY rule
-3. **Filter rows** â€” each row is: Field dropdown â†’ Operator dropdown â†’ Value input. Plus/minus buttons to add/remove rows. A "Make group" button creates nested ALL/ANY logic for complex queries.
-4. **Live preview** â€” section below the rules showing how many items currently match and a scrollable list of the first 20 matches. Updates as rules are added or changed. Powered by `POST /collections/preview`.
-5. **Limit and sort** â€” optional item limit (10, 25, 50, 100, 200, or no limit) and sort controls (field + direction)
-6. **Live updating toggle** â€” when on, items auto-add/remove as they match or stop matching rules
-7. **Save** â€” creates the Custom collection
+1. **Collection name** - text field at top
+2. **Match mode** - toggle: Match ALL rules / Match ANY rule
+3. **Filter rows** - each row is: Field dropdown -> Operator dropdown -> Value input. Plus/minus buttons to add/remove rows. A "Make group" button creates nested ALL/ANY logic for complex queries.
+4. **Live preview** - section below the rules showing how many items currently match and a scrollable list of the first 20 matches. Updates as rules are added or changed. Powered by `POST /collections/preview`.
+5. **Limit and sort** - optional item limit (10, 25, 50, 100, 200, or no limit) and sort controls (field + direction)
+6. **Live updating toggle** - when on, items auto-add/remove as they match or stop matching rules
+7. **Save** - creates the Custom collection
 
 ### Field Autocomplete
 
 The value input adapts based on the selected field:
-- **Genre, Vibe** â€” multi-select picker populated from `GET /collections/field-values/genre`
-- **Author, Director, Narrator** â€” person picker with search
-- **Media Type** â€” media type picker
-- **Format, Quality** â€” format/quality picker
-- **Series, Universe** â€” text picker with search
-- **Dates** â€” date picker or duration selector (last N days/weeks/months)
-- **Numbers** â€” numeric input with range support
+- **Genre, Vibe** - multi-select picker populated from `GET /collections/field-values/genre`
+- **Author, Director, Narrator** - person picker with search
+- **Media Type** - media type picker
+- **Format, Quality** - format/quality picker
+- **Series, Universe** - text picker with search
+- **Dates** - date picker or duration selector (last N days/weeks/months)
+- **Numbers** - numeric input with range support
 
 ### Example Custom Collections
 
@@ -324,7 +324,7 @@ The value input adapts based on the selected field:
 | "Short Listens" | Media Type is "Audiobook" + Duration < 8 hours + User Rating > 3 | Sort by Duration, ascending |
 | "Atmospheric Horror" | Genre is "Horror" + Vibe includes any of "atmospheric, haunting, unsettling" | Limit 50, sort by Taste Match |
 | "Denis Villeneuve Marathon" | Director is "Denis Villeneuve" | Sort by Date Published, ascending |
-| "4K Movie Night" | Media Type is "Movie" + Quality is "4K HDR" + Duration between 90â€“180 min | Sort by Random, limit 10 |
+| "4K Movie Night" | Media Type is "Movie" + Quality is "4K HDR" + Duration between 90-180 min | Sort by Random, limit 10 |
 | "New This Month" | Date Added is in the last 30 days + Taste Match > 70% | Sort by Taste Match, descending |
 
 ---
@@ -355,13 +355,13 @@ Opens a picker showing all materialized collections that accept this media type:
 - All user-created playlists
 - "Create New Playlist" at the bottom
 
-Smart collections, Custom collections, and personalised mixes do not appear in this picker â€” you don't manually add to them.
+Smart collections, Custom collections, and personalised mixes do not appear in this picker - you don't manually add to them.
 
 ### Where the actions appear
 
-1. **Poster card** â€” small bookmark/plus icon in the corner (primary action on tap, picker on long-press/right-click). Heart icon separately.
-2. **Item detail page** (library page) â€” explicit button with label + "Add to other list..." secondary action. Heart icon separately.
-3. **media detail editor** â€” not present. the current media surfaces is for management, not consumption.
+1. **Poster card** - small bookmark/plus icon in the corner (primary action on tap, picker on long-press/right-click). Heart icon separately.
+2. **Item detail page** (library page) - explicit button with label + "Add to other list..." secondary action. Heart icon separately.
+3. **media detail editor** - not present. the current media surfaces is for management, not consumption.
 
 ---
 
@@ -374,24 +374,24 @@ Available on system lists and playlists (when toggled on). Tracks consumption st
 | State | Meaning |
 |-------|---------|
 | **Not Started** | In the list but untouched |
-| **In Progress** | Started â€” position tracked (page number, timestamp, episode number) |
+| **In Progress** | Started - position tracked (page number, timestamp, episode number) |
 | **Completed** | Finished |
 
 ### Per-collection state
 
-- **Completion percentage** â€” items completed / total items
-- **Items remaining** â€” count of not-started + in-progress
-- **Next up** â€” the next item based on list order and progress state
+- **Completion percentage** - items completed / total items
+- **Items remaining** - count of not-started + in-progress
+- **Next up** - the next item based on list order and progress state
 
 ### The "Continue" mix
 
-The Continue personalised mix aggregates in-progress items from all system lists and playlists with progress tracking enabled. It surfaces them in one "pick up where you left off" view. It does not duplicate items â€” it references them from their source lists.
+The Continue personalised mix aggregates in-progress items from all system lists and playlists with progress tracking enabled. It surfaces them in one "pick up where you left off" view. It does not duplicate items - it references them from their source lists.
 
 ---
 
 ## Collection Artwork
 
-Collections are virtual containers â€” they don't have their own artwork. Artwork is derived from contents.
+Collections are virtual containers - they don't have their own artwork. Artwork is derived from contents.
 
 ### Auto-composed artwork
 
@@ -407,7 +407,7 @@ For featured collections or collections the user wants to customise, all five as
 
 ---
 
-## Collection Placements â€” Location as Display Constraint
+## Collection Placements - Location as Display Constraint
 
 The `collection_placements` table maps collections to UI locations. A single collection can appear in multiple locations with different display constraints.
 
@@ -439,13 +439,13 @@ This model replaces hardcoded rules about where each collection type appears. Ad
 
 ## The Collections Page (`/collections`)
 
-A dedicated page for browsing, creating, and managing all collection types. This replaces the former Collections page â€” collection management now lives at its own top-level route rather than being buried inside the current media surfaces.
+A dedicated page for browsing, creating, and managing all collection types. This replaces the former Collections page - collection management now lives at its own top-level route rather than being buried inside the current media surfaces.
 
 ### Page Layout
 
-- **Header** â€” "Collections" title + "New Collection" button (opens collection builder)
-- **Type filter chips** â€” All, Content Groups, Smart, System Lists, Mixes, Playlists, Custom
-- **Search** â€” filter by name
+- **Header** - "Collections" title + "New Collection" button (opens collection builder)
+- **Type filter chips** - All, Content Groups, Smart, System Lists, Mixes, Playlists, Custom
+- **Search** - filter by name
 - **Grid/List toggle**
 
 ### Grid View
@@ -490,16 +490,16 @@ The Collections page is accessible from the LeftDock navigation, positioned betw
 4. Applies sort and limit constraints
 5. Returns matching Work IDs
 
-For performance, Smart collections cache a `rule_hash` â€” the hash of the serialized rule JSON. When rules haven't changed, cached results can be served. The `live_updating` flag controls whether materialized collections re-evaluate on library changes.
+For performance, Smart collections cache a `rule_hash` - the hash of the serialized rule JSON. When rules haven't changed, cached results can be served. The `live_updating` flag controls whether materialized collections re-evaluate on library changes.
 
 ### Available Actions
 
 | Action | Method | Purpose |
 |--------|--------|---------|
 | Resolve collection items | `GET /collections/resolve/{id}` | Evaluate rules, return matching items |
-| Preview rules | `POST /collections/preview` | Evaluate rules without saving â€” powers the live preview in the collection builder |
+| Preview rules | `POST /collections/preview` | Evaluate rules without saving - powers the live preview in the collection builder |
 | Collections at location | `GET /collections/by-location/{location}` | All collections placed at a UI location, with display limits applied |
-| Field values | `GET /collections/field-values/{field}` | Distinct values for a field â€” powers autocomplete in the collection builder |
+| Field values | `GET /collections/field-values/{field}` | Distinct values for a field - powers autocomplete in the collection builder |
 | Create collection | `POST /collections` | Create a new collection (Playlist or Custom) |
 | Update collection | `PUT /collections/{id}` | Update collection properties or rules |
 | Delete collection | `DELETE /collections/{id}` | Delete a user-created collection (Playlist or Custom only) |
@@ -516,7 +516,7 @@ The universal collection model draws from patterns proven by major media platfor
 |----------|---------|-------------------|
 | **Netflix** | "Because you watched X", category rows, "My List" | Mix (Because You Liked), Smart (genre rows), System (Watchlist) |
 | **Spotify** | Daily Mixes, Discover Weekly, user playlists, album pages | Mix (Taste Mix), Mix (Discovery Queue), Playlist, ContentGroup (albums) |
-| **Apple Music** | Smart Playlists with field+operator+value rules | Custom collections via collection builder â€” direct inspiration for the filter UI |
+| **Apple Music** | Smart Playlists with field+operator+value rules | Custom collections via collection builder - direct inspiration for the filter UI |
 | **Plex** | Auto-generated collections by genre/decade/director, user collections | Smart collections (auto-generated templates), Custom collections |
 
 ---
@@ -555,11 +555,11 @@ Backfill migration converts existing collections to the new schema, generating `
 
 | Phase | Scope |
 |-------|-------|
-| **Phase 1 â€” Foundation** | Collection entity changes, migration M-070, `CollectionRuleEvaluator`, predicate model, actions (resolve/preview/field-values) |
-| **Phase 2 â€” ContentGroup** | Ingestion-time creation in `MediaEntityChainFactory`, browse container views driven by ContentGroup collections |
-| **Phase 3 â€” Smart Collection Generation** | Template engine, auto-generation from library data, threshold configuration |
-| **Phase 4 â€” Collections Page & Collection Builder** | `/collections` page, collection builder UI, Custom collection CRUD, placement management |
-| **Phase 5 â€” Migration** | Collections page removal, navigation updates, existing collection backfill |
+| **Phase 1 - Foundation** | Collection entity changes, migration M-070, `CollectionRuleEvaluator`, predicate model, actions (resolve/preview/field-values) |
+| **Phase 2 - ContentGroup** | Ingestion-time creation in `MediaEntityChainFactory`, browse container views driven by ContentGroup collections |
+| **Phase 3 - Smart Collection Generation** | Template engine, auto-generation from library data, threshold configuration |
+| **Phase 4 - Collections Page & Collection Builder** | `/collections` page, collection builder UI, Custom collection CRUD, placement management |
+| **Phase 5 - Migration** | Collections page removal, navigation updates, existing collection backfill |
 
 ---
 

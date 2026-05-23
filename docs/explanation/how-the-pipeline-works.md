@@ -1,4 +1,4 @@
-﻿---
+---
 title: "How the Entire Pipeline Works"
 summary: "Follow a file's complete journey from detection through enrichment, scoring, and organization and understand why each stage exists."
 audience: "user"

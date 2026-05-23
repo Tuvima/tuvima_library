@@ -1,9 +1,9 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# release.yml — builds and publishes the Windows installer on every v*.*.* tag
+# -----------------------------------------------------------------------------
+# release.yml - builds and publishes the Windows installer on every v*.*.* tag
 #
 # Trigger:  git tag v1.2.3 && git push --tags
 # Output:   GitHub Release with TuvimaLibrary-Setup-1.2.3.exe attached
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 name: Windows Installer Release
 
 on:
@@ -19,22 +19,22 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
+      # -- Checkout ------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── .NET 10 SDK ──────────────────────────────────────────────────────────
+      # -- .NET 10 SDK ----------------------------------------------------------
       - name: Set up .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.2xx"
 
-      # ── Inno Setup 6 ────────────────────────────────────────────────────────
+      # -- Inno Setup 6 --------------------------------------------------------
       - name: Install Inno Setup 6
         run: choco install innosetup --version 6.3.3 --no-progress -y
         shell: pwsh
 
-      # ── Extract version from tag (v1.2.3 → 1.2.3) ─────────────────────────
+      # -- Extract version from tag (v1.2.3 -> 1.2.3) -------------------------
       - name: Extract version
         id: version
         run: |
@@ -43,7 +43,7 @@ jobs:
           echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      # ── Publish Engine (win-x64, self-contained) ─────────────────────────
+      # -- Publish Engine (win-x64, self-contained) -------------------------
       - name: Publish Engine
         run: |
           dotnet publish src/MediaEngine.Api/MediaEngine.Api.csproj `
@@ -56,7 +56,7 @@ jobs:
             -p:Version=${{ steps.version.outputs.VERSION }}
         shell: pwsh
 
-      # ── Publish Dashboard (win-x64, self-contained) ───────────────────────
+      # -- Publish Dashboard (win-x64, self-contained) -----------------------
       - name: Publish Dashboard
         run: |
           dotnet publish src/MediaEngine.Web/MediaEngine.Web.csproj `
@@ -69,7 +69,7 @@ jobs:
             -p:Version=${{ steps.version.outputs.VERSION }}
         shell: pwsh
 
-      # ── Compile installer with updated version ────────────────────────────
+      # -- Compile installer with updated version ----------------------------
       - name: Compile Inno Setup installer
         run: |
           $ver = "${{ steps.version.outputs.VERSION }}"
@@ -78,7 +78,7 @@ jobs:
             "installer.iss"
         shell: pwsh
 
-      # ── Upload installer as GitHub Release artifact ───────────────────────
+      # -- Upload installer as GitHub Release artifact -----------------------
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

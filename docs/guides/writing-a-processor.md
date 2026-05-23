@@ -62,7 +62,7 @@ public interface IMediaProcessor
 
 - **`CanProcess` must use magic bytes, not file extension.** Extensions are unreliable
   on user-managed media collections. Read the minimum number of bytes required
-  (typically 4â€“16).
+  (typically 4-16).
 - **Implementations must be stateless.** No instance fields that vary between calls.
   The same instance is called concurrently from multiple threads.
 - **Never modify, move, or delete the source file.** The processor is read-only.
@@ -73,7 +73,7 @@ public interface IMediaProcessor
 
 ---
 
-## `ProcessorResult` â€” what to return
+## `ProcessorResult` - what to return
 
 Located in `src/MediaEngine.Processors/Models/ProcessorResult.cs`:
 
@@ -102,13 +102,13 @@ providers. Use these conventions so competing claims resolve correctly:
 
 | Source | Confidence | Examples |
 |---|---|---|
-| Embedded structured metadata | 0.90â€“0.95 | OPF `<dc:title>`, ID3 TPE1 tag |
-| Embedded but less reliable | 0.75â€“0.85 | Comment tags, embedded descriptions |
-| Heuristic derivation | 0.50â€“0.70 | Filename stem as title fallback |
+| Embedded structured metadata | 0.90-0.95 | OPF `<dc:title>`, ID3 TPE1 tag |
+| Embedded but less reliable | 0.75-0.85 | Comment tags, embedded descriptions |
+| Heuristic derivation | 0.50-0.70 | Filename stem as title fallback |
 | Definitive embedded identifier | 1.00 | ISBN in `<dc:identifier scheme="ISBN">` |
 
 Do not use `1.0` for anything other than definitive embedded identifiers (ISBN, ASIN,
-IMDB ID). A confidence of `1.0` competes with user locks â€” Tier A of the Priority Cascade.
+IMDB ID). A confidence of `1.0` competes with user locks - Tier A of the Priority Cascade.
 
 ### Cover image extraction
 
@@ -130,7 +130,7 @@ private static string SniffMimeType(byte[] data)
 The ingestion engine writes cover bytes to `.data/images/` via `ImagePathService` and
 generates a 200px thumbnail automatically. You do not need to resize the image.
 
-### Ambiguous formats â€” `MediaTypeCandidates`
+### Ambiguous formats - `MediaTypeCandidates`
 
 Some containers (MP3, M4A, MP4) can hold different media types (music vs audiobook,
 movie vs TV episode). When the processor cannot determine the media type from the
@@ -179,7 +179,7 @@ Example magic bytes for common formats:
 | Format | Offset | Bytes | ASCII hint |
 |---|---|---|---|
 | ZIP (EPUB, CBZ) | 0 | `50 4B 03 04` | `PK\x03\x04` |
-| JPEG | 0 | `FF D8 FF` | â€” |
+| JPEG | 0 | `FF D8 FF` | - |
 | PNG | 0 | `89 50 4E 47` | `\x89PNG` |
 | PDF | 0 | `25 50 44 46` | `%PDF` |
 | FLAC | 0 | `66 4C 61 43` | `fLaC` |
@@ -227,7 +227,7 @@ public sealed class MyFormatProcessor : IMediaProcessor
     public MediaType SupportedType => MediaType.Books; // choose the appropriate type
 
     /// <remarks>
-    /// Priority N â€” explain why this value was chosen relative to existing processors.
+    /// Priority N - explain why this value was chosen relative to existing processors.
     /// </remarks>
     public int Priority => 88;  // between Comic (85) and Video (90) for example
 
@@ -271,7 +271,7 @@ public sealed class MyFormatProcessor : IMediaProcessor
         };
     }
 
-    // â”€â”€ Magic bytes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Magic bytes --------------------------------------------------------
 
     private static bool HasMagicBytes(string filePath)
     {
@@ -288,7 +288,7 @@ public sealed class MyFormatProcessor : IMediaProcessor
         catch (UnauthorizedAccessException) { return false; }
     }
 
-    // â”€â”€ Metadata extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Metadata extraction -----------------------------------------------
 
     private static List<ExtractedClaim> BuildClaims(MyFormatDocument doc)
     {
@@ -320,7 +320,7 @@ public sealed class MyFormatProcessor : IMediaProcessor
         return "image/jpeg";
     }
 
-    // â”€â”€ Factory helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Factory helpers ----------------------------------------------------
 
     private static ProcessorResult Corrupt(string filePath, string reason) => new()
     {
@@ -453,7 +453,7 @@ Run tests with `dotnet test tests/MediaEngine.Processors.Tests`.
 ## Adding a NuGet dependency
 
 If parsing the format requires a library, verify its license is compatible with AGPLv3
-(MIT, Apache 2.0, LGPL, BSD are all safe â€” see `CLAUDE.md` Â§5.1) before adding it.
+(MIT, Apache 2.0, LGPL, BSD are all safe - see `CLAUDE.md` section 5.1) before adding it.
 
 Add the package reference to `src/MediaEngine.Processors/MediaEngine.Processors.csproj`:
 
@@ -461,14 +461,14 @@ Add the package reference to `src/MediaEngine.Processors/MediaEngine.Processors.
 <PackageReference Include="YourParser.Library" Version="X.Y.Z" />
 ```
 
-Update the approved tools table in `CLAUDE.md` Â§5.1 once the package is confirmed.
+Update the approved tools table in `CLAUDE.md` section 5.1 once the package is confirmed.
 
 ---
 
 ## Checklist before committing
 
 - [ ] `CanProcess` uses magic bytes, not file extension
-- [ ] `CanProcess` never throws â€” catches `IOException` and `UnauthorizedAccessException`
+- [ ] `CanProcess` never throws - catches `IOException` and `UnauthorizedAccessException`
 - [ ] `ProcessAsync` re-validates magic bytes before parsing
 - [ ] `ProcessAsync` returns `IsCorrupt = true` on all parse failures instead of throwing
 - [ ] `Priority` comment explains the value relative to adjacent processors

@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Security Architecture"
 summary: "Deep technical documentation for authentication, authorization, rate limiting, and secure service boundaries."
 audience: "developer"
@@ -28,8 +28,8 @@ Any application that wants to communicate with the Engine must present a valid A
 
 Every Engine endpoint requires authentication, with two exceptions:
 
-- `/system/status` Ã¢â‚¬â€ the health probe endpoint, always open without authentication
-- Localhost requests Ã¢â‚¬â€ when `MediaEngine:Security:LocalhostBypass` is `true` (the default), requests originating from the local machine are treated as Administrator without requiring a key. This preserves the local development and home-server experience.
+- `/system/status` - the health probe endpoint, always open without authentication
+- Localhost requests - when `MediaEngine:Security:LocalhostBypass` is `true` (the default), requests originating from the local machine are treated as Administrator without requiring a key. This preserves the local development and home-server experience.
 
 All other unauthenticated requests receive `401 Unauthorized`.
 
@@ -37,11 +37,11 @@ All other unauthenticated requests receive `401 Unauthorized`.
 
 Each API key carries one of three roles:
 
-**Administrator** Ã¢â‚¬â€ Full access to all endpoints.
+**Administrator** - Full access to all endpoints.
 
-**Curator** Ã¢â‚¬â€ Can browse the library, stream files, read and write metadata claims, and view provider status. Cannot access admin operations, folder settings, ingestion controls, or profile management.
+**Curator** - Can browse the library, stream files, read and write metadata claims, and view provider status. Cannot access admin operations, folder settings, ingestion controls, or profile management.
 
-**Consumer** Ã¢â‚¬â€ Can browse the library, stream files, and read metadata claim history. Cannot modify metadata or access any settings endpoints.
+**Consumer** - Can browse the library, stream files, and read metadata claim history. Cannot modify metadata or access any settings endpoints.
 
 ## Rate Limiting
 

@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Glossary"
 summary: "Reference the core product and architecture terms used throughout Tuvima Library documentation."
 audience: "user"

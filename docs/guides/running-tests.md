@@ -141,7 +141,7 @@ both must be running for the full UI to work.
 
 ---
 
-## 4. Swagger â€” interactive API exploration
+## 4. Swagger - interactive API exploration
 
 With the Engine running, open:
 
@@ -216,10 +216,10 @@ run is always aliased to `tools/reports/integration-test-latest.html`.
 
 ---
 
-## 6. Debug lookup â€” test enrichment without persisting
+## 6. Debug lookup - test enrichment without persisting
 
 The `/debug/lookup` endpoint runs a live Wikidata Reconciliation + retail provider pass
-against a given title, returning every claim that would be written to the database â€”
+against a given title, returning every claim that would be written to the database
 without actually writing anything.
 
 ```http
@@ -239,7 +239,7 @@ is not matching during hydration.
 
 ---
 
-## 7. SignalR â€” testing real-time events
+## 7. SignalR - testing real-time events
 
 The SignalR collection for real-time dashboard updates is at:
 
@@ -367,11 +367,11 @@ One concern per file. Names are lowercase with underscores. Provider configs go 
 
 ## 12. Common issues
 
-**Build error: `CS8618` â€” Non-nullable property not initialised**
+**Build error: `CS8618` - Non-nullable property not initialised**
 Add `= null!;` for properties initialised by the framework (e.g. `[Inject]` in Blazor
 components), or make the property nullable with `?` if it can legitimately be null.
 
-**Build warning: `CS1998` â€” Async method lacks `await`**
+**Build warning: `CS1998` - Async method lacks `await`**
 Either add `await` to an async operation in the body, or remove `async` and return
 `Task.CompletedTask` or `ValueTask.CompletedTask`.
 

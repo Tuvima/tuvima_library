@@ -18,15 +18,15 @@ This tutorial walks you through cloning the repository, building the solution, r
 
 ## Prerequisites
 
-- **.NET 10 SDK** â€” `dotnet --version` should report `10.0.x` or later. Download from [dot.net](https://dotnet.microsoft.com/en-us/download).
-- **Git** â€” `git --version` to confirm.
+- **.NET 10 SDK** - `dotnet --version` should report `10.0.x` or later. Download from [dot.net](https://dotnet.microsoft.com/en-us/download).
+- **Git** - `git --version` to confirm.
 - Approximately **10 GB free disk space** (AI models download on first Engine startup).
 
 No other global tools are required. All project dependencies are declared in `.csproj` files and restored by the .NET toolchain.
 
 ---
 
-## Step 1 â€” Clone and branch
+## Step 1 - Clone and branch
 
 ```bash
 git clone https://github.com/shyfaruqi/tuvima-library.git
@@ -38,28 +38,28 @@ The `main` branch is the integration target. All work goes on a feature branch.
 
 ---
 
-## Step 2 â€” Project structure overview
+## Step 2 - Project structure overview
 
 The solution is split into focused projects under `src/` and `tests/`. Each project has a single responsibility:
 
 | Project | Role |
 |---|---|
-| `src/MediaEngine.Domain` | Domain entities, interfaces, value objects. Pure business logic â€” no I/O dependencies. |
+| `src/MediaEngine.Domain` | Domain entities, interfaces, value objects. Pure business logic - no I/O dependencies. |
 | `src/MediaEngine.Storage` | SQLite data access via Dapper. Repositories, migrations, and query logic. |
 | `src/MediaEngine.Intelligence` | Priority Cascade engine. Scores and resolves metadata claims. |
-| `src/MediaEngine.Processors` | File processors â€” reads embedded metadata from EPUB, ID3 tags, video containers, etc. |
-| `src/MediaEngine.Providers` | External provider adapters â€” Apple API, Google Books, TMDB, Wikidata Reconciliation API. |
+| `src/MediaEngine.Processors` | File processors - reads embedded metadata from EPUB, ID3 tags, video containers, etc. |
+| `src/MediaEngine.Providers` | External provider adapters - Apple API, Google Books, TMDB, Wikidata Reconciliation API. |
 | `src/MediaEngine.Ingestion` | Folder watcher, ingestion pipeline, file organiser, staging logic. |
 | `src/MediaEngine.AI` | Local LLM and Whisper inference. Hardware profiling, model management, AI feature implementations. |
 | `src/MediaEngine.Api` | ASP.NET Core host. HTTP endpoints, SignalR collection, background services. Exposes the Engine. |
-| `src/MediaEngine.Web` | Blazor Server host. Dashboard UI â€” components, pages, services. |
+| `src/MediaEngine.Web` | Blazor Server host. Dashboard UI - components, pages, services. |
 | `tests/` | xUnit test projects, one per domain area. |
 
 The `config/` directory holds all runtime configuration as individual JSON files (committed to git; provider secrets in `config/secrets/`, gitignored). The `.data/` directory holds the SQLite database, cover art images, and staging files (gitignored).
 
 ---
 
-## Step 3 â€” Configuration
+## Step 3 - Configuration
 
 Configuration files are already in the repository. Add secret files for any providers that require API keys (e.g. `config/secrets/tmdb.json` with `{"api_key": "your-key"}`).
 
@@ -82,11 +82,11 @@ Other config files of interest during development:
 | `config/providers/*.json` | Per-provider settings (endpoints, API keys, language strategy) |
 | `config/hydration.json` | Hydration pipeline slot configuration |
 
-Sensitive values (API keys for external providers) go in `config/providers/*.json`. These files are gitignored â€” never commit them.
+Sensitive values (API keys for external providers) go in `config/providers/*.json`. These files are gitignored - never commit them.
 
 ---
 
-## Step 4 â€” Build
+## Step 4 - Build
 
 From the repository root:
 
@@ -94,13 +94,13 @@ From the repository root:
 dotnet build
 ```
 
-The build must produce **0 errors and 0 warnings**. If warnings appear, treat them as errors â€” the CI pipeline enforces this. Investigate and fix before proceeding.
+The build must produce **0 errors and 0 warnings**. If warnings appear, treat them as errors - the CI pipeline enforces this. Investigate and fix before proceeding.
 
 If you see `NU1101` package restore errors, check your NuGet source configuration. The `Tuvima.Wikidata` package is published to the project's private NuGet feed; ensure your `NuGet.Config` points to it.
 
 ---
 
-## Step 5 â€” Run tests
+## Step 5 - Run tests
 
 ```bash
 dotnet test
@@ -134,7 +134,7 @@ Coverage reports are written to `TestResults/` inside each test project.
 
 ---
 
-## Step 6 â€” Start the Engine
+## Step 6 - Start the Engine
 
 ```bash
 dotnet run --project src/MediaEngine.Api
@@ -142,7 +142,7 @@ dotnet run --project src/MediaEngine.Api
 
 The Engine starts on `http://localhost:61495`. On first run it will:
 
-1. Run a hardware benchmark (10â€“30 seconds).
+1. Run a hardware benchmark (10-30 seconds).
 2. Apply any pending SQLite migrations automatically.
 3. Start the folder watcher for any configured library folders.
 4. Begin downloading AI models in the background (~9 GB total).
@@ -164,7 +164,7 @@ To run without optional AI startup work (useful for UI-only development):
 
 ---
 
-## Step 7 â€” Start the Dashboard
+## Step 7 - Start the Dashboard
 
 Open a second terminal:
 
@@ -184,7 +184,7 @@ This rebuilds and refreshes the browser on file saves. Note: Blazor Server hot r
 
 ---
 
-## Step 8 â€” Swagger / interactive API explorer
+## Step 8 - Swagger / interactive API explorer
 
 With the Engine running, open:
 
@@ -192,21 +192,21 @@ With the Engine running, open:
 http://localhost:61495/swagger
 ```
 
-This shows all Engine endpoints, organised by controller. You can send requests directly from the browser â€” useful for testing endpoint behaviour without writing test code.
+This shows all Engine endpoints, organised by controller. You can send requests directly from the browser - useful for testing endpoint behaviour without writing test code.
 
 The Swagger UI is generated automatically from XML doc comments on controller methods. Keep doc comments up to date when adding or modifying endpoints.
 
 ---
 
-## Step 9 â€” Key conventions
+## Step 9 - Key conventions
 
 ### Headless design: Engine and Dashboard are strictly separated
 
 The Dashboard never imports types from Engine projects. All data flows via HTTP (REST) and SignalR. The contract lives in:
 
-- `src/MediaEngine.Web/Services/Integration/ILibraryApiClient.cs` â€” interface for all Engine calls
-- `src/MediaEngine.Web/Services/Integration/LibraryApiClient.cs` â€” implementation (maps JSON responses to view DTOs)
-- `src/MediaEngine.Web/Models/ViewDTOs/` â€” data shapes used only by the Dashboard
+- `src/MediaEngine.Web/Services/Integration/ILibraryApiClient.cs` - interface for all Engine calls
+- `src/MediaEngine.Web/Services/Integration/LibraryApiClient.cs` - implementation (maps JSON responses to view DTOs)
+- `src/MediaEngine.Web/Models/ViewDTOs/` - data shapes used only by the Dashboard
 
 Never add a project reference from `MediaEngine.Web` to any Engine project.
 
@@ -223,11 +223,11 @@ Dashboard code is organised by feature slice, not by technical layer. When addin
 | media library sub-component | `Components/media library/` |
 | Settings tab | `Components/Settings/` |
 
-See `CLAUDE.md` Â§6 for the full layout reference.
+See `CLAUDE.md` section 6 for the full layout reference.
 
 ### SQLite with Dapper
 
-The data access layer uses Dapper (not Entity Framework). SQL queries are written by hand in repository classes under `src/MediaEngine.Storage/Repositories/`. Migrations are numbered sequentially (`M-001`, `M-002`, â€¦) and applied automatically at startup by `MigrationRunner`.
+The data access layer uses Dapper (not Entity Framework). SQL queries are written by hand in repository classes under `src/MediaEngine.Storage/Repositories/`. Migrations are numbered sequentially (`M-001`, `M-002`, ...) and applied automatically at startup by `MigrationRunner`.
 
 When adding a new column or table:
 1. Create a new migration file in `src/MediaEngine.Storage/Migrations/`.
@@ -237,15 +237,15 @@ When adding a new column or table:
 
 ### Zero warnings policy
 
-The solution sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in `Directory.Build.props`. New code must be warning-free. This includes nullable reference type warnings â€” all new code must be null-safe.
+The solution sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in `Directory.Build.props`. New code must be warning-free. This includes nullable reference type warnings - all new code must be null-safe.
 
 ---
 
-## Step 10 â€” Where to find things
+## Step 10 - Where to find things
 
 **Engine endpoints** live in `src/MediaEngine.Api/Endpoints/`. Each file groups related actions (e.g., `LibraryEndpoints.cs`, `CollectionEndpoints.cs`, `MetadataEndpoints.cs`, `AiEndpoints.cs`). Endpoints use minimal API style (`MapGet`, `MapPost`, etc.) registered in `Program.cs`.
 
-**Domain entities** live in `src/MediaEngine.Domain/Entities/`. The core hierarchy: `MediaAsset` â†’ `Edition` â†’ `Work` â†’ `Collection` (Series) â†’ `ParentCollection` (Universe).
+**Domain entities** live in `src/MediaEngine.Domain/Entities/`. The core hierarchy: `MediaAsset` -> `Edition` -> `Work` -> `Collection` (Series) -> `ParentCollection` (Universe).
 
 **Dashboard components** live in `src/MediaEngine.Web/Components/`. Navigation is in `Components/Navigation/`, media library in `Components/media library/`, Settings in `Components/Settings/`.
 

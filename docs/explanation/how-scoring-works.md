@@ -14,7 +14,7 @@ tags:
 
 A single audiobook might have metadata coming from five different places: the M4B file itself, Apple API, Google Books, Open Library, and Wikidata. They often disagree. Apple might spell the author's name differently than Wikidata. Google Books might list the year as the reprint date rather than the original publication date. The EPUB file might have a series name the retailer doesn't know about.
 
-Which one is right? The Priority Cascade answers that question â€” consistently, transparently, and in a way you can override when you need to.
+Which one is right? The Priority Cascade answers that question - consistently, transparently, and in a way you can override when you need to.
 
 ---
 
@@ -37,7 +37,7 @@ When Wikidata returns the Wikidata item for Frank Herbert (Q159378), that become
 - Value: `Frank Herbert` (with QID Q159378)
 - Confidence: `0.95`
 
-Claims accumulate from all sources and are **never deleted** â€” only superseded. This means the Engine always has a complete history of where every piece of data came from and how confident each source was. If you ever want to understand why the Engine chose a particular value, the full claim history is there.
+Claims accumulate from all sources and are **never deleted** - only superseded. This means the Engine always has a complete history of where every piece of data came from and how confident each source was. If you ever want to understand why the Engine chose a particular value, the full claim history is there.
 
 ---
 
@@ -45,13 +45,13 @@ Claims accumulate from all sources and are **never deleted** â€” only super
 
 The cascade evaluates four tiers in strict order. The first tier that produces a winning claim for a given field is used. Lower tiers are only reached if higher tiers don't apply.
 
-### Tier A â€” User Locks (always wins)
+### Tier A - User Locks (always wins)
 
-If you manually lock a field in the current media surfaces, your value wins at confidence 1.0. Full stop. No source â€” not even Wikidata â€” overrides a user lock.
+If you manually lock a field in the current media surfaces, your value wins at confidence 1.0. Full stop. No source - not even Wikidata - overrides a user lock.
 
-User locks are the override of last resort. The Engine is designed to be right on its own, so you should rarely need them. But when you do â€” when you know something the Engine doesn't, or when a source has genuinely wrong data â€” a lock is absolute.
+User locks are the override of last resort. The Engine is designed to be right on its own, so you should rarely need them. But when you do - when you know something the Engine doesn't, or when a source has genuinely wrong data - a lock is absolute.
 
-### Tier B â€” Per-Field Provider Priority
+### Tier B - Per-Field Provider Priority
 
 You can configure specific providers to be the preferred authority for specific fields. This is done in Settings under Providers.
 
@@ -64,19 +64,19 @@ Tier B lets you express domain knowledge about which providers are trustworthy f
 
 Tier B priorities can be configured at two levels: per-media-type overrides in `config/pipelines.json` (checked first), and global overrides in `config/field_priorities.json` (checked second).
 
-### Tier C â€” Wikidata Authority
+### Tier C - Wikidata Authority
 
 For fields without a Tier B override, Wikidata claims win when present. This is the heart of the cascade's design philosophy.
 
 Wikidata is the authority for **factual data**: canonical title, author, year of first publication, genre, series membership, franchise relationships, cast, crew. These are objective facts that Wikidata maintains with community oversight and citation requirements.
 
-Retail providers like Apple API or Google Books have richer images and descriptions, but their structured data can be inconsistent â€” reprint dates rather than original publication dates, house style author name formatting, regional variations. Wikidata's data is more carefully curated and more stable.
+Retail providers like Apple API or Google Books have richer images and descriptions, but their structured data can be inconsistent - reprint dates rather than original publication dates, house style author name formatting, regional variations. Wikidata's data is more carefully curated and more stable.
 
 By default, if Wikidata has an opinion about a field, Wikidata wins.
 
-**The author exception:** For the `author` field only, there is one exception to Wikidata's authority. When a non-Wikidata claim (typically from the file's embedded metadata) has strictly higher confidence than the best Wikidata P50 author claim, the higher-confidence claim wins. This handles pen names — a file might carry “Richard Bachman” as the author at confidence 0.95, while Wikidata returns “Stephen King” via P50 at the deliberately reduced confidence of 0.75. The pen name embedded in the file should win, because it reflects the author's creative intent for that specific edition. For all other fields, Wikidata wins unconditionally in Tier C.
+**The author exception:** For the `author` field only, there is one exception to Wikidata's authority. When a non-Wikidata claim (typically from the file's embedded metadata) has strictly higher confidence than the best Wikidata P50 author claim, the higher-confidence claim wins. This handles pen names - a file might carry "Richard Bachman" as the author at confidence 0.95, while Wikidata returns "Stephen King" via P50 at the deliberately reduced confidence of 0.75. The pen name embedded in the file should win, because it reflects the author's creative intent for that specific edition. For all other fields, Wikidata wins unconditionally in Tier C.
 
-### Tier D â€” Confidence Cascade
+### Tier D - Confidence Cascade
 
 When no higher tier applies (no user lock, no Tier B configuration, no Wikidata claim), the claim with the highest confidence score wins.
 
@@ -101,7 +101,7 @@ This prevents near-empty files from auto-promoting to high-confidence status on 
 
 ### Conflicted Fields
 
-When two claims for the same field are within 0.05 confidence of each other â€” close enough that neither is clearly better â€” the field is marked **Conflicted**. the current media surfaces surfaces conflicted fields for your review rather than silently picking one.
+When two claims for the same field are within 0.05 confidence of each other - close enough that neither is clearly better - the field is marked **Conflicted**. the current media surfaces surfaces conflicted fields for your review rather than silently picking one.
 
 You'll see conflicted fields highlighted in the Claims section of the detail drawer. You can pick the value you prefer, which applies a Tier A user lock for that field.
 
@@ -124,15 +124,15 @@ It would be simpler to just pick one authoritative source and use it for everyth
 
 The cascade respects all of these without asking you to manage them manually. Wikidata handles facts. Retail handles presentation. Your files contribute what only they know. And you hold the override whenever you need it.
 
-The append-only claim history means nothing is ever lost. If a future provider produces better data, it can win on confidence â€” but the old claims are still there if you want to audit what happened.
+The append-only claim history means nothing is ever lost. If a future provider produces better data, it can win on confidence - but the old claims are still there if you want to audit what happened.
 
 ---
 
-For the technical details of the cascade implementation â€” scoring weights, configuration format, provider priority configuration, and the full field resolution algorithm â€” see the [architecture deep-dive](../architecture/scoring-and-cascade.md).
+For the technical details of the cascade implementation - scoring weights, configuration format, provider priority configuration, and the full field resolution algorithm - see the [architecture deep-dive](../architecture/scoring-and-cascade.md).
 
 ## Related
 
-- [How the Entire Pipeline Works](how-the-pipeline-works.md) — end-to-end pipeline overview
+- [How the Entire Pipeline Works](how-the-pipeline-works.md) - end-to-end pipeline overview
 - [Priority Cascade Engine](../architecture/scoring-and-cascade.md)
 - [How to Resolve Items That Need Review](../guides/resolving-reviews.md)
 - [Database Schema Reference](../reference/database-schema.md)

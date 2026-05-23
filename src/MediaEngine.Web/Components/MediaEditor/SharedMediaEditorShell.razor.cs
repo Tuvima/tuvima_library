@@ -103,7 +103,6 @@ public partial class SharedMediaEditorShell
     private readonly Dictionary<string, ScopeEditorState> _scopeStates = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, bool> _contentGroupExpandedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _artworkApplyingKeys = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _selectedArtworkVariantKeys = new(StringComparer.OrdinalIgnoreCase);
     private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
     private string _activeTab = "details";
     private string _activeScopeId = string.Empty;
@@ -116,7 +115,6 @@ public partial class SharedMediaEditorShell
     private string? _selectedArtworkAssetType;
     private string? _focusedArtworkVariantKey;
     private string? _deleteConfirmArtworkVariantKey;
-    private string? _bulkDeleteConfirmArtworkAssetType;
     private ArtworkSlotDefinition? _zoomArtworkSlot;
     private ArtworkVariantDisplayItem? _zoomArtworkVariant;
     private string _selectedMediaType = "Books";
@@ -158,6 +156,11 @@ public partial class SharedMediaEditorShell
     protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? EditorContextEntityId;
     private Guid CanonicalEndpointEntityId => EditorContextEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
+    protected bool ShouldShowEditorFooter =>
+        _confirmDiscard
+        || _pendingMembershipPreview is not null
+        || IsDirty
+        || Request.Mode == SharedMediaEditorMode.Review;
     protected bool IsArtworkBusy => _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
     protected bool HasSeriesNavigator => false;
@@ -1316,7 +1319,6 @@ public partial class SharedMediaEditorShell
             _artworkUrlInput = string.Empty;
             _showArtworkUrlInput = false;
             _deleteConfirmArtworkVariantKey = null;
-            _bulkDeleteConfirmArtworkAssetType = null;
         }
 
         _focusedArtworkVariantKey = GetArtworkGalleryItems(assetType).FirstOrDefault(item => item.IsPending)?.Key
@@ -1329,35 +1331,22 @@ public partial class SharedMediaEditorShell
     protected bool IsFocusedArtworkVariant(string variantKey) =>
         string.Equals(_focusedArtworkVariantKey, variantKey, StringComparison.Ordinal);
 
-    protected bool CanSelectArtworkVariant(ArtworkVariantDisplayItem item) =>
-        !item.IsPending && item.VariantId != Guid.Empty;
-
-    protected bool IsArtworkVariantSelected(ArtworkVariantDisplayItem item) =>
-        CanSelectArtworkVariant(item) && _selectedArtworkVariantKeys.Contains(item.Key);
-
-    protected void ToggleArtworkVariantSelection(ArtworkVariantDisplayItem item)
+    protected string GetActiveArtworkStatus(string assetType)
     {
-        if (!CanSelectArtworkVariant(item))
-            return;
-
-        FocusArtworkVariant(item.Key);
-        _deleteConfirmArtworkVariantKey = null;
-        _bulkDeleteConfirmArtworkAssetType = null;
-
-        if (!_selectedArtworkVariantKeys.Add(item.Key))
-            _selectedArtworkVariantKeys.Remove(item.Key);
+        var preferred = GetArtworkRowItems(assetType).FirstOrDefault(item => item.IsPreferred);
+        return preferred is null ? "No active artwork" : "Active artwork selected";
     }
 
-    protected int GetSelectedArtworkCount(string assetType) =>
-        GetSelectedArtworkItems(assetType).Count;
-
-    protected bool CanSetSelectedArtworkActive(string assetType) =>
-        GetSelectedArtworkActionTarget(assetType) is { IsPending: false, VariantId: var id } && id != Guid.Empty;
-
-    protected async Task SetSelectedArtworkActiveAsync(string assetType)
+    protected bool CanSetFocusedArtworkActive(string assetType)
     {
-        var target = GetSelectedArtworkActionTarget(assetType);
-        if (target is null || target.IsPending || target.VariantId == Guid.Empty)
+        var target = GetArtworkActionTarget(assetType);
+        return target is { IsPending: false, VariantId: var id, IsPreferred: false } && id != Guid.Empty;
+    }
+
+    protected async Task SetFocusedArtworkActiveAsync(string assetType)
+    {
+        var target = GetArtworkActionTarget(assetType);
+        if (target is null || target.IsPending || target.IsPreferred || target.VariantId == Guid.Empty)
             return;
 
         FocusArtworkVariant(target.Key);
@@ -1378,18 +1367,26 @@ public partial class SharedMediaEditorShell
     protected bool IsArtworkDeleteConfirming(ArtworkVariantDisplayItem item) =>
         string.Equals(_deleteConfirmArtworkVariantKey, item.Key, StringComparison.Ordinal);
 
-    protected bool IsBulkArtworkDeleteConfirming(string assetType) =>
-        string.Equals(_bulkDeleteConfirmArtworkAssetType, assetType, StringComparison.OrdinalIgnoreCase);
-
-    protected Task DeleteArtworkVariantWithConfirmationAsync(ArtworkVariantDisplayItem item)
+    protected bool IsFocusedArtworkDeleteConfirming(string assetType)
     {
-        if (!item.CanDelete || item.VariantId == Guid.Empty)
-            return Task.CompletedTask;
+        var target = GetArtworkActionTarget(assetType);
+        return target is not null && IsArtworkDeleteConfirming(target);
+    }
+
+    protected async Task DeleteArtworkVariantWithConfirmationAsync(ArtworkVariantDisplayItem item)
+    {
+        if (item.VariantId == Guid.Empty)
+            return;
 
         FocusArtworkVariant(item.Key);
-        _bulkDeleteConfirmArtworkAssetType = null;
-        _deleteConfirmArtworkVariantKey = item.Key;
-        return Task.CompletedTask;
+        if (!IsArtworkDeleteConfirming(item))
+        {
+            _deleteConfirmArtworkVariantKey = item.Key;
+            StateHasChanged();
+            return;
+        }
+
+        await ConfirmArtworkDeleteAsync(item);
     }
 
     protected void CancelArtworkDelete(ArtworkVariantDisplayItem item)
@@ -1400,74 +1397,19 @@ public partial class SharedMediaEditorShell
 
     protected async Task ConfirmArtworkDeleteAsync(ArtworkVariantDisplayItem item)
     {
-        if (!item.CanDelete || item.VariantId == Guid.Empty)
+        if (item.VariantId == Guid.Empty)
             return;
 
-        _selectedArtworkVariantKeys.Remove(item.Key);
         _deleteConfirmArtworkVariantKey = null;
         await DeleteArtworkVariantAsync(item.VariantId);
     }
-
-    protected async Task DeleteSelectedArtworkAsync(string assetType)
-    {
-        var selected = GetSelectedArtworkItems(assetType)
-            .Where(item => item.CanDelete && item.VariantId != Guid.Empty)
-            .ToList();
-
-        if (selected.Count == 0)
-            return;
-
-        if (!IsBulkArtworkDeleteConfirming(assetType))
-        {
-            _deleteConfirmArtworkVariantKey = null;
-            _bulkDeleteConfirmArtworkAssetType = assetType;
-            return;
-        }
-
-        var failed = 0;
-        foreach (var item in selected)
-        {
-            var ok = await ApiClient.DeleteArtworkAsync(item.VariantId);
-            if (!ok)
-            {
-                failed++;
-                continue;
-            }
-
-            _selectedArtworkVariantKeys.Remove(item.Key);
-            if (string.Equals(_focusedArtworkVariantKey, item.Key, StringComparison.Ordinal))
-                _focusedArtworkVariantKey = null;
-        }
-
-        _bulkDeleteConfirmArtworkAssetType = null;
-        await RefreshArtworkStateAsync(notifyParent: true);
-
-        if (failed > 0)
-            Snackbar.Add(failed == 1 ? "Could not delete one artwork variant." : $"Could not delete {failed} artwork variants.", Severity.Error);
-    }
-
-    private IReadOnlyList<ArtworkVariantDisplayItem> GetSelectedArtworkItems(string assetType) =>
-        GetArtworkRowItems(assetType)
-            .Where(item => _selectedArtworkVariantKeys.Contains(item.Key))
-            .ToList();
 
     private ArtworkVariantDisplayItem? GetArtworkActionTarget(string assetType)
     {
         var items = GetArtworkRowItems(assetType);
         return items.FirstOrDefault(item => string.Equals(item.Key, _focusedArtworkVariantKey, StringComparison.Ordinal))
-               ?? items.FirstOrDefault(item => _selectedArtworkVariantKeys.Contains(item.Key))
                ?? items.FirstOrDefault(item => item.IsPreferred)
                ?? items.FirstOrDefault();
-    }
-
-    private ArtworkVariantDisplayItem? GetSelectedArtworkActionTarget(string assetType)
-    {
-        var selected = GetSelectedArtworkItems(assetType)
-            .Where(CanSelectArtworkVariant)
-            .ToList();
-
-        return selected.FirstOrDefault(item => string.Equals(item.Key, _focusedArtworkVariantKey, StringComparison.Ordinal))
-               ?? selected.FirstOrDefault();
     }
 
     protected async Task SetPreferredArtworkVariantAsync(Guid variantId)
@@ -1592,13 +1534,16 @@ public partial class SharedMediaEditorShell
         }
     }
 
-    protected Task HandleArtworkVariantClickAsync(
+    protected async Task HandleArtworkVariantClickAsync(
         ArtworkSlotDefinition slot,
         ArtworkVariantDisplayItem item)
     {
         FocusArtworkVariant(item.Key);
-        OpenArtworkZoom(slot, item);
-        return Task.CompletedTask;
+
+        if (item.IsPending || item.VariantId == Guid.Empty || item.IsPreferred)
+            return;
+
+        await SetPreferredArtworkVariantAsync(item.VariantId);
     }
 
     protected async Task DeleteArtworkVariantAsync(Guid variantId)
@@ -1613,9 +1558,7 @@ public partial class SharedMediaEditorShell
             return;
         }
 
-        _selectedArtworkVariantKeys.Remove(BuildVariantKey(variantId));
         _deleteConfirmArtworkVariantKey = null;
-        _bulkDeleteConfirmArtworkAssetType = null;
         if (string.Equals(_focusedArtworkVariantKey, BuildVariantKey(variantId), StringComparison.Ordinal))
             _focusedArtworkVariantKey = null;
 

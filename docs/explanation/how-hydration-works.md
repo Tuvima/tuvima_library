@@ -1,4 +1,4 @@
-﻿---
+---
 title: "How Two-Stage Enrichment Works"
 summary: "Learn how retail providers and Wikidata combine to enrich media after ingestion."
 audience: "user"

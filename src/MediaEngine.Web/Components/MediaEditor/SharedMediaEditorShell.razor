@@ -754,8 +754,6 @@
                                         var slot = SelectedArtworkSlot;
                                         var focusedItem = LeadArtworkVariant;
                                         var rowItems = GetArtworkRowItems(slot.AssetType);
-                                        var selectedArtworkCount = GetSelectedArtworkCount(slot.AssetType);
-                                        var bulkDeleteConfirming = IsBulkArtworkDeleteConfirming(slot.AssetType);
 
                                         <section class="sme-artwork-gallery-panel @(IsArtworkDragTarget(slot.AssetType) ? "sme-artwork-gallery-panel--drag" : "")"
                                                  @ondragenter="@(() => SetArtworkDragTarget(slot.AssetType))"
@@ -764,55 +762,19 @@
                                                  @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
                                             <div class="sme-artwork-gallery-heading">
                                                 <h3>@GetArtworkGalleryTitle(slot)</h3>
-                                                @if (rowItems.Count > 0)
-                                                {
-                                                    <div class="sme-artwork-action-bar">
-                                                        <div class="sme-artwork-selection-pill">
-                                                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size: 18px;" />
-                                                            <span>@selectedArtworkCount selected</span>
-                                                        </div>
-                                                        <div class="sme-artwork-action-buttons">
-                                                            <MudButton Variant="Variant.Filled"
-                                                                       Color="Color.Primary"
-                                                                       Class="sme-artwork-toolbar-button"
-                                                                       Disabled="@(!CanSetSelectedArtworkActive(slot.AssetType))"
-                                                                       OnClick="@(() => SetSelectedArtworkActiveAsync(slot.AssetType))">
-                                                                <MudIcon Icon="@Icons.Material.Outlined.StarBorder" Style="font-size: 18px;" />
-                                                                <span>Set Active</span>
-                                                            </MudButton>
-                                                            <MudButton Variant="Variant.Outlined"
-                                                                       Color="Color.Inherit"
-                                                                       Class="sme-artwork-toolbar-button"
-                                                                       Disabled="@(focusedItem is null || string.IsNullOrWhiteSpace(focusedItem.ImageUrl))"
-                                                                       OnClick="@(() => PreviewFocusedArtwork(slot.AssetType))">
-                                                                <MudIcon Icon="@Icons.Material.Outlined.Visibility" Style="font-size: 18px;" />
-                                                                <span>Preview</span>
-                                                            </MudButton>
-                                                            <MudButton Variant="Variant.Outlined"
-                                                                       Color="Color.Error"
-                                                                       Class="@($"sme-artwork-toolbar-button sme-artwork-toolbar-button--danger {(bulkDeleteConfirming ? "sme-artwork-toolbar-button--confirm" : string.Empty)}")"
-                                                                       Disabled="@(selectedArtworkCount == 0)"
-                                                                       OnClick="@(() => DeleteSelectedArtworkAsync(slot.AssetType))">
-                                                                <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 18px;" />
-                                                                <span>@(bulkDeleteConfirming ? "Confirm Delete" : "Delete")</span>
-                                                            </MudButton>
-                                                        </div>
-                                                    </div>
-                                                }
                                             </div>
 
                                             <div class="sme-artwork-gallery sme-artwork-gallery--@slot.PreviewClass">
                                                 @foreach (var item in rowItems)
                                                 {
-                                                    var isSelectedArtwork = IsArtworkVariantSelected(item);
                                                     var isConfirmingDelete = IsArtworkDeleteConfirming(item);
 
-                                                    <div class="@($"sme-artwork-gallery-card sme-artwork-gallery-card--{slot.PreviewClass} {(item.IsPreferred ? "sme-artwork-gallery-card--preferred" : string.Empty)} {(item.IsPending ? "sme-artwork-gallery-card--pending" : string.Empty)} {(IsFocusedArtworkVariant(item.Key) ? "sme-artwork-gallery-card--focused" : string.Empty)} {(isSelectedArtwork ? "sme-artwork-gallery-card--selected" : string.Empty)}")">
+                                                    <div class="@($"sme-artwork-gallery-card sme-artwork-gallery-card--{slot.PreviewClass} {(item.IsPreferred ? "sme-artwork-gallery-card--preferred" : string.Empty)} {(item.IsPending ? "sme-artwork-gallery-card--pending" : string.Empty)} {(IsFocusedArtworkVariant(item.Key) ? "sme-artwork-gallery-card--focused" : string.Empty)}")">
                                                         <div class="sme-artwork-gallery-tile"
                                                              role="button"
                                                              tabindex="0"
                                                              aria-label="@BuildArtworkVariantHoverLabel(slot, item)"
-                                                             @onclick="@(() => FocusArtworkVariant(item.Key))">
+                                                             @onclick="@(() => HandleArtworkVariantClickAsync(slot, item))">
                                                             <div class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
                                                                 @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
                                                                 {
@@ -834,34 +796,12 @@
                                                                         <MudIcon Icon="@Icons.Material.Filled.Schedule" Style="font-size: 16px;" />
                                                                     </span>
                                                                 }
-                                                                <div class="sme-artwork-card-actions" @onclick:stopPropagation="true">
-                                                                    <MudIconButton Icon="@(isSelectedArtwork ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)"
-                                                                                   Size="Size.Small"
-                                                                                   Class="@($"sme-artwork-card-action {(isSelectedArtwork ? "sme-artwork-card-action--selected" : string.Empty)}")"
-                                                                                   Disabled="@(!CanSelectArtworkVariant(item))"
-                                                                                   aria-label="Select artwork"
-                                                                                   OnClick="@(() => ToggleArtworkVariantSelection(item))" />
-                                                                    <MudIconButton Icon="@Icons.Material.Outlined.ZoomIn"
-                                                                                   Size="Size.Small"
-                                                                                   Class="sme-artwork-card-action"
-                                                                                   Disabled="@(string.IsNullOrWhiteSpace(item.ImageUrl))"
-                                                                                   aria-label="Preview artwork"
-                                                                                   OnClick="@(() => OpenArtworkZoom(slot, item))" />
-                                                                    @if (item.CanDelete && item.VariantId != Guid.Empty)
-                                                                    {
-                                                                        <MudIconButton Icon="@Icons.Material.Outlined.Delete"
-                                                                                       Size="Size.Small"
-                                                                                       Class="@($"sme-artwork-card-action sme-artwork-card-action--danger {(isConfirmingDelete ? "sme-artwork-card-action--confirm" : string.Empty)}")"
-                                                                                       aria-label="Delete artwork"
-                                                                                       OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(item))" />
-                                                                    }
-                                                                </div>
                                                             </div>
                                                         </div>
 
                                                         @if (isConfirmingDelete)
                                                         {
-                                                            <div class="sme-artwork-delete-confirm">
+                                                            <div class="sme-artwork-delete-confirm" @onclick:stopPropagation="true">
                                                                 <span>Delete?</span>
                                                                 <MudButton Variant="Variant.Text"
                                                                            Color="Color.Inherit"
@@ -875,11 +815,29 @@
                                                         }
 
                                                         <div class="sme-artwork-card-copy">
-                                                            <div class="sme-artwork-card-source">@GetArtworkCardSource(item)</div>
-                                                            @if (!item.IsPending)
-                                                            {
-                                                                <div class="sme-artwork-card-dimensions">@GetArtworkCardDimensions(slot)</div>
-                                                            }
+                                                            <div class="sme-artwork-card-meta">
+                                                                <div class="sme-artwork-card-source">@GetArtworkCardSource(item)</div>
+                                                                @if (!item.IsPending)
+                                                                {
+                                                                    <div class="sme-artwork-card-dimensions">@GetArtworkCardDimensions(slot)</div>
+                                                                }
+                                                            </div>
+                                                            <div class="sme-artwork-card-actions" @onclick:stopPropagation="true">
+                                                                <MudIconButton Icon="@Icons.Material.Outlined.ZoomIn"
+                                                                               Size="Size.Small"
+                                                                               Class="sme-artwork-card-action"
+                                                                               Disabled="@string.IsNullOrWhiteSpace(item.ImageUrl)"
+                                                                               aria-label="Preview artwork"
+                                                                               OnClick="@(() => OpenArtworkZoom(slot, item))" />
+                                                                @if (item.VariantId != Guid.Empty)
+                                                                {
+                                                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete"
+                                                                                   Size="Size.Small"
+                                                                                   Class="@($"sme-artwork-card-action sme-artwork-card-action--danger {(isConfirmingDelete ? "sme-artwork-card-action--confirm" : string.Empty)}")"
+                                                                                   aria-label="Delete artwork"
+                                                                                   OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(item))" />
+                                                                }
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 }
@@ -927,6 +885,20 @@
                                                     <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Cancel Pending</MudButton>
                                                 </div>
                                             }
+
+                                            <div class="sme-artwork-disclaimer">
+                                                <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 22px;" />
+                                                <div class="sme-artwork-disclaimer-title">About Artwork Types</div>
+                                                <div class="sme-artwork-disclaimer-copy">
+                                                    Different artwork types serve different purposes. Poster/Cover is the primary display image.
+                                                    <a href="https://tuvima.github.io/tuvima_library/reference/artwork-types/"
+                                                       target="_blank"
+                                                       rel="noopener">
+                                                        Learn more about artwork types
+                                                        <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 14px;" />
+                                                    </a>
+                                                </div>
+                                            </div>
                                         </section>
 
                                     }
@@ -1119,6 +1091,8 @@
                 </div>
             </div>
 
+            @if (ShouldShowEditorFooter)
+            {
             <div class="sme-footer">
                 @if (_confirmDiscard)
                 {
@@ -1138,12 +1112,6 @@
                 }
                 else
                 {
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Inherit"
-                               Class="sme-footer-btn sme-footer-btn--ghost"
-                               OnClick="HandleClose">
-                        @(IsDirty ? "Cancel" : "Close")
-                    </MudButton>
                     <div class="sme-footer-spacer"></div>
                     @if (_pendingMembershipPreview is not null)
                     {
@@ -1188,6 +1156,7 @@
                     }
                 }
             </div>
+            }
         </div>
     </DialogContent>
 </MudDialog>

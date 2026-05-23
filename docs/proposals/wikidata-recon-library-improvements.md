@@ -1,18 +1,18 @@
-# Tuvima.Wikidata Library — Improvement Proposals
+# Tuvima.Wikidata Library - Improvement Proposals
 
 **Version:** v1.0.0 target
 **Date:** 2026-04-02
-**Status:** Proposal — awaiting implementation
+**Status:** Proposal - awaiting implementation
 
 ---
 
 ## Overview
 
-Three improvements to the `Tuvima.Wikidata` library that address gaps discovered during real-world usage. Each improvement is designed generically — they benefit any consumer of the library, not just the Tuvima Library product.
+Three improvements to the `Tuvima.Wikidata` library that address gaps discovered during real-world usage. Each improvement is designed generically - they benefit any consumer of the library, not just the Tuvima Library product.
 
 ---
 
-## Improvement 1: Wikipedia Section Content — Heading Stripping
+## Improvement 1: Wikipedia Section Content - Heading Stripping
 
 ### Problem
 
@@ -32,7 +32,7 @@ Input:  GetWikipediaSectionContentAsync("Q83495", sectionIndex: 3, "en")
 Output: "The story follows Walter White, a high school chemistry teacher..."
 ```
 
-The method should strip its own section heading before returning. The caller already knows which section they asked for — returning the heading is redundant and creates a cleanup burden.
+The method should strip its own section heading before returning. The caller already knows which section they asked for - returning the heading is redundant and creates a cleanup burden.
 
 ### Specification
 
@@ -42,7 +42,7 @@ The method should strip its own section heading before returning. The caller alr
    - HTML headings if the API returns parsed content: `<h2>`, `<h3>`, etc.
 2. Trim leading whitespace/newlines after stripping.
 3. If the content is *only* a heading with no body, return `null` (not an empty string).
-4. This should be the default behaviour. No opt-out parameter is needed — there is no use case for wanting the heading included.
+4. This should be the default behaviour. No opt-out parameter is needed - there is no use case for wanting the heading included.
 
 ### Breaking Change Assessment
 
@@ -90,7 +90,7 @@ This is repetitive, error-prone, and requires multiple API round-trips that the 
 /// <param name="parentQid">The parent entity's Wikidata QID.</param>
 /// <param name="relationshipProperty">
 ///   The Wikidata property that links parent to children.
-///   Common values: "P527" (has parts), "P747" (has edition), "P179" (part of series — reverse).
+///   Common values: "P527" (has parts), "P747" (has edition), "P179" (part of series - reverse).
 /// </param>
 /// <param name="childTypeFilter">
 ///   Optional P31 class QIDs to filter children by (e.g., ["Q21191270"] for TV episodes).
@@ -131,7 +131,7 @@ public record ChildEntityInfo(
 
 1. **Forward traversal (default):** Query the parent entity for the specified relationship property. Each value is a child QID. Fetch those children in batch.
 
-2. **Reverse traversal:** When the relationship property is prefixed with `^` (e.g., `"^P179"`), perform a reverse lookup — find all entities where *their* P179 points to the parent QID. This handles "part of the series" where the child points to the parent, not vice versa. Implementation: use CirrusSearch `haswbstatement:P179=Q{parentId}` with optional P31 type filtering.
+2. **Reverse traversal:** When the relationship property is prefixed with `^` (e.g., `"^P179"`), perform a reverse lookup - find all entities where *their* P179 points to the parent QID. This handles "part of the series" where the child points to the parent, not vice versa. Implementation: use CirrusSearch `haswbstatement:P179=Q{parentId}` with optional P31 type filtering.
 
 3. **Type filtering:** After discovering child QIDs, check each child's P31 values against `childTypeFilter`. Discard non-matching children. If `childTypeFilter` is null/empty, skip filtering.
 
@@ -144,7 +144,7 @@ public record ChildEntityInfo(
 
 6. **Batching:** Fetch child entities in batches of 50 (Wikidata API limit per request). Parallelise batches where possible.
 
-7. **Depth:** This method traverses one level only. For multi-level hierarchies (series → season → episode), the consumer calls it twice — once for seasons, once per season for episodes. Recursive traversal is intentionally excluded to keep the API predictable.
+7. **Depth:** This method traverses one level only. For multi-level hierarchies (series -> season -> episode), the consumer calls it twice - once for seasons, once per season for episodes. Recursive traversal is intentionally excluded to keep the API predictable.
 
 ### Example Usage
 
@@ -179,7 +179,7 @@ var tracks = await reconciler.GetChildEntitiesAsync(
     language: "en");
 ```
 
-**Reverse traversal — find all books in a series:**
+**Reverse traversal - find all books in a series:**
 ```csharp
 var books = await reconciler.GetChildEntitiesAsync(
     parentQid: "Q8337",                              // Harry Potter series
@@ -192,7 +192,7 @@ var books = await reconciler.GetChildEntitiesAsync(
 
 ### Relationship to GetEditionsAsync
 
-`GetEditionsAsync` remains unchanged — it serves the specific audiobook edition discovery use case with P747 and has edition-specific return types. `GetChildEntitiesAsync` is the general-purpose method for all other parent-child traversals. Over time, `GetEditionsAsync` could be reimplemented as a thin wrapper over `GetChildEntitiesAsync` if desired, but that is not required.
+`GetEditionsAsync` remains unchanged - it serves the specific audiobook edition discovery use case with P747 and has edition-specific return types. `GetChildEntitiesAsync` is the general-purpose method for all other parent-child traversals. Over time, `GetEditionsAsync` could be reimplemented as a thin wrapper over `GetChildEntitiesAsync` if desired, but that is not required.
 
 ---
 
@@ -200,7 +200,7 @@ var books = await reconciler.GetChildEntitiesAsync(
 
 ### Problem
 
-`ReconciliationRequest.Properties` accepts a list of `PropertyConstraint` objects, each with a single `Value`. When a work has multiple creators (e.g., a book by "Neil Gaiman" and "Terry Pratchett"), the consumer must choose one name to constrain on — or submit multiple reconciliation requests and merge results.
+`ReconciliationRequest.Properties` accepts a list of `PropertyConstraint` objects, each with a single `Value`. When a work has multiple creators (e.g., a book by "Neil Gaiman" and "Terry Pratchett"), the consumer must choose one name to constrain on - or submit multiple reconciliation requests and merge results.
 
 This is a general limitation. Any entity with multiple values for a property faces the same problem:
 
@@ -213,7 +213,7 @@ This is a general limitation. Any entity with multiple values for a property fac
 ### Current Behaviour
 
 ```csharp
-// Can only constrain on ONE author — must choose
+// Can only constrain on ONE author - must choose
 var request = new ReconciliationRequest
 {
     Query = "Good Omens",
@@ -230,7 +230,7 @@ Extend `PropertyConstraint` to accept multiple values:
 ```csharp
 public record PropertyConstraint
 {
-    /// <summary>Single expected value (existing — preserved for backward compatibility).</summary>
+    /// <summary>Single expected value (existing - preserved for backward compatibility).</summary>
     public string? Value { get; init; }
 
     /// <summary>
@@ -251,7 +251,7 @@ public record PropertyConstraint
 
 2. **Multiple values:** If `Values` is set (non-null, non-empty), the constraint matches if *any* of the candidate's values for the property fuzzy-matches *any* of the constraint values. The existing label-matching logic applies to each pair.
 
-3. **Scoring bonus:** Candidates matching more constraint values score proportionally higher. If a book has P50 = ["Neil Gaiman", "Terry Pratchett"] and the constraint provides `Values = ["Neil Gaiman", "Terry Pratchett"]`, both match — the candidate gets a full score. If only one matches, it gets a partial score (e.g., 50% of the property weight for 1-of-2 matches).
+3. **Scoring bonus:** Candidates matching more constraint values score proportionally higher. If a book has P50 = ["Neil Gaiman", "Terry Pratchett"] and the constraint provides `Values = ["Neil Gaiman", "Terry Pratchett"]`, both match - the candidate gets a full score. If only one matches, it gets a partial score (e.g., 50% of the property weight for 1-of-2 matches).
 
 4. **Fuzzy matching:** Each value comparison uses the same label-matching logic already used for single-value constraints (normalised, diacritic-insensitive, token-order-insensitive).
 
@@ -298,16 +298,16 @@ propertyScore = matchedCount / totalConstraintValues
 ```
 
 For "Good Omens" with `Values = ["Neil Gaiman", "Terry Pratchett"]`:
-- Candidate has P50 = ["Neil Gaiman", "Terry Pratchett"] → propertyScore = 2/2 = 1.0
-- Candidate has P50 = ["Neil Gaiman"] → propertyScore = 1/2 = 0.5
-- Candidate has P50 = ["Terry Pratchett"] → propertyScore = 1/2 = 0.5
-- Candidate has P50 = ["Stephen King"] → propertyScore = 0/2 = 0.0
+- Candidate has P50 = ["Neil Gaiman", "Terry Pratchett"] -> propertyScore = 2/2 = 1.0
+- Candidate has P50 = ["Neil Gaiman"] -> propertyScore = 1/2 = 0.5
+- Candidate has P50 = ["Terry Pratchett"] -> propertyScore = 1/2 = 0.5
+- Candidate has P50 = ["Stephen King"] -> propertyScore = 0/2 = 0.0
 
-This proportional scoring ensures that candidates matching *all* provided values rank higher than those matching only one — without completely rejecting partial matches.
+This proportional scoring ensures that candidates matching *all* provided values rank higher than those matching only one - without completely rejecting partial matches.
 
 ---
 
-## Improvement 4: Wikipedia Section Content — Subsection Handling
+## Improvement 4: Wikipedia Section Content - Subsection Handling
 
 ### Problem (Related to Improvement 1)
 
@@ -325,7 +325,7 @@ When `GetWikipediaSectionContentAsync` is called with the "Plot" section index, 
 
 ### Proposed Behaviour
 
-When fetching a section's content, include all nested subsections up to the next sibling section. This matches how a human reads a Wikipedia article — the "Plot" section means everything under that heading until the next `==`-level heading.
+When fetching a section's content, include all nested subsections up to the next sibling section. This matches how a human reads a Wikipedia article - the "Plot" section means everything under that heading until the next `==`-level heading.
 
 ### Specification
 
@@ -334,7 +334,7 @@ When fetching a section's content, include all nested subsections up to the next
    - Also fetch content from all subsections (N+1, N+2, ...) until reaching a section at the same or higher heading level
    - Concatenate with double newlines between subsections
 2. Strip all heading markup from the concatenated content (per Improvement 1).
-3. This should be the default behaviour — most consumers want the full section content, not just the top-level fragment.
+3. This should be the default behaviour - most consumers want the full section content, not just the top-level fragment.
 
 ---
 
@@ -349,10 +349,10 @@ When fetching a section's content, include all nested subsections up to the next
 
 ### Recommended Implementation Order
 
-1. **Improvement 1** (heading stripping) — simplest, immediate quality-of-life fix
-2. **Improvement 4** (subsection handling) — closely related to Improvement 1, natural to implement together
-3. **Improvement 3** (multi-value constraints) — unlocks better matching for multi-creator works
-4. **Improvement 2** (child entity discovery) — largest feature, depends on understanding real-world usage patterns from 1-3
+1. **Improvement 1** (heading stripping) - simplest, immediate quality-of-life fix
+2. **Improvement 4** (subsection handling) - closely related to Improvement 1, natural to implement together
+3. **Improvement 3** (multi-value constraints) - unlocks better matching for multi-creator works
+4. **Improvement 2** (child entity discovery) - largest feature, depends on understanding real-world usage patterns from 1-3
 
 ---
 
@@ -367,11 +367,11 @@ Properties referenced in this document:
 | P57 | director | Film/TV directors |
 | P161 | cast member | Actors in a production |
 | P175 | performer | Musicians/singers |
-| P179 | part of the series | Child → parent series link |
-| P527 | has parts | Parent → child parts link |
+| P179 | part of the series | Child -> parent series link |
+| P527 | has parts | Parent -> child parts link |
 | P577 | publication date | Release/air dates |
-| P658 | tracklist | Album → track link |
-| P747 | has edition or translation | Work → edition link (existing in GetEditionsAsync) |
+| P658 | tracklist | Album -> track link |
+| P747 | has edition or translation | Work -> edition link (existing in GetEditionsAsync) |
 | P1476 | title | Monolingual title |
 | P1545 | series ordinal | Position within a series (episode #, track #, volume #) |
 | P2047 | duration | Runtime/length |

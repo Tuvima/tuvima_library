@@ -250,7 +250,7 @@ public static partial class MetadataEndpoints
                 Success      = true,
                 Message      = $"Hydrated {result.TotalClaimsAdded} claims across 2 stages"
                              + (result.WikidataQid is not null ? $" (QID: {result.WikidataQid})" : "")
-                             + (result.NeedsReview ? " — needs review." : "."),
+                             + (result.NeedsReview ? " â€” needs review." : "."),
             });
         })
         .WithName("HydrateEntity")
@@ -1228,17 +1228,13 @@ public static partial class MetadataEndpoints
             if (target is null)
                 return Results.NotFound($"Artwork variant {variantId} not found.");
 
-            if (!string.Equals(target.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
-                && !target.IsUserOverride)
-            {
-                return Results.BadRequest("Only uploaded artwork variants can be deleted.");
-            }
-
             var entityId = Guid.Parse(target.EntityId);
             var siblings = await entityAssetRepo.GetByEntityAsync(target.EntityId, target.AssetTypeValue, ct);
             var wasPreferred = target.IsPreferred;
+            var ownsLocalFile = string.Equals(target.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
+                || target.IsUserOverride;
 
-            if (!string.IsNullOrWhiteSpace(target.LocalImagePath))
+            if (ownsLocalFile && !string.IsNullOrWhiteSpace(target.LocalImagePath))
             {
                 try
                 {
@@ -1280,9 +1276,8 @@ public static partial class MetadataEndpoints
             });
         })
         .WithName("DeleteArtworkVariant")
-        .WithSummary("Delete an uploaded artwork variant.")
+        .WithSummary("Delete an artwork variant from the item.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
@@ -1293,8 +1288,8 @@ public static partial class MetadataEndpoints
         // can confirm Wikidata connectivity and search accuracy.
         //
         // Query params (at least one required):
-        //   ?title=Abaddon's Gate   — title search via wbsearchentities
-        //   ?isbn=9780316129077     — ISBN bridge lookup via SPARQL (P212)
+        //   ?title=Abaddon's Gate   â€” title search via wbsearchentities
+        //   ?isbn=9780316129077     â€” ISBN bridge lookup via SPARQL (P212)
 
         group.MapGet("/wikidata-test", async (
             string? title,
@@ -1373,7 +1368,7 @@ public static partial class MetadataEndpoints
         .RequireAdmin();
 
 
-        // â"€â"€ POST /metadata/search-all â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // Ã¢"â‚¬Ã¢"â‚¬ POST /metadata/search-all Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬
         //
         // Fan-out search: queries ALL eligible providers concurrently and returns
         // merged results grouped by provider. Powers the shared media editor search flow.
@@ -1524,7 +1519,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status400BadRequest);
 
-        // â"€â"€ GET /metadata/canonical/{entityId} â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // Ã¢"â‚¬Ã¢"â‚¬ GET /metadata/canonical/{entityId} Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬
         //
         // Returns all current canonical values for an entity with confidence,
         // provider attribution, and user-lock status.
@@ -1537,7 +1532,7 @@ public static partial class MetadataEndpoints
             IEnumerable<IExternalMetadataProvider> providers,
             CancellationToken ct) =>
         {
-            // entityId may be a work ID (from the libraryItem) — resolve to the
+            // entityId may be a work ID (from the libraryItem) â€” resolve to the
             // underlying media asset ID where canonical values are stored.
             var resolvedId = entityId;
             var canonicals = await canonicalRepo.GetByEntityAsync(resolvedId, ct);
@@ -1608,7 +1603,7 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // â"€â"€ POST /metadata/{entityId}/cover-from-url â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // Ã¢"â‚¬Ã¢"â‚¬ POST /metadata/{entityId}/cover-from-url Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬
         //
         // Downloads a cover image from a provider URL, saves the managed artwork,
         // generates renditions + palette metadata, and updates canonical values.
@@ -1659,7 +1654,7 @@ public static partial class MetadataEndpoints
                 await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
 
                 logger.LogInformation(
-                    "Cover downloaded from URL for entity {Id}: {Size} bytes â†’ {Path}",
+                    "Cover downloaded from URL for entity {Id}: {Size} bytes Ã¢â€ â€™ {Path}",
                     entityId, imageBytes.Length, coverPath);
 
                 var storedAsset = new EntityAsset
@@ -1773,7 +1768,7 @@ public static partial class MetadataEndpoints
                     && qidProps.TryGetValue("P629", out var p629Values)
                     && p629Values.Count > 0)
                 {
-                    // P629 value is an entity reference — extract the parent work QID.
+                    // P629 value is an entity reference â€” extract the parent work QID.
                     var p629Val = p629Values[0].Value;
                     var workQid = p629Val?.EntityId ?? p629Val?.RawValue;
                     if (workQid is not null)
@@ -2987,7 +2982,7 @@ public static partial class MetadataEndpoints
                     ? "Provider"
                     : "Stored",
             FormatArtworkProviderName(asset.SourceProvider),
-            CanDelete: string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase) || asset.IsUserOverride,
+            CanDelete: true,
             CreatedAt: asset.CreatedAt);
 
     private static string? FormatArtworkProviderName(string? sourceProvider) =>

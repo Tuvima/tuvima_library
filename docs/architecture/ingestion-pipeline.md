@@ -12,7 +12,7 @@ tags:
 
 # Ingestion Pipeline
 
-This document describes how Tuvima Library discovers, processes, organises, and stages media files â€” from the moment a file appears in a watched folder to the moment it is promoted into the organised library.
+This document describes how Tuvima Library discovers, processes, organises, and stages media files - from the moment a file appears in a watched folder to the moment it is promoted into the organised library.
 
 ---
 
@@ -55,7 +55,7 @@ Configuration lives in `config/libraries.json`. When this file is absent, the En
 }
 ```
 
-The `category` tells the Engine where to organise files on disk. The `media_types` tell it how to process them â€” which processor to use, which metadata providers to query, and what confidence prior to apply during identification. A library folder designated for Movies gives any MP4 it finds an 0.80 prior confidence for that media type, skipping much of the heuristic disambiguation that would otherwise be needed.
+The `category` tells the Engine where to organise files on disk. The `media_types` tell it how to process them - which processor to use, which metadata providers to query, and what confidence prior to apply during identification. A library folder designated for Movies gives any MP4 it finds an 0.80 prior confidence for that media type, skipping much of the heuristic disambiguation that would otherwise be needed.
 
 ---
 
@@ -81,7 +81,7 @@ Music remains a conservative organization lane. The status surface emphasizes ta
 
 ### Watch Mode
 
-The Engine monitors the source folder for new files. When a file appears, it is processed through the full ingestion pipeline and then **moved** into the organised library structure. Watch mode is designed as a permanent inbox â€” files dropped in are consumed and relocated automatically.
+The Engine monitors the source folder for new files. When a file appears, it is processed through the full ingestion pipeline and then **moved** into the organised library structure. Watch mode is designed as a permanent inbox - files dropped in are consumed and relocated automatically.
 
 The `.staging/` directory within the library root is excluded from Watch Folder monitoring to prevent re-ingestion loops.
 
@@ -93,7 +93,7 @@ Import mode performs a one-time scan of an existing collection. It follows the s
 
 ## Processing Steps
 
-Every file â€” regardless of intake mode â€” goes through the same sequential processing pipeline:
+Every file - regardless of intake mode - goes through the same sequential processing pipeline:
 
 ### 1. Settle
 
@@ -111,16 +111,16 @@ A SHA-256 content hash is computed from the file's bytes. This hash is the file'
 
 The appropriate processor for the file's format opens the file and extracts all embedded metadata:
 
-- **EpubProcessor** â€” reads OPF package metadata: title, author, publisher, year, series, language, cover image
-- **AudioProcessor** â€” reads ID3v2 (MP3), iTunes atoms (M4B/M4A), Vorbis comments (FLAC/OGG): title, artist, album, track number, chapter markers, genre, ASIN, embedded artwork
-- **VideoProcessor** â€” reads container metadata (MP4, MKV): title, resolution, duration, codec, embedded subtitles, chapter list
-- **ComicProcessor** â€” reads ComicInfo.xml from CBZ/CBR archives: title, series, issue number, writer, artist, publisher
+- **EpubProcessor** - reads OPF package metadata: title, author, publisher, year, series, language, cover image
+- **AudioProcessor** - reads ID3v2 (MP3), iTunes atoms (M4B/M4A), Vorbis comments (FLAC/OGG): title, artist, album, track number, chapter markers, genre, ASIN, embedded artwork
+- **VideoProcessor** - reads container metadata (MP4, MKV): title, resolution, duration, codec, embedded subtitles, chapter list
+- **ComicProcessor** - reads ComicInfo.xml from CBZ/CBR archives: title, series, issue number, writer, artist, publisher
 
 The processor also emits media type candidates when the format is ambiguous. See the Media Type Disambiguation section below.
 
 ### 5. Identify
 
-The Priority Cascade Engine scores all available claims for this file â€” from embedded metadata, filename parsing, and any prior library folder hints â€” and assigns the file to an existing Collection or creates a new one. This is where the title, author, series, and other canonical values are resolved.
+The Priority Cascade Engine scores all available claims for this file - from embedded metadata, filename parsing, and any prior library folder hints - and assigns the file to an existing Collection or creates a new one. This is where the title, author, series, and other canonical values are resolved.
 
 If multiple files from the same source folder have already been processed (e.g. a TV season with 22 episodes), the Engine uses **Ingestion Hinting**: the first file's resolved metadata is cached as a folder-level prior. Subsequent siblings receive the collection ID, QID, and bridge IDs from that prior as high-confidence claims, dramatically reducing the number of Wikidata lookups needed.
 
@@ -128,7 +128,7 @@ If multiple files from the same source folder have already been processed (e.g. 
 
 ### 6. Move to Staging
 
-The file is moved from its source location into `{LibraryRoot}/.staging/`, where it waits for hydration and promotion. Cover art is extracted and written alongside the file at this stage â€” the processor's cover image bytes are only available during the Scan step and must be persisted immediately.
+The file is moved from its source location into `{LibraryRoot}/.staging/`, where it waits for hydration and promotion. Cover art is extracted and written alongside the file at this stage - the processor's cover image bytes are only available during the Scan step and must be persisted immediately.
 
 Cover art for items that have not yet received a Wikidata QID is written to `.data/images/_pending/{GUID12}/` (previously named `_provisional/`). When a QID is assigned, `ImagePathService.PromoteToQid()` renames the directory to `.data/images/{QID}/`.
 
@@ -139,8 +139,8 @@ Cover art for items that have not yet received a Wikidata QID is written to `.da
 All ingested files land in `.staging/` before reaching the organised library. The library invariant is that every file within the library root (outside `.staging/`) has been hydrated, has reached a settled identity outcome, and has a settled artwork outcome. That may mean a resolved QID with art present, or a precision-preserving QID-missing result with artwork explicitly confirmed missing.
 
 ```
-Watch Folder  â”€â”€(detect + process)â”€â”€>  .staging/  â”€â”€(hydration + promote)â”€â”€>  Library
-                                           â”‚
+Watch Folder  --(detect + process)-->  .staging/  --(hydration + promote)-->  Library
+                                           |
                                       stays here if:
                                       - low confidence
                                       - unidentifiable
@@ -154,10 +154,10 @@ Files are routed to one of four subcategories based on their overall confidence 
 
 | Subcategory | Condition | Behaviour |
 |---|---|---|
-| `.staging/pending/` | Confidence â‰¥ 0.85, or any user-locked claim | AutoOrganizeService promotes after hydration |
-| `.staging/low-confidence/` | Confidence 0.40â€”0.85, no user locks | Awaits hydration improvement or manual review |
+| `.staging/pending/` | Confidence >= 0.85, or any user-locked claim | AutoOrganizeService promotes after hydration |
+| `.staging/low-confidence/` | Confidence 0.40 - 0.85, no user locks | Awaits hydration improvement or manual review |
 | `.staging/unidentifiable/` | Confidence < 0.40, no user locks | Requires user to provide a title or match |
-| `.staging/other/` | Resolves to “Other” category | Requires media type classification |
+| `.staging/other/` | Resolves to "Other" category | Requires media type classification |
 
 **Staging lifecycle logging:** The Engine logs staging progress at `Information` level at four points: (1) when an asset is moved into staging, (2) when a review queue item is created, (3) when a gap is detected in expected review creation (e.g. a confidence score that should have triggered a review but did not), and (4) when an asset is promoted out of staging into the organised library. These log entries allow the staging pipeline to be audited from the activity log.
 
@@ -179,7 +179,7 @@ Hero banner generation (blur + vignette + grain, via SkiaSharp) runs during prom
 
 ### Manual Reclamation
 
-Staged files retain their fingerprint and metadata in the database. A user can manually resolve a staged file from the Dashboard â€” by dragging it to a Collection or providing a user-locked title â€” triggering promotion to the organised library structure. The `.staging/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
+Staged files retain their fingerprint and metadata in the database. A user can manually resolve a staged file from the Dashboard - by dragging it to a Collection or providing a user-locked title - triggering promotion to the organised library structure. The `.staging/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
 
 On startup, if `{LibraryRoot}/.orphans/` exists and `.staging/` does not, the Engine renames the directory and updates all database file paths automatically.
 
@@ -189,7 +189,7 @@ On startup, if `{LibraryRoot}/.orphans/` exists and `.staging/` does not, the En
 
 ### Data Authority
 
-The database is the authoritative data store for all metadata, relationships, and canonical values. User metadata edits are additionally written back into the file's embedded metadata via `IMetadataTagger` (EPUB OPF, ID3 tags, M4B atoms), ensuring portability â€” the file carries its own metadata independently of the database.
+The database is the authoritative data store for all metadata, relationships, and canonical values. User metadata edits are additionally written back into the file's embedded metadata via `IMetadataTagger` (EPUB OPF, ID3 tags, M4B atoms), ensuring portability - the file carries its own metadata independently of the database.
 
 Wikidata properties are re-fetchable via the batch Reconciliation API as a recovery fallback. Cover art is never stored in the database; `cover.jpg` lives alongside the file on disk and is always read from there.
 
@@ -256,17 +256,17 @@ Media type is resolved using the same Weighted Voter architecture as all other m
 
 | Signal source | Confidence range | Examples |
 |---|---|---|
-| Magic bytes (unambiguous formats) | 0.95â€“1.0 | EPUB â†’ Books, CBZ â†’ Comics, M4B â†’ Audiobooks |
-| Processor heuristics | 0.30â€“0.80 | File duration, bitrate, chapter markers, genre tag |
-| Filename and path patterns | 0.25â€“0.65 | `S01E01` in filename â†’ TV, `audiobooks` in path â†’ Audiobooks |
-| User lock | 1.0 | Manual override â€” always wins |
+| Magic bytes (unambiguous formats) | 0.95-1.0 | EPUB -> Books, CBZ -> Comics, M4B -> Audiobooks |
+| Processor heuristics | 0.30-0.80 | File duration, bitrate, chapter markers, genre tag |
+| Filename and path patterns | 0.25-0.65 | `S01E01` in filename -> TV, `audiobooks` in path -> Audiobooks |
+| User lock | 1.0 | Manual override - always wins |
 
 ### Confidence Thresholds
 
 | Threshold | Behaviour |
 |---|---|
-| â‰¥ 0.70 (`auto_assign_threshold`) | Accept automatically, proceed normally |
-| 0.40â€“0.70 (`review_threshold`) | Accept provisionally, create `AmbiguousMediaType` review queue entry |
+| >= 0.70 (`auto_assign_threshold`) | Accept automatically, proceed normally |
+| 0.40-0.70 (`review_threshold`) | Accept provisionally, create `AmbiguousMediaType` review queue entry |
 | < 0.40 | Assign `MediaType.Unknown`, block auto-organize, create review entry |
 
 ### AudioProcessor Disambiguation
@@ -274,8 +274,8 @@ Media type is resolved using the same Weighted Voter architecture as all other m
 The `AudioProcessor` runs at priority 95 (above VideoProcessor at 90) and handles audio format detection.
 
 Unambiguous assignments:
-- `.m4b` â†’ Audiobooks (0.98 confidence)
-- `.flac`, `.ogg`, `.wav` â†’ Music (0.95 confidence)
+- `.m4b` -> Audiobooks (0.98 confidence)
+- `.flac`, `.ogg`, `.wav` -> Music (0.95 confidence)
 
 For ambiguous formats (`.mp3`, `.m4a`), the processor emits weighted candidates using additive heuristic signals:
 
@@ -302,19 +302,19 @@ Base score per type (Movie, TV) is 0.35. Signals are additive and normalized to 
 
 ### Configuration
 
-All disambiguation thresholds and heuristic parameters â€” duration bands, bitrate thresholds, path keywords, genre tag lists, TV filename patterns â€” are configurable in `config/disambiguation.json`. No code changes are needed to tune the system's behaviour.
+All disambiguation thresholds and heuristic parameters - duration bands, bitrate thresholds, path keywords, genre tag lists, TV filename patterns - are configurable in `config/disambiguation.json`. No code changes are needed to tune the system's behaviour.
 
 ### Review Resolution
 
 When a file lands in the review queue with an `AmbiguousMediaType` trigger, the user selects the correct media type from candidate cards in the Needs Review tab. The selected type is saved as a user-locked claim at confidence 1.0, the review item is resolved, and the hydration pipeline re-runs for that entity.
 
-After Stage 1 hydration (retail providers), if 3 or more claims are returned, the pipeline can auto-resolve pending `AmbiguousMediaType` review items â€” the provider results provide enough signal to confirm the media type without user input.
+After Stage 1 hydration (retail providers), if 3 or more claims are returned, the pipeline can auto-resolve pending `AmbiguousMediaType` review items - the provider results provide enough signal to confirm the media type without user input.
 
 ---
 
 ## Writeback & Auto Re-tag Sweep
 
-Once a file is identified and enriched, `WriteBackService` embeds the canonical metadata back into the file itself so external players, re-ingestion, and library rebuilds see it without consulting the database. The per-media-type field list lives in `config/writeback-fields.json` — the single source of truth shared by the taggers and the media detail editor.
+Once a file is identified and enriched, `WriteBackService` embeds the canonical metadata back into the file itself so external players, re-ingestion, and library rebuilds see it without consulting the database. The per-media-type field list lives in `config/writeback-fields.json` - the single source of truth shared by the taggers and the media detail editor.
 
 ### Per-media-type writeback hash
 
@@ -329,20 +329,20 @@ A file is considered stale when its stored hash differs from the currently-compu
 
 `WritebackConfigState` (singleton) watches `writeback-fields.json` via `IConfigurationLoader`. When the file changes, the state computes a **pending diff** (added and removed fields per media type) and surfaces it without running anything. The Auto Re-tag Sweep card on the Maintenance settings tab shows the diff and two buttons:
 
-- **Apply** — commits the pending diff to `CurrentHashes` and signals the worker to start a sweep.
-- **Run Now** — re-runs the sweep against the current hashes without applying a new diff (useful if a tagger version was bumped).
+- **Apply** - commits the pending diff to `CurrentHashes` and signals the worker to start a sweep.
+- **Run Now** - re-runs the sweep against the current hashes without applying a new diff (useful if a tagger version was bumped).
 
 No files are touched until the user clicks Apply or Run Now.
 
 ### RetagSweepWorker
 
-A `BackgroundService` that wakes on either a cron schedule (`config/maintenance.json` → `schedules.retag_sweep`, default `0 3 * * *`) or the `PendingApplied` signal from `WritebackConfigState`. Each pass:
+A `BackgroundService` that wakes on either a cron schedule (`config/maintenance.json` -> `schedules.retag_sweep`, default `0 3 * * *`) or the `PendingApplied` signal from `WritebackConfigState`. Each pass:
 
 1. Calls `IMediaAssetRepository.GetStaleForRetagAsync` to find identified assets whose `writeback_fields_hash` differs from the current hash (or is NULL).
 2. Processes in batches, calling `WriteBackService.WriteMetadataAsync(assetId, "config_change")` for each asset. On success, the service stamps the new hash on the row.
 3. Classifies failures via `RetagFailureClassifier`:
-   - **Locked** / **IoFailed** → `ScheduleRetagRetryAsync` with the next off-hours window start. The sweep picks these up on the next run.
-   - **Corrupt** / **Unknown** (after retries exhausted) → inserts a `ReviewQueueEntry` with trigger `WritebackFailed`, routing the file to the Review Queue.
+   - **Locked** / **IoFailed** -> `ScheduleRetagRetryAsync` with the next off-hours window start. The sweep picks these up on the next run.
+   - **Corrupt** / **Unknown** (after retries exhausted) -> inserts a `ReviewQueueEntry` with trigger `WritebackFailed`, routing the file to the Review Queue.
 4. Broadcasts live progress via SignalR (`RetagSweepProgress` and `RetagSweepCompleted` events) so the Maintenance tab shows a processed / succeeded / transient / terminal counter during a sweep.
 
 ### Endpoints
@@ -356,7 +356,7 @@ A `BackgroundService` that wakes on either a cron schedule (`config/maintenance.
 
 ### Review Queue integration
 
-the current media surfaces Review Queue surfaces `WritebackFailed` review items alongside other review triggers. The message reads "Re-tag failed — file may be locked or corrupt"; resolving the item either manually (fix the file, click retry) or via a successful next-sweep-pass clears the review row.
+the current media surfaces Review Queue surfaces `WritebackFailed` review items alongside other review triggers. The message reads "Re-tag failed - file may be locked or corrupt"; resolving the item either manually (fix the file, click retry) or via a successful next-sweep-pass clears the review row.
 
 ---
 
@@ -373,8 +373,8 @@ the current media surfaces Review Queue surfaces `WritebackFailed` review items 
 
 **Future library types planned but not yet implemented:**
 
-- **Other** â€” YouTube videos, lectures, personal recordings, and any media that does not fit the primary types. Files would be stored and user-provided metadata accepted, but automated enrichment would be limited.
-- **Photos** â€” Photo collections with EXIF/XMP extraction, GPS geolocation, face detection, event-based organisation, and timeline views. The scope is large enough that it may become a separate product built on the same base Engine infrastructure.
+- **Other** - YouTube videos, lectures, personal recordings, and any media that does not fit the primary types. Files would be stored and user-provided metadata accepted, but automated enrichment would be limited.
+- **Photos** - Photo collections with EXIF/XMP extraction, GPS geolocation, face detection, event-based organisation, and timeline views. The scope is large enough that it may become a separate product built on the same base Engine infrastructure.
 
 ## Related
 

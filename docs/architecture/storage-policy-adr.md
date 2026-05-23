@@ -26,8 +26,8 @@ Tuvima Library uses a configurable storage policy with `Hybrid` as the default m
 
 - Plex local assets and subtitles are documented as local-library conventions, not mandatory canonical storage.
 - Jellyfin documents local artwork and `.nfo` support, and its NFO guidance explicitly treats one image per artwork type as the local interchange shape.
-- Audiobookshelf’s scanner explicitly looks for `cover`, `desc.txt`, `reader.txt`, and `.opf` in the item folder.
-- Emby’s movie naming guidance follows the same sidecar-style local artwork conventions as Plex and Jellyfin.
+- Audiobookshelf's scanner explicitly looks for `cover`, `desc.txt`, `reader.txt`, and `.opf` in the item folder.
+- Emby's movie naming guidance follows the same sidecar-style local artwork conventions as Plex and Jellyfin.
 
 ## Storage Model
 

@@ -32,7 +32,7 @@ body:
       placeholder: |
         1. Place an EPUB file in the Watch Folder
         2. Wait 30 seconds
-        3. Check the Dashboard — file doesn't appear
+        3. Check the Dashboard - file doesn't appear
     validations:
       required: true
 

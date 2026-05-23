@@ -83,6 +83,7 @@ nav:
       - Providers Reference: reference/providers.md
       - Plugin Catalog: reference/plugin-catalog.md
       - Media Types: reference/media-types.md
+      - Artwork Types: reference/artwork-types.md
       - Glossary: reference/glossary.md
       - API Endpoints: reference/api-endpoints.md
       - Database Schema: reference/database-schema.md

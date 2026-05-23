@@ -13,7 +13,7 @@ tags:
 # Retail Provider Reference
 
 > **What is this document?**
-> A complete reference of every retail provider in the Tuvima Library pipeline — what they accept as search parameters, what they return, and how their output feeds into Stage 2 (Wikidata) resolution. This is the authoritative source for provider capabilities.
+> A complete reference of every retail provider in the Tuvima Library pipeline - what they accept as search parameters, what they return, and how their output feeds into Stage 2 (Wikidata) resolution. This is the authoritative source for provider capabilities.
 
 ---
 
@@ -21,11 +21,11 @@ tags:
 
 The hydration pipeline runs in two stages:
 
-1. **Stage 1 (Retail Identification):** Retail providers search for the media item using file metadata. They return cover art, descriptions, ratings, and — critically — **bridge IDs** (ISBN, TMDB ID, etc.) that uniquely identify the item on external platforms.
+1. **Stage 1 (Retail Identification):** Retail providers search for the media item using file metadata. They return cover art, descriptions, ratings, and - critically - **bridge IDs** (ISBN, TMDB ID, etc.) that uniquely identify the item on external platforms.
 
 2. **Stage 2 (Wikidata Bridge):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (e.g. ISBN-13 maps to P212). Stage 2 is strict-gated behind Stage 1: no safe Retail match means no automatic Wikidata attempt. When real bridge IDs were tried and still failed, controlled text search can still be used as a last resort.
 
-Retail providers are a **rich data source for matching** — descriptions, narrator data, ratings, and cover art similarity are all used to rank candidates against file metadata. **Wikidata is the authority** for final canonical values (title, author, year, genre, series).
+Retail providers are a **rich data source for matching** - descriptions, narrator data, ratings, and cover art similarity are all used to rank candidates against file metadata. **Wikidata is the authority** for final canonical values (title, author, year, genre, series).
 
 ---
 
@@ -42,9 +42,9 @@ Retail providers are a **rich data source for matching** — descriptions, narra
 
 ---
 
-## Query Parameters — What We Send
+## Query Parameters - What We Send
 
-Most providers only accept **Title** as a free-text search parameter. Author, Director, Narrator, and Artist are **not** sent to the provider API — they are used by the `RetailMatchScoringService` to rank results *after* they come back.
+Most providers only accept **Title** as a free-text search parameter. Author, Director, Narrator, and Artist are **not** sent to the provider API - they are used by the `RetailMatchScoringService` to rank results *after* they come back.
 
 ### Per-Provider Search Strategies
 
@@ -57,7 +57,7 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 | Ebook Search | 2 | `title` | `/search?term={title}&entity=ebook&limit={limit}&country={country}&lang={lang}_{country}` | Books |
 | Audiobook Search | 2 | `title` | `/search?term={title}&entity=audiobook&limit={limit}&country={country}&lang={lang}_{country}` | Audiobooks |
 
-**Notes:** ISBN lookup is exact match (1 result). Title search returns up to 25 results, fetches top 5. Author is not a query parameter — used for post-search ranking only. Cover art URL requires regex transform to remove Apple's size constraints for full resolution.
+**Notes:** ISBN lookup is exact match (1 result). Title search returns up to 25 results, fetches top 5. Author is not a query parameter - used for post-search ranking only. Cover art URL requires regex transform to remove Apple's size constraints for full resolution.
 
 #### TMDB
 
@@ -66,7 +66,7 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 | Movie Search | 1 | `title` | `/search/movie?query={title}&year={year}&include_adult=false&language={lang}-{country}&page=1` | Movies |
 | TV Search | 1 | `title` | `/search/tv?query={title}&first_air_date_year={year}&include_adult=false&language={lang}-{country}&page=1` | TV |
 
-**Notes:** Year is optional but included when available from file metadata. Director is not a query parameter — used for post-search ranking only. Returns poster and backdrop image paths (prepend `https://image.tmdb.org/t/p/w500` or `w1280`).
+**Notes:** Year is optional but included when available from file metadata. Director is not a query parameter - used for post-search ranking only. Returns poster and backdrop image paths (prepend `https://image.tmdb.org/t/p/w500` or `w1280`).
 
 #### MusicBrainz
 
@@ -75,7 +75,7 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 | Release Search | 1 | `title` | `/release?query={title}&fmt=json&limit={limit}` | Music |
 | Recording Search | 2 | `title` | `/recording?query={title}&fmt=json&limit={limit}` | Music |
 
-**Notes:** Title only. Artist, Album, and Year are not query parameters — used for post-search ranking. Cover art from Cover Art Archive (`https://coverartarchive.org/release/{id}/front-250`). Strict rate limit (1100ms between requests, max 1 concurrent) per MusicBrainz policy.
+**Notes:** Title only. Artist, Album, and Year are not query parameters - used for post-search ranking. Cover art from Cover Art Archive (`https://coverartarchive.org/release/{id}/front-250`). Strict rate limit (1100ms between requests, max 1 concurrent) per MusicBrainz policy.
 
 #### Metron
 
@@ -98,7 +98,7 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 
 ---
 
-## Response Fields — What We Extract
+## Response Fields - What We Extract
 
 Each provider's config defines a `field_mappings` array that maps JSON response paths to claim keys. These become `ProviderClaim` objects (key, value, confidence) stored in `metadata_claims`.
 
@@ -130,7 +130,7 @@ The `ValueTransformCatalog` applies transformations during extraction:
 
 ---
 
-## Bridge IDs — What Feeds Stage 2
+## Bridge IDs - What Feeds Stage 2
 
 Bridge IDs are external platform identifiers that the Wikidata Reconciliation adapter uses to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code.
 
@@ -210,7 +210,7 @@ Additional contradiction gates apply before auto-accept. Weak creator agreement 
 
 ### Cover Art Matching
 
-Embedded cover art from the file is perceptually hashed (aHash — 64-bit fingerprint via 8x8 grayscale resize). When retail provider cover art is downloaded, it's hashed and compared. The Hamming distance produces a similarity score (0.0-1.0) that feeds into the scoring composite as a confidence boost.
+Embedded cover art from the file is perceptually hashed (aHash - 64-bit fingerprint via 8x8 grayscale resize). When retail provider cover art is downloaded, it's hashed and compared. The Hamming distance produces a similarity score (0.0-1.0) that feeds into the scoring composite as a confidence boost.
 
 ---
 

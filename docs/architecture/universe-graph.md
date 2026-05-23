@@ -14,7 +14,7 @@ tags:
 
 ## Purpose
 
-The Universe Graph connects fictional characters, locations, organizations, and events across all media in the Library. When a book, film, audiobook, and comic all belong to the same creative universe, the graph captures the relationships that bind them â€” characters who are siblings, locations that exist within other locations, actors who played specific roles across adaptations.
+The Universe Graph connects fictional characters, locations, organizations, and events across all media in the Library. When a book, film, audiobook, and comic all belong to the same creative universe, the graph captures the relationships that bind them - characters who are siblings, locations that exist within other locations, actors who played specific roles across adaptations.
 
 The graph is populated automatically during hydration using Wikidata as the data source. It is stored in SQLite and loaded into an in-memory EntityGraph for graph queries and pathfinding.
 
@@ -31,7 +31,7 @@ Before the graph can be built, the Engine determines which fictional universe a 
 3. P179 (part of series)
 4. Collection DisplayName (fallback)
 
-The resolved universe QID and label are stored in the `narrative_roots` table. All fictional entities discovered within a work are linked to their narrative root, enabling cross-media queries â€” for example, finding all characters from the Dune universe across novels, films, and audiobooks.
+The resolved universe QID and label are stored in the `narrative_roots` table. All fictional entities discovered within a work are linked to their narrative root, enabling cross-media queries - for example, finding all characters from the Dune universe across novels, films, and audiobooks.
 
 ---
 
@@ -92,7 +92,7 @@ Actor-to-character links are stored separately in `character_performer_links` (p
 
 ## EntityGraph In-Memory Graph
 
-The `UniverseGraphQueryService` loads entities and relationships from SQLite into a Tuvima.Wikidata.Graph in-memory graph. The graph is lazy-loaded per universe and cached â€” it is not rebuilt on every query.
+The `UniverseGraphQueryService` loads entities and relationships from SQLite into a Tuvima.Wikidata.Graph in-memory graph. The graph is lazy-loaded per universe and cached - it is not rebuilt on every query.
 
 Capabilities served from the in-memory graph:
 
@@ -114,7 +114,7 @@ Each Person record carries:
 - Social links stored as Actionable URI Schemes (see below)
 - Pseudonym links via `person_aliases` table (bidirectional: P1773 attributed_to, P742 pseudonym)
 
-Person folders on disk: `.people/{person_qid}/` containing `headshot.jpg` sourced from Wikimedia Commons P18. P18 is strictly Person-only â€” never used for media cover art.
+Person folders on disk: `.people/{person_qid}/` containing `headshot.jpg` sourced from Wikimedia Commons P18. P18 is strictly Person-only - never used for media cover art.
 
 ### Actionable URI Schemes
 
@@ -204,9 +204,9 @@ Universe graph parameters in `config/hydration.json`:
 
 Three layers prevent redundant Wikidata calls:
 
-1. **Skip-if-enriched** â€” entity level. If `enriched_at IS NOT NULL`, no new Data Extension call is made.
-2. **Provider response cache** â€” HTTP level. SHA-256 of request URL is checked in `provider_response_cache` before any outbound call. ETag revalidation on cache expiry.
-3. **Universe-level deduplication** â€” if a QID is already known in the graph, it is not re-fetched from Wikidata.
+1. **Skip-if-enriched** - entity level. If `enriched_at IS NOT NULL`, no new Data Extension call is made.
+2. **Provider response cache** - HTTP level. SHA-256 of request URL is checked in `provider_response_cache` before any outbound call. ETag revalidation on cache expiry.
+3. **Universe-level deduplication** - if a QID is already known in the graph, it is not re-fetched from Wikidata.
 
 ## Related
 

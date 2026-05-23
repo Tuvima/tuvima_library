@@ -25,7 +25,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/system/status` | Service health, version, uptime | None |
-| GET | `/system/watcher-status` | File watcher diagnostic â€” shows monitored folders and last event | Required |
+| GET | `/system/watcher-status` | File watcher diagnostic - shows monitored folders and last event | Required |
 | POST | `/maintenance/sweep-orphan-images` | Scan `.data/images/` for directories with no matching database record and remove them. Skips user-uploaded images (`user_override` flag). | Administrator |
 
 ---
@@ -82,6 +82,13 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | GET | `/metadata/claims/{entityId}` | All claims for an entity, grouped by field, with source and confidence | Required |
 | GET | `/metadata/conflicts` | All unresolved metadata conflicts across the library | Curator |
 | GET | `/metadata/{entityId}/canon-discrepancies` | Field-level mismatches between the canonical value and file-embedded metadata | Required |
+| GET | `/metadata/{entityId}/artwork` | Artwork context for the media editor, including variants by artwork type and preferred selections | Curator |
+| GET | `/metadata/{entityId}/artwork/{scopeId}` | Artwork variants for a specific editor scope | Curator |
+| POST | `/metadata/{entityId}/artwork/{scopeId}/{assetType}` | Upload a user-owned artwork variant for the selected type | Curator |
+| POST | `/metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url` | Add an artwork variant from a provider or user-supplied image URL | Curator |
+| POST | `/metadata/{entityId}/artwork/{assetType}` | Compatibility upload route for an artwork type | Curator |
+| PUT | `/metadata/artwork/{variantId}/preferred` | Make an artwork variant the preferred image for its artwork type | Curator |
+| DELETE | `/metadata/artwork/{variantId}` | Remove an artwork variant from the item. Shared provider/image cache files are retained when still referenced elsewhere. | Curator |
 
 ---
 
@@ -111,7 +118,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 |---|---|---|---|
 | POST | `/search/universe` | Search Wikidata for entity candidates by title, author, and media type | Curator |
 | POST | `/search/retail` | Search configured retail providers for matching candidates | Curator |
-| POST | `/search/resolve` | Unified resolve search â€” queries all active providers and returns ranked candidates | Curator |
+| POST | `/search/resolve` | Unified resolve search - queries all active providers and returns ranked candidates | Curator |
 
 ---
 
@@ -132,7 +139,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/persons/{id}` | Person detail â€” biographical data, roles, library presence, social links | Required |
+| GET | `/persons/{id}` | Person detail - biographical data, roles, library presence, social links | Required |
 | GET | `/persons/{id}/aliases` | Pseudonym list for a person, including resolved Wikidata aliases | Required |
 
 ---
@@ -142,14 +149,14 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/universes` | All narrative roots (Universes) in the library | Required |
-| GET | `/universe/{qid}` | Universe detail â€” Series, People, and asset counts | Required |
-| GET | `/universe/{qid}/health` | Health score â€” completeness, enrichment freshness, missing metadata indicators | Required |
+| GET | `/universe/{qid}` | Universe detail - Series, People, and asset counts | Required |
+| GET | `/universe/{qid}/health` | Health score - completeness, enrichment freshness, missing metadata indicators | Required |
 | GET | `/universe/{qid}/graph` | Graph data in Cytoscape.js format for the Chronicle Explorer visualization | Required |
 | GET | `/universe/{qid}/paths` | Find shortest paths between two entities within the universe graph | Required |
 | GET | `/universe/{qid}/family-tree` | Character family tree rooted at a specified character entity | Required |
 | GET | `/universe/{qid}/cross-media` | Entities that appear across more than one media type within the universe | Required |
 | GET | `/universe/{qid}/cast` | Characters with their linked performers, including era-correct actor data | Required |
-| GET | `/universe/{qid}/adaptations` | Adaptation chain â€” all works derived from or adapted into each other | Required |
+| GET | `/universe/{qid}/adaptations` | Adaptation chain - all works derived from or adapted into each other | Required |
 
 ---
 
@@ -157,16 +164,16 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/ai/status` | AI subsystem health â€” model load state, hardware tier, resource pressure | Required |
+| GET | `/ai/status` | AI subsystem health - model load state, hardware tier, resource pressure | Required |
 | GET | `/ai/models` | Status of all configured models (loaded, unloaded, downloading, unavailable) | Required |
 | POST | `/ai/models/{role}/download` | Trigger download for a model role (`text_fast`, `text_quality`, `text_scholar`, `text_cjk`, `audio`) | Administrator |
 | POST | `/ai/models/{role}/load` | Load a model into memory | Administrator |
 | POST | `/ai/models/{role}/unload` | Unload a model from memory | Administrator |
 | GET | `/ai/config` | Full AI configuration | Administrator |
 | PUT | `/ai/config` | Update AI configuration | Administrator |
-| GET | `/ai/profile` | Hardware profile â€” benchmark results, tier classification, GPU backend | Required |
+| GET | `/ai/profile` | Hardware profile - benchmark results, tier classification, GPU backend | Required |
 | POST | `/ai/benchmark` | Re-run hardware benchmark and reclassify tier | Administrator |
-| GET | `/ai/resources` | Live system resource usage â€” CPU load, RAM pressure, active transcoding tasks | Required |
+| GET | `/ai/resources` | Live system resource usage - CPU load, RAM pressure, active transcoding tasks | Required |
 | GET | `/ai/enrichment/progress` | Background enrichment batch progress | Required |
 | GET | `/ai/enrich/tldr/{entityId}` | Generate a TL;DR summary for a work using its description | Curator |
 | GET | `/ai/enrich/vibes/{entityId}` | Generate vibe tags for a work | Curator |
@@ -190,7 +197,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 |---|---|---|---|
 | GET | `/activity/recent` | Recent system activity entries, newest first | Required |
 | POST | `/activity/prune` | Prune activity entries older than the configured retention period | Administrator |
-| GET | `/activity/stats` | Aggregated activity statistics â€” counts by type and outcome | Required |
+| GET | `/activity/stats` | Aggregated activity statistics - counts by type and outcome | Required |
 | PUT | `/activity/retention` | Update the activity retention period (days) | Administrator |
 | GET | `/activity/by-types` | Filter activity log by one or more activity type codes | Required |
 | GET | `/activity/run/{runId}` | All activity entries for a specific ingestion or enrichment run | Required |
@@ -236,7 +243,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | GET | `/settings/folders` | List configured library folder paths | Required |
 | PUT | `/settings/folders` | Update library folder configuration | Administrator |
 | POST | `/settings/test-path` | Test whether a filesystem path is accessible by the Engine | Administrator |
-| GET | `/settings/providers` | Provider configuration status â€” enabled state, last health check, rate limit info | Required |
+| GET | `/settings/providers` | Provider configuration status - enabled state, last health check, rate limit info | Required |
 | GET | `/settings/server-general` | Core server settings (name, language preferences, country) | Required |
 | PUT | `/settings/server-general` | Update core server settings | Administrator |
 | POST | `/settings/organization-template/preview` | Validate an organization template and return a sample preview without saving | Administrator |
@@ -274,7 +281,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/read/{assetId}/metadata` | EPUB metadata â€” title, author, language, cover | Required |
+| GET | `/read/{assetId}/metadata` | EPUB metadata - title, author, language, cover | Required |
 | GET | `/read/{assetId}/toc` | Table of contents | Required |
 | GET | `/read/{assetId}/chapter/{index}` | Chapter content by index | Required |
 | GET | `/read/{assetId}/resource/{path}` | Embedded resource (CSS, image) by path within the EPUB | Required |
@@ -285,7 +292,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | GET | `/reader/{assetId}/highlights` | List highlights | Required |
 | POST | `/reader/{assetId}/highlights` | Create a highlight | Required |
 | DELETE | `/reader/{assetId}/highlights/{highlightId}` | Delete a highlight | Required |
-| GET | `/reader/{assetId}/statistics` | Reading statistics â€” time spent, completion percentage, sessions | Required |
+| GET | `/reader/{assetId}/statistics` | Reading statistics - time spent, completion percentage, sessions | Required |
 | POST | `/read/{assetId}/whispersync` | Sync reading position across devices | Required |
 | GET | `/read/{assetId}/whispersync` | Retrieve last sync position | Required |
 | DELETE | `/read/{assetId}/whispersync` | Clear sync position | Required |
@@ -330,7 +337,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 | Collection | Path | Direction | Description |
 |---|---|---|---|
-| Intercom | `/intercom` | Server â†’ Client | Real-time push events: ingestion progress, enrichment completion, pipeline state changes, review queue updates. Authentication required. Server-push only â€” clients do not send messages to the collection. |
+| Intercom | `/intercom` | Server -> Client | Real-time push events: ingestion progress, enrichment completion, pipeline state changes, review queue updates. Authentication required. Server-push only - clients do not send messages to the collection. |
 
 ---
 
@@ -350,4 +357,3 @@ Available in development environments only. These endpoints are removed in produ
 - [How to Build, Test, and Verify Changes](../guides/running-tests.md)
 - [Database Schema Reference](database-schema.md)
 - [Security Architecture](../architecture/security.md)
-

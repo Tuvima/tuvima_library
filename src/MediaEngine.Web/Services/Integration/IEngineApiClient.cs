@@ -497,7 +497,7 @@ public interface IEngineApiClient
     /// <summary>PUT /metadata/artwork/{variantId}/preferred — set the preferred artwork variant.</summary>
     Task<bool> SetPreferredArtworkAsync(Guid variantId, CancellationToken ct = default);
 
-    /// <summary>DELETE /metadata/artwork/{variantId} — delete an uploaded artwork variant.</summary>
+    /// <summary>DELETE /metadata/artwork/{variantId} — remove an artwork variant from the current item.</summary>
     Task<bool> DeleteArtworkAsync(Guid variantId, CancellationToken ct = default);
 
     // ── Provider Icons ───────────────────────────────────────────────────────

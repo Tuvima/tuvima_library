@@ -42,7 +42,7 @@ Unify Tuvima Library's managed asset storage so downloaded/provider artwork and 
 
 - Posters, fanart/backgrounds, banners, and logos are generally optional local enhancements, not strict requirements.
 - Local artwork names overlap heavily across Plex, Jellyfin, Emby, and Kodi, which makes them good candidates for an optional export profile rather than a mandatory storage location.
-- Jellyfin explicitly supports only one image per artwork type in local metadata flows, which reinforces keeping alternate variants in Tuvima’s central asset store instead of trying to mirror every variant locally.
+- Jellyfin explicitly supports only one image per artwork type in local metadata flows, which reinforces keeping alternate variants in Tuvima's central asset store instead of trying to mirror every variant locally.
 
 ### Cross-manager compatible naming
 
