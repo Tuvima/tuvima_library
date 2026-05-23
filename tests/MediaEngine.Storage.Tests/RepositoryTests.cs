@@ -1,4 +1,6 @@
+using Dapper;
 using Microsoft.Data.Sqlite;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -176,6 +178,34 @@ public sealed class RepositoryTests : IDisposable
 
         Assert.Single(claims);
         Assert.True(claims[0].IsUserLocked);
+    }
+
+    [Fact]
+    public async Task MetadataClaim_UserManualProvider_IsSelfHealingWhenSeedMissing()
+    {
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                "DELETE FROM metadata_providers WHERE id = @id;",
+                new { id = WellKnownProviders.UserManual.ToString() });
+        }
+
+        var repo = new MetadataClaimRepository(_db);
+        var entityId = Guid.NewGuid();
+        var claim = MakeClaim(entityId, "wikidata_qid", "Q155653", 1.0, WellKnownProviders.UserManual);
+        claim.IsUserLocked = true;
+
+        await repo.InsertBatchAsync([claim]);
+
+        var claims = await repo.GetByEntityAsync(entityId);
+        Assert.Single(claims);
+        Assert.Equal(WellKnownProviders.UserManual, claims[0].ProviderId);
+
+        using var verifyConn = _db.CreateConnection();
+        var providerCount = await verifyConn.ExecuteScalarAsync<long>(
+            "SELECT COUNT(1) FROM metadata_providers WHERE id = @id;",
+            new { id = WellKnownProviders.UserManual.ToString() });
+        Assert.Equal(1, providerCount);
     }
 
     // ════════════════════════════════════════════════════════════════════════

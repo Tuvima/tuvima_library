@@ -1,4 +1,5 @@
 using Dapper;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -48,6 +49,8 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
             using var tx   = conn.BeginTransaction();
             try
             {
+                EnsureBuiltInProvidersExist(conn, tx, claims);
+
                 const string sql = """
                     INSERT INTO metadata_claims
                         (id, entity_id, provider_id, claim_key, claim_value,
@@ -83,6 +86,22 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
         {
             _db.ReleaseWriteLock();
         }
+    }
+
+    private static void EnsureBuiltInProvidersExist(
+        Microsoft.Data.Sqlite.SqliteConnection conn,
+        Microsoft.Data.Sqlite.SqliteTransaction tx,
+        IReadOnlyList<MetadataClaim> claims)
+    {
+        if (!claims.Any(c => c.ProviderId == WellKnownProviders.UserManual))
+            return;
+
+        conn.Execute("""
+            INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
+            VALUES (@Id, 'user_manual', '1.0', 1);
+            """,
+            new { Id = WellKnownProviders.UserManual.ToString() },
+            transaction: tx);
     }
 
     /// <inheritdoc/>
