@@ -1,6 +1,6 @@
 ---
 title: "How to Add Media to Your Library"
-summary: "Use watch folders, imports, and supported formats to bring media into Tuvima Library cleanly."
+summary: "Use configured folders, scans, and supported formats to bring media into Tuvima Library cleanly."
 audience: "user"
 category: "guide"
 product_area: "library"
@@ -12,132 +12,73 @@ tags:
 
 # How to Add Media to Your Library
 
-This guide walks you through getting media files into Tuvima Library, whether you are adding one new file or importing a large existing collection.
+Tuvima Library brings files in through configured folders. You can leave a folder watched for ongoing additions, or use scans to import existing files in batches.
 
----
+## Choose A Folder Strategy
 
-## The two intake modes
+**Watch folder workflow** is best for day-to-day use. Put new files in the watched folder and Tuvima picks them up automatically or during the next scan.
 
-Tuvima Library offers two ways to bring files in:
+**Batch import workflow** is best for an existing collection. Point Tuvima at a folder, scan it, and work through any review items before adding more.
 
-**Watch mode** monitors a folder continuously. When a new file appears, the Engine picks it up and processes it automatically.
+For large existing libraries, start with one media lane at a time. It is easier to tune providers and review rules with a smaller batch.
 
-**Import mode** performs a one-time scan of an existing folder. Use this when you already have a collection on disk and want to ingest it in bulk.
-
-Many people use both: import the existing collection once, then leave watch mode enabled for future additions.
-
----
-
-## Setting up a Library Folder
+## Configure Folders
 
 1. Open the Dashboard at `http://localhost:5016`.
-2. Go to **Settings -> Library -> Library Folders**.
-3. Click **Add Folder**.
-4. Fill in:
-   - **Source path**: the folder to watch or import
-   - **Library root**: where organised files should live
-   - **Category**: Books, Movies, TV, Music, or Comics
-   - **Media types**: the file types you expect in that folder
-   - **Watch mode**: on for continuous monitoring, off for one-time import
-5. Click **Save**.
+2. Go to **Settings > Library Operations > Libraries**.
+3. Set the Watch Folder and Library Root.
+4. Confirm path checks show the Engine can read and write where required.
+5. Save the settings.
+6. Run **Scan saved watch folder** or return to **Settings > Setup** and use **Scan Now**.
 
-You can add as many folders as you need.
+Open **Settings > Library Operations > Ingestion** to monitor progress.
 
----
+## Supported Formats
 
-## Supported file formats
+| Lane | Media | Formats |
+|---|---|---|
+| Read | Books | EPUB, PDF |
+| Read | Comics | CBZ, CBR |
+| Watch | Movies | MKV, MP4, M4V, WEBM, AVI |
+| Watch | TV | MKV, MP4, M4V, WEBM, AVI |
+| Listen | Music | FLAC, MP3, AAC, M4A, OGG, WAV |
+| Listen | Audiobooks | M4B, MP3, M4A |
 
-| Library type | Formats |
-|---|---|
-| Books | EPUB, PDF |
-| Audiobooks | M4B, MP3 |
-| Movies | MKV, MP4, AVI, MOV |
-| TV | MKV, MP4 |
-| Music | FLAC, MP3, AAC, M4A, OGG |
-| Comics | CBZ, CBR, PDF |
+MP3, M4A, MP4, MKV, AVI, and WEBM can be ambiguous. Tuvima uses folder context, embedded metadata, filename patterns, and classification logic to decide whether a file is music, audiobook, movie, or TV. If it cannot decide safely, the item goes to Review Queue.
 
-> **MP3 and MP4 can be ambiguous.** The Engine uses file metadata, folder hints, and classification logic to decide whether a file is music, audiobook, movie, or TV. If it guesses wrong, you can correct it in the current media surfaces.
+## What Happens When A File Arrives
 
----
+1. **Settle:** wait for file activity to stop.
+2. **Fingerprint:** compute a stable identity for duplicate detection.
+3. **Scan:** read embedded metadata and artwork.
+4. **Classify:** resolve media type where needed.
+5. **Stage:** register the file safely before promotion.
+6. **Hydrate:** call configured providers for metadata and bridge IDs.
+7. **Resolve Wikidata:** use bridge IDs for canonical identity when possible.
+8. **Settle artwork:** decide whether artwork is present, missing, or still pending.
+9. **Surface:** show the item only where it is ready and backed by real data.
 
-## What happens when a file arrives
+## When Items Become Visible
 
-When the Engine finds a new file, it runs it through several stages automatically.
+Home, Read, Watch, Listen, Collections, and Search show items that pass the browse readiness gate:
 
-1. **Settle**: waits for the file to finish copying
-2. **Fingerprint**: computes a SHA-256 identity for duplicate detection and resilient tracking
-3. **Scan**: reads embedded metadata such as title, author, year, cover art, narrator, and series
-4. **Classify**: resolves ambiguous media types when needed
-5. **Stage**: moves the file into the safe staging area on disk
-6. **Hydrate**: Stage 1 queries retail providers for cover art, descriptions, ratings, and bridge IDs; Stage 2 uses those IDs to resolve a Wikidata identity when possible
-7. **Settle artwork and readiness**: the system decides whether the item has present art, missing art, or still-pending art
-8. **Surface and promote**: main browse surfaces visibility and final filesystem promotion are separate decisions
-
-Two details matter here:
-
-- An item can be known to the system before it is visible in the main browse surfaces
-- An item can be visible in the main browse surfaces before or after final promotion into the organised library structure
-
----
-
-## When an item appears in the main browse surfaces
-
-The main browse surfaces only shows an item after it passes the browse readiness gate:
-
-- real title
+- non-placeholder title
 - resolved media type
 - settled artwork outcome
 
-If that gate is not satisfied yet, the item remains visible in Activity, Review, or the Review Queue instead of appearing early in the main browse surfaces.
+Items that do not pass stay visible in operational surfaces such as Ingestion, Activity, or Review Queue.
 
----
+## Tips For Better Matches
 
-## How the organised library is laid out
-
-Once a file is promoted, it is placed into a folder structure inside your Library root. The exact layout depends on media type.
-
-| Media type | Example path |
-|---|---|
-| Books | `Library/Books/Frank Herbert/Dune/Dune.epub` |
-| Audiobooks | `Library/Audiobooks/Frank Herbert/Dune/Dune.m4b` |
-| Movies | `Library/Movies/Dune (2021)/Dune (2021).mkv` |
-| TV | `Library/TV/Dune Prophecy/Season 01/S01E01 - The Hidden Hand.mkv` |
-| Music | `Library/Music/Hans Zimmer/Dune (Original Motion Picture Soundtrack)/01 - Dream Is a Collapsing Map.flac` |
-| Comics | `Library/Comics/Dune/Dune House Atreides #01.cbz` |
-
-The Engine handles the renaming and movement for you.
-
----
-
-## Importing an existing collection
-
-If you already have a large library on disk:
-
-1. Add the folder in **Settings -> Library -> Library Folders**.
-2. Leave **Watch mode** off unless you also want future monitoring.
-3. Click **Import Now** on that folder.
-4. Watch progress in the Dashboard while the Engine processes the files in the background.
-
-During a large import, some items will first appear in Activity, Review, or the Review Queue before they are ready for the main browse surfaces. That is expected.
-
----
-
-## Tips for best results
-
-**Embedded metadata helps a lot.** Accurate titles, creators, and IDs such as ISBN or TMDB ID make good matches much easier.
-
-**File naming matters less than you might think.** The Engine prefers what is inside the file over the filename when possible.
-
-**Embedded covers are preserved.** The system may download better cover art, but it keeps track of the original artwork too.
-
-**Duplicates are handled gracefully.** The fingerprint lets the Engine recognise the same file and avoid cluttering the library with accidental duplicates.
-
-**Progress is live.** You can watch items move through the pipeline in real time.
+- Keep embedded metadata when possible.
+- Include identifiers such as ISBN, ASIN, TMDB ID, MusicBrainz ID, or Comic Vine ID when your tools support them.
+- Put mixed file types in folders with clear intent.
+- Use provider credentials for services that require them.
+- Start with small batches and resolve review items before importing thousands of files.
 
 ## Related
 
 - [Your First Library](../tutorials/first-library.md)
-- [How File Ingestion Works](../explanation/how-ingestion-works.md)
-- [How the Entire Pipeline Works](../explanation/how-the-pipeline-works.md)
 - [Supported Media Types and Formats](../reference/media-types.md)
-
+- [How File Ingestion Works](../explanation/how-ingestion-works.md)
+- [Troubleshooting](troubleshooting.md)

@@ -207,7 +207,7 @@ In plain English:
 2. The ingestion layer notices it, waits for file activity to settle, and makes sure it is not a duplicate.
 3. File processors inspect the file itself and extract whatever metadata is already available.
 4. Intelligence services decide the best current title/author/type values from the claims gathered so far.
-5. Retail Identification (Stage 1) searches commercial catalogues for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). If no retail provider matches, the item goes to review â€” Wikidata is never attempted.
+5. Retail Identification (Stage 1) searches commercial catalogues for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). If no retail provider matches, the item goes to review - Wikidata is never attempted.
 6. Wikidata Bridge Resolution (Stage 2) uses bridge IDs from Stage 1 to find the canonical Wikidata entity (QID). This provides universe linkage, person relationships, and canonical metadata. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking.
 7. Storage writes the results into SQLite and caches supporting data for fast reads later.
 8. Organization and write-back services can move files into the library structure and write metadata back into the files.

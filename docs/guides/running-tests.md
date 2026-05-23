@@ -100,7 +100,7 @@ dotnet test --collect:"XPlat Code Coverage"
 
 Coverage reports land in `tests/*/TestResults/`.
 
-### Phase 4 guardrail suites
+### Dashboard guardrail suites
 
 These tests are intentionally about preventing regressions, not only checking one feature:
 
@@ -355,7 +355,7 @@ New Dashboard code goes into the correct slice of `src/MediaEngine.Web/`:
 | Dashboard data shape | `Models/ViewDTOs/` |
 | Reusable component | `Components/<FeatureName>/` |
 | Full page (routed) | `Components/Pages/` |
-| media library sub-component | `Components/media library/` |
+| Browse/detail sub-component | `Components/Browse/`, `Components/Library/`, `Components/LibraryItems/`, or the feature-specific folder |
 | Settings tab | `Components/Settings/{GroupName}Tab.razor` |
 
 ### Config files

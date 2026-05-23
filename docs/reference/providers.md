@@ -33,12 +33,12 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 
 | Provider | Media Types | Auth Required | Rate Limit | Language Strategy | Status |
 |---|---|---|---|---|---|
-| Apple API | Books, Audiobooks | None | 500ms throttle | Localized (user language) | Active |
+| Apple API | Books, Audiobooks, Music | None | 500ms throttle | Localized (user language) | Active |
 | TMDB | Movies, TV | Bearer token | 250ms, max 2 concurrent | Localized (user language) | Active (requires key) |
 | MusicBrainz | Music | None | 1100ms, max 1 concurrent | Source (English only) | Active |
 | Metron | Comics | Basic auth | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
 | Open Library | Books | None | 500ms | Source (English only) | Disabled (config kept) |
-| Google Books | Books | API key (query param) | 200ms | Localized | Removed |
+| Google Books | Books | API key (query param) | 200ms | Localized | Disabled (config kept) |
 
 ---
 
@@ -248,4 +248,3 @@ See `config/providers/` for complete examples of each provider.
 - [How to Configure Metadata Providers](../guides/configuring-providers.md)
 - [How to Add a New Metadata Provider](../guides/adding-a-provider.md)
 - [How Two-Stage Enrichment Works](../explanation/how-hydration-works.md)
-

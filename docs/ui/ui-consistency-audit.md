@@ -1,3 +1,12 @@
+---
+title: "UI Consistency Audit"
+summary: "Internal audit of Dashboard UI consistency, route behavior, styling, and interaction polish."
+audience: "designer"
+category: "reference"
+product_area: "dashboard"
+status: "internal"
+---
+
 # Tuvima Library UI Consistency Audit
 
 Date: 2026-04-26

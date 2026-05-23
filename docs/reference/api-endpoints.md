@@ -67,11 +67,11 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 ---
 
-## media library
+## Library Overview
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/media library/overview` | Aggregated media library health and readiness view, including `hidden_by_quality_gate`, `art_pending`, `retail_needs_review`, `qid_no_match`, and `completed_with_art` | Required |
+| GET | `/library/overview` | Aggregated library health and readiness view, including `hidden_by_quality_gate`, `art_pending`, `retail_needs_review`, `qid_no_match`, and `completed_with_art` | Required |
 
 ---
 
@@ -321,15 +321,16 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 ---
 
-## media library
+## Library Character and Asset Data
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/media library/characters/{id}/portraits` | Portrait images for a fictional character | Required |
-| GET | `/media library/persons/{id}/character-roles` | Characters a person has performed, linked to works | Required |
-| GET | `/media library/universes/{qid}/characters` | All characters in a universe | Required |
-| GET | `/media library/assets/{entityId}` | Shared assets for an entity (Cover Art, Headshot, Banner, Logo, Backdrop) | Required |
-| POST | `/media library/enrichment/universe/trigger` | Trigger universe enrichment for a specific QID | Curator |
+| GET | `/library/characters/{id}/portraits` | Portrait images for a fictional character | Required |
+| PUT | `/library/characters/{id}/portraits/{portraitId}/default` | Set the default portrait for a fictional character | Curator |
+| GET | `/library/persons/{id}/character-roles` | Characters a person has performed, linked to works | Required |
+| GET | `/library/universes/{qid}/characters` | All characters in a universe | Required |
+| GET | `/library/assets/{entityId}` | Shared assets for an entity (Cover Art, Headshot, Banner, Logo, Backdrop) | Required |
+| POST | `/library/enrichment/universe/trigger` | Trigger universe enrichment for a specific QID | Curator |
 
 ---
 

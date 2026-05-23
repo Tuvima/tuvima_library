@@ -1,6 +1,6 @@
 ---
 title: "Getting Started"
-summary: "Install Tuvima Library, create your local configuration, and launch the Engine and Dashboard for the first time."
+summary: "Install Tuvima Library, launch the local Engine and Dashboard, and run the first setup checks."
 audience: "user"
 category: "tutorial"
 product_area: "setup"
@@ -12,155 +12,132 @@ tags:
 
 # Getting Started
 
-This tutorial walks you through installing and running Tuvima Library for the first time. By the end, you will have the Engine and Dashboard running on your machine, ready to receive your media.
+This tutorial gets Tuvima Library running locally. By the end, the Engine and Dashboard will be ready for your first library scan.
 
-**Time required:** 15 - 30 minutes (plus download time for AI models on first startup).
+**Time required:** 15-30 minutes, plus optional model download time for Local AI.
 
----
+## Before You Begin
 
-## Before you begin
+You need:
 
-You will need:
+- [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download)
+- A local copy of the repository
+- About 10 GB free disk space if you plan to use Local AI models
+- Optional provider credentials for services that require keys, such as TMDB, Metron, Fanart.tv, or OpenSubtitles
 
-- **.NET 10 SDK** - download from [dot.net](https://dotnet.microsoft.com/en-us/download). Run `dotnet --version` to confirm it is installed. You need version 10.0 or later.
-- **10 GB of free disk space** - about 9 GB is used by the local AI models that download on first startup. The rest is for your library data.
-- A copy of the Tuvima Library source code (see step 1 below).
-
----
-
-## Step 1 - Get the code
-
-Open a terminal and clone the repository:
+Confirm the SDK:
 
 ```bash
-git clone https://github.com/shyfaruqi/tuvima-library.git
-cd tuvima-library
+dotnet --version
 ```
 
----
+The required SDK version is also listed in `global.json`.
 
-## Step 2 - Create your local configuration
-
-The repository includes all configuration files directly in the `config/` directory. You only need to add secret files for any providers that require API keys:
+## Step 1 - Get The Code
 
 ```bash
-# Create secret files for any providers that require API keys
-# e.g. config/secrets/tmdb.json with {"api_key": "your-key"}
+git clone https://github.com/Tuvima/tuvima_library.git
+cd tuvima_library
+dotnet restore MediaEngine.slnx
 ```
 
-Provider secrets go in `config/secrets/` which is never committed to version control, so your keys stay private.
+This repository uses normal .NET restore. It does not use npm or yarn for application startup.
 
----
+## Step 2 - Review Configuration
 
-## Step 3 - Set your data paths
+Configuration lives under `config/`. The most important first-run files are:
 
-Open `config/core.json` in any text editor. You will see something like this:
+- `config/core.json` - data root, database path, server name, language, and library root defaults
+- `config/libraries.json` - watched/imported library folders
+- `config/providers/*.json` - provider configuration
+- `config/secrets/` - provider credentials; this folder is ignored by git
+- `config/ai.json` - Local AI models, feature flags, vocabulary, and schedules
 
-```json
-{
-  "database_path": ".data/database/library.db",
-  "data_root": ".data"
-}
-```
+If you have provider keys, place them under `config/secrets/` rather than committing them to normal config files.
 
-- **`database_path`** - where Tuvima Library stores its data store. The default (`.data/database/library.db`) keeps it inside the project folder. You can change this to any path on your machine.
-- **`data_root`** - the root directory for all internally managed files: cover art, staging files, and generated thumbnails. The default keeps everything under `.data/` inside the project folder.
+## Step 3 - Start The Engine
 
-If you are happy with the defaults, you do not need to change anything. If you want your data store or images on a different drive, update these paths now.
-
-Save the file when you are done.
-
----
-
-## Step 4 - Start the Engine
-
-The Engine is the intelligence layer - it watches your folders, processes files, and manages your library data.
-
-Open a terminal window and run:
+Open a terminal from the repository root:
 
 ```bash
 dotnet run --project src/MediaEngine.Api
 ```
 
-The first time you start the Engine, several things happen automatically:
+Wait until you see:
 
-- **Hardware/resource check** - the Engine reports local runtime status when available.
-- **Local AI status** - the Dashboard reads AI health, model inventory, hardware profile, resource usage, and enrichment progress from the Engine. Supported model actions are real; unavailable actions are hidden or labelled.
-- **File watcher starts** - once the Engine is running, it is ready to watch folders for new media.
-
-You will see a line like this when the Engine is ready:
-
-```
+```text
 Now listening on: http://localhost:61495
 ```
 
-Leave this terminal window open.
+Leave this terminal open. The Engine owns ingestion, storage, provider calls, Local AI, background jobs, and the HTTP/SignalR APIs.
 
----
+## Step 4 - Start The Dashboard
 
-## Step 5 - Start the Dashboard
-
-The Dashboard is the browser interface. It asks the Engine for data and displays it.
-
-Open a second terminal window and run:
+Open a second terminal from the repository root:
 
 ```bash
 dotnet run --project src/MediaEngine.Web
 ```
 
-You will see:
+Wait until you see:
 
-```
+```text
 Now listening on: http://localhost:5016
 ```
 
-Leave this terminal window open too.
+Open:
 
----
-
-## Step 6 - Open the Dashboard
-
-Open your browser and go to:
-
-```
+```text
 http://localhost:5016
 ```
 
-For Phase 0 builds, open **Settings > Setup**. The setup checklist shows Engine connection, folder readiness, provider readiness, optional Local AI status, scan state, and pending Review Queue work. The full First-Run Wizard is planned for a later phase and is not currently implemented.
+If your Engine runs on a different URL, set `TUVIMA_ENGINE_URL` before starting the Dashboard.
 
-Configure folders in Settings, then use **Scan Now** from the checklist when the Engine and folders are ready.
+## Step 5 - Run The Setup Checklist
 
----
+In the Dashboard, open **Settings > Setup**.
 
-## What to do next
+The checklist verifies:
 
-Now that Tuvima Library is running, add your media:
+- Engine connection
+- folder readiness
+- provider readiness
+- optional Local AI status
+- scan state
+- pending Review Queue work
 
-- [Your First Library](first-library.md) - Add a watch folder and see your files appear in the Dashboard.
+This is the current first-run path. A richer guided wizard is still outstanding, so the checklist is intentionally honest about partial or unavailable areas.
 
----
+## Step 6 - Configure Folders And Scan
 
-## Docker alternative
+Open **Settings > Library Operations > Libraries**.
 
-If you prefer to run Tuvima Library in a container rather than installing .NET directly, a `docker-compose.yml` is provided at the root of the repository.
+Confirm:
+
+- Watch Folder
+- Library Root
+- organization template
+- path read/write checks
+
+Save changes, then run **Scan Now** from Setup or **Scan saved watch folder** from Libraries. Open **Settings > Library Operations > Ingestion** to watch progress.
+
+## Docker Alternative
+
+Docker support exists for local/containerized runs:
 
 ```bash
 docker compose up
 ```
 
-This starts both the Engine and Dashboard in containers. The Dashboard is accessible at `http://localhost:5016` and the Engine at `http://localhost:61495`. Configuration and data directories are mounted from your machine as volumes - edit `docker-compose.yml` to point them at the right paths before starting.
+Edit `docker-compose.yml` before starting if you need different config, data, or media paths. The Dashboard is exposed at `http://localhost:5016` and the Engine at `http://localhost:61495` by default.
 
-Note: Local AI model downloads store files in the configured local model directory. Download URLs retrieve model files only; inference remains local and no telemetry is sent.
+## Stopping Tuvima
 
----
+Press `Ctrl+C` in each terminal. Library data is stored automatically in SQLite; there is no manual save step.
 
-## Stopping Tuvima Library
-
-Press `Ctrl+C` in each terminal window to stop the Engine and Dashboard. Your library data is saved to the data store automatically - there is nothing to manually save.
-
-## Related
+## Next Steps
 
 - [Your First Library](first-library.md)
-- [How to Configure Metadata Providers](../guides/configuring-providers.md)
-- [Configuration Reference](../reference/configuration.md)
-
+- [Configure Providers](../guides/configuring-providers.md)
+- [Troubleshooting](../guides/troubleshooting.md)
+- [Product Status](../product/status.md)

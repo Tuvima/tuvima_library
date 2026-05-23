@@ -1,3 +1,12 @@
+---
+title: "OpenAPI Migration Plan"
+summary: "Internal migration notes for keeping Engine API documentation current as OpenAPI tooling changes."
+audience: "developer"
+category: "architecture"
+product_area: "api"
+status: "internal"
+---
+
 # OpenAPI Migration Plan
 
 ## Current State

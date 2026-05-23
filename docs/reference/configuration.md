@@ -34,7 +34,7 @@ Core Engine settings. Restart required for changes to take effect.
 | `language.display` | string | `"en"` | UI display language (BCP-47 code). Controls Dashboard localization. |
 | `language.metadata` | string | `"en"` | Language used for provider queries (titles, descriptions). |
 | `language.additional` | string[] | `[]` | Additional content languages accepted (BCP-47 codes). |
-| `language.accept_any` | bool | `true` | When true, files in any language are accepted without review. When false, language mismatches trigger an amber banner in the current media surfaces. |
+| `language.accept_any` | bool | `true` | When true, files in any language are accepted without review. When false, language mismatches trigger a visible warning on Dashboard browse and detail surfaces. |
 | `country` | string | `"US"` | Country code. Used by providers that return region-specific data (e.g., Apple API storefronts). |
 | `date_format` | string | `"system"` | Date display format. `"system"` uses the OS locale. Accepts standard format strings. |
 | `time_format` | string | `"system"` | Time display format. `"system"` uses the OS locale. |
@@ -315,4 +315,3 @@ Per-user UI preference overrides. Stored server-side and merged into the resolve
 - [How to Set Up Language Preferences](../guides/language-setup.md)
 - [Developer Setup](../tutorials/dev-setup.md)
 - [Wikidata Property Map](wikidata-property-map.md)
-

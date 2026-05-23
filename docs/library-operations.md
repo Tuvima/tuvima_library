@@ -56,7 +56,7 @@ The component disposes its polling cancellation token and SignalR state subscrip
 Configured folders are grouped by user intent:
 
 - **Watch**: Movies and TV Shows
-- **Listen**: Music, Audiobooks, and Podcasts
+- **Listen**: Music and audiobooks
 - **Read**: Books and Comics
 
 Each logical library can contain multiple source paths through `source_paths` in `config/libraries.json`. The UI renders every path as its own row with item count, unresolved count, last scan, scan mode, purpose, reachability, and permission status.

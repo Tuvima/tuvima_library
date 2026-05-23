@@ -1,3 +1,12 @@
+---
+title: "Tuvima.Wikidata Improvement Proposals"
+summary: "Target-state proposal notes for future improvements to the Tuvima.Wikidata library."
+audience: "developer"
+category: "proposal"
+product_area: "providers"
+status: "target-state"
+---
+
 # Tuvima.Wikidata Library - Improvement Proposals
 
 **Version:** v1.0.0 target
@@ -385,4 +394,3 @@ Properties referenced in this document:
 | Q7725634 | literary work | Filtering books within a series |
 | Q482994 | album | Filtering albums |
 | Q105543609 | musical work/composition | Filtering tracks |
-

@@ -1,3 +1,15 @@
+---
+title: "Tuvima Design System"
+summary: "Visual, voice, and interaction guidance for the Tuvima Library Dashboard and reader surfaces."
+audience: "designer"
+category: "reference"
+product_area: "design"
+tags:
+  - "design-system"
+  - "dashboard"
+  - "reader"
+---
+
 # Tuvima Design System
 
 Design system for **Tuvima Library** - a unified media intelligence platform that organizes books, audiobooks, movies, TV, music, and comics by story rather than by file type. The visual language is **cinematic, minimalist, dark-only**, built around deep-navy surfaces, glassmorphic panels, and a single golden amber accent.
@@ -34,7 +46,7 @@ The voice is **warm, literary, and a little reverent** - it treats a media colle
 **Casing**
 - **Sentence case** for body copy, descriptions, toast messages, and menu items ("Resolving reviews", "Adding media").
 - **Title Case** for page titles, tab labels, section headings, and CTAs ("Continue Your Journey", "Recently Added", "Review Queue").
-- Proper nouns are capitalized and capitalized consistently: **Library**, **Universe**, **Series**, **Work**, **Edition**, **Media Asset**, **Review Queue**, **Review Queue**, **Engine**, **Dashboard**, **Chronicle**.
+- Proper nouns are capitalized consistently: **Library**, **Universe**, **Series**, **Work**, **Edition**, **Media Asset**, **Review Queue**, **Engine**, **Dashboard**, **Read**, **Watch**, **Listen**, and **Collections**.
 
 **Person**
 - Default to **you** ("Drop your files into a folder", "Your Dune ebook lives here"). Never "users".
@@ -140,8 +152,7 @@ UI kits:
 
 ## Current Dashboard/Product UI Model
 
-Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
 
-Design changes must preserve the Phase 4 quality gates: no retired Vault/LibraryPage workflow, no Vault navigation label, and media correction controls should launch the shared editor instead of creating a separate management surface.
-
+Design changes must preserve the current quality gates: no retired Vault/LibraryPage workflow, no Vault navigation label, and media correction controls should launch the shared editor instead of creating a separate management surface.
 

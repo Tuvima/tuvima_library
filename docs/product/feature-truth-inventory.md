@@ -1,6 +1,18 @@
+---
+title: "Feature Truth Inventory"
+summary: "Detailed implementation truth table for current Dashboard and Engine capabilities."
+audience: "operator"
+category: "reference"
+product_area: "product"
+tags:
+  - "status"
+  - "truth"
+  - "early-access"
+---
+
 # Feature Truth Inventory
 
-Phase 0 records what visible product areas can honestly do today. The goal is to keep the current Dashboard model stable: Home, Read, Watch, Listen, Search, detail pages, Review Queue, and Settings/Admin. Deprecated Vault workflows remain removed and must not return as active product behavior.
+This inventory records what visible product areas can honestly do today. The goal is to keep the current Dashboard model stable: Home, Read, Watch, Listen, Collections, Search, detail pages, Review Queue, and Settings/Admin. Deprecated Vault workflows remain removed and must not return as active product behavior.
 
 Status labels:
 
@@ -16,15 +28,15 @@ Status labels:
 
 | Area | Current status | What works | What does not work | Settings persist | Engine/API support | Visible now | Recommended next phase |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Home / discovery | Partial | Renders Engine display data when available and shows setup-oriented empty states. | Discovery quality depends on available library data and Engine availability. | Not a settings surface. | Yes, through display APIs. | Yes. | Stabilize during Phase 1/2 as real libraries are configured and ingested. |
-| Read lane | Partial | Browse lane shell and reading surfaces render with Engine display data. | Completeness depends on ingestion and metadata quality. | Playback/reading preferences persist through the playback settings API. | Yes, partial display and playback APIs. | Yes. | Improve data completeness after Phase 2 ingestion work. |
-| Watch lane | Partial | Browse and player routes exist and use current display/playback contracts. | Advanced playback and delivery controls are not complete. | Personal playback preferences persist; delivery settings do not. | Partial. | Yes. | Delivery and playback expansion belongs after Phase 0. |
+| Home / discovery | Partial | Renders Engine display data when available and shows setup-oriented empty states. | Discovery quality depends on available library data and Engine availability. | Not a settings surface. | Yes, through display APIs. | Yes. | Stabilize as real libraries are configured and ingested. |
+| Read lane | Partial | Browse lane shell and reading surfaces render with Engine display data. | Completeness depends on ingestion and metadata quality. | Playback/reading preferences persist through the playback settings API. | Yes, partial display and playback APIs. | Yes. | Improve data completeness after ingestion work. |
+| Watch lane | Partial | Browse and player routes exist and use current display/playback contracts. | Advanced playback and delivery controls are not complete. | Personal playback preferences persist; delivery settings do not. | Partial. | Yes. | Delivery and playback expansion belongs to later playback/delivery work. |
 | Listen lane | Partial | Music browse shell, quick access, playlists, and playback host render. | Advanced playlist editing and playback behavior remain limited. | Personal playback preferences persist. | Partial. | Yes. | Expand only after product truth baseline is stable. |
 | Search | Partial | Cross-library search UI and result rows render. | Result quality depends on indexed library data and Engine availability. | Not a settings surface. | Yes, through search/display contracts. | Yes. | Improve with ingestion/search quality later. |
 | Detail pages | Live | Detail pages render item data and launch the shared editor for inline metadata, artwork, identity, and placement corrections where Engine support exists. | Unsupported fields/actions are capability-gated by editor context and Engine availability. | Yes, through editor, preferences, display override, artwork, canonical, and membership APIs where supported. | Yes. | Yes. | Keep media correction inline without creating a management workbench. |
 | Review Queue | Live | Shows uncertain or blocked items, opens the shared editor in review mode, and resolves only through the Engine review API. | Depends on Engine review data and supported review actions. | Review resolve, dismiss, and skip-universe actions persist through existing review APIs. | Yes. | Yes. | Keep as the exception workflow. |
-| Ingestion | Partial | Shows ingestion operations snapshots and progress when Engine data is available. | Historical depth and action coverage are limited. | Operational actions persist only where API-backed. | Yes, partial. | Yes. | Phase 2 ingestion improvements. |
-| Settings > Setup | Partial | Readiness checks use Engine status, folders, providers, AI profile/resource status, ingestion, and review count when available. | Phase 1 first-run wizard is not implemented. No fake provider or AI readiness should be shown. | No new setup wizard state. | Yes, read-only readiness plus scan trigger. | Yes. | Phase 1 setup checklist/wizard. |
+| Ingestion | Partial | Shows ingestion operations snapshots and progress when Engine data is available. | Historical depth and action coverage are limited. | Operational actions persist only where API-backed. | Yes, partial. | Yes. | Continue ingestion operational improvements. |
+| Settings > Setup | Partial | Readiness checks use Engine status, folders, providers, AI profile/resource status, ingestion, and review count when available. | First-run wizard is not implemented. No fake provider or AI readiness should be shown. | No new setup wizard state. | Yes, read-only readiness plus scan trigger. | Yes. | Setup checklist/wizard. |
 | Settings > Libraries | Live | Folder settings, path checks, configured libraries, read-only/writeback markings, organization template validation, save, and scan action use Engine/config paths. | Multi-library CRUD is not shown as live. Some folder changes may still require rescan/restart depending on watcher state. | Yes where current folder APIs are wired. | Yes. | Yes. | Continue ingestion operational polish without rebuilding Vault. |
 | Settings > Providers | Live | Provider catalogue/status/health, credentials-present state, connection tests, provider config, and pipeline priority load/save through Engine APIs where available. | Adding providers is disabled when live catalogue data is unavailable; no hardcoded fallback appears as saved config. | Yes for provider config and pipelines when Engine is reachable. | Yes, partial health depth. | Yes. | Later provider management refinement. |
 | Settings > Metadata | Partial | Catalog, media type, Wikidata, hydration, and pipeline settings are live where their tabs expose Engine-backed save actions. | Matching/review/universe controls without persistence are disabled and marked not connected/read-only. | Mixed JSON/API-backed behavior. | Partial. | Yes. | Later metadata hardening. |
@@ -39,3 +51,9 @@ Status labels:
 | Direct Play settings | Placeholder | Intended controls are visible for context. | Controls do not persist and do not affect delivery behavior. | No. | No persistence API. | Yes, disabled and labelled not connected. | Future delivery phase. |
 | Subtitle/audio delivery settings | Placeholder | Intended controls are visible for context. | Controls do not persist and do not affect delivery behavior. | No. | No persistence API. | Yes, disabled and labelled not connected. | Future delivery phase. |
 | Vault workflow | Hidden/removed | Historical docs state the old workspace was removed. | No routes, nav labels, CSS, or current behavior should be rebuilt. | Not applicable. | Not applicable. | No. | Keep removed. |
+
+## Related
+
+- [Product Status](status.md)
+- [Dashboard UI Architecture](../architecture/dashboard-ui.md)
+- [Getting Started](../tutorials/getting-started.md)

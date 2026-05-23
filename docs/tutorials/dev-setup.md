@@ -220,7 +220,7 @@ Dashboard code is organised by feature slice, not by technical layer. When addin
 | Dashboard data shape | `Models/ViewDTOs/` |
 | Reusable component | `Components/<FeatureName>/` |
 | Full page (routed) | `Components/Pages/` |
-| media library sub-component | `Components/media library/` |
+| Browse/detail sub-component | `Components/Browse/`, `Components/Library/`, `Components/LibraryItems/`, or the feature-specific folder |
 | Settings tab | `Components/Settings/` |
 
 See `CLAUDE.md` section 6 for the full layout reference.
@@ -247,7 +247,7 @@ The solution sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in `Dire
 
 **Domain entities** live in `src/MediaEngine.Domain/Entities/`. The core hierarchy: `MediaAsset` -> `Edition` -> `Work` -> `Collection` (Series) -> `ParentCollection` (Universe).
 
-**Dashboard components** live in `src/MediaEngine.Web/Components/`. Navigation is in `Components/Navigation/`, media library in `Components/media library/`, Settings in `Components/Settings/`.
+**Dashboard components** live in `src/MediaEngine.Web/Components/`. Navigation is in `Components/Navigation/`, shared browse helpers are in `Components/Browse/`, `Components/Library/`, and `Components/LibraryItems/`, and Settings/Admin tabs are in `Components/Settings/`.
 
 **Background services** live in `src/MediaEngine.Api/Services/`. Long-running services (ingestion watcher, hydration scheduler, AI batch processor) are registered as `IHostedService` implementations.
 
@@ -285,4 +285,3 @@ The build must pass before committing. Run `dotnet build` and `dotnet test` and 
 - [How to Build, Test, and Verify Changes](../guides/running-tests.md)
 - [How to Write a New File Format Processor](../guides/writing-a-processor.md)
 - [How to Add a New Metadata Provider](../guides/adding-a-provider.md)
-

@@ -1,3 +1,12 @@
+---
+title: "API Boundary Debt"
+summary: "Known API boundary cleanup items and migration guidance for moving SQL-heavy endpoint behavior into services."
+audience: "developer"
+category: "architecture"
+product_area: "api"
+status: "internal"
+---
+
 # API Boundary Debt
 
 Wave 7 removed direct database access from `SystemEndpoints.cs` by moving orphan-image reference queries into `OrphanImageReferenceReadService`.

@@ -1,6 +1,13 @@
 ---
 title: "Resolve Review Items"
 summary: "Use Review Queue for media items that need human confirmation before Tuvima can continue."
+audience: "user"
+category: "guide"
+product_area: "review"
+tags:
+  - "review"
+  - "metadata"
+  - "ingestion"
 ---
 
 # Resolve Review Items
@@ -33,6 +40,6 @@ Review uses the same shared editor as inline media editing, but with review-spec
 
 ## What Review Is Not
 
-Review Queue is not a Review Queue, Review Queue, or all-purpose management workbench. It should not be used for routine browsing or normal media fixes. Those fixes belong inline on Read, Watch, Listen, Search, and detail surfaces.
+Review Queue is not the retired all-in-one correction workspace, `LibraryPage`, or an all-purpose management workbench. It should not be used for routine browsing or normal media fixes. Those fixes belong inline on Read, Watch, Listen, Search, and detail surfaces.
 
 

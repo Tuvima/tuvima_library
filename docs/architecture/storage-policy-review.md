@@ -1,3 +1,12 @@
+---
+title: "Storage Policy Review"
+summary: "Review notes for storage ownership, media sidecars, generated assets, and provider cache boundaries."
+audience: "developer"
+category: "architecture"
+product_area: "storage"
+status: "internal"
+---
+
 # Storage Policy Review
 
 ## Goal
@@ -126,4 +135,3 @@ Use `Hybrid` storage mode:
 ## Result
 
 The clean library tree wins by default, but not at the expense of Plex/Jellyfin/Audiobookshelf compatibility. Tuvima-managed artwork and derived artifacts live centrally, while subtitles and user-owned sidecars remain where playback tools actually expect them.
-

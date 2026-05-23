@@ -275,7 +275,7 @@ Phase 3 introduces a small routing layer that decides which Work in the hierarch
 
 ### Dual write during transition
 
-Phase 3c is intentionally **dual-write**: the asset's `metadata_claims` and `canonical_values` rows still receive the full picture (so existing media library library item CTEs and Review Queue queries don't regress), and the parent Work additionally receives an authoritative copy of the `Parent`-scoped fields. Phase 4 will teach readers (library item CTEs, collection rule evaluator, detail drawer queries) to consult the parent Work directly. Phase 5 will retire the asset-side mirror once readers are ported. Phase 6 will run a one-shot backfill that walks every existing asset, computes its lineage, and re-routes historical claims to the right Work rows.
+Phase 3c is intentionally **dual-write**: the asset's `metadata_claims` and `canonical_values` rows still receive the full picture (so existing library item CTEs and Review Queue queries don't regress), and the parent Work additionally receives an authoritative copy of the `Parent`-scoped fields. Later reader updates teach library item CTEs, collection rule evaluator, and detail drawer queries to consult the parent Work directly. A follow-up migration can retire the asset-side mirror once readers are ported and run a one-shot backfill that walks every existing asset, computes its lineage, and re-routes historical claims to the right Work rows.
 
 The parent-side mirror is best-effort: failures are logged at warning level and never break the asset-side write. Movies and single-volume books (where `TargetForParentScope == TargetForSelfScope`) skip the parent pass entirely - the dual write collapses to a single write.
 
@@ -293,4 +293,3 @@ The companion `_qid` suffix is handled automatically - `genre_qid` inherits the 
 - [How the Priority Cascade Works](../explanation/how-scoring-works.md)
 - [Database Schema Reference](../reference/database-schema.md)
 - [How to Resolve Items That Need Review](../guides/resolving-reviews.md)
-

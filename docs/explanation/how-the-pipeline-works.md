@@ -43,7 +43,7 @@ Two important ideas sit underneath the whole design:
 
 ---
 
-## Phase 1: Ingestion
+## Stage 1: Ingestion
 
 The first phase is about making the file safe to work with.
 
@@ -61,7 +61,7 @@ Staging is a safety mechanism, not a user-facing "ready" signal.
 
 ---
 
-## Phase 2: Retail matching
+## Stage 2: Retail matching
 
 Retail is the first identity stage. The Engine queries providers such as Apple, TMDB, MusicBrainz, or comic sources depending on media type.
 
@@ -90,7 +90,7 @@ That stricter Retail stage is what improves match quality.
 
 ---
 
-## Phase 3: Wikidata resolution
+## Stage 3: Wikidata resolution
 
 Wikidata runs after Retail, not in parallel with it.
 
@@ -118,7 +118,7 @@ This is a deliberate precision-preserving choice.
 
 ---
 
-## Phase 4: The metadata cascade
+## Stage 4: The metadata cascade
 
 By this point the Engine may have metadata from:
 
@@ -138,7 +138,7 @@ This lets the system combine the strengths of different sources instead of prete
 
 ---
 
-## Phase 5: Artwork settlement and browse readiness
+## Stage 5: Artwork settlement and browse readiness
 
 The main browse surfaces has its own quality gate.
 
@@ -158,7 +158,7 @@ Items that fail this gate remain visible in **Activity**, **Review**, and the **
 
 ---
 
-## Phase 6: Organisation on disk
+## Stage 6: Organisation on disk
 
 Organisation is a separate decision from browse visibility.
 
@@ -195,7 +195,7 @@ The Review Queue and Review surfaces exist so the system can stop at the right m
 
 ## How the UI represents the pipeline
 
-the current media surfaces now uses the same three stages everywhere:
+The Dashboard uses the same three stages across Home, Read, Watch, Listen, Collections, Search, detail pages, and Review Queue:
 
 | Stage | Meaning |
 |---|---|
@@ -233,5 +233,3 @@ The result is a system that surfaces items a little later, but with much higher 
 - [How the Review Queue Works](../guides/resolving-reviews.md)
 - [Ingestion Pipeline Architecture](../architecture/ingestion-pipeline.md)
 - [Scoring and Cascade Architecture](../architecture/scoring-and-cascade.md)
-
-

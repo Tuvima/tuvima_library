@@ -1,6 +1,6 @@
 # Antigravity ↔ Claude Code — Sync Map
 
-> **Last synced:** 2026-04-10
+> **Last synced:** 2026-05-23
 >
 > **Canonical source of truth:** `CLAUDE.md` (repo root)
 >
@@ -26,7 +26,7 @@
 | `features/METADATA-PRIORITY.md` | §3.6 (Metadata Adapters) | Provider priority, field weights, harvest pipeline |
 | `features/API-SECURITY.md` | §3.3 (Security) | Auth, rate limiting, path traversal, SignalR auth |
 | `features/ROLE-ACCESS-MODEL.md` | §3.3 (Security) | Role-based authorization model |
-| `features/LIBRARY-DASHBOARD.md` | §3.4 (Dashboard UI) | Bento grid, hero tile, home page |
+| `features/LIBRARY-DASHBOARD.md` | §3.11 (Settings), §6 (Dashboard UI) | Current Home, Read, Watch, Listen, Collections, Search, detail pages, inline editing, Review Queue, and Settings/Admin model |
 | `features/SETTINGS-OVERVIEW.md` | §3.8 (Activity Ledger), §3.12 (Device Profiles) | Settings pages, activity timeline, device cascade |
 | `features/REALTIME-INTERCOM.md` | §3.4 (Dashboard UI — Real-time updates) | SignalR events, live dashboard updates |
 | `features/COLLECTION-SYSTEM.md` | §1 (Grouping Model), §3.13 (Universal Parameterized Collection System) | Library/Universe/Series/Work/Edition/MediaAsset hierarchy. Universal parameterized collection model: 6 collection types, rule predicates, hybrid resolution, collection placements, /collections Collections page |

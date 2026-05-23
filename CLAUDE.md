@@ -293,7 +293,7 @@ AI is a core function, not an add-on. Model roles: **text_fast** (on-demand, sma
 
 ### 3.11 — Settings
 
-Settings at `/settings/{Section}` is the Dashboard's operational command centre. It's a two-row tab shell: a primary group-tabs row and a secondary section-tabs row. `SettingsNav` resolves routes and filters visibility by role. Current sections (resolved from `src/MediaEngine.Web/Components/Settings/*Tab.razor`):
+Settings at `/settings/{Section}` is the Dashboard's operational hub. It is a two-row tab shell: a primary group-tabs row and a secondary section-tabs row. `SettingsNav` resolves routes and filters visibility by role. Current sections (resolved from `src/MediaEngine.Web/Components/Settings/*Tab.razor`):
 
 | Group | Sections |
 |---|---|
@@ -316,7 +316,7 @@ The Review Queue is the Engine's safety net for uncertain matches. It lives at `
 
 The queue surfaces items that need human attention: failed retail matches, ambiguous Wikidata candidates, low-confidence matches, missing titles, and items that fell through during enrichment. Review rows can launch the shared editor in review mode, dismiss an item, skip universe matching where supported, or retry/resolve according to existing Engine rules. `PostPipelineService` auto-resolves queue items when a later enrichment pass pushes confidence above threshold.
 
-> **Historical note:** An earlier `/vault` page concept combined browsing, management, and review into one 9-tab surface. That page has been **deprecated**. Browsing now lives on the media surfaces (`/`, `/read`, `/watch`, `/listen`, `/collections`) and review lives inside Settings. Do not add new Vault routes, components, docs, or navigation. Normal media correction belongs inline on media pages and details, using `MediaEditorLauncherService` and `SharedMediaEditorShell`; Review uses the same editor in review mode.
+> **Historical note:** An earlier `/vault` page concept combined browsing, management, and review into one 9-tab surface. That page has been **deprecated**. Browsing now lives on Home, Read, Watch, Listen, Collections, Search, and detail pages; review lives inside Settings/Admin. Do not add new Vault routes, components, docs, or navigation. Normal media correction belongs inline on media pages and details, using `MediaEditorLauncherService` and `SharedMediaEditorShell`; Review uses the same editor in review mode.
 
 ### 3.13 — Universal Parameterized Collection System
 **Detail:** [`docs/architecture/collections.md`](docs/architecture/collections.md)

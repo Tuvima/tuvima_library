@@ -1,5 +1,5 @@
 site_name: Tuvima Library
-site_description: User-first documentation for building, configuring, and understanding Tuvima Library.
+site_description: User and developer documentation for Tuvima Library, the local-first story library.
 site_url: https://tuvima.github.io/tuvima_library/
 repo_url: https://github.com/Tuvima/tuvima_library
 repo_name: Tuvima/tuvima_library
@@ -10,6 +10,24 @@ strict: true
 not_in_nav: |
   /404.md
   /providers.md
+  /settings-architecture.md
+  /architecture/api-boundaries.md
+  /architecture/api-boundary-debt.md
+  /architecture/collections.md
+  /architecture/configuration.md
+  /architecture/display-api.md
+  /architecture/js-interop.md
+  /architecture/localization.md
+  /architecture/openapi-migration.md
+  /architecture/project-boundaries.md
+  /architecture/storage-policy-adr.md
+  /architecture/storage-policy-review.md
+  /design-system/README.md
+  /design-system/SKILL.md
+  /design-system/visual-qa-checklist.md
+  /proposals/wikidata-recon-library-improvements.md
+  /reference/display-api.md
+  /ui/ui-consistency-audit.md
   /design-system/ui_kits/dashboard/README.md
 
 theme:
@@ -66,18 +84,27 @@ extra_css:
 
 nav:
   - Home: index.md
-  - Getting Started: tutorials/getting-started.md
-  - Use Tuvima:
+  - Product:
+      - Product Status: product/status.md
+      - Feature Truth Inventory: product/feature-truth-inventory.md
+      - Privacy and Local-First Behavior: explanation/privacy-local-first.md
+      - Attributions: reference/attributions.md
+  - Getting Started:
+      - Getting Started: tutorials/getting-started.md
       - Your First Library: tutorials/first-library.md
       - Add Media: guides/adding-media.md
-      - Use Plugins: guides/using-plugins.md
+      - Troubleshooting: guides/troubleshooting.md
+  - Use Tuvima:
       - Resolve Review Items: guides/resolving-reviews.md
-      - Understand Universes and Series: explanation/how-universes-work.md
-      - Understand Ingestion: explanation/how-ingestion-works.md
-      - Understand Enrichment: explanation/how-hydration-works.md
-  - Configure:
+      - Configure Providers: guides/configuring-providers.md
       - Language Setup: guides/language-setup.md
-      - Configure Metadata Providers: guides/configuring-providers.md
+      - Use Plugins: guides/using-plugins.md
+      - Understand Universes and Shelves: explanation/how-universes-work.md
+      - Understand Ingestion: explanation/how-ingestion-works.md
+      - Understand Library Operations: library-operations.md
+      - Understand Enrichment: explanation/how-hydration-works.md
+      - Understand Scoring: explanation/how-scoring-works.md
+      - Understand Local AI: explanation/how-ai-works.md
   - Reference:
       - Configuration Reference: reference/configuration.md
       - Providers Reference: reference/providers.md
@@ -87,25 +114,24 @@ nav:
       - Glossary: reference/glossary.md
       - API Endpoints: reference/api-endpoints.md
       - Database Schema: reference/database-schema.md
+      - Wikidata Property Map: reference/wikidata-property-map.md
   - Developer Docs:
+      - Technical Overview: architecture/technical-overview.md
       - Developer Setup: tutorials/dev-setup.md
       - Add a Provider: guides/adding-a-provider.md
       - Write a Processor: guides/writing-a-processor.md
       - Build a Plugin: guides/building-a-plugin.md
       - Run Tests: guides/running-tests.md
   - Architecture:
-      - Product Concepts:
-          - How the Priority Cascade Works: explanation/how-scoring-works.md
-          - How the Local AI Works: explanation/how-ai-works.md
-      - Deep Dives:
-          - Ingestion Pipeline: architecture/ingestion-pipeline.md
-          - Hydration Pipeline and Providers: architecture/hydration-and-providers.md
-          - Priority Cascade Engine: architecture/scoring-and-cascade.md
-          - Dashboard UI Architecture: architecture/dashboard-ui.md
-          - Inline Media Editing: architecture/inline-media-editing.md
-          - Universe Graph: architecture/universe-graph.md
-          - Local AI Integration: architecture/ai-integration.md
-          - Security Architecture: architecture/security.md
+      - Pipeline Overview: explanation/how-the-pipeline-works.md
+      - Ingestion Pipeline: architecture/ingestion-pipeline.md
+      - Hydration Pipeline and Providers: architecture/hydration-and-providers.md
+      - Priority Cascade Engine: architecture/scoring-and-cascade.md
+      - Dashboard UI Architecture: architecture/dashboard-ui.md
+      - Inline Media Editing: architecture/inline-media-editing.md
+      - Universe Graph: architecture/universe-graph.md
+      - Local AI Integration: architecture/ai-integration.md
+      - Performance and Large Libraries: architecture/performance-and-large-libraries.md
+      - Security Architecture: architecture/security.md
       - Future State:
           - Target State: architecture/target-state.md
-

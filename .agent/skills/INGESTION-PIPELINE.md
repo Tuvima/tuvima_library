@@ -94,7 +94,7 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 
 1. **Deleted files are not cleaned up** — `HandleDeletedAsync` only logs. No orphan reconciler.
 2. **FileWatcher error recovery** — non-overflow errors (network disconnect) are swallowed silently.
-3. **Standalone worker host is broken** — missing 6+ Phase 9 DI registrations.
+3. **Standalone worker host is broken** — missing several DI registrations.
 4. **PersonEnriched event has empty name** — known bug in MetadataHarvestingService.
 5. **Work+Edition proliferation** — new chain created per asset, even for same work under same Collection.
 6. **Great Inhale cannot restore from complete wipe** — requires assets to already exist in DB.

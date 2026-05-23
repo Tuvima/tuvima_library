@@ -1,6 +1,6 @@
 ---
 title: "Your First Library"
-summary: "Add a watch folder, ingest your first media, and learn how Tuvima organizes the result."
+summary: "Add a folder, scan media, watch ingestion progress, and understand how Tuvima organizes the result."
 audience: "user"
 category: "tutorial"
 product_area: "library"
@@ -12,149 +12,101 @@ tags:
 
 # Your First Library
 
-This tutorial walks you through adding your first watch folder and seeing your media appear in the Dashboard. By the end, you will understand the journey a file takes from your hard drive to the Library, and you will know how to read the status of each item.
+This tutorial walks through the first practical loop: configure a folder, scan it, watch ingestion, and resolve anything Tuvima cannot identify safely.
 
-**Prerequisites:** Tuvima Library is running (Engine and Dashboard both started). If not, see [Getting Started](getting-started.md) first.
+**Prerequisite:** The Engine and Dashboard are running. If not, start with [Getting Started](getting-started.md).
 
----
+## Step 1 - Open Library Settings
 
-## Step 1 - Open Settings and add a watch folder
+In the Dashboard, open **Settings > Library Operations > Libraries**.
 
-In the Dashboard, click the gear icon in the left dock to open **Settings**, then select **Library Folders** from the sidebar.
+Confirm the current folder settings:
 
-Click **Add Folder**.
+- **Watch Folder** - where new files appear for Tuvima to scan.
+- **Library Root** - where organized files can live after promotion.
+- **Organization template** - the folder/file naming pattern used during organization.
+- **Path checks** - whether the Engine can read and write the configured paths.
 
-You will be asked for:
+Save the settings when they look correct.
 
-- **Folder path** - the full path to the folder on your machine. For example: `/media/books` or `D:\Media\Movies`.
-- **Category** - what kind of media lives here. Choose from: Books, TV, Movies, Music, or Comics. This tells the Engine what to expect and which providers to contact for enrichment.
-- **Media types** - the specific file types to watch for. The Engine suggests sensible defaults based on your category (for example, EPUB and PDF for Books, MKV and MP4 for Movies), but you can adjust these.
+## Step 2 - Add Test Media
 
-Click **Save**. The Engine immediately begins watching this folder.
+Copy a small set of supported files into the Watch Folder. Start with a few known items rather than a huge collection:
 
-> **Tip:** You can add as many folders as you like - one per category, or several folders for the same category. Each folder is watched independently.
+- one EPUB or PDF
+- one movie or TV file
+- one album track or audiobook
+- one comic archive if you use comics
 
----
+Supported formats are listed in [Media Types](../reference/media-types.md).
 
-## Step 2 - What happens when a file appears
+## Step 3 - Start A Scan
 
-The moment the Engine detects a new file in a watched folder, it starts a pipeline. Here is the journey every file takes:
+You can start a scan from either place:
 
-### Settle
+- **Settings > Setup > Scan Now**
+- **Settings > Library Operations > Libraries > Scan saved watch folder**
 
-The Engine waits a few seconds after a file appears before touching it. This prevents it from processing a file that is still being copied or downloaded. Once the file size stops changing, the Engine considers it settled.
+Then open **Settings > Library Operations > Ingestion**.
 
-### Fingerprint
+## Step 4 - Watch The Pipeline
 
-The Engine computes a unique identifier (a SHA-256 fingerprint) for the file. This fingerprint is the file's permanent identity in the Library. If you later rename the file or move it to a different folder, the Engine will recognise it as the same file.
+When a file is discovered, the Engine moves through these broad stages:
 
-### Scan
+1. **Settle** - wait until the file is no longer being copied.
+2. **Fingerprint** - compute a stable file identity for duplicate detection.
+3. **Scan** - read embedded metadata and artwork where possible.
+4. **Classify** - resolve ambiguous formats such as MP3, M4A, MP4, MKV, AVI, or WEBM.
+5. **Identify** - compare file data with known works and provider candidates.
+6. **Retail stage** - gather cover art, descriptions, ratings, and bridge IDs from configured providers.
+7. **Wikidata stage** - use bridge IDs to resolve canonical identity when possible.
+8. **Readiness** - decide whether the item is ready for Home, Read, Watch, Listen, Search, or Collections.
 
-The Engine opens the file and reads the information embedded inside it - title, author, year, cover art, series name, and so on. For books, this means reading the EPUB metadata. For video files, it reads the embedded tags. The quality of this step depends on how well-tagged your files are.
+SignalR updates the Dashboard while ingestion is running, so you should not need to refresh the page.
 
-### Identify
+## Step 5 - Understand Where Items Appear
 
-The Engine compares what it found in the file against its knowledge of known works. It scores possible matches and selects the best one. Weak matches are rejected, mid-confidence matches are sent to review, and only the strongest matches are auto-accepted.
+Items do not appear everywhere immediately.
 
-### Stage
+- **Home** shows discovery and overview shelves returned by the Engine.
+- **Read** shows books and comics.
+- **Watch** shows movies and TV.
+- **Listen** shows music and audiobooks.
+- **Search** finds library items across media lanes.
+- **Collections** shows broader rollups and managed collections when they are backed by real data.
+- **Review Queue** holds items that need human confirmation.
 
-The file is registered and enrichment begins immediately, but the main browse surfaces does not show it yet. Items stay in Activity, Review, and the Review Queue until they have a trustworthy title, a resolved media type, and a settled artwork outcome.
+An item is eligible for browse surfaces only after it has a real title, resolved media type, and settled artwork outcome. Items that are uncertain stay in Review Queue instead of being shown as if they were correct.
 
-### Hydrate
+## Step 6 - Resolve Review Items
 
-Two enrichment stages happen automatically:
+Open **Settings > Review Queue** if the Ingestion dashboard shows items needing attention.
 
-**Stage 1 - Retail providers:** The Engine contacts services like Apple Books, Google Books, and TMDB to gather cover art, descriptions, ratings, and bridge identifiers (such as ISBN or TMDB ID).
+Common reasons include:
 
-**Stage 2 - Wikidata:** Using the bridge identifiers from Stage 1, the Engine contacts Wikidata to fetch the canonical version of the metadata - the authoritative title, author, director, series information, and publication year. Wikidata is the Engine's source of truth for all structured data.
+- no reliable retail match
+- multiple plausible candidates
+- conflicting embedded metadata
+- missing bridge IDs for Wikidata
+- uncertain media type
+- corrupt or unreadable files
 
-### Promote
+Open the item, review the reason, and launch the shared editor. Review changes are applied through Engine APIs and the current surface refreshes after a successful edit.
 
-Once enrichment is complete enough for the browse readiness gate, the item appears in the main browse surfaces. Full organization and browse-page promotion continue separately based on the wider pipeline and library confidence rules.
+## Step 7 - Browse The Result
 
----
+After the readiness gate passes, open:
 
-## Step 3 - Watch your files appear in the current media surfaces
+- **Home** for overview shelves.
+- **Read**, **Watch**, or **Listen** for media-specific browsing.
+- **Search** to find the item by title, creator, album, or other indexed fields.
+- The item's detail page to inspect metadata and make inline corrections.
 
-Click **media library** in the left dock. This is the command centre for everything in your Library.
-
-You will see qualified files appearing as the pipeline settles. Each row shows:
-
-- **Thumbnail** - the cover art (or a placeholder while it is being fetched)
-- **Title and creator** - the best available title and author/director
-- **Universe** - the franchise or creative world this item belongs to (if known)
-- **Pipeline status** - small dots showing which pipeline stages are complete (hover over them for detail)
-- **Status pill** - the current state of this item
-
-Items do not enter the main browse surfaces immediately on file registration anymore. Review-only or still-pending items stay in the Review Queue until they are either ready for the main browse surfaces or explicitly need your intervention.
-
-the current media surfaces updates in real time - you do not need to refresh the page.
-
----
-
-## Step 4 - Understanding status indicators
-
-Every item in the current media surfaces has a status pill that tells you where it stands.
-
-| Status | What it means |
-|---|---|
-| **Verified** | The Engine is confident about this item's identity. It has been matched against Wikidata and enriched with canonical metadata. |
-| **QID Not Found** | Retail matching succeeded, but Stage 2 could not resolve a Wikidata QID. The item may still be visible in the current media surfaces if its title, media type, and artwork state are settled. |
-| **Needs Review** | Something went wrong or the Engine is unsure and wants your input. See below. |
-| **Quarantined** | The file has a problem (corrupt, unreadable, or a type mismatch) and has been set aside. |
-| **Pending** | The item is still moving through the pipeline. |
-
----
-
-## Step 5 - Resolving "Needs Review" items
-
-A **Needs Review** status means the Engine ran into a situation it could not resolve on its own. Common reasons include:
-
-- Two or more Wikidata entries matched equally well and the Engine could not decide between them
-- The file metadata contained conflicting information
-- The media type could not be determined automatically
-- The retail provider returned no results and Wikidata found nothing with sufficient confidence
-
-To resolve a Needs Review item:
-
-1. Click the item's row in the current media surfaces to open the **Detail Drawer** on the right.
-2. Scroll to the **Pipeline** section.
-3. Look at the **Retail** and **Wikidata** stage entries. Each shows the candidates the Engine found, along with match scores.
-4. Pick the correct candidate, or use the manual search to find the right one.
-5. If nothing matches (for example, an obscure self-published title), click **Add Provisional** - this pre-fills a form with the file's own metadata for you to correct and confirm.
-
-Once you resolve an item, the Engine re-runs enrichment with your input. The status updates automatically.
-
-> **Items that are still uncertain are not forced into the main browse surfaces.** They remain visible in Review, Activity, and the Review Queue until they either pass the browse readiness gate or you resolve them manually.
-
-Browsing surfaces only show data that exists in the library. Home can show Continue/Resume, Recently Added, and Read/Watch/Listen shelves when the Engine returns matching data, but it does not invent recommendations, progress, or groupings. Detail pages are the normal place to view media, while the Review Queue remains only for uncertain or blocked items; there is no separate media-management workspace in the current Dashboard.
-
----
-
-## Step 6 - Browse your Library
-
-Once files are promoted, they appear on the **Home** page and on the media lane pages (Books, TV, Movies, and so on).
-
-The **Home** page surfaces personalised swimlanes - recently added items, things the Engine thinks you might like, and smart groupings based on genre, mood, or creator.
-
-The media lane pages (accessible from the left dock) show everything in a given category, organised into swimlanes by Universe, series, genre, or whatever grouping makes sense for that media type.
-
-Click any item to see its detail page, or return to the current media surfaces to manage your collection.
-
----
-
-Current behavior note: Home and the media lanes only show real ingested media, real progress, and real groupings returned by the Engine. Recommendation and AI-driven suggestion shelves are hidden unless they are backed by actual returned data.
-
-## What to do next
-
-- Add more watch folders in Settings -> Library Folders.
-- If you have items stuck in Needs Review, work through them in the current media surfaces.
-- Explore the Settings -> Providers screen to configure which external services the Engine uses for enrichment.
-- Read [How File Ingestion Works](../explanation/how-ingestion-works.md) for a deeper explanation of the decisions the Engine makes along the way.
+Tuvima only shows real data returned by the Engine. Empty shelves, unavailable AI states, and missing provider results are not replaced with fake examples.
 
 ## Related
 
 - [How to Add Media to Your Library](../guides/adding-media.md)
-- [How to Resolve Items That Need Review](../guides/resolving-reviews.md)
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
-
+- [How to Resolve Review Items](../guides/resolving-reviews.md)
+- [Troubleshooting](../guides/troubleshooting.md)

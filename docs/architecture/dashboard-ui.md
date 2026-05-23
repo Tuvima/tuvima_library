@@ -1,6 +1,13 @@
 ---
 title: "Dashboard UI Architecture"
 summary: "Current Dashboard structure, shell responsibilities, media lanes, inline editing, Review Queue, and Settings/Admin scope."
+audience: "developer"
+category: "architecture"
+product_area: "dashboard"
+tags:
+  - "dashboard"
+  - "ui"
+  - "editing"
 ---
 
 # Dashboard UI Architecture

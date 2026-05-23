@@ -171,7 +171,7 @@ ContentGroup collections have additional fields:
 - **`group_by_field`** - the metadata field that defines the group (e.g. `series`, `album`, `show`)
 - **`sort_field`** / **`sort_direction`** - default ordering for items (e.g. episode number ascending, track number ascending)
 
-These collections power the **container views** in the current media surfaces's media tabs. When you switch TV to "By Show" view, the table displays ContentGroup collections filtered to TV. Clicking a container navigates to `MediaGroupPage.razor` with the show's seasons and episodes.
+These collections power the **container views** in the Read, Watch, Listen, and Collections surfaces. When Watch groups TV by show, the table displays ContentGroup collections filtered to TV. Clicking a container opens the group surface with the show's seasons and episodes.
 
 ### ContentGroup by Media Type
 
@@ -360,8 +360,8 @@ Smart collections, Custom collections, and personalised mixes do not appear in t
 ### Where the actions appear
 
 1. **Poster card** - small bookmark/plus icon in the corner (primary action on tap, picker on long-press/right-click). Heart icon separately.
-2. **Item detail page** (library page) - explicit button with label + "Add to other list..." secondary action. Heart icon separately.
-3. **media detail editor** - not present. the current media surfaces is for management, not consumption.
+2. **Item detail page** - explicit button with label + "Add to other list..." secondary action. Heart icon separately.
+3. **Media editor** - not present. Editing metadata is a correction workflow, not a consumption-list workflow.
 
 ---
 
@@ -428,7 +428,7 @@ Each placement record contains:
 | Location | What appears there | Collection types shown |
 |----------|-------------------|----------------|
 | `home` | Personalised dashboard | Mix, Smart (Recently Added), System (shortcuts) |
-| `media_lane_{type}` | Category browsing (e.g. `/books`) | Smart (filtered to media type) |
+| `media_lane_{type}` | Category browsing by lane | Smart (filtered to media type) |
 | `my_library` | Personal collections | System, Playlist |
 | `collections_page` | Collections page (`/collections`) | All types |
 | `read_lane_books`, `watch_lane_video`, `listen_lane_audio` | media lane browse surfaces | ContentGroup (filtered to media type) |
@@ -439,7 +439,7 @@ This model replaces hardcoded rules about where each collection type appears. Ad
 
 ## The Collections Page (`/collections`)
 
-A dedicated page for browsing, creating, and managing all collection types. This replaces the former Collections page - collection management now lives at its own top-level route rather than being buried inside the current media surfaces.
+A dedicated page for browsing and managing cross-library collections. Collection management lives at the top-level `/collections` route rather than inside a separate media-fixing workspace.
 
 ### Page Layout
 
@@ -474,7 +474,7 @@ Click into any collection to see:
 
 ### Navigation
 
-The Collections page is accessible from the LeftDock navigation, positioned between media library and the provider tester. The LeftDock entry uses a collections/grid icon.
+The Collections page is accessible from the primary Dashboard navigation alongside Read, Watch, Listen, and Search. The navigation entry uses the collections/grid icon.
 
 ---
 
@@ -551,15 +551,15 @@ Backfill migration converts existing collections to the new schema, generating `
 
 ---
 
-## Implementation Phases
+## Implementation Stages
 
-| Phase | Scope |
+| Stage | Scope |
 |-------|-------|
-| **Phase 1 - Foundation** | Collection entity changes, migration M-070, `CollectionRuleEvaluator`, predicate model, actions (resolve/preview/field-values) |
-| **Phase 2 - ContentGroup** | Ingestion-time creation in `MediaEntityChainFactory`, browse container views driven by ContentGroup collections |
-| **Phase 3 - Smart Collection Generation** | Template engine, auto-generation from library data, threshold configuration |
-| **Phase 4 - Collections Page & Collection Builder** | `/collections` page, collection builder UI, Custom collection CRUD, placement management |
-| **Phase 5 - Migration** | Collections page removal, navigation updates, existing collection backfill |
+| **Stage 1 - Foundation** | Collection entity changes, migration M-070, `CollectionRuleEvaluator`, predicate model, actions (resolve/preview/field-values) |
+| **Stage 2 - ContentGroup** | Ingestion-time creation in `MediaEntityChainFactory`, browse container views driven by ContentGroup collections |
+| **Stage 3 - Smart Collection Generation** | Template engine, auto-generation from library data, threshold configuration |
+| **Stage 4 - Collections Page & Collection Builder** | `/collections` page, collection builder UI, Custom collection CRUD, placement management |
+| **Stage 5 - Migration** | Collections page removal, navigation updates, existing collection backfill |
 
 ---
 
@@ -567,7 +567,7 @@ Backfill migration converts existing collections to the new schema, generating `
 
 - [How Universes and Series Work](../explanation/how-universes-work.md)
 - [Universe Graph](universe-graph.md)
-- [Settings and media library](dashboard-ui.md)
+- [Dashboard UI Architecture](dashboard-ui.md)
 - [Target State](target-state.md)
 
 ## Wikidata Series Manifests
@@ -575,5 +575,3 @@ Backfill migration converts existing collections to the new schema, generating `
 When a ContentGroup collection has a canonical Wikidata series QID, hydration can attach a factual manifest from Tuvima.Wikidata. The manifest is stored separately from owned Works: owned entries link to local `works`, while missing entries remain lightweight `series_manifest_items` rows with names, QIDs, ordering, parent collection labels, and provenance.
 
 This lets the UI show views such as "owned 2 of 18" for a series without creating fake media assets. For example, an Expanse collection can show owned novels plus missing novels, novellas, and short fiction when Wikidata models them. Manifest warnings indicate Wikidata modeling gaps or local ambiguity; user display overrides may affect presentation, but QID-based manifest facts remain canonical.
-
-

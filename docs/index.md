@@ -1,6 +1,6 @@
 ---
 title: "Tuvima Library Documentation"
-summary: "Start here to install Tuvima Library, build your first library, and find the right documentation path."
+summary: "Start here to install Tuvima Library, understand product status, and choose the right user or developer path."
 audience: "user"
 category: "guide"
 product_area: "docs"
@@ -12,17 +12,17 @@ tags:
 
 <div class="tl-hero" markdown="1">
 
-<span class="tl-kicker">User-first documentation</span>
+<span class="tl-kicker">Early Access documentation</span>
 
 # Tuvima Library Documentation
 
-Build your library, configure enrichment, and understand how Tuvima organizes stories across books, audio, video, comics, and music.
+Tuvima Library is a private, local-first story library. It watches your folders, identifies your media, enriches it with metadata, and presents books, audiobooks, movies, TV, music, and comics as one coherent library.
 
 <div class="tl-actions" markdown="1">
 
 [Get Started](tutorials/getting-started.md){ .md-button .md-button--primary }
-[Build Your First Library](tutorials/first-library.md){ .md-button }
-[Configure Providers](guides/configuring-providers.md){ .md-button }
+[Product Status](product/status.md){ .md-button }
+[Technical Overview](architecture/technical-overview.md){ .md-button }
 
 </div>
 
@@ -36,7 +36,7 @@ Build your library, configure enrichment, and understand how Tuvima organizes st
 
 ### Install and launch
 
-Follow the first-run path for the Engine, Dashboard, configuration files, and local data paths.
+Run the Engine and Dashboard locally, confirm required paths, and open the first setup checklist.
 
 [Open Getting Started](tutorials/getting-started.md)
 
@@ -51,7 +51,7 @@ Follow the first-run path for the Engine, Dashboard, configuration files, and lo
 
 ### Build your first library
 
-Add a watch folder, ingest real media, and see how Universes and Series appear.
+Add folders, scan media, watch ingestion progress, and resolve anything that needs review.
 
 [Open Your First Library](tutorials/first-library.md)
 
@@ -64,24 +64,23 @@ Add a watch folder, ingest real media, and see how Universes and Series appear.
 
 <div class="tl-card" markdown="1">
 
-### Configure the important knobs
+### Know what is ready
 
-Set provider keys, language preferences, and library behavior without digging through unrelated docs.
+Tuvima is Early Access. Check what is live, partial, planned, or intentionally not connected.
 
-[Open Configure Providers](guides/configuring-providers.md)  
-[Open Language Setup](guides/language-setup.md)  
-[Open Configuration Reference](reference/configuration.md)
+[Open Product Status](product/status.md)  
+[Open Feature Truth Inventory](product/feature-truth-inventory.md)
 
 <div class="tl-meta">
-  <span class="tl-pill">Guide</span>
   <span class="tl-pill">Reference</span>
+  <span class="tl-pill">Early Access</span>
 </div>
 
 </div>
 
 </div>
 
-## Browse by Goal
+## Choose Your Path
 
 <div class="tl-card-grid" markdown="1">
 
@@ -90,11 +89,10 @@ Set provider keys, language preferences, and library behavior without digging th
 ### Use Tuvima
 
 - [Add Media to Your Library](guides/adding-media.md)
-- [Use Plugins](guides/using-plugins.md)
 - [Resolve Items That Need Review](guides/resolving-reviews.md)
-- [How the Entire Pipeline Works](explanation/how-the-pipeline-works.md)
-- [How Universes and Series Work](explanation/how-universes-work.md)
-- [How File Ingestion Works](explanation/how-ingestion-works.md)
+- [Troubleshooting](guides/troubleshooting.md)
+- [Privacy and Local-First Behavior](explanation/privacy-local-first.md)
+- [How Universes and Shelves Work](explanation/how-universes-work.md)
 
 </div>
 
@@ -102,10 +100,11 @@ Set provider keys, language preferences, and library behavior without digging th
 
 ### Configure Tuvima
 
-- [How to Configure Metadata Providers](guides/configuring-providers.md)
-- [How to Set Up Language Preferences](guides/language-setup.md)
-- [Providers Reference](reference/providers.md)
+- [Configure Metadata Providers](guides/configuring-providers.md)
+- [Language Setup](guides/language-setup.md)
+- [Supported Media Types](reference/media-types.md)
 - [Configuration Reference](reference/configuration.md)
+- [Providers Reference](reference/providers.md)
 
 </div>
 
@@ -113,30 +112,53 @@ Set provider keys, language preferences, and library behavior without digging th
 
 ### Build on Tuvima
 
+- [Technical Overview](architecture/technical-overview.md)
 - [Developer Setup](tutorials/dev-setup.md)
-- [How to Add a New Metadata Provider](guides/adding-a-provider.md)
-- [How to Write a New File Format Processor](guides/writing-a-processor.md)
-- [How to Build a Plugin](guides/building-a-plugin.md)
-- [How to Build, Test, and Verify Changes](guides/running-tests.md)
+- [Add a Metadata Provider](guides/adding-a-provider.md)
+- [Write a File Processor](guides/writing-a-processor.md)
+- [Run Tests](guides/running-tests.md)
 
 </div>
 
 </div>
+
+## How The Product Fits Together
+
+```text
+Watch folders
+  -> Ingestion
+  -> File processors
+  -> Identity and scoring
+  -> Retail identification
+  -> Wikidata bridge resolution
+  -> SQLite, artwork, organization, write-back
+  -> API and SignalR
+  -> Dashboard
+```
+
+The user-facing Dashboard is organized around current workflows:
+
+- **Home** for discovery and overview.
+- **Read**, **Watch**, and **Listen** for media lanes and shelves.
+- **Collections** for broader rollups that connect multiple shelves or user-managed groupings.
+- **Search** for cross-library discovery.
+- **Detail pages** for viewing items and launching inline corrections.
+- **Review Queue** for blocked or uncertain items.
+- **Settings/Admin** for configuration and operations.
 
 ## Reference and Architecture
 
-The public reference section is optimized for quick lookup. The architecture section is deeper and more technical, and the future-state documents are clearly separated so end users do not land in planning material by accident.
-
-- [Media Types](reference/media-types.md)
-- [Glossary](reference/glossary.md)
 - [Engine API Reference](reference/api-endpoints.md)
 - [Database Schema Reference](reference/database-schema.md)
 - [Wikidata Property Map](reference/wikidata-property-map.md)
-- [Architecture: Product Concepts and Deep Dives](architecture/ingestion-pipeline.md)
+- [How the Pipeline Works](explanation/how-the-pipeline-works.md)
+- [Ingestion Pipeline](architecture/ingestion-pipeline.md)
+- [Hydration Pipeline and Providers](architecture/hydration-and-providers.md)
+- [Priority Cascade Engine](architecture/scoring-and-cascade.md)
+- [Attributions](reference/attributions.md)
 
 ## Related
 
 - [Getting Started](tutorials/getting-started.md)
-- [Your First Library](tutorials/first-library.md)
-- [Configuration Reference](reference/configuration.md)
-
+- [Product Status](product/status.md)
+- [Privacy and Local-First Behavior](explanation/privacy-local-first.md)

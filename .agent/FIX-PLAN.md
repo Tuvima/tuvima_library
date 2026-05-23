@@ -101,7 +101,7 @@ Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValue
 **Effort:** Medium (new UI component + API endpoint for conflicted entities)
 
 ### B-06: Standalone Ingestion worker host is broken — DONE
-**What's wrong:** Missing 6+ dependency registrations from Phase 9. The DI container throws on startup.
+**What's wrong:** Missing several dependency registrations. The DI container throws on startup.
 **Business goal:** Reliability, Extensibility
 **Fix:** Add the missing registrations (`IMetadataClaimRepository`, `ICanonicalValueRepository`, `IMetadataHarvestingService`, `IRecursiveIdentityService`, `ISidecarWriter`, `IMediaEntityChainFactory`, `ICollectionRepository`) to the worker host's `Program.cs`.
 **Effort:** Small (DI registration additions)
@@ -199,12 +199,12 @@ Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValue
 
 ### P-08: Compact List view
 **What's wrong:** Toggle button exists on Home page but list view is not implemented.
-**Fix:** Create a list-style renderer for the Collection collection alongside the existing Bento grid.
+**Fix:** Create a list-style renderer for Collections alongside the existing card/grid presentation.
 **Effort:** Medium
 
 ### P-09: Universe grouping in Dashboard
 **What's wrong:** Universe entity exists in domain but is never surfaced in the UI.
-**Fix:** Group Collection tiles by Universe in the Bento grid. Add a Universe header row.
+**Fix:** Group Collection tiles by Universe in the Collections grid. Add a Universe header row.
 **Effort:** Medium
 
 ### P-10: Event scoping by role
@@ -260,9 +260,9 @@ Phase F — Polish (Tier 4)
 
 ## Current Dashboard/Product UI Model
 
-Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
 
-## Phase 4 Quality Gates
+## Current Quality Gates
 
 - Guardrail tests must keep the retired Vault/LibraryPage workflow out of active routes, navigation, docs, and CSS.
 - Media correction flows must use `MediaEditorLauncherService` and `SharedMediaEditorShell` in Normal, Review, or Batch mode.

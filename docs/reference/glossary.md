@@ -12,145 +12,139 @@ tags:
 
 # Glossary
 
-Reference definitions for common Tuvima Library terms. User-facing names are used where possible. Internal code names appear only when they help connect the docs to the codebase.
+These are the terms used in Tuvima Library documentation. User-facing terms are preferred; internal code names appear only when they help connect the docs to the repository.
 
----
+## A
+
+**Artwork Outcome**  
+Whether artwork is present, missing after an explicit artwork pass, or still pending.
+
+## B
+
+**Browse Readiness Gate**  
+The rule that controls whether an item appears in Home, Read, Watch, Listen, Collections, or Search. The item needs a non-placeholder title, a resolved media type, and a settled artwork outcome.
 
 ## C
 
-**Canonical Value**
+**Canonical Value**  
 The winning metadata value for a field after the Priority Cascade resolves competing claims.
 
-**Claim**
-A single metadata value from a specific source with a confidence score. Claims are append-only and remain available for audit even when they do not win.
+**Claim**  
+A single metadata value from a specific source with confidence and provenance. Claims are append-only so earlier source data can be audited later.
 
-**Collection**
-A broad rollup shown on the Collections page. Collections are reserved for worlds or IPs that connect multiple shelves, such as Dune novels plus Dune films. The codebase also uses `Collection` for historical storage rows, so check context when reading code.
-
----
+**Collection**  
+A broader rollup or user-managed grouping shown on the Collections surface. A Collection should not duplicate a single lane-level shelf. For example, a book series belongs in Read; a wider world that connects novels and films can appear in Collections.
 
 ## D
 
-**Dashboard**
-The web UI (`MediaEngine.Web`) where you browse the library, inspect the current media surfaces, and review ingestion progress.
+**Dashboard**  
+The Blazor Server web UI (`MediaEngine.Web`) used to browse, search, read, play, configure, and review the library.
 
----
+**Detail Page**  
+The page for a work, collection, book, movie, TV show, episode, person, or other supported entity. Detail pages are the normal place to inspect an item and launch inline corrections.
 
 ## E
 
-**Edition**
+**Edition**  
 A specific release or format of a work, such as one ebook edition, one audiobook release, or one film cut.
 
-**Engine**
-The backend application (`MediaEngine.Api`) that runs ingestion, enrichment, storage, and the API used by the Dashboard.
+**Engine**  
+The backend application (`MediaEngine.Api`) that runs ingestion, enrichment, storage, background jobs, Local AI, and the API used by the Dashboard.
 
-**Enrichment**
-Follow-up metadata work that happens after basic identity is settled, such as people links, extra images, relationships, summaries, and other deeper metadata.
-
----
+**Enrichment**  
+Follow-up metadata work after basic identity is known, such as artwork, people, relationships, descriptions, summaries, and universe graph data.
 
 ## H
 
-**Hydration**
-The two-stage identity enrichment process that runs after ingestion. Stage 1 (**Retail**) gathers practical external matches, cover art, descriptions, and bridge IDs. Stage 2 (**Wikidata**) uses those bridge IDs to resolve canonical identity and structured facts.
-
----
+**Hydration**  
+The identity enrichment process after ingestion. Retail providers gather practical matches and bridge IDs; Wikidata resolution uses those IDs to find canonical identity when possible.
 
 ## L
 
-**Library Folder**
-A configured folder in `config/libraries.json` that tells the Engine where to scan, what media types to expect, and whether the folder is watched continuously or imported once.
+**Library Folder**  
+A configured source folder that tells the Engine where to scan, what media types to expect, and how files should be handled.
 
----
+**Local AI**  
+AI features that run on local model files through local runtimes. Local AI helps with classification, matching, summaries, vibe tags, intent parsing, and audio tasks, but it does not become the authority for factual metadata.
 
 ## M
 
-**Media Asset**
-A single file on disk, such as one EPUB, one MKV, or one M4B.
+**Media Asset**  
+A single file on disk, such as one `.epub`, `.mkv`, `.m4b`, `.flac`, or `.cbz`.
 
-**Media Type**
+**Media Lane**  
+One of the main browse surfaces: Read, Watch, or Listen.
+
+**Media Type**  
 The resolved category for a file: Books, Audiobooks, Movies, TV, Music, or Comics.
-
----
 
 ## P
 
-**Priority Cascade**
-The rules that decide which metadata source wins when several disagree. User locks win first, configured field priorities come next, Wikidata is the default authority for canonical structured facts, and highest confidence wins only after those earlier rules are considered.
+**Priority Cascade**  
+The rules that decide which metadata source wins. User locks win first, configured field priorities come next, Wikidata is the default authority for canonical structured facts, and highest confidence wins only after those earlier rules are considered.
 
-**Processor**
-Code that opens a specific file format and extracts embedded metadata from it.
+**Processor**  
+Code that opens a file format and extracts embedded metadata, artwork, and technical facts.
 
-**Provider**
-An external metadata source such as Apple, TMDB, MusicBrainz, Metron, or Wikidata.
-
----
+**Provider**  
+An external metadata source such as Apple, TMDB, MusicBrainz, Metron, Google Books, Open Library, Fanart.tv, or Wikidata.
 
 ## Q
 
-**QID**
-A Wikidata entity identifier such as `Q190804`. A QID is the strongest identity anchor when one can be resolved, but an item can still remain visible in the main browse surfaces without a QID if it passes the browse readiness gate.
+**QID**  
+A Wikidata entity identifier such as `Q190804`. A QID is a strong identity anchor, but an item can still be usable without one if it passes the browse readiness gate.
 
-**QID Not Found**
-A terminal precision-preserving outcome where Retail succeeded but Wikidata could not resolve a trustworthy QID. The item remains marked at the Wikidata stage and may still be usable in the main browse surfaces if title, media type, and artwork are settled.
-
----
+**QID Not Found**  
+A controlled outcome where Retail matching succeeded but Wikidata could not resolve a trustworthy QID. The item keeps its available metadata and may still be visible if it is otherwise ready.
 
 ## R
 
-**Readiness Label**
-The plain-English summary shown in the current media surfaces, such as **Pending artwork**, **Needs review**, or **Ready**.
+**Readiness Label**  
+A plain-English status summary such as Ready, Pending artwork, Needs review, or Engine unavailable.
 
-**Retail**
-The first identity stage. Retail providers search external catalogues, return candidates, and supply the bridge IDs that make Wikidata resolution precise.
+**Retail Stage**  
+The provider stage that searches external catalogues for practical metadata such as covers, descriptions, ratings, and bridge IDs.
 
----
+**Review Queue**  
+The exception workflow for blocked, uncertain, low-confidence, or unresolved items that need human confirmation.
 
 ## S
 
-**Series**
-A lane-level shelf: a grouping of related works such as a book series, film series, TV show, or album. Series appear in Read, Watch, or Listen and do not automatically become Collections.
+**Series**  
+A lane-level shelf, such as a book series in Read, a film series or TV show in Watch, or an album/audio series in Listen.
 
-**Shelf**
-The immediate browse unit inside Read, Watch, or Listen. Examples include a movie series tile in Watch, a book series tile in Read, or an album tile in Listen. One shelf alone does not create a Collections-page rollup.
+**Shelf**  
+An immediate browse group inside a media lane. A single shelf does not automatically create a Collections tile.
 
-**Staging**
-The safe on-disk holding area where files live between ingestion and final organisation. Staging is not the same thing as main browse surfaces visibility; an item can be staged, known to the system, and still hidden from the main browse surfaces until the quality gate is satisfied.
-
----
+**Staging**  
+The safe on-disk and database holding state between file discovery and final organization. Staging is not the same as browse visibility.
 
 ## U
 
-**Universe**
-A franchise-level or world-level grouping above shelves. A Universe becomes visible as a Collection only when it connects multiple shelves; multiple formats of one work do not create a Universe tile by themselves.
-
----
-
-## V
-
-**media library**
-The management surface of the product. the current media surfaces shows stage progress, review state, artwork truth, and readiness. The main browse surfaces only shows items that pass the browse readiness gate.
-
-**browse readiness gate**
-The rule that controls whether an item appears in the main browse surfaces. The item must have a non-placeholder title, a resolved media type, and a settled artwork outcome.
-
----
+**Universe**  
+A larger world or franchise that can connect multiple shelves. Tuvima uses universe-style relationships to decide when a broader Collection is useful.
 
 ## W
 
-**Wikidata**
-The canonical identity and structured-fact authority used after Retail has provided bridge IDs.
+**Wikidata**  
+The canonical identity and structured-fact authority used after provider bridge IDs make resolution precise enough.
 
-**Work**
-A single title independent of format or edition.
+**Work**  
+The underlying title independent of file, edition, or format.
 
-**Writeback**
-The process of writing resolved metadata back into supported file tags after enrichment or user correction.
+**Writeback**  
+Writing resolved metadata back into supported file tags after enrichment or user correction.
+
+## Retired Terms
+
+**Vault**  
+The old all-in-one media management workspace. It is retired and must not be described as current product behavior.
+
+**LibraryPage / LibrarySurfacePreset**  
+Old implementation concepts that should not be reintroduced. Current browse and correction flows use Home, Read, Watch, Listen, Collections, Search, detail pages, Review Queue, and Settings/Admin.
 
 ## Related
 
+- [Product Status](../product/status.md)
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
-- [How the Entire Pipeline Works](../explanation/how-the-pipeline-works.md)
-- [How the Review Queue Works](../guides/resolving-reviews.md)
-
-
+- [How Review Works](../guides/resolving-reviews.md)

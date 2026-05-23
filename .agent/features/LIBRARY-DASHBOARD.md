@@ -1,87 +1,72 @@
-# Feature: Library Dashboard (Home, Navigation, Cinematic Hero, Poster Swimlanes)
-> **Mirrors:** `CLAUDE.md` §3.4 (Dashboard UI) — keep both in sync per `.agent/SYNC-MAP.md`
+# Feature: Library Dashboard
 
-> Last audited: 2026-03-07 | Auditor: Claude (Product-Led Architect)
+> **Mirrors:** `CLAUDE.md` Section 3.11 and Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
+
+> Last audited: 2026-05-23 | Auditor: Codex
 
 ---
 
-## User Experience
+## Product Model
 
-### Home Page (`/`)
+The Dashboard is the user-facing surface for a local-first story library. It is organized by user intent rather than by a separate media management workspace:
 
-When the user opens the Dashboard, they see a cinematic streaming-style interface:
+- **Home** (`/`) gives a discovery overview and recent library activity.
+- **Read** (`/read`) is for books and comics.
+- **Watch** (`/watch`) is for movies and TV.
+- **Listen** (`/listen`) is for music, albums, artists, tracks, and audiobooks.
+- **Collections** (`/collections`) is for broader rollups where multiple shelves share a series, franchise, or universe relationship.
+- **Search** (`/search`) searches across the library.
+- **Detail pages** show item identity, artwork, people, relationships, variants, and inline correction entry points.
+- **Settings/Admin** owns configuration and operations, including Review Queue.
 
-1. **Cinematic Hero Banner** — A full-width banner with blurred cover art background, dark vignette overlay, and metadata badges (year, media type, work count). Shows the first Collection in the library.
-2. **Poster Swimlanes** — Horizontal scrolling rows of poster-art cards (2:3 aspect ratio). Rows include "Continue your Journey" (stub), "Recently Added" (stub), and then media-type-grouped swimlanes (Books, Movies, Comics, Audio).
-3. **Selecting a Collection** — Clicking any poster card navigates to the Collection (detail page not yet built).
+Lane-level shelves stay in their lane. A single book series, film series, album, or audio series should not duplicate itself as a top-level Collections tile unless it connects to a broader cross-shelf relationship.
 
-### Navigation — Dual Architecture
+---
 
-The Dashboard uses a dual navigation system:
+## Core Entry Points
 
-- **TopBar** (`TopBar.razor`) — Fixed horizontal bar at top (56px height). Contains: logo (AppLogo wordmark), spacer, search icon, notification bell (MudBadge with review count), profile avatar. Four variants driven by device config: `"full"` (desktop), `"mobile"` (hamburger + logo + compact actions), `"simplified"` (TV: logo only), `"minimal"` (automotive: icon only). Glassmorphic styling with `backdrop-filter: blur(10px)`.
-- **LeftDock** (`LeftDock.razor`) — Icon-only vertical rail on the left (52px). Shows virtual library icons from TrayConfig. Active item has 3px amber left bar. Hover-expands to 200px with text labels. Glassmorphic blur(20px), no borders. Hidden on mobile/TV/automotive via `DockVisible` config flag.
-- **MobileNavDrawer** (`MobileNavDrawer.razor`) — Slide-out drawer triggered by hamburger in mobile TopBar. Contains AppLogo + nav items matching dock libraries + Settings link.
-- **Command Palette (Ctrl+K)** — Global search overlay. Type 2+ characters to search across all Collections and Works.
-
-### Dark Mode Only
-
-The Dashboard is dark-mode only. All light-mode CSS, the dark/light toggle, and ThemeService light palette have been removed. `IsDarkMode` is always `true`.
-
-### Real-time Updates
-
-The Dashboard maintains a live connection to the Engine via SignalR. When a new file is ingested or metadata arrives from an external provider, the library updates instantly — no page refresh needed.
+| Area | Files |
+|---|---|
+| Shell, search, profile, review badge, engine state | `src/MediaEngine.Web/Shared/MainLayout.razor` |
+| Home/discovery | `src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor` |
+| Shared lane browsing | `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor` |
+| Read details | `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` |
+| General details | `src/MediaEngine.Web/Components/Details/DetailPage.razor` |
+| Collections | `src/MediaEngine.Web/Components/Collections/` |
+| Review Queue | `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` |
+| Shared editor | `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` |
+| Ingestion dashboard | `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` |
 
 ---
 
 ## Business Rules
 
-| # | Rule | Where enforced |
-|---|------|----------------|
-| LDR-01 | The first Collection is displayed in the cinematic hero banner. | Home.razor |
-| LDR-02 | Poster swimlanes group collections by media type (requires 2+ collections per type). | Home.razor |
-| LDR-03 | The Command Palette requires at least 2 characters before searching. | CommandPalette.razor |
-| LDR-04 | Search results are capped at 20 items. | CollectionEndpoints (server-side cap) |
-| LDR-05 | Dock visibility is config-driven via `DockVisible` in UIShellSettingsDto. | MainLayout.razor |
-| LDR-06 | TopBar variant is config-driven via `TopBarStyle` in UIShellSettingsDto. | MainLayout.razor |
-| LDR-07 | SignalR reconnects automatically with backoff: 0s → 2s → 10s → 30s. | UIOrchestratorService |
-| LDR-08 | Collection cache is invalidated when MediaAdded or MetadataHarvested events arrive. | UniverseStateContainer |
-| LDR-09 | The Dashboard degrades gracefully when the Engine is offline. | Home.razor, MainLayout.razor |
-| LDR-10 | Swimlane card width is device-configurable via `SwimlaneCardWidth`. | Home.razor |
+| Rule | Meaning |
+|---|---|
+| Surface-per-concern | Browsing lives on Home, Read, Watch, Listen, Collections, Search, and details. |
+| Inline correction | Normal media fixes launch from the surface where the user found the issue. |
+| Shared editor | Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for Normal, Review, and Batch modes. |
+| Review exception | Review Queue is only for blocked, uncertain, low-confidence, or unresolved items. |
+| Settings/Admin scope | Settings/Admin is for folders, providers, profiles, roles, ingestion, health, logs, diagnostics, plugins, AI, and review. |
+| No retired workflow | Do not recreate `/vault`, `LibraryPage`, `LibrarySurfacePreset`, Vault labels, or all-in-one media correction workbenches. |
 
 ---
 
 ## Platform Health
 
 | Area | Status | Notes |
-|------|--------|-------|
-| Cinematic hero banner | **PASS** | Blurred cover art, vignette overlay, metadata badges. Fallback gradient when no cover. |
-| Poster swimlanes | **PASS** | Horizontal scrolling, scroll-snap, media-type grouping. |
-| TopBar (desktop) | **PASS** | Logo, search, bell, avatar. Review badge count. |
-| TopBar (mobile) | **PASS** | Hamburger, logo, compact actions. |
-| LeftDock (desktop) | **PASS** | Icon-only 52px rail, hover-expand to 200px, amber active bar. |
-| MobileNavDrawer | **PASS** | Slide-out drawer with libraries and settings. |
-| Real-time updates (SignalR) | **PASS** | Connection, reconnection, event routing, cache invalidation. |
-| Command Palette search | **PASS** | Real-time search with media-type icons and colour coding. |
-| Command Palette navigation | **FAIL** | Selecting a result navigates to `/collection/{collectionId}`, but no Collection detail page exists. |
-| Continue Journey swimlane | **STUB** | Placeholder — UserState API does not exist yet. |
-| Recently Added swimlane | **STUB** | Placeholder — `/collections/recent` endpoint does not exist yet. |
-| Cover art in hero/posters | **PARTIAL** | Uses `cover` canonical value (provider URLs). Works when providers have been run. |
+|---|---|---|
+| Home | Live | Discovery and overview surface. |
+| Read/Watch/Listen | Live | Shared browse behavior with lane-specific content. |
+| Collections | Live/partial | Broader rollups are present; deeper collection creation/editing remains Early Access. |
+| Search | Live | Cross-library discovery. |
+| Detail pages | Live | Inline correction entry points use the shared editor path. |
+| Review Queue | Live | Exception workflow under Settings/Admin. |
+| Ingestion dashboard | Live | Uses `GET /ingestion/operations` plus SignalR progress. |
+| Local AI/admin areas | Partial | Model management and feature surfaces exist; some workflows remain in progress. |
 
 ---
 
-## PO Summary
+## Product Owner Summary
 
-The Library Dashboard presents your collection as a cinematic streaming interface. A full-width hero banner shows blurred cover artwork with metadata badges. Poster-art swimlanes replace the old Bento grid, grouping content by media type (Books, Movies, Comics, Audio). Navigation uses a dual system: a horizontal TopBar at the top (logo, search, bell, profile) plus an icon-only LeftDock on desktop. Mobile uses a hamburger menu that opens a slide-out drawer. **The Dashboard is dark-mode only.** Key gaps: Collection detail page doesn't exist yet, "Continue Journey" and "Recently Added" swimlanes are stubs pending API endpoints.
-
-## Current Dashboard/Product UI Model
-
-Home, Read, Watch, Listen, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
-
-## Quality Gates
-
-- Keep retired Vault/LibraryPage workflows out of active routes, navigation, docs, and CSS.
-- Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for normal, review, and batch media editing.
-- Review Queue remains the exception workflow; Settings/Admin remains configuration and operations.
-
-
+The Dashboard is no longer a general management workspace. It is a story-first library experience: people browse through Home, Read, Watch, Listen, Collections, Search, and detail pages, and they only go to Review Queue when Tuvima needs human confirmation. Normal corrections happen where the user finds the problem, using one shared editor.

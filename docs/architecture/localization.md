@@ -1,3 +1,11 @@
+---
+title: "Dashboard Localization"
+summary: "Architecture notes for localized UI text, language preferences, and multi-language provider behavior."
+audience: "developer"
+category: "architecture"
+product_area: "language"
+---
+
 # Dashboard Localization
 
 Tuvima Library localizes high-visible Dashboard copy through `SharedStrings` resources in `src/MediaEngine.Web/Resources`.

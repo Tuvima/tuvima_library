@@ -1,3 +1,11 @@
+---
+title: "Project Boundaries"
+summary: "Rules for keeping Domain, Engine, Storage, Providers, Ingestion, and Dashboard dependency boundaries clean."
+audience: "developer"
+category: "architecture"
+product_area: "system"
+---
+
 # Project Boundaries
 
 Tuvima Library keeps project dependencies pointed inward so UI and endpoint work does not accidentally couple to SQLite or other infrastructure details.

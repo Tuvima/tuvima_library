@@ -12,7 +12,7 @@ tags:
 
 # How File Ingestion Works
 
-When a new file lands in a watched folder, Tuvima Library does not trust it immediately. The Engine waits until the file is stable, reads what it can from the file itself, stages it safely on disk, and only then starts deciding whether it is ready for the current media surfaces and the organised library.
+When a new file lands in a watched folder, Tuvima Library does not trust it immediately. The Engine waits until the file is stable, reads what it can from the file itself, stages it safely on disk, and only then starts deciding whether it is ready for the Dashboard and the organized library.
 
 ---
 

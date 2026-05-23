@@ -63,7 +63,7 @@ Created during ingestion by `MediaEntityChainFactory` and enriched by canonical 
 
 ### Collection Placements
 
-`collection_placements` table maps collections to UI locations (home, media lanes, media library, collections page) with display limits and position. Location is a data-driven display constraint.
+`collection_placements` table maps collections to UI locations (home, media lanes, browse lanes, and the collections page) with display limits and position. Location is a data-driven display constraint.
 
 ---
 

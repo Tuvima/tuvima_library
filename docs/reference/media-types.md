@@ -12,7 +12,7 @@ tags:
 
 # Supported Media Types and Formats
 
-Seven media types are supported. Each type has a dedicated processor, a set of supported file extensions, and a configured set of providers. Ambiguous formats (MP3, MP4) are resolved via heuristics and AI classification.
+Six media types are supported today. Each type has a processor path, supported file extensions, and configured providers. Ambiguous formats such as MP3, M4A, MP4, MKV, AVI, and WEBM are resolved through folder context, metadata, filename patterns, heuristics, and Local AI where available.
 
 ---
 
@@ -333,4 +333,3 @@ All other extensions (`.epub`, `.pdf`, `.m4b`, `.flac`, `.ogg`, `.wav`, `.cbz`, 
 - [How to Add Media to Your Library](../guides/adding-media.md)
 - [How to Write a New File Format Processor](../guides/writing-a-processor.md)
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
-

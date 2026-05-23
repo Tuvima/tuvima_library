@@ -356,7 +356,7 @@ A `BackgroundService` that wakes on either a cron schedule (`config/maintenance.
 
 ### Review Queue integration
 
-the current media surfaces Review Queue surfaces `WritebackFailed` review items alongside other review triggers. The message reads "Re-tag failed - file may be locked or corrupt"; resolving the item either manually (fix the file, click retry) or via a successful next-sweep-pass clears the review row.
+Review Queue surfaces `WritebackFailed` review items alongside other review triggers. The message reads "Re-tag failed - file may be locked or corrupt"; resolving the item either manually (fix the file, click retry) or via a successful next-sweep pass clears the review row.
 
 ---
 
@@ -387,4 +387,3 @@ the current media surfaces Review Queue surfaces `WritebackFailed` review items 
 After Stage 2 resolves a Wikidata QID and full property claims have been persisted, `WikidataBridgeWorker` asks `WikidataSeriesManifestHydrationService` whether the item belongs to a canonical series. The service only uses QID-backed relationship facts such as P179/`series_qid`, never fuzzy title matching.
 
 For books, audiobooks, comics, and TV, a canonical series QID triggers a Tuvima.Wikidata manifest fetch. Tuvima stores every named item in `series_manifest_items`, including missing works the user does not own. Later imports from the same series first link against the cached named manifest, so adding another Dune ebook or audiobook usually does not require downloading the whole series again while the cache is fresh.
-

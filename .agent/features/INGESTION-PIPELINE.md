@@ -67,7 +67,7 @@ All of this happens without the user lifting a finger after the initial folder s
 | Person enrichment | **WARN** | Working, but the `PersonEnriched` SignalR event has an empty person name (known bug — passes `Guid.Empty` to asset lookup). |
 | Deleted file handling | **PASS** | LibraryReconciliationService scans for missing files on a configurable interval (default 24h). Orphaned assets are fully cleaned (DB + filesystem). Duplicate check also handles orphans when file is missing. |
 | Watcher health monitoring | **FAIL** | Non-overflow FileSystemWatcher errors (e.g., network share disconnect) are swallowed. No recovery or notification mechanism. |
-| Standalone worker host | **FAIL** | Missing 6+ dependency registrations from Phase 9. Cannot start independently. Only the API host works. |
+| Standalone worker host | **FAIL** | Missing several dependency registrations. Cannot start independently. Only the API host works. |
 
 ---
 

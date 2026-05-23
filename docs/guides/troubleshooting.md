@@ -1,0 +1,125 @@
+---
+title: "Troubleshooting"
+summary: "Resolve common setup, ingestion, provider, AI, and Dashboard problems in Tuvima Library."
+audience: "user"
+category: "guide"
+product_area: "support"
+tags:
+  - "troubleshooting"
+  - "setup"
+  - "ingestion"
+---
+
+# Troubleshooting
+
+This guide covers the checks that usually explain first-run, ingestion, provider, and Dashboard problems.
+
+## Engine Does Not Start
+
+Check the .NET SDK:
+
+```powershell
+dotnet --version
+```
+
+The repository requires the SDK version in `global.json`. If restore fails for `Tuvima.Wikidata*`, confirm the local NuGet feed path in `nuget.config` exists.
+
+Run from the repository root so the Engine can resolve `config/`.
+
+## Dashboard Cannot Reach The Engine
+
+Start the Engine first:
+
+```powershell
+dotnet run --project src/MediaEngine.Api
+```
+
+Wait for:
+
+```text
+Now listening on: http://localhost:61495
+```
+
+Then start the Dashboard:
+
+```powershell
+dotnet run --project src/MediaEngine.Web
+```
+
+If the Engine uses a different address, set `TUVIMA_ENGINE_URL` before starting the Dashboard.
+
+## Home Is Empty
+
+Home only shows real data returned by the Engine. It does not invent sample media.
+
+Check:
+
+- **Settings > Setup** for folder/provider/readiness status.
+- **Settings > Library Operations > Libraries** for watch folder and library root paths.
+- **Settings > Library Operations > Ingestion** for active scans and recent batches.
+- **Settings > Review Queue** for items that need confirmation before they can appear in browse surfaces.
+
+## Files Do Not Ingest
+
+Confirm:
+
+- The source path exists and is readable by the Engine process.
+- The configured media types match the file extensions.
+- The file finished copying before ingestion started.
+- The file is not locked by another process.
+- The extension is supported in [Media Types](../reference/media-types.md).
+
+Use **Scan saved watch folder** from the Libraries settings section after changing folder paths.
+
+## Items Need Review
+
+Review Queue is expected when Tuvima cannot safely identify an item.
+
+Common causes:
+
+- Missing or conflicting embedded metadata.
+- Ambiguous title/provider results.
+- Low retail match score.
+- Missing bridge identifiers for Wikidata resolution.
+- Corrupt or unreadable files.
+- Ambiguous MP3, M4A, MP4, MKV, AVI, or WEBM classification.
+
+Open **Settings > Review Queue**, review the reason, and launch the shared editor from the item.
+
+## Provider Lookups Fail
+
+Check:
+
+- The provider is enabled.
+- Required credentials are present.
+- The provider health/test action succeeds.
+- Network access to the provider is available.
+- Rate limits have not been exceeded.
+
+Provider secrets belong in `config/secrets/` and should not be committed.
+
+## Local AI Is Unavailable
+
+Local AI is optional for first ingestion. If the AI status is unavailable:
+
+- Confirm `config/ai.json` exists.
+- Check whether the model role is missing, downloading, ready, loaded, or failed.
+- Use **Settings > Local AI** for model lifecycle actions exposed by the Engine.
+- Remember that saved feature flags do not guarantee active behavior if dependencies are missing.
+
+## Docs Look Stale On GitHub Pages
+
+The public site is generated from `docs/` by the `Docs` GitHub Actions workflow. If local docs look correct but Pages still shows old navigation, verify the workflow completed on `main`.
+
+Local preview:
+
+```powershell
+./scripts/docs/build-docs.ps1
+./scripts/docs/serve-docs.ps1
+```
+
+## Related
+
+- [Getting Started](../tutorials/getting-started.md)
+- [Your First Library](../tutorials/first-library.md)
+- [Product Status](../product/status.md)

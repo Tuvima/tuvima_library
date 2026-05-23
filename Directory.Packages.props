@@ -21,7 +21,7 @@
     <PackageVersion Include="TagLibSharp" Version="2.3.0" />
     <PackageVersion Include="VersOne.Epub" Version="3.1.0" />
     <!-- IHttpClientFactory lifecycle management for external metadata adapters.
-         MIT license � approved for AGPLv3 compatibility (see CLAUDE.md �5.1). -->
+         MIT license - approved for AGPLv3 compatibility (see CLAUDE.md Section 5.1). -->
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.3" />
     <!-- SkiaSharp: cross-platform image processing for hero banner generation.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->

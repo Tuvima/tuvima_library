@@ -1,6 +1,13 @@
 ---
 title: "Inline Media Editing"
 summary: "How Tuvima lets users correct media from the surface where they find the issue."
+audience: "developer"
+category: "architecture"
+product_area: "editing"
+tags:
+  - "dashboard"
+  - "editing"
+  - "review"
 ---
 
 # Inline Media Editing
