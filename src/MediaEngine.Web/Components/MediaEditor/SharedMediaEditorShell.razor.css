@@ -2949,7 +2949,7 @@
 }
 
 .sme-artwork-workspace {
-    grid-template-columns: minmax(240px, 278px) minmax(0, 1fr);
+    grid-template-columns: minmax(188px, 220px) minmax(0, 1fr);
     gap: 12px;
 }
 
@@ -2959,8 +2959,9 @@
 
 .sme-artwork-rail-item {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 10px 12px;
+    gap: 9px;
+    min-height: 44px;
+    padding: 8px 10px;
     border-radius: 8px;
 }
 
@@ -2978,9 +2979,7 @@
 }
 
 .sme-artwork-rail-meta {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none;
 }
 
 .sme-artwork-rail-count {
@@ -3000,7 +2999,7 @@
     position: relative;
     overflow: hidden;
     width: 100%;
-    padding: 14px;
+    padding: 10px 12px;
     border-style: dashed;
     border-color: var(--tl-accent-primary-border);
     cursor: pointer;
@@ -3011,7 +3010,7 @@
 ::deep .sme-artwork-upload-card .mud-button-label {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 9px;
     width: 100%;
     min-width: 0;
     text-align: left;
@@ -3051,7 +3050,7 @@
 }
 
 .sme-artwork-help-card {
-    display: grid;
+    display: none;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 12px;
     padding: 14px;
@@ -3082,7 +3081,10 @@
 }
 
 .sme-artwork-gallery-heading {
-    padding: 18px 18px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 16px 0;
 }
 
 .sme-artwork-gallery-heading h3 {
@@ -3094,10 +3096,66 @@
 }
 
 .sme-artwork-gallery-heading p {
-    margin: 5px 0 0;
-    color: rgba(255,255,255,0.58);
-    font-size: 0.86rem;
-    line-height: 1.45;
+    display: none;
+}
+
+.sme-artwork-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 12px;
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: 8px;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(91, 124, 255, 0.14), transparent 34%),
+        rgba(8, 13, 26, 0.72);
+}
+
+.sme-artwork-selection-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: rgba(235, 241, 255, 0.92);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.sme-artwork-selection-pill .mud-icon-root {
+    color: #7d94ff;
+}
+
+.sme-artwork-action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+::deep .sme-artwork-toolbar-button {
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 8px;
+    text-transform: none;
+    font-size: 0.82rem;
+    font-weight: 750;
+}
+
+::deep .sme-artwork-toolbar-button .mud-button-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+::deep .sme-artwork-toolbar-button--danger {
+    border-color: rgba(255, 100, 112, 0.48);
+    color: #ff7b87;
+}
+
+::deep .sme-artwork-toolbar-button--confirm {
+    background: rgba(255, 80, 96, 0.18);
+    border-color: rgba(255, 100, 112, 0.72);
 }
 
 .sme-artwork-gallery-panel--drag {
@@ -3132,8 +3190,8 @@
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    gap: 14px;
-    padding: 18px;
+    gap: 12px;
+    padding: 16px;
     min-height: 220px;
 }
 
@@ -3150,12 +3208,29 @@
     flex-direction: column;
     align-items: stretch;
     gap: 0;
-    padding-bottom: 8px;
-    width: 170px;
+    padding-bottom: 0;
+    width: 160px;
     border: 1px solid var(--tl-border-subtle);
     border-radius: 8px;
     background: rgba(255,255,255,0.025);
     overflow: hidden;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.sme-artwork-gallery-card--focused,
+.sme-artwork-gallery-card--selected {
+    border-color: rgba(99, 119, 255, 0.72);
+    box-shadow:
+        inset 0 0 0 1px rgba(99, 119, 255, 0.42),
+        0 10px 22px rgba(24, 34, 103, 0.28);
+}
+
+.sme-artwork-gallery-card--preferred {
+    border-color: rgba(107, 126, 255, 0.88);
+}
+
+.sme-artwork-gallery-card--pending {
+    border-color: var(--tl-status-danger-border);
 }
 
 .sme-artwork-gallery-tile {
@@ -3178,24 +3253,14 @@
     border-color: rgba(255,255,255,0.18);
 }
 
-.sme-artwork-gallery-tile--preferred .sme-art-row-stage,
-.sme-artwork-gallery-tile--focused .sme-art-row-stage {
-    border-color: var(--tl-status-warning);
-    box-shadow: inset 0 0 0 1px var(--tl-status-warning-border);
-}
-
-.sme-artwork-gallery-tile--pending .sme-art-row-stage {
-    border-color: var(--tl-status-danger-border);
-}
-
 .sme-artwork-gallery .sme-art-row-stage--portrait {
-    height: 238px;
+    height: 222px;
     border-radius: 0;
     border-width: 0 0 1px;
 }
 
 .sme-artwork-gallery .sme-art-row-stage--square {
-    height: 168px;
+    height: 158px;
     border-radius: 0;
     border-width: 0 0 1px;
 }
@@ -3218,56 +3283,60 @@
     border-width: 0 0 1px;
 }
 
-.sme-artwork-gallery-popout {
+.sme-artwork-card-actions {
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
     z-index: 2;
     display: flex;
-    justify-content: center;
-    margin-top: 0;
+    justify-content: space-between;
+    gap: 7px;
+    padding: 6px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(8, 12, 22, 0.14), rgba(8, 12, 22, 0.82));
+    box-shadow: 0 12px 24px rgba(0,0,0,0.26);
 }
 
-.sme-artwork-gallery-card--portrait .sme-artwork-gallery-popout {
-    top: 200px;
-}
-
-.sme-artwork-gallery-card--square .sme-artwork-gallery-popout {
-    top: 130px;
-}
-
-.sme-artwork-gallery-card--background .sme-artwork-gallery-popout {
-    top: 58px;
-}
-
-.sme-artwork-gallery-card--banner .sme-artwork-gallery-popout {
-    top: 36px;
-}
-
-.sme-artwork-gallery-card--logo .sme-artwork-gallery-popout {
-    top: 54px;
-}
-
-.sme-artwork-gallery-icon-button {
-    width: 30px;
-    height: 30px;
+::deep .sme-artwork-card-action {
+    width: 31px;
+    height: 31px;
+    min-width: 31px;
+    min-height: 31px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--tl-border-default);
-    border-radius: 999px;
-    background: rgba(20,20,26,0.96);
+    border: 1px solid rgba(185, 201, 232, 0.22);
+    border-radius: 8px;
+    background: rgba(13, 18, 31, 0.86);
     color: rgba(248,248,248,0.94);
-    box-shadow: 0 14px 28px rgba(0,0,0,0.3);
     cursor: pointer;
     transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+::deep .sme-artwork-card-action--selected {
+    border-color: rgba(111, 130, 255, 0.88);
+    background: linear-gradient(180deg, #6676ff, #3944d4);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(64, 76, 214, 0.32);
+}
+
+::deep .sme-artwork-card-action--danger {
+    border-color: rgba(255, 101, 113, 0.42);
+    color: #ff7b87;
+}
+
+::deep .sme-artwork-card-action--confirm {
+    background: rgba(255, 80, 96, 0.18);
+    border-color: rgba(255, 101, 113, 0.78);
 }
 
 .sme-artwork-card-copy {
     display: flex;
     flex-direction: column;
-    gap: 7px;
-    padding: 9px 10px 10px;
+    gap: 5px;
+    padding: 8px 10px 9px;
     min-width: 0;
 }
 
@@ -3284,37 +3353,8 @@
     font-size: 0.76rem;
 }
 
-.sme-artwork-card-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-}
-
-.sme-artwork-badge {
-    display: inline-flex;
-    align-items: center;
-    min-height: 20px;
-    padding: 0 7px;
-    border-radius: 5px;
-    background: rgba(255,255,255,0.07);
-    color: rgba(255,255,255,0.78);
-    font-size: 0.68rem;
-    font-weight: 700;
-}
-
-.sme-artwork-badge--info {
-    background: rgba(42, 108, 210, 0.24);
-    color: #9cc4ff;
-}
-
-.sme-artwork-badge--pending,
-.sme-artwork-badge--uploaded {
-    background: rgba(122, 74, 255, 0.24);
-    color: #d8c8ff;
-}
-
-.sme-artwork-gallery-icon-button:hover,
-.sme-artwork-gallery-icon-button:focus-visible {
+::deep .sme-artwork-card-action:hover,
+::deep .sme-artwork-card-action:focus-visible {
     transform: translateY(-1px) scale(1.04);
     border-color: var(--tl-accent-primary-border);
     background: rgba(28,28,35,0.98);
@@ -3323,22 +3363,48 @@
 
 .sme-artwork-gallery-check {
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 34px;
-    height: 34px;
-    display: inline-flex;
+    top: 8px;
+    left: 8px;
+    width: 32px;
+    height: 32px;
+    display: none;
     align-items: center;
     justify-content: center;
-    border-bottom-left-radius: 12px;
-    background: var(--tl-status-warning);
-    color: rgba(24,24,24,0.94);
+    border-radius: 999px;
+    background: linear-gradient(180deg, #6676ff, #3944d4);
+    color: #fff;
     box-shadow: 0 4px 10px rgba(0,0,0,0.24);
 }
 
 .sme-artwork-gallery-check--pending {
     background: var(--tl-status-danger);
     color: rgba(255,255,255,0.96);
+}
+
+.sme-artwork-delete-confirm {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 7px 8px;
+    border-top: 1px solid rgba(255, 100, 112, 0.26);
+    background: rgba(54, 15, 23, 0.72);
+    color: #ffd6db;
+    font-size: 0.76rem;
+    font-weight: 750;
+}
+
+::deep .sme-artwork-confirm-button {
+    min-height: 26px;
+    padding: 0 8px;
+    border-radius: 7px;
+    text-transform: none;
+    font-size: 0.72rem;
+}
+
+::deep .sme-artwork-confirm-button--danger {
+    background: #d64455;
+    color: #fff;
 }
 
 .sme-artwork-selection-actions {
@@ -3652,32 +3718,13 @@
         height: 84px;
     }
 
-    .sme-artwork-gallery-popout {
-        margin-top: 0;
+    .sme-artwork-action-bar {
+        align-items: stretch;
+        flex-direction: column;
     }
 
-    .sme-artwork-gallery-card--portrait .sme-artwork-gallery-popout {
-        top: 146px;
-    }
-
-    .sme-artwork-gallery-card--square .sme-artwork-gallery-popout {
-        top: 112px;
-    }
-
-    .sme-artwork-gallery-card--background .sme-artwork-gallery-popout {
-        top: 82px;
-    }
-
-    .sme-artwork-gallery-card--banner .sme-artwork-gallery-popout {
-        top: 36px;
-    }
-
-    .sme-artwork-gallery-card--logo .sme-artwork-gallery-popout {
-        top: 46px;
-    }
-
-    .sme-artwork-selection-actions {
-        padding: 0 14px 14px;
+    .sme-artwork-action-buttons {
+        justify-content: flex-start;
     }
 
     .sme-artwork-owner-chip {
