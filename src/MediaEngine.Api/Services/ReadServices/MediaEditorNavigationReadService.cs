@@ -1193,9 +1193,8 @@ public sealed class MediaEditorNavigationReadService(
             "apple_music" => WellKnownProviders.AppleApi,
             "apple_books" => WellKnownProviders.AppleApi,
             "open_library" => WellKnownProviders.OpenLibrary,
-            "google_books" => WellKnownProviders.GoogleBooks,
+            "comicvine" => WellKnownProviders.ComicVine,
             "comic_vine" => WellKnownProviders.ComicVine,
-            "metron" => WellKnownProviders.Metron,
             _ => null,
         };
     }

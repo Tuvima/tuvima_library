@@ -58,7 +58,7 @@ public sealed class DeferredEnrichmentRequest
     public ProviderFailureType? FailureType { get; set; }
 
     /// <summary>
-    /// Which provider failed (e.g. "metron", "tmdb").
+    /// Which provider failed (e.g. "comicvine", "tmdb").
     /// Null when the deferral is a normal Pass 2 queue entry.
     /// </summary>
     public string? FailedProviderName { get; set; }

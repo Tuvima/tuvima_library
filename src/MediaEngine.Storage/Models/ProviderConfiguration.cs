@@ -119,7 +119,7 @@ public sealed class ProviderConfiguration
     /// When set, the <c>ConfigDrivenAdapter</c> caches raw JSON responses and
     /// skips HTTP calls for repeated queries within the TTL window.
     /// Default: <c>168</c> (7 days). Set <c>null</c> or <c>0</c> to disable caching.
-    /// Metron recommends a long TTL (168 hours / 7 days) to respect community rate limits.
+    /// Some community providers recommend a long TTL (168 hours / 7 days) to respect rate limits.
     /// </summary>
     [JsonPropertyName("cache_ttl_hours")]
     public int? CacheTtlHours { get; set; }
@@ -268,7 +268,7 @@ public sealed class HttpClientConfig
     public string? UserAgent { get; set; }
 
     /// <summary>
-    /// API key or token for authenticated providers (e.g. TMDB Bearer token, Google Books API key).
+    /// API key or token for authenticated providers (e.g. TMDB or Comic Vine API keys).
     /// Stored in the provider config file. Empty or <c>null</c> = no key configured.
     /// </summary>
     [JsonPropertyName("api_key")]
@@ -277,9 +277,9 @@ public sealed class HttpClientConfig
     /// <summary>
     /// How the API key is delivered to the provider. Values:
     /// <c>"bearer"</c> — sent as <c>Authorization: Bearer {key}</c> header (e.g. TMDB).
-    /// <c>"query"</c> — appended as a query parameter using <see cref="ApiKeyParamName"/> (e.g. Google Books).
+    /// <c>"query"</c> — appended as a query parameter using <see cref="ApiKeyParamName"/>.
     /// <c>"header"</c> — sent as a custom header using <see cref="ApiKeyParamName"/> as the header name.
-    /// <c>"basic"</c> — sent as <c>Authorization: Basic {base64(username:password)}</c> header (e.g. Metron).
+    /// <c>"basic"</c> — sent as <c>Authorization: Basic {base64(username:password)}</c> header.
     /// Default: <c>null</c> (no API key delivery).
     /// </summary>
     [JsonPropertyName("api_key_delivery")]
@@ -287,7 +287,7 @@ public sealed class HttpClientConfig
 
     /// <summary>
     /// The query parameter name (for <c>"query"</c> delivery) or header name (for <c>"header"</c> delivery).
-    /// Example: <c>"key"</c> for Google Books query parameter.
+    /// Example: <c>"api_key"</c> for an API key query parameter.
     /// </summary>
     [JsonPropertyName("api_key_param_name")]
     public string? ApiKeyParamName { get; set; }

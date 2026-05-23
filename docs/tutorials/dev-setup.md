@@ -48,7 +48,7 @@ The solution is split into focused projects under `src/` and `tests/`. Each proj
 | `src/MediaEngine.Storage` | SQLite data access via Dapper. Repositories, migrations, and query logic. |
 | `src/MediaEngine.Intelligence` | Priority Cascade engine. Scores and resolves metadata claims. |
 | `src/MediaEngine.Processors` | File processors - reads embedded metadata from EPUB, ID3 tags, video containers, etc. |
-| `src/MediaEngine.Providers` | External provider adapters - Apple API, Google Books, TMDB, Wikidata Reconciliation API. |
+| `src/MediaEngine.Providers` | External provider adapters - Apple API, Open Library, TMDB, Comic Vine, Wikidata Reconciliation API. |
 | `src/MediaEngine.Ingestion` | Folder watcher, ingestion pipeline, file organiser, staging logic. |
 | `src/MediaEngine.AI` | Local LLM and Whisper inference. Hardware profiling, model management, AI feature implementations. |
 | `src/MediaEngine.Api` | ASP.NET Core host. HTTP endpoints, SignalR collection, background services. Exposes the Engine. |

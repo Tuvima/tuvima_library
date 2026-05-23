@@ -8,7 +8,7 @@ public enum LanguageStrategy
 {
     /// <summary>
     /// Always query in the source language (English). Best for providers
-    /// with poor or inconsistent localization (e.g. Google Books, Open Library).
+    /// with poor or inconsistent localization (e.g. Open Library, MusicBrainz).
     /// </summary>
     Source = 0,
 

@@ -32,7 +32,7 @@ public sealed class ComicMetadataTagger : IMetadataTagger
     /// </summary>
     private static readonly string[] CustomIdKeys =
     [
-        "metron_id", "wikidata_qid",
+        "wikidata_qid",
     ];
 
     private readonly ILogger<ComicMetadataTagger> _logger;

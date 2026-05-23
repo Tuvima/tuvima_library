@@ -46,7 +46,6 @@ public static class SettingsEndpoints
             ["local_filesystem"]         = "Local Filesystem",
             ["open_library"]             = "Open Library",
             ["tmdb"]                     = "TMDB",
-            ["metron"]                   = "Metron",
             ["musicbrainz"]              = "MusicBrainz",
             ["fanart_tv"]                = "Fanart.tv",
         };
@@ -60,7 +59,6 @@ public static class SettingsEndpoints
             ["wikidata"]              = "wikidata_api",
             ["open_library"]          = "open_library",
             ["tmdb"]                  = "tmdb",
-            ["metron"]                = "metron",
             ["musicbrainz"]           = "musicbrainz",
         };
 

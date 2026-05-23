@@ -615,7 +615,7 @@
         new("Open Library",   "Open",   false, ["Books"],                                        240, 0.87),
         new("TMDB",           "Retail", true,  ["Movies", "TV"],                                 110, 0.96),
         new("MusicBrainz",    "Open",   false, ["Music"],                                        210, 0.89),
-        new("Metron",          "Open",   true,  ["Comics"],                                       200, 0.88, "basic"),
+        new("Comic Vine",      "Retail", true,  ["Comics"],                                       200, 0.88),
         new("Wikidata",       "Open",   false, ["Books","Movies","TV","Music","Comics","Audiobooks"], 300, 0.85),
         new("Fanart.tv",      "Image",  true,  ["Movies","TV","Music"],                           180, 0.91),
     ];
@@ -651,7 +651,7 @@
         ["Movies"]     = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
         ["TV"]         = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
         ["Music"]      = [new() { Name = "MusicBrainz", LanguageStrategy = "source" }],
-        ["Comics"]     = [new() { Name = "Metron", LanguageStrategy = "source" }],
+        ["Comics"]     = [new() { Name = "Comic Vine", LanguageStrategy = "source" }],
     };
 
     private static readonly Dictionary<string, string[]> ProviderMediaTypes = new()
@@ -660,7 +660,7 @@
         ["Open Library"]   = ["Books"],
         ["TMDB"]           = ["Movies", "TV"],
         ["MusicBrainz"]    = ["Music"],
-        ["Metron"]         = ["Comics"],
+        ["Comic Vine"]     = ["Comics"],
         ["Wikidata"]       = ["All"],
         ["Fanart.tv"]      = ["Movies", "TV", "Music"],
     };
@@ -1187,7 +1187,7 @@
             "Open Library"                  => Icons.Material.Outlined.LocalLibrary,
             "TMDB"                          => Icons.Material.Outlined.Movie,
             "MusicBrainz"                   => Icons.Material.Outlined.MusicNote,
-            "Metron"                        => Icons.Material.Outlined.AutoStories,
+            "Comic Vine"                    => Icons.Material.Outlined.AutoStories,
             "Wikidata"                      => Icons.Material.Outlined.Collections,
             "Fanart.tv"                     => Icons.Material.Outlined.Image,
             _                               => Icons.Material.Outlined.Storage,

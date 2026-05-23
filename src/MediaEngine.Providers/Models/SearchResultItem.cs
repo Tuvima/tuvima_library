@@ -17,7 +17,7 @@ namespace MediaEngine.Providers.Models;
 /// <param name="ThumbnailUrl">URL to a thumbnail/cover image, if available.</param>
 /// <param name="ProviderItemId">
 /// Provider-specific identifier that can be used for direct lookup
-/// (e.g. Apple Books ID, ASIN, Open Library key, Google Books volume ID).
+    /// (e.g. Apple Books ID, ASIN, Open Library key).
 /// </param>
 /// <param name="Confidence">Match confidence score from the provider (0.0–1.0).</param>
 /// <param name="ProviderName">Name of the provider that produced this result.</param>

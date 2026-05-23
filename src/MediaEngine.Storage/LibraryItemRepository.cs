@@ -1451,9 +1451,8 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         var preferredKeys = normalizedProvider switch
         {
             var provider when provider.Contains("tmdb") => new[] { "tmdb_id", "tmdb_movie_id", "tmdb_tv_id" },
-            var provider when provider.Contains("comic") => new[] { "comic_vine_id", "comicvine_id", "metron_id" },
+            var provider when provider.Contains("comic") => new[] { "comic_vine_id", "comicvine_id" },
             var provider when provider.Contains("apple") => new[] { "apple_books_id", "apple_music_id", "apple_music_collection_id", "apple_itunes_id" },
-            var provider when provider.Contains("google") => new[] { "google_books_id" },
             var provider when provider.Contains("open_library") => new[] { "open_library_id", "isbn_13", "isbn" },
             var provider when provider.Contains("musicbrainz") => new[] { "musicbrainz_id" },
             _ => Array.Empty<string>(),

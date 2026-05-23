@@ -148,40 +148,6 @@ public sealed class ProviderIntegrationTests
         Assert.NotEmpty(claims);
     }
 
-    // ── Google Books ─────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task GoogleBooks_Handles_Lookup_Gracefully()
-    {
-        var adapter = BuildConfigDrivenAdapter("google_books");
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId   = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "The Fellowship of the Ring",
-            Author     = "J.R.R. Tolkien",
-            Isbn       = "9780547928210",
-            BaseUrl    = "https://www.googleapis.com/books/v1",
-        };
-
-        var claims = await adapter.FetchAsync(request);
-
-        LogClaims("Google Books", claims);
-
-        // Google Books may return 429 (rate limit exceeded) when the anonymous
-        // quota is exhausted. The adapter degrades gracefully in this case.
-        _output.WriteLine($"  Google Books returned {claims.Count} claims (may be rate-limited).");
-
-        if (claims.Count > 0)
-        {
-            AssertHasClaim(claims, "title");
-            AssertHasClaim(claims, "author");
-            await HashCoverArt(claims);
-        }
-    }
-
     // ── Search tests (multi-result SearchAsync) ─────────────────────────────
 
     [Fact(Skip = "Requires live Apple API network access. Run locally with: dotnet test --filter Category=Integration")]
@@ -232,32 +198,6 @@ public sealed class ProviderIntegrationTests
 
         Assert.NotEmpty(results);
         Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
-    }
-
-    [Fact]
-    public async Task GoogleBooks_Search_Returns_Results()
-    {
-        var adapter = BuildConfigDrivenAdapter("google_books");
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId   = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "The Fellowship of the Ring",
-            Author     = "J.R.R. Tolkien",
-            BaseUrl    = "https://www.googleapis.com/books/v1",
-        };
-
-        var results = await adapter.SearchAsync(request, limit: 10);
-
-        _output.WriteLine($"Google Books Search: {results.Count} results (may be rate-limited).");
-        foreach (var r in results)
-            _output.WriteLine($"  [{r.ProviderName}] \"{r.Title}\" by {r.Author} ({r.Year})");
-
-        // Google Books may return 429 — assert graceful degradation.
-        if (results.Count > 0)
-            Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
     }
 
     // ── Config-driven adapter builder ───────────────────────────────────────

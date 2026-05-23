@@ -1402,7 +1402,6 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         "tmdb" => "TMDB",
         "musicbrainz" => "MusicBrainz",
         "wikidata reconciliation" => "Wikidata",
-        "google books" => "Google Books",
         "open library" => "Open Library",
         var value => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value),
     };

@@ -45,10 +45,9 @@ Six media types are supported today. Each type has a processor path, supported f
 
 Waterfall order during Stage 1:
 
-1. Open Library - ISBN-first lookup, description and cover
-2. Google Books - ISBN-first, falls back to title+author search
-3. Apple API - title+author search, cover art and ratings
-4. Wikidata - Stage 2, QID resolution via ISBN bridge
+1. Apple API - ISBN lookup and title search, cover art and ratings
+2. Open Library - ISBN-first lookup, description and cover
+3. Wikidata - Stage 2, QID resolution via ISBN bridge
 
 ### Ambiguity resolution
 
@@ -303,7 +302,7 @@ ComicInfo.xml is the de facto standard metadata format for CBZ/CBR archives. Not
 
 ### Providers
 
-1. Metron (Comic Vine) - issue search by series+number; publisher, creator, and story arc data
+1. Comic Vine - issue search by series+number; publisher, creator, and story arc data
 2. Wikidata - Stage 2, QID resolution for notable series
 
 ### Organization template

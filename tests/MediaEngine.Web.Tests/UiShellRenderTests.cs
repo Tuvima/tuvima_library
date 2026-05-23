@@ -690,7 +690,7 @@ public sealed class UiShellRenderTests : TestContext
         Author = "J.R.R. Tolkien",
         MediaType = "Books",
         Status = "Verified",
-        RetailMatch = "google_books",
+        RetailMatch = "open_library",
         WikidataMatch = "linked",
         WikidataQid = "Q15228",
         CreatedAt = new DateTimeOffset(2025, 1, 2, 0, 0, 0, TimeSpan.Zero),

@@ -1,7 +1,7 @@
 {
   "Books": [
     "title", "author", "year", "genre", "description",
-    "isbn", "asin", "apple_books_id", "google_books_id", "open_library_id", "wikidata_qid"
+    "isbn", "asin", "apple_books_id", "open_library_id", "wikidata_qid"
   ],
   "Audiobooks": [
     "title", "author", "narrator", "series", "series_position",
@@ -24,6 +24,6 @@
   ],
   "Comics": [
     "title", "series", "year", "publisher", "illustrator",
-    "metron_id", "wikidata_qid"
+    "wikidata_qid"
   ]
 }

@@ -1388,7 +1388,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         "P5905", // Comic Vine ID
         "P2969", // Goodreads ID
         "P648",  // Open Library ID
-        "P675",  // Google Books ID
         "P1085", // LibraryThing ID
     ];
 
@@ -4061,8 +4060,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         "P4835" => true, // tvdb_id
         "P7043" => true, // tvdb_episode_id
         "P648"  => true, // open_library_id
-        "P675"  => true, // google_books_id
-
         _       => false,
     };
 

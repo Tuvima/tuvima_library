@@ -1873,7 +1873,7 @@ public partial class SharedMediaEditorShell
             "imdb" => $"https://www.imdb.com/title/{Uri.EscapeDataString(id)}",
             "comicvine" or "comic_vine" => $"https://comicvine.gamespot.com/search/?q={Uri.EscapeDataString(id)}",
             "musicbrainz" => $"https://musicbrainz.org/release/{Uri.EscapeDataString(id)}",
-            "google_books" => $"https://books.google.com/books?id={Uri.EscapeDataString(id)}",
+            "open_library" => $"https://openlibrary.org/isbn/{Uri.EscapeDataString(id)}",
             "apple_api" or "apple_books" or "apple_music" => $"https://books.apple.com/us/book/id{Uri.EscapeDataString(id)}",
             _ => null,
         };
@@ -1909,7 +1909,7 @@ public partial class SharedMediaEditorShell
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("asin")))
             return "apple_api";
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("isbn")))
-            return "google_books";
+            return "open_library";
 
         return null;
     }
@@ -2289,7 +2289,6 @@ public partial class SharedMediaEditorShell
             "apple_api" => ReviewTargetResolver.NormalizeMediaType(mediaType) == "Music" ? "Apple Music" : "Apple Books",
             "apple_music" => "Apple Music",
             "apple_books" => "Apple Books",
-            "google_books" => "Google Books",
             "wikidata_reconciliation" => "Wikidata",
             _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(providerName.Replace('_', ' ')),
         };

@@ -313,7 +313,6 @@ public static class LibraryHelpers
         [WellKnownProviders.OpenLibrary]     = "Open Library",
         [WellKnownProviders.MusicBrainz]     = "MusicBrainz",
         [WellKnownProviders.Tmdb]            = "TMDB",
-        [WellKnownProviders.Metron]          = "Metron",
         [WellKnownProviders.AiProvider]      = "Fanart.tv",
         [WellKnownProviders.UserManual]      = "Manual Match",
     };
@@ -342,7 +341,6 @@ public static class LibraryHelpers
             "open_library"             => "Open Library",
             "musicbrainz"              => "MusicBrainz",
             "tmdb"                     => "TMDB",
-            "metron"                   => "Metron",
             "fanart_tv"                => "Fanart.tv",
             "local_filesystem"         => "File Scan",
             "library_scanner"          => "Library Scanner",

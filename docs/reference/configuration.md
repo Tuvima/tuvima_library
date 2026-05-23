@@ -232,8 +232,7 @@ One JSON file per metadata provider. All provider files are self-contained - add
 |---|---|---|---|
 | `apple_api.json` | Apple API (books, audiobooks) | Stage 1 | `localized` |
 | `open_library.json` | Open Library | Stage 1 | `source` |
-| `google_books.json` | Google Books | Stage 1 | `source` |
-| `metron.json` | Metron (comics) | Stage 1 | `source` |
+| `comicvine.json` | Comic Vine (comics) | Stage 1 | `source` |
 | `musicbrainz.json` | MusicBrainz | Stage 1 | `source` |
 | `tmdb.json` | TMDB (movies, TV) | Stage 1 | `localized` |
 | `wikidata_reconciliation.json` | Wikidata | Stage 2 | `both` |

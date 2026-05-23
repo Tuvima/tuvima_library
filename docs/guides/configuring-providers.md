@@ -38,7 +38,6 @@ These providers require no account, no sign-up, and no configuration. They are a
 | **Wikipedia** | Plain-language descriptions |
 | **Apple API** | Cover art, descriptions, ratings (books, audiobooks, music) |
 | **Open Library** | Book metadata, ISBN data |
-| **Google Books** | Book metadata, cover art, descriptions |
 | **MusicBrainz** | Music metadata, release data, artist information |
 
 These providers are enabled by default. You don't need to do anything to start using them.
@@ -92,7 +91,7 @@ Providers differ in what languages they support. Each provider has a **language 
 
 | Strategy | What it means |
 |---|---|
-| **Source** | Always query this provider in English, regardless of your language settings. Use this for providers whose data is English-only (Open Library, Google Books, MusicBrainz). |
+| **Source** | Always query this provider in English, regardless of your language settings. Use this for providers whose data is English-only (Open Library, MusicBrainz). |
 | **Localized** | Query this provider in your metadata language setting. Use this for providers with strong international content (TMDB, Apple API). |
 | **Both** | Query in your metadata language first; if the result is empty, retry in English and merge the results. Wikidata uses this by default. |
 
@@ -126,4 +125,3 @@ You can also trigger a manual refresh at any time. In the Review Queue, select o
 - [Providers Reference](../reference/providers.md)
 - [Configuration Reference](../reference/configuration.md)
 - [How Two-Stage Enrichment Works](../explanation/how-hydration-works.md)
-

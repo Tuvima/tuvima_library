@@ -3670,7 +3670,6 @@ public static class IntegrationTestEndpoints
 
         if (id == WellKnownProviders.AppleApi
             || id == WellKnownProviders.OpenLibrary
-            || id == WellKnownProviders.GoogleBooks
             || id == WellKnownProviders.Tmdb
             || id == WellKnownProviders.ComicVine
             || id == WellKnownProviders.MusicBrainz)
@@ -3682,7 +3681,6 @@ public static class IntegrationTestEndpoints
             && !IsNonRetailProvider(name)
             && (name.Contains("apple", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("open_library", StringComparison.OrdinalIgnoreCase)
-                || name.Contains("google_books", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("tmdb", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("comic", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("musicbrainz", StringComparison.OrdinalIgnoreCase));

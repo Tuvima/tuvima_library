@@ -41,11 +41,10 @@ Provider configs live in:
 ```
 config/providers/
   apple_api.json
-  google_books.json
   open_library.json
   tmdb.json
   musicbrainz.json
-  metron.json
+  comicvine.json
   wikidata_reconciliation.json    <- Stage 2, not Stage 1
 ```
 
@@ -537,4 +536,3 @@ GET http://localhost:61495/swagger  -> Providers section -> GET /settings/provid
 - [Providers Reference](../reference/providers.md)
 - [Hydration Pipeline, Provider Architecture and Enrichment Strategy](../architecture/hydration-and-providers.md)
 - [Configuration Reference](../reference/configuration.md)
-

@@ -114,7 +114,7 @@ Each provider has a language strategy that controls which language is used when 
 
 The three strategies are:
 
-**Source** - always query in English. These are providers whose catalogues are English-only or whose English data is significantly more complete. Examples: Open Library, Google Books, MusicBrainz.
+**Source** - always query in English. These are providers whose catalogues are English-only or whose English data is significantly more complete. Examples: Open Library and MusicBrainz.
 
 **Localized** - query in your metadata language. These providers have strong international catalogues and will return better results in your language. Examples: TMDB, Apple API.
 
@@ -140,4 +140,3 @@ This means you can find any item in your library regardless of which script or l
 - [Configuration Reference](../reference/configuration.md)
 - [How the Local AI Works](../explanation/how-ai-works.md)
 - [How to Configure Metadata Providers](configuring-providers.md)
-

@@ -47,7 +47,6 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 | Provider | Media Types | What it contributes |
 |---|---|---|
 | TMDB | Movies, TV | Cover art (up to 2000x3000 at w500/w1280), TMDB ID, IMDb ID, network (TV only) |
-| Google Books | Books, Audiobooks | Cover art, ISBN, Google Books ID |
 | Comic Vine | Comics | Cover art (super_url, ~900px), Comic Vine ID |
 
 **Copyright constraint - P18 (Image):** Wikidata P18 is exclusively for Person entities (author/director headshots from Wikimedia Commons). P18 is never fetched for media items. Media cover art comes exclusively from retail providers.
@@ -80,7 +79,7 @@ field_mappings        JSON path extraction rules with named transforms, confiden
 
 **Required-field short-circuits:** Each search strategy declares `required_fields`. If a required field is missing from the request, the strategy is skipped with no HTTP call made.
 
-**Metron title path validation:** `ConfigDrivenAdapter` validates a response before accepting it by checking that at least one recognised title field is non-empty. The recognised title field names for Metron are: `name`, `title`, `issue`, `series`, `volumeName`. The minimum F1 score for a title-only match (when no other metadata fields are present) is 0.40 - lowered from 0.80 to accommodate Metron's sparser response structure for single-issue lookups.
+**Comic title path validation:** `ConfigDrivenAdapter` validates a response before accepting it by checking that at least one recognised title field is non-empty. Recognised comic title fields include `name`, `title`, `issue`, `series.name`, `series`, and `volumeName`.
 
 ### Sprint 6 Provider Decomposition
 
@@ -173,12 +172,12 @@ Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Current
 
 | Media Type | Primary | Secondary | Tertiary | Bridge to Wikidata |
 |---|---|---|---|---|
-| Books | Apple API | Google Books | Open Library | ISBN (P212), Apple Books ID (P6395) |
-| Audiobooks | Apple API | Google Books | - | ASIN, Apple Books ID (P6395) |
+| Books | Apple API | - | - | ISBN (P212), Apple Books ID (P6395) |
+| Audiobooks | Apple API | - | - | ASIN, Apple Books ID (P6395) |
 | Movies | TMDB | - | - | TMDB ID (P4947), IMDb ID (P345) |
 | TV | TMDB | - | - | TMDB TV ID (P4983), IMDb ID (P345) |
 | Comics | Comic Vine | - | - | Comic Vine ID (P5905) |
-| Music | MusicBrainz | - | - | MusicBrainz ID (P434/P436) |
+| Music | Apple API | - | - | Apple Music IDs |
 
 ### Pipeline Configuration (config/hydration.json)
 
@@ -284,7 +283,6 @@ Before making an HTTP call, `ConfigDrivenAdapter` computes a SHA-256 hash of the
 | Apple API | 168 hours (7 days) | Retail data changes infrequently |
 | TMDB | 168 hours (7 days) | Retail data changes infrequently |
 | Open Library | 336 hours (14 days) | Bibliographic data is stable |
-| Google Books | 168 hours (7 days) | Retail data changes infrequently |
 | MusicBrainz | 336 hours (14 days) | Discography data is stable |
 | Comic Vine | 720 hours (30 days) | Strict rate limits - aggressive caching |
 

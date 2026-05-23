@@ -1386,10 +1386,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             {
                 if (node is null) continue;
 
-                // Try ALL title paths and keep the best score. This handles
-                // providers like Metron where "issue" (e.g. "Saga (2012) #1")
-                // scores lower than "series.name" (e.g. "Saga") against the
-                // query title "Saga Chapter One".
+                // Try all title paths and keep the best score. Comic providers
+                // may expose both issue-level and series-level names, and the
+                // series name can be the better match for a broad query.
                 var bestTitleScore = 0.0;
                 string? bestNodeTitle = null;
                 foreach (var tp in titlePaths)
@@ -1769,12 +1768,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
     /// <summary>
     /// Prefer a 13-character element (ISBN-13), falling back to first non-empty.
-    /// Handles both plain string arrays (Open Library) and object arrays with
-    /// <c>type</c>/<c>identifier</c> fields (Google Books <c>industryIdentifiers</c>).
+    /// Handles both plain string arrays and object arrays with
+    /// <c>type</c>/<c>identifier</c> fields.
     /// </summary>
     private static IReadOnlyList<string> PreferIsbn13(IReadOnlyList<string> values, JsonNode node)
     {
-        // Check if this is an array of objects (Google Books style: [{type: "ISBN_13", identifier: "..."}]).
+        // Check if this is an array of typed identifier objects.
         if (node is JsonArray arr && arr.Count > 0 && arr[0] is JsonObject)
         {
             string? isbn13 = null;

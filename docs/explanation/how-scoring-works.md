@@ -12,7 +12,7 @@ tags:
 
 # How the Priority Cascade Works
 
-A single audiobook might have metadata coming from five different places: the M4B file itself, Apple API, Google Books, Open Library, and Wikidata. They often disagree. Apple might spell the author's name differently than Wikidata. Google Books might list the year as the reprint date rather than the original publication date. The EPUB file might have a series name the retailer doesn't know about.
+A single audiobook might have metadata coming from several places: the M4B file itself, Apple API, Open Library, and Wikidata. They often disagree. Apple might spell the author's name differently than Wikidata. Open Library might list a different edition date than the canonical first-publication date. The EPUB file might have a series name the retailer doesn't know about.
 
 Which one is right? The Priority Cascade answers that question - consistently, transparently, and in a way you can override when you need to.
 
@@ -70,7 +70,7 @@ For fields without a Tier B override, Wikidata claims win when present. This is 
 
 Wikidata is the authority for **factual data**: canonical title, author, year of first publication, genre, series membership, franchise relationships, cast, crew. These are objective facts that Wikidata maintains with community oversight and citation requirements.
 
-Retail providers like Apple API or Google Books have richer images and descriptions, but their structured data can be inconsistent - reprint dates rather than original publication dates, house style author name formatting, regional variations. Wikidata's data is more carefully curated and more stable.
+Retail providers like Apple API or Open Library have richer images and descriptions, but their structured data can be inconsistent - reprint dates rather than original publication dates, house style author name formatting, regional variations. Wikidata's data is more carefully curated and more stable.
 
 By default, if Wikidata has an opinion about a field, Wikidata wins.
 

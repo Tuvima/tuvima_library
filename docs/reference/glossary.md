@@ -87,7 +87,7 @@ The rules that decide which metadata source wins. User locks win first, configur
 Code that opens a file format and extracts embedded metadata, artwork, and technical facts.
 
 **Provider**  
-An external metadata source such as Apple, TMDB, MusicBrainz, Metron, Google Books, Open Library, Fanart.tv, or Wikidata.
+An external metadata source such as Apple, TMDB, MusicBrainz, Comic Vine, Open Library, Fanart.tv, or Wikidata.
 
 ## Q
 

@@ -113,15 +113,6 @@ export default {
           }
           break;
 
-        case 'google':
-          if (env.GOOGLE_API_KEY) {
-            const updatedUrl = new URL(proxyRequest.url);
-            updatedUrl.searchParams.append('key', env.GOOGLE_API_KEY);
-            const response = await fetch(new Request(updatedUrl, proxyRequest));
-            return corsResponse(response);
-          }
-          break;
-
         case 'fanart_tv':
           if (env.FANART_TV_API_KEY) {
             const updatedUrl = new URL(proxyRequest.url);

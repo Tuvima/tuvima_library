@@ -56,7 +56,7 @@ In plain English:
 1. A file appears in a configured folder.
 2. Tuvima waits until the file is stable, fingerprints it, and reads embedded metadata.
 3. Processors extract details from EPUB, audio, video, comic, and other supported files.
-4. Retail providers such as Apple, TMDB, MusicBrainz, Metron, Google Books, or Open Library can provide artwork, descriptions, ratings, and bridge IDs.
+4. Retail providers such as Apple, TMDB, MusicBrainz, Comic Vine, or Open Library can provide artwork, descriptions, ratings, and bridge IDs.
 5. Wikidata resolution uses bridge IDs such as ISBN, TMDB ID, MusicBrainz ID, or Comic Vine ID to find canonical identity when possible.
 6. The Priority Cascade decides which metadata wins, while user corrections stay final.
 7. The Dashboard updates through HTTP and SignalR so ingestion and review progress are visible.
@@ -175,7 +175,7 @@ Preview docs locally:
 
 ## Attributions
 
-Tuvima stands on a large open-source and public-knowledge foundation, including .NET, ASP.NET Core, Blazor, MudBlazor, SQLite, Dapper, SignalR, Serilog, Polly, Swashbuckle, TagLibSharp, VersOne.Epub, SkiaSharp, Xabe.FFmpeg, MediaInfo, SharpCompress, LLamaSharp, Whisper.net, Cronos, xUnit, MkDocs, Material for MkDocs, FFmpeg, Wikimedia Commons, Wikipedia, Wikidata, Tuvima.Wikidata, MusicBrainz, TMDB, Open Library, Google Books, Metron, Comic Vine, Fanart.tv, LRCLIB, OpenSubtitles, and Apple APIs.
+Tuvima stands on a large open-source and public-knowledge foundation, including .NET, ASP.NET Core, Blazor, MudBlazor, SQLite, Dapper, SignalR, Serilog, Polly, Swashbuckle, TagLibSharp, VersOne.Epub, SkiaSharp, Xabe.FFmpeg, MediaInfo, SharpCompress, LLamaSharp, Whisper.net, Cronos, xUnit, MkDocs, Material for MkDocs, FFmpeg, Wikimedia Commons, Wikipedia, Wikidata, Tuvima.Wikidata, MusicBrainz, TMDB, Open Library, Comic Vine, Fanart.tv, LRCLIB, OpenSubtitles, and Apple APIs.
 
 See [Attributions](https://tuvima.github.io/tuvima_library/reference/attributions/) for the maintained acknowledgement list and notes about optional provider credentials.
 

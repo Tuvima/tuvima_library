@@ -36,9 +36,8 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 | Apple API | Books, Audiobooks, Music | None | 500ms throttle | Localized (user language) | Active |
 | TMDB | Movies, TV | Bearer token | 250ms, max 2 concurrent | Localized (user language) | Active (requires key) |
 | MusicBrainz | Music | None | 1100ms, max 1 concurrent | Source (English only) | Active |
-| Metron | Comics | Basic auth | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
+| Comic Vine | Comics | API key | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
 | Open Library | Books | None | 500ms | Source (English only) | Disabled (config kept) |
-| Google Books | Books | API key (query param) | 200ms | Localized | Disabled (config kept) |
 
 ---
 
@@ -77,15 +76,14 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 
 **Notes:** Title only. Artist, Album, and Year are not query parameters - used for post-search ranking. Cover art from Cover Art Archive (`https://coverartarchive.org/release/{id}/front-250`). Strict rate limit (1100ms between requests, max 1 concurrent) per MusicBrainz policy.
 
-#### Metron
+#### Comic Vine
 
 | Strategy | Priority | Required Fields | URL Pattern | Media Types |
 |---|---|---|---|---|
-| ISBN Lookup | 0 (highest) | `isbn` | `/issue/?isbn={isbn}` | Comics |
-| Issue Search | 1 | `title` | `/issue/?series_name={title}&limit={limit}` | Comics |
-| Series Search | 2 | `title` | `/series/?name={title}&limit={limit}` | Comics |
+| Volume Search | 1 | `series` | `/search/?query={series}&resources=volume&limit={limit}` | Comics |
+| Issue Search | 2 | `title` | `/search/?query={title}&resources=issue&limit={limit}` | Comics |
 
-**Notes:** ISBN lookup is exact match. Title is used as `series_name` parameter for issue search, `name` for series search. Author and Year are not query parameters. Returns rich comic metadata including publisher, credits, issue number, and series position.
+**Notes:** Comic Vine supplies comic issue and volume metadata, including cover art and Comic Vine bridge identifiers. Series and issue hints are used for search and post-search ranking.
 
 #### Open Library (Disabled)
 
@@ -109,7 +107,7 @@ Each provider's config defines a `field_mappings` array that maps JSON response 
 | **Apple API** | -- | -- | -- | 0.85 | 0.85 | 0.70 (Books) | -- | -- | -- | -- |
 | **TMDB** | 0.85 | -- | 0.90 | 0.90 (poster+backdrop) | 0.85 | 0.80 | -- | -- | 0.85 | 0.85 |
 | **MusicBrainz** | 0.80 | 0.80 (artist-credit) | 0.85 | 0.70 | -- | -- | -- | -- | -- | -- |
-| **Metron** | 0.85 | 0.80 (credits) | 0.85 | 0.85 | 0.80 | -- | 0.85 | 0.90 | -- | -- |
+| **Comic Vine** | 0.85 | -- | 0.85 | 0.85 | 0.80 | -- | 0.85 | 0.90 | -- | -- |
 | **Open Library** | 0.75 | 0.80 | 0.85 | 0.70 | 0.60 | -- | 0.70 | -- | 0.65 | 0.70 |
 
 Numbers represent confidence values assigned to extracted claims. `--` means the provider does not return that field.
@@ -121,12 +119,12 @@ The `ValueTransformCatalog` applies transformations during extraction:
 | Transform | Purpose | Used By |
 |---|---|---|
 | `regex_replace` | Strip image size suffixes from cover URLs | Apple API |
-| `strip_html` | Clean HTML tags from descriptions | Apple API, Metron, Open Library |
-| `to_string` | Convert numeric values (IDs, ratings) to strings | Apple API, TMDB, Metron |
+| `strip_html` | Clean HTML tags from descriptions | Apple API, Comic Vine, Open Library |
+| `to_string` | Convert numeric values (IDs, ratings) to strings | Apple API, TMDB, Comic Vine |
 | `url_template` | Construct full image URLs from partial paths | TMDB, MusicBrainz, Open Library |
-| `first_n_chars(4)` | Extract 4-digit year from date strings | TMDB, MusicBrainz, Metron |
+| `first_n_chars(4)` | Extract 4-digit year from date strings | TMDB, MusicBrainz, Comic Vine |
 | `prefer_isbn13` | Select ISBN-13 from array of ISBN formats | Open Library |
-| `array_join` | Join array elements into comma-separated string | TMDB (genres), MusicBrainz (artists), Metron (credits), Open Library (genres) |
+| `array_join` | Join array elements into comma-separated string | TMDB (genres), MusicBrainz (artists), Comic Vine (credits), Open Library (genres) |
 
 ---
 
@@ -142,9 +140,7 @@ Bridge IDs are external platform identifiers that the Wikidata Reconciliation ad
 | **TMDB** | TMDB ID | `tmdb_id` | 1.0 | P4947 (movies) / P4983 (TV) |
 | **MusicBrainz** | MusicBrainz Release ID | `musicbrainz_id` | 1.0 | P436 |
 | **MusicBrainz** | ISRC | `isrc` | 0.9 | P1243 |
-| **Metron** | Comic Vine ID | `comic_vine_id` | 0.95 | P5905 |
-| **Metron** | GCD ID | `gcd_id` | 0.95 | P11957 |
-| **Metron** | ISBN | `isbn` | 0.95 | P212 |
+| **Comic Vine** | Comic Vine ID | `comic_vine_id` | 0.95 | P5905 |
 | **Open Library** | ISBN | `isbn` | 0.90 | P212 (ISBN-13) / P957 (ISBN-10) |
 
 ### Stage 2 Resolution Flow Per Bridge ID
@@ -154,7 +150,7 @@ The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v3.
 1. **Bridge request build:** The adapter converts each `WikidataResolveRequest` into a `BridgeResolutionRequest` with bridge IDs, media kind, title/creator/year/series hints, language, custom P-code mappings, and rollup preference.
 2. **Direct lookup:** The package groups `(propertyId, normalizedValue)` lookups so duplicate ISBN/TMDB/Apple/MusicBrainz/ComicVine IDs share one Wikidata query.
 3. **Edition awareness:** The package walks P629 for edition/release-to-work rollups and can return both the resolved entity QID and canonical work QID plus the relationship path.
-4. **Media-specific bridge mapping:** TMDB, Apple, TVDB, MusicBrainz, OpenLibrary, Google Books, and ComicVine keys are mapped to official Wikidata properties inside the package; app config only overrides or supplies custom mappings.
+4. **Media-specific bridge mapping:** TMDB, Apple, TVDB, MusicBrainz, OpenLibrary, and ComicVine keys are mapped to official Wikidata properties inside the package; app config only overrides or supplies custom mappings.
 5. **Fallback:** When bridge lookup does not produce a usable candidate and title hints are present, the bridge resolver performs typed text fallback internally. The adapter keeps a small application-level fallback pass for historical parity.
 6. **Claim and diagnostics follow-up:** After every successful resolution, the adapter calls `ExtendAsync` over the known bridge P-codes to populate `WikidataResolveResult.Claims` and `CollectedBridgeIds`, and it also carries `BridgeDiagnostics`, ranked candidates, and rollup details from the package result.
 

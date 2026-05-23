@@ -82,7 +82,7 @@ public static class IdentifierNormalizationService
     /// <summary>
     /// Normalizes the app-level language code for a specific provider's expected format.
     /// Different providers use different language code formats:
-    /// - Wikidata, Wikipedia, Google Books use ISO 639-1 two-letter codes ("en", "es", "fr").
+    /// - Wikidata, Wikipedia, and Open Library use ISO 639-1 two-letter codes ("en", "es", "fr").
     /// - Apple API uses locale codes with underscore ("en_us", "es_mx").
     /// </summary>
     /// <param name="appLanguage">The configured app language (e.g. "en", "en-US", "es").</param>
@@ -99,7 +99,7 @@ public static class IdentifierNormalizationService
             "apple_api" or "apple_books"
                 => $"{primary}_{primary}",
 
-            // All other providers (Wikidata, Wikipedia, Google Books, Open Library, etc.)
+            // All other providers (Wikidata, Wikipedia, Open Library, etc.)
             // use the standard two-letter ISO 639-1 code.
             _ => primary,
         };

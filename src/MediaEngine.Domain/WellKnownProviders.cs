@@ -28,17 +28,11 @@ public static class WellKnownProviders
     /// <summary>Open Library — book metadata and cover art.</summary>
     public static readonly Guid OpenLibrary = Guid.Parse("b4000004-0000-4000-8000-000000000005");
 
-    /// <summary>Google Books — book search and metadata.</summary>
-    public static readonly Guid GoogleBooks = Guid.Parse("b5000005-0000-4000-8000-000000000006");
-
     /// <summary>MusicBrainz — music metadata and release groups.</summary>
     public static readonly Guid MusicBrainz = Guid.Parse("b6000006-0000-4000-8000-000000000007");
 
     /// <summary>TMDB — movie and TV metadata, images.</summary>
     public static readonly Guid Tmdb = Guid.Parse("b7000007-0000-4000-8000-000000000008");
-
-    /// <summary>Metron — comic book metadata.</summary>
-    public static readonly Guid Metron = Guid.Parse("b8000008-0000-4000-8000-000000000009");
 
     /// <summary>AI-generated claims (Description Intelligence, TL;DR, Vibe Tags, etc.).</summary>
     public static readonly Guid AiProvider = Guid.Parse("bb00000b-0000-4000-8000-000000000012");

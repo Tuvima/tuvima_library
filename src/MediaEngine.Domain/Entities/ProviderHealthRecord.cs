@@ -8,7 +8,7 @@ using MediaEngine.Domain.Enums;
 /// </summary>
 public sealed class ProviderHealthRecord
 {
-    /// <summary>Provider identifier (matches config name, e.g. "metron", "tmdb").</summary>
+    /// <summary>Provider identifier (matches config name, e.g. "comicvine", "tmdb").</summary>
     public string ProviderId { get; set; } = string.Empty;
 
     /// <summary>Current health status.</summary>
