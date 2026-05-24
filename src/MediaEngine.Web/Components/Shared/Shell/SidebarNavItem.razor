@@ -7,7 +7,9 @@
             class="@CssClass"
             aria-current="@(Active ? "page" : null)"
             @onclick="OnClick">
-        <MudIcon Icon="@Icon" Style="font-size: 18px;" />
+        <span class="sidebar-nav-item__icon-shell">
+            <MudIcon Icon="@Icon" Class="sidebar-nav-item__icon" />
+        </span>
         <span class="sidebar-nav-item__label">@Label</span>
         @RenderMeta()
     </button>
@@ -18,7 +20,9 @@ else
             class="@CssClass"
             aria-current="@(Active ? "page" : null)"
             @onclick="Navigate">
-        <MudIcon Icon="@Icon" Style="font-size: 18px;" />
+        <span class="sidebar-nav-item__icon-shell">
+            <MudIcon Icon="@Icon" Class="sidebar-nav-item__icon" />
+        </span>
         <span class="sidebar-nav-item__label">@Label</span>
         @RenderMeta()
     </button>
@@ -33,10 +37,11 @@ else
     [Parameter] public int Level { get; set; }
     [Parameter] public string? Meta { get; set; }
     [Parameter] public int BadgeCount { get; set; }
+    [Parameter] public string? Tone { get; set; }
     [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
 
     private string CssClass =>
-        $"sidebar-nav-item sidebar-nav-item--level-{Math.Clamp(Level, 0, 3)}{(Active ? " is-active" : string.Empty)}{(Child ? " is-child" : string.Empty)}";
+        $"sidebar-nav-item sidebar-nav-item--level-{Math.Clamp(Level, 0, 3)}{(Active ? " is-active" : string.Empty)}{(Child ? " is-child" : string.Empty)}{(string.IsNullOrWhiteSpace(Tone) ? string.Empty : $" sidebar-nav-item--tone-{Tone}")}";
 
     private void Navigate()
     {

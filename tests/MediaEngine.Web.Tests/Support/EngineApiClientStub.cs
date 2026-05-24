@@ -1,5 +1,6 @@
 using System.Reflection;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -403,6 +404,27 @@ internal class EngineApiClientStub : DispatchProxy
                 },
                 GeneratedAt = DateTimeOffset.UtcNow,
             });
+
+        _handlers[nameof(IEngineApiClient.GetMediaOperationsAsync)] =
+            _ => Task.FromResult<IReadOnlyList<MediaOperationViewModel>>([]);
+        _handlers[nameof(IEngineApiClient.GetMediaOperationAsync)] =
+            _ => Task.FromResult<MediaOperationDetailViewModel?>(null);
+        _handlers[nameof(IEngineApiClient.GetMediaOperationsSummaryAsync)] =
+            _ => Task.FromResult(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        _handlers[nameof(IEngineApiClient.RetryMediaOperationAsync)] =
+            _ => Task.FromResult(true);
+        _handlers[nameof(IEngineApiClient.CancelMediaOperationAsync)] =
+            _ => Task.FromResult(true);
+        _handlers[nameof(IEngineApiClient.GetIngestionBatchItemsAsync)] =
+            _ => Task.FromResult<PagedResponse<IngestionBatchItemViewModel>?>(new PagedResponse<IngestionBatchItemViewModel>(
+                [],
+                Offset: 0,
+                Limit: 100,
+                HasMore: false));
+        _handlers[nameof(IEngineApiClient.GetAssetCapabilitiesAsync)] =
+            _ => Task.FromResult<IReadOnlyList<EntityCapabilityStateViewModel>>([]);
+        _handlers[nameof(IEngineApiClient.GetCapabilitySummaryAsync)] =
+            _ => Task.FromResult(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
 
         _handlers[nameof(IEngineApiClient.TriggerRescanAsync)] =
             _ => Task.FromResult(true);

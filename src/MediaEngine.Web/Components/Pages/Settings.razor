@@ -18,8 +18,10 @@
             <SidebarNavGroup Label="@group.Label"
                              Icon="@group.Icon"
                              Expandable="@group.Expandable"
-                             Expanded="@IsTreeGroupActive(group)"
-                             BadgeCount="@GetGroupBadgeCount(group)">
+                             Expanded="@IsTreeGroupExpanded(group)"
+                             ExpandedChanged="@(expanded => OnTreeGroupExpandedChanged(group.Key, expanded))"
+                             BadgeCount="@GetGroupBadgeCount(group)"
+                             Tone="@GetTreeGroupTone(group)">
                 @foreach (var item in GetVisibleTreeItems(group))
                 {
                     <SidebarNavItem Label="@item.Label"
@@ -29,7 +31,8 @@
                                     Child="@(group.Sections.Count > 1)"
                                     Level="@(group.Sections.Count > 1 ? 1 : 0)"
                                     BadgeCount="@GetBadgeCount(item)"
-                                    Meta="@(group.Sections.Count > 1 ? null : GetItemMeta(item))" />
+                                    Meta="@(group.Sections.Count > 1 ? null : GetItemMeta(item))"
+                                    Tone="@GetItemTone(item.Value)" />
 
                     @if (item.Value == SettingsSection.AdminOverview)
                     {
@@ -38,9 +41,11 @@
                             <SidebarNavGroup Label="@childGroup.Label"
                                              Icon="@childGroup.Icon"
                                              Expandable="@childGroup.Expandable"
-                                             Expanded="@IsTreeGroupActive(childGroup)"
+                                             Expanded="@IsTreeGroupExpanded(childGroup)"
+                                             ExpandedChanged="@(expanded => OnTreeGroupExpandedChanged(childGroup.Key, expanded))"
                                              BadgeCount="@GetGroupBadgeCount(childGroup)"
-                                             Level="1">
+                                             Level="1"
+                                             Tone="@GetTreeGroupTone(childGroup)">
                                 @foreach (var childItem in GetVisibleTreeItems(childGroup))
                                 {
                                     <SidebarNavItem Label="@childItem.Label"
@@ -50,7 +55,8 @@
                                                     Child="true"
                                                     Level="2"
                                                     BadgeCount="@GetBadgeCount(childItem)"
-                                                    Meta="@null" />
+                                                    Meta="@null"
+                                                    Tone="@GetItemTone(childItem.Value)" />
                                 }
                             </SidebarNavGroup>
                         }
@@ -197,6 +203,11 @@
     private bool _drawerOpen;
     private Guid _drawerEntityId;
     private string _drawerTitle = string.Empty;
+    private readonly HashSet<string> _expandedTreeGroupKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "user",
+        "admin",
+    };
 
     private IReadOnlyList<SettingsTreeGroupDef> VisibleTreeGroups =>
         SettingsNav.FilteredTreeGroups(_currentRole).ToList();
@@ -346,9 +357,20 @@
         StateHasChanged();
     }
 
-    private bool IsTreeGroupActive(SettingsTreeGroupDef group) =>
-        group.Sections.Contains(_activeSection)
-        || GetVisibleChildTreeGroups(group).Any(childGroup => childGroup.Sections.Contains(_activeSection));
+    private bool IsTreeGroupExpanded(SettingsTreeGroupDef group) =>
+        _expandedTreeGroupKeys.Contains(group.Key);
+
+    private void OnTreeGroupExpandedChanged(string key, bool expanded)
+    {
+        if (expanded)
+        {
+            _expandedTreeGroupKeys.Add(key);
+        }
+        else
+        {
+            _expandedTreeGroupKeys.Remove(key);
+        }
+    }
 
     private int GetGroupBadgeCount(SettingsTreeGroupDef group) =>
         GetVisibleTreeItems(group).Sum(GetBadgeCount)
@@ -385,6 +407,32 @@
     private static string? GetItemMeta(SettingsItemDef item) => item.Value switch
     {
         _ => item.Placeholder ? "Planned" : SettingsStatus.Label(item.Status),
+    };
+
+    private static string GetTreeGroupTone(SettingsTreeGroupDef group) => group.Key switch
+    {
+        "user" => "user",
+        "admin" => "admin",
+        "library-operations" => "library",
+        _ => "default",
+    };
+
+    private static string GetItemTone(SettingsSection section) => section switch
+    {
+        SettingsSection.AdminOverview => "overview",
+        SettingsSection.Libraries => "libraries",
+        SettingsSection.Ingestion => "ingestion",
+        SettingsSection.Providers => "providers",
+        SettingsSection.ActivityLogs => "activity",
+        SettingsSection.Setup => "setup",
+        SettingsSection.LocalAi => "ai",
+        SettingsSection.Plugins => "plugins",
+        SettingsSection.Delivery => "delivery",
+        SettingsSection.Access => "access",
+        SettingsSection.Playback => "delivery",
+        SettingsSection.Privacy => "providers",
+        SettingsSection.Review => "plugins",
+        _ => "default",
     };
 
     private static readonly LibraryOperationsTabDef[] LibraryOperationsTabs =

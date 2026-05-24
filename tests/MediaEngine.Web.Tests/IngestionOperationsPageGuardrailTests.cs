@@ -89,6 +89,62 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_IgnoresStaleActiveJobCounterWhenDetailedWorkIsComplete()
+    {
+        var completedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 117,
+                RegisteredItems = 117,
+                ActiveJobs = 1,
+                LastSuccessfulScanTime = completedAt,
+            },
+            CurrentActivities =
+            [
+                new()
+                {
+                    StageKey = "artwork",
+                    Message = "Fetching artwork",
+                    ProcessedCount = 117,
+                    TotalCount = 117,
+                    PercentComplete = 100,
+                    ActiveCount = 0,
+                    QueuedCount = 0,
+                },
+            ],
+            RecentBatches =
+            [
+                new()
+                {
+                    StartedAt = completedAt.AddMinutes(-10),
+                    CompletedAt = completedAt,
+                    TotalFiles = 117,
+                    ProcessedFiles = 117,
+                    RegisteredCount = 117,
+                    Status = "completed",
+                },
+            ],
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            snapshot.CurrentActivities,
+            [],
+            [],
+            new IngestionDashboardMetrics(117, 117, 1, 0),
+            null,
+            completedAt,
+            completedAt.AddMinutes(5));
+
+        Assert.Equal(LibraryUpdatePageState.Idle, status.PageState);
+        Assert.Equal("Library is up to date", status.Heading);
+        Assert.False(status.ShowProgress);
+    }
+
+    [Fact]
     public void LiveDashboardState_MapsNoPriorRunToReadyState()
     {
         var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
@@ -232,6 +288,63 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal(IngestionLiveMode.Live, IngestionLiveDashboardState.ResolveLiveMode(EngineConnectionState.Online));
         Assert.Equal(IngestionLiveMode.Reconnecting, IngestionLiveDashboardState.ResolveLiveMode(EngineConnectionState.LiveUpdatesDisconnected));
         Assert.Equal(IngestionLiveMode.Polling, IngestionLiveDashboardState.ResolveLiveMode(EngineConnectionState.Offline));
+    }
+
+    [Fact]
+    public void LiveDashboardState_MapsDurableOperationSummaryToQueueHealth()
+    {
+        var summary = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["queued"] = 12,
+            ["running"] = 3,
+            ["retry_waiting"] = 2,
+            ["blocked"] = 1,
+            ["interrupted"] = 4,
+            ["failed_terminal"] = 5,
+            ["succeeded"] = 99,
+        };
+        var operations = new[]
+        {
+            new MediaOperationViewModel
+            {
+                Status = "queued",
+                Stage = "waiting_for_lock",
+            },
+        };
+
+        var health = IngestionLiveDashboardState.BuildQueueHealth(summary, operations);
+
+        Assert.Contains(health, item => item.Key == "queued" && item.Count == 12);
+        Assert.Contains(health, item => item.Key == "running" && item.Count == 3);
+        Assert.Contains(health, item => item.Key == "waiting_for_lock" && item.Count == 1);
+        Assert.Contains(health, item => item.Key == "retrying" && item.Count == 2);
+        Assert.Contains(health, item => item.Key == "blocked" && item.Count == 1);
+        Assert.Contains(health, item => item.Key == "interrupted" && item.Count == 4);
+        Assert.Contains(health, item => item.Key == "failed" && item.Count == 5);
+        Assert.Contains(health, item => item.Key == "completed" && item.Count == 99);
+    }
+
+    [Fact]
+    public void LiveDashboardState_DefaultsDetailsVisibleOnlyForProblemWork()
+    {
+        Assert.False(IngestionLiveDashboardState.ShouldDefaultShowDetails(
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["queued"] = 10,
+                ["running"] = 2,
+                ["succeeded"] = 20,
+            }));
+
+        Assert.True(IngestionLiveDashboardState.ShouldDefaultShowDetails(
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["blocked"] = 1,
+            }));
+        Assert.True(IngestionLiveDashboardState.ShouldDefaultShowDetails(
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["retry_waiting"] = 3,
+            }));
     }
 
     [Fact]
@@ -672,6 +785,111 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("Update steps", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("ingestion-stage-rail", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("href=\"/settings/activity\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void LiveDashboard_RendersBatchRunsWithMediaCountsAndReviewLinks()
+    {
+        var batchId = Guid.Parse("83000000-0000-0000-0000-000000000001");
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, new IngestionOperationsSnapshotViewModel
+            {
+                Summary = new IngestionOperationsSummaryViewModel
+                {
+                    TotalItems = 10,
+                    RegisteredItems = 4,
+                    ActiveJobs = 1,
+                },
+                RecentBatches =
+                [
+                    new IngestionOperationsBatchViewModel
+                    {
+                        BatchId = batchId,
+                        StartedAt = DateTimeOffset.UtcNow.AddMinutes(-12),
+                        TotalFiles = 10,
+                        MoviesCount = 2,
+                        TvShowsCount = 1,
+                        BooksCount = 3,
+                        AudiobooksCount = 1,
+                        ComicsCount = 2,
+                        RegisteredCount = 4,
+                        ReviewCount = 2,
+                        FailedCount = 0,
+                        PeopleGeneratedCount = 7,
+                        ArtworkDownloadedCount = 3,
+                        MetadataUpdatedCount = 4,
+                        Status = "running",
+                    },
+                ],
+            })
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 4, 1, 0))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 10))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Last batch runs", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Movies", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("TV Shows", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Books", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Audiobooks", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Comics", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("People", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Review", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("href=\"/settings/activity?batchId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Queue &amp; Details", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Source", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enrichment", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveDashboard_DoesNotInventFinalChecksWhenQueueIsEmpty()
+    {
+        var completedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var activities = new[]
+        {
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "artwork",
+                Message = "Fetching artwork",
+                ProcessedCount = 117,
+                TotalCount = 117,
+                PercentComplete = 100,
+                ActiveCount = 0,
+                QueuedCount = 0,
+            },
+        };
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, new IngestionOperationsSnapshotViewModel
+            {
+                Summary = new IngestionOperationsSummaryViewModel
+                {
+                    TotalItems = 117,
+                    RegisteredItems = 117,
+                    ActiveJobs = 1,
+                    LastSuccessfulScanTime = completedAt,
+                },
+                CurrentActivities = activities.ToList(),
+                RecentBatches =
+                [
+                    new IngestionOperationsBatchViewModel
+                    {
+                        StartedAt = completedAt.AddMinutes(-10),
+                        CompletedAt = completedAt,
+                        TotalFiles = 117,
+                        ProcessedFiles = 117,
+                        RegisteredCount = 117,
+                        Status = "completed",
+                    },
+                ],
+            })
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(117, 117, 1, 0))
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 117))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Library is up to date", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("finishing final checks", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("0 still in pipeline", cut.Markup, StringComparison.Ordinal);
     }
 
     private static IngestionCurrentActivityViewModel Activity(string key, string message) => new()

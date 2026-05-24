@@ -328,6 +328,21 @@ public sealed class IngestionOperationsBatchDto
     [JsonPropertyName("processed_files")]
     public int ProcessedFiles { get; init; }
 
+    [JsonPropertyName("movies_count")]
+    public int MoviesCount { get; init; }
+
+    [JsonPropertyName("tv_shows_count")]
+    public int TvShowsCount { get; init; }
+
+    [JsonPropertyName("books_count")]
+    public int BooksCount { get; init; }
+
+    [JsonPropertyName("audiobooks_count")]
+    public int AudiobooksCount { get; init; }
+
+    [JsonPropertyName("comics_count")]
+    public int ComicsCount { get; init; }
+
     [JsonPropertyName("registered_count")]
     public int RegisteredCount { get; init; }
 

@@ -57,7 +57,7 @@
             <div class="library-update-metric is-blue">
                 <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span>
                 <div>
-                    <span>Finished</span>
+                    <span>Processed</span>
                     <strong>@FormatCount(Model.ProcessedFiles)</strong>
                 </div>
             </div>
@@ -76,6 +76,8 @@
                 </div>
             </div>
         </section>
+
+        <section class="library-update-primary-grid">
 
         <section class="@MainStatusClass" aria-live="polite">
             <div class="library-update-status__top">
@@ -130,63 +132,82 @@
             }
         </section>
 
-        <section class="@InfoGridClass">
-            <div class="library-update-panel library-update-now">
-                <span class="library-update-panel__icon is-purple"><MudIcon Icon="@PanelIcon" /></span>
-                <div class="library-update-panel__body">
-                    <MudText Typo="Typo.h6">@Model.PanelTitle</MudText>
-                    <p>@Model.PanelText</p>
+        <section class="library-update-panel library-update-now">
+            <span class="library-update-panel__icon is-purple"><MudIcon Icon="@PanelIcon" /></span>
+            <div class="library-update-panel__body">
+                <MudText Typo="Typo.h6">@Model.PanelTitle</MudText>
+                <p>@Model.PanelText</p>
 
-                    @if (Model.PageState == LibraryUpdatePageState.Running)
-                    {
-                        <div class="library-update-facts">
-                            @if (!string.IsNullOrWhiteSpace(Model.CurrentItemTitle))
-                            {
-                                <div>
-                                    <span>Current item</span>
-                                    <strong>@Model.CurrentItemTitle</strong>
-                                </div>
-                            }
+                @if (Model.PageState == LibraryUpdatePageState.Running)
+                {
+                    <div class="library-update-facts">
+                        @if (!string.IsNullOrWhiteSpace(Model.CurrentItemTitle))
+                        {
                             <div>
-                                <span>Current step</span>
-                                <strong>@Model.CurrentStep</strong>
+                                <span>Current item</span>
+                                <strong>@Model.CurrentItemTitle</strong>
                             </div>
-                            @if (Model.QueuedItems > 0)
-                            {
-                                <div>
-                                    <span>Still in pipeline</span>
-                                    <strong>@FormatCount(Model.QueuedItems)</strong>
-                                </div>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(Model.CurrentProvider))
-                            {
-                                <div>
-                                    <span>Current source</span>
-                                    <strong>@Model.CurrentProvider</strong>
-                                </div>
-                            }
+                        }
+                        <div>
+                            <span>Current step</span>
+                            <strong>@Model.CurrentStep</strong>
                         </div>
-                    }
-                    else if (Model.HasPriorRun)
-                    {
-                        <div class="library-update-facts is-summary">
+                        @if (Model.QueuedItems > 0)
+                        {
                             <div>
-                                <span>Added or updated</span>
-                                <strong>@FormatCount(Model.AddedOrUpdatedCount)</strong>
+                                <span>Still in pipeline</span>
+                                <strong>@FormatCount(Model.QueuedItems)</strong>
                             </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.CurrentProvider))
+                        {
                             <div>
-                                <span>Matched</span>
-                                <strong>@FormatCount(Model.MatchedItems)</strong>
+                                <span>Current source</span>
+                                <strong>@Model.CurrentProvider</strong>
                             </div>
-                            <div>
-                                <span>Need review</span>
-                                <strong>@FormatCount(Model.ReviewItems)</strong>
-                            </div>
+                        }
+                    </div>
+                }
+                else if (Model.HasPriorRun)
+                {
+                    <div class="library-update-facts is-summary">
+                        <div>
+                            <span>Added or updated</span>
+                            <strong>@FormatCount(Model.AddedOrUpdatedCount)</strong>
                         </div>
-                    }
-                </div>
+                        <div>
+                            <span>Matched</span>
+                            <strong>@FormatCount(Model.MatchedItems)</strong>
+                        </div>
+                        <div>
+                            <span>Need review</span>
+                            <strong>@FormatCount(Model.ReviewItems)</strong>
+                        </div>
+                    </div>
+                }
             </div>
+        </section>
+        </section>
 
+        <section class="library-update-steps" aria-label="Update steps">
+            <MudText Typo="Typo.subtitle1">Update steps</MudText>
+            <div class="library-update-stepper">
+                @foreach (var step in Model.Steps)
+                {
+                    <div class="@StepClass(step)">
+                        <span class="library-update-step__node">
+                            <MudIcon Icon="@StepIcon(step)" />
+                        </span>
+                        <div>
+                            <strong>@step.Label</strong>
+                            <span>@step.StatusLabel</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="library-update-bottom-grid">
             @if (Model.ReviewItems > 0)
             {
                 <div class="library-update-panel library-update-attention">
@@ -220,52 +241,61 @@
                     </div>
                 </div>
             }
-        </section>
 
-        <section class="library-update-steps" aria-label="Update steps">
-            <MudText Typo="Typo.subtitle1">Update steps</MudText>
-            <div class="library-update-stepper">
-                @foreach (var step in Model.Steps)
-                {
-                    <div class="@StepClass(step)">
-                        <span class="library-update-step__node">
-                            <MudIcon Icon="@StepIcon(step)" />
-                        </span>
-                        <div>
-                            <strong>@step.Label</strong>
-                            <span>@step.StatusLabel</span>
-                        </div>
-                    </div>
-                }
-            </div>
-        </section>
-
-        @if (Model.HasPriorRun || Model.RecentRuns.Count > 0 || Model.PageState == LibraryUpdatePageState.Running)
-        {
-            <details class="library-update-recent" aria-label="Recent update runs" open>
-                <summary class="library-update-recent__summary">
-                    <span>Recent update runs</span>
-                    <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" />
-                </summary>
-                <div class="library-update-recent__content">
-                    @if (Model.RecentRuns.Count == 0)
-                    {
-                        <div class="library-update-recent__empty">No library update runs are available yet.</div>
-                    }
-                    else
-                    {
-                        <div class="library-update-recent__list">
-                            @foreach (var run in Model.RecentRuns)
-                            {
-                                <div class="library-update-recent__row library-update-run-row">
-                                    @RunSummaryContent(run)
+            @if (Model.HasPriorRun || Model.RecentRuns.Count > 0 || Model.PageState == LibraryUpdatePageState.Running)
+            {
+                <details class="library-update-recent" aria-label="Recent update runs" open>
+                    <summary class="library-update-recent__summary">
+                        <span>Last batch runs</span>
+                        <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" />
+                    </summary>
+                    <div class="library-update-recent__content">
+                        @if (RecentBatches.Count == 0)
+                        {
+                            <div class="library-update-recent__empty">No library update runs are available yet.</div>
+                        }
+                        else
+                        {
+                            <div class="library-update-batch-grid" role="table" aria-label="Recent batch runs">
+                                <div class="library-update-batch-grid__head" role="row">
+                                    <span>Batch</span>
+                                    @BatchHeader("Movies", Icons.Material.Outlined.Movie, "movies")
+                                    @BatchHeader("TV Shows", Icons.Material.Outlined.Tv, "tv")
+                                    @BatchHeader("Books", Icons.Material.Outlined.MenuBook, "books")
+                                    @BatchHeader("Audiobooks", Icons.Material.Outlined.Headphones, "audiobooks")
+                                    @BatchHeader("Comics", Icons.Material.Outlined.AutoStories, "comics")
+                                    @BatchHeader("People", Icons.Material.Outlined.Groups, "people")
+                                    @BatchHeader("Review", Icons.Material.Outlined.RateReview, "review")
+                                    @BatchHeader("Failed", Icons.Material.Outlined.ErrorOutline, "failed")
+                                    <span>Status</span>
                                 </div>
-                            }
-                        </div>
-                    }
-                </div>
-            </details>
-        }
+                                @foreach (var batch in RecentBatches)
+                                {
+                                    <a class="library-update-batch-grid__row"
+                                       role="row"
+                                       href="@BatchActivityHref(batch)"
+                                       aria-label="View activity for @BatchTitle(batch)">
+                                        <span class="library-update-batch-title">
+                                            <strong>@BatchTitle(batch)</strong>
+                                            <time>@FormatRelative(batch.StartedAt)</time>
+                                        </span>
+                                        @BatchCountChip(batch.MoviesCount, Icons.Material.Outlined.Movie, "movies")
+                                        @BatchCountChip(batch.TvShowsCount, Icons.Material.Outlined.Tv, "tv")
+                                        @BatchCountChip(batch.BooksCount, Icons.Material.Outlined.MenuBook, "books")
+                                        @BatchCountChip(batch.AudiobooksCount, Icons.Material.Outlined.Headphones, "audiobooks")
+                                        @BatchCountChip(batch.ComicsCount, Icons.Material.Outlined.AutoStories, "comics")
+                                        @BatchCountChip(batch.PeopleGeneratedCount, Icons.Material.Outlined.Groups, "people")
+                                        @BatchCountChip(batch.ReviewCount, Icons.Material.Outlined.RateReview, "review")
+                                        @BatchCountChip(batch.FailedCount, Icons.Material.Outlined.ErrorOutline, "failed")
+                                        <span class="@BatchStatusClass(batch.Status)">@BatchStatusLabel(batch.Status)</span>
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </div>
+                </details>
+            }
+        </section>
     }
 </MudPaper>
 
@@ -305,7 +335,12 @@
 
     protected override bool ShouldRender()
     {
-        var signature = BuildRenderSignature(Model, Loading, ScanStarting, Error);
+        var signature = BuildRenderSignature(
+            Model,
+            Loading,
+            ScanStarting,
+            Error,
+            RecentBatches);
         if (string.Equals(_lastRenderSignature, signature, StringComparison.Ordinal))
             return false;
 
@@ -315,10 +350,10 @@
 
     private string MainStatusClass => $"library-update-status is-{Model.PageState.ToString().ToLowerInvariant()}";
     private string StatusPillClass => $"library-update-pill is-{Model.StatusTone}";
-    private string InfoGridClass => $"library-update-info {(Model.ReviewItems > 0 ? "has-attention" : "is-clear")}";
     private string ProgressClass => $"library-update-progress {(Model.IsIndeterminate ? "is-indeterminate" : string.Empty)}";
     private string ProgressStyle => $"--library-update-progress: {Math.Clamp(Model.ProgressPercent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
     private string ProgressLabel => $"{Math.Clamp(Model.ProgressPercent, 0, 100).ToString("0", CultureInfo.CurrentCulture)}%";
+    private IReadOnlyList<IngestionOperationsBatchViewModel> RecentBatches => Snapshot?.RecentBatches ?? [];
     private string PanelIcon => Model.PageState == LibraryUpdatePageState.Running
         ? Icons.Material.Outlined.GraphicEq
         : Icons.Material.Outlined.AutoAwesome;
@@ -339,10 +374,22 @@
         LibraryUpdateStatusViewModel model,
         bool loading,
         bool scanStarting,
-        string? error)
+        string? error,
+        IReadOnlyList<IngestionOperationsBatchViewModel> recentBatches)
     {
         var steps = string.Join(';', model.Steps.Select(step => $"{step.Label}:{step.Status}"));
-        var recent = string.Join(';', model.RecentRuns.Select(run => $"{run.Title}:{run.StatusLabel}:{run.RelativeTime}:{run.DurationText}:{string.Join(',', run.Stats.Select(stat => $"{stat.Label}:{stat.Count}"))}"));
+        var recent = string.Join(';', recentBatches.Select(batch => string.Join(':',
+            batch.BatchId,
+            batch.Status,
+            batch.MoviesCount,
+            batch.TvShowsCount,
+            batch.BooksCount,
+            batch.AudiobooksCount,
+            batch.ComicsCount,
+            batch.PeopleGeneratedCount,
+            batch.ReviewCount,
+            batch.FailedCount,
+            batch.StartedAt.ToUnixTimeSeconds())));
         var reasons = string.Join(';', model.AttentionReasons.Select(reason => $"{reason.Label}:{reason.Count}"));
 
         return string.Join('|',
@@ -376,6 +423,7 @@
         if (Model.PageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete)
         {
             var remaining = Math.Max(0, Model.TotalFiles - Model.ProcessedFiles);
+            var remainderText = ResolveMainRemainderText(Model.PageState, remaining);
             builder.OpenElement(sequence++, "span");
             builder.AddContent(sequence++, FormatCount(Model.ProcessedFiles));
             builder.CloseElement();
@@ -385,7 +433,7 @@
             builder.AddContent(sequence++, " - ");
             builder.OpenElement(sequence++, "span");
             builder.AddAttribute(sequence++, "class", "library-update-status__remaining");
-            builder.AddContent(sequence++, $"{FormatCount(remaining)} still in pipeline");
+            builder.AddContent(sequence++, remainderText);
             builder.CloseElement();
             return;
         }
@@ -393,50 +441,98 @@
         builder.AddContent(sequence++, Model.MainLine);
     };
 
-    private static RenderFragment RunSummaryContent(LibraryUpdateRunSummaryViewModel run) => builder =>
+    private static string ResolveMainRemainderText(
+        LibraryUpdatePageState pageState,
+        int remainingFiles)
+    {
+        if (pageState == LibraryUpdatePageState.Running)
+        {
+            if (remainingFiles > 0)
+                return $"{FormatCount(remainingFiles)} still in pipeline";
+            return "waiting for latest worker status";
+        }
+
+        return remainingFiles > 0
+            ? $"{FormatCount(remainingFiles)} still in pipeline"
+            : "all file work complete";
+    }
+
+    private static string BatchTitle(IngestionOperationsBatchViewModel batch)
+    {
+        if (batch.BatchId != Guid.Empty)
+            return $"Batch {batch.BatchId.ToString("N")[..6]}";
+        return "Batch";
+    }
+
+    private static string BatchActivityHref(IngestionOperationsBatchViewModel batch) =>
+        batch.BatchId == Guid.Empty
+            ? "/settings/activity"
+            : $"/settings/activity?batchId={batch.BatchId:D}";
+
+    private static RenderFragment BatchHeader(string label, string icon, string tone) => builder =>
     {
         var sequence = 0;
-        builder.OpenElement(sequence++, "div");
-        builder.AddAttribute(sequence++, "class", $"library-update-recent__thumb is-{run.StatusTone}");
+        builder.OpenElement(sequence++, "span");
+        builder.AddAttribute(sequence++, "class", $"library-update-batch-head-chip is-{tone}");
         builder.OpenComponent<MudIcon>(sequence++);
-        builder.AddAttribute(sequence++, "Icon", Icons.Material.Outlined.History);
+        builder.AddAttribute(sequence++, "Icon", icon);
         builder.CloseComponent();
-        builder.CloseElement();
-
-        builder.OpenElement(sequence++, "div");
-        builder.AddAttribute(sequence++, "class", "library-update-recent__copy");
-        builder.OpenElement(sequence++, "strong");
-        builder.AddContent(sequence++, run.Title);
-        builder.CloseElement();
         builder.OpenElement(sequence++, "span");
-        builder.AddContent(sequence++, $"{run.StatusText} - {run.DurationText}");
+        builder.AddContent(sequence++, label);
         builder.CloseElement();
-        builder.CloseElement();
-
-        builder.OpenElement(sequence++, "div");
-        builder.AddAttribute(sequence++, "class", "library-update-run-stats");
-        foreach (var stat in run.Stats)
-        {
-            builder.OpenElement(sequence++, "span");
-            builder.AddAttribute(sequence++, "class", $"library-update-run-stat is-{stat.Tone}");
-            builder.OpenComponent<MudIcon>(sequence++);
-            builder.AddAttribute(sequence++, "Icon", stat.Icon);
-            builder.CloseComponent();
-            builder.AddContent(sequence++, FormatCount(stat.Count));
-            builder.AddContent(sequence++, $" {stat.Label}");
-            builder.CloseElement();
-        }
-        builder.CloseElement();
-
-        builder.OpenElement(sequence++, "span");
-        builder.AddAttribute(sequence++, "class", $"library-update-recent__pill is-{run.StatusTone}");
-        builder.AddContent(sequence++, run.StatusLabel);
-        builder.CloseElement();
-
-        builder.OpenElement(sequence++, "time");
-        builder.AddContent(sequence++, run.RelativeTime);
         builder.CloseElement();
     };
+
+    private static RenderFragment BatchCountChip(int count, string icon, string tone) => builder =>
+    {
+        var sequence = 0;
+        builder.OpenElement(sequence++, "span");
+        builder.AddAttribute(sequence++, "class", $"library-update-batch-count is-{tone}");
+        builder.OpenComponent<MudIcon>(sequence++);
+        builder.AddAttribute(sequence++, "Icon", icon);
+        builder.CloseComponent();
+        builder.OpenElement(sequence++, "strong");
+        builder.AddContent(sequence++, FormatCount(count));
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private static string BatchStatusClass(string? status) =>
+        $"library-update-batch-status is-{BatchStatusTone(status)}";
+
+    private static string BatchStatusLabel(string? status) =>
+        string.IsNullOrWhiteSpace(status)
+            ? "Unknown"
+            : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(status.Replace('_', ' '));
+
+    private static string BatchStatusTone(string? status)
+    {
+        var value = status ?? string.Empty;
+        if (value.Contains("complete", StringComparison.OrdinalIgnoreCase))
+            return "success";
+        if (value.Contains("run", StringComparison.OrdinalIgnoreCase) || value.Contains("active", StringComparison.OrdinalIgnoreCase))
+            return "info";
+        if (value.Contains("fail", StringComparison.OrdinalIgnoreCase))
+            return "danger";
+        if (value.Contains("review", StringComparison.OrdinalIgnoreCase) || value.Contains("partial", StringComparison.OrdinalIgnoreCase))
+            return "warning";
+        return "neutral";
+    }
+
+    private static string FormatRelative(DateTimeOffset value)
+    {
+        var elapsed = DateTimeOffset.UtcNow - value.ToUniversalTime();
+        if (elapsed.TotalSeconds < 60)
+            return "just now";
+        if (elapsed.TotalMinutes < 60)
+            return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24)
+            return $"{(int)elapsed.TotalHours}h ago";
+        return value.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
+    }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
 }

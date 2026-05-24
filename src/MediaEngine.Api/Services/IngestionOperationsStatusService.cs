@@ -184,7 +184,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         var activeWorkCount = activeJobs.Count > 0
             ? activeJobs.Count
-            : currentActivities.Count > 0 ? 1 : 0;
+            : currentActivities.Any(IsActiveActivity) ? 1 : 0;
 
         var summary = new IngestionOperationsSummaryDto
         {
@@ -1197,7 +1197,34 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 """, new { batchId = batch.Id.ToString() })).AsList();
 
             var byType = rows.ToDictionary(row => row.Key, row => ToInt(row.Count), StringComparer.OrdinalIgnoreCase);
+            var mediaRows = (await conn.QueryAsync<StageCountRow>("""
+                WITH latest_jobs AS (
+                    SELECT
+                        entity_id,
+                        media_type,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY entity_id
+                            ORDER BY updated_at DESC, created_at DESC
+                        ) AS rn
+                    FROM identity_jobs
+                    WHERE ingestion_run_id = @batchId
+                )
+                SELECT media_type AS Key, COUNT(*) AS Count
+                FROM latest_jobs
+                WHERE rn = 1
+                  AND media_type IS NOT NULL
+                  AND media_type <> ''
+                GROUP BY media_type
+                """, new { batchId = batch.Id.ToString() })).AsList();
+            var mediaCounts = mediaRows.ToDictionary(row => row.Key, row => ToInt(row.Count), StringComparer.OrdinalIgnoreCase);
+            ApplyBatchCategoryFallback(batch, mediaCounts);
+
             result[batch.Id] = new BatchActivityStats(
+                MoviesCount: CountMediaTypes(mediaCounts, "Movies", "Movie"),
+                TvShowsCount: CountMediaTypes(mediaCounts, "TV", "TV Shows", "TvShows", "Shows"),
+                BooksCount: CountMediaTypes(mediaCounts, "Books", "Book"),
+                AudiobooksCount: CountMediaTypes(mediaCounts, "Audiobooks", "Audiobook"),
+                ComicsCount: CountMediaTypes(mediaCounts, "Comics", "Comic"),
                 PeopleGeneratedCount: Count(byType, SystemActionType.PersonHydrated)
                     + Count(byType, SystemActionType.PersonMerged),
                 ArtworkDownloadedCount: Count(byType, SystemActionType.CoverArtSaved),
@@ -1225,6 +1252,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             MediaType = batch.Category,
             TotalFiles = batch.FilesTotal,
             ProcessedFiles = batch.FilesProcessed,
+            MoviesCount = stats?.MoviesCount ?? 0,
+            TvShowsCount = stats?.TvShowsCount ?? 0,
+            BooksCount = stats?.BooksCount ?? 0,
+            AudiobooksCount = stats?.AudiobooksCount ?? 0,
+            ComicsCount = stats?.ComicsCount ?? 0,
             RegisteredCount = batch.FilesIdentified,
             ReviewCount = batch.FilesReview + batch.FilesNoMatch,
             FailedCount = batch.FilesFailed,
@@ -1238,6 +1270,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     }
 
     private sealed record BatchActivityStats(
+        int MoviesCount = 0,
+        int TvShowsCount = 0,
+        int BooksCount = 0,
+        int AudiobooksCount = 0,
+        int ComicsCount = 0,
         int PeopleGeneratedCount = 0,
         int ArtworkDownloadedCount = 0,
         int MetadataUpdatedCount = 0);
@@ -1422,6 +1459,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static bool IsIncomplete((int Count, int Total) progress) =>
         progress.Total > 0 && progress.Count < progress.Total;
 
+    private static bool IsActiveActivity(IngestionCurrentActivityDto activity) =>
+        activity.ActiveCount > 0
+        || activity.QueuedCount > 0
+        || (activity.TotalCount > 0 && activity.ProcessedCount < activity.TotalCount)
+        || (activity.PercentComplete > 0 && activity.PercentComplete < 100);
+
     private static string ResolveHealthLabel(int review, int providerWarnings, int failedJobs, int activeJobs)
     {
         if (failedJobs > 0 || providerWarnings > 0)
@@ -1474,6 +1517,19 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static int Count(IReadOnlyDictionary<string, int> counts, string key) =>
         counts.TryGetValue(key, out var count) ? count : 0;
+
+    private static int CountMediaTypes(IReadOnlyDictionary<string, int> counts, params string[] keys) =>
+        keys.Sum(key => Count(counts, key));
+
+    private static void ApplyBatchCategoryFallback(IngestionBatch batch, Dictionary<string, int> mediaCounts)
+    {
+        if (mediaCounts.Values.Sum() > 0 || string.IsNullOrWhiteSpace(batch.Category) || batch.FilesTotal <= 0)
+            return;
+
+        var category = NormalizeCategory(batch.Category);
+        if (category is "Movies" or "TV Shows" or "Books" or "Audiobooks" or "Comics")
+            mediaCounts[category] = batch.FilesTotal;
+    }
 
     private static int SumStates(IReadOnlyDictionary<string, int> counts, IEnumerable<string> states) =>
         states.Sum(state => Count(counts, state));

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
@@ -785,12 +786,39 @@ public interface IEngineApiClient
     /// <summary>GET /ingestion/operations — Ingestion dashboard snapshot.</summary>
     Task<IngestionOperationsSnapshotViewModel?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default);
 
+    /// <summary>GET /operations — durable media operations by queue order.</summary>
+    Task<IReadOnlyList<MediaOperationViewModel>> GetMediaOperationsAsync(
+        string? queueName = null, int limit = 100, CancellationToken ct = default);
+
+    /// <summary>GET /operations/{id} — one durable operation and its timeline.</summary>
+    Task<MediaOperationDetailViewModel?> GetMediaOperationAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>GET /operations/summary — durable operation counts by status.</summary>
+    Task<Dictionary<string, int>> GetMediaOperationsSummaryAsync(CancellationToken ct = default);
+
+    /// <summary>POST /operations/{id}/retry — requeue a durable operation.</summary>
+    Task<bool> RetryMediaOperationAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>POST /operations/{id}/cancel — cancel a durable operation.</summary>
+    Task<bool> CancelMediaOperationAsync(Guid id, CancellationToken ct = default);
+
     /// <summary>GET /ingestion/batches/{id} — single batch detail.</summary>
     Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(
         Guid id, CancellationToken ct = default);
 
+    /// <summary>GET /ingestion/batches/{id}/items — item-level batch progress.</summary>
+    Task<PagedResponse<IngestionBatchItemViewModel>?> GetIngestionBatchItemsAsync(
+        Guid id, int offset = 0, int limit = 100, CancellationToken ct = default);
+
     /// <summary>GET /ingestion/batches/attention-count — items needing attention.</summary>
     Task<int> GetBatchAttentionCountAsync(CancellationToken ct = default);
+
+    /// <summary>GET /assets/{id}/capabilities — explicit capability readiness for an asset.</summary>
+    Task<IReadOnlyList<EntityCapabilityStateViewModel>> GetAssetCapabilitiesAsync(
+        Guid id, CancellationToken ct = default);
+
+    /// <summary>GET /capabilities/summary — capability counts by capability/status.</summary>
+    Task<Dictionary<string, int>> GetCapabilitySummaryAsync(CancellationToken ct = default);
 
     // ── Search (/search) ──────────────────────────────────────────────────
 

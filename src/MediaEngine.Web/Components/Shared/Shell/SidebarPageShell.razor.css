@@ -5,6 +5,14 @@
     background: var(--tl-bg-app-gradient);
 }
 
+.sidebar-page.settings-admin-shell {
+    grid-template-columns: minmax(288px, 352px) minmax(0, 1fr);
+    background:
+        radial-gradient(circle at 12% 8%, rgba(101, 69, 214, 0.2), transparent 30%),
+        radial-gradient(circle at 86% 0%, rgba(48, 197, 255, 0.09), transparent 28%),
+        linear-gradient(135deg, #070b15 0%, #0a1020 48%, #080c17 100%);
+}
+
 .sidebar-rail {
     position: sticky;
     top: 0;
@@ -14,6 +22,17 @@
     border-right: 1px solid var(--tl-border-subtle);
     background: color-mix(in srgb, var(--tl-bg-shell) 88%, transparent);
     backdrop-filter: blur(20px);
+}
+
+.settings-admin-shell .sidebar-rail {
+    top: var(--app-topbar-height, 65px);
+    height: calc(100vh - var(--app-topbar-height, 65px));
+    padding: 18px 16px;
+    border-right-color: rgba(138, 122, 255, 0.24);
+    background:
+        radial-gradient(circle at 24% 0%, rgba(112, 78, 255, 0.2), transparent 34%),
+        linear-gradient(180deg, rgba(7, 11, 23, 0.96), rgba(6, 10, 20, 0.98));
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
 }
 
 .sidebar-content {
@@ -26,6 +45,10 @@
         grid-template-columns: minmax(220px, 248px) minmax(0, 1fr);
     }
 
+    .sidebar-page.settings-admin-shell {
+        grid-template-columns: minmax(264px, 300px) minmax(0, 1fr);
+    }
+
     .sidebar-content {
         padding: 20px 18px 22px;
     }
@@ -34,6 +57,10 @@
 @media (max-width: 760px) {
     .sidebar-page {
         grid-template-columns: minmax(188px, 208px) minmax(0, 1fr);
+    }
+
+    .sidebar-page.settings-admin-shell {
+        grid-template-columns: minmax(228px, 260px) minmax(0, 1fr);
     }
 }
 

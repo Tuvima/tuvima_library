@@ -5,11 +5,13 @@
     {
         <button type="button"
                 class="@ToggleCssClass"
-                aria-expanded="@_expanded"
+                aria-expanded="@(_expanded ? "true" : "false")"
                 @onclick="Toggle">
             @if (!string.IsNullOrWhiteSpace(Icon))
             {
-                <MudIcon Icon="@Icon" Class="sidebar-nav-group__icon" Style="font-size: 18px;" />
+                <span class="sidebar-nav-group__icon-shell">
+                    <MudIcon Icon="@Icon" Class="sidebar-nav-group__icon" />
+                </span>
             }
             <span class="sidebar-nav-group__text">@Label</span>
             @if (BadgeCount > 0)
@@ -17,8 +19,7 @@
                 <span class="sidebar-nav-group__badge">@BadgeCount</span>
             }
             <MudIcon Icon="@(_expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
-                     Class="sidebar-nav-group__chevron"
-                     Style="font-size: 18px;" />
+                     Class="sidebar-nav-group__chevron" />
         </button>
     }
     else
@@ -26,7 +27,9 @@
         <div class="@LabelCssClass">
             @if (!string.IsNullOrWhiteSpace(Icon))
             {
-                <MudIcon Icon="@Icon" Class="sidebar-nav-group__icon" Style="font-size: 18px;" />
+                <span class="sidebar-nav-group__icon-shell">
+                    <MudIcon Icon="@Icon" Class="sidebar-nav-group__icon" />
+                </span>
             }
             <span class="sidebar-nav-group__text">@Label</span>
             @if (BadgeCount > 0)
@@ -53,10 +56,21 @@
     [Parameter] public int BadgeCount { get; set; }
     [Parameter] public bool Expandable { get; set; }
     [Parameter] public bool Expanded { get; set; }
+    [Parameter] public EventCallback<bool> ExpandedChanged { get; set; }
     [Parameter] public int Level { get; set; }
+    [Parameter] public string? Tone { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
-    private string CssClass => $"sidebar-nav-group sidebar-nav-group--level-{Math.Clamp(Level, 0, 3)}";
+    private string CssClass
+    {
+        get
+        {
+            var level = Math.Clamp(Level, 0, 3);
+            return string.IsNullOrWhiteSpace(Tone)
+                ? $"sidebar-nav-group sidebar-nav-group--level-{level}"
+                : $"sidebar-nav-group sidebar-nav-group--level-{level} sidebar-nav-group--tone-{Tone}";
+        }
+    }
     private string ToggleCssClass => Level > 0
         ? "sidebar-nav-group__toggle sidebar-nav-item sidebar-nav-item--level-1 is-child"
         : "sidebar-nav-group__toggle";
@@ -67,12 +81,30 @@
 
     protected override void OnParametersSet()
     {
-        if (!_initialized || Expanded)
+        if (!_initialized)
         {
             _expanded = Expanded;
             _initialized = true;
+            return;
+        }
+
+        if (ExpandedChanged.HasDelegate)
+        {
+            _expanded = Expanded;
+        }
+        else if (Expanded)
+        {
+            _expanded = true;
         }
     }
 
-    private void Toggle() => _expanded = !_expanded;
+    private async Task Toggle()
+    {
+        _expanded = !_expanded;
+
+        if (ExpandedChanged.HasDelegate)
+        {
+            await ExpandedChanged.InvokeAsync(_expanded);
+        }
+    }
 }

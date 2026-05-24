@@ -30,10 +30,34 @@ public sealed class IngestionLiveDashboardState : IDisposable
     public IngestionOperationsSnapshotViewModel? Snapshot { get; private set; }
     public IReadOnlyList<ActivityEntryViewModel> RecentActivity { get; private set; } = [];
     public IReadOnlyList<ReviewItemViewModel> PendingReviews { get; private set; } = [];
+    public IReadOnlyDictionary<string, int> OperationsSummary { get; private set; } =
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, int> CapabilitySummary { get; private set; } =
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyList<MediaOperationViewModel> Operations { get; private set; } = [];
+    public IReadOnlyList<IngestionQueueHealthItem> QueueHealth => BuildQueueHealth(OperationsSummary, Operations);
+    public IReadOnlyList<MediaOperationViewModel> FilteredOperations => FilterOperations(Operations, QueueFilter, QueueSort);
+    public MediaOperationViewModel? PrimaryOperation => SelectPrimaryOperation(Operations);
+    public IReadOnlyList<MediaOperationViewModel> QueuePreview => BuildQueuePreview(Operations);
+    public MediaOperationDetailViewModel? ExpandedOperationDetail =>
+        ExpandedOperationId is { } id && _operationDetails.TryGetValue(id, out var detail) ? detail : null;
+    public IReadOnlyList<EntityCapabilityStateViewModel> ExpandedOperationCapabilities =>
+        ExpandedOperationDetail?.Operation.EntityId is { } entityId
+        && _capabilitiesByEntity.TryGetValue(entityId, out var capabilities)
+            ? capabilities
+            : [];
+    public bool ShowDetails { get; private set; }
+    public string QueueFilter { get; private set; } = "all";
+    public string QueueSort { get; private set; } = "priority";
+    public Guid? ExpandedOperationId { get; private set; }
     public bool IsLoading { get; private set; }
     public bool IsScanStarting { get; private set; }
     public string? Error { get; private set; }
     public DateTimeOffset? LastUpdated { get; private set; }
+
+    private bool _detailsPreferenceSet;
+    private readonly Dictionary<Guid, MediaOperationDetailViewModel> _operationDetails = new();
+    private readonly Dictionary<Guid, IReadOnlyList<EntityCapabilityStateViewModel>> _capabilitiesByEntity = new();
 
     public EngineConnectionState ConnectionState => _orchestrator.EngineConnectionState;
     public IReadOnlyList<IngestionOperationsJobViewModel> ActiveJobs => BuildActiveJobs(Snapshot, _stateContainer);
@@ -80,7 +104,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
             var snapshotTask = _api.GetIngestionOperationsSnapshotAsync(ct);
             var activityTask = _api.GetRecentActivityAsync(50, ct);
             var reviewTask = _api.GetPendingReviewsAsync(200, ct);
-            await Task.WhenAll(snapshotTask, activityTask, reviewTask);
+            var operationSummaryTask = _api.GetMediaOperationsSummaryAsync(ct);
+            var capabilitySummaryTask = _api.GetCapabilitySummaryAsync(ct);
+            await Task.WhenAll(snapshotTask, activityTask, reviewTask, operationSummaryTask, capabilitySummaryTask);
 
             Snapshot = snapshotTask.Result;
             RecentActivity = activityTask.Result
@@ -88,7 +114,35 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 .Take(12)
                 .ToList();
             PendingReviews = reviewTask.Result;
-            var nextSignature = BuildSnapshotSignature(Snapshot, RecentActivity, PendingReviews);
+            OperationsSummary = operationSummaryTask.Result;
+            CapabilitySummary = capabilitySummaryTask.Result;
+
+            if (!_detailsPreferenceSet)
+                ShowDetails = ShouldDefaultShowDetails(OperationsSummary);
+
+            if (ShowDetails || ShouldLoadOperationRows(OperationsSummary))
+            {
+                Operations = await _api.GetMediaOperationsAsync(limit: 100, ct: ct).ConfigureAwait(false);
+                PruneOperationCaches();
+            }
+            else
+            {
+                Operations = [];
+                _operationDetails.Clear();
+                _capabilitiesByEntity.Clear();
+                ExpandedOperationId = null;
+            }
+
+            var nextSignature = BuildSnapshotSignature(
+                Snapshot,
+                RecentActivity,
+                PendingReviews,
+                OperationsSummary,
+                Operations,
+                ShowDetails,
+                QueueFilter,
+                QueueSort,
+                ExpandedOperationId);
             var changed = !string.Equals(_lastSnapshotSignature, nextSignature, StringComparison.Ordinal);
             _lastSnapshotSignature = nextSignature;
             if (changed)
@@ -130,6 +184,78 @@ public sealed class IngestionLiveDashboardState : IDisposable
         }
     }
 
+    public async Task ToggleDetailsAsync(CancellationToken ct = default)
+    {
+        _detailsPreferenceSet = true;
+        ShowDetails = !ShowDetails;
+        Notify();
+
+        if (ShowDetails && Operations.Count == 0)
+        {
+            Operations = await _api.GetMediaOperationsAsync(limit: 100, ct: ct).ConfigureAwait(false);
+            PruneOperationCaches();
+            Notify();
+        }
+    }
+
+    public void SetQueueFilter(string filter)
+    {
+        QueueFilter = NormalizeQueueFilter(filter);
+        Notify();
+    }
+
+    public void SetQueueSort(string sort)
+    {
+        QueueSort = NormalizeQueueSort(sort);
+        Notify();
+    }
+
+    public async Task ToggleOperationExpandedAsync(Guid operationId, CancellationToken ct = default)
+    {
+        if (ExpandedOperationId == operationId)
+        {
+            ExpandedOperationId = null;
+            Notify();
+            return;
+        }
+
+        ExpandedOperationId = operationId;
+        Notify();
+
+        if (!_operationDetails.TryGetValue(operationId, out var detail))
+        {
+            detail = await _api.GetMediaOperationAsync(operationId, ct).ConfigureAwait(false);
+            if (detail is not null)
+                _operationDetails[operationId] = detail;
+        }
+
+        var entityId = detail?.Operation.EntityId;
+        if (entityId is { } id && !_capabilitiesByEntity.ContainsKey(id))
+        {
+            _capabilitiesByEntity[id] = await _api.GetAssetCapabilitiesAsync(id, ct).ConfigureAwait(false);
+        }
+
+        Notify();
+    }
+
+    public async Task RetryOperationAsync(Guid operationId, CancellationToken ct = default)
+    {
+        if (await _api.RetryMediaOperationAsync(operationId, ct).ConfigureAwait(false))
+        {
+            _operationDetails.Remove(operationId);
+            await LoadAsync(ct).ConfigureAwait(false);
+        }
+    }
+
+    public async Task CancelOperationAsync(Guid operationId, CancellationToken ct = default)
+    {
+        if (await _api.CancelMediaOperationAsync(operationId, ct).ConfigureAwait(false))
+        {
+            _operationDetails.Remove(operationId);
+            await LoadAsync(ct).ConfigureAwait(false);
+        }
+    }
+
     private void StartPolling()
     {
         _pollCts?.Cancel();
@@ -142,7 +268,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         while (!ct.IsCancellationRequested)
         {
-            var delay = ActiveJobs.Count > 0 ? TimeSpan.FromSeconds(15) : TimeSpan.FromSeconds(40);
+            var delay = ActiveJobs.Count > 0 || ShouldLoadOperationRows(OperationsSummary)
+                ? TimeSpan.FromSeconds(15)
+                : TimeSpan.FromSeconds(40);
             try
             {
                 await Task.Delay(delay, ct);
@@ -309,6 +437,194 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Select(job => ToCurrentActivity(job, stages))
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
             .ToList();
+    }
+
+    public static IReadOnlyList<IngestionQueueHealthItem> BuildQueueHealth(
+        IReadOnlyDictionary<string, int> summary,
+        IReadOnlyList<MediaOperationViewModel> operations)
+    {
+        var waitingForLock = operations.Count(operation =>
+            operation.Stage?.Equals("waiting_for_lock", StringComparison.OrdinalIgnoreCase) == true);
+
+        return
+        [
+            new("queued", "Queued", CountStatuses(summary, "pending", "queued"), "neutral"),
+            new("running", "Running", CountStatuses(summary, "leased", "running"), "info"),
+            new("waiting_for_lock", "Waiting for lock", waitingForLock, "warning"),
+            new("retrying", "Retrying", CountStatuses(summary, "retry_waiting", "failed_retryable"), "warning"),
+            new("blocked", "Blocked", CountStatuses(summary, "blocked"), "danger"),
+            new("interrupted", "Interrupted", CountStatuses(summary, "interrupted"), "warning"),
+            new("failed", "Failed", CountStatuses(summary, "failed_terminal", "dead_lettered"), "danger"),
+            new("completed", "Completed", CountStatuses(summary, "succeeded", "no_result", "not_applicable", "skipped"), "success"),
+        ];
+    }
+
+    public static bool ShouldDefaultShowDetails(IReadOnlyDictionary<string, int> summary) =>
+        CountStatuses(summary, "blocked", "failed_retryable", "failed_terminal", "dead_lettered", "interrupted", "retry_waiting") > 0;
+
+    public static bool ShouldLoadOperationRows(IReadOnlyDictionary<string, int> summary) =>
+        CountStatuses(summary,
+            "pending",
+            "queued",
+            "leased",
+            "running",
+            "retry_waiting",
+            "blocked",
+            "failed_retryable",
+            "failed_terminal",
+            "dead_lettered",
+            "interrupted") > 0;
+
+    public static IReadOnlyList<MediaOperationViewModel> FilterOperations(
+        IReadOnlyList<MediaOperationViewModel> operations,
+        string filter,
+        string sort)
+    {
+        var normalizedFilter = NormalizeQueueFilter(filter);
+        var query = operations.Where(operation => OperationMatchesFilter(operation, normalizedFilter));
+
+        return NormalizeQueueSort(sort) switch
+        {
+            "updated" => query
+                .OrderByDescending(operation => operation.UpdatedAt)
+                .ThenBy(operation => operation.QueuePosition ?? int.MaxValue)
+                .ToList(),
+            "position" => query
+                .OrderBy(operation => operation.QueuePosition ?? int.MaxValue)
+                .ThenBy(operation => operation.Priority)
+                .ThenBy(operation => operation.CreatedAt)
+                .ToList(),
+            _ => query
+                .OrderBy(operation => operation.Priority)
+                .ThenBy(operation => operation.QueuePosition ?? int.MaxValue)
+                .ThenBy(operation => operation.CreatedAt)
+                .ToList(),
+        };
+    }
+
+    public static MediaOperationViewModel? SelectPrimaryOperation(IReadOnlyList<MediaOperationViewModel> operations) =>
+        operations
+            .Where(operation => IsStatus(operation, "running", "leased"))
+            .OrderByDescending(operation => operation.UpdatedAt)
+            .FirstOrDefault()
+        ?? operations
+            .Where(operation => IsStatus(operation, "blocked", "failed_retryable", "retry_waiting", "interrupted"))
+            .OrderByDescending(operation => operation.UpdatedAt)
+            .FirstOrDefault()
+        ?? operations
+            .Where(operation => IsStatus(operation, "pending", "queued"))
+            .OrderBy(operation => operation.QueuePosition ?? int.MaxValue)
+            .ThenBy(operation => operation.Priority)
+            .FirstOrDefault();
+
+    public static IReadOnlyList<MediaOperationViewModel> BuildQueuePreview(IReadOnlyList<MediaOperationViewModel> operations) =>
+        operations
+            .Where(operation => IsStatus(operation, "pending", "queued", "retry_waiting", "blocked", "failed_retryable", "interrupted"))
+            .OrderBy(operation => operation.QueuePosition ?? int.MaxValue)
+            .ThenBy(operation => operation.Priority)
+            .ThenByDescending(operation => operation.UpdatedAt)
+            .Take(3)
+            .ToList();
+
+    public static bool CanRetry(MediaOperationViewModel operation) =>
+        IsStatus(operation, "blocked", "interrupted", "failed_retryable", "failed_terminal", "dead_lettered");
+
+    public static bool CanCancel(MediaOperationViewModel operation) =>
+        IsStatus(operation, "pending", "queued", "retry_waiting", "leased", "running");
+
+    public static string FriendlyOperationName(MediaOperationViewModel operation) =>
+        FriendlyOperationName(operation.OperationType);
+
+    public static string FriendlyOperationName(string? operationType)
+    {
+        var value = operationType ?? string.Empty;
+        return value switch
+        {
+            "ingestion.file" => "Reading file",
+            "identity.retail_match" => "Matching identity",
+            "identity.wikidata_bridge" => "Linking Wikidata",
+            "identity.quick_hydration" => "Quick hydration",
+            "enrichment.cover_art" => "Fetching artwork",
+            "enrichment.people" => "Finding people",
+            "enrichment.description" => "Fetching description",
+            "enrichment.relationships" => "Linking relationships",
+            "text_track.lyrics" => "Finding lyrics",
+            "text_track.subtitles" => "Finding subtitles",
+            "plugin.commercial_skip" => "Commercial skip analysis",
+            "plugin.playback_segment_detection" => "Playback segment detection",
+            "writeback.metadata" => "Writing metadata",
+            "ai.tldr" => "AI summary",
+            "ai.vibe_tags" => "AI vibe tags",
+            "ai.smart_labels" => "AI smart labels",
+            _ when value.StartsWith("plugin.", StringComparison.OrdinalIgnoreCase) => "Plugin work",
+            _ when value.StartsWith("ai.", StringComparison.OrdinalIgnoreCase) => "AI enrichment",
+            _ when value.Length > 0 => value.Replace('.', ' '),
+            _ => "Library work",
+        };
+    }
+
+    public static string FriendlyStageName(string? stage)
+    {
+        if (string.IsNullOrWhiteSpace(stage))
+            return "Queued";
+
+        return stage.Trim().ToLowerInvariant() switch
+        {
+            "discovered" => "Discovered",
+            "settling" => "Settling",
+            "waiting_for_lock" => "Waiting for lock",
+            "queued" => "Queued",
+            "hashing" => "Hashing",
+            "parsing" => "Reading media details",
+            "scoring" => "Scoring identity",
+            "registered" => "Registered",
+            "queued_identity" => "Identity queued",
+            "provider_lookup" => "Provider lookup",
+            "downloading" => "Downloading",
+            "analyzing" => "Analyzing",
+            "writing_artifact" => "Writing artifact",
+            "completed" => "Completed",
+            "no_result" => "No result",
+            "blocked" => "Blocked",
+            "failed" => "Failed",
+            var value => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('_', ' ')),
+        };
+    }
+
+    public static string FriendlyStatusName(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return "Unknown";
+
+        return status.Trim().ToLowerInvariant() switch
+        {
+            "retry_waiting" => "Retrying",
+            "failed_retryable" => "Retrying",
+            "failed_terminal" => "Failed",
+            "dead_lettered" => "Failed",
+            "no_result" => "No result",
+            "missing_confirmed" => "Missing",
+            "not_applicable" => "Not applicable",
+            var value => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('_', ' ')),
+        };
+    }
+
+    public static string StatusTone(string? status)
+    {
+        var value = status ?? string.Empty;
+        if (IsStatus(value, "running", "leased"))
+            return "info";
+        if (IsStatus(value, "succeeded"))
+            return "success";
+        if (IsStatus(value, "retry_waiting", "failed_retryable", "interrupted"))
+            return "warning";
+        if (IsStatus(value, "blocked", "failed_terminal", "dead_lettered"))
+            return "danger";
+        if (IsStatus(value, "stale"))
+            return "stale";
+        if (IsStatus(value, "no_result", "not_applicable", "skipped", "cancelled"))
+            return "muted";
+        return "neutral";
     }
 
     public static IReadOnlyList<IngestionDashboardStage> BuildStages(
@@ -487,8 +803,10 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 || lastCompletedAt.HasValue
                 || snapshot.Summary.TotalItems > 0
                 || metrics.TotalFiles > 0);
-        var isRunning = activeJobs.Any(IsActiveJob)
-            || snapshot?.Summary.ActiveJobs > 0;
+        var hasDetailedWork = activeJobs.Count > 0 || currentActivities.Count > 0;
+        var hasActiveDetailedWork = activeJobs.Any(IsActiveJob) || currentActivities.Any(IsActiveActivity);
+        var isRunning = hasActiveDetailedWork
+            || (snapshot?.Summary.ActiveJobs > 0 && !hasDetailedWork);
         var pageState = ResolveLibraryUpdatePageState(
             snapshot,
             latestBatch,
@@ -641,6 +959,65 @@ public sealed class IngestionLiveDashboardState : IDisposable
         _ => IngestionLiveMode.Polling,
     };
 
+    private void PruneOperationCaches()
+    {
+        var operationIds = Operations.Select(operation => operation.Id).ToHashSet();
+        foreach (var id in _operationDetails.Keys.Where(id => !operationIds.Contains(id)).ToList())
+            _operationDetails.Remove(id);
+
+        if (ExpandedOperationId is { } expandedId && !operationIds.Contains(expandedId))
+            ExpandedOperationId = null;
+
+        var entityIds = Operations
+            .Select(operation => operation.EntityId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToHashSet();
+        foreach (var id in _capabilitiesByEntity.Keys.Where(id => !entityIds.Contains(id)).ToList())
+            _capabilitiesByEntity.Remove(id);
+    }
+
+    private static int CountStatuses(IReadOnlyDictionary<string, int> summary, params string[] statuses) =>
+        statuses.Sum(status => summary.TryGetValue(status, out var count) ? Math.Max(0, count) : 0);
+
+    private static bool OperationMatchesFilter(MediaOperationViewModel operation, string filter) =>
+        filter switch
+        {
+            "queued" => IsStatus(operation, "pending", "queued"),
+            "running" => IsStatus(operation, "leased", "running"),
+            "blocked" => IsStatus(operation, "blocked"),
+            "retrying" => IsStatus(operation, "retry_waiting", "failed_retryable", "interrupted"),
+            "failed" => IsStatus(operation, "failed_terminal", "dead_lettered"),
+            "completed" => IsStatus(operation, "succeeded", "no_result", "missing_confirmed", "not_applicable", "skipped", "cancelled"),
+            _ => true,
+        };
+
+    private static string NormalizeQueueFilter(string? filter) =>
+        (filter ?? "all").Trim().ToLowerInvariant() switch
+        {
+            "queued" => "queued",
+            "running" => "running",
+            "blocked" => "blocked",
+            "retrying" => "retrying",
+            "failed" => "failed",
+            "completed" => "completed",
+            _ => "all",
+        };
+
+    private static string NormalizeQueueSort(string? sort) =>
+        (sort ?? "priority").Trim().ToLowerInvariant() switch
+        {
+            "updated" => "updated",
+            "position" => "position",
+            _ => "priority",
+        };
+
+    private static bool IsStatus(MediaOperationViewModel operation, params string[] statuses) =>
+        IsStatus(operation.Status, statuses);
+
+    private static bool IsStatus(string value, params string[] statuses) =>
+        statuses.Any(status => value.Equals(status, StringComparison.OrdinalIgnoreCase));
+
     private static int Count(IngestionOperationsSnapshotViewModel? snapshot, string key) =>
         snapshot?.PipelineStages.FirstOrDefault(stage => stage.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Count ?? 0;
 
@@ -748,10 +1125,21 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private static string BuildSnapshotSignature(
         IngestionOperationsSnapshotViewModel? snapshot,
         IReadOnlyList<ActivityEntryViewModel> recentActivity,
-        IReadOnlyList<ReviewItemViewModel> pendingReviews)
+        IReadOnlyList<ReviewItemViewModel> pendingReviews,
+        IReadOnlyDictionary<string, int> operationsSummary,
+        IReadOnlyList<MediaOperationViewModel> operations,
+        bool showDetails,
+        string queueFilter,
+        string queueSort,
+        Guid? expandedOperationId)
     {
         if (snapshot is null)
-            return $"null|activity:{recentActivity.Count}|reviews:{pendingReviews.Count}";
+        {
+            var nullOperationSummary = string.Join(';', operationsSummary
+                .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(pair => $"{pair.Key}:{pair.Value}"));
+            return $"null|activity:{recentActivity.Count}|reviews:{pendingReviews.Count}|ops:{nullOperationSummary}|details:{showDetails}:{queueFilter}:{queueSort}:{expandedOperationId}";
+        }
 
         var summary = snapshot.Summary;
         var active = string.Join(';', snapshot.ActiveJobs
@@ -772,6 +1160,20 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 activity.TotalCount,
                 activity.ActiveCount,
                 activity.QueuedCount)));
+        var operationSummary = string.Join(';', operationsSummary
+            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(pair => $"{pair.Key}:{pair.Value}"));
+        var operationRows = string.Join(';', operations
+            .OrderBy(operation => operation.Id)
+            .Select(operation => string.Join(':',
+                operation.Id,
+                operation.Status,
+                operation.Stage,
+                operation.ProgressPercent,
+                operation.ItemsCompleted,
+                operation.ItemsTotal,
+                operation.QueuePosition,
+                operation.UpdatedAt.ToUnixTimeSeconds())));
 
         return string.Join('|',
             summary.TotalItems,
@@ -782,6 +1184,12 @@ public sealed class IngestionLiveDashboardState : IDisposable
             summary.LastSuccessfulScanTime?.ToUnixTimeSeconds(),
             active,
             activities,
+            operationSummary,
+            operationRows,
+            showDetails,
+            queueFilter,
+            queueSort,
+            expandedOperationId,
             recentActivity.FirstOrDefault()?.Id,
             pendingReviews.Count);
     }
@@ -856,6 +1264,12 @@ public sealed class IngestionLiveDashboardState : IDisposable
         && activity.ProcessedCount >= activity.TotalCount
         && activity.ActiveCount <= 0
         && activity.QueuedCount <= 0;
+
+    private static bool IsActiveActivity(IngestionCurrentActivityViewModel activity) =>
+        activity.ActiveCount > 0
+        || activity.QueuedCount > 0
+        || (activity.TotalCount > 0 && activity.ProcessedCount < activity.TotalCount)
+        || (activity.PercentComplete > 0 && activity.PercentComplete < 100);
 
     private static string ResolveCurrentStepLabel(
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
@@ -1467,6 +1881,12 @@ public sealed record IngestionDashboardStage(
     int ReviewCount,
     int OtherCount,
     bool IsSummary);
+
+public sealed record IngestionQueueHealthItem(
+    string Key,
+    string Label,
+    int Count,
+    string Tone);
 
 public enum LibraryUpdatePageState
 {

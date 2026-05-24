@@ -3653,6 +3653,95 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<MediaOperationViewModel>> GetMediaOperationsAsync(
+        string? queueName = null, int limit = 100, CancellationToken ct = default)
+    {
+        try
+        {
+            var safeLimit = Math.Clamp(limit <= 0 ? 100 : limit, 1, 500);
+            var query = $"operations?limit={safeLimit}";
+            if (!string.IsNullOrWhiteSpace(queueName))
+                query += $"&queueName={Uri.EscapeDataString(queueName)}";
+
+            var result = await _http.GetFromJsonAsync<List<MediaOperationViewModel>>(
+                query, ct).ConfigureAwait(false);
+            return result ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch durable media operations");
+            return [];
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<MediaOperationDetailViewModel?> GetMediaOperationAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<MediaOperationDetailViewModel>(
+                $"operations/{id:D}", ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch media operation {Id}", id);
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<Dictionary<string, int>> GetMediaOperationsSummaryAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<Dictionary<string, int>>(
+                "operations/summary", ct).ConfigureAwait(false) ?? new();
+        }
+        catch (OperationCanceledException) { return new(); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch media operation summary");
+            return new();
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> RetryMediaOperationAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(
+                $"operations/{id:D}/retry", new { }, ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retry media operation {Id}", id);
+            return false;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> CancelMediaOperationAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(
+                $"operations/{id:D}/cancel", new { }, ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cancel media operation {Id}", id);
+            return false;
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(
         Guid id, CancellationToken ct = default)
     {
@@ -3665,6 +3754,25 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to fetch batch {Id}", id);
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<PagedResponse<IngestionBatchItemViewModel>?> GetIngestionBatchItemsAsync(
+        Guid id, int offset = 0, int limit = 100, CancellationToken ct = default)
+    {
+        try
+        {
+            var safeOffset = Math.Max(0, offset);
+            var safeLimit = Math.Clamp(limit <= 0 ? 100 : limit, 1, 500);
+            return await _http.GetFromJsonAsync<PagedResponse<IngestionBatchItemViewModel>>(
+                $"ingestion/batches/{id:D}/items?offset={safeOffset}&limit={safeLimit}", ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch batch items for {Id}", id);
             return null;
         }
     }
@@ -3683,6 +3791,40 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "Failed to fetch batch attention count");
             return 0;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<EntityCapabilityStateViewModel>> GetAssetCapabilitiesAsync(
+        Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _http.GetFromJsonAsync<List<EntityCapabilityStateViewModel>>(
+                $"assets/{id:D}/capabilities", ct).ConfigureAwait(false);
+            return result ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch capability states for asset {Id}", id);
+            return [];
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<Dictionary<string, int>> GetCapabilitySummaryAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<Dictionary<string, int>>(
+                "capabilities/summary", ct).ConfigureAwait(false) ?? new();
+        }
+        catch (OperationCanceledException) { return new(); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch capability summary");
+            return new();
         }
     }
 
