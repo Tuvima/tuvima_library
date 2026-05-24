@@ -6,6 +6,7 @@
 
 <div class="tl-page ingestion-operations">
     <IngestionLiveDashboard Snapshot="Dashboard.Snapshot"
+                            Status="Dashboard.LibraryUpdateStatus"
                             Metrics="Dashboard.Metrics"
                             OverallProgress="Dashboard.OverallProgress"
                             Stages="Dashboard.Stages"
@@ -22,8 +23,6 @@
                             Error="@Dashboard.Error"
                             OnRefresh="RefreshAsync"
                             OnScanNow="ScanNowAsync" />
-
-    <IngestionDiagnosticsPanels Snapshot="Dashboard.Snapshot" />
 </div>
 
 @code {

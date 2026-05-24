@@ -17,10 +17,90 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionLiveDashboard", source, StringComparison.Ordinal);
-        Assert.Contains("<IngestionDiagnosticsPanels", source, StringComparison.Ordinal);
+        Assert.Contains("Status=\"Dashboard.LibraryUpdateStatus\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<IngestionDiagnosticsPanels", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetIngestionOperationsSnapshotAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("StateContainer.BatchProgress", source, StringComparison.Ordinal);
         Assert.DoesNotContain("private readonly CurrentRun _currentRun", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveDashboardState_KeepsCompleteVisibleForSixtySecondsThenShowsIdle()
+    {
+        var completedAt = DateTimeOffset.UtcNow.AddSeconds(-30);
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                LastSuccessfulScanTime = completedAt,
+                TotalItems = 20,
+                RegisteredItems = 18,
+                ItemsNeedingReview = 2,
+            },
+            RecentBatches =
+            [
+                new()
+                {
+                    StartedAt = completedAt.AddMinutes(-3),
+                    CompletedAt = completedAt,
+                    TotalFiles = 20,
+                    RegisteredCount = 18,
+                    ReviewCount = 2,
+                    Status = "completed",
+                },
+            ],
+        };
+
+        var metrics = new IngestionDashboardMetrics(20, 20, 0, 2);
+
+        var recent = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            metrics,
+            null,
+            completedAt,
+            completedAt.AddSeconds(30));
+        var idle = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            metrics,
+            null,
+            completedAt,
+            completedAt.AddSeconds(61));
+
+        Assert.Equal(LibraryUpdatePageState.Complete, recent.PageState);
+        Assert.Equal("Library update complete", recent.Heading);
+        Assert.True(recent.ShowProgress);
+        Assert.Equal(100, recent.ProgressPercent);
+        Assert.Equal(LibraryUpdatePageState.Idle, idle.PageState);
+        Assert.False(idle.ShowProgress);
+        Assert.Equal("Library is up to date", idle.Heading);
+    }
+
+    [Fact]
+    public void LiveDashboardState_MapsNoPriorRunToReadyState()
+    {
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            new IngestionOperationsSnapshotViewModel(),
+            [],
+            [],
+            [],
+            [],
+            new IngestionDashboardMetrics(0, 0, 0, 0),
+            null,
+            null,
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(LibraryUpdatePageState.NoPriorRun, status.PageState);
+        Assert.Equal("Ready to scan your library", status.Heading);
+        Assert.Equal("No recent library update", status.TimestampLine);
+        Assert.False(status.ShowProgress);
     }
 
     [Fact]
@@ -433,18 +513,42 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
-    public void LiveDashboard_LinksToActivityLogsAndReviewQueue()
+    public void LiveDashboard_RendersLibraryUpdateDefaultView()
     {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 10,
+                RegisteredItems = 4,
+                ActiveJobs = 1,
+            },
+        };
         var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 4, 1, 0))
             .Add(component => component.OverallProgress, new IngestionOverallProgress(4, 10, 40, "Ingestion_StageRetailIdentification", "Ingestion_StageRetailIdentificationDetail", 4, 10, 40, null))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 10))
-            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Jobs, new[]
+            {
+                new IngestionOperationsJobViewModel
+                {
+                    CurrentStage = "Matching metadata",
+                    ProcessedCount = 4,
+                    TotalCount = 10,
+                    PercentComplete = 40,
+                    Status = "running",
+                },
+            })
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.DoesNotContain("ingestion-live__badge", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("href=\"/settings/activity\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("href=\"/settings/review\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Library Update", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Files Found", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Updating your library", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("What's happening now", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Update steps", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("ingestion-stage-rail", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("href=\"/settings/activity\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
 
     private static IngestionCurrentActivityViewModel Activity(string key, string message) => new()
