@@ -704,22 +704,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 {
                     var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
                     if (resultNode is not null)
-                    {
-                        if (strategy.ReleaseSelection is not null)
-                        {
-                            var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection);
-                            return await EnrichClaimsWithTmdbDetailsAsync(
-                                ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType),
-                                resultNode,
-                                request.MediaType,
-                                ct).ConfigureAwait(false);
-                        }
-                        return await EnrichClaimsWithTmdbDetailsAsync(
-                            ExtractClaims(resultNode, request.MediaType),
-                                resultNode,
-                                request.MediaType,
-                                ct).ConfigureAwait(false);
-                    }
+                        return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
+                            .ConfigureAwait(false);
                 }
             }
         }
@@ -797,22 +783,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     {
                         var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
                         if (resultNode is not null)
-                        {
-                            if (strategy.ReleaseSelection is not null)
-                            {
-                                var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection);
-                                return await EnrichClaimsWithTmdbDetailsAsync(
-                                ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType),
-                                resultNode,
-                                request.MediaType,
-                                ct).ConfigureAwait(false);
-                            }
-                            return await EnrichClaimsWithTmdbDetailsAsync(
-                            ExtractClaims(resultNode, request.MediaType),
-                                resultNode,
-                                request.MediaType,
-                                ct).ConfigureAwait(false);
-                        }
+                            return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
+                                .ConfigureAwait(false);
                     }
                 }
                 return [];
@@ -852,29 +824,76 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             if (resultObj is null)
                 return [];
 
-            // Nested release selection: pick the best sub-result (e.g. album release
-            // from a MusicBrainz recording) and extract claims from both nodes.
-            if (strategy.ReleaseSelection is not null)
-            {
-                var releaseNode = ApplyReleaseSelection(resultObj, strategy.ReleaseSelection);
-                return await EnrichClaimsWithTmdbDetailsAsync(
-                                ExtractClaimsWithRelease(resultObj, releaseNode, request.MediaType),
-                    resultObj,
-                    request.MediaType,
-                    ct).ConfigureAwait(false);
-            }
-
-            // Extract claims from field mappings (filtered by media type).
-            return await EnrichClaimsWithTmdbDetailsAsync(
-                ExtractClaims(resultObj, request.MediaType),
-                    resultObj,
-                    request.MediaType,
-                    ct).ConfigureAwait(false);
+            return await ExtractAndValidateClaimsAsync(strategy, request, resultObj, ct)
+                .ConfigureAwait(false);
         }
         finally
         {
             _throttle.Release();
         }
+    }
+
+    private async Task<IReadOnlyList<ProviderClaim>> ExtractAndValidateClaimsAsync(
+        SearchStrategyConfig strategy,
+        ProviderLookupRequest request,
+        JsonNode resultNode,
+        CancellationToken ct)
+    {
+        IReadOnlyList<ProviderClaim> claims;
+        if (strategy.ReleaseSelection is not null)
+        {
+            var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection);
+            claims = ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType);
+        }
+        else
+        {
+            claims = ExtractClaims(resultNode, request.MediaType);
+        }
+
+        if (!ClaimsMatchRequest(claims, request, strategy))
+            return [];
+
+        return await EnrichClaimsWithTmdbDetailsAsync(claims, resultNode, request.MediaType, ct)
+            .ConfigureAwait(false);
+    }
+
+    private bool ClaimsMatchRequest(
+        IReadOnlyList<ProviderClaim> claims,
+        ProviderLookupRequest request,
+        SearchStrategyConfig strategy)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title))
+            return true;
+
+        var candidateTitle = claims.FirstOrDefault(c =>
+            string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (string.IsNullOrWhiteSpace(candidateTitle))
+            return true;
+
+        var titleScore = ComputeWordOverlap(
+            CleanTitleForSearch(request.Title) ?? request.Title,
+            CleanTitleForSearch(candidateTitle) ?? candidateTitle);
+        if (titleScore >= 0.40)
+            return true;
+
+        var candidateAuthor = claims.FirstOrDefault(c =>
+            string.Equals(c.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))?.Value;
+        var authorScore = !string.IsNullOrWhiteSpace(request.Author) && !string.IsNullOrWhiteSpace(candidateAuthor)
+            ? ComputeWordOverlap(request.Author, candidateAuthor)
+            : 0.0;
+
+        _logger.LogInformation(
+            "{Provider}/{Strategy}: rejected mismatched result '{CandidateTitle}' by '{CandidateAuthor}' for requested '{Title}' by '{Author}' (title={TitleScore:F2}, author={AuthorScore:F2})",
+            Name,
+            strategy.Name,
+            candidateTitle,
+            candidateAuthor ?? "-",
+            request.Title,
+            request.Author ?? "-",
+            titleScore,
+            authorScore);
+
+        return false;
     }
 
     private async Task<IReadOnlyList<ProviderClaim>> EnrichClaimsWithTmdbDetailsAsync(

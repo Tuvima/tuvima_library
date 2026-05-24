@@ -36,7 +36,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 FROM   identity_jobs
                 WHERE  entity_id = @EntityId
                   AND  pass = @Pass
-                  AND  state NOT IN ('Completed', 'Failed')
+                  AND  state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
             );
             """,
             new

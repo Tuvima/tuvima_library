@@ -9,6 +9,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -322,6 +323,8 @@ public static class ItemCanonicalEndpoints
             IEventPublisher publisher,
             ICollectionRepository collectionRepo,
             IWorkRepository workRepo,
+            IHydrationPipelineService pipeline,
+            TimelineRecorder timeline,
             IDatabaseConnection db,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -443,6 +446,17 @@ public static class ItemCanonicalEndpoints
                 cmd.Parameters.AddWithValue("@workId", qidTargetId.ToString());
                 cmd.ExecuteNonQuery();
                 await collectionRepo.UpdateWorkWikidataMatchStateAsync(qidTargetId, "user_confirmed", "user", true, globalQid, ct: ct);
+
+                await pipeline.EnqueueAsync(new HarvestRequest
+                {
+                    EntityId = context.AssetId,
+                    EntityType = EntityType.MediaAsset,
+                    MediaType = ToMediaType(context.MediaType),
+                    Hints = selectedFields,
+                    PreResolvedQid = globalQid,
+                    IsUserResolution = true,
+                    SuppressReviewCreation = true,
+                }, ct);
             }
             else if (string.Equals(NormalizeLinkState(request.LinkState), "provider_only", StringComparison.Ordinal))
             {
@@ -452,6 +466,25 @@ public static class ItemCanonicalEndpoints
                     "retail",
                     false,
                     ct: ct);
+
+                if (request.BridgeIds.Count > 0)
+                {
+                    await timeline.RecordRetailMatchedAsync(
+                        context.AssetId,
+                        request.ProviderName ?? WellKnownProviders.UserManual.ToString(),
+                        Math.Max(1, selectedFields.Count + request.BridgeIds.Count),
+                        ct: ct);
+
+                    await pipeline.EnqueueAsync(new HarvestRequest
+                    {
+                        EntityId = context.AssetId,
+                        EntityType = EntityType.MediaAsset,
+                        MediaType = ToMediaType(context.MediaType),
+                        Hints = selectedFields,
+                        SkipRetailStage = true,
+                        IsUserResolution = true,
+                    }, ct);
+                }
             }
 
             await activityRepo.LogAsync(new SystemActivityEntry
@@ -514,6 +547,8 @@ public static class ItemCanonicalEndpoints
             ICollectionRepository collectionRepo,
             IWorkRepository workRepo,
             IReviewQueueRepository reviewRepo,
+            IHydrationPipelineService pipeline,
+            TimelineRecorder timeline,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -574,6 +609,31 @@ public static class ItemCanonicalEndpoints
                     .ToList();
 
                 await bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
+
+                var bridgeClaims = bridgeEntries.Select(entry => new MetadataClaim
+                {
+                    Id = Guid.NewGuid(),
+                    EntityId = entry.EntityId,
+                    ProviderId = WellKnownProviders.UserManual,
+                    ClaimKey = entry.IdType,
+                    ClaimValue = entry.IdValue,
+                    ClaimedAt = now,
+                    Confidence = 1.0,
+                    IsUserLocked = true,
+                }).ToList();
+                var bridgeCanonicals = bridgeEntries.Select(entry => new CanonicalValue
+                {
+                    EntityId = entry.EntityId,
+                    Key = entry.IdType,
+                    Value = entry.IdValue,
+                    LastScoredAt = now,
+                    IsConflicted = false,
+                    NeedsReview = false,
+                    WinningProviderId = WellKnownProviders.UserManual,
+                }).ToList();
+
+                await claimRepo.InsertBatchAsync(bridgeClaims, ct);
+                await canonicalRepo.UpsertBatchAsync(bridgeCanonicals, ct);
             }
 
             var workId = ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid);
@@ -600,6 +660,22 @@ public static class ItemCanonicalEndpoints
                 EntityType = "Work",
                 CollectionName = context.WorkTitle,
                 Detail = $"Retail match replaced with {request.ProviderName} {request.ProviderItemId}.",
+            }, ct);
+
+            await timeline.RecordRetailMatchedAsync(
+                context.AssetId,
+                request.ProviderName,
+                Math.Max(1, selectedFields.Count + request.BridgeIds.Count),
+                ct: ct);
+
+            await pipeline.EnqueueAsync(new HarvestRequest
+            {
+                EntityId = context.AssetId,
+                EntityType = EntityType.MediaAsset,
+                MediaType = ToMediaType(context.MediaType),
+                Hints = selectedFields,
+                SkipRetailStage = true,
+                IsUserResolution = true,
             }, ct);
 
             await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
@@ -896,6 +972,11 @@ public static class ItemCanonicalEndpoints
         !string.IsNullOrWhiteSpace(requestedMediaType)
             ? requestedMediaType
             : (string.IsNullOrWhiteSpace(fallbackMediaType) ? MediaType.Unknown.ToString() : fallbackMediaType);
+
+    private static MediaType ToMediaType(string? mediaType) =>
+        Enum.TryParse<MediaType>(mediaType, true, out var parsed)
+            ? parsed
+            : MediaType.Unknown;
 
     private static CanonicalTargetPolicy? ResolveTargetPolicy(string mediaType, string targetKind, string targetFieldGroup) =>
         (mediaType.Trim(), targetFieldGroup.Trim().ToLowerInvariant()) switch

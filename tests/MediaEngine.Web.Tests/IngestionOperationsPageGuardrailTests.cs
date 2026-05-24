@@ -14,10 +14,15 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void IngestionTab_UsesCentralLiveDashboardStateAndComponents()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor"));
+        var dashboardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor"));
+        var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionLiveDashboard", source, StringComparison.Ordinal);
         Assert.Contains("Status=\"Dashboard.LibraryUpdateStatus\"", source, StringComparison.Ordinal);
+        Assert.Contains("ShouldRender", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("BuildRenderSignature", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("BuildSnapshotSignature", stateSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<IngestionDiagnosticsPanels", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetIngestionOperationsSnapshotAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("StateContainer.BatchProgress", source, StringComparison.Ordinal);
@@ -104,6 +109,123 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_UsesActiveStageActivityForLibraryUpdate()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 117,
+                RegisteredItems = 52,
+                ItemsNeedingReview = 64,
+                ActiveJobs = 1,
+            },
+            PipelineStages =
+            [
+                new() { Key = "detected", Count = 117, TotalCount = 117 },
+                new() { Key = "matched", Count = 52, TotalCount = 108 },
+            ],
+            RecentBatches =
+            [
+                new()
+                {
+                    StartedAt = DateTimeOffset.UtcNow.AddMinutes(-20),
+                    TotalFiles = 117,
+                    RegisteredCount = 52,
+                    ReviewCount = 64,
+                    Status = "running",
+                },
+            ],
+        };
+        var jobs = new[]
+        {
+            new IngestionOperationsJobViewModel
+            {
+                CurrentStage = "Wikidata matching",
+                ProcessedCount = 60,
+                TotalCount = 108,
+                PercentComplete = 55,
+                Status = "running",
+            },
+        };
+        var activities = new[]
+        {
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "artwork",
+                Message = "Fetching artwork",
+                CurrentItem = "Moonage Daydream",
+                ProcessedCount = 117,
+                TotalCount = 117,
+                PercentComplete = 100,
+            },
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "wikidata",
+                Message = "Linking Wikidata QIDs",
+                CurrentItem = "The Empire Strikes Back",
+                ProcessedCount = 60,
+                TotalCount = 108,
+                PercentComplete = 55,
+                ActiveCount = 48,
+            },
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            jobs,
+            activities,
+            [],
+            [],
+            IngestionLiveDashboardState.BuildMetrics(snapshot, jobs),
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(117, status.TotalFiles);
+        Assert.Equal(117, status.ProcessedFiles);
+        Assert.Equal(100, status.ProgressPercent);
+        Assert.Equal("The Empire Strikes Back", status.CurrentItemTitle);
+        Assert.Equal("Matching titles and identity", status.CurrentStep);
+        Assert.Contains(status.Steps, step => step.Label == "Matched identity" && step.Status == LibraryUpdateStepStatus.InProgress);
+        Assert.DoesNotContain(status.Steps, step => step.Label == "Collected artwork" && step.Status == LibraryUpdateStepStatus.InProgress);
+    }
+
+    [Fact]
+    public void LiveDashboardState_RecentlyAddedFallsBackToCompletedBatchPreview()
+    {
+        var activities = new[]
+        {
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "wikidata",
+                Message = "Linking Wikidata QIDs",
+                CurrentBatch = new IngestionActivityBatchViewModel
+                {
+                    CompletedPreview = ["Dune Messiah", "Project Hail Mary"],
+                },
+            },
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            new IngestionOperationsSnapshotViewModel
+            {
+                Summary = new IngestionOperationsSummaryViewModel { TotalItems = 2, ActiveJobs = 1 },
+            },
+            [],
+            activities,
+            [],
+            [],
+            new IngestionDashboardMetrics(2, 2, 1, 0),
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        Assert.Contains(status.RecentItems, item => item.Title == "Dune Messiah");
+        Assert.Contains(status.RecentItems, item => item.Title == "Project Hail Mary");
+    }
+
+    [Fact]
     public void LiveDashboardState_MapsConnectionStateToLiveBadgeModes()
     {
         Assert.Equal(IngestionLiveMode.Live, IngestionLiveDashboardState.ResolveLiveMode(EngineConnectionState.Online));
@@ -173,7 +295,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         var stages = IngestionLiveDashboardState.BuildStages(snapshot, jobs, metrics.TotalFiles);
 
         Assert.Equal(100, metrics.TotalFiles);
-        Assert.Equal(42, metrics.ProcessedFiles);
+        Assert.Equal(43, metrics.ProcessedFiles);
         Assert.Equal(1, metrics.ActiveFiles);
         Assert.Contains(stages, stage => stage.Key == "enrichment" && stage.StatusKey == "Ingestion_StatusActive");
         Assert.Contains(stages, stage => stage.Key == "retail" && stage.LabelKey == "Ingestion_StageRetailIdentification");

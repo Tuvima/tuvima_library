@@ -58,6 +58,80 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
+    public async Task AppleBooks_FetchAsync_RejectedIsbnLookup_FallsBackToTitleAuthorSearch()
+    {
+        var config = LoadExampleConfig("apple_api");
+
+        var lookupResponse = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "trackId": 1533697459,
+                  "trackName": "That Summer",
+                  "artistName": "Jennifer Weiner",
+                  "releaseDate": "2021-05-11T07:00:00Z"
+                }
+              ]
+            }
+            """;
+
+        var searchResponse = """
+            {
+              "resultCount": 2,
+              "results": [
+                {
+                  "trackId": 1526997052,
+                  "trackName": "Project Hail Mary",
+                  "artistName": "Andy Weir",
+                  "releaseDate": "2021-05-04T07:00:00Z",
+                  "artworkUrl100": "https://example.test/project-hail-mary.jpg"
+                },
+                {
+                  "trackId": 1533697459,
+                  "trackName": "That Summer",
+                  "artistName": "Jennifer Weiner",
+                  "releaseDate": "2021-05-11T07:00:00Z"
+                }
+              ]
+            }
+            """;
+
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+
+                return JsonResponse(url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase)
+                    ? lookupResponse
+                    : searchResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Books,
+            Title = "Project Hail Mary",
+            Author = "Andy Weir",
+            Isbn = "9780593135204",
+            BaseUrl = "https://itunes.apple.com",
+        });
+
+        Assert.Contains(requestedUrls, url => url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(requestedUrls, url => url.Contains("/search?", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Title && c.Value == "Project Hail Mary");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Author && c.Value == "Andy Weir");
+        Assert.DoesNotContain(claims, c => c.Value == "That Summer");
+    }
+
+    [Fact]
     public async Task ComicVine_FetchAsync_PrefersIssueSearch_WhenTitleIsPresent()
     {
         var config = LoadExampleConfig("comicvine");

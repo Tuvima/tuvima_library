@@ -123,16 +123,23 @@
 }
 
 ::deep .library-update-metric__icon {
+    display: grid;
+    place-items: center;
     width: 58px;
     height: 58px;
     border-radius: 999px;
 }
 
 ::deep .library-update-metric__icon .mud-icon-root {
-    font-size: 30px;
+    display: block;
+    width: 31px;
+    height: 31px;
+    font-size: 31px;
+    line-height: 1;
+    margin: 0;
 }
 
-::deep .library-update-metric span {
+::deep .library-update-metric div > span {
     display: block;
     color: rgba(226, 232, 255, 0.72);
     font-size: 0.95rem;
@@ -172,7 +179,7 @@
 
 ::deep .library-update-status {
     margin-bottom: 10px;
-    padding: 20px 22px;
+    padding: 24px 26px;
     background:
         linear-gradient(120deg, rgba(12, 28, 61, 0.64), rgba(10, 16, 38, 0.78)),
         rgba(7, 14, 34, 0.66);
@@ -185,18 +192,20 @@
 
 ::deep .library-update-status__title {
     color: #f8fbff;
+    font-size: 1.55rem;
     font-weight: 780;
     letter-spacing: 0;
 }
 
 ::deep .library-update-status__line {
-    margin: 4px 0 0;
+    margin: 6px 0 0;
     color: rgba(241, 245, 255, 0.92);
-    font-size: 1.55rem;
+    font-size: 2.05rem;
+    font-weight: 720;
     line-height: 1.2;
 }
 
-::deep .library-update-status__line::first-letter {
+::deep .library-update-status__remaining {
     color: #a78bfa;
 }
 
@@ -397,15 +406,15 @@
 ::deep .library-update-stepper {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 16px;
+    gap: 24px;
     margin-top: 12px;
 }
 
 ::deep .library-update-step {
     position: relative;
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 12px;
     align-items: center;
     min-width: 0;
 }
@@ -413,9 +422,10 @@
 ::deep .library-update-step:not(:last-child)::after {
     content: "";
     position: absolute;
+    z-index: 0;
     top: 24px;
-    left: calc(100% - 12px);
-    width: 28px;
+    left: 58px;
+    width: calc(100% + 24px - 68px);
     height: 2px;
     border-radius: 999px;
     background: rgba(148, 163, 184, 0.30);
@@ -426,12 +436,27 @@
 }
 
 ::deep .library-update-step__node {
-    width: 44px;
-    height: 44px;
+    position: relative;
+    z-index: 1;
+    display: inline-grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
     border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 999px;
     color: #94a3b8;
     background: rgba(15, 23, 42, 0.70);
+    line-height: 1;
+}
+
+::deep .library-update-step__node .mud-icon-root {
+    display: block;
+    width: 27px;
+    height: 27px;
+    font-size: 27px;
+    line-height: 1;
+    margin: 0;
+    transform-origin: center;
 }
 
 ::deep .library-update-step.is-complete .library-update-step__node {
@@ -465,19 +490,45 @@
     white-space: nowrap;
 }
 
-::deep .library-update-step span {
+::deep .library-update-step > div > span {
     display: block;
     font-size: 0.8rem;
 }
 
 ::deep .library-update-recent {
-    padding: 12px;
+    overflow: hidden;
+    padding: 0;
 }
 
-::deep .library-update-recent > .mud-typography {
-    margin: 0 4px 10px;
+::deep .library-update-recent__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 12px 16px;
     color: #f8fbff;
     font-weight: 760;
+    cursor: pointer;
+    list-style: none;
+}
+
+::deep .library-update-recent__summary::-webkit-details-marker {
+    display: none;
+}
+
+::deep .library-update-recent__summary .mud-icon-root {
+    color: #93c5fd;
+    transition: transform 160ms ease;
+}
+
+::deep .library-update-recent:not([open]) .library-update-recent__summary .mud-icon-root {
+    transform: rotate(-90deg);
+}
+
+::deep .library-update-recent__content {
+    padding: 0 12px 12px;
+    border-top: 1px solid rgba(176, 190, 255, 0.10);
 }
 
 ::deep .library-update-recent__list {
@@ -558,8 +609,7 @@
 
 ::deep .library-update-recent__empty {
     min-height: 54px;
-    padding: 16px 10px;
-    border-top: 1px solid rgba(176, 190, 255, 0.10);
+    padding: 16px 2px 4px;
 }
 
 ::deep .library-update__skeleton {
@@ -613,6 +663,10 @@
 @media (max-width: 760px) {
     ::deep .library-update {
         padding: 16px;
+    }
+
+    ::deep .library-update-status__line {
+        font-size: 1.55rem;
     }
 
     ::deep .library-update__header,

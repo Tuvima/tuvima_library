@@ -52,7 +52,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         nameof(IdentityJobState.ReadyWithoutUniverse),
         nameof(IdentityJobState.Completed),
     ];
-    private static readonly TimeSpan ActiveActivityFreshness = TimeSpan.FromMinutes(6);
+    // Wikidata and artwork batches can legitimately spend many minutes in one
+    // leased state before per-item finalisation updates the row. Keep those rows
+    // visible as active so the Library Update page does not look frozen.
+    private static readonly TimeSpan ActiveActivityFreshness = TimeSpan.FromMinutes(30);
     private static readonly string[] CurrentActivityStates =
     [
         nameof(IdentityJobState.RetailSearching),
@@ -1219,7 +1222,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var id = provider.Name.ToLowerInvariant();
         if (id.Contains("apple") || id.Contains("tmdb") || id.Contains("musicbrainz")
             || id.Contains("wikidata") || id.Contains("wikipedia") || id.Contains("comic")
-            || id.Contains("google") || id.Contains("open_library") || id.Contains("audible"))
+            || id.Contains("open_library") || id.Contains("audible"))
         {
             return true;
         }

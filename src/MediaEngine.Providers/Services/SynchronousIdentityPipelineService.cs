@@ -59,11 +59,24 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             Pass = request.Pass.ToString(),
         };
 
+        if (!string.IsNullOrWhiteSpace(request.PreResolvedQid) && request.IsUserResolution)
+        {
+            job.State = nameof(IdentityJobState.QidResolved);
+            job.ResolvedQid = request.PreResolvedQid;
+        }
+        else if (request.SkipRetailStage)
+        {
+            job.State = nameof(IdentityJobState.RetailMatched);
+        }
+
         await _jobRepo.CreateAsync(job, ct);
 
+        if (!string.IsNullOrWhiteSpace(job.ResolvedQid))
+            await _jobRepo.SetResolvedQidAsync(job.Id, job.ResolvedQid, ct);
+
         _logger.LogInformation(
-            "Enqueued identity job {JobId} for entity {EntityId} ({MediaType})",
-            job.Id, job.EntityId, job.MediaType);
+            "Enqueued identity job {JobId} for entity {EntityId} ({MediaType}) at state {State}",
+            job.Id, job.EntityId, job.MediaType, job.State);
     }
 
     /// <summary>

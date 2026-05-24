@@ -11,6 +11,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private readonly UniverseStateContainer _stateContainer;
     private CancellationTokenSource? _pollCts;
     private CancellationTokenSource? _refreshDebounceCts;
+    private string? _lastSnapshotSignature;
     private bool _disposed;
     private bool _initialized;
 
@@ -70,12 +71,14 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         IsLoading = Snapshot is null;
         Error = null;
-        Notify();
+        var shouldNotify = IsLoading;
+        if (IsLoading)
+            Notify();
 
         try
         {
             var snapshotTask = _api.GetIngestionOperationsSnapshotAsync(ct);
-            var activityTask = _api.GetRecentActivityAsync(12, ct);
+            var activityTask = _api.GetRecentActivityAsync(50, ct);
             var reviewTask = _api.GetPendingReviewsAsync(3, ct);
             await Task.WhenAll(snapshotTask, activityTask, reviewTask);
 
@@ -85,7 +88,14 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 .Take(12)
                 .ToList();
             PendingReviews = reviewTask.Result;
-            LastUpdated = DateTimeOffset.Now;
+            var nextSignature = BuildSnapshotSignature(Snapshot, RecentActivity, PendingReviews);
+            var changed = !string.Equals(_lastSnapshotSignature, nextSignature, StringComparison.Ordinal);
+            _lastSnapshotSignature = nextSignature;
+            if (changed)
+            {
+                LastUpdated = DateTimeOffset.Now;
+                shouldNotify = true;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -94,11 +104,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
         catch (Exception ex)
         {
             Error = $"Ingestion status could not load: {ex.Message}";
+            shouldNotify = true;
         }
         finally
         {
             IsLoading = false;
-            Notify();
+            if (shouldNotify)
+                Notify();
         }
     }
 
@@ -130,7 +142,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         while (!ct.IsCancellationRequested)
         {
-            var delay = ActiveJobs.Count > 0 ? TimeSpan.FromSeconds(2) : TimeSpan.FromSeconds(40);
+            var delay = ActiveJobs.Count > 0 ? TimeSpan.FromSeconds(15) : TimeSpan.FromSeconds(40);
             try
             {
                 await Task.Delay(delay, ct);
@@ -146,7 +158,6 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private void OnRealtimeStateChanged()
     {
         LastUpdated = DateTimeOffset.Now;
-        Notify();
         DebounceSnapshotRefresh();
     }
 
@@ -165,7 +176,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         {
             try
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(500), token);
+                await Task.Delay(TimeSpan.FromSeconds(10), token);
                 await LoadAsync(token);
             }
             catch (OperationCanceledException)
@@ -267,14 +278,11 @@ public sealed class IngestionLiveDashboardState : IDisposable
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs)
     {
         var activeTotal = activeJobs.Sum(job => Math.Max(0, job.TotalCount));
-        var activeProcessed = activeJobs.Sum(job => Math.Max(0, job.ProcessedCount));
-        var totalFiles = activeTotal > 0
-            ? activeTotal
-            : Total(snapshot, "detected", snapshot?.Summary.TotalItems ?? 0);
+        var totalFiles = Total(snapshot, "detected", snapshot?.Summary.TotalItems ?? activeTotal);
         var fallbackProcessed = (snapshot?.Summary.RegisteredItems ?? 0) + (snapshot?.Summary.ItemsNeedingReview ?? 0);
-        var processedFiles = activeTotal > 0
-            ? activeProcessed
-            : Count(snapshot, "detected", fallbackProcessed);
+        var processedFiles = Count(snapshot, "detected", fallbackProcessed);
+        if (snapshot?.Summary.TotalItems > 0 && processedFiles == 0)
+            processedFiles = Math.Min(snapshot.Summary.TotalItems, fallbackProcessed);
 
         return new IngestionDashboardMetrics(
             totalFiles,
@@ -525,15 +533,17 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var progressPercent = ResolveLibraryUpdateProgress(pageState, activeJobs, processedFiles, totalFiles);
         var showProgress = pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete or LibraryUpdatePageState.Failed;
         var isIndeterminate = pageState == LibraryUpdatePageState.Running && totalFiles == 0;
+        var primaryActivity = SelectPrimaryActivity(activeJobs, currentActivities, activeStep);
         var currentItem = CleanDisplayTitle(FirstNonBlank(
-            currentActivities.FirstOrDefault()?.CurrentItem,
+            primaryActivity?.CurrentItem,
+            primaryActivity?.CurrentBatch?.ActiveItems.FirstOrDefault(),
             activeJobs.Select(job => job.CurrentItem).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))));
-        var currentStep = ResolveCurrentStepLabel(activeJobs, currentActivities, activeStep);
-        var currentSource = ResolveCurrentSource(currentActivities);
+        var currentStep = ResolveCurrentStepLabel(activeJobs, primaryActivity, activeStep);
+        var currentSource = ResolveCurrentSource(primaryActivity);
         var activityLine = ResolveCurrentActivityLine(pageState, activeStep, totalFiles);
         var secondaryLine = ResolveSecondaryLine(pageState, activeItems, matchedItems, reviewItems, totalFiles, lastCompletedAt, now);
         var status = ResolveStatusPill(pageState, reviewItems);
-        var recentItems = BuildRecentItems(recentActivity);
+        var recentItems = BuildRecentItems(recentActivity, currentActivities);
         var attentionReasons = BuildAttentionReasons(snapshot?.ReviewReasons ?? [], reviewItems);
         var steps = BuildLibraryUpdateSteps(pageState, activeStep, reviewItems);
 
@@ -697,19 +707,55 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (pageState == LibraryUpdatePageState.Complete)
             return 100;
 
-        var serverPercent = activeJobs
-            .Where(IsActiveJob)
-            .Select(job => Math.Clamp(job.PercentComplete, 0, 100))
-            .DefaultIfEmpty(0)
-            .Max();
         var calculatedPercent = totalFiles > 0
             ? Math.Clamp(processedFiles * 100d / totalFiles, 0, 100)
             : 0;
-        var percent = serverPercent > 0 ? serverPercent : calculatedPercent;
+        var percent = calculatedPercent;
 
         return pageState == LibraryUpdatePageState.Running
-            ? Math.Min(99, percent)
+            ? Math.Clamp(percent, 0, 100)
             : Math.Clamp(percent, 0, 100);
+    }
+
+    private static string BuildSnapshotSignature(
+        IngestionOperationsSnapshotViewModel? snapshot,
+        IReadOnlyList<ActivityEntryViewModel> recentActivity,
+        IReadOnlyList<ReviewItemViewModel> pendingReviews)
+    {
+        if (snapshot is null)
+            return $"null|activity:{recentActivity.Count}|reviews:{pendingReviews.Count}";
+
+        var summary = snapshot.Summary;
+        var active = string.Join(';', snapshot.ActiveJobs
+            .OrderBy(job => job.JobId)
+            .Select(job => string.Join(':',
+                job.JobId,
+                job.CurrentStage,
+                job.ProcessedCount,
+                job.TotalCount,
+                Math.Round(job.PercentComplete, 1),
+                job.Status)));
+        var activities = string.Join(';', snapshot.CurrentActivities
+            .OrderBy(activity => activity.StageKey)
+            .Select(activity => string.Join(':',
+                activity.StageKey,
+                activity.CurrentItem,
+                activity.ProcessedCount,
+                activity.TotalCount,
+                activity.ActiveCount,
+                activity.QueuedCount)));
+
+        return string.Join('|',
+            summary.TotalItems,
+            summary.RegisteredItems,
+            summary.ItemsNeedingReview,
+            summary.ActiveJobs,
+            summary.FailedJobs,
+            summary.LastSuccessfulScanTime?.ToUnixTimeSeconds(),
+            active,
+            activities,
+            recentActivity.FirstOrDefault()?.Id,
+            pendingReviews.Count);
     }
 
     private static int ResolveActiveLibraryUpdateStep(
@@ -717,10 +763,11 @@ public sealed class IngestionLiveDashboardState : IDisposable
         IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities)
     {
         var value = FirstNonBlank(
-            currentActivities.FirstOrDefault()?.StageKey,
-            currentActivities.FirstOrDefault()?.Message,
-            currentActivities.FirstOrDefault()?.Detail,
-            activeJobs.Select(job => FirstNonBlank(job.CurrentStage, job.JobType)).FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)));
+            activeJobs.Select(job => FirstNonBlank(job.CurrentStage, job.JobType)).FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)),
+            currentActivities.FirstOrDefault(activity => activity.ActiveCount > 0)?.StageKey,
+            currentActivities.FirstOrDefault(activity => activity.ActiveCount > 0)?.Message,
+            currentActivities.FirstOrDefault(activity => activity.PercentComplete < 100)?.StageKey,
+            currentActivities.FirstOrDefault(activity => activity.PercentComplete < 100)?.Message);
 
         if (string.IsNullOrWhiteSpace(value))
             return activeJobs.Count > 0 ? 1 : 4;
@@ -748,13 +795,47 @@ public sealed class IngestionLiveDashboardState : IDisposable
             : 1;
     }
 
-    private static string ResolveCurrentStepLabel(
+    private static IngestionCurrentActivityViewModel? SelectPrimaryActivity(
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
         IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities,
         int activeStep)
     {
+        if (currentActivities.Count == 0)
+            return null;
+
+        var activeStageKey = ResolveActiveStage(activeJobs);
+        var expectedStageKey = activeStep switch
+        {
+            0 or 1 => "scanning",
+            2 => "wikidata",
+            3 => "artwork",
+            4 => "saving",
+            _ => activeStageKey,
+        };
+
+        return currentActivities
+            .Where(activity => !IsCompletedActivity(activity))
+            .FirstOrDefault(activity => activity.StageKey.Equals(activeStageKey, StringComparison.OrdinalIgnoreCase))
+            ?? currentActivities
+                .Where(activity => !IsCompletedActivity(activity))
+                .FirstOrDefault(activity => activity.StageKey.Equals(expectedStageKey, StringComparison.OrdinalIgnoreCase))
+            ?? currentActivities.FirstOrDefault(activity => !IsCompletedActivity(activity))
+            ?? currentActivities.FirstOrDefault();
+    }
+
+    private static bool IsCompletedActivity(IngestionCurrentActivityViewModel activity) =>
+        activity.TotalCount > 0
+        && activity.ProcessedCount >= activity.TotalCount
+        && activity.ActiveCount <= 0
+        && activity.QueuedCount <= 0;
+
+    private static string ResolveCurrentStepLabel(
+        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IngestionCurrentActivityViewModel? primaryActivity,
+        int activeStep)
+    {
         var explicitStep = FirstNonBlank(
-            currentActivities.FirstOrDefault()?.Message,
+            primaryActivity?.Message,
             activeJobs.Select(job => job.CurrentStage).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)));
         if (!string.IsNullOrWhiteSpace(explicitStep))
             return ToFriendlyStepLabel(explicitStep);
@@ -770,12 +851,11 @@ public sealed class IngestionLiveDashboardState : IDisposable
         };
     }
 
-    private static string ResolveCurrentSource(IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities)
+    private static string ResolveCurrentSource(IngestionCurrentActivityViewModel? primaryActivity)
     {
-        var source = currentActivities
-            .Select(activity => activity.Source)
-            .FirstOrDefault(value => LooksLikeProvider(value));
-        return source ?? string.Empty;
+        return LooksLikeProvider(primaryActivity?.Source)
+            ? primaryActivity!.Source!
+            : string.Empty;
     }
 
     private static bool LooksLikeProvider(string? value)
@@ -1002,13 +1082,35 @@ public sealed class IngestionLiveDashboardState : IDisposable
             rows.Add(new LibraryUpdateAttentionReasonViewModel(count, label));
     }
 
-    private static IReadOnlyList<LibraryUpdateRecentItemViewModel> BuildRecentItems(IReadOnlyList<ActivityEntryViewModel> recentActivity)
+    private static IReadOnlyList<LibraryUpdateRecentItemViewModel> BuildRecentItems(
+        IReadOnlyList<ActivityEntryViewModel> recentActivity,
+        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities)
     {
-        return recentActivity
+        var activityItems = recentActivity
             .Where(IsRecentLibraryUpdateActivity)
             .Select(ToRecentItem)
             .Where(item => !string.IsNullOrWhiteSpace(item.Title))
             .Take(5)
+            .ToList();
+
+        if (activityItems.Count > 0)
+            return activityItems;
+
+        return currentActivities
+            .SelectMany(activity => activity.CurrentBatch?.CompletedPreview ?? [])
+            .Concat(currentActivities.SelectMany(activity => activity.SampleItems))
+            .Select(CleanDisplayTitle)
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .Select(title => new LibraryUpdateRecentItemViewModel(
+                title,
+                "Added or updated in this library update",
+                "Updated",
+                "success",
+                "Just now",
+                null,
+                null))
             .ToList();
     }
 
@@ -1025,6 +1127,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             rich?.Title,
             review?.Title,
             activity.CollectionName,
+            ExtractTitleFromDetail(activity.Detail),
             "Library item"));
         var needsReview = rich?.NeedsReview == true || activity.ActionType.Contains("Review", StringComparison.OrdinalIgnoreCase);
         var hasArtwork = !string.IsNullOrWhiteSpace(rich?.ResolvedCoverUrl) || !string.IsNullOrWhiteSpace(review?.CoverUrl);
@@ -1045,6 +1148,21 @@ public sealed class IngestionLiveDashboardState : IDisposable
             activity.RelativeTime,
             rich?.ResolvedCoverUrl ?? review?.CoverUrl,
             ResolveDetailHref(activity));
+    }
+
+    private static string? ExtractTitleFromDetail(string? detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail))
+            return null;
+
+        var trimmed = detail.Trim();
+        var quoted = trimmed.Split('"', StringSplitOptions.RemoveEmptyEntries);
+        if (quoted.Length >= 2)
+            return quoted[1];
+
+        return trimmed.Contains(':', StringComparison.Ordinal)
+            ? trimmed[(trimmed.LastIndexOf(':') + 1)..].Trim()
+            : trimmed;
     }
 
     private static string? ResolveDetailHref(ActivityEntryViewModel activity)

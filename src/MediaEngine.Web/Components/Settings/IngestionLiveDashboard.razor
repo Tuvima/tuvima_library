@@ -81,7 +81,7 @@
             <div class="library-update-status__top">
                 <div>
                     <MudText Typo="Typo.h5" Class="library-update-status__title">@Model.Heading</MudText>
-                    <p class="library-update-status__line">@Model.MainLine</p>
+                    <p class="library-update-status__line">@MainLineContent()</p>
                 </div>
                 <span class="@StatusPillClass">
                     <span></span>
@@ -235,16 +235,20 @@
 
         @if (Model.HasPriorRun || Model.RecentItems.Count > 0 || Model.PageState == LibraryUpdatePageState.Running)
         {
-            <section class="library-update-recent" aria-label="Recently added">
-                <MudText Typo="Typo.subtitle1">Recently added</MudText>
-                @if (Model.RecentItems.Count == 0)
-                {
-                    <div class="library-update-recent__empty">No new items were added in the last scan.</div>
-                }
-                else
-                {
-                    <div class="library-update-recent__list">
-                        @foreach (var item in Model.RecentItems)
+            <details class="library-update-recent" aria-label="Recently added" open>
+                <summary class="library-update-recent__summary">
+                    <span>Recently added</span>
+                    <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" />
+                </summary>
+                <div class="library-update-recent__content">
+                    @if (Model.RecentItems.Count == 0)
+                    {
+                        <div class="library-update-recent__empty">No new items were added in the last scan.</div>
+                    }
+                    else
+                    {
+                        <div class="library-update-recent__list">
+                            @foreach (var item in Model.RecentItems)
                         {
                             @if (!string.IsNullOrWhiteSpace(item.Href))
                             {
@@ -259,9 +263,10 @@
                                 </div>
                             }
                         }
-                    </div>
-                }
-            </section>
+                        </div>
+                    }
+                </div>
+            </details>
         }
     }
 </MudPaper>
@@ -286,6 +291,8 @@
     [Parameter] public EventCallback OnRefresh { get; set; }
     [Parameter] public EventCallback OnScanNow { get; set; }
 
+    private string? _lastRenderSignature;
+
     private LibraryUpdateStatusViewModel Model => Status
         ?? IngestionLiveDashboardState.BuildLibraryUpdateStatus(
             Snapshot,
@@ -297,6 +304,16 @@
             Error,
             LastUpdated,
             DateTimeOffset.UtcNow);
+
+    protected override bool ShouldRender()
+    {
+        var signature = BuildRenderSignature(Model, Loading, ScanStarting, Error);
+        if (string.Equals(_lastRenderSignature, signature, StringComparison.Ordinal))
+            return false;
+
+        _lastRenderSignature = signature;
+        return true;
+    }
 
     private string MainStatusClass => $"library-update-status is-{Model.PageState.ToString().ToLowerInvariant()}";
     private string StatusPillClass => $"library-update-pill is-{Model.StatusTone}";
@@ -319,6 +336,63 @@
             LibraryUpdateStepStatus.NeedsReview => Icons.Material.Outlined.WarningAmber,
             _ => step.Icon,
         };
+
+    private static string BuildRenderSignature(
+        LibraryUpdateStatusViewModel model,
+        bool loading,
+        bool scanStarting,
+        string? error)
+    {
+        var steps = string.Join(';', model.Steps.Select(step => $"{step.Label}:{step.Status}"));
+        var recent = string.Join(';', model.RecentItems.Select(item => $"{item.Title}:{item.StatusLabel}:{item.RelativeTime}"));
+        var reasons = string.Join(';', model.AttentionReasons.Select(reason => $"{reason.Label}:{reason.Count}"));
+
+        return string.Join('|',
+            loading,
+            scanStarting,
+            error,
+            model.PageState,
+            model.TotalFiles,
+            model.ProcessedFiles,
+            model.MatchedItems,
+            model.ReviewItems,
+            model.ActiveItems,
+            Math.Round(model.ProgressPercent, 1),
+            model.IsIndeterminate,
+            model.Heading,
+            model.ActivityLine,
+            model.SecondaryLine,
+            model.StatusLabel,
+            model.CurrentItemTitle,
+            model.CurrentStep,
+            model.CurrentProvider,
+            steps,
+            reasons,
+            recent);
+    }
+
+    private RenderFragment MainLineContent() => builder =>
+    {
+        var sequence = 0;
+        if (Model.PageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete)
+        {
+            var remaining = Math.Max(0, Model.TotalFiles - Model.ProcessedFiles);
+            builder.OpenElement(sequence++, "span");
+            builder.AddContent(sequence++, FormatCount(Model.ProcessedFiles));
+            builder.CloseElement();
+            builder.AddContent(sequence++, " of ");
+            builder.AddContent(sequence++, FormatCount(Model.TotalFiles));
+            builder.AddContent(sequence++, " files processed");
+            builder.AddContent(sequence++, " · ");
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "library-update-status__remaining");
+            builder.AddContent(sequence++, $"{FormatCount(remaining)} remaining");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.AddContent(sequence++, Model.MainLine);
+    };
 
     private static RenderFragment RecentItemContent(LibraryUpdateRecentItemViewModel item) => builder =>
     {
