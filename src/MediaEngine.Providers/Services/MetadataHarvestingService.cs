@@ -436,6 +436,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 EntityId   = request.EntityId,
                 EntityType = entitySubType,
                 Detail     = $"Fictional entity \"{label}\" enriched from Wikidata",
+                IngestionRunId = request.IngestionRunId,
             }, ct).ConfigureAwait(false);
 
             // Publish SignalR event.
@@ -589,6 +590,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                             EntityId   = canonicalPerson.Id,
                             EntityType = "Person",
                             Detail     = $"Merged duplicate person \"{duplicatePerson?.Name ?? "?"}\" into canonical \"{canonicalPerson.Name}\" ({qid})",
+                            IngestionRunId = request.IngestionRunId,
                         }, ct).ConfigureAwait(false);
 
                         await _eventPublisher.PublishAsync(
@@ -711,6 +713,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 CollectionName     = personName,
                 ChangesJson = changesJson,
                 Detail      = $"Person \"{personName}\" enriched from Wikidata",
+                IngestionRunId = request.IngestionRunId,
             }, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

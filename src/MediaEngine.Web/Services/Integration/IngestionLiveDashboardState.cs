@@ -79,7 +79,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         {
             var snapshotTask = _api.GetIngestionOperationsSnapshotAsync(ct);
             var activityTask = _api.GetRecentActivityAsync(50, ct);
-            var reviewTask = _api.GetPendingReviewsAsync(3, ct);
+            var reviewTask = _api.GetPendingReviewsAsync(200, ct);
             await Task.WhenAll(snapshotTask, activityTask, reviewTask);
 
             Snapshot = snapshotTask.Result;
@@ -279,10 +279,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         var activeTotal = activeJobs.Sum(job => Math.Max(0, job.TotalCount));
         var totalFiles = Total(snapshot, "detected", snapshot?.Summary.TotalItems ?? activeTotal);
-        var fallbackProcessed = (snapshot?.Summary.RegisteredItems ?? 0) + (snapshot?.Summary.ItemsNeedingReview ?? 0);
-        var processedFiles = Count(snapshot, "detected", fallbackProcessed);
-        if (snapshot?.Summary.TotalItems > 0 && processedFiles == 0)
-            processedFiles = Math.Min(snapshot.Summary.TotalItems, fallbackProcessed);
+        var processedFiles = ResolveTerminalPipelineCount(snapshot, totalFiles);
 
         return new IngestionDashboardMetrics(
             totalFiles,
@@ -518,12 +515,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (matchedItems == 0)
             matchedItems = Math.Max(0, latestBatch?.RegisteredCount ?? 0);
 
-        var reviewItems = Math.Max(
-            Math.Max(0, snapshot?.Summary.ItemsNeedingReview ?? 0),
-            Math.Max(0, latestBatch?.ReviewCount ?? 0));
+        var reviewItems = pendingReviews.Count > 0
+            ? pendingReviews.Count
+            : Math.Max(0, snapshot?.Summary.ItemsNeedingReview ?? 0);
         var activeItems = currentActivities.Sum(activity => Math.Max(0, activity.ActiveCount));
         if (activeItems == 0)
             activeItems = activeJobs.Count(job => IsActiveJob(job));
+        var queuedItems = Math.Max(0, totalFiles - processedFiles - activeItems);
 
         var addedOrUpdatedCount = latestBatch is not null
             ? Math.Max(0, latestBatch.RegisteredCount + latestBatch.ReviewCount)
@@ -541,9 +539,10 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var currentStep = ResolveCurrentStepLabel(activeJobs, primaryActivity, activeStep);
         var currentSource = ResolveCurrentSource(primaryActivity);
         var activityLine = ResolveCurrentActivityLine(pageState, activeStep, totalFiles);
-        var secondaryLine = ResolveSecondaryLine(pageState, activeItems, matchedItems, reviewItems, totalFiles, lastCompletedAt, now);
+        var secondaryLine = ResolveSecondaryLine(pageState, activeItems, queuedItems, processedFiles, matchedItems, reviewItems, totalFiles, lastCompletedAt, now);
         var status = ResolveStatusPill(pageState, reviewItems);
         var recentItems = BuildRecentItems(recentActivity, currentActivities);
+        var recentRuns = BuildRecentRuns(snapshot?.RecentBatches ?? [], now);
         var attentionReasons = BuildAttentionReasons(snapshot?.ReviewReasons ?? [], reviewItems);
         var steps = BuildLibraryUpdateSteps(pageState, activeStep, reviewItems);
 
@@ -554,6 +553,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             matchedItems,
             reviewItems,
             activeItems,
+            queuedItems,
             addedOrUpdatedCount,
             progressPercent,
             showProgress,
@@ -573,6 +573,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             steps,
             attentionReasons,
             recentItems,
+            recentRuns,
             hasPriorRun);
     }
 
@@ -652,6 +653,33 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .FirstOrDefault(stage => stage.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
             ?.TotalCount ?? 0;
         return total > 0 ? total : fallback;
+    }
+
+    private static int ResolveTerminalPipelineCount(IngestionOperationsSnapshotViewModel? snapshot, int totalFiles)
+    {
+        if (snapshot is null)
+            return 0;
+
+        var hasIdentityPipelineStages = snapshot.PipelineStages.Any(stage =>
+            stage.Key.Equals("matched", StringComparison.OrdinalIgnoreCase)
+            || stage.Key.Equals("retail_review", StringComparison.OrdinalIgnoreCase)
+            || stage.Key.Equals("canonicalized", StringComparison.OrdinalIgnoreCase)
+            || stage.Key.Equals("wikidata_review", StringComparison.OrdinalIgnoreCase)
+            || stage.Key.Equals("enriched", StringComparison.OrdinalIgnoreCase));
+        var enrichedTotal = Total(snapshot, "enriched", 0);
+        var readyForLibrary = Count(snapshot, "enriched");
+        if (readyForLibrary == 0 && enrichedTotal == 0 && !hasIdentityPipelineStages)
+            readyForLibrary = Count(snapshot, "registered", snapshot.Summary.RegisteredItems);
+
+        var needsReview = Math.Max(Count(snapshot, "needs_review"), snapshot.Summary.ItemsNeedingReview);
+        var duplicate = Count(snapshot, "duplicate");
+        var skipped = Count(snapshot, "skipped");
+        var failed = Count(snapshot, "failed");
+        var terminalCount = readyForLibrary + needsReview + duplicate + skipped + failed;
+
+        return totalFiles > 0
+            ? Math.Clamp(terminalCount, 0, totalFiles)
+            : Math.Max(0, terminalCount);
     }
 
     private static bool IsUsefulActivity(ActivityEntryViewModel activity) =>
@@ -895,21 +923,44 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private static string? ResolveSecondaryLine(
         LibraryUpdatePageState pageState,
         int activeItems,
+        int queuedItems,
+        int processedFiles,
         int matchedItems,
         int reviewItems,
         int totalFiles,
         DateTimeOffset? lastCompletedAt,
         DateTimeOffset now)
     {
+        if (pageState == LibraryUpdatePageState.Running)
+            return BuildRunningPipelineSummary(activeItems, queuedItems, reviewItems);
+
+        if (pageState == LibraryUpdatePageState.Idle)
+            return $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} files finished - {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched - {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review";
+
         return pageState switch
         {
-            LibraryUpdatePageState.Running when activeItems > 0 => $"{activeItems.ToString("N0", CultureInfo.CurrentCulture)} items are being checked now",
+            LibraryUpdatePageState.Running => BuildRunningPipelineSummary(activeItems, queuedItems, reviewItems),
             LibraryUpdatePageState.Complete => $"{matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched · {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
             LibraryUpdatePageState.Idle => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files processed · {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched · {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
             LibraryUpdatePageState.Failed => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files found · {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched · {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
             LibraryUpdatePageState.StatusUnavailable when lastCompletedAt.HasValue => $"Last successful scan completed {FormatRelativeLong(lastCompletedAt.Value, now)}",
             _ => null,
         };
+    }
+
+    private static string BuildRunningPipelineSummary(int activeItems, int queuedItems, int reviewItems)
+    {
+        var parts = new List<string>(3);
+        if (activeItems > 0)
+            parts.Add($"{activeItems.ToString("N0", CultureInfo.CurrentCulture)} active");
+        if (queuedItems > 0)
+            parts.Add($"{queuedItems.ToString("N0", CultureInfo.CurrentCulture)} still in pipeline");
+        if (reviewItems > 0)
+            parts.Add($"{reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review");
+
+        return parts.Count > 0
+            ? string.Join(" - ", parts)
+            : "Waiting for the next pipeline update";
     }
 
     private static (string Label, string Tone) ResolveStatusPill(LibraryUpdatePageState pageState, int reviewItems) =>
@@ -941,6 +992,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
         DateTimeOffset? lastCompletedAt,
         DateTimeOffset now)
     {
+        if ((pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete) && totalFiles > 0)
+            return $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} of {totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files finished";
+
         return pageState switch
         {
             LibraryUpdatePageState.Running when totalFiles == 0 => "Looking for new media",
@@ -1113,6 +1167,59 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 null))
             .ToList();
     }
+
+    private static IReadOnlyList<LibraryUpdateRunSummaryViewModel> BuildRecentRuns(
+        IReadOnlyList<IngestionOperationsBatchViewModel> batches,
+        DateTimeOffset now)
+    {
+        return batches
+            .OrderByDescending(batch => batch.StartedAt)
+            .Take(5)
+            .Select(batch =>
+            {
+                var reviewCount = Math.Max(0, batch.ReviewCount);
+                var failedCount = Math.Max(0, batch.FailedCount);
+                var statusTone = failedCount > 0
+                    ? "danger"
+                    : reviewCount > 0 ? "warning" : IsActiveBatchStatus(batch.Status) ? "info" : "success";
+                var statusLabel = IsActiveBatchStatus(batch.Status)
+                    ? "Running"
+                    : failedCount > 0 ? "Issues" : reviewCount > 0 ? "Review" : "Complete";
+                var processed = batch.ProcessedFiles > 0
+                    ? Math.Min(Math.Max(0, batch.ProcessedFiles), Math.Max(0, batch.TotalFiles))
+                    : Math.Min(Math.Max(0, batch.RegisteredCount + batch.ReviewCount + batch.FailedCount), Math.Max(0, batch.TotalFiles));
+                var title = string.IsNullOrWhiteSpace(batch.Source)
+                    ? "Library update"
+                    : $"{batch.Source} update";
+                var statusText = $"{FormatCount(processed)} of {FormatCount(batch.TotalFiles)} files finished";
+                var durationText = batch.DurationSeconds is > 0
+                    ? FormatDuration(TimeSpan.FromSeconds(batch.DurationSeconds.Value))
+                    : IsActiveBatchStatus(batch.Status) ? "In progress" : "Duration unknown";
+
+                return new LibraryUpdateRunSummaryViewModel(
+                    title,
+                    statusText,
+                    statusLabel,
+                    statusTone,
+                    FormatRelativeShort(batch.StartedAt, now),
+                    durationText,
+                    [
+                        new("Files", batch.TotalFiles, Icons.Material.Outlined.Description, "purple"),
+                        new("Matched", batch.RegisteredCount, Icons.Material.Outlined.Link, "green"),
+                        new("Review", reviewCount, Icons.Material.Outlined.WarningAmber, "amber"),
+                        new("People", batch.PeopleGeneratedCount, Icons.Material.Outlined.Groups, "blue"),
+                        new("Artwork", batch.ArtworkDownloadedCount, Icons.Material.Outlined.Collections, "pink"),
+                        new("Metadata", batch.MetadataUpdatedCount, Icons.Material.Outlined.AutoAwesome, "cyan"),
+                    ]);
+            })
+            .ToList();
+    }
+
+    private static bool IsActiveBatchStatus(string? status) =>
+        string.Equals(status, "running", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "processing", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "active", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "queued", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsRecentLibraryUpdateActivity(ActivityEntryViewModel activity) =>
         activity.ActionType.Equals("MediaAdded", StringComparison.OrdinalIgnoreCase)
@@ -1304,6 +1411,19 @@ public sealed class IngestionLiveDashboardState : IDisposable
         };
     }
 
+    private static string FormatCount(int value) =>
+        Math.Max(0, value).ToString("N0", CultureInfo.CurrentCulture);
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        duration = duration.Duration();
+        if (duration.TotalHours >= 1)
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        if (duration.TotalMinutes >= 1)
+            return $"{duration.Minutes}m {duration.Seconds}s";
+        return $"{Math.Max(1, duration.Seconds)}s";
+    }
+
     private static string FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 }
@@ -1373,6 +1493,7 @@ public sealed record LibraryUpdateStatusViewModel(
     int MatchedItems,
     int ReviewItems,
     int ActiveItems,
+    int QueuedItems,
     int AddedOrUpdatedCount,
     double ProgressPercent,
     bool ShowProgress,
@@ -1392,6 +1513,7 @@ public sealed record LibraryUpdateStatusViewModel(
     IReadOnlyList<LibraryUpdateStepViewModel> Steps,
     IReadOnlyList<LibraryUpdateAttentionReasonViewModel> AttentionReasons,
     IReadOnlyList<LibraryUpdateRecentItemViewModel> RecentItems,
+    IReadOnlyList<LibraryUpdateRunSummaryViewModel> RecentRuns,
     bool HasPriorRun);
 
 public sealed record LibraryUpdateStepViewModel(
@@ -1410,3 +1532,18 @@ public sealed record LibraryUpdateRecentItemViewModel(
     string RelativeTime,
     string? ThumbnailUrl,
     string? Href);
+
+public sealed record LibraryUpdateRunSummaryViewModel(
+    string Title,
+    string StatusText,
+    string StatusLabel,
+    string StatusTone,
+    string RelativeTime,
+    string DurationText,
+    IReadOnlyList<LibraryUpdateRunStatViewModel> Stats);
+
+public sealed record LibraryUpdateRunStatViewModel(
+    string Label,
+    int Count,
+    string Icon,
+    string Tone);

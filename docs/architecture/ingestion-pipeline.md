@@ -12,6 +12,29 @@ tags:
 
 # Ingestion Pipeline
 
+## Durable Operation Tracking
+
+Ingestion no longer relies only on in-memory watcher/debounce/worker state for
+queue visibility. When a file is discovered, Tuvima Library creates or reuses a
+durable `media_operations` row with `operation_type = ingestion.file`.
+
+The operation stage is updated as the item moves through discovery, settling,
+lock checks, queueing, hashing, parsing, scoring, registration, and identity
+queueing. The batch item endpoint reads these durable rows, so a restart can
+still show what was waiting, running, interrupted, blocked, or failed.
+
+Durable ingestion status is the source of truth for:
+
+- queued files
+- queue position
+- active stage
+- retry and blocked state
+- interrupted work after restart
+- per-batch item rows
+
+The legacy ingestion log can still exist as historical/support data, but product
+status should use `media_operations`.
+
 This document describes how Tuvima Library discovers, processes, organises, and stages media files - from the moment a file appears in a watched folder to the moment it is promoted into the organised library.
 
 ---

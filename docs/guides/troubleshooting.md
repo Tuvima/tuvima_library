@@ -71,6 +71,38 @@ Confirm:
 
 Use **Scan saved watch folder** from the Libraries settings section after changing folder paths.
 
+To inspect the durable queue directly:
+
+- Open **Settings > Library Operations > Ingestion**.
+- Call `GET /operations?queueName=ingestion` to see queued/running/retry rows.
+- Call `GET /ingestion/batches/{batchId}/items` to see each file in a batch.
+
+Useful operation stages are `discovered`, `settling`, `waiting_for_lock`,
+`queued`, `hashing`, `parsing`, `scoring`, `registered`, `queued_identity`, and
+`completed`. A file stuck in `waiting_for_lock` is still locked or actively
+copying. A file in `interrupted` was running when the Engine stopped and will be
+visible after restart.
+
+## Capabilities Are Missing Or Stale
+
+Use `GET /assets/{id}/capabilities` to inspect explicit readiness for one media
+asset. Missing rows should not be treated as proof that lyrics, subtitles,
+commercial markers, or provider output do not exist. The capability row is the
+truth.
+
+Common statuses:
+
+- `pending`, `queued`, or `running`: automation is still working.
+- `no_result`: the provider or plugin ran and found nothing.
+- `blocked`: configuration, credentials, or a tool are missing.
+- `failed_retryable`: the system will retry later.
+- `failed_terminal` or `dead_lettered`: manual/admin action may be needed.
+- `stale`: a provider, plugin, model, or capability version changed and output
+  needs a rerun.
+
+Optional capabilities such as lyrics, subtitles, and commercial skip detection
+normally do not create Review Queue entries when they end as `no_result`.
+
 ## Items Need Review
 
 Review Queue is expected when Tuvima cannot safely identify an item.

@@ -108,7 +108,25 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 |---|---|---|---|
 | POST | `/ingestion/scan` | Dry-run scan of configured library folders. Reports what would be ingested without making changes. | Administrator |
 | POST | `/ingestion/library-scan` | Scan library folders and update known file paths. Triggers ingestion for new files. | Administrator |
+| GET | `/ingestion/operations` | Dashboard snapshot backed by durable ingestion operation counts and identity progress. | Curator |
+| GET | `/ingestion/batches` | Recent ingestion batches. | Curator |
+| GET | `/ingestion/batches/{batchId}` | Single ingestion batch summary. | Curator |
+| GET | `/ingestion/batches/{batchId}/items` | Durable per-file item ledger for a batch, sourced from `media_operations`. | Curator |
 | GET | `/ingestion/watch-folder` | Returns current watch folder configuration | Required |
+
+---
+
+## Operations And Capabilities
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/operations` | Durable work queue ordered by queue priority and position. Supports `queueName` and `limit`. | Curator |
+| GET | `/operations/{id}` | One operation plus its event timeline. | Curator |
+| GET | `/operations/summary` | Counts by durable operation status. | Curator |
+| POST | `/operations/{id}/retry` | Requeue a durable operation for another attempt. | Curator |
+| POST | `/operations/{id}/cancel` | Cancel a durable operation. | Curator |
+| GET | `/assets/{id}/capabilities` | Explicit capability/readiness states for one media asset. | Curator |
+| GET | `/capabilities/summary` | Counts by capability and status. | Curator |
 
 ---
 
@@ -218,7 +236,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | PUT | `/plugins/{pluginId}/manifest` | Save dynamic plugin manifest JSON without changing plugin id | Administrator |
 | DELETE | `/plugins/{pluginId}` | Delete a dynamic plugin folder and saved plugin configuration | Administrator |
 | POST | `/plugins/{pluginId}/health` | Run plugin health checks | Administrator |
-| GET | `/plugins/{pluginId}/jobs` | List recent jobs for one plugin | Administrator |
+| GET | `/plugins/{pluginId}/jobs` | List recent durable plugin operation rows for one plugin. | Administrator |
 | POST | `/plugins/jobs/segment-detection/run` | Run scheduled playback segment detector plugins immediately | Administrator |
 
 ---
@@ -338,7 +356,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 | Collection | Path | Direction | Description |
 |---|---|---|---|
-| Intercom | `/intercom` | Server -> Client | Real-time push events: ingestion progress, enrichment completion, pipeline state changes, review queue updates. Authentication required. Server-push only - clients do not send messages to the collection. |
+| Intercom | `/intercom` | Server -> Client | Real-time push events: ingestion progress, enrichment completion, `MediaOperationChanged`, `CapabilityStateChanged`, pipeline state changes, and review queue updates. Authentication required. Server-push only - clients do not send messages to the collection. |
 
 ---
 

@@ -31,11 +31,15 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             INSERT INTO review_queue
                 (id, entity_id, entity_type, trigger, status,
                  proposed_collection_id, confidence_score, candidates_json,
-                 detail, created_at, resolved_at, resolved_by)
+                 detail, created_at, resolved_at, resolved_by,
+                 source_operation_id, source_capability_id, source_capability_sub_key,
+                 review_ready_at, automation_completed_at)
             VALUES
                 (@id, @entityId, @entityType, @trigger, @status,
                  @proposedCollectionId, @confidence, @candidates,
-                 @detail, @createdAt, @resolvedAt, @resolvedBy)
+                 @detail, @createdAt, @resolvedAt, @resolvedBy,
+                 @sourceOperationId, @sourceCapabilityId, @sourceCapabilitySubKey,
+                 @reviewReadyAt, @automationCompletedAt)
             """, new
         {
             id            = entry.Id.ToString(),
@@ -50,6 +54,11 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             createdAt     = entry.CreatedAt.ToString("O"),
             resolvedAt    = entry.ResolvedAt.HasValue ? (object)entry.ResolvedAt.Value.ToString("O") : null,
             resolvedBy    = entry.ResolvedBy,
+            sourceOperationId = entry.SourceOperationId?.ToString(),
+            sourceCapabilityId = entry.SourceCapabilityId,
+            sourceCapabilitySubKey = entry.SourceCapabilitySubKey,
+            reviewReadyAt = entry.ReviewReadyAt?.ToString("O"),
+            automationCompletedAt = entry.AutomationCompletedAt?.ToString("O"),
         });
 
         return Task.FromResult(entry.Id);

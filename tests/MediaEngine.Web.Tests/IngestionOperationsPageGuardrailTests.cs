@@ -183,8 +183,9 @@ public sealed class IngestionOperationsPageGuardrailTests
             DateTimeOffset.UtcNow);
 
         Assert.Equal(117, status.TotalFiles);
-        Assert.Equal(117, status.ProcessedFiles);
-        Assert.Equal(100, status.ProgressPercent);
+        Assert.Equal(64, status.ProcessedFiles);
+        Assert.Equal(5, status.QueuedItems);
+        Assert.Equal(54.7, Math.Round(status.ProgressPercent, 1));
         Assert.Equal("The Empire Strikes Back", status.CurrentItemTitle);
         Assert.Equal("Matching titles and identity", status.CurrentStep);
         Assert.Contains(status.Steps, step => step.Label == "Matched identity" && step.Status == LibraryUpdateStepStatus.InProgress);
@@ -295,7 +296,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         var stages = IngestionLiveDashboardState.BuildStages(snapshot, jobs, metrics.TotalFiles);
 
         Assert.Equal(100, metrics.TotalFiles);
-        Assert.Equal(43, metrics.ProcessedFiles);
+        Assert.Equal(3, metrics.ProcessedFiles);
         Assert.Equal(1, metrics.ActiveFiles);
         Assert.Contains(stages, stage => stage.Key == "enrichment" && stage.StatusKey == "Ingestion_StatusActive");
         Assert.Contains(stages, stage => stage.Key == "retail" && stage.LabelKey == "Ingestion_StageRetailIdentification");
@@ -343,7 +344,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         var stages = IngestionLiveDashboardState.BuildStages(snapshot, jobs, metrics.TotalFiles);
         var progress = IngestionLiveDashboardState.BuildOverallProgress(metrics, stages, null);
 
-        Assert.Equal(43, metrics.ProcessedFiles);
+        Assert.Equal(15, metrics.ProcessedFiles);
         Assert.Equal(43, metrics.TotalFiles);
         var retail = Assert.Single(stages, stage => stage.Key == "retail");
         Assert.Equal(43, retail.Count);

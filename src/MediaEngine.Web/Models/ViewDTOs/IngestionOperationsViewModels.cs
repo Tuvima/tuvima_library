@@ -163,9 +163,14 @@ public sealed class IngestionOperationsBatchViewModel
     [JsonPropertyName("source")] public string? Source { get; set; }
     [JsonPropertyName("media_type")] public string? MediaType { get; set; }
     [JsonPropertyName("total_files")] public int TotalFiles { get; set; }
+    [JsonPropertyName("processed_files")] public int ProcessedFiles { get; set; }
     [JsonPropertyName("registered_count")] public int RegisteredCount { get; set; }
     [JsonPropertyName("review_count")] public int ReviewCount { get; set; }
     [JsonPropertyName("failed_count")] public int FailedCount { get; set; }
+    [JsonPropertyName("people_generated_count")] public int PeopleGeneratedCount { get; set; }
+    [JsonPropertyName("artwork_downloaded_count")] public int ArtworkDownloadedCount { get; set; }
+    [JsonPropertyName("metadata_updated_count")] public int MetadataUpdatedCount { get; set; }
+    [JsonPropertyName("duration_seconds")] public int? DurationSeconds { get; set; }
     [JsonPropertyName("status")] public string Status { get; set; } = "";
     [JsonPropertyName("summary")] public string Summary { get; set; } = "";
 }

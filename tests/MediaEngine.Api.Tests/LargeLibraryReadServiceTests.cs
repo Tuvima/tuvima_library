@@ -73,15 +73,51 @@ public sealed class LargeLibraryReadServiceTests : IDisposable
         {
             using var row = conn.CreateCommand();
             row.CommandText = """
-                INSERT INTO ingestion_log (
-                    id, ingestion_run_id, file_path, status, created_at, updated_at
+                INSERT INTO media_operations (
+                    id,
+                    operation_type,
+                    operation_kind,
+                    batch_id,
+                    source_path,
+                    status,
+                    stage,
+                    priority,
+                    queue_name,
+                    position_key,
+                    progress_percent,
+                    items_total,
+                    items_completed,
+                    items_failed,
+                    created_at,
+                    updated_at,
+                    idempotency_key
                 )
-                VALUES ($id, $batchId, $filePath, 'detected', $createdAt, $createdAt);
+                VALUES (
+                    $id,
+                    'ingestion.file',
+                    'ingestion',
+                    $batchId,
+                    $filePath,
+                    'queued',
+                    'queued',
+                    100,
+                    'ingestion',
+                    $positionKey,
+                    0,
+                    1,
+                    0,
+                    0,
+                    $createdAt,
+                    $createdAt,
+                    $idempotencyKey
+                );
                 """;
             var createdAt = DateTimeOffset.UtcNow.AddMinutes(i).ToString("O");
             row.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
             row.Parameters.AddWithValue("$batchId", batchId.ToString());
             row.Parameters.AddWithValue("$filePath", $"C:/watch/file-{i:000}.epub");
+            row.Parameters.AddWithValue("$positionKey", i);
+            row.Parameters.AddWithValue("$idempotencyKey", $"ingestion:file:C:/watch/file-{i:000}.epub");
             row.Parameters.AddWithValue("$createdAt", createdAt);
             row.ExecuteNonQuery();
         }

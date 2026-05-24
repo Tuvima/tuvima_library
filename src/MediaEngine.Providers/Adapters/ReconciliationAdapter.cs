@@ -1771,7 +1771,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         IReadOnlyDictionary<string, BridgeResolutionResult> libResults;
         try
         {
-            libResults = await _reconciler.Bridge.ResolveBatchAsync(libRequests, ct).ConfigureAwait(false);
+            libResults = await CollectBridgeStreamAsync(libRequests, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -1824,8 +1824,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var fallbackResults = await _reconciler.Bridge
-                    .ResolveBatchAsync(textFallbackRequests, ct).ConfigureAwait(false);
+                var fallbackResults = await CollectBridgeStreamAsync(textFallbackRequests, ct).ConfigureAwait(false);
                 await PopulateResultsAsync(fallbackResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
@@ -1860,8 +1859,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var fallbackResults = await _reconciler.Bridge
-                    .ResolveBatchAsync(musicWorkFallbackRequests, ct).ConfigureAwait(false);
+                var fallbackResults = await CollectBridgeStreamAsync(musicWorkFallbackRequests, ct).ConfigureAwait(false);
                 await PopulateResultsAsync(fallbackResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
@@ -1891,8 +1889,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var parentResults = await _reconciler.Bridge
-                    .ResolveBatchAsync(comicParentFallbackRequests, ct).ConfigureAwait(false);
+                var parentResults = await CollectBridgeStreamAsync(comicParentFallbackRequests, ct).ConfigureAwait(false);
                 await PopulateResultsAsync(parentResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
@@ -1927,8 +1924,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var parentResults = await _reconciler.Bridge
-                    .ResolveBatchAsync(disambiguatedComicParentRequests, ct).ConfigureAwait(false);
+                var parentResults = await CollectBridgeStreamAsync(disambiguatedComicParentRequests, ct).ConfigureAwait(false);
                 await PopulateResultsAsync(parentResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
@@ -1973,6 +1969,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// Existing Found entries are NOT overwritten so callers can run a
     /// pass 1 + pass 2 sequence safely.
     /// </summary>
+    private async Task<IReadOnlyDictionary<string, BridgeResolutionResult>> CollectBridgeStreamAsync(
+        IReadOnlyList<BridgeResolutionRequest> requests,
+        CancellationToken ct)
+    {
+        var results = new Dictionary<string, BridgeResolutionResult>(StringComparer.Ordinal);
+        await foreach (var result in _reconciler!.Bridge.ResolveBatchStreamAsync(requests, ct).ConfigureAwait(false))
+        {
+            results[result.CorrelationKey] = result;
+        }
+
+        return results;
+    }
+
     private async Task PopulateResultsAsync(
         IReadOnlyDictionary<string, BridgeResolutionResult> libResults,
         Dictionary<string, WikidataResolveResult> results,

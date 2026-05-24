@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Plugins;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Plugins;
 
 namespace MediaEngine.Api.Endpoints;
@@ -136,8 +137,14 @@ internal static class PluginEndpoints
         .WithName("CheckPluginHealth")
         .RequireAdmin();
 
-        group.MapGet("/{pluginId}/jobs", (string pluginId, PluginJobStateService jobs) =>
-            Results.Ok(jobs.List(pluginId)))
+        group.MapGet("/{pluginId}/jobs", async (
+            string pluginId,
+            IMediaOperationRepository operations,
+            CancellationToken ct) =>
+        {
+            var jobs = await operations.GetByPluginAsync(pluginId, 200, ct).ConfigureAwait(false);
+            return Results.Ok(jobs.Select((op, index) => OperationDto.From(op, index + 1)).ToList());
+        })
             .WithName("GetPluginJobs")
             .RequireAdmin();
 

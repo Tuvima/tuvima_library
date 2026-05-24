@@ -83,4 +83,14 @@ public sealed class ReviewQueueEntry
 
     /// <summary>Engine-level root cause (5 categories). UI shows the specific Trigger for detail.</summary>
     public string? RootCause { get; set; }
+
+    public Guid? SourceOperationId { get; set; }
+
+    public string? SourceCapabilityId { get; set; }
+
+    public string? SourceCapabilitySubKey { get; set; }
+
+    public DateTimeOffset? ReviewReadyAt { get; set; }
+
+    public DateTimeOffset? AutomationCompletedAt { get; set; }
 }

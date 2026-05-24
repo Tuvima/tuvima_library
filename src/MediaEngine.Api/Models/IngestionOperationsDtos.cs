@@ -325,6 +325,9 @@ public sealed class IngestionOperationsBatchDto
     [JsonPropertyName("total_files")]
     public int TotalFiles { get; init; }
 
+    [JsonPropertyName("processed_files")]
+    public int ProcessedFiles { get; init; }
+
     [JsonPropertyName("registered_count")]
     public int RegisteredCount { get; init; }
 
@@ -333,6 +336,18 @@ public sealed class IngestionOperationsBatchDto
 
     [JsonPropertyName("failed_count")]
     public int FailedCount { get; init; }
+
+    [JsonPropertyName("people_generated_count")]
+    public int PeopleGeneratedCount { get; init; }
+
+    [JsonPropertyName("artwork_downloaded_count")]
+    public int ArtworkDownloadedCount { get; init; }
+
+    [JsonPropertyName("metadata_updated_count")]
+    public int MetadataUpdatedCount { get; init; }
+
+    [JsonPropertyName("duration_seconds")]
+    public int? DurationSeconds { get; init; }
 
     [JsonPropertyName("status")]
     public string Status { get; init; } = "";

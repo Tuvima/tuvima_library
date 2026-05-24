@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -122,6 +123,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Durable identity pipeline — creates identity_jobs rows for the three-stage
     // retail-first identity pipeline (RetailMatchWorker ? WikidataBridgeWorker ? QuickHydrationWorker).
     private readonly IIdentityJobRepository _identityJobRepo;
+    private readonly IMediaOperationTracker? _operationTracker;
+    private readonly CapabilityPlanner? _capabilityPlanner;
 
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
@@ -169,7 +172,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IEntityAssetRepository?    entityAssetRepo = null,
         AssetPathService?          assetPathService = null,
         IWorkRepository?           workRepo = null,
-        IAssetExportService?       assetExportService = null)
+        IAssetExportService?       assetExportService = null,
+        IMediaOperationTracker?    operationTracker = null,
+        CapabilityPlanner?         capabilityPlanner = null)
     {
         _watcher          = watcher;
         _debounce         = debounce;
@@ -202,6 +207,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _workRepo          = workRepo;
         _assetExportService = assetExportService;
         _identityJobRepo  = identityJobRepo;
+        _operationTracker = operationTracker;
+        _capabilityPlanner = capabilityPlanner;
     }
 
     // =========================================================================
@@ -456,6 +463,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Use the batch ID as the ingestion run ID so all activity entries
         // for files in the same batch share one correlation ID.
         var ingestionRunId = candidate.BatchId ?? Guid.NewGuid();
+        var durableOperation = await EnsureIngestionOperationAsync(candidate, ingestionRunId, MediaOperationStage.Queued, ct).ConfigureAwait(false);
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Queued, 0, "Queued for ingestion.", ct).ConfigureAwait(false);
 
         // Step 2: skip failed probe candidates.
         if (candidate.IsFailed)
@@ -473,6 +482,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
                 await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
             }
+            await NoResultOperationAsync(durableOperation, candidate.FailureReason ?? "Lock probe exhausted", ct).ConfigureAwait(false);
             return;
         }
 
@@ -480,6 +490,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (candidate.EventType == FileEventType.Deleted)
         {
             await HandleDeletedAsync(candidate, ct).ConfigureAwait(false);
+            await NoResultOperationAsync(durableOperation, "File deletion event handled.", ct).ConfigureAwait(false);
             return;
         }
 
@@ -499,6 +510,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
                 await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
             }
+            await NoResultOperationAsync(durableOperation, reason, ct).ConfigureAwait(false);
             return;
         }
 
@@ -525,7 +537,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         var pipelineStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         // Step 4: hash.
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Hashing, 10, "Hashing file.", ct).ConfigureAwait(false);
         var hash = await _hasher.ComputeAsync(candidate.Path, ct).ConfigureAwait(false);
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Hashing, 15, "Hash complete.", ct, new { hash = hash.Hex, bytes = hash.FileSize }).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Fingerprinted \"{FileName}\" — sha256={HashPrefix}… ({SizeKB:F1} KB)",
@@ -645,6 +659,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     }
 
                     await MarkBatchFileProcessedAsync(candidate.BatchId, ct).ConfigureAwait(false);
+                    await CompleteOperationAsync(durableOperation, "duplicate", ct).ConfigureAwait(false);
                     return;
                 }
 
@@ -675,11 +690,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     _logger.LogDebug(ex, "Ingestion same-path log update failed - continuing");
                 }
                 await MarkBatchFileProcessedAsync(candidate.BatchId, ct).ConfigureAwait(false);
+                await CompleteOperationAsync(durableOperation, "same_path_redetected", ct).ConfigureAwait(false);
                 return;
             }
         }
 
         // Step 6: process.
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Parsing, 25, "Parsing media file.", ct).ConfigureAwait(false);
         var result = await _processors.ProcessAsync(candidate.Path, ct).ConfigureAwait(false);
 
         // Step 6a: organisation-hint prescan.
@@ -765,6 +782,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             await PublishItemProgressAsync(candidate, logEntryId, "processed", 35, false, ct).ConfigureAwait(false);
         }
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Parsing, 35, "Processor extracted metadata.", ct, new { media_type = result.DetectedType.ToString(), claims = result.Claims.Count }).ConfigureAwait(false);
         // Step 6b: AI Smart Labeling — enhance title claim using LLM.
         // The SmartLabeler understands context that regex cannot:
         // "2001 A Space Odyssey" keeps the year, "Frank Herbert - Dune" extracts the author.
@@ -958,6 +976,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 Path.GetFileName(candidate.Path), assetId);
         }
 
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Scoring, 45, "Scoring extracted metadata.", ct).ConfigureAwait(false);
+
         // Step 9: score.
         // CategoryConfidencePrior: currently 0.0 (single WatchDirectory = general catch-all).
         // When Library Folders (config/libraries.json) are implemented, category-specific
@@ -1016,6 +1036,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
 
         await PublishItemProgressAsync(candidate, logEntryId, "scored", 55, false, ct).ConfigureAwait(false);
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Scoring, 55, "Scoring complete.", ct, new { confidence = scored.OverallConfidence }).ConfigureAwait(false);
 
         // Phase 9: persist canonical values (current winning metadata for this asset).
         // Phase B: also persist the IsConflicted flag from the scoring engine so
@@ -1423,6 +1444,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             // Race: another thread inserted the same hash concurrently.
             _logger.LogDebug("Asset already inserted by concurrent task: {Hash}", hash.Hex[..12]);
+            await CompleteOperationAsync(durableOperation, "duplicate_race", ct).ConfigureAwait(false);
             return;
         }
 
@@ -1450,6 +1472,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 resolvedMediaType.ToString()).ConfigureAwait(false);
         }
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Registered, 70, "Asset registered.", ct, new { asset_id = assetId, media_type = resolvedMediaType.ToString() }).ConfigureAwait(false);
+        if (_capabilityPlanner is not null)
+            await _capabilityPlanner.EnsureForAssetAsync(assetId, "asset", resolvedMediaType.ToString(), ct).ConfigureAwait(false);
         _logger.LogInformation(
             "Ingested [{Type}] '{Title}' (confidence={Confidence:P0}, hash={Hash})",
             resolvedMediaType, resolvedTitle, scored.OverallConfidence, hash.Hex[..12]);
@@ -1629,6 +1654,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 resolvedMediaType.ToString()).ConfigureAwait(false);
         }
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.QueuedIdentity, 80, "Identity work queued.", ct, new { asset_id = assetId, media_type = resolvedMediaType.ToString() }).ConfigureAwait(false);
         // Batch counter: file has been fully processed through the ingestion pipeline.
         if (candidate.BatchId.HasValue)
             await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
@@ -1914,6 +1940,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // -- Performance log --------------------------------------------------
         pipelineStopwatch.Stop();
+        await CompleteOperationAsync(durableOperation, "ingestion completed", ct).ConfigureAwait(false);
+
         _logger.LogInformation(
             "[PERF] {FileName}: Total={TotalMs}ms Hash={HashMs}ms (type={MediaType}, confidence={Confidence:P0})",
             Path.GetFileName(candidate.Path),
@@ -2936,6 +2964,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (NonMediaExtensions.Contains(Path.GetExtension(evt.Path)))
             return false;
 
+        _ = EnsureIngestionOperationAsync(evt, MediaOperationStage.Discovered, CancellationToken.None);
+
         // Events from ScanExistingFiles already have a batch — pass through.
         if (evt.BatchId is not null)
         {
@@ -3032,10 +3062,136 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         foreach (var evt in snapshot)
         {
             evt.BatchId = batchId;
+            _ = EnsureIngestionOperationAsync(evt, MediaOperationStage.Discovered, CancellationToken.None);
             _debounce.Enqueue(evt);
         }
     }
 
+    private async Task<MediaOperation?> EnsureIngestionOperationAsync(
+        FileEvent evt,
+        string stage,
+        CancellationToken ct)
+    {
+        if (_operationTracker is null)
+            return null;
+
+        try
+        {
+            return await _operationTracker.EnsureQueuedAsync(new MediaOperation
+            {
+                OperationType = MediaOperationType.IngestionFile,
+                OperationKind = MediaOperationKind.Ingestion,
+                BatchId = evt.BatchId,
+                SourcePath = Path.GetFullPath(evt.Path),
+                Status = stage == MediaOperationStage.Discovered ? MediaOperationStatus.Pending : MediaOperationStatus.Queued,
+                Stage = stage,
+                QueueName = "ingestion",
+                IdempotencyKey = BuildIngestionOperationKey(evt.Path)
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable ingestion operation ensure failed for {Path}", evt.Path);
+            return null;
+        }
+    }
+
+    private async Task<MediaOperation?> EnsureIngestionOperationAsync(
+        IngestionCandidate candidate,
+        Guid ingestionRunId,
+        string stage,
+        CancellationToken ct)
+    {
+        if (_operationTracker is null)
+            return null;
+
+        try
+        {
+            return await _operationTracker.EnsureQueuedAsync(new MediaOperation
+            {
+                OperationType = MediaOperationType.IngestionFile,
+                OperationKind = MediaOperationKind.Ingestion,
+                BatchId = candidate.BatchId ?? ingestionRunId,
+                SourcePath = Path.GetFullPath(candidate.Path),
+                Status = MediaOperationStatus.Queued,
+                Stage = stage,
+                QueueName = "ingestion",
+                IdempotencyKey = BuildIngestionOperationKey(candidate.Path)
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable ingestion operation ensure failed for {Path}", candidate.Path);
+            return null;
+        }
+    }
+
+    private async Task UpdateOperationStageAsync(
+        MediaOperation? operation,
+        string stage,
+        int progressPercent,
+        string message,
+        CancellationToken ct,
+        object? detail = null)
+    {
+        if (_operationTracker is null || operation is null)
+            return;
+
+        try
+        {
+            await _operationTracker.UpdateStageAsync(operation.Id, stage, progressPercent, message, detail, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable operation stage update failed for {OperationId}", operation.Id);
+        }
+    }
+
+    private async Task CompleteOperationAsync(MediaOperation? operation, string? summary, CancellationToken ct)
+    {
+        if (_operationTracker is null || operation is null)
+            return;
+
+        try
+        {
+            await _operationTracker.MarkSucceededAsync(operation.Id, summary, null, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable operation completion failed for {OperationId}", operation.Id);
+        }
+    }
+
+    private async Task NoResultOperationAsync(MediaOperation? operation, string reason, CancellationToken ct)
+    {
+        if (_operationTracker is null || operation is null)
+            return;
+
+        try
+        {
+            await _operationTracker.MarkNoResultAsync(operation.Id, reason, null, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable operation no-result update failed for {OperationId}", operation.Id);
+        }
+    }
+
+    private static string BuildIngestionOperationKey(string path)
+    {
+        var normalized = Path.GetFullPath(path).Replace('\\', '/').Trim().ToLowerInvariant();
+        try
+        {
+            var info = new FileInfo(path);
+            var length = info.Exists ? info.Length : 0;
+            var lastWrite = info.Exists ? info.LastWriteTimeUtc.Ticks : 0;
+            return $"ingestion:file:{normalized}:{length}:{lastWrite}";
+        }
+        catch
+        {
+            return $"ingestion:file:{normalized}:0:0";
+        }
+    }
     /// <summary>
     /// Records a terminal failure when an unexpected exception escapes the per-file pipeline.
     /// </summary>

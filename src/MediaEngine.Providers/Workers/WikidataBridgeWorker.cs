@@ -1,4 +1,4 @@
-using MediaEngine.Domain;
+﻿using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -12,6 +12,7 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
+using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Workers;
 
@@ -50,6 +51,8 @@ public sealed class WikidataBridgeWorker
     private readonly CoverArtWorker _coverArt;
     private readonly BatchProgressService? _batchProgress;
     private readonly IEnrichmentConcurrencyLimiter _concurrency;
+    private readonly IMediaOperationTracker? _operationTracker;
+    private readonly IEntityCapabilityStateRepository? _capabilityStates;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
@@ -85,7 +88,9 @@ public sealed class WikidataBridgeWorker
         IEnrichmentConcurrencyLimiter? concurrencyLimiter = null,
         ICanonicalValueArrayRepository? arrayRepo = null,
         WikidataSeriesManifestHydrationService? seriesManifestHydration = null,
-        PersonEnrichmentWorker? personEnrichment = null)
+        PersonEnrichmentWorker? personEnrichment = null,
+        IMediaOperationTracker? operationTracker = null,
+        IEntityCapabilityStateRepository? capabilityStates = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -110,6 +115,8 @@ public sealed class WikidataBridgeWorker
         _logger = logger;
         _batchProgress = batchProgress;
         _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
+        _operationTracker = operationTracker;
+        _capabilityStates = capabilityStates;
 
         // Lease size is read once at construction. A restart applies any
         // config change — same lifetime as every other CoreConfiguration value.
@@ -171,6 +178,14 @@ public sealed class WikidataBridgeWorker
 
         _logger.LogInformation("Wikidata: leased {JobCount} job(s) for bridge resolution", jobs.Count);
 
+        var operationByJobId = new Dictionary<Guid, MediaOperation?>();
+        foreach (var job in jobs)
+        {
+            var operation = await EnsureBridgeOperationAsync(job, MediaOperationStage.Queued, ct).ConfigureAwait(false);
+            operationByJobId[job.Id] = operation;
+            await MarkBridgeCapabilityQueuedAsync(job, operation, ct).ConfigureAwait(false);
+        }
+
         var reconAdapter = _providers
             .OfType<ReconciliationAdapter>()
             .FirstOrDefault();
@@ -182,6 +197,7 @@ public sealed class WikidataBridgeWorker
             {
                 await _jobRepo.UpdateStateAsync(j.Id, IdentityJobState.QidNoMatch,
                     "No reconciliation adapter configured", ct);
+                await MarkBridgeBlockedAsync(operationByJobId.GetValueOrDefault(j.Id), j, "No reconciliation adapter configured", ct).ConfigureAwait(false);
                 await TryOrganizeRetainedRetailIdentityAsync(j, ct);
             }
 
@@ -208,6 +224,8 @@ public sealed class WikidataBridgeWorker
             {
                 _logger.LogWarning(ex, "Could not transition job {JobId} to BridgeSearching", job.Id);
             }
+            await UpdateBridgeOperationStageAsync(operationByJobId.GetValueOrDefault(job.Id), MediaOperationStage.ProviderLookup, 10, "Searching Wikidata bridge IDs.", ct).ConfigureAwait(false);
+            await MarkBridgeCapabilityRunningAsync(job, operationByJobId.GetValueOrDefault(job.Id), ct).ConfigureAwait(false);
         }
 
         var contexts = new List<JobContext>(jobs.Count);
@@ -257,7 +275,7 @@ public sealed class WikidataBridgeWorker
 
                 BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
 
-                contexts.Add(new JobContext(
+                var context = new JobContext(
                     Job: job,
                     MediaType: mediaType,
                     BridgeIds: bridgeIds,
@@ -269,7 +287,11 @@ public sealed class WikidataBridgeWorker
                     AlbumHint: albumHint,
                     ArtistHint: artistHint,
                     SeriesHint: seriesHint,
-                    LanguageHint: languageHint));
+                    LanguageHint: languageHint)
+                {
+                    Operation = operationByJobId.GetValueOrDefault(job.Id)
+                };
+                contexts.Add(context);
             }
 
             // ── Phase 4: Resolve QIDs via the unified facade ──────────────────────
@@ -311,6 +333,14 @@ public sealed class WikidataBridgeWorker
             {
                 if (!resolveResults.TryGetValue(ctx.Job.Id.ToString(), out var result) || !result.Found)
                     continue;
+
+                await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.Analyzing, 60, "Wikidata bridge result received.", ct, new
+                {
+                    qid = result.WorkQid ?? result.Qid,
+                    matched_by = result.MatchedBy.ToString(),
+                    candidate_count = result.RankedBridgeCandidates.Count,
+                    diagnostics = result.BridgeDiagnostics
+                }).ConfigureAwait(false);
 
                 ctx.ResolvedQid = result.WorkQid ?? result.Qid;
                 ctx.AdditionalClaims.AddRange(result.Claims);
@@ -466,6 +496,7 @@ public sealed class WikidataBridgeWorker
             {
                 _logger.LogError(ex, "WikidataBridgeWorker finalisation failed for job {JobId}", ctx.Job.Id);
                 await _jobRepo.UpdateStateAsync(ctx.Job.Id, IdentityJobState.Failed, ex.Message, ct);
+                await MarkBridgeFailedAsync(ctx.Operation, ctx.Job, ex.Message, terminal: true, ct).ConfigureAwait(false);
             }
         }
 
@@ -588,6 +619,7 @@ public sealed class WikidataBridgeWorker
 
             await _jobRepo.SetResolvedQidAsync(job.Id, ctx.ResolvedQid, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidResolved, ct: ct);
+            await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
 
             // Skip post-resolve property fetch for music — the resolved QID is the
             // ALBUM, not the track. Fetching its properties would overwrite the
@@ -785,6 +817,7 @@ public sealed class WikidataBridgeWorker
 
                             await _jobRepo.SetResolvedQidAsync(job.Id, ctx.ResolvedQid, ct);
                             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidResolved, ct: ct);
+                            await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
                             return;
                         }
                     }
@@ -802,6 +835,7 @@ public sealed class WikidataBridgeWorker
                 job.EntityId, job.IngestionRunId, ct);
 
             await TryOrganizeRetainedRetailIdentityAsync(job, ct);
+            await MarkBridgeNoResultAsync(ctx.Operation, job, "No Wikidata candidate matched the retail bridge IDs or title hints.", ct).ConfigureAwait(false);
 
             _logger.LogInformation(
                 "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried; retaining retail identity without review [entity {EntityId}]",
@@ -1161,6 +1195,159 @@ public sealed class WikidataBridgeWorker
         }
     }
 
+    private async Task<MediaOperation?> EnsureBridgeOperationAsync(IdentityJob job, string stage, CancellationToken ct)
+    {
+        if (_operationTracker is null)
+            return null;
+
+        try
+        {
+            return await _operationTracker.EnsureQueuedAsync(new MediaOperation
+            {
+                OperationType = MediaOperationType.IdentityWikidataBridge,
+                OperationKind = MediaOperationKind.Identity,
+                EntityId = job.EntityId,
+                EntityKind = "asset",
+                BatchId = job.IngestionRunId,
+                CapabilityId = CapabilityId.IdentityWikidataBridge,
+                CapabilityVersion = WikidataLibraryInfo.PackageVersion,
+                ProviderId = "wikidata",
+                Status = MediaOperationStatus.Queued,
+                Stage = stage,
+                QueueName = "identity",
+                IdempotencyKey = $"identity:{job.EntityId}:wikidata_bridge:{WikidataLibraryInfo.PackageVersion}"
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Could not ensure Wikidata bridge operation for job {JobId}", job.Id);
+            return null;
+        }
+    }
+
+    private async Task UpdateBridgeOperationStageAsync(
+        MediaOperation? operation,
+        string stage,
+        int progressPercent,
+        string message,
+        CancellationToken ct,
+        object? detail = null)
+    {
+        if (_operationTracker is null || operation is null)
+            return;
+
+        try
+        {
+            await _operationTracker.UpdateStageAsync(operation.Id, stage, progressPercent, message, detail, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Could not update Wikidata bridge operation {OperationId}", operation.Id);
+        }
+    }
+
+    private async Task MarkBridgeSucceededAsync(MediaOperation? operation, IdentityJob job, string qid, CancellationToken ct)
+    {
+        if (_operationTracker is not null && operation is not null)
+        {
+            try
+            {
+                await _operationTracker.MarkSucceededAsync(operation.Id, $"Resolved QID {qid}", new { qid }, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Could not complete Wikidata bridge operation {OperationId}", operation.Id);
+            }
+        }
+
+        if (_capabilityStates is not null)
+        {
+            await _capabilityStates.MarkSucceededAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null,
+                new CapabilityStateResult(
+                    Source: "wikidata",
+                    Confidence: 1.0,
+                    ArtifactCount: 1,
+                    ArtifactSummary: qid,
+                    ResultSummary: $"Resolved QID {qid}",
+                    OperationId: operation?.Id), ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task MarkBridgeNoResultAsync(MediaOperation? operation, IdentityJob job, string reason, CancellationToken ct)
+    {
+        if (_operationTracker is not null && operation is not null)
+        {
+            try { await _operationTracker.MarkNoResultAsync(operation.Id, reason, null, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Could not mark Wikidata bridge operation no-result {OperationId}", operation.Id);
+            }
+        }
+
+        if (_capabilityStates is not null)
+            await _capabilityStates.MarkNoResultAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, reason, ct).ConfigureAwait(false);
+    }
+
+    private async Task MarkBridgeBlockedAsync(MediaOperation? operation, IdentityJob job, string reason, CancellationToken ct)
+    {
+        if (_operationTracker is not null && operation is not null)
+        {
+            try { await _operationTracker.MarkBlockedAsync(operation.Id, reason, null, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Could not mark Wikidata bridge operation blocked {OperationId}", operation.Id);
+            }
+        }
+
+        if (_capabilityStates is not null)
+            await _capabilityStates.MarkBlockedAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, reason, ct).ConfigureAwait(false);
+    }
+
+    private async Task MarkBridgeFailedAsync(MediaOperation? operation, IdentityJob job, string error, bool terminal, CancellationToken ct)
+    {
+        if (_operationTracker is not null && operation is not null)
+        {
+            try
+            {
+                await _operationTracker.MarkFailedAsync(operation.Id, new InvalidOperationException(error), terminal, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Could not mark Wikidata bridge operation failed {OperationId}", operation.Id);
+            }
+        }
+
+        if (_capabilityStates is not null)
+            await _capabilityStates.MarkFailedAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, error, terminal, ct).ConfigureAwait(false);
+    }
+
+    private async Task MarkBridgeCapabilityQueuedAsync(IdentityJob job, MediaOperation? operation, CancellationToken ct)
+    {
+        if (_capabilityStates is null)
+            return;
+
+        await _capabilityStates.EnsureAsync(new EntityCapabilityState
+        {
+            EntityId = job.EntityId,
+            EntityKind = "asset",
+            MediaType = job.MediaType,
+            CapabilityId = CapabilityId.IdentityWikidataBridge,
+            CapabilityKind = MediaOperationKind.Identity,
+            CapabilityVersion = WikidataLibraryInfo.PackageVersion,
+            Status = EntityCapabilityStatus.Queued,
+            Requiredness = CapabilityRequiredness.Optional,
+            LastOperationId = operation?.Id
+        }, ct).ConfigureAwait(false);
+
+        if (operation is not null)
+            await _capabilityStates.MarkQueuedAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, operation.Id, ct).ConfigureAwait(false);
+    }
+
+    private async Task MarkBridgeCapabilityRunningAsync(IdentityJob job, MediaOperation? operation, CancellationToken ct)
+    {
+        if (_capabilityStates is not null && operation is not null)
+            await _capabilityStates.MarkRunningAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, operation.Id, ct).ConfigureAwait(false);
+    }
     // -------------------------------------------------------------------------
     // Batch gate (D4) — computed before every poll cycle
     // -------------------------------------------------------------------------
@@ -1389,6 +1576,7 @@ public sealed class WikidataBridgeWorker
         public string? PrimaryBridgeIdType { get; set; }
         public List<ProviderClaim> AdditionalClaims { get; } = [];
         public IReadOnlyDictionary<string, string>? CollectedBridgeIds { get; set; }
+        public MediaOperation? Operation { get; set; }
 
         // Populated during Phase 6 QID dedup (E1). When set, FinaliseJobAsync uses
         // these claims instead of calling FetchAsync again for this job.

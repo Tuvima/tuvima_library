@@ -537,7 +537,7 @@
 
 ::deep .library-update-recent__row {
     display: grid;
-    grid-template-columns: 70px minmax(0, 1fr) minmax(112px, auto) 84px 24px;
+    grid-template-columns: 70px minmax(220px, 1fr) minmax(360px, 1.4fr) minmax(92px, auto) 84px;
     gap: 14px;
     align-items: center;
     min-height: 64px;
@@ -564,6 +564,26 @@
     border-radius: 6px;
     color: #a78bfa;
     background: rgba(124, 92, 255, 0.16);
+}
+
+::deep .library-update-recent__thumb.is-success {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.16);
+}
+
+::deep .library-update-recent__thumb.is-warning {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.16);
+}
+
+::deep .library-update-recent__thumb.is-info {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.16);
+}
+
+::deep .library-update-recent__thumb.is-danger {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.16);
 }
 
 ::deep .library-update-recent__thumb img {
@@ -601,6 +621,72 @@
 ::deep .library-update-recent__pill.is-warning {
     color: #fbbf24;
     background: rgba(245, 158, 11, 0.16);
+}
+
+::deep .library-update-recent__pill.is-info {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.16);
+}
+
+::deep .library-update-recent__pill.is-danger {
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.16);
+}
+
+::deep .library-update-run-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    min-width: 0;
+}
+
+::deep .library-update-run-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 760;
+    white-space: nowrap;
+    border: 1px solid rgba(176, 190, 255, 0.10);
+}
+
+::deep .library-update-run-stat .mud-icon-root {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+}
+
+::deep .library-update-run-stat.is-purple {
+    color: #c4b5fd;
+    background: rgba(124, 92, 255, 0.14);
+}
+
+::deep .library-update-run-stat.is-green {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.14);
+}
+
+::deep .library-update-run-stat.is-amber {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.14);
+}
+
+::deep .library-update-run-stat.is-blue {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.14);
+}
+
+::deep .library-update-run-stat.is-pink {
+    color: #f9a8d4;
+    background: rgba(236, 72, 153, 0.14);
+}
+
+::deep .library-update-run-stat.is-cyan {
+    color: #67e8f9;
+    background: rgba(34, 211, 238, 0.14);
 }
 
 ::deep .library-update-recent__row > .mud-icon-root {
@@ -704,9 +790,10 @@
     }
 
     ::deep .library-update-recent__row {
-        grid-template-columns: 54px minmax(0, 1fr) 24px;
+        grid-template-columns: 54px minmax(0, 1fr);
     }
 
+    ::deep .library-update-run-stats,
     ::deep .library-update-recent__pill,
     ::deep .library-update-recent time {
         grid-column: 2;

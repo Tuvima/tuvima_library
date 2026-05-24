@@ -21,6 +21,8 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapReadEndpoints();
         app.MapReaderEndpoints();
         app.MapIngestionEndpoints();
+        app.MapOperationsEndpoints();
+        app.MapCapabilityEndpoints();
         app.MapMetadataEndpoints();
         app.MapReviewEndpoints();
         app.MapSettingsEndpoints();

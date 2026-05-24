@@ -18,6 +18,8 @@ public static class SignalREvents
     public const string IngestionProgress  = "IngestionProgress";
     public const string IngestionItemProgress = "IngestionItemProgress";
     public const string BatchProgress      = "BatchProgress";
+    public const string MediaOperationChanged = "MediaOperationChanged";
+    public const string CapabilityStateChanged = "CapabilityStateChanged";
 
     // ── Media management ─────────────────────────────────────────────
     public const string MediaAdded   = "MediaAdded";

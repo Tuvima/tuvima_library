@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
 
@@ -70,12 +71,31 @@ public sealed class PluginScheduledSegmentService : BackgroundService
             .ListByStatusAsync(AssetStatus.Normal, ct)
             .ConfigureAwait(false);
         var detector = scope.ServiceProvider.GetRequiredService<PluginSegmentDetectionService>();
+        var tracker = scope.ServiceProvider.GetService<IMediaOperationTracker>();
         var completed = new List<PluginJobSnapshot>();
 
         foreach (var plugin in enabledSegmentPlugins)
         {
             var maxAssets = ReadInt(plugin.Settings, "scheduled_batch_size", DefaultBatchSize);
             var job = _jobs.Start(plugin.Manifest.Id, "playback-segment-detection");
+            MediaOperation? operation = null;
+            if (tracker is not null)
+            {
+                operation = await tracker.EnsureQueuedAsync(new MediaOperation
+                {
+                    OperationType = MediaOperationType.PluginPlaybackSegmentDetection,
+                    OperationKind = MediaOperationKind.Plugin,
+                    CapabilityId = CapabilityId.PluginCommercialSkip,
+                    PluginId = plugin.Manifest.Id,
+                    PluginVersion = plugin.Manifest.Version,
+                    Status = MediaOperationStatus.Queued,
+                    Stage = MediaOperationStage.Queued,
+                    QueueName = "plugin",
+                    ItemsTotal = Math.Max(1, maxAssets),
+                    IdempotencyKey = $"plugin:{plugin.Manifest.Id}:playback-segment-detection:{plugin.Manifest.Version}:{DateTimeOffset.UtcNow:O}"
+                }, ct).ConfigureAwait(false);
+                await tracker.UpdateStageAsync(operation.Id, MediaOperationStage.Analyzing, 0, "Starting playback segment detection pass.", null, ct).ConfigureAwait(false);
+            }
             var scanned = 0;
             var written = 0;
             try
@@ -87,13 +107,32 @@ public sealed class PluginScheduledSegmentService : BackgroundService
                     var after = await detector.DetectAsync(asset.Id, plugin.Manifest.Id, ct).ConfigureAwait(false);
                     scanned++;
                     written += Math.Max(0, after.Count - before.Count);
+                    if (tracker is not null && operation is not null)
+                    {
+                        var progress = (int)Math.Round(scanned * 100.0 / Math.Max(1, maxAssets));
+                        await tracker.UpdateStageAsync(operation.Id, MediaOperationStage.Analyzing, progress, "Analyzed media asset for playback segments.", new
+                        {
+                            asset_id = asset.Id,
+                            scanned,
+                            written
+                        }, ct).ConfigureAwait(false);
+                    }
                 }
 
                 _jobs.Complete(job.Id, scanned, written);
+                if (tracker is not null && operation is not null)
+                {
+                    if (written > 0)
+                        await tracker.MarkSucceededAsync(operation.Id, $"Detected {written} playback segment(s) across {scanned} asset(s).", new { scanned, written }, ct).ConfigureAwait(false);
+                    else
+                        await tracker.MarkNoResultAsync(operation.Id, "No playback segments detected.", new { scanned, written }, ct).ConfigureAwait(false);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _jobs.Fail(job.Id, ex.Message, scanned, written);
+                if (tracker is not null && operation is not null)
+                    await tracker.MarkFailedAsync(operation.Id, ex, terminal: false, ct).ConfigureAwait(false);
                 _logger.LogWarning(ex, "Scheduled plugin segment detection failed for {PluginId}", plugin.Manifest.Id);
             }
 

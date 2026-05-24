@@ -57,7 +57,7 @@
             <div class="library-update-metric is-blue">
                 <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span>
                 <div>
-                    <span>Processed</span>
+                    <span>Finished</span>
                     <strong>@FormatCount(Model.ProcessedFiles)</strong>
                 </div>
             </div>
@@ -151,6 +151,13 @@
                                 <span>Current step</span>
                                 <strong>@Model.CurrentStep</strong>
                             </div>
+                            @if (Model.QueuedItems > 0)
+                            {
+                                <div>
+                                    <span>Still in pipeline</span>
+                                    <strong>@FormatCount(Model.QueuedItems)</strong>
+                                </div>
+                            }
                             @if (!string.IsNullOrWhiteSpace(Model.CurrentProvider))
                             {
                                 <div>
@@ -233,36 +240,27 @@
             </div>
         </section>
 
-        @if (Model.HasPriorRun || Model.RecentItems.Count > 0 || Model.PageState == LibraryUpdatePageState.Running)
+        @if (Model.HasPriorRun || Model.RecentRuns.Count > 0 || Model.PageState == LibraryUpdatePageState.Running)
         {
-            <details class="library-update-recent" aria-label="Recently added" open>
+            <details class="library-update-recent" aria-label="Recent update runs" open>
                 <summary class="library-update-recent__summary">
-                    <span>Recently added</span>
+                    <span>Recent update runs</span>
                     <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" />
                 </summary>
                 <div class="library-update-recent__content">
-                    @if (Model.RecentItems.Count == 0)
+                    @if (Model.RecentRuns.Count == 0)
                     {
-                        <div class="library-update-recent__empty">No new items were added in the last scan.</div>
+                        <div class="library-update-recent__empty">No library update runs are available yet.</div>
                     }
                     else
                     {
                         <div class="library-update-recent__list">
-                            @foreach (var item in Model.RecentItems)
-                        {
-                            @if (!string.IsNullOrWhiteSpace(item.Href))
+                            @foreach (var run in Model.RecentRuns)
                             {
-                                <a class="library-update-recent__row" href="@item.Href">
-                                    @RecentItemContent(item)
-                                </a>
-                            }
-                            else
-                            {
-                                <div class="library-update-recent__row">
-                                    @RecentItemContent(item)
+                                <div class="library-update-recent__row library-update-run-row">
+                                    @RunSummaryContent(run)
                                 </div>
                             }
-                        }
                         </div>
                     }
                 </div>
@@ -344,7 +342,7 @@
         string? error)
     {
         var steps = string.Join(';', model.Steps.Select(step => $"{step.Label}:{step.Status}"));
-        var recent = string.Join(';', model.RecentItems.Select(item => $"{item.Title}:{item.StatusLabel}:{item.RelativeTime}"));
+        var recent = string.Join(';', model.RecentRuns.Select(run => $"{run.Title}:{run.StatusLabel}:{run.RelativeTime}:{run.DurationText}:{string.Join(',', run.Stats.Select(stat => $"{stat.Label}:{stat.Count}"))}"));
         var reasons = string.Join(';', model.AttentionReasons.Select(reason => $"{reason.Label}:{reason.Count}"));
 
         return string.Join('|',
@@ -357,6 +355,7 @@
             model.MatchedItems,
             model.ReviewItems,
             model.ActiveItems,
+            model.QueuedItems,
             Math.Round(model.ProgressPercent, 1),
             model.IsIndeterminate,
             model.Heading,
@@ -382,11 +381,11 @@
             builder.CloseElement();
             builder.AddContent(sequence++, " of ");
             builder.AddContent(sequence++, FormatCount(Model.TotalFiles));
-            builder.AddContent(sequence++, " files processed");
-            builder.AddContent(sequence++, " · ");
+            builder.AddContent(sequence++, " files finished");
+            builder.AddContent(sequence++, " - ");
             builder.OpenElement(sequence++, "span");
             builder.AddAttribute(sequence++, "class", "library-update-status__remaining");
-            builder.AddContent(sequence++, $"{FormatCount(remaining)} remaining");
+            builder.AddContent(sequence++, $"{FormatCount(remaining)} still in pipeline");
             builder.CloseElement();
             return;
         }
@@ -394,48 +393,49 @@
         builder.AddContent(sequence++, Model.MainLine);
     };
 
-    private static RenderFragment RecentItemContent(LibraryUpdateRecentItemViewModel item) => builder =>
+    private static RenderFragment RunSummaryContent(LibraryUpdateRunSummaryViewModel run) => builder =>
     {
         var sequence = 0;
         builder.OpenElement(sequence++, "div");
-        builder.AddAttribute(sequence++, "class", "library-update-recent__thumb");
-        if (!string.IsNullOrWhiteSpace(item.ThumbnailUrl))
-        {
-            builder.OpenElement(sequence++, "img");
-            builder.AddAttribute(sequence++, "src", item.ThumbnailUrl);
-            builder.AddAttribute(sequence++, "alt", "");
-            builder.CloseElement();
-        }
-        else
-        {
-            builder.OpenComponent<MudIcon>(sequence++);
-            builder.AddAttribute(sequence++, "Icon", Icons.Material.Outlined.LibraryBooks);
-            builder.CloseComponent();
-        }
+        builder.AddAttribute(sequence++, "class", $"library-update-recent__thumb is-{run.StatusTone}");
+        builder.OpenComponent<MudIcon>(sequence++);
+        builder.AddAttribute(sequence++, "Icon", Icons.Material.Outlined.History);
+        builder.CloseComponent();
         builder.CloseElement();
 
         builder.OpenElement(sequence++, "div");
         builder.AddAttribute(sequence++, "class", "library-update-recent__copy");
         builder.OpenElement(sequence++, "strong");
-        builder.AddContent(sequence++, item.Title);
+        builder.AddContent(sequence++, run.Title);
         builder.CloseElement();
         builder.OpenElement(sequence++, "span");
-        builder.AddContent(sequence++, item.StatusText);
+        builder.AddContent(sequence++, $"{run.StatusText} - {run.DurationText}");
         builder.CloseElement();
         builder.CloseElement();
 
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", "library-update-run-stats");
+        foreach (var stat in run.Stats)
+        {
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", $"library-update-run-stat is-{stat.Tone}");
+            builder.OpenComponent<MudIcon>(sequence++);
+            builder.AddAttribute(sequence++, "Icon", stat.Icon);
+            builder.CloseComponent();
+            builder.AddContent(sequence++, FormatCount(stat.Count));
+            builder.AddContent(sequence++, $" {stat.Label}");
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+
         builder.OpenElement(sequence++, "span");
-        builder.AddAttribute(sequence++, "class", $"library-update-recent__pill is-{item.StatusTone}");
-        builder.AddContent(sequence++, item.StatusLabel);
+        builder.AddAttribute(sequence++, "class", $"library-update-recent__pill is-{run.StatusTone}");
+        builder.AddContent(sequence++, run.StatusLabel);
         builder.CloseElement();
 
         builder.OpenElement(sequence++, "time");
-        builder.AddContent(sequence++, item.RelativeTime);
+        builder.AddContent(sequence++, run.RelativeTime);
         builder.CloseElement();
-
-        builder.OpenComponent<MudIcon>(sequence++);
-        builder.AddAttribute(sequence++, "Icon", Icons.Material.Outlined.ChevronRight);
-        builder.CloseComponent();
     };
 
     private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);

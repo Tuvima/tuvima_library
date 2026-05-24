@@ -24,8 +24,9 @@ public sealed class IngestionProgressContractTests
             "ReadServices",
             "IngestionBatchReadService.cs"));
 
-        Assert.Contains("stage3_enhanced_at", readServiceSource);
-        Assert.Contains("person_media_links", readServiceSource);
+        Assert.Contains("media_operations", readServiceSource);
+        Assert.Contains("items_total", readServiceSource);
+        Assert.Contains("items_completed", readServiceSource);
     }
 
     [Fact]

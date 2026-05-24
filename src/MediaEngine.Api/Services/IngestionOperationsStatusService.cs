@@ -110,7 +110,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         var ingestionRows = (await conn.QueryAsync<StageCountRow>("""
             SELECT status AS Key, COUNT(*) AS Count
-            FROM ingestion_log
+            FROM media_operations
+            WHERE operation_type = 'ingestion.file'
             GROUP BY status
             """)).ToDictionary(r => r.Key, r => ToInt(r.Count), StringComparer.OrdinalIgnoreCase);
         var scopedPipelineRows = displayBatch is null
@@ -168,6 +169,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             + Count(pipelineRows, nameof(IdentityJobState.Failed));
         var summaryTotals = BuildSummaryTotals(displayBatch, lifecycle, projection);
         var pipelineStages = BuildPipelineStages(scopedPipelineRows, scopedIngestionRows, lifecycle, projection, displayBatch);
+        var batchStats = await ReadBatchStatsAsync(recentBatches, ct);
         var currentActivities = displayBatch is null
             ? []
             : await ReadTaskActivitiesAsync(displayBatch.Id, pipelineStages, ct);
@@ -211,7 +213,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ReviewReasons = BuildReviewReasons(reviewRows, lifecycle.TriggerCounts),
             SourceGroups = BuildSourceGroups(folderStats),
             ProviderHealth = providerDtos,
-            RecentBatches = recentBatches.Select(ToRecentBatch).ToList(),
+            RecentBatches = recentBatches.Select(batch => ToRecentBatch(batch, batchStats.GetValueOrDefault(batch.Id))).ToList(),
             Organization = BuildOrganizationRules(),
             GeneratedAt = DateTimeOffset.UtcNow,
         };
@@ -248,8 +250,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<StageCountRow>("""
             SELECT status AS Key, COUNT(*) AS Count
-            FROM ingestion_log
-            WHERE ingestion_run_id = @batchId
+            FROM media_operations
+            WHERE batch_id = @batchId
+              AND operation_type = 'ingestion.file'
             GROUP BY status
             """, new { batchId = batchId.ToString() });
 
@@ -1173,9 +1176,46 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         return "Processing files";
     }
 
-    private static IngestionOperationsBatchDto ToRecentBatch(IngestionBatch batch)
+    private async Task<Dictionary<Guid, BatchActivityStats>> ReadBatchStatsAsync(
+        IReadOnlyList<IngestionBatch> batches,
+        CancellationToken ct)
+    {
+        if (batches.Count == 0)
+            return [];
+
+        var result = batches.ToDictionary(batch => batch.Id, _ => new BatchActivityStats());
+        using var conn = _db.CreateConnection();
+
+        foreach (var batch in batches)
+        {
+            ct.ThrowIfCancellationRequested();
+            var rows = (await conn.QueryAsync<StageCountRow>("""
+                SELECT action_type AS Key, COUNT(DISTINCT COALESCE(entity_id, CAST(id AS TEXT))) AS Count
+                FROM system_activity
+                WHERE ingestion_run_id = @batchId
+                GROUP BY action_type
+                """, new { batchId = batch.Id.ToString() })).AsList();
+
+            var byType = rows.ToDictionary(row => row.Key, row => ToInt(row.Count), StringComparer.OrdinalIgnoreCase);
+            result[batch.Id] = new BatchActivityStats(
+                PeopleGeneratedCount: Count(byType, SystemActionType.PersonHydrated)
+                    + Count(byType, SystemActionType.PersonMerged),
+                ArtworkDownloadedCount: Count(byType, SystemActionType.CoverArtSaved),
+                MetadataUpdatedCount: Count(byType, SystemActionType.MetadataHydrated)
+                    + Count(byType, SystemActionType.NarrativeRootResolved)
+                    + Count(byType, SystemActionType.RelationshipDiscovered)
+                    + Count(byType, SystemActionType.CharacterEnriched)
+                    + Count(byType, SystemActionType.LocationEnriched)
+                    + Count(byType, SystemActionType.OrganizationEnriched));
+        }
+
+        return result;
+    }
+
+    private static IngestionOperationsBatchDto ToRecentBatch(IngestionBatch batch, BatchActivityStats? stats)
     {
         var source = FirstNonBlank(batch.Category, ShortPath(batch.SourcePath), "Library scan");
+        var duration = (batch.CompletedAt ?? DateTimeOffset.UtcNow) - batch.StartedAt;
         return new IngestionOperationsBatchDto
         {
             BatchId = batch.Id,
@@ -1184,13 +1224,23 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Source = source,
             MediaType = batch.Category,
             TotalFiles = batch.FilesTotal,
+            ProcessedFiles = batch.FilesProcessed,
             RegisteredCount = batch.FilesIdentified,
             ReviewCount = batch.FilesReview + batch.FilesNoMatch,
             FailedCount = batch.FilesFailed,
+            PeopleGeneratedCount = stats?.PeopleGeneratedCount ?? 0,
+            ArtworkDownloadedCount = stats?.ArtworkDownloadedCount ?? 0,
+            MetadataUpdatedCount = stats?.MetadataUpdatedCount ?? 0,
+            DurationSeconds = duration.TotalSeconds > 0 ? (int)Math.Round(duration.TotalSeconds) : null,
             Status = batch.Status,
             Summary = $"{batch.FilesIdentified:N0} registered, {batch.FilesReview + batch.FilesNoMatch:N0} review, {batch.FilesFailed:N0} failed",
         };
     }
+
+    private sealed record BatchActivityStats(
+        int PeopleGeneratedCount = 0,
+        int ArtworkDownloadedCount = 0,
+        int MetadataUpdatedCount = 0);
 
     private static IngestionProviderHealthDto ToProviderDto(ProviderConfig provider, ProviderHealthRecord? health)
     {

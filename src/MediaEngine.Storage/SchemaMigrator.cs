@@ -1427,6 +1427,9 @@ internal sealed class SchemaMigrator
         // Migration M-092: targeted indexes for large-library list reads.
         EnsureLargeLibraryIndexes(conn);
 
+        // Migration M-093: durable media operations and capability state ledger.
+        MigrateDurableMediaOperations(conn);
+
         // Seed S-001: metadata_providers entries for all known providers.
         // metadata_claims.provider_id has a FK to metadata_providers(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1508,6 +1511,135 @@ internal sealed class SchemaMigrator
                 ON identity_jobs(ingestion_run_id, entity_id, updated_at);
             """;
         cmd.ExecuteNonQuery();
+    }
+
+    private static void MigrateDurableMediaOperations(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS media_operations (
+              id                  TEXT PRIMARY KEY,
+              operation_type      TEXT NOT NULL,
+              operation_kind      TEXT NOT NULL,
+              entity_id           TEXT,
+              entity_kind         TEXT,
+              batch_id            TEXT,
+              source_path         TEXT,
+              content_hash        TEXT,
+              capability_id       TEXT,
+              capability_version  TEXT,
+              sub_key             TEXT,
+              plugin_id           TEXT,
+              plugin_version      TEXT,
+              provider_id         TEXT,
+              model_id            TEXT,
+              status              TEXT NOT NULL,
+              stage               TEXT,
+              priority            INTEGER NOT NULL DEFAULT 100,
+              queue_name          TEXT NOT NULL DEFAULT 'default',
+              position_key        INTEGER NOT NULL,
+              attempt_count       INTEGER NOT NULL DEFAULT 0,
+              lease_owner         TEXT,
+              lease_expires_at    TEXT,
+              heartbeat_at        TEXT,
+              next_retry_at       TEXT,
+              progress_percent    INTEGER NOT NULL DEFAULT 0,
+              items_total         INTEGER NOT NULL DEFAULT 0,
+              items_completed     INTEGER NOT NULL DEFAULT 0,
+              items_failed        INTEGER NOT NULL DEFAULT 0,
+              result_summary      TEXT,
+              last_error          TEXT,
+              missing_reason      TEXT,
+              created_at          TEXT NOT NULL,
+              started_at          TEXT,
+              updated_at          TEXT NOT NULL,
+              completed_at        TEXT,
+              idempotency_key     TEXT NOT NULL
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_media_operations_idempotency
+            ON media_operations(idempotency_key);
+            CREATE INDEX IF NOT EXISTS idx_media_operations_queue
+            ON media_operations(queue_name, status, priority, position_key);
+            CREATE INDEX IF NOT EXISTS idx_media_operations_entity
+            ON media_operations(entity_id);
+            CREATE INDEX IF NOT EXISTS idx_media_operations_capability
+            ON media_operations(capability_id, status, next_retry_at);
+            CREATE INDEX IF NOT EXISTS idx_media_operations_batch
+            ON media_operations(batch_id, status);
+            CREATE INDEX IF NOT EXISTS idx_media_operations_lease
+            ON media_operations(status, lease_expires_at);
+
+            CREATE TABLE IF NOT EXISTS media_operation_events (
+              id             TEXT PRIMARY KEY,
+              operation_id   TEXT NOT NULL,
+              entity_id      TEXT,
+              batch_id       TEXT,
+              event_type     TEXT NOT NULL,
+              old_status     TEXT,
+              new_status     TEXT,
+              old_stage      TEXT,
+              new_stage      TEXT,
+              message        TEXT,
+              detail_json    TEXT,
+              occurred_at    TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_media_operation_events_operation
+            ON media_operation_events(operation_id, occurred_at);
+            CREATE INDEX IF NOT EXISTS idx_media_operation_events_entity
+            ON media_operation_events(entity_id, occurred_at);
+            CREATE INDEX IF NOT EXISTS idx_media_operation_events_batch
+            ON media_operation_events(batch_id, occurred_at);
+
+            CREATE TABLE IF NOT EXISTS entity_capability_states (
+              id                  TEXT PRIMARY KEY,
+              entity_id           TEXT NOT NULL,
+              entity_kind         TEXT NOT NULL,
+              media_type          TEXT,
+              capability_id       TEXT NOT NULL,
+              capability_kind     TEXT NOT NULL,
+              capability_version  TEXT,
+              sub_key             TEXT,
+              status              TEXT NOT NULL,
+              requiredness        TEXT NOT NULL DEFAULT 'optional',
+              source              TEXT,
+              confidence          REAL,
+              artifact_count      INTEGER NOT NULL DEFAULT 0,
+              artifact_summary    TEXT,
+              result_summary      TEXT,
+              last_operation_id   TEXT,
+              first_attempted_at  TEXT,
+              last_attempted_at   TEXT,
+              succeeded_at        TEXT,
+              next_retry_at       TEXT,
+              stale               INTEGER NOT NULL DEFAULT 0,
+              needs_rerun         INTEGER NOT NULL DEFAULT 0,
+              missing_reason      TEXT,
+              last_error          TEXT,
+              created_at          TEXT NOT NULL,
+              updated_at          TEXT NOT NULL
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_entity_capability_states_key
+            ON entity_capability_states(entity_id, capability_id, COALESCE(sub_key, ''));
+            CREATE INDEX IF NOT EXISTS idx_entity_capability_states_entity
+            ON entity_capability_states(entity_id);
+            CREATE INDEX IF NOT EXISTS idx_entity_capability_states_status
+            ON entity_capability_states(capability_id, status, next_retry_at);
+            """;
+        cmd.ExecuteNonQuery();
+
+        MigrateAddColumnIfMissing(conn, "review_queue", "source_operation_id",
+            "ALTER TABLE review_queue ADD COLUMN source_operation_id TEXT;");
+        MigrateAddColumnIfMissing(conn, "review_queue", "source_capability_id",
+            "ALTER TABLE review_queue ADD COLUMN source_capability_id TEXT;");
+        MigrateAddColumnIfMissing(conn, "review_queue", "source_capability_sub_key",
+            "ALTER TABLE review_queue ADD COLUMN source_capability_sub_key TEXT;");
+        MigrateAddColumnIfMissing(conn, "review_queue", "review_ready_at",
+            "ALTER TABLE review_queue ADD COLUMN review_ready_at TEXT;");
+        MigrateAddColumnIfMissing(conn, "review_queue", "automation_completed_at",
+            "ALTER TABLE review_queue ADD COLUMN automation_completed_at TEXT;");
     }
     /// <summary>
     /// Seeds the default "Owner" Administrator profile on first run.

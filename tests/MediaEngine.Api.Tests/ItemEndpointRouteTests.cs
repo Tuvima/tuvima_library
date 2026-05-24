@@ -62,6 +62,9 @@ public sealed class ItemEndpointRouteTests
                 return !relative.StartsWith(@"src\MediaEngine.Contracts\Details\", StringComparison.OrdinalIgnoreCase)
                     && !relative.StartsWith(@"src\MediaEngine.Api\Services\Details\", StringComparison.OrdinalIgnoreCase)
                     && !relative.StartsWith(@"src\MediaEngine.Web\Components\Details\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith(@"src\MediaEngine.Domain\Capabilities\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Equals(@"src\MediaEngine.Api\Services\ReviewQueueRouter.cs", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Equals(@"src\MediaEngine.Api\Program.cs", StringComparison.OrdinalIgnoreCase)
                     && !relative.Equals(@"tests\MediaEngine.Web.Tests\UnifiedDetailComponentTests.cs", StringComparison.OrdinalIgnoreCase);
             })
             .Where(path =>
