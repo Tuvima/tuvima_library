@@ -25,13 +25,13 @@ For large existing libraries, start with one media lane at a time. It is easier 
 ## Configure Folders
 
 1. Open the Dashboard at `http://localhost:5016`.
-2. Go to **Settings > Library Operations > Libraries**.
+2. Go to **Settings > Libraries**.
 3. Set the Watch Folder and Library Root.
 4. Confirm path checks show the Engine can read and write where required.
 5. Save the settings.
 6. Run **Scan saved watch folder** or return to **Settings > Setup** and use **Scan Now**.
 
-Open **Settings > Library Operations > Ingestion** to monitor progress.
+Open **Settings > Ingestion** to monitor progress.
 
 ## Supported Formats
 

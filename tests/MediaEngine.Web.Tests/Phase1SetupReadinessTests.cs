@@ -161,7 +161,7 @@ public sealed class Phase1SetupReadinessTests : TestContext
     }
 
     [Fact]
-    public void SetupPage_LinksToLibraryOperationsAfterScan()
+    public void SetupPage_LinksToIngestionAfterScan()
     {
         var source = File.ReadAllText(GetRepoFile(
             "src", "MediaEngine.Web", "Components", "Settings", "SetupTab.razor"));

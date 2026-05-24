@@ -110,7 +110,7 @@ This is the current first-run path. A richer guided wizard is still outstanding,
 
 ## Step 6 - Configure Folders And Scan
 
-Open **Settings > Library Operations > Libraries**.
+Open **Settings > Libraries**.
 
 Confirm:
 
@@ -119,7 +119,7 @@ Confirm:
 - organization template
 - path read/write checks
 
-Save changes, then run **Scan Now** from Setup or **Scan saved watch folder** from Libraries. Open **Settings > Library Operations > Ingestion** to watch progress.
+Save changes, then run **Scan Now** from Setup or **Scan saved watch folder** from Libraries. Open **Settings > Ingestion** to watch progress.
 
 ## Docker Alternative
 

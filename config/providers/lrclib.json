@@ -4,6 +4,7 @@
   "enabled": true,
   "weight": 0.7,
   "domain": "Music",
+  "icon": "images/providers/lrclib.png",
   "capability_tags": ["synced_lyrics", "lrc"],
   "available_fields": ["synced_lyrics"],
   "field_weights": {

@@ -55,8 +55,8 @@ Home only shows real data returned by the Engine. It does not invent sample medi
 Check:
 
 - **Settings > Setup** for folder/provider/readiness status.
-- **Settings > Library Operations > Libraries** for watch folder and library root paths.
-- **Settings > Library Operations > Ingestion** for active scans and recent batches.
+- **Settings > Libraries** for watch folder and library root paths.
+- **Settings > Ingestion** for active scans and recent batches.
 - **Settings > Review Queue** for items that need confirmation before they can appear in browse surfaces.
 
 ## Files Do Not Ingest
@@ -73,7 +73,7 @@ Use **Scan saved watch folder** from the Libraries settings section after changi
 
 To inspect the durable queue directly:
 
-- Open **Settings > Library Operations > Ingestion**.
+- Open **Settings > Ingestion**.
 - Call `GET /operations?queueName=ingestion` to see queued/running/retry rows.
 - Call `GET /ingestion/batches/{batchId}/items` to see each file in a batch.
 

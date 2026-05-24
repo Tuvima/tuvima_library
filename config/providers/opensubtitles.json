@@ -4,6 +4,7 @@
   "enabled": false,
   "weight": 0.75,
   "domain": "Video",
+  "icon": "images/providers/opensubtitles.png",
   "capability_tags": ["subtitles", "webvtt", "srt"],
   "available_fields": ["subtitles"],
   "field_weights": {

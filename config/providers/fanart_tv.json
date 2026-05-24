@@ -3,6 +3,7 @@
   "provider_id": "bc00000c-0000-4000-8000-000000000013",
   "adapter_type": "config_driven",
   "enabled": true,
+  "icon": "images/providers/fanart_tv.png",
   "hydration_stages": [3],
   "requires_api_key": true,
 

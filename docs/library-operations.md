@@ -1,6 +1,6 @@
 ---
-title: "Library Operations"
-summary: "Understand the Library Operations area for libraries, ingestion, providers, activity, review, source folders, provider health, and recent batches."
+title: "Library Admin Pages"
+summary: "Understand the Settings pages for libraries, ingestion, providers, activity, review, source folders, provider health, and recent batches."
 audience: "user"
 category: "guide"
 product_area: "ingestion"
@@ -10,11 +10,11 @@ tags:
   - "review"
 ---
 
-# Library Operations
+# Library Admin Pages
 
-Library Operations is the product-facing admin area for the part of Tuvima Library that turns messy folders into registered media. It is available from Settings under **Admin Settings > Library Operations**, with tabs for **Libraries**, **Ingestion**, **Providers**, and **Activity**. The Ingestion tab remains available at `/settings/ingestion`.
+Libraries, Ingestion, Providers, and Activity are first-class Settings pages for the part of Tuvima Library that turns messy folders into registered media. They are available directly in the Settings left navigation under **Admin Settings**, without a secondary tab bar. The Ingestion page remains available at `/settings/ingestion`.
 
-The page answers six operational questions:
+Together, these pages answer six operational questions:
 
 - what is happening right now
 - what has been processed recently

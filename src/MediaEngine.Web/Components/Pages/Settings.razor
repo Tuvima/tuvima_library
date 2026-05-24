@@ -111,20 +111,6 @@
                             Checking profile permissions before showing administrator settings.
                         </MudAlert>
                     }
-                    @if (IsLibraryOperationsSection(_activeSection))
-                    {
-                        <nav class="library-operations-tabs" aria-label="Library Operations sections">
-                            @foreach (var tab in LibraryOperationsTabs)
-                            {
-                                <a class="library-operations-tabs__item @(tab.Section == _activeSection ? "is-active" : null)"
-                                   href="@SettingsNav.RouteFor(tab.Section)"
-                                   aria-current="@(tab.Section == _activeSection ? "page" : null)">
-                                    <MudIcon Icon="@tab.Icon" Size="Size.Small" />
-                                    <span>@tab.Label</span>
-                                </a>
-                            }
-                        </nav>
-                    }
                     @switch (_activeSection)
                     {
                         case SettingsSection.Overview:
@@ -413,7 +399,6 @@
     {
         "user" => "user",
         "admin" => "admin",
-        "library-operations" => "library",
         _ => "default",
     };
 
@@ -435,24 +420,9 @@
         _ => "default",
     };
 
-    private static readonly LibraryOperationsTabDef[] LibraryOperationsTabs =
-    [
-        new(SettingsSection.Libraries, "Libraries", Icons.Material.Outlined.FolderOpen),
-        new(SettingsSection.Ingestion, "Ingestion", Icons.Material.Outlined.PendingActions),
-        new(SettingsSection.Providers, "Providers", Icons.Material.Outlined.Storage),
-        new(SettingsSection.ActivityLogs, "Activity", Icons.Material.Outlined.Timeline),
-    ];
+    private string GetHeroEyebrow() => CurrentGroup.Label;
 
-    private static bool IsLibraryOperationsSection(SettingsSection section) =>
-        LibraryOperationsTabs.Any(tab => tab.Section == section);
-
-    private string GetHeroEyebrow() =>
-        IsLibraryOperationsSection(_activeSection) ? "Admin Settings" : CurrentGroup.Label;
-
-    private string GetHeroTitle() =>
-        IsLibraryOperationsSection(_activeSection)
-            ? "Library Operations"
-            : SettingsNav.GetItem(_activeSection).Label;
+    private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
 
     private SettingsStatusKind GetCurrentStatus() =>
         IsEngineUnavailableForCurrentSection
@@ -475,7 +445,10 @@
         SettingsSection.Playback => "Personal defaults for watching, reading, listening, subtitles, resume, and progress behavior.",
         SettingsSection.Privacy => "Control personal history, tracking, personalization, and reset/export options.",
         SettingsSection.AdminOverview => "Monitor system health, library status, provider coverage, ingestion progress, and review work.",
-        SettingsSection.Libraries or SettingsSection.Ingestion or SettingsSection.Providers or SettingsSection.ActivityLogs => "Manage ingestion, metadata providers, source folders, organization rules, and activity across your library.",
+        SettingsSection.Libraries => "Manage watched folders, library destinations, source health, organization rules, and write access.",
+        SettingsSection.Ingestion => "Track current library updates, recent batches, matching progress, and items that need review.",
+        SettingsSection.Providers => "Manage metadata providers, priority order, credentials, reachability, and sample lookups.",
+        SettingsSection.ActivityLogs => "Review the persistent activity stream for ingestion, provider, metadata, and system events.",
         SettingsSection.LocalAi => "Manage local models, AI feature toggles, vocabulary, hardware profile, and scheduled enrichment jobs.",
         SettingsSection.Plugins => "Manage optional extension features, tool health, background jobs, and guarded AI access.",
         SettingsSection.Delivery => "Configure direct play, transcoding, generated variants, offline downloads, and delivery defaults.",
@@ -487,5 +460,4 @@
         _ => "Settings",
     };
 
-    private sealed record LibraryOperationsTabDef(SettingsSection Section, string Label, string Icon);
 }

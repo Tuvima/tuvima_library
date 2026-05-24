@@ -4,7 +4,7 @@
   "enabled": true,
   "weight": 1,
   "domain": "Comic",
-  "icon": "images/providers/comicvine.svg",
+  "icon": "images/providers/comicvine.png",
   "capability_tags": [],
   "available_fields": [
     "title",

@@ -18,7 +18,7 @@ This tutorial walks through the first practical loop: configure a folder, scan i
 
 ## Step 1 - Open Library Settings
 
-In the Dashboard, open **Settings > Library Operations > Libraries**.
+In the Dashboard, open **Settings > Libraries**.
 
 Confirm the current folder settings:
 
@@ -45,9 +45,9 @@ Supported formats are listed in [Media Types](../reference/media-types.md).
 You can start a scan from either place:
 
 - **Settings > Setup > Scan Now**
-- **Settings > Library Operations > Libraries > Scan saved watch folder**
+- **Settings > Libraries > Scan saved watch folder**
 
-Then open **Settings > Library Operations > Ingestion**.
+Then open **Settings > Ingestion**.
 
 ## Step 4 - Watch The Pipeline
 

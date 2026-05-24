@@ -37,6 +37,8 @@ public static class ProviderAccentMap
             "comicvine"                  => ("#04C8FF", Icons.Material.Filled.AutoStories),
             "musicbrainz"                => ("#BA478F", Icons.Material.Filled.MusicNote),
             "fanart_tv"                  => ("#19C1CC", Icons.Material.Filled.Image),
+            "lrclib"                     => ("#3BA55D", Icons.Material.Filled.Lyrics),
+            "opensubtitles"              => ("#0F8BFD", Icons.Material.Filled.Subtitles),
             "local_filesystem"           => ("#90A4AE", Icons.Material.Filled.FolderOpen),
             _                            => ("#90A4AE", Icons.Material.Filled.Cloud),
         };
@@ -83,6 +85,8 @@ public static class ProviderAccentMap
             ("Newspaper",     Icons.Material.Filled.Newspaper),
             ("Dashboard",     Icons.Material.Filled.Dashboard),
             ("Star",          Icons.Material.Filled.Star),
+            ("Lyrics",        Icons.Material.Filled.Lyrics),
+            ("Subtitles",     Icons.Material.Filled.Subtitles),
             ("Cloud",         Icons.Material.Filled.Cloud),
             ("Collection",           Icons.Material.Filled.Collections),
         }.AsReadOnly();
@@ -119,6 +123,8 @@ public static class ProviderAccentMap
         ["Newspaper"]     = Icons.Material.Filled.Newspaper,
         ["Dashboard"]     = Icons.Material.Filled.Dashboard,
         ["Star"]          = Icons.Material.Filled.Star,
+        ["Lyrics"]        = Icons.Material.Filled.Lyrics,
+        ["Subtitles"]     = Icons.Material.Filled.Subtitles,
         ["Cloud"]         = Icons.Material.Filled.Cloud,
         ["Collection"]           = Icons.Material.Filled.Collections,
     };
@@ -135,6 +141,8 @@ public static class ProviderAccentMap
         "comicvine"                  => "Comic Vine",
         "musicbrainz"                => "MusicBrainz",
         "fanart_tv"                  => "Fanart.tv",
+        "lrclib"                     => "LRCLIB",
+        "opensubtitles"              => "OpenSubtitles",
         "local_filesystem"           => "Local Filesystem",
         _                            => FormatProviderName(providerKey),
     };

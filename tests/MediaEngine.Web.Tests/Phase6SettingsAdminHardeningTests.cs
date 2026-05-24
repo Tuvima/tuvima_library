@@ -50,6 +50,58 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("Last tested", source, StringComparison.Ordinal);
         Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Metadata Providers", source, StringComparison.Ordinal);
+        Assert.Contains("Assign to Media Types (Retail Lookup)", source, StringComparison.Ordinal);
+        Assert.Contains("[\"Movies\", \"TV\", \"Music\", \"Books\", \"Audiobooks\", \"Comics\"]", source, StringComparison.Ordinal);
+        Assert.Contains("GetProviderLogoUrl", source, StringComparison.Ordinal);
+        Assert.Contains("GetProviderCards", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProvidersTab_HasDownloadedIconsForVisibleProviders()
+    {
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor");
+
+        var expectedIcons = new[]
+        {
+            "apple_books.svg",
+            "comicvine.png",
+            "fanart_tv.png",
+            "lrclib.png",
+            "musicbrainz.svg",
+            "opensubtitles.png",
+            "open_library.png",
+            "tmdb.svg",
+            "wikidata_reconciliation.svg",
+        };
+
+        foreach (var icon in expectedIcons)
+        {
+            Assert.Contains($"images/providers/{icon}", source, StringComparison.Ordinal);
+            Assert.True(
+                File.Exists(GetRepoPath($@"src\MediaEngine.Web\wwwroot\images\providers\{icon}")),
+                $"Expected provider icon asset {icon} to exist.");
+        }
+
+        var providerConfigs = new[]
+        {
+            "apple_api.json",
+            "comicvine.json",
+            "fanart_tv.json",
+            "lrclib.json",
+            "musicbrainz.json",
+            "opensubtitles.json",
+            "open_library.json",
+            "tmdb.json",
+            "wikidata_reconciliation.json",
+        };
+
+        foreach (var config in providerConfigs)
+        {
+            var configJson = ReadRepoFile($@"config\providers\{config}");
+            Assert.Contains("\"icon\"", configJson, StringComparison.Ordinal);
+            Assert.Contains("images/providers/", configJson, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -108,12 +160,15 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     private static string ReadRepoFile(string relativePath) =>
-        File.ReadAllText(Path.GetFullPath(Path.Combine(
+        File.ReadAllText(GetRepoPath(relativePath));
+
+    private static string GetRepoPath(string relativePath) =>
+        Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..",
             "..",
             "..",
             "..",
             "..",
-            relativePath)));
+            relativePath));
 }
