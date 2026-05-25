@@ -179,7 +179,7 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return labels.Count == 0 ? null : string.Join(" • ", labels);
+        return labels.Count == 0 ? null : string.Join("  -  ", labels);
     }
 
     private static bool LooksLikeRuntime(string? value)

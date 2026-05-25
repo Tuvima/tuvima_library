@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
@@ -40,8 +40,8 @@
         }
         <div class="ids-row">
             <span class="ids-key">Status</span>
-            <span class="ids-status-chip"
-                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+            <AppCssElement Tag="span" Class="ids-status-chip"
+                  Css="@($"background: {StatusBgColor}; color: {StatusColor};")">@StatusLabel</AppCssElement>
         </div>
         <div class="ids-row">
             <span class="ids-key">Occupation</span>
@@ -71,8 +71,8 @@
         }
         <div class="ids-row">
             <span class="ids-key">Status</span>
-            <span class="ids-status-chip"
-                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+            <AppCssElement Tag="span" Class="ids-status-chip"
+                  Css="@($"background: {StatusBgColor}; color: {StatusColor};")">@StatusLabel</AppCssElement>
         </div>
         @if (summary is null)
         {
@@ -146,7 +146,7 @@
         }
 <div class="ids-match-status">
             <MudTooltip Text="@GetMatchStatusDisplay().Tooltip" Arrow="true" Placement="Placement.Top">
-                <span class="ids-match-chip" style="background: @HexToRgba(GetMatchStatusDisplay().Color, 0.15); color: @GetMatchStatusDisplay().Color;">@GetMatchStatusDisplay().Label</span>
+                <AppCssElement Tag="span" Class="ids-match-chip" Css="@($"background: {HexToRgba(GetMatchStatusDisplay().Color, 0.15)}; color: {GetMatchStatusDisplay()}.Color;")">@GetMatchStatusDisplay().Label</AppCssElement>
             </MudTooltip>
         </div>
 
@@ -181,8 +181,8 @@
         </div>
         <div class="ids-row">
             <span class="ids-key">Status</span>
-            <span class="ids-status-chip"
-                  style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
+            <AppCssElement Tag="span" Class="ids-status-chip"
+                  Css="@($"background: {StatusBgColor}; color: {StatusColor};")">@StatusLabel</AppCssElement>
         </div>
         @if (!string.IsNullOrWhiteSpace(Item.FileName))
         {

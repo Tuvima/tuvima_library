@@ -1,28 +1,27 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 @if (Items.Count == 0 && !Loading)
 {
     <div class="rg-empty">
-        <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 3rem; opacity: 0.2; margin-bottom: 12px;" />
-        <p style="color: var(--tl-text-muted); font-size: 0.85rem;">No items match your filters.</p>
+        <MudIcon Icon="@Icons.Material.Outlined.Inbox" Class="tl-u-font-size-3rem tl-u-opacity-0-2 tl-u-margin-bottom-12px" />
+        <p class="tl-u-color-tl-text-muted tl-u-font-size-0-85rem">No items match your filters.</p>
     </div>
 }
 else
 {
-    <div class="rg-container" style="--rc-card-width: @(CardSize)px;">
+    <AppCssElement Tag="div" Class="rg-container" Css="@($"--rc-card-width: {CardSize}px;")">
         @foreach (var group in _groups)
         {
             var isExpanded = IsExpanded(group.Key);
             <div class="rg-section" @key="group.Key">
-                <div class="rg-section-header @(group.IsReviewGroup ? "rg-section-header--review" : "")"
-                     style="@(group.HeaderColor is not null ? $"--rg-header-accent: {group.HeaderColor};" : "")"
+                <AppCssElement Tag="div" Class='@($"rg-section-header {(group.IsReviewGroup ? "rg-section-header--review" : "")}")'
+                     Css="@(group.HeaderColor is not null ? $"--rg-header-accent: {group.HeaderColor};" : "")"
                      @onclick="@(() => ToggleSection(group.Key))">
                     <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                             Size="Size.Small" Style="font-size: 1rem; opacity: 0.4;" />
+                             Size="Size.Small" Class="tl-u-font-size-1rem tl-u-opacity-0-4" />
                     @if (!string.IsNullOrEmpty(group.HeaderIcon))
                     {
-                        <MudIcon Icon="@group.HeaderIcon" Size="Size.Small"
-                                 Style="@($"font-size: 0.9rem; color: {group.HeaderColor ?? "var(--tl-text-secondary)"}; opacity: 0.6;")" />
+                        <AppMaterialIcon Icon="@group.HeaderIcon" Size="Size.Small" Css="@($"font-size: 0.9rem; color: {group.HeaderColor ?? "var(--tl-text-secondary)"}; opacity: 0.6;")"  />
                     }
                     <span class="rg-section-label">@group.Label</span>
                     <span class="rg-section-count">@group.Items.Count</span>
@@ -33,12 +32,12 @@ else
                             <AppButton Variant="Variant.Text" Size="Size.Small"
                                        StartIcon="@Icons.Material.Filled.Block"
                                        OnClick="@(() => OnRejectGroup.InvokeAsync(group.Items.Select(i => i.EntityId).ToList()))"
-                                       Style="font-size: 0.68rem; color: var(--tl-status-danger); padding: 2px 6px; min-width: 0; height: 22px;">
+                                       Class="tl-u-font-size-0-68rem tl-u-color-tl-status-danger tl-u-padding-2px-6px tl-u-min-width-0 tl-u-height-22px">
                                 Reject All
                             </AppButton>
                         </div>
                     }
-                </div>
+                </AppCssElement>
 
                 @if (isExpanded)
                 {
@@ -66,7 +65,7 @@ else
             <div class="rg-load-more">
                 <AppButton Variant="Variant.Text" Size="Size.Small"
                            OnClick="OnLoadMore" FullWidth="true"
-                           Style="color: var(--tl-text-muted); font-size: 0.75rem;">
+                           Class="tl-u-color-tl-text-muted tl-u-font-size-0-75rem">
                     Load more...
                 </AppButton>
             </div>
@@ -76,10 +75,10 @@ else
         {
             <div class="rg-loading">
                 <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                     Style="color: var(--tl-text-faint);" />
+                                     Class="tl-u-color-tl-text-faint" />
             </div>
         }
-    </div>
+    </AppCssElement>
 }
 
 @code {

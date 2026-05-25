@@ -1,4 +1,4 @@
-@using MediaEngine.Domain.Constants
+﻿@using MediaEngine.Domain.Constants
 @namespace MediaEngine.Web.Components.Library
 
 <div class="src-card @(IsSelected ? "src-card--selected" : "")" @onclick="OnClick">
@@ -13,7 +13,7 @@
         }
         else
         {
-            <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: var(--tl-border-strong);" />
+            <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-20px tl-u-color-tl-border-strong" />
         }
     </div>
     <div class="src-card-body">

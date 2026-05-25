@@ -1,7 +1,7 @@
-@namespace MediaEngine.Web.Components.Universe
-<div class="ambient-bg" aria-hidden="true"
-     style="--ambient-color: @(Color ?? "#080B14"); --ambient-opacity: @OpacityStr;">
-</div>
+﻿@namespace MediaEngine.Web.Components.Universe
+<AppCssElement Tag="div" Class="ambient-bg" aria-hidden="true"
+     Css="@($"--ambient-color: {Color ?? "#080B14"}; --ambient-opacity: {OpacityStr};")">
+</AppCssElement>
 
 @code {
     [Parameter] public string? Color { get; set; }

@@ -1,7 +1,7 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="@StageClass" style="@StageStyle">
+<AppCssElement Tag="div" Class="@StageClass" Css="@StageStyle">
     @if (IsBackdropMode && !string.IsNullOrWhiteSpace(HeroImageUrl))
     {
         <div class="tl-detail-hero__artwork tl-detail-media-stage__background" aria-hidden="true"></div>
@@ -46,7 +46,7 @@
             }
         </div>
     }
-</div>
+</AppCssElement>
 
 @code {
     [Parameter, EditorRequired] public ArtworkSet Artwork { get; set; } = default!;

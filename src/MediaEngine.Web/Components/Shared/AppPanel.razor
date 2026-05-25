@@ -1,7 +1,7 @@
-@namespace MediaEngine.Web.Components.Shared
+﻿@namespace MediaEngine.Web.Components.Shared
 
 <section class="@RootClass"
-         style="@InlineStyle"
+         style="@ResolvedStyle"
          @onclick="HandleClick"
          @attributes="AdditionalAttributes">
     @ChildContent
@@ -13,11 +13,14 @@
     [Parameter] public EventCallback OnClick { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? InlineStyle { get; set; }
+    [Parameter] public string? Css { get; set; }
     [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string RootClass =>
         string.Join(" ", new[] { "app-panel", $"app-panel--{Density.ToString().ToLowerInvariant()}", Class }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string? ResolvedStyle => !string.IsNullOrWhiteSpace(Css) ? Css : InlineStyle;
 
     private Task HandleClick(MouseEventArgs _) => OnClick.InvokeAsync();
 }

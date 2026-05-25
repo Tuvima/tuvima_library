@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Browse
+﻿@namespace MediaEngine.Web.Components.Browse
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Contracts.Display
@@ -143,7 +143,7 @@
     @if (_loading && !_hasLoadedOnce)
     {
         <div class="browse-shell__loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: var(--tl-text-faint);" />
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
         </div>
     }
     else if (_isGroupDrilldown && _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType))
@@ -185,7 +185,7 @@
     else if (_cards.Count == 0)
     {
         <div class="browse-shell__empty">
-            <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 52px; opacity: 0.16;" />
+            <MudIcon Icon="@Icons.Material.Outlined.Inbox" Class="tl-u-font-size-52px tl-u-opacity-0-16" />
             <h3>@EmptyStateTitle</h3>
             <p>@EmptyStateMessage</p>
             @if (string.IsNullOrWhiteSpace(_searchText))

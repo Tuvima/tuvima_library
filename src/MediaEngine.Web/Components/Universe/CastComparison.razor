@@ -1,15 +1,15 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 <div class="cast-panel">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-        <MudText Typo="Typo.subtitle1" Style="color: var(--tl-accent-primary); font-weight: 600; flex: 1;">
+        <MudText Typo="Typo.subtitle1" Class="tl-u-color-tl-accent-primary tl-u-font-weight-600 tl-u-flex-1">
             Cast Comparison
         </MudText>
         <AppSwitchRow T="bool" @bind-Value="_multiActorOnly" Label="Multi-actor only"
                    Color="Color.Warning" />
         <AppTextField T="string" @bind-Value="_search" Placeholder="Search characters..."
-                      Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 200px;"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="tl-u-max-width-200px"
                       Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Filled.Search"
                       Immediate="true" />
@@ -36,19 +36,19 @@
                         else
                         {
                             <div class="char-img-placeholder">
-                                <MudIcon Icon="@Icons.Material.Filled.Person" Style="font-size: 32px; color: #555;" />
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Class="tl-u-font-size-32px tl-u-color-hex-555" />
                             </div>
                         }
                     </div>
 
                     @* Character name *@
-                    <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1"
-                             Style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;">
+                    <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1 tl-u-font-weight-600 tl-u-white-space-nowrap tl-u-overflow-hidden tl-u-text-overflow-ellipsis tl-u-max-width-160px"
+                             >
                         @character.Label
                     </MudText>
                     @if (!string.IsNullOrWhiteSpace(character.Description))
                     {
-                        <MudText Typo="Typo.caption" Style="color: #888; font-size: 11px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-width: 160px;">
+                        <MudText Typo="Typo.caption" Class="tl-u-color-hex-888 tl-u-font-size-11px tl-u-overflow-hidden tl-u-display-webkit-box tl-u-webkit-line-clamp-2 tl-u-webkit-box-orient-vertical tl-u-max-width-160px">
                             @character.Description
                         </MudText>
                     }
@@ -56,7 +56,7 @@
                     @* Performer chips *@
                     @if (character.Performers.Count > 0)
                     {
-                        <MudText Typo="Typo.caption" Style="color: var(--tl-accent-primary); margin-top: 8px; margin-bottom: 4px; font-size: 11px; font-weight: 600;">
+                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-accent-primary tl-u-margin-top-8px tl-u-margin-bottom-4px tl-u-font-size-11px tl-u-font-weight-600">
                             PERFORMERS (@character.Performers.Count)
                         </MudText>
                         <div class="performer-row">
@@ -65,7 +65,7 @@
                                 <div class="performer-chip">
                                     @if (!string.IsNullOrWhiteSpace(performer.HeadshotUrl))
                                     {
-                                        <MudAvatar Size="Size.Small"><img src="@performer.HeadshotUrl" alt="@performer.Name" style="width:100%;height:100%;object-fit:cover;" /></MudAvatar>
+                                        <MudAvatar Size="Size.Small"><img src="@performer.HeadshotUrl" alt="@performer.Name" class="tl-u-width-100pct tl-u-height-100pct tl-u-object-fit-cover" /></MudAvatar>
                                     }
                                     else
                                     {
@@ -73,7 +73,7 @@
                                             @(performer.Name.Length > 0 ? performer.Name[0].ToString() : "?")
                                         </MudAvatar>
                                     }
-                                    <MudText Typo="Typo.caption" Style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">
+                                    <MudText Typo="Typo.caption" Class="tl-u-font-size-11px tl-u-white-space-nowrap tl-u-overflow-hidden tl-u-text-overflow-ellipsis tl-u-max-width-80px">
                                         @performer.Name
                                     </MudText>
                                 </div>
@@ -82,7 +82,7 @@
                     }
                     else
                     {
-                        <MudText Typo="Typo.caption" Style="color: #444; margin-top: 8px; font-size: 11px;">
+                        <MudText Typo="Typo.caption" Class="tl-u-color-hex-444 tl-u-margin-top-8px tl-u-font-size-11px">
                             No performers linked
                         </MudText>
                     }
@@ -92,7 +92,7 @@
 
         @if (!FilteredCharacters.Any())
         {
-            <MudText Typo="Typo.body2" Style="color: #555; text-align: center; padding: 32px 0;">
+            <MudText Typo="Typo.body2" Class="tl-u-color-hex-555 tl-u-text-align-center tl-u-padding-32px-0">
                 No characters match the current filters.
             </MudText>
         }

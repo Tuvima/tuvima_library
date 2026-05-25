@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Routing;
@@ -3757,7 +3757,7 @@ public partial class SharedMediaEditorShell
     private string BuildScopedArtworkKey(string? scopeId, string assetType) =>
         IsBatchMode || string.IsNullOrWhiteSpace(scopeId)
             ? assetType
-            : $"{GetScopeById(scopeId)?.FieldEntityId ?? EditorContextEntityId:D}|{scopeId}|{assetType}";
+            : $"{(GetScopeById(scopeId)?.FieldEntityId ?? EditorContextEntityId):D}|{scopeId}|{assetType}";
 
     private static (Guid EntityId, string ScopeId, string Key) ParseScopedKey(string compositeKey)
     {

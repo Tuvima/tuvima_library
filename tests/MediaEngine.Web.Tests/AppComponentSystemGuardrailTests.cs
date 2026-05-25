@@ -25,6 +25,10 @@ public sealed class AppComponentSystemGuardrailTests
         new(@"<Mud(?:TextField|Select|NumericField|Autocomplete|Button|IconButton|Chip|Paper|Alert|Switch|Tabs|Table|Dialog)\b",
             RegexOptions.Compiled);
 
+    private static readonly Regex InlineStyleAttributeRegex =
+        new(@"(?<![A-Za-z])(?:style|Style)\s*=",
+            RegexOptions.Compiled);
+
     public static IEnumerable<object[]> MigratedFilesData() =>
         AppComponentMigratedFiles.Select(path => new object[] { path });
 
@@ -80,6 +84,33 @@ public sealed class AppComponentSystemGuardrailTests
             .Where(file => !file.RelativePath.Contains("/Components/Shared/", StringComparison.OrdinalIgnoreCase))
             .Where(file => ContainsLegacyPrimitive(file.Contents))
             .Where(file => !allowedLegacyFiles.Contains(file.RelativePath))
+            .Select(file => file.RelativePath)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void FeatureAndLayoutRazorFiles_DoNotUseInlineStyleAttributes()
+    {
+        var roots = new[]
+        {
+            Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components"),
+            Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Shared"),
+        };
+
+        var offenders = roots
+            .Where(Directory.Exists)
+            .SelectMany(root => Directory.EnumerateFiles(root, "*.razor", SearchOption.AllDirectories))
+            .Select(path => new
+            {
+                Path = path,
+                RelativePath = ToRelativePath(path),
+                Contents = File.ReadAllText(path),
+            })
+            .Where(file => !file.RelativePath.Contains("/Components/Shared/", StringComparison.OrdinalIgnoreCase))
+            .Where(file => InlineStyleAttributeRegex.IsMatch(file.Contents))
             .Select(file => file.RelativePath)
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToList();

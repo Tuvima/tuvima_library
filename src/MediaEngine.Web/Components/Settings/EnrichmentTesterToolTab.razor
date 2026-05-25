@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using System.Net.Http.Json
 @using System.Text.Json
 @using System.Text.Json.Serialization
@@ -8,15 +8,15 @@
 <div class="settings-internal-tool" data-temporary-tool="enrichment-tester">
 
     <MudText Typo="Typo.h4" GutterBottom="true"
-             Style="color: var(--tl-text-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 700;">
+             Class="tl-u-color-tl-text-primary tl-u-font-family-app-font-sans tl-u-font-weight-700">
         Enrichment Tester
     </MudText>
-    <MudText Typo="Typo.body2" Class="mb-6"
-             Style="color: var(--tl-text-secondary);">
+    <MudText Typo="Typo.body2" Class="mb-6 tl-u-color-tl-text-secondary"
+             >
         Enter a title, ISBN, or identifier to search Wikidata. Select a result to see full enrichment data.
     </MudText>
-<AppPanel Elevation="0" Class="pa-4 mb-6"
-              Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 12px;">
+<AppPanel Elevation="0" Class="pa-4 mb-6 tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-12px"
+              >
         <MudGrid>
             <MudItem xs="12" sm="5">
                 <AppTextField @bind-Value="_title"
@@ -57,17 +57,17 @@
     </AppPanel>
 @if (_loading)
     {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
-                           Style="border-radius: 4px;" />
-        <MudText Typo="Typo.body2" Class="mb-4" Style="color: var(--tl-text-secondary);">
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4 tl-u-border-radius-4px"
+                            />
+        <MudText Typo="Typo.body2" Class="mb-4 tl-u-color-tl-text-secondary" >
             Searching Wikidata...
         </MudText>
     }
 @if (_enriching)
     {
-        <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="mb-4"
-                           Style="border-radius: 4px;" />
-        <MudText Typo="Typo.body2" Class="mb-4" Style="color: var(--tl-text-secondary);">
+        <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="mb-4 tl-u-border-radius-4px"
+                            />
+        <MudText Typo="Typo.body2" Class="mb-4 tl-u-color-tl-text-secondary" >
             Running full enrichment...
         </MudText>
     }
@@ -88,16 +88,16 @@
     {
         @if (_candidates.Count == 0)
         {
-            <AppPanel Elevation="0" Class="pa-4 mb-4"
-                      Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
-                <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">
+            <AppPanel Elevation="0" Class="pa-4 mb-4 tl-u-background-rgba-255-255-255-0-03 tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                      >
+                <MudText Typo="Typo.body2" Class="tl-u-color-tl-text-muted">
                     No candidates found. Try a different title or media type.
                 </MudText>
             </AppPanel>
         }
         else
         {
-            <MudText Typo="Typo.body2" Class="mb-3" Style="color: var(--tl-text-secondary);">
+            <MudText Typo="Typo.body2" Class="mb-3 tl-u-color-tl-text-secondary" >
                 @_candidates.Count candidate(s) found - click one to run full enrichment.
             </MudText>
 
@@ -105,28 +105,28 @@
                 @foreach (var candidate in _candidates)
                 {
                     <MudItem xs="12" sm="6" md="4">
-                        <AppPanel Elevation="0" Class="pa-3 cursor-pointer"
-                                  Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px; transition: border-color 0.2s;"
+                        <AppPanel Elevation="0" Class="pa-3 cursor-pointer tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px tl-u-transition-border-color-0-2s"
+                                  
                                   @onclick="() => SelectCandidate(candidate)">
                             <div class="d-flex align-center gap-2 mb-2">
                                 <AppChip T="string" Size="Size.Small" Color="Color.Primary"
-                                         Style="height: 20px; font-size: 0.7rem;">
+                                         Class="tl-u-height-20px tl-u-font-size-0-7rem">
                                     @candidate.Qid
                                 </AppChip>
                                 @if (candidate.Match)
                                 {
                                     <AppChip T="string" Size="Size.Small" Color="Color.Success"
-                                             Style="height: 20px; font-size: 0.65rem;">
+                                             Class="tl-u-height-20px tl-u-font-size-0-65rem">
                                         Auto-match
                                     </AppChip>
                                 }
                             </div>
-                            <MudText Typo="Typo.body1" Style="color: var(--tl-text-primary); font-weight: 600;">
+                            <MudText Typo="Typo.body1" Class="tl-u-color-tl-text-primary tl-u-font-weight-600">
                                 @candidate.Label
                             </MudText>
                             @if (!string.IsNullOrEmpty(candidate.Description))
                             {
-                                <MudText Typo="Typo.body2" Style="color: var(--tl-text-secondary); font-size: 0.8rem;" Class="mt-1">
+                                <MudText Typo="Typo.body2"  Class="mt-1 tl-u-color-tl-text-secondary tl-u-font-size-0-8rem">
                                     @candidate.Description
                                 </MudText>
                             }
@@ -134,13 +134,13 @@
                             {
                                 <a href="@candidate.WikidataUrl" target="_blank"
                                    @onclick:stopPropagation="true"
-                                   style="color: var(--tl-status-info); font-size: 0.72rem; text-decoration: none; display: inline-block; margin-top: 4px;">
+                                   class="tl-u-color-tl-status-info tl-u-font-size-0-72rem tl-u-text-decoration-none tl-u-display-inline-block tl-u-margin-top-4px">
                                     View on Wikidata ^
                                 </a>
                             }
                             <MudProgressLinear Value="@(candidate.Score * 100)" Color="Color.Primary"
-                                               Class="mt-2" Style="border-radius: 4px; height: 4px;" />
-                            <MudText Typo="Typo.caption" Style="color: var(--tl-text-muted);" Class="mt-1">
+                                               Class="mt-2 tl-u-border-radius-4px tl-u-height-4px"  />
+                            <MudText Typo="Typo.caption"  Class="mt-1 tl-u-color-tl-text-muted">
                                 Score: @candidate.Score.ToString("P0")
                             </MudText>
                         </AppPanel>
@@ -159,7 +159,7 @@
             <AppChip T="string" Color="Color.Primary" Size="Size.Small">
                 @_selectedCandidate.Qid
             </AppChip>
-            <MudText Typo="Typo.h6" Style="color: var(--tl-text-primary); font-weight: 600;">
+            <MudText Typo="Typo.h6" Class="tl-u-color-tl-text-primary tl-u-font-weight-600">
                 @_selectedCandidate.Label
             </MudText>
             <MudSpacer />
@@ -182,12 +182,12 @@
         </div>
 @if (_result is not null)
         {
-<MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+<MudText Typo="Typo.h6" Class="mb-2 tl-u-color-tl-accent-primary tl-u-font-family-app-font-sans tl-u-font-weight-600"
+                     >
                 Identity
             </MudText>
-            <AppPanel Elevation="0" Class="pa-4 mb-4"
-                      Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+            <AppPanel Elevation="0" Class="pa-4 mb-4 tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                      >
                 <div class="d-flex align-center gap-4 mb-3">
                     @* Cover art *@
                     @{
@@ -199,7 +199,7 @@
                     {
                         <MudImage Src="@coverUrl" Alt="Cover" Width="80" Height="120"
                                   ObjectFit="ObjectFit.Cover"
-                                  Style="border-radius: 6px; flex-shrink: 0;" />
+                                  Class="tl-u-border-radius-6px tl-u-flex-shrink-0" />
                     }
 
                     <div>
@@ -217,7 +217,7 @@
                                 No QID resolved
                             </AppChip>
                         }
-                        <MudText Typo="Typo.body2" Style="color: var(--tl-text-secondary);">
+                        <MudText Typo="Typo.body2" Class="tl-u-color-tl-text-secondary">
                             @_result.ClaimGroups.Count claim group(s) &bull;
                             @_result.Persons.Count person(s) &bull;
                             @_result.FictionalEntities.Count fictional entity(ies) &bull;
@@ -230,13 +230,13 @@
                 @if (_result.ClaimGroups.Count > 0)
                 {
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
-                                    Style="background: transparent; font-size: 0.8rem;">
+                                    Class="tl-u-background-transparent tl-u-font-size-0-8rem">
                         <thead>
                             <tr>
-                                <th style="color: var(--tl-text-secondary); width: 180px;">Field</th>
-                                <th style="color: var(--tl-text-secondary);">Value</th>
-                                <th style="color: var(--tl-text-secondary); width: 90px;">Confidence</th>
-                                <th style="color: var(--tl-text-secondary); width: 300px;">Provider</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-180px">Field</th>
+                                <th class="tl-u-color-tl-text-secondary">Value</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-90px">Confidence</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-300px">Provider</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -247,7 +247,7 @@
                                     <tr>
                                         @if (idx == 0)
                                         {
-                                            <td style="color: var(--tl-accent-primary); vertical-align: top; font-weight: 600;">
+                                            <td class="tl-u-color-tl-accent-primary tl-u-vertical-align-top tl-u-font-weight-600">
                                                 @group.FieldKey
                                             </td>
                                         }
@@ -255,11 +255,11 @@
                                         {
                                             <td></td>
                                         }
-                                        <td style="color: var(--tl-text-primary); word-break: break-all;">
+                                        <td class="tl-u-color-tl-text-primary tl-u-word-break-break-all">
                                             @if (group.FieldKey == "cover" && IsUrl(claim.Value))
                                             {
                                                 <a href="@claim.Value" target="_blank"
-                                                   style="color: var(--tl-status-info); text-decoration: none; font-size: 0.75rem;">
+                                                   class="tl-u-color-tl-status-info tl-u-text-decoration-none tl-u-font-size-0-75rem">
                                                     @TruncateUrl(claim.Value, 60)
                                                 </a>
                                             }
@@ -268,10 +268,10 @@
                                                 @claim.Value
                                             }
                                         </td>
-                                        <td style="color: @ConfidenceColor(claim.Confidence);">
+                                        <AppCssElement Tag="td" Css="@($"color: {ConfidenceColor(claim.Confidence)};")">
                                             @claim.Confidence.ToString("P0")
-                                        </td>
-                                        <td style="color: var(--tl-text-muted); font-size: 0.72rem; font-family: monospace;">
+                                        </AppCssElement>
+                                        <td class="tl-u-color-tl-text-muted tl-u-font-size-0-72rem tl-u-font-family-monospace">
                                             @claim.ProviderId
                                         </td>
                                     </tr>
@@ -282,17 +282,17 @@
                 }
                 else
                 {
-                    <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No claims returned.</MudText>
+                    <MudText Typo="Typo.body2" Class="tl-u-color-tl-text-muted">No claims returned.</MudText>
                 }
             </AppPanel>
 @if (GetBridgeClaims(_result).Count > 0)
             {
-                <MudText Typo="Typo.h6" Class="mb-2"
-                         Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                <MudText Typo="Typo.h6" Class="mb-2 tl-u-color-tl-accent-primary tl-u-font-family-app-font-sans tl-u-font-weight-600"
+                         >
                     Bridge IDs (@GetBridgeClaims(_result).Count)
                 </MudText>
-                <AppPanel Elevation="0" Class="pa-4 mb-4"
-                          Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+                <AppPanel Elevation="0" Class="pa-4 mb-4 tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                          >
                     <MudGrid>
                         @foreach (var group in GetBridgeClaims(_result))
                         {
@@ -301,11 +301,11 @@
                                 <MudItem xs="12" sm="6" md="4">
                                     <div>
                                         <MudText Typo="Typo.caption"
-                                                 Style="color: var(--tl-text-muted); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em;">
+                                                 Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-font-size-0-65rem tl-u-letter-spacing-0-05em">
                                             @group.FieldKey
                                         </MudText>
                                         <MudText Typo="Typo.body2"
-                                                 Style="color: var(--tl-text-primary); font-family: monospace; font-size: 0.85rem;">
+                                                 Class="tl-u-color-tl-text-primary tl-u-font-family-monospace tl-u-font-size-0-85rem">
                                             @claim.Value
                                         </MudText>
                                     </div>
@@ -315,46 +315,46 @@
                     </MudGrid>
                 </AppPanel>
             }
-<MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+<MudText Typo="Typo.h6" Class="mb-2 tl-u-color-tl-accent-primary tl-u-font-family-app-font-sans tl-u-font-weight-600"
+                     >
                 Bridge Hint Preview (@(_result.BridgeHintPreview?.Count ?? 0))
             </MudText>
             @if (_result.BridgeHintPreview is { Count: > 0 })
             {
-                <AppPanel Elevation="0" Class="pa-4 mb-4"
-                          Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
-                    <MudText Typo="Typo.caption" Class="mb-3"
-                             Style="color: var(--tl-text-muted); font-size: 0.7rem;">
+                <AppPanel Elevation="0" Class="pa-4 mb-4 tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                          >
+                    <MudText Typo="Typo.caption" Class="mb-3 tl-u-color-tl-text-muted tl-u-font-size-0-7rem"
+                             >
                         These bridge IDs would flow to Stage 2 retail providers for precise lookups (cover art, ratings).
                     </MudText>
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
-                                    Style="background: transparent; font-size: 0.8rem;">
+                                    Class="tl-u-background-transparent tl-u-font-size-0-8rem">
                         <thead>
                             <tr>
-                                <th style="color: var(--tl-text-secondary); width: 130px;">Hint Key</th>
-                                <th style="color: var(--tl-text-secondary); width: 160px;">Raw Value</th>
-                                <th style="color: var(--tl-text-secondary); width: 160px;">Normalized</th>
-                                <th style="color: var(--tl-text-secondary); width: 130px;">Source Claim</th>
-                                <th style="color: var(--tl-text-secondary);">Target Providers</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-130px">Hint Key</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-160px">Raw Value</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-160px">Normalized</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-130px">Source Claim</th>
+                                <th class="tl-u-color-tl-text-secondary">Target Providers</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var hint in _result.BridgeHintPreview)
                             {
                                 <tr>
-                                    <td style="color: var(--tl-accent-primary); font-weight: 600;">@hint.Key</td>
-                                    <td style="color: var(--tl-text-muted); font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+                                    <td class="tl-u-color-tl-accent-primary tl-u-font-weight-600">@hint.Key</td>
+                                    <td class="tl-u-color-tl-text-muted tl-u-font-family-monospace tl-u-font-size-0-75rem tl-u-word-break-break-all">
                                         @hint.RawValue
                                     </td>
-                                    <td style="color: var(--tl-text-primary); font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+                                    <td class="tl-u-color-tl-text-primary tl-u-font-family-monospace tl-u-font-size-0-75rem tl-u-word-break-break-all">
                                         @hint.NormalizedValue
                                     </td>
-                                    <td style="color: var(--tl-text-secondary); font-size: 0.75rem;">@hint.SourceClaimKey</td>
+                                    <td class="tl-u-color-tl-text-secondary tl-u-font-size-0-75rem">@hint.SourceClaimKey</td>
                                     <td>
                                         @foreach (var provider in hint.TargetProviders)
                                         {
                                             <AppChip T="string" Size="Size.Small" Color="Color.Primary"
-                                                     Style="height: 18px; font-size: 0.6rem; margin: 1px;">
+                                                     Class="tl-u-height-18px tl-u-font-size-0-6rem tl-u-margin-1px">
                                                 @provider
                                             </AppChip>
                                         }
@@ -367,19 +367,19 @@
             }
             else
             {
-                <AppPanel Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.25); border-radius: 10px;">
+                <AppPanel Elevation="0" Class="pa-3 mb-4 tl-u-background-rgba-249-115-22-0-08 tl-u-border-1px-solid-rgba-249-115-22-0-25 tl-u-border-radius-10px"
+                          >
                     <div class="d-flex align-center gap-2">
                         <MudIcon Icon="@Icons.Material.Outlined.Warning" Size="Size.Small"
-                                 Style="color: #F97316;" />
-                        <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.65); font-size: 0.8rem;">
+                                 Class="tl-u-color-hex-f97316" />
+                        <MudText Typo="Typo.body2" Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-0-8rem">
                             No bridge hints would flow to Stage 2 - cover art would rely on text search (ArtworkUnconfirmed)
                         </MudText>
                     </div>
                 </AppPanel>
             }
-<MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+<MudText Typo="Typo.h6" Class="mb-2 tl-u-color-tl-accent-primary tl-u-font-family-app-font-sans tl-u-font-weight-600"
+                     >
                 People (@_result.Persons.Count)
             </MudText>
 
@@ -388,42 +388,42 @@
                 <MudExpansionPanels Class="mb-4" Elevation="0">
                     @foreach (var person in _result.Persons)
                     {
-                        <MudExpansionPanel Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 8px; margin-bottom: 4px;">
+                        <MudExpansionPanel Class="tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-8px tl-u-margin-bottom-4px">
                             <TitleContent>
                                 <div class="d-flex align-center gap-3">
                                     @if (!string.IsNullOrEmpty(person.HeadshotUrl))
                                     {
-                                        <MudAvatar Style="width: 36px; height: 36px; flex-shrink: 0;">
+                                        <MudAvatar Class="tl-u-width-36px tl-u-height-36px tl-u-flex-shrink-0">
                                             <MudImage Src="@person.HeadshotUrl" Alt="@person.Name"
                                                       ObjectFit="ObjectFit.Cover" />
                                         </MudAvatar>
                                     }
                                     else
                                     {
-                                        <MudAvatar Color="Color.Dark" Style="width: 36px; height: 36px; flex-shrink: 0;">
+                                        <MudAvatar Color="Color.Dark" Class="tl-u-width-36px tl-u-height-36px tl-u-flex-shrink-0">
                                             <MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Small" />
                                         </MudAvatar>
                                     }
                                     <div>
-                                        <MudText Typo="Typo.body1" Style="color: var(--tl-text-primary); font-weight: 600; line-height: 1.2;">
+                                        <MudText Typo="Typo.body1" Class="tl-u-color-tl-text-primary tl-u-font-weight-600 tl-u-line-height-1-2">
                                             @person.Name
                                         </MudText>
                                         <div class="d-flex gap-2">
                                             <AppChip T="string" Size="Size.Small" Color="Color.Default"
-                                                     Style="height: 18px; font-size: 0.65rem;">
+                                                     Class="tl-u-height-18px tl-u-font-size-0-65rem">
                                                 @person.Role
                                             </AppChip>
                                             @if (person.Qid is not null)
                                             {
                                                 <AppChip T="string" Size="Size.Small" Color="Color.Primary"
-                                                         Style="height: 18px; font-size: 0.65rem;">
+                                                         Class="tl-u-height-18px tl-u-font-size-0-65rem">
                                                     @person.Qid
                                                 </AppChip>
                                             }
                                             @if (!string.IsNullOrEmpty(person.Occupation))
                                             {
                                                 <AppChip T="string" Size="Size.Small" Color="Color.Default"
-                                                         Style="height: 18px; font-size: 0.65rem; color: var(--tl-text-secondary);">
+                                                         Class="tl-u-height-18px tl-u-font-size-0-65rem tl-u-color-tl-text-secondary">
                                                     @person.Occupation
                                                 </AppChip>
                                             }
@@ -436,9 +436,9 @@
                                     @if (!string.IsNullOrEmpty(person.HeadshotUrl))
                                     {
                                         <div class="mb-3">
-                                            <MudText Typo="Typo.caption" Style="color: var(--tl-text-muted);">HEADSHOT URL</MudText>
+                                            <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted">HEADSHOT URL</MudText>
                                             <a href="@person.HeadshotUrl" target="_blank"
-                                               style="color: var(--tl-status-info); font-size: 0.75rem; word-break: break-all; text-decoration: none;">
+                                               class="tl-u-color-tl-status-info tl-u-font-size-0-75rem tl-u-word-break-break-all tl-u-text-decoration-none">
                                                 @person.HeadshotUrl
                                             </a>
                                         </div>
@@ -446,15 +446,15 @@
                                     @if (!string.IsNullOrEmpty(person.Biography))
                                     {
                                         <div class="mb-2">
-                                            <MudText Typo="Typo.caption" Style="color: var(--tl-text-muted);">BIOGRAPHY</MudText>
-                                            <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.80);">
+                                            <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted">BIOGRAPHY</MudText>
+                                            <MudText Typo="Typo.body2" Class="tl-u-color-rgba-248-248-248-0-80">
                                                 @person.Biography
                                             </MudText>
                                         </div>
                                     }
                                     @if (string.IsNullOrEmpty(person.Biography) && string.IsNullOrEmpty(person.HeadshotUrl))
                                     {
-                                        <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">
+                                        <MudText Typo="Typo.body2" Class="tl-u-color-tl-text-muted">
                                             No additional detail available.
                                         </MudText>
                                     }
@@ -466,45 +466,45 @@
             }
             else
             {
-                <AppPanel Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
-                    <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No people returned.</MudText>
+                <AppPanel Elevation="0" Class="pa-3 mb-4 tl-u-background-rgba-255-255-255-0-03 tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                          >
+                    <MudText Typo="Typo.body2" Class="tl-u-color-tl-text-muted">No people returned.</MudText>
                 </AppPanel>
             }
-<MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+<MudText Typo="Typo.h6" Class="mb-2 tl-u-color-tl-accent-primary tl-u-font-family-app-font-sans tl-u-font-weight-600"
+                     >
                 Fictional Entities (@_result.FictionalEntities.Count)
             </MudText>
 
             @if (_result.FictionalEntities.Count > 0)
             {
-                <AppPanel Elevation="0" Class="pa-3 mb-4"
-                          Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+                <AppPanel Elevation="0" Class="pa-3 mb-4 tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                          >
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
-                                    Style="background: transparent; font-size: 0.8rem;">
+                                    Class="tl-u-background-transparent tl-u-font-size-0-8rem">
                         <thead>
                             <tr>
-                                <th style="color: var(--tl-text-secondary);">Label</th>
-                                <th style="color: var(--tl-text-secondary); width: 110px;">QID</th>
-                                <th style="color: var(--tl-text-secondary); width: 110px;">Type</th>
-                                <th style="color: var(--tl-text-secondary);">Description</th>
+                                <th class="tl-u-color-tl-text-secondary">Label</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-110px">QID</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-110px">Type</th>
+                                <th class="tl-u-color-tl-text-secondary">Description</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var entity in _result.FictionalEntities)
                             {
                                 <tr>
-                                    <td style="color: var(--tl-text-primary); font-weight: 600;">@entity.Label</td>
-                                    <td style="color: var(--tl-text-secondary); font-family: monospace; font-size: 0.75rem;">
+                                    <td class="tl-u-color-tl-text-primary tl-u-font-weight-600">@entity.Label</td>
+                                    <td class="tl-u-color-tl-text-secondary tl-u-font-family-monospace tl-u-font-size-0-75rem">
                                         @(entity.Qid ?? "-")
                                     </td>
                                     <td>
                                         <AppChip T="string" Size="Size.Small" Color="Color.Secondary"
-                                                 Style="height: 18px; font-size: 0.65rem;">
+                                                 Class="tl-u-height-18px tl-u-font-size-0-65rem">
                                             @entity.EntityType
                                         </AppChip>
                                     </td>
-                                    <td style="color: rgba(248,248,248,0.70);">@(entity.Description ?? "-")</td>
+                                    <td class="tl-u-color-rgba-248-248-248-0-70">@(entity.Description ?? "-")</td>
                                 </tr>
                             }
                         </tbody>
@@ -513,63 +513,63 @@
             }
             else
             {
-                <AppPanel Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
-                    <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No fictional entities returned.</MudText>
+                <AppPanel Elevation="0" Class="pa-3 mb-4 tl-u-background-rgba-255-255-255-0-03 tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                          >
+                    <MudText Typo="Typo.body2" Class="tl-u-color-tl-text-muted">No fictional entities returned.</MudText>
                 </AppPanel>
             }
-<MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+<MudText Typo="Typo.h6" Class="mb-2 tl-u-color-tl-accent-primary tl-u-font-family-app-font-sans tl-u-font-weight-600"
+                     >
                 Relationships (@_result.Relationships.Count)
             </MudText>
 
             @if (_result.Relationships.Count > 0)
             {
-                <AppPanel Elevation="0" Class="pa-3 mb-4"
-                          Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+                <AppPanel Elevation="0" Class="pa-3 mb-4 tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                          >
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
-                                    Style="background: transparent; font-size: 0.8rem;">
+                                    Class="tl-u-background-transparent tl-u-font-size-0-8rem">
                         <thead>
                             <tr>
-                                <th style="color: var(--tl-text-secondary);">Subject</th>
-                                <th style="color: var(--tl-text-secondary); width: 140px;">Relationship</th>
-                                <th style="color: var(--tl-text-secondary);">Object</th>
-                                <th style="color: var(--tl-text-secondary); width: 100px;">Start</th>
-                                <th style="color: var(--tl-text-secondary); width: 100px;">End</th>
+                                <th class="tl-u-color-tl-text-secondary">Subject</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-140px">Relationship</th>
+                                <th class="tl-u-color-tl-text-secondary">Object</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-100px">Start</th>
+                                <th class="tl-u-color-tl-text-secondary tl-u-width-100px">End</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var rel in _result.Relationships)
                             {
                                 <tr>
-                                    <td style="color: var(--tl-text-primary);">
+                                    <td class="tl-u-color-tl-text-primary">
                                         @rel.SubjectLabel
                                         @if (!string.IsNullOrEmpty(rel.SubjectQid))
                                         {
-                                            <span style="color: var(--tl-text-muted); font-size: 0.72rem; margin-left: 4px;">
+                                            <span class="tl-u-color-tl-text-muted tl-u-font-size-0-72rem tl-u-margin-left-4px">
                                                 (@rel.SubjectQid)
                                             </span>
                                         }
                                     </td>
                                     <td>
                                         <AppChip T="string" Size="Size.Small" Color="Color.Info"
-                                                 Style="height: 18px; font-size: 0.65rem;">
+                                                 Class="tl-u-height-18px tl-u-font-size-0-65rem">
                                             @rel.RelationshipType
                                         </AppChip>
                                     </td>
-                                    <td style="color: var(--tl-text-primary);">
+                                    <td class="tl-u-color-tl-text-primary">
                                         @rel.ObjectLabel
                                         @if (!string.IsNullOrEmpty(rel.ObjectQid))
                                         {
-                                            <span style="color: var(--tl-text-muted); font-size: 0.72rem; margin-left: 4px;">
+                                            <span class="tl-u-color-tl-text-muted tl-u-font-size-0-72rem tl-u-margin-left-4px">
                                                 (@rel.ObjectQid)
                                             </span>
                                         }
                                     </td>
-                                    <td style="color: var(--tl-text-secondary); font-size: 0.75rem;">
+                                    <td class="tl-u-color-tl-text-secondary tl-u-font-size-0-75rem">
                                         @(rel.StartTime ?? "-")
                                     </td>
-                                    <td style="color: var(--tl-text-secondary); font-size: 0.75rem;">
+                                    <td class="tl-u-color-tl-text-secondary tl-u-font-size-0-75rem">
                                         @(rel.EndTime ?? "-")
                                     </td>
                                 </tr>
@@ -580,29 +580,29 @@
             }
             else
             {
-                <AppPanel Elevation="0" Class="pa-3 mb-4"
-                          Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
-                    <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No relationships returned.</MudText>
+                <AppPanel Elevation="0" Class="pa-3 mb-4 tl-u-background-rgba-255-255-255-0-03 tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
+                          >
+                    <MudText Typo="Typo.body2" Class="tl-u-color-tl-text-muted">No relationships returned.</MudText>
                 </AppPanel>
             }
 <MudExpansionPanels Class="mb-6" Elevation="0">
-                <MudExpansionPanel Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
+                <MudExpansionPanel Class="tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px">
                     <TitleContent>
                         <MudText Typo="Typo.h6"
-                                 Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
+                                 Class="tl-u-color-tl-accent-primary tl-u-font-family-app-font-sans tl-u-font-weight-600">
                             Raw Claims -
                             @(_result.ClaimGroups.Sum(g => g.Claims.Count)) total
                         </MudText>
                     </TitleContent>
                     <ChildContent>
                         <MudSimpleTable Dense="true" Striped="true" Hover="true"
-                                        Style="background: transparent; font-size: 0.78rem;">
+                                        Class="tl-u-background-transparent tl-u-font-size-0-78rem">
                             <thead>
                                 <tr>
-                                    <th style="color: var(--tl-text-secondary); width: 160px;">Field Key</th>
-                                    <th style="color: var(--tl-text-secondary);">Value</th>
-                                    <th style="color: var(--tl-text-secondary); width: 90px;">Confidence</th>
-                                    <th style="color: var(--tl-text-secondary); width: 300px;">Provider ID</th>
+                                    <th class="tl-u-color-tl-text-secondary tl-u-width-160px">Field Key</th>
+                                    <th class="tl-u-color-tl-text-secondary">Value</th>
+                                    <th class="tl-u-color-tl-text-secondary tl-u-width-90px">Confidence</th>
+                                    <th class="tl-u-color-tl-text-secondary tl-u-width-300px">Provider ID</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -611,12 +611,12 @@
                                     @foreach (var claim in group.Claims)
                                     {
                                         <tr>
-                                            <td style="color: var(--tl-accent-primary); font-weight: 600;">@group.FieldKey</td>
-                                            <td style="color: var(--tl-text-primary); word-break: break-all;">@claim.Value</td>
-                                            <td style="color: @ConfidenceColor(claim.Confidence);">
+                                            <td class="tl-u-color-tl-accent-primary tl-u-font-weight-600">@group.FieldKey</td>
+                                            <td class="tl-u-color-tl-text-primary tl-u-word-break-break-all">@claim.Value</td>
+                                            <AppCssElement Tag="td" Css="@($"color: {ConfidenceColor(claim.Confidence)};")">
                                                 @claim.Confidence.ToString("P0")
-                                            </td>
-                                            <td style="color: rgba(248,248,248,0.40); font-family: monospace; font-size: 0.70rem;">
+                                            </AppCssElement>
+                                            <td class="tl-u-color-rgba-248-248-248-0-40 tl-u-font-family-monospace tl-u-font-size-0-70rem">
                                                 @claim.ProviderId
                                             </td>
                                         </tr>

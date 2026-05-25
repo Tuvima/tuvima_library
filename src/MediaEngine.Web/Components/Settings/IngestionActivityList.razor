@@ -538,7 +538,7 @@
                 return "No files currently waiting in this task";
             }
 
-            return $"{queued.ToString("N0", CultureInfo.CurrentCulture)} queued · {active.ToString("N0", CultureInfo.CurrentCulture)} active";
+            return $"{queued.ToString("N0", CultureInfo.CurrentCulture)} queued  -  {active.ToString("N0", CultureInfo.CurrentCulture)} active";
         }
 
         private static string ToMetricToneCss(string? tone) => tone?.ToLowerInvariant() switch

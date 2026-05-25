@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Browse
+﻿@namespace MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Models.ViewDTOs
 
 @inject NavigationManager Nav
@@ -79,7 +79,7 @@
         {
             <div class="browse-hero__progress-wrap">
                 <div class="browse-hero__progress-track">
-                    <div class="browse-hero__progress-fill" style="width: @($"{Math.Clamp(Hero.ProgressPct.Value, 0, 100):F0}%");"></div>
+                    <AppCssElement Tag="div" Class="browse-hero__progress-fill" Css="@($"width: {$"{Math.Clamp(Hero.ProgressPct.Value, 0, 100):F0}%"};")"></AppCssElement>
                 </div>
                 <div class="browse-hero__progress-label">@($"{Math.Clamp(Hero.ProgressPct.Value, 0, 100):F0}% complete")</div>
             </div>
@@ -87,13 +87,13 @@
 
         <div class="browse-hero__actions">
             <AppNativeButton Type="button" Class="browse-hero__button browse-hero__button--primary" OnClick="OpenPrimary">
-                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 18px;" />
+                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Class="tl-u-font-size-18px" />
                 <span>@Hero.PrimaryActionLabel</span>
             </AppNativeButton>
             @if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
             {
                 <AppNativeButton Type="button" Class="browse-hero__button browse-hero__button--secondary" OnClick="OpenSecondary">
-                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 18px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Class="tl-u-font-size-18px" />
                     <span>@(Hero.SecondaryActionLabel ?? "Details")</span>
                 </AppNativeButton>
             }
@@ -105,7 +105,7 @@
         }
     </div>;
 
-    private RenderFragment RenderCover() => @<div class="browse-hero__cover-frame" style="@($"--browse-hero-cover-aspect: {Hero?.CoverAspectRatioCss ?? "2 / 3"};")">
+    private RenderFragment RenderCover() => @<AppCssElement Tag="div" Class="browse-hero__cover-frame" Css="@($"--browse-hero-cover-aspect: {Hero?.CoverAspectRatioCss ?? "2 / 3"};")">
         @if (!string.IsNullOrWhiteSpace(Hero?.CoverUrl))
         {
             <img src="@Hero.CoverUrl" alt="@Hero.Title" class="browse-hero__cover" />
@@ -113,10 +113,10 @@
         else
         {
             <div class="browse-hero__cover-placeholder">
-                <MudIcon Icon="@GetFallbackIcon()" Style="font-size: 46px; opacity: 0.22;" />
+                <MudIcon Icon="@GetFallbackIcon()" Class="tl-u-font-size-46px tl-u-opacity-0-22" />
             </div>
         }
-    </div>;
+    </AppCssElement>;
 
     private void OpenPrimary()
     {

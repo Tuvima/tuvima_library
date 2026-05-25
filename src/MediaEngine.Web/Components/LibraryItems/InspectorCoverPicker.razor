@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
 
@@ -16,7 +16,7 @@
         {
             <div class="coverpicker-alias-row">
                 <MudIcon Icon="@Icons.Material.Outlined.TravelExplore"
-                         Style="font-size: 13px; color: var(--tl-text-muted);" />
+                         Class="tl-u-font-size-13px tl-u-color-tl-text-muted" />
                 <AppNativeSelect Class="coverpicker-alias-select" OnChange="HandleAliasChanged">
                     @foreach (var alias in _aliases)
                     {
@@ -38,9 +38,9 @@
                     <div class="coverpicker-img-wrap">
                         <img src="@cover.Url" alt="" class="coverpicker-img" loading="lazy"
                              onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" />
-                        <div class="coverpicker-img-fallback" style="display: none;">
+                        <div class="coverpicker-img-fallback tl-u-display-none" >
                             <MudIcon Icon="@Icons.Material.Outlined.BrokenImage"
-                                     Style="font-size: 14px; color: var(--tl-text-faint);" />
+                                     Class="tl-u-font-size-14px tl-u-color-tl-text-faint" />
                         </div>
                     </div>
                     @if (!string.IsNullOrEmpty(cover.Label))
@@ -50,7 +50,7 @@
                     @if (isSelected)
                     {
                         <span class="coverpicker-check">
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size: 14px; color: var(--tl-status-info);" />
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="tl-u-font-size-14px tl-u-color-tl-status-info" />
                         </span>
                     }
                 </div>
@@ -60,7 +60,7 @@
             {
                 <div class="coverpicker-thumb coverpicker-thumb--loading">
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 16px; height: 16px; color: var(--tl-text-muted);" />
+                                         Class="tl-u-width-16px tl-u-height-16px tl-u-color-tl-text-muted" />
                 </div>
             }
 
@@ -68,8 +68,8 @@
             {
                 var isAudiobookMore = string.Equals(MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
                                       || string.Equals(MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
-                <AppNativeButton Class="@($"coverpicker-more @(isAudiobookMore ? ")" coverpicker-more--square" : "")" OnClick="LoadMore">
-                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px;" />
+                <AppNativeButton Class='@($"coverpicker-more {(isAudiobookMore ? " coverpicker-more--square" : "")}")' OnClick="LoadMore">
+                    <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-16px" />
                     <span>More</span>
                 </AppNativeButton>
             }

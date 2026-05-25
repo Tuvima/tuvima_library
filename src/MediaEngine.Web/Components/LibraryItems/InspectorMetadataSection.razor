@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 @using MudBlazor
 
@@ -16,14 +16,14 @@
     else
     {
 <div class="ims-subtabs">
-            <AppNativeButton Class="@($"ims-subtab @(_subtab == ")" matched" ? "ims-subtab--active" : "")" OnClick='() => _subtab = "matched"'>
+            <AppNativeButton Class='@($"ims-subtab {(_subtab == "matched" ? "ims-subtab--active" : "")}")' OnClick='() => _subtab = "matched"'>
                 Matched
                 @if (MatchedFields.Count > 0)
                 {
                     <span class="ims-subtab-count">@MatchedFields.Count</span>
                 }
             </AppNativeButton>
-            <AppNativeButton Class="@($"ims-subtab @(_subtab == ")" file" ? "ims-subtab--active" : "")" OnClick='() => _subtab = "file"'>
+            <AppNativeButton Class='@($"ims-subtab {(_subtab == "file" ? "ims-subtab--active" : "")}")' OnClick='() => _subtab = "file"'>
                 File
                 @if (FileFields.Count > 0)
                 {
@@ -45,12 +45,12 @@
                         @if (field.IsUserLocked)
                         {
                             <MudIcon Icon="@Icons.Material.Outlined.Lock"
-                                     Style="font-size: 0.7rem; color: var(--tl-accent-primary);" />
+                                     Class="tl-u-font-size-0-7rem tl-u-color-tl-accent-primary" />
                         }
                         @if (field.IsConflicted)
                         {
                             <MudIcon Icon="@Icons.Material.Outlined.Warning"
-                                     Style="font-size: 0.7rem; color: var(--tl-status-warning);" />
+                                     Class="tl-u-font-size-0-7rem tl-u-color-tl-status-warning" />
                         }
                     </div>
                     @if (field.Key == "wikidata_qid" && !string.IsNullOrEmpty(field.Value))

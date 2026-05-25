@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Shared
+﻿@namespace MediaEngine.Web.Shared
 @inherits LayoutComponentBase
 @inject ThemeService ThemeService
 @inject DeviceContextService DeviceContext
@@ -10,6 +10,7 @@
 @implements IAsyncDisposable
 
 @using MediaEngine.Web.Components.Listen
+@using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Resources
 @using Microsoft.Extensions.Localization
@@ -32,8 +33,7 @@
             <MudLink Href="/" Underline="Underline.None" Class="layout-shell__brand-link" aria-label="Tuvima Library">
                 <span class="layout-shell__brand-lockup-shell" aria-hidden="true">
                     <AppLogo Variant="full"
-                             Class="layout-shell__brand-lockup"
-                             Style="width:100%;height:100%;display:block;" />
+                             Class="layout-shell__brand-lockup" />
                 </span>
             </MudLink>
 
@@ -44,7 +44,7 @@
                        @key="link.Path"
                        class="@GetNavLinkClass(link.Path)"
                        aria-current="@(IsNavActive(link.Path) ? "page" : null)">
-                        <span class="layout-shell__nav-link-label" style="@NavLabelStyle">
+                        <span class="layout-shell__nav-link-label">
                             @L[link.LabelKey].Value.ToUpperInvariant()
                         </span>
                     </a>
@@ -99,18 +99,12 @@
                            aria-haspopup="menu"
                            aria-expanded="@_isProfileMenuOpen"
                            OnClick="ToggleProfileMenu">
-                    <MudAvatar Size="Size.Medium"
-                               Style="@GetAvatarStyle()"
-                               Class="layout-shell__avatar">
-                        @if (!string.IsNullOrWhiteSpace(_avatarImageUrl))
-                        {
-                            <img src="@_avatarImageUrl" alt="" style="width:100%;height:100%;object-fit:cover;" />
-                        }
-                        else
-                        {
-                            @_avatarInitial
-                        }
-                    </MudAvatar>
+                    <AppAvatar ImageUrl="@_avatarImageUrl"
+                               AltText=""
+                               Initials="@_avatarInitial"
+                               AccentColor="@_avatarColor"
+                               ForegroundColor="@AvatarForeground"
+                               Class="layout-shell__avatar" />
                     <span class="layout-shell__profile-copy">
                         <span class="layout-shell__profile-name">@_displayName</span>
                         <span class="layout-shell__profile-role">@_profileRole</span>
@@ -200,7 +194,6 @@
     private int _reviewCount;
     private List<ProfileViewModel> _profiles = [];
     private DotNetObjectReference<MainLayout>? _dotNetRef;
-    private const string NavLabelStyle = "font-family:'Montserrat',sans-serif;font-weight:400;font-size:1.02rem;letter-spacing:0.16em;line-height:1;text-transform:uppercase;";
 
     private readonly record struct ShellNavLink(string Path, string LabelKey);
 
@@ -536,11 +529,13 @@
             : char.ToUpperInvariant(firstLetter).ToString();
     }
 
-    private string GetAvatarStyle()
+    private string AvatarForeground
     {
-        var theme = ThemeService.Theme.PaletteDark;
-        var foreground = GetAvatarForeground(_avatarColor, theme.TextPrimary.ToString(), theme.Background.ToString());
-        return $"background:{_avatarColor}; color:{foreground};";
+        get
+        {
+            var theme = ThemeService.Theme.PaletteDark;
+            return GetAvatarForeground(_avatarColor, theme.TextPrimary.ToString(), theme.Background.ToString());
+        }
     }
 
     private static string GetAvatarForeground(string backgroundHex, string lightForeground, string darkForeground)

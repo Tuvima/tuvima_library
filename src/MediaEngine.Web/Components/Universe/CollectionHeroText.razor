@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @using MediaEngine.Web.Models.ViewDTOs
 @if (!string.IsNullOrEmpty(Data?.Subtitle))
@@ -6,7 +6,7 @@
     <p class="hero-subtitle-label">@Data.Subtitle</p>
 }
 
-<h2 class="hero-title" @onclick="HandleClick" style="cursor: pointer;">@Data?.Title</h2>
+<h2 class="hero-title tl-u-cursor-pointer" @onclick="HandleClick" >@Data?.Title</h2>
 
 <div class="hero-badges">
     @if (!string.IsNullOrEmpty(Data?.Year))
@@ -53,16 +53,16 @@
 
 @if (!string.IsNullOrEmpty(Data?.ActionLabel))
 {
-    <AppNativeButton Class="collection-primary-cta" OnClick="HandleCtaClick" StopPropagation="true" InlineStyle="margin-top: 16px;">
+    <AppNativeButton Class="collection-primary-cta" OnClick="HandleCtaClick" StopPropagation="true" Css="margin-top: 16px;">
         <div class="collection-primary-cta-inner">
             <MudIcon Icon="@(Data.ActionIcon ?? Icons.Material.Filled.MenuBook)"
-                     Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
+                     Class="tl-u-font-size-1-2rem tl-u-color-hex-1a1208 tl-u-flex-shrink-0" />
             <span class="collection-primary-cta-label">@Data.ActionLabel</span>
         </div>
         @if (Data.ProgressPct is > 0 and < 99.5)
         {
-            <div class="collection-primary-cta-progress"
-                 style="width: @(Data.ProgressPct.Value.ToString("F0"))%"></div>
+            <AppCssElement Tag="div" Class="collection-primary-cta-progress"
+                 Css="@($"width: {Data.ProgressPct.Value.ToString("F0")}%")"></AppCssElement>
         }
     </AppNativeButton>
 }

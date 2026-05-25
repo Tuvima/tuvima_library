@@ -24,7 +24,7 @@
             @foreach (var highlight in Highlights.OrderByDescending(h => h.CreatedAt))
             {
                 <div class="highlight-card" @onclick="() => OnNavigate.InvokeAsync(highlight.ChapterIndex)">
-                    <div class="highlight-color-bar" style="background-color: @GetColor(highlight.Color)"></div>
+                    <AppCssElement Tag="div" Class="highlight-color-bar" Css="@($"background-color: {GetColor(highlight.Color)}")"></AppCssElement>
                     <div class="highlight-body">
                         <div class="highlight-text">"@TruncateText(highlight.SelectedText, 120)"</div>
                         @if (!string.IsNullOrEmpty(highlight.NoteText))
@@ -79,7 +79,7 @@
     private static string TruncateText(string? text, int maxLen)
     {
         if (string.IsNullOrEmpty(text)) return "";
-        return text.Length <= maxLen ? text : text[..maxLen] + "…";
+        return text.Length <= maxLen ? text : text[..maxLen] + "...";
     }
 
     private static string FormatDate(DateTime? dt)

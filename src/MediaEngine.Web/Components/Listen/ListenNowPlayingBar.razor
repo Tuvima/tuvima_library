@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Listen
+﻿@namespace MediaEngine.Web.Components.Listen
 @using System.Globalization
 @using System.Text.Json
 @using System.Text.RegularExpressions
@@ -27,7 +27,7 @@
                             }
                             else
                             {
-                                <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Style="font-size: 18px;" />
+                                <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Class="tl-u-font-size-18px" />
                             }
                         </div>
                         <div class="listen-player-panel__copy">
@@ -37,19 +37,19 @@
                     </div>
                     <div class="listen-player-panel__actions">
                         <AppNativeButton Type="button" Class="listen-player-panel__close" OnClick="Playback.ClosePanel">
-                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
                         </AppNativeButton>
                     </div>
                 </div>
 
                 <div class="listen-player-panel__tabs" role="tablist" aria-label="Queue panel">
-                    <AppNativeButton Type="button" Class="@($"listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.Queue ? ")" is-active" : null)" OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Queue))">
+                    <AppNativeButton Type="button" Class='@($"listen-player-panel__tab {(Playback.ActiveTab == ListenPlaybackTabs.Queue ? " is-active" : null)}")' OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Queue))">
                         Playing Next
                     </AppNativeButton>
-                    <AppNativeButton Type="button" Class="@($"listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.History ? ")" is-active" : null)" OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.History))">
+                    <AppNativeButton Type="button" Class='@($"listen-player-panel__tab {(Playback.ActiveTab == ListenPlaybackTabs.History ? " is-active" : null)}")' OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.History))">
                         History
                     </AppNativeButton>
-                    <AppNativeButton Type="button" Class="@($"listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.Lyrics ? ")" is-active" : null)" OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Lyrics))">
+                    <AppNativeButton Type="button" Class='@($"listen-player-panel__tab {(Playback.ActiveTab == ListenPlaybackTabs.Lyrics ? " is-active" : null)}")' OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Lyrics))">
                         Lyrics
                     </AppNativeButton>
                 </div>
@@ -82,7 +82,7 @@
                                             }
                                             else
                                             {
-                                                <MudIcon Icon="@FallbackIconFor(item)" Style="font-size: 16px;" />
+                                                <MudIcon Icon="@FallbackIconFor(item)" Class="tl-u-font-size-16px" />
                                             }
                                         </div>
                                         <div class="listen-player-panel__item-copy">
@@ -92,7 +92,7 @@
                                         <div class="listen-player-panel__item-duration">@item.Duration</div>
                                     </AppNativeButton>
                                     <AppNativeButton Type="button" Class="listen-player-panel__item-remove" AriaLabel="Remove from queue" OnClick="@(() => RemoveUpcoming(index))">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-16px" />
                                     </AppNativeButton>
                                 </div>
                             }
@@ -122,7 +122,7 @@
                                         }
                                         else
                                         {
-                                            <MudIcon Icon="@FallbackIconFor(item)" Style="font-size: 16px;" />
+                                            <MudIcon Icon="@FallbackIconFor(item)" Class="tl-u-font-size-16px" />
                                         }
                                     </div>
                                     <div class="listen-player-panel__item-copy">
@@ -187,7 +187,7 @@
                     }
                     else
                     {
-                        <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Style="font-size: 18px;" />
+                        <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Class="tl-u-font-size-18px" />
                     }
                 </div>
 
@@ -204,13 +204,13 @@
             <div class="listen-player__transport">
                 <div class="listen-player__transport-buttons">
                     <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayPreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)">
-                        <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Style="font-size: 20px;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="tl-u-font-size-20px" />
                     </AppNativeButton>
                     <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync">
-                        <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Style="font-size: 24px;" />
+                        <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
                     </AppNativeButton>
                     <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayNextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
-                        <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Style="font-size: 20px;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Class="tl-u-font-size-20px" />
                     </AppNativeButton>
                 </div>
 
@@ -223,17 +223,17 @@
 
             <div class="listen-player__actions">
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMuteAsync">
-                    <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Style="font-size: 18px;" />
+                    <AppMaterialIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Css="font-size: 18px;"  />
                 </AppNativeButton>
                 <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@Playback.Volume" Class="listen-player__volume-slider" OnInput="SetVolumeAsync" />
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="Playback.TogglePanel">
-                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 18px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="TogglePopupAsync">
-                    <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Style="font-size: 18px;" />
+                    <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ClosePlayerAsync">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
             </div>
         </div>

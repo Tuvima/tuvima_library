@@ -1,12 +1,12 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
 <div class="irpt-section">
     <AppNativeButton Class="irpt-toggle" OnClick="() => _expanded = !_expanded">
         <MudIcon Icon="@(_expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
-                 Style="font-size: 14px; color: rgba(255,255,255,0.30);" />
+                 Class="tl-u-font-size-14px tl-u-color-rgba-255-255-255-0-30" />
         <span class="irpt-label">REPORTS (@Reports.Count)</span>
-        <span class="irpt-badge" style="background: var(--tl-status-danger-soft); color: var(--tl-status-danger);">@Reports.Count</span>
+        <span class="irpt-badge tl-u-background-tl-status-danger-soft tl-u-color-tl-status-danger" >@Reports.Count</span>
     </AppNativeButton>
 
     @if (_expanded)
@@ -15,7 +15,7 @@
         {
             <div class="irpt-loading">
                 <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                     Style="width: 16px; height: 16px; color: var(--tl-text-faint);" />
+                                     Class="tl-u-width-16px tl-u-height-16px tl-u-color-tl-text-faint" />
             </div>
         }
         else if (Reports.Count == 0)

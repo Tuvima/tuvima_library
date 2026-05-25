@@ -1,12 +1,12 @@
-@namespace MediaEngine.Web.Components.Bento
+﻿@namespace MediaEngine.Web.Components.Bento
 
 @* Asymmetric Bento-grid container (Section 2.2 of the UI ASD).
    Renders child BentoItems inside a CSS grid with variable column/row spans.
    Supports a dynamic Columns parameter driven by device context. *@
 
-<div class="bento-grid @Class" style="@ComputedStyle">
+<AppCssElement Tag="div" Class='@($"bento-grid {Class}")' Css="@ComputedStyle">
     @ChildContent
-</div>
+</AppCssElement>
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }

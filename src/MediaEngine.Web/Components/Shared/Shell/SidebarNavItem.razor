@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Shared.Shell
+﻿@namespace MediaEngine.Web.Components.Shared.Shell
 @inject NavigationManager Nav
 
 @if (OnClick.HasDelegate)
@@ -41,7 +41,14 @@ else
     [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
 
     private string CssClass =>
-        $"sidebar-nav-item sidebar-nav-item--level-{Math.Clamp(Level, 0, 3)}{(Active ? " is-active" : string.Empty)}{(Child ? " is-child" : string.Empty)}{(string.IsNullOrWhiteSpace(Tone) ? string.Empty : $" sidebar-nav-item--tone-{Tone}")}";
+        string.Join(" ", new[]
+        {
+            "sidebar-nav-item",
+            $"sidebar-nav-item--level-{Math.Clamp(Level, 0, 3)}",
+            Active ? "is-active" : null,
+            Child ? "is-child" : null,
+            string.IsNullOrWhiteSpace(Tone) ? null : $"sidebar-nav-item--tone-{Tone}"
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private void Navigate()
     {

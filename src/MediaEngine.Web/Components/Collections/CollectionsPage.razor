@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Collections
+﻿@namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Models.ViewDTOs
@@ -97,13 +97,13 @@
     @if (_loading)
     {
         <div class="browse-shell__loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: var(--tl-text-faint);" />
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
         </div>
     }
     else if (CollectionCards.Count == 0)
     {
         <div class="browse-shell__empty">
-            <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" Style="font-size: 52px; opacity: 0.16;" />
+            <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" Class="tl-u-font-size-52px tl-u-opacity-0-16" />
             <h3>No collections found</h3>
             <p>Collections appear when the Engine finds Wikidata-backed universes or when you create one.</p>
         </div>

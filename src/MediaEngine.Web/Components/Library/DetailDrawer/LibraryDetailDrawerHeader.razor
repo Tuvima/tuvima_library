@@ -1,4 +1,4 @@
-@using MediaEngine.Domain.Enums
+﻿@using MediaEngine.Domain.Enums
 @using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
@@ -7,7 +7,7 @@
 <div class="vdd-header">
     <AppIconButton Icon="@Icons.Material.Outlined.Close"
                    Size="Size.Small"
-                   Style="position:absolute;top:24px;right:24px;color:var(--tl-text-muted);"
+                   Class="tl-u-position-absolute tl-u-top-24px tl-u-right-24px tl-u-color-tl-text-muted"
                    aria-label="Close details drawer"
                    OnClick="OnClose" />
 
@@ -29,7 +29,7 @@
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 48px; color: rgba(255,255,255,0.1);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-48px tl-u-color-rgba-255-255-255-0-1" />
                 }
             </div>
             <div class="vdd-header-info">
@@ -41,13 +41,13 @@
                     @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
                     {
                         <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
-                            <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Public" Class="tl-u-font-size-11px" />
                             @MediaItem.WikidataQid
                         </a>
                         @if (!string.IsNullOrWhiteSpace(WikipediaUrl))
                         {
                             <a href="@WikipediaUrl" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
-                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-11px" />
                                 Wikipedia
                             </a>
                         }
@@ -61,10 +61,10 @@
                     </p>
                 }
                 <div class="vdd-meta">
-                    <span class="vdd-meta-item" style="color: @LibraryHelpers.GetMediaTypeColor(MediaItem.MediaType);">
-                        <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px;" />
+                    <AppCssElement Tag="span" Class="vdd-meta-item" Css="@($"color: {LibraryHelpers.GetMediaTypeColor(MediaItem.MediaType)};")">
+                        <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Class="tl-u-font-size-14px" />
                         @LibraryHelpers.FormatMediaType(MediaItem.MediaType)
-                    </span>
+                    </AppCssElement>
                     @if (!string.IsNullOrEmpty(MediaItem.Year))
                     {
                         <span class="vdd-meta-item">@MediaItem.Year</span>

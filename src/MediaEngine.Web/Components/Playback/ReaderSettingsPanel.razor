@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Playback
+﻿@namespace MediaEngine.Web.Components.Playback
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
@@ -12,13 +12,13 @@
 <div class="settings-section">
             <MudText Typo="Typo.subtitle2" Class="settings-label">Theme</MudText>
             <div class="theme-picker">
-                <AppNativeButton Class="@($"theme-chip theme-dark @(Settings.Theme == ")" dark" ? "active" : "")" OnClick='() => ChangeTheme("dark")'>
+                <AppNativeButton Class='@($"theme-chip theme-dark {(Settings.Theme == "dark" ? "active" : "")}")' OnClick='() => ChangeTheme("dark")'>
                     Dark
                 </AppNativeButton>
-                <AppNativeButton Class="@($"theme-chip theme-sepia @(Settings.Theme == ")" sepia" ? "active" : "")" OnClick='() => ChangeTheme("sepia")'>
+                <AppNativeButton Class='@($"theme-chip theme-sepia {(Settings.Theme == "sepia" ? "active" : "")}")' OnClick='() => ChangeTheme("sepia")'>
                     Sepia
                 </AppNativeButton>
-                <AppNativeButton Class="@($"theme-chip theme-light @(Settings.Theme == ")" light" ? "active" : "")" OnClick='() => ChangeTheme("light")'>
+                <AppNativeButton Class='@($"theme-chip theme-light {(Settings.Theme == "light" ? "active" : "")}")' OnClick='() => ChangeTheme("light")'>
                     Light
                 </AppNativeButton>
             </div>
@@ -28,7 +28,7 @@
             <div class="font-picker">
                 @foreach (var font in _fonts)
                 {
-                    <AppNativeButton Class="@($"font-chip @(Settings.FontFamily == font.Value ? ")" active" : "")" InlineStyle="@($"font-family: {font.Value}")" OnClick="() => ChangeFont(font.Value)">
+                    <AppNativeButton Class='@($"font-chip {(Settings.FontFamily == font.Value ? "active" : "")}")' Css="@($"font-family: {font.Value}")" OnClick="() => ChangeFont(font.Value)">
                         @font.Label
                     </AppNativeButton>
                 }

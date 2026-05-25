@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer State
 @inject NavigationManager Nav
@@ -18,11 +18,11 @@
     else
     {
         @* Expandable mode (default web): full alert with file list *@
-        <AppPanel Elevation="0" Style="@GlassStyle" Class="@Class">
+        <AppPanel Elevation="0" Class="@PanelClass">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
                 <MudIcon Icon="@Icons.Material.Filled.FolderOpen"
                          Color="Color.Warning" Class="mr-2" />
-                <MudText Typo="Typo.body1" Style="flex: 1;">
+                <MudText Typo="Typo.body1" Class="tl-u-flex-1">
                     <strong>@_files.Count</strong> @(_files.Count == 1 ? "file" : "files")
                     in the review queue
                 </MudText>
@@ -47,7 +47,7 @@
             @if (_expanded)
             {
                 <MudSimpleTable Dense="true" Hover="true"
-                                Style="background: transparent; margin-top: 8px;">
+                                Class="tl-u-background-transparent tl-u-margin-top-8px">
                     <thead>
                         <tr>
                             <th>File</th>
@@ -61,7 +61,7 @@
                             <tr>
                                 <td>
                                     <MudTooltip Text="@f.RelativePath">
-                                        <code style="font-family: monospace; font-size: 0.85rem;">
+                                        <code class="tl-u-font-family-monospace tl-u-font-size-0-85rem">
                                             @f.FileName
                                         </code>
                                     </MudTooltip>
@@ -108,11 +108,7 @@
         State.OnStateChanged -= OnStateChanged;
     }
 
-    private const string GlassStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "backdrop-filter: blur(10px); " +
-        "-webkit-backdrop-filter: blur(10px); " +
-        "border-radius: 12px; " +
-        "padding: 20px 24px;";
+    private string PanelClass =>
+        string.Join(" ", new[] { "pending-files-alert-panel", Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
 }

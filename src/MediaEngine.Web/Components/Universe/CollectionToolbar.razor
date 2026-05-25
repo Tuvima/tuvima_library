@@ -1,17 +1,17 @@
-@using MediaEngine.Web.Components.LibraryItems
+﻿@using MediaEngine.Web.Components.LibraryItems
 <div class="collection-toolbar-toggles">
-    <AppNativeButton Class="@($"collection-toolbar-tt @(AllActive ? ")" collection-toolbar-tt--on" : "")" OnClick="ToggleAll">
+    <AppNativeButton Class='@($"collection-toolbar-tt {(AllActive ? " collection-toolbar-tt--on" : "")}")' OnClick="ToggleAll">
         <MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small"
-                 Style="font-size: 1.35rem;" />
+                 Class="tl-u-font-size-1-35rem" />
         <span>All</span>
     </AppNativeButton>
 
     @foreach (var mt in _mediaTypes)
     {
         var isOn = ActiveMediaTypes.Contains(mt.Value);
-        <AppNativeButton Class="@($"collection-toolbar-tt @(isOn ? ")" collection-toolbar-tt--on" : "")" OnClick="@(() => Toggle(mt.Value))">
+        <AppNativeButton Class='@($"collection-toolbar-tt {(isOn ? " collection-toolbar-tt--on" : "")}")' OnClick="@(() => Toggle(mt.Value))">
             <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(mt.Value)" Size="Size.Small"
-                     Style="font-size: 1.35rem;" />
+                     Class="tl-u-font-size-1-35rem" />
             <span>@mt.Label</span>
         </AppNativeButton>
     }

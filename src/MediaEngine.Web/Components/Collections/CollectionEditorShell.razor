@@ -81,7 +81,7 @@
                                Disabled="@_saving">
                         @if (_saving)
                         {
-                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-inherit tl-u-width-14px tl-u-height-14px" />
                         }
                         @(IsPlaylistDialog ? "Create" : SaveButtonText)
                     </AppButton>
@@ -444,7 +444,7 @@
             await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
-            _artworkPreviewUrl = $"data:{(file.ContentType ?? "image/jpeg")};base64,{Convert.ToBase64String(ms.ToArray())}";
+            _artworkPreviewUrl = $"data:{file.ContentType ?? "image/jpeg"};base64,{Convert.ToBase64String(ms.ToArray())}";
         }
         catch
         {
@@ -756,7 +756,7 @@
             parts.Add(work.MediaType);
         if (!string.IsNullOrWhiteSpace(work.Year))
             parts.Add(work.Year);
-        return parts.Count == 0 ? "Library item" : string.Join(" • ", parts);
+        return parts.Count == 0 ? "Library item" : string.Join("  -  ", parts);
     }
 
     private static string FormatManualItemMeta(ManualCollectionItem item)
@@ -766,7 +766,7 @@
             parts.Add(item.Creator);
         if (!string.IsNullOrWhiteSpace(item.MediaType))
             parts.Add(item.MediaType);
-        return parts.Count == 0 ? "Saved item" : string.Join(" • ", parts);
+        return parts.Count == 0 ? "Saved item" : string.Join("  -  ", parts);
     }
 
     private static string FormatPreviewMeta(CollectionResolvedItemViewModel item)
@@ -776,7 +776,7 @@
             parts.Add(item.Creator);
         if (!string.IsNullOrWhiteSpace(item.Year))
             parts.Add(item.Year);
-        return parts.Count == 0 ? "Matching item" : string.Join(" • ", parts);
+        return parts.Count == 0 ? "Matching item" : string.Join("  -  ", parts);
     }
 
     private sealed record OpDef(string Key, string Label);
@@ -842,11 +842,11 @@
                     else
                     {
                         <span class="app-artwork-picker__placeholder">
-                            <MudIcon Icon="@CollectionTypeIcon" Style="font-size: 28px;" />
+                            <MudIcon Icon="@CollectionTypeIcon" Class="tl-u-font-size-28px" />
                         </span>
                     }
                     <span class="app-artwork-picker__edit" title="Edit artwork">
-                        <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Style="font-size: 18px;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Class="tl-u-font-size-18px" />
                     </span>
                     <InputFile class="app-artwork-picker__input" OnChange="OnArtworkSelected" accept=".jpg,.jpeg,.png" />
                 </label>
@@ -1102,7 +1102,7 @@
                 @if (_previewResult is null)
                 {
                     <div class="collection-editor-empty">
-                        <MudIcon Icon="@Icons.Material.Outlined.Visibility" Style="font-size: 24px; opacity: 0.18;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Visibility" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                         <span>Add at least one rule value to preview matching media.</span>
                     </div>
                 }

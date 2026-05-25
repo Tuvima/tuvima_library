@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
@@ -12,7 +12,7 @@
 @if (Item is null)
 {
     <div class="inspector-empty">
-        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 32px; color: rgba(140,120,180,0.18); margin-bottom: 10px;" />
+        <MudIcon Icon="@Icons.Material.Outlined.Info" Class="tl-u-font-size-32px tl-u-color-rgba-140-120-180-0-18 tl-u-margin-bottom-10px" />
         <span class="inspector-empty-text">Select an item to inspect</span>
     </div>
 }
@@ -26,26 +26,26 @@ else
             <div class="inspector-tabs">
                 @if (IsPersonOrUniverse)
                 {
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" details" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "details"'>Details</AppNativeButton>
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" history" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "history"'>History</AppNativeButton>
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" metadata" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "metadata"'>Metadata</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "details" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "details"'>Details</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "history" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "history"'>History</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "metadata" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "metadata"'>Metadata</AppNativeButton>
                 }
                 else if (IsInReview)
                 {
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" resolve" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "resolve"'>Resolve</AppNativeButton>
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" history" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "history"'>History</AppNativeButton>
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" metadata" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "metadata"'>Metadata</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "resolve" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "resolve"'>Resolve</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "history" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "history"'>History</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "metadata" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "metadata"'>Metadata</AppNativeButton>
                 }
                 else
                 {
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" details" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "details"'>Details</AppNativeButton>
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" resolve" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "resolve"'>Resolve</AppNativeButton>
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" history" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "history"'>History</AppNativeButton>
-                    <AppNativeButton Class="@($"inspector-tab @(_inspectorTab == ")" metadata" ? "inspector-tab--active" : "")" OnClick='() => _inspectorTab = "metadata"'>Metadata</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "details" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "details"'>Details</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "resolve" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "resolve"'>Resolve</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "history" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "history"'>History</AppNativeButton>
+                    <AppNativeButton Class='@($"inspector-tab {(_inspectorTab == "metadata" ? "inspector-tab--active" : "")}")' OnClick='() => _inspectorTab = "metadata"'>Metadata</AppNativeButton>
                 }
             </div>
             <AppNativeButton Class="inspector-close" OnClick="OnClose" Type="button" Title="Close inspector">
-                <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
+                <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-16px" />
             </AppNativeButton>
         </div>
 
@@ -75,10 +75,10 @@ else
                         @{
                             var (trigLabel, trigColor, trigIcon) = LibraryItemHelpers.FormatReviewTrigger(Item.ReviewTrigger);
                         }
-                        <div class="inspector-trigger-chip" style="background: @HexToRgba(trigColor, 0.12); color: @trigColor;">
-                            <MudIcon Icon="@trigIcon" Style="font-size: 11px;" />
+                        <AppCssElement Tag="div" Class="inspector-trigger-chip" Css="@($"background: {HexToRgba(trigColor, 0.12)}; color: {trigColor};")">
+                            <MudIcon Icon="@trigIcon" Class="tl-u-font-size-11px" />
                             <span>@trigLabel</span>
-                        </div>
+                        </AppCssElement>
                     </div>
                 }
             </div>
@@ -98,14 +98,14 @@ else
                 {
                     <div class="inspector-rejected-banner">
                         <div class="inspector-rejected-info">
-                            <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 16px; color: var(--tl-status-danger);" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Block" Class="tl-u-font-size-16px tl-u-color-tl-status-danger" />
                             <div class="inspector-rejected-text">
                                 <span class="inspector-rejected-label">This item has been rejected</span>
                                 <span class="inspector-rejected-sub">It will be purged after the retention period.</span>
                             </div>
                         </div>
                         <AppNativeButton Class="inspector-unreject-btn" OnClick="HandleUnreject">
-                            <MudIcon Icon="@Icons.Material.Outlined.Restore" Style="font-size: 16px;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Restore" Class="tl-u-font-size-16px" />
                             <span>Recover Item</span>
                         </AppNativeButton>
                     </div>

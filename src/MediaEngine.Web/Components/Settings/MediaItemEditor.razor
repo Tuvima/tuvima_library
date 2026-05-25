@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using Microsoft.AspNetCore.Components.Routing
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
@@ -15,22 +15,22 @@
 <AppDialog Class="eo-dialog">
     <TitleContent>
         <div class="eo-title-bar">
-            <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Style="color: var(--tl-accent-primary); font-size: 1.2rem;" />
+            <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Class="tl-u-color-tl-accent-primary tl-u-font-size-1-2rem" />
             <span class="eo-title">Media Item Editor</span>
-            <span style="flex: 1;"></span>
+            <span class="tl-u-flex-1"></span>
             <AppIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
                            OnClick="@Cancel"
                            aria-label="Close media item editor"
-                           Style="color: var(--tl-text-secondary);" />
+                           Class="tl-u-color-tl-text-secondary" />
         </div>
     </TitleContent>
 
     <DialogContent>
 <div class="eo-tab-bar">
-            <AppNativeButton Class="@($"eo-tab @(_activeTab == 0 ? ")" eo-tab--on" : "")" OnClick="@(() => SetTab(0))">Details</AppNativeButton>
-            <AppNativeButton Class="@($"eo-tab @(_activeTab == 1 ? ")" eo-tab--on" : "")" OnClick="@(() => SetTab(1))">Update Match</AppNativeButton>
-            <AppNativeButton Class="@($"eo-tab @(_activeTab == 2 ? ")" eo-tab--on" : "")" OnClick="@(() => SetTab(2))">History</AppNativeButton>
-            <AppNativeButton Class="@($"eo-tab @(_activeTab == 3 ? ")" eo-tab--on" : "")" OnClick="@(() => SetTab(3))">Images</AppNativeButton>
+            <AppNativeButton Class='@($"eo-tab {(_activeTab == 0 ? " eo-tab--on" : "")}")' OnClick="@(() => SetTab(0))">Details</AppNativeButton>
+            <AppNativeButton Class='@($"eo-tab {(_activeTab == 1 ? " eo-tab--on" : "")}")' OnClick="@(() => SetTab(1))">Update Match</AppNativeButton>
+            <AppNativeButton Class='@($"eo-tab {(_activeTab == 2 ? " eo-tab--on" : "")}")' OnClick="@(() => SetTab(2))">History</AppNativeButton>
+            <AppNativeButton Class='@($"eo-tab {(_activeTab == 3 ? " eo-tab--on" : "")}")' OnClick="@(() => SetTab(3))">Images</AppNativeButton>
         </div>
 
         <div class="eo-body">
@@ -39,19 +39,19 @@
 <div class="eo-meta-tab">
                     @if (_loadingMeta)
                     {
-                        <div class="eo-status"><MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-border-strong);" /></div>
+                        <div class="eo-status"><MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-border-strong" /></div>
                     }
                     else
                     {
 <div class="eo-authority-banner">
-                            <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Style="font-size: 0.9rem; color: var(--tl-accent-primary);" />
+                            <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Class="tl-u-font-size-0-9rem tl-u-color-tl-accent-primary" />
                             <span>Verified from authoritative sources</span>
                             @if (!string.IsNullOrEmpty(_wikidataQid))
                             {
                                 <a href="https://www.wikidata.org/wiki/@_wikidataQid" target="_blank"
                                    class="eo-qid-chip" title="View on Wikidata">
                                     @_wikidataQid
-                                    <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Style="font-size: 0.65rem;" />
+                                    <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Class="tl-u-font-size-0-65rem" />
                                 </a>
                             }
                         </div>
@@ -59,9 +59,9 @@
                         @RenderGroupedFields()
 @if (_fileTagClaims is { Count: > 0 })
                         {
-                            <div class="eo-group" style="margin-top: 12px;">
+                            <div class="eo-group tl-u-margin-top-12px" >
                                 <div class="eo-group-header">
-                                    <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 0.85rem; color: var(--tl-text-faint);" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Class="tl-u-font-size-0-85rem tl-u-color-tl-text-faint" />
                                     <span class="eo-group-title">Embedded File Tags</span>
                                 </div>
                                 @foreach (var claim in _fileTagClaims.Where(c => !HiddenKeys.Contains(c.Key)))
@@ -84,13 +84,13 @@
                                       Variant="Variant.Outlined" Margin="Margin.Dense"
                                       Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
                                       OnAdornmentClick="@OnSearch" OnKeyUp="@OnSearchKeyUp"
-                                      Style="flex: 1; font-size: 0.85rem;"
+                                      Class="tl-u-flex-1 tl-u-font-size-0-85rem"
                                       Disabled="@_searching" />
 
                         <AppSelect T="string" Value="_selectedMediaType" ValueChanged="OnMediaTypeChanged"
                                    Variant="Variant.Outlined"
                                    Margin="Margin.Dense" Dense="true"
-                                   Style="min-width: 130px; max-width: 150px; font-size: 0.82rem;"
+                                   Class="tl-u-min-width-130px tl-u-max-width-150px tl-u-font-size-0-82rem"
                                    AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
                             @foreach (var mt in _mediaTypeOptions)
                             {
@@ -98,7 +98,7 @@
                             }
                         </AppSelect>
                     </div>
-<div class="eo-search-columns" style="flex: 1; min-height: 0;">
+<div class="eo-search-columns tl-u-flex-1 tl-u-min-height-0" >
 <div class="eo-poster-col">
                             @if (_retailCovers.Count > 0)
                             {
@@ -126,30 +126,30 @@
                             {
                                 <div class="eo-poster-frame eo-poster-frame--empty">
                                     <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                                         Style="color: var(--tl-accent-primary);" />
+                                                         Class="tl-u-color-tl-accent-primary" />
                                 </div>
                             }
                             else
                             {
                                 <div class="eo-poster-frame eo-poster-frame--empty">
                                     <MudIcon Icon="@Icons.Material.Outlined.MenuBook"
-                                             Style="font-size: 2.5rem; opacity: 0.08;" />
+                                             Class="tl-u-font-size-2-5rem tl-u-opacity-0-08" />
                                 </div>
                             }
                         </div>
-<div style="display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
-                            <div class="eo-results-col" style="flex: 1; min-height: 0;">
+<div class="tl-u-display-flex tl-u-flex-direction-column tl-u-min-height-0 tl-u-overflow-hidden">
+                            <div class="eo-results-col tl-u-flex-1 tl-u-min-height-0" >
                                 @if (_searching)
                                 {
                                     <div class="eo-status">
-                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-accent-primary);" />
+                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-accent-primary" />
                                         <span>Searching...</span>
                                     </div>
                                 }
                                 else if (_results is not null && _results.Count == 0)
                                 {
                                     <div class="eo-status">
-                                        <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 2rem; opacity: 0.12;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="tl-u-font-size-2rem tl-u-opacity-0-12" />
                                         <span>No matches found</span>
                                     </div>
                                 }
@@ -164,13 +164,13 @@
                                             @if (item.ResultType == "audiobook_edition")
                                             {
                                                 <div class="eo-result-type eo-result-type--audiobook" title="Audiobook edition">
-                                                    <MudIcon Icon="@Icons.Material.Filled.Headphones" Style="font-size: 1.1rem;" />
+                                                    <MudIcon Icon="@Icons.Material.Filled.Headphones" Class="tl-u-font-size-1-1rem" />
                                                 </div>
                                             }
                                             else if (item.ResultType == "work")
                                             {
                                                 <div class="eo-result-type eo-result-type--work" title="Literary work (no audiobook edition found)">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 1.1rem;" />
+                                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-1-1rem" />
                                                 </div>
                                             }
                                             <div class="eo-result-text">
@@ -191,7 +191,7 @@
                                 {
                                     <div class="eo-status">
                                         <MudIcon Icon="@Icons.Material.Outlined.TravelExplore"
-                                                 Style="font-size: 2rem; opacity: 0.08;" />
+                                                 Class="tl-u-font-size-2rem tl-u-opacity-0-08" />
                                         <span>Search to find a match</span>
                                     </div>
                                 }
@@ -199,7 +199,7 @@
 <div class="eo-apply-bar">
                                 @if (_applying)
                                 {
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-accent-primary);" />
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-accent-primary" />
                                 }
                                 else if (_appliedItem is not null && _confirmingItem is null)
                                 {
@@ -207,7 +207,7 @@
                                 }
                                 else if (_confirmingItem is not null)
                                 {
-                                    <span style="font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size: 0.8rem; color: var(--tl-text-secondary);">Confirm Apply?</span>
+                                    <span class="tl-u-font-family-app-font-sans tl-u-font-size-0-8rem tl-u-color-tl-text-secondary">Confirm Apply?</span>
                                     <AppButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
                                                OnClick="@(() => OnConfirmApply(_confirmingItem))"
                                                Disabled="@_applying">
@@ -215,7 +215,7 @@
                                     </AppButton>
                                     <AppButton Variant="Variant.Text" Size="Size.Small"
                                                OnClick="@(() => _confirmingItem = null)"
-                                               Style="color: rgba(255,255,255,0.4);">
+                                               Class="tl-u-color-rgba-255-255-255-0-4">
                                         Cancel
                                     </AppButton>
                                 }
@@ -237,13 +237,13 @@
                     @if (_loadingHistory)
                     {
                         <div class="eo-status">
-                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-border-strong);" />
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-border-strong" />
                         </div>
                     }
                     else if (_history.Count == 0)
                     {
-                        <div class="eo-status" style="padding: 80px 0;">
-                            <MudIcon Icon="@Icons.Material.Outlined.Timeline" Style="font-size: 2.5rem; opacity: 0.08;" />
+                        <div class="eo-status tl-u-padding-80px-0" >
+                            <MudIcon Icon="@Icons.Material.Outlined.Timeline" Class="tl-u-font-size-2-5rem tl-u-opacity-0-08" />
                             <span>No processing history available</span>
                         </div>
                     }
@@ -253,14 +253,14 @@
                             @foreach (var entry in _history)
                             {
                                 <div class="timeline-entry">
-                                    <div class="timeline-dot" style="background: @GetEventColor(entry.EventType);"></div>
+                                    <AppCssElement Tag="div" Class="timeline-dot" Css="@($"background: {GetEventColor(entry.EventType)};")"></AppCssElement>
                                     <div class="timeline-content">
-                                        <MudText Typo="Typo.body2" Style="font-weight: 500;">@entry.Label</MudText>
+                                        <MudText Typo="Typo.body2" Class="tl-u-font-weight-500">@entry.Label</MudText>
                                         @if (!string.IsNullOrEmpty(entry.Detail))
                                         {
                                             <MudText Typo="Typo.caption" Class="mud-text-secondary">@entry.Detail</MudText>
                                         }
-                                        <MudText Typo="Typo.caption" Style="color: var(--tl-text-muted); font-size: 0.7rem; margin-top: 2px;">
+                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-font-size-0-7rem tl-u-margin-top-2px">
                                             @FormatTimeAgo(entry.OccurredAt)
                                         </MudText>
                                     </div>
@@ -273,9 +273,9 @@
             else
             {
 <div class="eo-meta-tab">
-                    <div class="eo-status" style="padding: 80px 0;">
+                    <div class="eo-status tl-u-padding-80px-0" >
                         <MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary"
-                                 Style="font-size: 2.5rem; opacity: 0.08;" />
+                                 Class="tl-u-font-size-2-5rem tl-u-opacity-0-08" />
                         <span>Image management coming soon</span>
                     </div>
                 </div>
@@ -711,7 +711,7 @@
             {
                 <div class="eo-group">
                     <div class="eo-group-header">
-                        <MudIcon Icon="@group.Icon" Style="font-size: 0.85rem; color: var(--tl-text-faint);" />
+                        <MudIcon Icon="@group.Icon" Class="tl-u-font-size-0-85rem tl-u-color-tl-text-faint" />
                         <span class="eo-group-title">@group.Label</span>
                     </div>
                     @foreach (var field in group.Fields)
@@ -721,7 +721,7 @@
                             <span class="eo-row-value">@Truncate(field.Value!, 300)</span>
                             @if (field.IsUserLocked)
                             {
-                                <MudIcon Icon="@Icons.Material.Filled.Lock" Style="font-size: 0.7rem; color: var(--tl-accent-primary);" title="Locked by you" />
+                                <MudIcon Icon="@Icons.Material.Filled.Lock" Class="tl-u-font-size-0-7rem tl-u-color-tl-accent-primary" title="Locked by you" />
                             }
                         </div>
                     }

@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @using MediaEngine.Web.Models.ViewDTOs
 <div class="person-card" @onclick="OnClick">
@@ -13,7 +13,7 @@
         else
         {
             <MudAvatar Size="MudBlazor.Size.Large"
-                       Style="width: 48px; height: 48px; font-size: 0.95rem; font-weight: 600; background: var(--tl-border-subtle); color: rgba(255,255,255,0.50);">
+                       Class="tl-u-width-48px tl-u-height-48px tl-u-font-size-0-95rem tl-u-font-weight-600 tl-u-background-tl-border-subtle tl-u-color-rgba-255-255-255-0-50">
                 @Person.Initials
             </MudAvatar>
         }

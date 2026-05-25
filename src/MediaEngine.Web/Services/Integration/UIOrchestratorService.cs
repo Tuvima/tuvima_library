@@ -31,8 +31,8 @@ public enum EngineConnectionState
 /// <para>
 /// <b>SignalR events handled:</b>
 /// <list type="bullet">
-///   <item><c>"MediaAdded"</c> — invalidates the collection cache; next navigation triggers a fresh load.</item>
-///   <item><c>"IngestionProgress"</c> — updates progress state in the container for live UI feedback.</item>
+///   <item><c>"MediaAdded"</c>  -  invalidates the collection cache; next navigation triggers a fresh load.</item>
+///   <item><c>"IngestionProgress"</c>  -  updates progress state in the container for live UI feedback.</item>
 /// </list>
 /// </para>
 ///
@@ -445,7 +445,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default)
         => _api.UpdateRetentionAsync(days, ct);
 
-    /// <summary>Returns activity entries filtered by action types — used by Timeline view.</summary>
+    /// <summary>Returns activity entries filtered by action types  -  used by Timeline view.</summary>
     public Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
         string[] actionTypes, int limit = 50, CancellationToken ct = default)
         => _api.GetActivityByTypesAsync(actionTypes, limit, ct);
@@ -604,7 +604,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Fires once per sweep pass after the final progress event.</summary>
     public event Action<RetagSweepProgressDto>? OnRetagSweepCompleted;
 
-    /// <summary>Fires on initial sweep progress ticks (plan §M).</summary>
+    /// <summary>Fires on initial sweep progress ticks (plan section M).</summary>
     public event Action<InitialSweepProgressDto>? OnInitialSweepProgress;
 
     /// <summary>Fires when the initial sweep finishes.</summary>
@@ -661,7 +661,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> RetryRetagForAssetAsync(Guid assetId, CancellationToken ct = default)
         => _api.RetryRetagForAssetAsync(assetId, ct);
 
-    // -- Initial Sweep (side-by-side-with-Plex plan §M) --------------------
+    // -- Initial Sweep (side-by-side-with-Plex plan section M) --------------------
 
     /// <summary>Triggers the fire-and-forget initial hash sweep.</summary>
     public Task<bool> RunInitialSweepAsync(CancellationToken ct = default)
@@ -832,7 +832,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     /// <summary>
     /// Returns all canonical values that have unresolved metadata conflicts.
-    /// Spec: Phase B – Conflict Surfacing (B-05).
+    /// Spec: Phase B  -  Conflict Surfacing (B-05).
     /// </summary>
     public Task<List<ConflictViewModel>> GetConflictsAsync(CancellationToken ct = default)
         => _api.GetConflictsAsync(ct);
@@ -902,7 +902,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // -- Search ----------------------------------------------------------------
 
-    /// <summary>POST /search/universe — Wikidata candidate search enriched with retail cover art.</summary>
+    /// <summary>POST /search/universe  -  Wikidata candidate search enriched with retail cover art.</summary>
     public async Task<List<UniverseCandidateDto>> SearchUniverseAsync(
         string query, string mediaType, int maxCandidates = 5,
         string? localAuthor = null, CancellationToken ct = default)
@@ -911,7 +911,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result?.Candidates ?? [];
     }
 
-    /// <summary>POST /search/retail — retail provider candidate search with optional file hints for description scoring.</summary>
+    /// <summary>POST /search/retail  -  retail provider candidate search with optional file hints for description scoring.</summary>
     public async Task<List<RetailCandidateDto>> SearchRetailAsync(
         string query, string mediaType, int maxCandidates = 5,
         string? localTitle = null, string? localAuthor = null, string? localYear = null,
@@ -926,7 +926,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result?.Candidates ?? [];
     }
 
-    /// <summary>POST /search/resolve — unified resolve search with retail identification and description-based scoring.</summary>
+    /// <summary>POST /search/resolve  -  unified resolve search with retail identification and description-based scoring.</summary>
     public async Task<List<ResolveCandidateDto>> SearchResolveAsync(
         string query, string mediaType, int maxCandidates = 5,
         Dictionary<string, string>? fileHints = null,
@@ -937,7 +937,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     }
 
     /// <summary>
-    /// GET /metadata/{qid}/aliases — fetches Wikidata aliases (alternative titles) for the given QID.
+    /// GET /metadata/{qid}/aliases  -  fetches Wikidata aliases (alternative titles) for the given QID.
     /// If <paramref name="canonicalTitle"/> is provided and is not already in the aliases list,
     /// it is prepended so the canonical title is always the first/default choice.
     /// Returns an empty list when the Engine returns no data or an error occurs.
@@ -960,7 +960,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return aliases;
     }
 
-    /// <summary>POST /library/items/{entityId}/apply-match — apply a selected match.</summary>
+    /// <summary>POST /library/items/{entityId}/apply-match  -  apply a selected match.</summary>
     public async Task<ApplyMatchResponseDto?> ApplyLibraryItemMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
         CancellationToken ct = default)
@@ -984,7 +984,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result;
     }
 
-    /// <summary>POST /library/items/{entityId}/create-manual — create manual metadata entry.</summary>
+    /// <summary>POST /library/items/{entityId}/create-manual  -  create manual metadata entry.</summary>
     public Task<CreateManualResponseDto?> CreateManualEntryAsync(
         Guid entityId, CreateManualRequestDto request,
         CancellationToken ct = default)
@@ -1000,7 +1000,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// Starts the SignalR connection to the Engine API Intercom collection at
     /// <c>{Engine:BaseUrl}/intercom</c>.
     ///
-    /// <para>Idempotent — calling this multiple times is safe; the connection
+    /// <para>Idempotent  -  calling this multiple times is safe; the connection
     /// is only created and started once per circuit lifetime.</para>
     ///
     /// <para>Connection failure is non-fatal: the warning is logged and the
@@ -1072,17 +1072,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         });
 
         // -- "IngestionProgress" -----------------------------------------------
-        // Active ingestion tick — update the progress indicator.
+        // Active ingestion tick  -  update the progress indicator.
         _hubConnection.On<IngestionProgressEvent>(SignalREvents.IngestionProgress, ev =>
         {
             _logger.LogDebug(
-                "Intercom ? IngestionProgress: [{Stage}] {Done}/{Total} — {File}",
+                "Intercom ? IngestionProgress: [{Stage}] {Done}/{Total}  -  {File}",
                 ev.Stage, ev.ProcessedCount, ev.TotalCount, ev.CurrentFile);
             _state.PushIngestionProgress(ev);
         });
 
         // -- "BatchProgress" -------------------------------------------------
-        // Per-file progress tick during an ingestion batch — carries running
+        // Per-file progress tick during an ingestion batch  -  carries running
         // counters and estimated time remaining for the active batch card.
         _hubConnection.On<BatchProgressEvent>(SignalREvents.BatchProgress, ev =>
         {
@@ -1097,7 +1097,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         _hubConnection.On<UniverseEnrichmentProgressEvent>(SignalREvents.UniverseEnrichmentProgress, ev =>
         {
             _logger.LogDebug(
-                "Intercom ? UniverseEnrichmentProgress: {Step} {Done}/{Total} — {Title} ({Qid})",
+                "Intercom ? UniverseEnrichmentProgress: {Step} {Done}/{Total}  -  {Title} ({Qid})",
                 ev.CurrentStep, ev.ProcessedCount, ev.TotalCount, ev.WorkTitle, ev.WorkQid);
             _state.PushUniverseEnrichmentProgress(ev);
         });
@@ -1202,7 +1202,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         });
 
         // -- "HydrationStageCompleted" ----------------------------------------
-        // A pipeline stage completed — metadata may have changed.
+        // A pipeline stage completed  -  metadata may have changed.
         _hubConnection.On<HydrationStageCompletedEvent>(SignalREvents.HydrationStageCompleted, ev =>
         {
             _logger.LogDebug(

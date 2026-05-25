@@ -1,18 +1,18 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
 <div class="rfb-bar">
 <div class="rfb-tabs">
-        <AppNativeButton Class="@($"rfb-tab rfb-tab--review @(ActiveTab == ")" review" ? "rfb-tab--on" : "")" OnClick="@(() => SetTab(" review"))">
+        <AppNativeButton Class='@($"rfb-tab rfb-tab--review {(ActiveTab == "review" ? "rfb-tab--on" : "")}")' OnClick="@(() => SetTab("review"))">
             In Review <span class="rfb-tab-ct rfb-tab-ct--review">@(FourStateCounts?.InReview ?? Counts?.NeedsReview ?? 0)</span>
         </AppNativeButton>
-        <AppNativeButton Class="@($"rfb-tab rfb-tab--nomatch @(ActiveTab == ")" provisional" ? "rfb-tab--on" : "")" OnClick="@(() => SetTab(" provisional"))">
+        <AppNativeButton Class='@($"rfb-tab rfb-tab--nomatch {(ActiveTab == "provisional" ? "rfb-tab--on" : "")}")' OnClick="@(() => SetTab("provisional"))">
             Provisional <span class="rfb-tab-ct rfb-tab-ct--nomatch">@(FourStateCounts?.Provisional ?? 0)</span>
         </AppNativeButton>
-        <AppNativeButton Class="@($"rfb-tab rfb-tab--failed @(ActiveTab == ")" rejected" ? "rfb-tab--on" : "")" OnClick="@(() => SetTab(" rejected"))">
+        <AppNativeButton Class='@($"rfb-tab rfb-tab--failed {(ActiveTab == "rejected" ? "rfb-tab--on" : "")}")' OnClick="@(() => SetTab("rejected"))">
             Rejected <span class="rfb-tab-ct rfb-tab-ct--failed">@(FourStateCounts?.Rejected ?? 0)</span>
         </AppNativeButton>
-        <AppNativeButton Class="@($"rfb-tab @(ActiveTab == ")" all" ? "rfb-tab--on" : "")" OnClick="@(() => SetTab(" all"))">
+        <AppNativeButton Class='@($"rfb-tab {(ActiveTab == "all" ? "rfb-tab--on" : "")}")' OnClick="@(() => SetTab("all"))">
             All <span class="rfb-tab-ct">@(FourStateCounts?.All ?? Counts?.Total ?? 0)</span>
         </AppNativeButton>
     </div>
@@ -20,10 +20,10 @@
         <FuzzySearchField Value="@SearchText"
                           ValueChanged="SearchTextChanged"
                           Placeholder="Filter items..."
-                          Style="max-width: 240px;" />
+                          Class="tl-u-max-width-240px" />
     </div>
-<AppNativeButton Class="@($"rfb-icon-btn @(SelectionMode ? ")" rfb-icon-btn--on" : "")" OnClick="ToggleSelectionMode" Title="Toggle selection mode">
-        <MudIcon Icon="@Icons.Material.Outlined.ChecklistRtl" Style="font-size: 1.1rem;" />
+<AppNativeButton Class='@($"rfb-icon-btn {(SelectionMode ? "rfb-icon-btn--on" : "")}")' OnClick="ToggleSelectionMode" Title="Toggle selection mode">
+        <MudIcon Icon="@Icons.Material.Outlined.ChecklistRtl" Class="tl-u-font-size-1-1rem" />
     </AppNativeButton>
 
     <div class="rfb-spacer"></div>
@@ -31,7 +31,7 @@
         <AppSelect T="string" Value="@GroupBy" ValueChanged="OnGroupByChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense"
                    Dense="true" Label="Group by"
-                   Style="font-size: 0.78rem; width: 140px;">
+                   Class="tl-u-font-size-0-78rem tl-u-width-140px">
             <MudSelectItem Value="@("date")">Date</MudSelectItem>
             <MudSelectItem Value="@("media_type")">Media Type</MudSelectItem>
             <MudSelectItem Value="@("confidence")">Confidence</MudSelectItem>
@@ -40,7 +40,7 @@
 <AppSelect T="string" Value="@SortBy" ValueChanged="OnSortChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense"
                    Dense="true" Label="Sort"
-                   Style="font-size: 0.78rem; width: 130px;">
+                   Class="tl-u-font-size-0-78rem tl-u-width-130px">
             <MudSelectItem Value="@("newest")">Newest</MudSelectItem>
             <MudSelectItem Value="@("oldest")">Oldest</MudSelectItem>
             <MudSelectItem Value="@("confidence")">Confidence</MudSelectItem>

@@ -190,7 +190,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /system/status ────────────────────────────────────────────────────
+    // -- GET /system/status ----------------------------------------------------
 
     public async Task<TranscodingSettings?> GetTranscodingSettingsAsync(CancellationToken ct = default)
     {
@@ -428,7 +428,7 @@ public sealed class EngineApiClient : IEngineApiClient
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
         => await _systemClient.GetSystemStatusAsync(ct);
 
-    // ── GET /collections ─────────────────────────────────────────────────────────────
+    // -- GET /collections -------------------------------------------------------------
 
     public async Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default)
     {
@@ -459,7 +459,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /library/works ─────────────────────────────────────────────────────
+    // -- GET /library/works -----------------------------------------------------
 
     public async Task<List<WorkViewModel>> GetLibraryWorksAsync(int offset = 0, int limit = 500, CancellationToken ct = default)
     {
@@ -502,7 +502,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── POST /ingestion/scan ──────────────────────────────────────────────────
+    // -- POST /ingestion/scan --------------------------------------------------
 
     public async Task<WorkDetailViewModel?> GetWorkDetailAsync(Guid workId, CancellationToken ct = default)
     {
@@ -569,7 +569,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── POST /ingestion/library-scan ─────────────────────────────────────────
+    // -- POST /ingestion/library-scan -----------------------------------------
 
     public async Task<LibraryScanResultViewModel?> TriggerLibraryScanAsync(
         CancellationToken ct = default)
@@ -596,7 +596,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── POST /ingestion/reconcile ─────────────────────────────────────────────
+    // -- POST /ingestion/reconcile ---------------------------------------------
 
     public async Task<ReconciliationResultDto?> TriggerReconciliationAsync(
         CancellationToken ct = default)
@@ -615,7 +615,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /ingestion/watch-folder ────────────────────────────────────────────
+    // -- GET /ingestion/watch-folder --------------------------------------------
 
     public async Task<List<WatchFolderFileViewModel>> GetWatchFolderAsync(CancellationToken ct = default)
     {
@@ -632,7 +632,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── POST /ingestion/rescan ──────────────────────────────────────────────
+    // -- POST /ingestion/rescan ----------------------------------------------
 
     public async Task<bool> TriggerRescanAsync(CancellationToken ct = default)
     {
@@ -658,7 +658,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── PATCH /metadata/resolve ───────────────────────────────────────────────
+    // -- PATCH /metadata/resolve -----------------------------------------------
 
     public async Task<bool> ResolveMetadataAsync(
         Guid entityId, string claimKey, string chosenValue, CancellationToken ct = default)
@@ -681,7 +681,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /collections/search ─────────────────────────────────────────────────────
+    // -- GET /collections/search -----------------------------------------------------
 
     public async Task<List<SearchResultViewModel>> SearchWorksAsync(
         string query,
@@ -719,7 +719,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── /admin/api-keys ───────────────────────────────────────────────────────
+    // -- /admin/api-keys -------------------------------------------------------
 
     public async Task<List<ApiKeyViewModel>> GetApiKeysAsync(CancellationToken ct = default)
     {
@@ -782,7 +782,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── DELETE /admin/api-keys (batch revoke-all) ─────────────────────────────
+    // -- DELETE /admin/api-keys (batch revoke-all) -----------------------------
 
     public async Task<int> RevokeAllApiKeysAsync(CancellationToken ct = default)
     {
@@ -801,7 +801,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── /profiles ───────────────────────────────────────────────────────────────
+    // -- /profiles ---------------------------------------------------------------
 
     public async Task<List<ProfileViewModel>> GetProfilesAsync(CancellationToken ct = default)
     {
@@ -984,7 +984,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /api/v1/display/home ─────────────────────────────────────────────
+    // -- GET /api/v1/display/home ---------------------------------------------
 
     public async Task<DisplayPageDto?> GetDisplayHomeAsync(CancellationToken ct = default)
     {
@@ -1151,7 +1151,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── /metadata/claims + lock-claim ───────────────────────────────────────────
+    // -- /metadata/claims + lock-claim -------------------------------------------
 
     public async Task<ProfileOverviewViewModel?> GetProfileOverviewAsync(Guid id, CancellationToken ct = default)
     {
@@ -1208,7 +1208,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── /metadata/hydrate ──────────────────────────────────────────────────────
+    // -- /metadata/hydrate ------------------------------------------------------
 
     public async Task<HydrateResultViewModel?> TriggerHydrationAsync(
         Guid entityId, CancellationToken ct = default)
@@ -1227,7 +1227,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── /metadata/labels ──────────────────────────────────────────────────────
+    // -- /metadata/labels ------------------------------------------------------
 
     public async Task<Dictionary<string, LabelResolveViewModel>> ResolveLabelsAsync(
         IEnumerable<string> qids, CancellationToken ct = default)
@@ -1249,7 +1249,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── /metadata/conflicts ────────────────────────────────────────────────────
+    // -- /metadata/conflicts ----------------------------------------------------
 
     public async Task<List<ConflictViewModel>> GetConflictsAsync(CancellationToken ct = default)
     {
@@ -1267,7 +1267,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── /settings ─────────────────────────────────────────────────────────────
+    // -- /settings -------------------------------------------------------------
 
     public async Task<ServerGeneralSettingsDto?> GetServerGeneralAsync(CancellationToken ct = default)
     {
@@ -1418,7 +1418,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Provider catalogue (/providers/catalogue) ────────────────────────────
+    // -- Provider catalogue (/providers/catalogue) ----------------------------
 
     public async Task<IReadOnlyList<ProviderCatalogueDto>> GetProviderCatalogueAsync(
         CancellationToken ct = default)
@@ -1450,7 +1450,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Provider management ─────────────────────────────────────────────────
+    // -- Provider management -------------------------------------------------
 
     public async Task<ProviderTestResultDto?> TestProviderAsync(
         string name, CancellationToken ct = default)
@@ -1576,7 +1576,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Activity log (/activity) ───────────────────────────────────────────
+    // -- Activity log (/activity) -------------------------------------------
 
     public async Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(
         int limit = 50, CancellationToken ct = default)
@@ -1675,7 +1675,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Organization template ────────────────────────────────────────────────
+    // -- Organization template ------------------------------------------------
 
     public async Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(
         CancellationToken ct = default)
@@ -1749,7 +1749,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Review queue (/review) ───────────────────────────────────────────
+    // -- Review queue (/review) -------------------------------------------
 
     public async Task<List<ReviewItemViewModel>> GetPendingReviewsAsync(
         int limit = 50, CancellationToken ct = default)
@@ -1892,7 +1892,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Pipelines (/settings/pipelines) ──────────────────────────────────
+    // -- Pipelines (/settings/pipelines) ----------------------------------
 
     public async Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default)
     {
@@ -1928,7 +1928,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Media types (/settings/media-types) ────────────────────────────────
+    // -- Media types (/settings/media-types) --------------------------------
 
     public async Task<MediaTypeConfigurationDto?> GetMediaTypesAsync(CancellationToken ct = default)
     {
@@ -2012,7 +2012,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Metadata search (/metadata/search) ────────────────────────────────
+    // -- Metadata search (/metadata/search) --------------------------------
 
     public async Task<List<MetadataSearchResultDto>> SearchMetadataAsync(
         string providerName, string query, string? mediaType = null,
@@ -2056,7 +2056,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Item preferences (/library/items/{entityId}/preferences) ────
+    // -- Item preferences (/library/items/{entityId}/preferences) ----
 
     public async Task<bool> SaveItemPreferencesAsync(
         Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default)
@@ -2107,7 +2107,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Hydration settings (/settings/hydration) ────────────────────────
+    // -- Hydration settings (/settings/hydration) ------------------------
 
     public async Task<HydrationSettingsDto?> GetHydrationSettingsAsync(
         CancellationToken ct = default)
@@ -2148,7 +2148,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Media File Upload ─────────────────────────────────────────────────
+    // -- Media File Upload -------------------------------------------------
 
     public async Task<bool> UploadMediaAsync(MultipartFormDataContent content, CancellationToken ct = default)
     {
@@ -2173,7 +2173,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Cover Art Upload ──────────────────────────────────────────────────
+    // -- Cover Art Upload --------------------------------------------------
 
     public async Task<bool> UploadCoverAsync(
         Guid entityId, Stream fileStream, string fileName, CancellationToken ct = default)
@@ -2463,7 +2463,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Provider Icons ─────────────────────────────────────────────────────
+    // -- Provider Icons -----------------------------------------------------
 
     public async Task<bool> UploadProviderIconAsync(
         string name, Stream fileStream, string fileName, CancellationToken ct = default)
@@ -2494,7 +2494,7 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public string GetProviderIconUrl(string name) => $"/settings/providers/{name}/icon";
 
-    // ── UI Settings (/settings/ui) ──────────────────────────────────────────
+    // -- UI Settings (/settings/ui) ------------------------------------------
 
     public async Task<ResolvedUISettingsViewModel?> GetResolvedUISettingsAsync(
         string deviceClass = "web",
@@ -2517,7 +2517,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Progress & Journey (/progress) ──────────────────────────────────
+    // -- Progress & Journey (/progress) ----------------------------------
 
     public async Task<List<JourneyItemViewModel>> GetJourneyAsync(
         Guid? userId = null, int limit = 5, Guid? collectionId = null, CancellationToken ct = default)
@@ -2592,9 +2592,9 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Persons by Collection (/persons/by-collection) ─────────────────────────────────
+    // -- Persons by Collection (/persons/by-collection) ---------------------------------
 
-    // ── POST /dev/seed-library ─────────────────────────────────────────
+    // -- POST /dev/seed-library -----------------------------------------
 
     public async Task<bool> SeedLibraryAsync(CancellationToken ct = default)
     {
@@ -2611,7 +2611,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /persons (libraryItem list) ────────────────────────────────────
+    // -- GET /persons (libraryItem list) ------------------------------------
 
     public async Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
         string? role = null, int offset = 0, int limit = 200, CancellationToken ct = default)
@@ -2655,7 +2655,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /persons/by-collection/{collectionId} ─────────────────────────────────────
+    // -- GET /persons/by-collection/{collectionId} -------------------------------------
 
     public async Task<List<PersonViewModel>> GetPersonsByRoleAsync(
         string role, int limit = 50, CancellationToken ct = default)
@@ -2767,7 +2767,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /persons/role-counts ──────────────────────────────────────────
+    // -- GET /persons/role-counts ------------------------------------------
 
     public async Task<Dictionary<string, int>> GetPersonRoleCountsAsync(CancellationToken ct = default)
     {
@@ -2783,7 +2783,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /persons/presence?ids=... ─────────────────────────────────────
+    // -- GET /persons/presence?ids=... -------------------------------------
 
     public async Task<Dictionary<string, Dictionary<string, int>>> GetPersonPresenceAsync(
         IEnumerable<Guid> personIds, CancellationToken ct = default)
@@ -2941,7 +2941,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /collections/parents ─────────────────────────────────────────────────────
+    // -- GET /collections/parents -----------------------------------------------------
 
     public async Task<List<CollectionViewModel>> GetParentCollectionsAsync(CancellationToken ct = default)
     {
@@ -2958,7 +2958,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /collections/{id}/children ───────────────────────────────────────────────
+    // -- GET /collections/{id}/children -----------------------------------------------
 
     public async Task<List<CollectionViewModel>> GetChildCollectionsAsync(
         Guid parentCollectionId, CancellationToken ct = default)
@@ -2977,7 +2977,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /collections/{id}/parent ─────────────────────────────────────────────────
+    // -- GET /collections/{id}/parent -------------------------------------------------
 
     public async Task<CollectionViewModel?> GetParentCollectionAsync(
         Guid collectionId, CancellationToken ct = default)
@@ -3035,7 +3035,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Search results cache ────────────────────────────────────────────
+    // -- Search results cache --------------------------------------------
 
     public async Task<string?> GetSearchResultsCacheAsync(Guid entityId, CancellationToken ct = default)
     {
@@ -3113,7 +3113,7 @@ public sealed class EngineApiClient : IEngineApiClient
             return false;
         }
     }
-    // ── Pass 2 (Universe Lookup) ──────────────────────────────────────────────
+    // -- Pass 2 (Universe Lookup) ----------------------------------------------
 
     public async Task<Pass2StatusDto?> GetPass2StatusAsync(CancellationToken ct = default)
     {
@@ -3145,7 +3145,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Retag Sweep (Auto re-tag) ─────────────────────────────────────────────
+    // -- Retag Sweep (Auto re-tag) ---------------------------------------------
 
     public async Task<RetagSweepStateDto?> GetRetagSweepStateAsync(CancellationToken ct = default)
     {
@@ -3253,7 +3253,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Universe Graph (Chronicle Explorer) ───────────────────────────────────
+    // -- Universe Graph (Chronicle Explorer) -----------------------------------
 
     public async Task<UniverseGraphResponse?> GetUniverseGraphAsync(
         string qid,
@@ -3337,7 +3337,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Universe Explorer (Phase 2 modes) ────────────────────────────────────
+    // -- Universe Explorer (Phase 2 modes) ------------------------------------
 
     public async Task<UniverseCastResponse?> GetUniverseCastAsync(string qid, CancellationToken ct = default)
     {
@@ -3410,7 +3410,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Library items (/library/items) ───────────────────────────────────────────
+    // -- Library items (/library/items) -------------------------------------------
 
     public async Task<LibraryCatalogPageResponse?> GetLibraryCatalogItemsAsync(
         int offset = 0, int limit = 50,
@@ -3834,7 +3834,7 @@ public sealed class EngineApiClient : IEngineApiClient
         public int Count { get; set; }
     }
 
-    // ── Wikidata Aliases (/metadata/{qid}/aliases) ────────────────────────────
+    // -- Wikidata Aliases (/metadata/{qid}/aliases) ----------------------------
 
     public async Task<AliasesResponseDto?> GetAliasesAsync(string qid, CancellationToken ct = default)
     {
@@ -3851,7 +3851,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Search (/search) ─────────────────────────────────────────────────────
+    // -- Search (/search) -----------------------------------------------------
 
     public async Task<SearchUniverseResponseDto?> SearchUniverseAsync(
         string query, string mediaType, int maxCandidates = 5,
@@ -4239,7 +4239,7 @@ public sealed class EngineApiClient : IEngineApiClient
             ? property.GetString()
             : null;
 
-    // ── Private mapping ───────────────────────────────────────────────────────
+    // -- Private mapping -------------------------------------------------------
 
     private void NormalizeCollectionGroupDetail(CollectionGroupDetailViewModel? detail)
     {
@@ -4582,7 +4582,7 @@ public sealed class EngineApiClient : IEngineApiClient
         };
 
     /// <summary>
-    /// Converts relative /stream/… paths stored in canonical values to absolute
+    /// Converts relative /stream/... paths stored in canonical values to absolute
     /// Engine URLs so Dashboard components can use them directly as &lt;img src&gt;.
     /// </summary>
     private string AbsoluteUrl(string value)
@@ -4746,7 +4746,7 @@ public sealed class EngineApiClient : IEngineApiClient
         mediaTypes:    h.MediaTypes,
         totalWorks:    h.TotalWorks);
 
-    // ── EPUB Reader (/read, /reader) ──────────────────────────────────
+    // -- EPUB Reader (/read, /reader) ----------------------------------
 
     public async Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default)
     {
@@ -4992,7 +4992,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Raw response shapes (mirror API Dtos.cs) ──────────────────────────────
+    // -- Raw response shapes (mirror API Dtos.cs) ------------------------------
 
     private sealed record StatusRaw(
         [property: JsonPropertyName("status")]   string  Status,
@@ -5175,7 +5175,7 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("name")]       string? Name,
         [property: JsonPropertyName("date_range")] string? DateRange);
 
-    // ── GET /ai/profile ───────────────────────────────────────────────────────
+    // -- GET /ai/profile -------------------------------------------------------
 
     public async Task<AiHealthStatusDto?> GetAiStatusAsync(CancellationToken ct = default)
     {
@@ -5291,7 +5291,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── POST /ai/benchmark ────────────────────────────────────────────────────
+    // -- POST /ai/benchmark ----------------------------------------------------
 
     public async Task<HardwareProfileDto?> RunBenchmarkAsync(CancellationToken ct = default)
     {
@@ -5310,7 +5310,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /ai/enrichment/progress ───────────────────────────────────────────
+    // -- GET /ai/enrichment/progress -------------------------------------------
 
     public async Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default)
     {
@@ -5327,7 +5327,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /ai/resources ─────────────────────────────────────────────────────
+    // -- GET /ai/resources -----------------------------------------------------
 
     public async Task<ResourceSnapshotDto?> GetResourceSnapshotAsync(CancellationToken ct = default)
     {
@@ -5344,7 +5344,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Collection Group Detail (collection drill-down sub-pages) ─────────────────────────
+    // -- Collection Group Detail (collection drill-down sub-pages) -------------------------
 
     public async Task<CollectionGroupDetailViewModel?> GetCollectionGroupDetailAsync(Guid collectionId, CancellationToken ct = default)
     {
@@ -5423,7 +5423,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Managed Collections (managed collections surface) ────────────────────────────────────────
+    // -- Managed Collections (managed collections surface) ----------------------------------------
 
     private static string AppendCollectionProfileQuery(string url, Guid? profileId)
     {
@@ -5931,7 +5931,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Universe health + character data ─────────────────────────────────────
+    // -- Universe health + character data -------------------------------------
 
     public async Task<UniverseHealthDto?> GetUniverseHealthAsync(string qid, CancellationToken ct = default)
     {
@@ -6156,7 +6156,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Timeline (/timeline) ─────────────────────────────────────────────────
+    // -- Timeline (/timeline) -------------------------------------------------
 
     public async Task<List<EntityTimelineEventDto>?> GetEntityTimelineAsync(Guid entityId, CancellationToken ct = default)
     {
@@ -6234,7 +6234,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Raw deserialization models (character/universe health) ────────────────
+    // -- Raw deserialization models (character/universe health) ----------------
 
     private sealed class UniverseHealthRaw
     {
@@ -6306,7 +6306,7 @@ public sealed class EngineApiClient : IEngineApiClient
         [JsonPropertyName("created_at")] public DateTimeOffset? CreatedAt { get; set; }
     }
 
-    // ── Library Preferences ─────────────────────────────────────────────────────
+    // -- Library Preferences -----------------------------------------------------
 
     public async Task<LibraryPreferencesSettings?> GetLibraryPreferencesAsync()
     {
@@ -6333,7 +6333,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Library Overview ──
+    // -- Library Overview --
 
     public async Task<LibraryOverviewViewModel?> GetLibraryOverviewAsync(CancellationToken ct = default)
     {
@@ -6372,7 +6372,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Universe Alignment ──
+    // -- Universe Alignment --
 
     public async Task<List<UniverseCandidateViewModel>> GetUniverseCandidatesAsync(CancellationToken ct = default)
     {

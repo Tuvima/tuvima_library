@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @using Microsoft.Extensions.Localization
 @using MediaEngine.Web.Resources
@@ -8,20 +8,20 @@
 {
     <div class="vmug-loading">
         <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                             Style="color: var(--tl-border-strong);" />
+                             Class="tl-u-color-tl-border-strong" />
     </div>
 }
 else if (_albums.Count == 0)
 {
     <div class="vmug-empty">
         <MudIcon Icon="@Icons.Material.Outlined.MusicNote"
-                 Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">No albums found.</p>
+                 Class="tl-u-font-size-3rem tl-u-opacity-0-15 tl-u-margin-bottom-12px" />
+        <p class="tl-u-color-tl-text-faint tl-u-font-size-0-85rem">No albums found.</p>
     </div>
 }
 else
 {
-    <div class="vmug-grid" style="--card-size: @(CardSize)px;">
+    <AppCssElement Tag="div" Class="vmug-grid" Css="@($"--card-size: {CardSize}px;")">
         @foreach (var album in _albums)
         {
             var firstItem = album.Value[0];
@@ -38,7 +38,7 @@ else
                     {
                         <div class="vmug-cover-placeholder">
                             <MudIcon Icon="@Icons.Material.Outlined.Album"
-                                     Style="font-size: 2.5rem; opacity: 0.15;" />
+                                     Class="tl-u-font-size-2-5rem tl-u-opacity-0-15" />
                         </div>
                     }
                 </div>
@@ -50,7 +50,7 @@ else
                 <p class="vmug-track-count">@trackCount @(trackCount == 1 ? "track" : "tracks")</p>
             </div>
         }
-    </div>
+    </AppCssElement>
 }
 
 @code {

@@ -1,8 +1,8 @@
-@namespace MediaEngine.Web.Components.Shared
+﻿@namespace MediaEngine.Web.Components.Shared
 
 <span class="@RootClass"
       title="@Title"
-      style="@InlineStyle"
+      style="@ResolvedStyle"
       role="@Role"
       tabindex="@TabIndex"
       @onclick="HandleClick"
@@ -36,10 +36,12 @@
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? T { get; set; }
     [Parameter] public string? InlineStyle { get; set; }
+    [Parameter] public string? Css { get; set; }
     [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string? Role => OnClick.HasDelegate && !Disabled ? "button" : null;
     private int? TabIndex => OnClick.HasDelegate && !Disabled ? 0 : null;
+    private string? ResolvedStyle => !string.IsNullOrWhiteSpace(Css) ? Css : InlineStyle;
 
     private AppUiTone ResolvedTone => Color switch
     {

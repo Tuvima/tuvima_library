@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
@@ -10,7 +10,7 @@
                 <MudIcon Icon="@Icons.Material.Outlined.Dns" Color="Color.Primary" />
                 <MudText Typo="Typo.h6">@L["ServerGeneral_ServerIdentityTitle"]</MudText>
             </MudStack>
-            <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
+            <MudText Typo="Typo.body2" Class="tl-u-color-app-text-muted">
                 @L["ServerGeneral_ServerIdentityDescription"]
             </MudText>
 
@@ -29,7 +29,7 @@
                 <MudIcon Icon="@Icons.Material.Outlined.Language" Color="Color.Primary" />
                 <MudText Typo="Typo.h6">@L["ServerGeneral_RegionalSettingsTitle"]</MudText>
             </MudStack>
-            <MudText Typo="Typo.body2" Style="color: var(--app-text-muted);">
+            <MudText Typo="Typo.body2" Class="tl-u-color-app-text-muted">
                 @L["ServerGeneral_RegionalSettingsDescription"]
             </MudText>
 
@@ -117,7 +117,7 @@
                        Label="@L["Profile_AcceptAnyLanguage"]"
                        Color="Color.Primary"
                        Disabled="@_saving" />
-            <MudText Typo="Typo.caption" Style="color: var(--app-text-muted);">
+            <MudText Typo="Typo.caption" Class="tl-u-color-app-text-muted">
                 @L["Profile_AcceptAnyLanguageHint"]
             </MudText>
 

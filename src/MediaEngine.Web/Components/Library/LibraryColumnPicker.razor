@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @inject IJSRuntime JS
 @inject ILogger<LibraryColumnPicker> Logger
@@ -42,7 +42,7 @@
                          @ondrop:preventDefault="true"
                          @ondrop="() => OnDrop(index)">
                         <span class="vcp-drag-handle" title="Drag to reorder">
-                            <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Style="font-size: 16px;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="tl-u-font-size-16px" />
                         </span>
 
                         <span class="vcp-label">@col.Label</span>

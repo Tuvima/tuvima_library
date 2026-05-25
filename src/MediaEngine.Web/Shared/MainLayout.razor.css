@@ -115,7 +115,12 @@
 
 .layout-shell__nav-link .layout-shell__nav-link-label {
     display: inline-block;
+    font-family: "Montserrat", sans-serif;
+    font-size: 1.02rem;
+    font-weight: 400;
+    letter-spacing: 0;
     line-height: 1;
+    text-transform: uppercase;
 }
 
 .layout-shell__nav-link::after {

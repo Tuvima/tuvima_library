@@ -1,20 +1,19 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
-<div class="aic-row @(IsSelected ? "aic-row--selected" : "") @(IsChecked ? "aic-row--checked" : "")"
-     style="border-left: 3px solid @LibraryItemHelpers.GetStatusColor(Item.Status);"
+<AppCssElement Tag="div" Class='@($"aic-row {(IsSelected ? "aic-row--selected" : "")} {(IsChecked ? "aic-row--checked" : "")}")'
+     Css="@($"border-left: 3px solid {LibraryItemHelpers.GetStatusColor(Item.Status)};")"
      @onclick="HandleRowClick">
 @if (ShowCheckbox)
     {
         <div class="aic-checkbox" @onclick="HandleCheckboxClick" @onclick:stopPropagation="true">
-            <MudIcon Icon="@(IsChecked ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)"
-                     Style="@($"font-size: 18px; color: {(IsChecked ? "var(--tl-status-success)" : "var(--tl-text-faint)")};")" />
+            <AppMaterialIcon Icon="@(IsChecked ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)" Css="@($"font-size: 18px; color: {(IsChecked ? "var(--tl-status-success)" : "var(--tl-text-faint)")};")"  />
         </div>
     }
 <div class="aic-thumb-wrap">
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
         {
-            <div class="cover-hover-wrap" style="width: 100%; height: 100%;">
+            <div class="cover-hover-wrap tl-u-width-100pct tl-u-height-100pct" >
                 <img src="@Item.CoverUrl" alt="@Item.Title" class="aic-thumb-img" loading="lazy" />
                 <div class="cover-hover-popup">
                     <img src="@Item.CoverUrl" class="cover-hover-img" alt="" />
@@ -39,7 +38,7 @@
         {
             <span class="aic-type-badge" title="@LibraryItemHelpers.FormatMediaType(Item.MediaType)">
                 <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
-                         Style="font-size: 0.6rem; color: var(--tl-text-primary);" />
+                         Class="tl-u-font-size-0-6rem tl-u-color-tl-text-primary" />
             </span>
         }
     </div>
@@ -58,23 +57,23 @@
 @if (ShowTriggerChip && !string.IsNullOrEmpty(Item.ReviewTrigger))
             {
                 var (trigLabel, trigColor, trigIcon) = LibraryItemHelpers.FormatReviewTrigger(Item.ReviewTrigger);
-                <span class="aic-trigger-chip"
-                      style="color: @trigColor; border-color: @(trigColor + "44");"
+                <AppCssElement Tag="span" Class="aic-trigger-chip"
+                      Css="@($"color: {trigColor}; border-color: {trigColor + "44"};")"
                       title="@GetTriggerTooltip(Item.ReviewTrigger)">
-                    <MudIcon Icon="@trigIcon" Style="@($"font-size: 0.6rem; color: {trigColor};")" />
+                    <AppMaterialIcon Icon="@trigIcon" Css="@($"font-size: 0.6rem; color: {trigColor};")"  />
                     @trigLabel
-                </span>
+                </AppCssElement>
             }
         </div>
 @if (Item.Status == "Rejected")
         {
             <div class="aic-rejected-row" @onclick:stopPropagation="true">
                 <span class="aic-purge-badge">
-                    <MudIcon Icon="@Icons.Material.Outlined.Timer" Style="font-size: 0.6rem;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Timer" Class="tl-u-font-size-0-6rem" />
                     Purge in @PurgeCountdown
                 </span>
                 <AppNativeButton Class="aic-unreject-btn" OnClick="HandleUnreject" Title="Un-reject this item">
-                    <MudIcon Icon="@Icons.Material.Outlined.Restore" Style="font-size: 0.75rem;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Restore" Class="tl-u-font-size-0-75rem" />
                     Un-reject
                 </AppNativeButton>
             </div>
@@ -87,22 +86,22 @@
             @if (_confirmingReject)
             {
                 <AppNativeButton Class="aic-reject-confirm" OnClick="HandleConfirmReject" Title="Confirm reject">
-                    <MudIcon Icon="@Icons.Material.Outlined.Check" Style="font-size: 13px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Check" Class="tl-u-font-size-13px" />
                     <span>Sure?</span>
                 </AppNativeButton>
                 <AppNativeButton Class="aic-reject-cancel" OnClick="HandleCancelReject" Title="Cancel">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 13px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-13px" />
                 </AppNativeButton>
             }
             else
             {
                 <AppNativeButton Class="aic-reject-btn" OnClick="HandleRejectClick" Title="Reject this item">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 15px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-15px" />
                 </AppNativeButton>
             }
         </div>
     }
-</div>
+</AppCssElement>
 
 @code {
     [Parameter, EditorRequired] public LibraryCatalogItemViewModel Item { get; set; } = default!;

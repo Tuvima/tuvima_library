@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
 <MudStack Spacing="4">
@@ -16,15 +16,15 @@
         </AppAlert>
 <AppPanel Elevation="0" Class="tl-card mb-4">
 
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
+            <MudText Typo="Typo.subtitle1"  Class="mb-4 tl-u-font-weight-600">
                 @L["Security_ConnectionSettings"]
             </MudText>
 
             @* Localhost Bypass toggle *@
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4"
-                      Style="gap: 16px;">
-                <MudStack Spacing="0" Style="flex: 1;">
-                    <MudText Typo="Typo.body1" Style="font-weight: 500;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4 tl-u-gap-16px"
+                      >
+                <MudStack Spacing="0" Class="tl-u-flex-1">
+                    <MudText Typo="Typo.body1" Class="tl-u-font-weight-500">
                         @L["Security_LocalhostBypass"]
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
@@ -41,9 +41,9 @@
 
             @* Require HTTPS toggle *@
             <MudStack Row="true" AlignItems="AlignItems.Center"
-                      Style="gap: 16px;">
-                <MudStack Spacing="0" Style="flex: 1;">
-                    <MudText Typo="Typo.body1" Style="font-weight: 500;">
+                      Class="tl-u-gap-16px">
+                <MudStack Spacing="0" Class="tl-u-flex-1">
+                    <MudText Typo="Typo.body1" Class="tl-u-font-weight-500">
                         @L["Security_RequireHttps"]
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
@@ -62,12 +62,12 @@
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
                 <MudIcon Icon="@Icons.Material.Outlined.Speed"
                          Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                <MudText Typo="Typo.subtitle1" Class="tl-u-font-weight-600">
                     @L["Security_RateLimits"]
                 </MudText>
                 <MudSpacer />
                 <AppChip T="string" Size="Size.Small" Color="Color.Default"
-                         Style="opacity: 0.6; font-size: 0.7rem;">
+                         Class="tl-u-opacity-0-6 tl-u-font-size-0-7rem">
                     @L["Security_ReadOnly"]
                 </AppChip>
             </MudStack>
@@ -75,43 +75,37 @@
             <MudStack Spacing="2">
 
                 <MudStack Row="true" AlignItems="AlignItems.Center"
-                          Style="justify-content: space-between;">
+                          Class="tl-u-justify-content-space-between">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                         <MudIcon Icon="@Icons.Material.Outlined.Key"
                                  Size="Size.Small" Color="Color.Secondary" />
                         <MudText Typo="Typo.body2">@L["Security_KeyGeneration"]</MudText>
                     </MudStack>
-                    <code style="font-family: monospace; font-size: 0.8rem;
-                                  background: rgba(0,0,0,0.25); padding: 2px 8px;
-                                  border-radius: 4px; color: var(--mud-palette-text-secondary);">
+                    <code class="tl-u-font-family-monospace tl-u-font-size-0-8rem tl-u-background-rgba-0-0-0-0-25 tl-u-padding-2px-8px tl-u-border-radius-4px tl-u-color-mud-palette-text-secondary">
                         5 req / min
                     </code>
                 </MudStack>
 
                 <MudStack Row="true" AlignItems="AlignItems.Center"
-                          Style="justify-content: space-between;">
+                          Class="tl-u-justify-content-space-between">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                         <MudIcon Icon="@Icons.Material.Outlined.PlayCircle"
                                  Size="Size.Small" Color="Color.Secondary" />
                         <MudText Typo="Typo.body2">@L["Security_FileStreaming"]</MudText>
                     </MudStack>
-                    <code style="font-family: monospace; font-size: 0.8rem;
-                                  background: rgba(0,0,0,0.25); padding: 2px 8px;
-                                  border-radius: 4px; color: var(--mud-palette-text-secondary);">
+                    <code class="tl-u-font-family-monospace tl-u-font-size-0-8rem tl-u-background-rgba-0-0-0-0-25 tl-u-padding-2px-8px tl-u-border-radius-4px tl-u-color-mud-palette-text-secondary">
                         100 req / min
                     </code>
                 </MudStack>
 
                 <MudStack Row="true" AlignItems="AlignItems.Center"
-                          Style="justify-content: space-between;">
+                          Class="tl-u-justify-content-space-between">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                         <MudIcon Icon="@Icons.Material.Outlined.Api"
                                  Size="Size.Small" Color="Color.Secondary" />
                         <MudText Typo="Typo.body2">@L["Security_GeneralApi"]</MudText>
                     </MudStack>
-                    <code style="font-family: monospace; font-size: 0.8rem;
-                                  background: rgba(0,0,0,0.25); padding: 2px 8px;
-                                  border-radius: 4px; color: var(--mud-palette-text-secondary);">
+                    <code class="tl-u-font-family-monospace tl-u-font-size-0-8rem tl-u-background-rgba-0-0-0-0-25 tl-u-padding-2px-8px tl-u-border-radius-4px tl-u-color-mud-palette-text-secondary">
                         60 req / min
                     </code>
                 </MudStack>
@@ -124,11 +118,11 @@
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
                 <MudIcon Icon="@Icons.Material.Outlined.Login"
                          Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                <MudText Typo="Typo.subtitle1" Class="tl-u-font-weight-600">
                     User sign-in
                 </MudText>
                 <MudSpacer />
-                <AppChip T="string" Size="Size.Small" Color="@AuthModeColor" Style="font-size: 0.7rem;">
+                <AppChip T="string" Size="Size.Small" Color="@AuthModeColor" Class="tl-u-font-size-0-7rem">
                     @_authMode
                 </AppChip>
             </MudStack>
@@ -140,15 +134,15 @@
             else
             {
                 <MudStack Spacing="2">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="justify-content: space-between;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="tl-u-justify-content-space-between">
                         <MudText Typo="Typo.body2">OpenID Connect provider</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">@OidcSummary</MudText>
                     </MudStack>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="justify-content: space-between;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="tl-u-justify-content-space-between">
                         <MudText Typo="Typo.body2">Authority</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">@(_authSettings?.OidcAuthority ?? "Not configured")</MudText>
                     </MudStack>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="justify-content: space-between;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="tl-u-justify-content-space-between">
                         <MudText Typo="Typo.body2">Client ID</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">@(_authSettings?.OidcClientId ?? "Not configured")</MudText>
                     </MudStack>

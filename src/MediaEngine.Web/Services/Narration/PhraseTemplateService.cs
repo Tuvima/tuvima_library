@@ -77,7 +77,7 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
         return new DisplayPhrase(resolved, Intent: intent);
     }
 
-    // ── Placeholder handling ─────────────────────────────────────────────
+    // -- Placeholder handling ---------------------------------------------
 
     private static Dictionary<string, string> BuildVars(PhraseContext ctx) => new(StringComparer.OrdinalIgnoreCase)
     {
@@ -112,7 +112,7 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
     [GeneratedRegex(@"\{(\w+)\}")]
     private static partial Regex PlaceholderRegex();
 
-    // ── Config loading ───────────────────────────────────────────────────
+    // -- Config loading ---------------------------------------------------
 
     private static Dictionary<string, string[]>? LoadTemplates(string contentRoot)
     {
@@ -149,11 +149,11 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
         }
     }
 
-    // ── Compiled defaults ────────────────────────────────────────────────
+    // -- Compiled defaults ------------------------------------------------
 
     private static readonly Dictionary<string, string[]> DefaultTemplates = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Hero — in-progress with series
+        // Hero  -  in-progress with series
         [nameof(PhraseSlot.HeroJourneySeries)] =
         [
             "Your journey through {Series} continues",
@@ -163,7 +163,7 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
             "Return to the world of {Series}",
         ],
 
-        // Hero — in-progress without series
+        // Hero  -  in-progress without series
         [nameof(PhraseSlot.HeroJourneyStandalone)] =
         [
             "Pick up where you left off",
@@ -173,7 +173,7 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
             "Let's continue",
         ],
 
-        // Hero — new item with series
+        // Hero  -  new item with series
         [nameof(PhraseSlot.HeroDiscoverSeries)] =
         [
             "Begin your {Series} journey",
@@ -183,7 +183,7 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
             "A new chapter in {Series}",
         ],
 
-        // Hero — new item without series or author
+        // Hero  -  new item without series or author
         [nameof(PhraseSlot.HeroDiscoverStandalone)] =
         [
             "Ready to discover something new?",
@@ -193,7 +193,7 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
             "Something new for your collection",
         ],
 
-        // Hero — new item with author
+        // Hero  -  new item with author
         [nameof(PhraseSlot.HeroDiscoverAuthor)] =
         [
             "A tale from {Author}",
@@ -203,7 +203,7 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
             "{Author} invites you in",
         ],
 
-        // Hero — completed item
+        // Hero  -  completed item
         [nameof(PhraseSlot.HeroCompleted)] =
         [
             "A journey well traveled",

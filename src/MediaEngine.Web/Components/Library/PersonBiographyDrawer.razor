@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Library
 @inject IStringLocalizer<SharedStrings> L
 
@@ -48,23 +48,23 @@
                                 }
                                 else
                                 {
-                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(credit.MediaType ?? "")" Style="font-size: 16px; color: var(--tl-text-faint);" />
+                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(credit.MediaType ?? "")" Class="tl-u-font-size-16px tl-u-color-tl-text-faint" />
                                 }
                             </div>
                             <div class="pbd-work-info">
                                 <span class="pbd-work-title">@credit.Title</span>
                                 @if (!string.IsNullOrEmpty(BuildCreditMeta(credit)))
                                 {
-                                    <span class="pbd-work-type" style="color: @LibraryHelpers.GetMediaTypeColor(credit.MediaType ?? "");">
+                                    <AppCssElement Tag="span" Class="pbd-work-type" Css="@($"color: {LibraryHelpers.GetMediaTypeColor(credit.MediaType ?? "")};")">
                                         @BuildCreditMeta(credit)
-                                    </span>
+                                    </AppCssElement>
                                 }
                                 @if (!string.IsNullOrEmpty(BuildCreditSubtitle(credit)))
                                 {
                                     <span class="pbd-work-type">@BuildCreditSubtitle(credit)</span>
                                 }
                             </div>
-                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="tl-u-font-size-16px tl-u-color-tl-border-strong tl-u-flex-shrink-0" />
                         </AppNativeButton>
                     }
                     @if (!_showAllWorks && remaining > 0)
@@ -100,7 +100,7 @@
                             }
                             else
                             {
-                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: var(--tl-text-faint);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Person" Class="tl-u-font-size-14px tl-u-color-tl-text-faint" />
                             }
                         </div>
                         <div class="vdd-alias-info">
@@ -126,17 +126,17 @@
             @foreach (var member in GroupMembers)
             {
                 <AppNativeButton Class="pbd-work-row" OnClick="() => OnMemberClicked.InvokeAsync(member.Id)">
-                    <div class="pbd-work-thumb" style="border-radius: 50%;">
-                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: var(--tl-text-faint);" />
+                    <div class="pbd-work-thumb tl-u-border-radius-50pct" >
+                        <MudIcon Icon="@Icons.Material.Outlined.Person" Class="tl-u-font-size-16px tl-u-color-tl-text-faint" />
                     </div>
                     <div class="pbd-work-info">
                         <span class="pbd-work-title">@member.Name</span>
                         @if (!string.IsNullOrEmpty(member.DateRange))
                         {
-                            <span class="pbd-work-type" style="color: var(--tl-text-muted);">@member.DateRange</span>
+                            <span class="pbd-work-type tl-u-color-tl-text-muted" >@member.DateRange</span>
                         }
                     </div>
-                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="tl-u-font-size-16px tl-u-color-tl-border-strong tl-u-flex-shrink-0" />
                 </AppNativeButton>
             }
         </div>
@@ -151,17 +151,17 @@
             @foreach (var group in MemberOfGroups)
             {
                 <AppNativeButton Class="pbd-work-row" OnClick="() => OnMemberClicked.InvokeAsync(group.Id)">
-                    <div class="pbd-work-thumb" style="border-radius: 6px;">
-                        <MudIcon Icon="@Icons.Material.Outlined.Groups" Style="font-size: 16px; color: var(--tl-text-faint);" />
+                    <div class="pbd-work-thumb tl-u-border-radius-6px" >
+                        <MudIcon Icon="@Icons.Material.Outlined.Groups" Class="tl-u-font-size-16px tl-u-color-tl-text-faint" />
                     </div>
                     <div class="pbd-work-info">
                         <span class="pbd-work-title">@group.Name</span>
                         @if (!string.IsNullOrEmpty(group.DateRange))
                         {
-                            <span class="pbd-work-type" style="color: var(--tl-text-muted);">@group.DateRange</span>
+                            <span class="pbd-work-type tl-u-color-tl-text-muted" >@group.DateRange</span>
                         }
                     </div>
-                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="tl-u-font-size-16px tl-u-color-tl-border-strong tl-u-flex-shrink-0" />
                 </AppNativeButton>
             }
         </div>
@@ -193,10 +193,10 @@
                                 }
                                 else
                                 {
-                                    <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: var(--tl-border-strong);" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.Person" Class="tl-u-font-size-16px tl-u-color-tl-border-strong" />
                                 }
                             </div>
-                            <span class="vdd-character-name" style="font-size: 11px;">@role.CharacterName</span>
+                            <span class="vdd-character-name tl-u-font-size-11px" >@role.CharacterName</span>
                         </div>
                     }
                 </div>
@@ -225,7 +225,7 @@
                     </div>
                 }
                 <div class="vdd-asset-slot">
-                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-16px tl-u-color-tl-border-strong" />
                     <span class="vdd-asset-upload">@L["LibraryDetail_AssetCustom"]</span>
                 </div>
             </div>
@@ -237,7 +237,7 @@
                 <span class="vdd-asset-label">@assetType</span>
                 <div class="vdd-asset-items">
                     <div class="vdd-asset-slot">
-                        <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-16px tl-u-color-tl-border-strong" />
                         <span class="vdd-asset-upload">@L["LibraryDetail_AssetUpload"]</span>
                     </div>
                 </div>

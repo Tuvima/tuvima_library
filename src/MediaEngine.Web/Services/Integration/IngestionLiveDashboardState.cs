@@ -1354,9 +1354,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
         return pageState switch
         {
             LibraryUpdatePageState.Running => BuildRunningPipelineSummary(activeItems, queuedItems, reviewItems),
-            LibraryUpdatePageState.Complete => $"{matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched · {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
-            LibraryUpdatePageState.Idle => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files processed · {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched · {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
-            LibraryUpdatePageState.Failed => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files found · {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched · {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
+            LibraryUpdatePageState.Complete => $"{matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched  -  {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
+            LibraryUpdatePageState.Idle => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files processed  -  {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched  -  {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
+            LibraryUpdatePageState.Failed => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files found  -  {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched  -  {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
             LibraryUpdatePageState.StatusUnavailable when lastCompletedAt.HasValue => $"Last successful scan completed {FormatRelativeLong(lastCompletedAt.Value, now)}",
             _ => null,
         };
@@ -1654,10 +1654,10 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var hasArtwork = !string.IsNullOrWhiteSpace(rich?.ResolvedCoverUrl) || !string.IsNullOrWhiteSpace(review?.CoverUrl);
         var hasWikidata = !string.IsNullOrWhiteSpace(rich?.WikidataQid) || !string.IsNullOrWhiteSpace(review?.Qid);
         var statusText = needsReview
-            ? "Added as provisional · Needs identity review"
+            ? "Added as provisional  -  Needs identity review"
             : hasWikidata
-                ? hasArtwork ? "Matched · Artwork found · Wikidata confirmed" : "Matched · Wikidata confirmed"
-                : hasArtwork ? "Matched · Artwork found" : "Added or updated";
+                ? hasArtwork ? "Matched  -  Artwork found  -  Wikidata confirmed" : "Matched  -  Wikidata confirmed"
+                : hasArtwork ? "Matched  -  Artwork found" : "Added or updated";
         var statusLabel = needsReview ? "Provisional" : "Matched";
         var statusTone = needsReview ? "warning" : "success";
 

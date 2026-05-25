@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
 <div class="tl-detail-actions @(IsPrimaryHeroActionRow ? "tl-detail-actions--watch" : null)">
@@ -19,7 +19,7 @@
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class="@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon @(action.IsStub ? ")" tl-detail-watch-secondary--stub" : null)" AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon {(action.IsStub ? " tl-detail-watch-secondary--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                         </AppNativeButton>
                     </MudTooltip>
@@ -28,7 +28,7 @@
             else if (action.DisplayStyle == "premium")
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--premium">
-                    <AppNativeButton Type="button" Class="@($"tl-detail-premium-action @(action.IsStub ? ")" tl-detail-premium-action--stub" : null)" AriaLabel="@action.Label" Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))">
+                    <AppNativeButton Type="button" Class='@($"tl-detail-premium-action {(action.IsStub ? " tl-detail-premium-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))">
                         <span class="tl-detail-premium-action__icons" aria-hidden="true">
                             <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" />
                             <MudIcon Icon="@Icons.Material.Outlined.Sync" Size="Size.Small" />
@@ -93,7 +93,7 @@
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class="@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon @(action.IsStub ? ")" tl-detail-watch-secondary--stub" : null)" AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon {(action.IsStub ? " tl-detail-watch-secondary--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                         </AppNativeButton>
                     </MudTooltip>
@@ -102,7 +102,7 @@
             else if (action.DisplayStyle == "button")
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--button">
-                    <AppNativeButton Type="button" Class="@($"tl-detail-action tl-detail-action--secondary-button @(action.IsStub ? ")" tl-detail-action--stub" : null)" Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))">
+                    <AppNativeButton Type="button" Class='@($"tl-detail-action tl-detail-action--secondary-button {(action.IsStub ? " tl-detail-action--stub" : null)}")' Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))">
                         <MudIcon Icon="@IconFor(action)" Size="Size.Medium" />
                         <span>@action.Label</span>
                     </AppNativeButton>
@@ -112,7 +112,7 @@
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class="@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon @(action.IsStub ? ")" tl-detail-watch-secondary--stub" : null)" AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon {(action.IsStub ? " tl-detail-watch-secondary--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                         </AppNativeButton>
                     </MudTooltip>
@@ -133,7 +133,7 @@
             {
                 <div class="tl-detail-secondary-action">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class="@($"tl-detail-icon-action @(action.IsStub ? ")" tl-detail-icon-action--stub" : null)" AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-detail-icon-action {(action.IsStub ? " tl-detail-icon-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                         </AppNativeButton>
                     </MudTooltip>

@@ -1,11 +1,11 @@
-@namespace MediaEngine.Web.Components.Bento
+﻿@namespace MediaEngine.Web.Components.Bento
 
 @* A single tile in the BentoGrid.
    GlowColor drives the accent box-shadow; ColSpan/RowSpan control grid placement. *@
 
-<div class="bento-item @Class" style="@_computedStyle">
+<AppCssElement Tag="div" Class='@($"bento-item {Class}")' Css="@_computedStyle">
     @ChildContent
-</div>
+</AppCssElement>
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }

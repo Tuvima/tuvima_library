@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Discovery
+﻿@namespace MediaEngine.Web.Components.Discovery
 
 @if (Hubs.Count > 0)
 {
@@ -16,9 +16,10 @@
         <div class="discovery-hubs-grid">
             @foreach (var hub in Hubs)
             {
-                <a href="@hub.NavigationUrl"
-                   class="discovery-hub-card tl-card-hover--media"
-                   style="--hub-accent: @(string.IsNullOrWhiteSpace(hub.AccentColor) ? "#1CE783" : hub.AccentColor);">
+                <AppCssElement Tag="a"
+                   href="@hub.NavigationUrl"
+                   Class="discovery-hub-card tl-card-hover--media"
+                   Css="@($"--hub-accent: {(string.IsNullOrWhiteSpace(hub.AccentColor) ? "#1CE783" : hub.AccentColor)};")">
                     @if (!string.IsNullOrWhiteSpace(hub.ImageUrl))
                     {
                         <img src="@hub.ImageUrl" alt="@hub.Title" class="discovery-hub-image" loading="lazy" />
@@ -29,10 +30,10 @@
                             @for (var index = 0; index < GetPreviewImages(hub).Count; index++)
                             {
                                 var previewImage = GetPreviewImages(hub)[index];
-                                <img src="@previewImage"
+                                <AppCssElement Tag="img" src="@previewImage"
                                      alt=""
-                                     class="discovery-hub-stack-image"
-                                     style="@GetStackStyle(index)" />
+                                     Class="discovery-hub-stack-image"
+                                     Css="@GetStackStyle(index)" />
                             }
                         </div>
                     }
@@ -60,7 +61,7 @@
                             <span>Open</span>
                         </div>
                     </div>
-                </a>
+                </AppCssElement>
             }
         </div>
     </section>

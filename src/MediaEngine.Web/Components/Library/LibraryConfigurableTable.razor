@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Library
+﻿@namespace MediaEngine.Web.Components.Library
 @using System.Globalization
 @using MediaEngine.Web.Models.ViewDTOs
 @using Microsoft.AspNetCore.Components.Web
@@ -8,8 +8,8 @@
 @if (Items.Count == 0 && !Loading)
 {
     <div class="vmt-empty">
-        <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-        <p style="color: var(--tl-text-faint); font-size: 0.85rem;">No items match your current filters.</p>
+        <MudIcon Icon="@Icons.Material.Outlined.Inbox" Class="tl-u-font-size-3rem tl-u-opacity-0-15 tl-u-margin-bottom-12px" />
+        <p class="tl-u-color-tl-text-faint tl-u-font-size-0-85rem">No items match your current filters.</p>
     </div>
 }
 else
@@ -22,7 +22,7 @@ else
                 <div class="vmt-group">
                     <div class="vmt-group-header" @onclick="() => ToggleGroup(group.Key)">
                         <MudIcon Icon="@(IsGroupExpanded(group.Key) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                                 Style="font-size: 14px; opacity: 0.4;" />
+                                 Class="tl-u-font-size-14px tl-u-opacity-0-4" />
                         @{
                             var groupAllSelected = group.Items.Count > 0 && group.Items.All(i => SelectedItems.Contains(i.EntityId));
                         }
@@ -58,7 +58,7 @@ else
         {
             <div class="vmt-loading">
                 <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                                     Style="color: var(--tl-border-strong);" />
+                                     Class="tl-u-color-tl-border-strong" />
             </div>
         }
     </div>
@@ -66,9 +66,9 @@ else
 
 @if (_hoverCover is not null)
 {
-    <div class="vmt-hover-overlay" style="top: @(_hoverY)px; left: @(_hoverX)px;">
+    <AppCssElement Tag="div" Class="vmt-hover-overlay" Css="@($"top: {_hoverY}px; left: {_hoverX}px;")">
         <img src="@_hoverCover" alt="" class="vmt-hover-img" />
-    </div>
+    </AppCssElement>
 }
 
 @code {
@@ -320,7 +320,7 @@ else
                         };
                         var paddingStyle = col.Key == "media" ? "padding-left: 24px;" : "";
                         var paddingRightStyle = col.Key == "status" && GroupBy == "none" ? "padding-right: 24px;" : "";
-                        <th class="vmt-th @alignClass" style="width: @col.Width; @paddingStyle @paddingRightStyle">
+                        <AppCssElement Tag="th" Class='@($"vmt-th {alignClass}")' Css="@($"width: {col.Width}; {paddingStyle} {paddingRightStyle}")">
                             @if (col.RenderType == ColumnRenderType.Checkbox)
                             {
                                 <MudCheckBox T="bool"
@@ -334,11 +334,11 @@ else
                             {
                                 <AppButton Variant="Variant.Text"
                                            Color="Color.Inherit"
-                                           Class="@($"vmt-sort-header {(col.RenderType == ColumnRenderType.FavoriteToggle ? "vmt-sort-header--icon" : string.Empty)}")"
+                                           Class='@($"vmt-sort-header {(col.RenderType == ColumnRenderType.FavoriteToggle ? "vmt-sort-header--icon" : string.Empty)}")'
                                            OnClick="() => RequestSort(col.SortKey!)">
                                     @if (col.RenderType == ColumnRenderType.FavoriteToggle)
                                     {
-                                        <MudIcon Icon="@Icons.Material.Outlined.StarBorder" Style="font-size: 14px;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.StarBorder" Class="tl-u-font-size-14px" />
                                     }
                                     else
                                     {
@@ -347,12 +347,12 @@ else
                                     @if (ActiveSortKey == col.SortKey)
                                     {
                                         <MudIcon Icon="@(SortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
-                                                 Style="font-size: 12px; margin-left: 4px; opacity: 0.7;" />
+                                                 Class="tl-u-font-size-12px tl-u-margin-left-4px tl-u-opacity-0-7" />
                                     }
                                     else
                                     {
                                         <MudIcon Icon="@Icons.Material.Filled.UnfoldMore"
-                                                 Style="font-size: 12px; margin-left: 4px; opacity: 0.25;" />
+                                                 Class="tl-u-font-size-12px tl-u-margin-left-4px tl-u-opacity-0-25" />
                                     }
                                 </AppButton>
                             }
@@ -360,7 +360,7 @@ else
                             {
                                 @col.Label
                             }
-                        </th>
+                        </AppCssElement>
                     }
                 </tr>
             </thead>
@@ -371,18 +371,18 @@ else
                     var isSelected = SelectedItems.Contains(item.EntityId);
                     var isDrillable = IsDrillable?.Invoke(item) == true;
                     var rowInteractive = SelectOnRowClick || OnRowClicked.HasDelegate || OnRowDoubleClicked.HasDelegate;
-                    <tr @key="item.EntityId"
-                        class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") vmt-row--drillable"
-                        style="cursor: @(rowInteractive ? "pointer" : "default");"
+                    <AppCssElement Tag="tr" @key="item.EntityId"
+                        Class='@($"vmt-row {(isQuarantined ? "vmt-row--quarantined" : "")} {(isSelected ? "vmt-row--selected" : "")} vmt-row--drillable")'
+                        Css="@($"cursor: {(rowInteractive ? "pointer" : "default")};")"
                         tabindex="@(rowInteractive || ActivateOnEnter ? "0" : null)"
                         draggable="@EnableRowDragging"
-                        @onclick="@(async (MouseEventArgs args) => await HandleRowClickAsync(item, items, args))"
-                        @ondblclick="@(async () => await HandleRowDoubleClickAsync(item))"
-                        @oncontextmenu:preventDefault="@(EnableRowContextMenu || OnRowContextRequested.HasDelegate)"
-                        @oncontextmenu="@(async (MouseEventArgs args) => await HandleRowContextMenuAsync(item, args))"
-                        @ondragstart="@(async () => await HandleRowDragStartAsync(item))"
-                        @ondragend="HandleRowDragEndAsync"
-                        @onkeydown="@(async (KeyboardEventArgs args) => await HandleRowKeyDownAsync(item, args))">
+                        OnClick="@(async (MouseEventArgs args) => await HandleRowClickAsync(item, items, args))"
+                        OnDoubleClick="@(async (MouseEventArgs _) => await HandleRowDoubleClickAsync(item))"
+                        PreventContextMenuDefault="@(EnableRowContextMenu || OnRowContextRequested.HasDelegate)"
+                        OnContextMenu="@(async (MouseEventArgs args) => await HandleRowContextMenuAsync(item, args))"
+                        OnDragStart="@(async (DragEventArgs _) => await HandleRowDragStartAsync(item))"
+                        OnDragEnd="@((DragEventArgs _) => HandleRowDragEndAsync())"
+                        OnKeyDown="@(async (KeyboardEventArgs args) => await HandleRowKeyDownAsync(item, args))">
                         @foreach (var col in cols)
                         {
                             var tdAlignClass = col.Align switch
@@ -394,7 +394,7 @@ else
                             var tdPaddingStyle = col.Key == "media" ? "padding-left: 24px;" : "";
                             var tdPaddingRightStyle = col.Key == "status" ? "padding-right: 24px;" : "";
 
-                            <td @key="col.Key" class="vmt-td @tdAlignClass" style="@tdPaddingStyle @tdPaddingRightStyle">
+                            <AppCssElement Tag="td" @key="col.Key" Class='@($"vmt-td {tdAlignClass}")' Css="@($"{tdPaddingStyle} {tdPaddingRightStyle}")">
                                 @switch (col.RenderType)
                                 {
                                     case ColumnRenderType.Checkbox:
@@ -411,7 +411,7 @@ else
                                     case ColumnRenderType.MediaCell:
                                         <div class="vmt-media-cell">
                                             <div class="vmt-poster-wrap">
-                                                <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;"
+                                                <AppCssElement Tag="div" Class="vmt-thumb" Css="@($"width: {PosterSize}px; min-height: {PosterSize}px;")"
                                                      @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
                                                      @onmouseleave="HideHover">
                                                     @if (!string.IsNullOrEmpty(item.CoverUrl))
@@ -421,12 +421,12 @@ else
                                                     else
                                                     {
                                                         <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)"
-                                                                 Style="font-size: 20px; opacity: 0.25;" />
+                                                                 Class="tl-u-font-size-20px tl-u-opacity-0-25" />
                                                     }
-                                                </div>
-                                                <div class="vmt-type-badge" style="color: @LibraryHelpers.GetMediaTypeColor(item.MediaType);">
-                                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)" Style="font-size: 14px;" />
-                                                </div>
+                                                </AppCssElement>
+                                                <AppCssElement Tag="div" Class="vmt-type-badge" Css="@($"color: {LibraryHelpers.GetMediaTypeColor(item.MediaType)};")">
+                                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)" Class="tl-u-font-size-14px" />
+                                                </AppCssElement>
                                             </div>
                                             <div class="vmt-media-info">
                                                 @{
@@ -508,9 +508,9 @@ else
                                         break;
 
                                     case ColumnRenderType.StatusPill:
-                                        <div style="display: flex; justify-content: @(col.Align == "right" ? "flex-end" : col.Align == "center" ? "center" : "flex-start");">
+                                        <AppCssElement Tag="div" Css="@($"display: flex; justify-content: {(col.Align == "right" ? "flex-end" : col.Align == "center" ? "center" : "flex-start")};")">
                                             <StatusPill Status="@item.LibraryDisplayStatus" QuarantineDays="@item.QuarantineDays" />
-                                        </div>
+                                        </AppCssElement>
                                         break;
 
                                     case ColumnRenderType.UniverseLink:
@@ -541,9 +541,9 @@ else
                                         break;
 
                                     case ColumnRenderType.TypeBadge:
-                                        <span class="media-type-badge" style="@GetTypeBadgeStyle(GetPropertyValue(item, col.PropertyName))">
+                                        <AppCssElement Tag="span" Class="media-type-badge" Css="@GetTypeBadgeStyle(GetPropertyValue(item, col.PropertyName))">
                                             @LibraryHelpers.FormatMediaType(GetPropertyValue(item, col.PropertyName) ?? "")
-                                        </span>
+                                        </AppCssElement>
                                         break;
 
                                     case ColumnRenderType.Text:
@@ -554,7 +554,7 @@ else
                                         <span @onclick:stopPropagation="true">
                                             <AppIconButton Icon="@(item.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
                                                            Color="Color.Inherit"
-                                                           Class="@($"vmt-favorite-button {(item.IsFavorite ? "is-active" : string.Empty)}")"
+                                                           Class='@($"vmt-favorite-button {(item.IsFavorite ? "is-active" : string.Empty)}")'
                                                            aria-label="@(item.IsFavorite ? "Remove favorite" : "Add favorite")"
                                                            OnClick="() => HandleFavoriteToggleAsync(item.EntityId)" />
                                         </span>
@@ -593,13 +593,13 @@ else
                                             <div class="vmt-poster-wrap">
                                                 @if (!string.IsNullOrEmpty(item.ArtistPhotoUrl))
                                                 {
-                                                    <div class="vmt-artist-photo" style="width: @(PosterSize)px; height: @(PosterSize)px;">
+                                                    <AppCssElement Tag="div" Class="vmt-artist-photo" Css="@($"width: {PosterSize}px; height: {PosterSize}px;")">
                                                         <img src="@item.ArtistPhotoUrl" alt="@item.Title" class="vmt-artist-photo-img" loading="lazy" />
-                                                    </div>
+                                                    </AppCssElement>
                                                 }
                                                 else
                                                 {
-                                                    <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;"
+                                                    <AppCssElement Tag="div" Class="vmt-thumb" Css="@($"width: {PosterSize}px; min-height: {PosterSize}px;")"
                                                          @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
                                                          @onmouseleave="HideHover">
                                                         @if (!string.IsNullOrEmpty(item.CoverUrl))
@@ -609,9 +609,9 @@ else
                                                         else
                                                         {
                                                             <MudIcon Icon="@Icons.Material.Outlined.Person"
-                                                                     Style="font-size: 20px; opacity: 0.25;" />
+                                                                     Class="tl-u-font-size-20px tl-u-opacity-0-25" />
                                                         }
-                                                    </div>
+                                                    </AppCssElement>
                                                 }
                                             </div>
                                             <div class="vmt-media-info">
@@ -659,13 +659,13 @@ else
                                     case ColumnRenderType.CompactCell:
                                         <div class="vmt-compact-cell">
                                             <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)"
-                                                     Style="font-size: 14px; opacity: 0.3; flex-shrink: 0;" />
+                                                     Class="tl-u-font-size-14px tl-u-opacity-0-3 tl-u-flex-shrink-0" />
                                             <span class="vmt-compact-title">@item.Title</span>
                                         </div>
                                         break;
 
                                     case ColumnRenderType.CoverThumb:
-                                        <div class="vmt-cover-thumb" style="width: 32px; height: 32px;"
+                                        <div class="vmt-cover-thumb tl-u-width-32px tl-u-height-32px" 
                                              @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
                                              @onmouseleave="HideHover">
                                             @if (!string.IsNullOrEmpty(item.CoverUrl))
@@ -675,14 +675,14 @@ else
                                             else
                                             {
                                                 <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)"
-                                                         Style="font-size: 16px; opacity: 0.2;" />
+                                                         Class="tl-u-font-size-16px tl-u-opacity-0-2" />
                                             }
                                         </div>
                                         break;
 
                                     case ColumnRenderType.TitleCell:
                                         <div class="vmt-title-cell">
-                                            <span class="vmt-status-dot" style="background: @LibraryHelpers.GetLibraryStatusColor(item.LibraryDisplayStatus);"></span>
+                                            <AppCssElement Tag="span" Class="vmt-status-dot" Css="@($"background: {LibraryHelpers.GetLibraryStatusColor(item.LibraryDisplayStatus)};")"></AppCssElement>
                                             @{
                                                 var isTvTitle = string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
                                                 var cellTitle = isTvTitle && !string.IsNullOrWhiteSpace(item.EpisodeTitle)
@@ -701,9 +701,9 @@ else
                                         <span class="vct-text-cell"> - </span>
                                         break;
                                 }
-                            </td>
+                            </AppCssElement>
                         }
-                    </tr>
+                    </AppCssElement>
                 }
             </tbody>
         </MudSimpleTable>

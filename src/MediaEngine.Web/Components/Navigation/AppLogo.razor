@@ -1,10 +1,9 @@
-@namespace MediaEngine.Web.Components.Navigation
+﻿@namespace MediaEngine.Web.Components.Navigation
 
 <svg xmlns="http://www.w3.org/2000/svg"
      xmlns:xlink="http://www.w3.org/1999/xlink"
      viewBox="@ResolvedViewBox"
      class="app-logo @Class"
-     style="@Style"
      aria-label="Tuvima Library"
      role="img">
     <defs>
@@ -45,7 +44,6 @@
 
 @code {
     [Parameter] public string Class { get; set; } = string.Empty;
-    [Parameter] public string Style { get; set; } = string.Empty;
     [Parameter] public string Variant { get; set; } = "full";
 
     private bool ShowText => !string.Equals(Variant, "mark", StringComparison.OrdinalIgnoreCase);

@@ -1,10 +1,10 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 
-<div class="rc-wrap tl-card-hover--media @(IsFocused ? "rc-wrap--focused" : "") @(IsSelected ? "rc-wrap--selected" : "") @(NeedsReview ? "rc-wrap--review" : "")"
-     @onclick="HandleClick"
-     @onclick:stopPropagation="true"
-     style="@CardStateStyle">
+<AppCssElement Tag="div" Class='@($"rc-wrap tl-card-hover--media {(IsFocused ? "rc-wrap--focused" : "")} {(IsSelected ? "rc-wrap--selected" : "")} {(NeedsReview ? "rc-wrap--review" : "")}")'
+     OnClick="@((MouseEventArgs _) => HandleClick())"
+     StopClickPropagation="true"
+     Css="@CardStateStyle">
 @{
         var isAudiobookThumb = string.Equals(Item.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
     }
@@ -17,15 +17,15 @@
         {
             <div class="rc-thumb-fallback">
                 <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
-                         Style="font-size: 1.4rem; opacity: 0.25;" />
+                         Class="tl-u-font-size-1-4rem tl-u-opacity-0-25" />
             </div>
         }
 @if (NeedsReview)
         {
             var (_, trigColor, trigIcon) = LibraryItemHelpers.FormatReviewTrigger(Item.ReviewTrigger);
-            <span class="rc-corner-badge" style="--badge-color: @trigColor;">
-                <MudIcon Icon="@trigIcon" Style="font-size: 0.55rem; color: #fff;" />
-            </span>
+            <AppCssElement Tag="span" Class="rc-corner-badge" Css="@($"--badge-color: {trigColor};")">
+                <MudIcon Icon="@trigIcon" Class="tl-u-font-size-0-55rem tl-u-color-hex-fff" />
+            </AppCssElement>
         }
 @if (SelectionModeActive)
         {
@@ -33,16 +33,16 @@
         }
 <span class="rc-type-badge">
             <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
-                     Style="font-size: 0.7rem; color: var(--tl-text-primary);" />
+                     Class="tl-u-font-size-0-7rem tl-u-color-tl-text-primary" />
         </span>
 @if (!SelectionModeActive && NeedsReview)
         {
             <div class="rc-quick-actions">
                 <AppNativeButton Class="rc-quick-btn rc-quick-btn--approve" OnClick="HandleApprove" StopPropagation="true" Title="Approve">
-                    <MudIcon Icon="@Icons.Material.Outlined.Check" Style="font-size: 0.65rem;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Check" Class="tl-u-font-size-0-65rem" />
                 </AppNativeButton>
                 <AppNativeButton Class="rc-quick-btn rc-quick-btn--reject" OnClick="HandleReject" StopPropagation="true" Title="Reject">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 0.65rem;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-0-65rem" />
                 </AppNativeButton>
             </div>
         }
@@ -50,9 +50,9 @@
 <div class="rc-title">
         <span class="rc-type-icon" title="@Item.MediaType">
             <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(Item.MediaType)"
-                     Style="font-size: 0.65rem; opacity: 0.4;" />
+                     Class="tl-u-font-size-0-65rem tl-u-opacity-0-4" />
         </span>@Item.Title</div>
-</div>
+</AppCssElement>
 
 @code {
     [Parameter, EditorRequired] public LibraryCatalogItemViewModel Item { get; set; } = default!;

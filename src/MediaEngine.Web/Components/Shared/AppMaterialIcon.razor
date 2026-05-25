@@ -1,0 +1,17 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudIcon Icon="@Icon"
+         Class="@Class"
+         Style="@Css"
+         Color="@Color"
+         Size="@Size"
+         @attributes="AdditionalAttributes" />
+
+@code {
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Css { get; set; }
+    [Parameter] public Color Color { get; set; } = Color.Default;
+    [Parameter] public Size Size { get; set; } = Size.Medium;
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}

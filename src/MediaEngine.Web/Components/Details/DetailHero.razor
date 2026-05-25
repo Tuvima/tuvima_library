@@ -1,8 +1,8 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Shared
 
-<section class="tl-detail-hero @Presentation.HeroClass" style="@Presentation.GradientStyle">
+<AppCssElement Tag="section" Class='@($"tl-detail-hero {Presentation.HeroClass}")' Css="@Presentation.GradientStyle">
     <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
     @if (Presentation.ShowTitleBar)
     {
@@ -147,7 +147,7 @@
             </div>
         </div>
     }
-</section>
+</AppCssElement>
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;

@@ -1,4 +1,4 @@
-@inject UIOrchestratorService Orchestrator
+﻿@inject UIOrchestratorService Orchestrator
 
 <div class="manual-form">
     <h4 class="manual-form-title">Create Manual Entry</h4>
@@ -12,10 +12,10 @@
 
         <div class="manual-form-row">
             <AppTextField @bind-Value="_author" Label="Author / Creator"
-                          Variant="Variant.Outlined" Style="flex: 1;" />
+                          Variant="Variant.Outlined" Class="tl-u-flex-1" />
 
             <AppTextField @bind-Value="_year" Label="Year"
-                          Variant="Variant.Outlined" Style="max-width: 100px;"
+                          Variant="Variant.Outlined" Class="tl-u-max-width-100px"
                           InputType="InputType.Number" />
         </div>
 

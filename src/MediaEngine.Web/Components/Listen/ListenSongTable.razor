@@ -1,4 +1,4 @@
-@using System.Globalization
+﻿@using System.Globalization
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @using Microsoft.AspNetCore.Components.Web
@@ -10,7 +10,7 @@
      @onmousemove="@(args => ResizeColumn(args.ClientX))"
      @onmouseup="EndColumnResize"
      @onmouseleave="EndColumnResize">
-    <div class="listen-song-table__head" style="@($"grid-template-columns: {GridTemplate}")" role="row">
+    <AppCssElement Tag="div" Class="listen-song-table__head" Css="@($"grid-template-columns: {GridTemplate}")" role="row">
         @foreach (var column in VisibleColumns)
         {
             if (Sortable && IsSortableColumn(column.Key))
@@ -38,12 +38,12 @@
                 </span>
             }
         }
-    </div>
+    </AppCssElement>
 
     <Virtualize Items="@DisplayTracks" Context="track" TItem="WorkViewModel" ItemSize="48" OverscanCount="8">
-        <div class="listen-song-table__row"
+        <AppCssElement Tag="div" Class="listen-song-table__row"
              @key="track.Id"
-             style="@($"grid-template-columns: {GridTemplate}")"
+             Css="@($"grid-template-columns: {GridTemplate}")"
              role="row"
              draggable="true"
              @ondragstart="@(() => StartDragAsync(track.Id))"
@@ -81,7 +81,7 @@
                 {
                     case "favorite":
                         <div class="listen-song-table__favorite" role="cell">
-                            <AppNativeButton Type="button" Class="@($"listen-song-table__favorite-button @(FavoriteIds.Contains(track.Id) ? ")" is-active" : null)" AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(track))">
+                            <AppNativeButton Type="button" Class='@($"listen-song-table__favorite-button {(FavoriteIds.Contains(track.Id) ? " is-active" : null)}")' AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(track))">
                                 <MudIcon Icon="@(FavoriteIds.Contains(track.Id) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)" Size="Size.Small" />
                             </AppNativeButton>
                         </div>
@@ -123,7 +123,7 @@
                         break;
                 }
             }
-        </div>
+        </AppCssElement>
     </Virtualize>
 </div>
 

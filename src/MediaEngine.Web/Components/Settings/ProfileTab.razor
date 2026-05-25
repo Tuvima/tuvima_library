@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
@@ -28,24 +28,20 @@
 @if (showProfile)
         {
             @* Avatar + fields row *@
-            <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 2rem; margin-bottom: 1.5rem;">
+            <div class="tl-u-display-flex tl-u-flex-direction-row tl-u-align-items-flex-start tl-u-gap-2rem tl-u-margin-bottom-1-5rem">
 
                 @* Large avatar with camera overlay *@
-                <div style="position: relative; flex-shrink: 0;">
-                    <MudAvatar Style="@($"background: {_avatarColor}; width: 128px; height: 128px; font-size: 2.5rem; border-radius: 2.5rem;")">
-                        @initials
-                    </MudAvatar>
-<div style="position: absolute; bottom: 0; right: 0;
-                                width: 32px; height: 32px; border-radius: 50%;
-                                background: rgba(17,20,25,0.9); border: 1px solid rgba(51,65,85,0.6);
-                                display: flex; align-items: center; justify-content: center;
-                                cursor: pointer;"
+                <div class="tl-u-position-relative tl-u-flex-shrink-0">
+                    <AppAvatar Initials="@initials"
+                               AccentColor="@_avatarColor"
+                               Class="profile-avatar-preview" />
+<div class="tl-u-position-absolute tl-u-bottom-0 tl-u-right-0 tl-u-width-32px tl-u-height-32px tl-u-border-radius-50pct tl-u-background-rgba-17-20-25-0-9 tl-u-border-1px-solid-rgba-51-65-85-0-6 tl-u-display-flex tl-u-align-items-center tl-u-justify-content-center tl-u-cursor-pointer"
                          title="@L["Profile_UploadAvatarComingSoon"]">
                         <MudIcon Icon="@Icons.Material.Outlined.CameraAlt"
-                                 Style="font-size: 1rem; color: var(--mud-palette-text-secondary);" />
+                                 Class="tl-u-font-size-1rem tl-u-color-mud-palette-text-secondary" />
                     </div>
                 </div>
-<div style="flex: 1; min-width: 0;">
+<div class="tl-u-flex-1 tl-u-min-width-0">
                     <MudGrid Spacing="3">
                         @* Display Name *@
                         <MudItem xs="12" sm="6">
@@ -65,11 +61,11 @@
                             }
                         </MudItem>
 <MudItem xs="12" sm="6">
-                            <div style="border: 1px solid rgba(255,255,255,0.23); border-radius: 4px; padding: 16.5px 14px; cursor: not-allowed; opacity: 0.7;">
-                                <div style="font-size: 0.75rem; color: var(--mud-palette-text-secondary); margin-bottom: 4px; line-height: 1;">
+                            <div class="tl-u-border-1px-solid-rgba-255-255-255-0-23 tl-u-border-radius-4px tl-u-padding-16-5px-14px tl-u-cursor-not-allowed tl-u-opacity-0-7">
+                                <div class="tl-u-font-size-0-75rem tl-u-color-mud-palette-text-secondary tl-u-margin-bottom-4px tl-u-line-height-1">
                                     @L["Profile_Role"]
                                 </div>
-                                <div style="font-size: 1rem; color: var(--mud-palette-text-secondary);">
+                                <div class="tl-u-font-size-1rem tl-u-color-mud-palette-text-secondary">
                                     @_role
                                 </div>
                             </div>
@@ -83,8 +79,8 @@
         }
 @if (showLocale && DeviceContext.Settings.Constraints.AllowTextInput)
         {
-            <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
-                     Style="letter-spacing: 0.08em;">
+            <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4 tl-u-letter-spacing-0-08em"
+                     >
                 @L["Profile_DisplayAndLocale"]
             </MudText>
 
@@ -123,7 +119,7 @@
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Filled.Translate" Color="Color.Default" Class="mr-1" />
                 <MudText Typo="Typo.overline" Color="Color.Secondary"
-                         Style="letter-spacing: 0.08em;">
+                         Class="tl-u-letter-spacing-0-08em">
                     @L["Profile_LanguagePreferences"]
                 </MudText>
             </MudStack>

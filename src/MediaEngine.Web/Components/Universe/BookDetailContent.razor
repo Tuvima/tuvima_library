@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Components.Settings
+﻿@using MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Components.LibraryItems
 @using MediaEngine.Web.Services.Playback
 @inject UIOrchestratorService  Orchestrator
@@ -13,8 +13,8 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
-                       Style="border-radius: 4px;" />
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4 tl-u-border-radius-4px"
+                        />
 }
 else if (_work is null)
 {
@@ -47,7 +47,7 @@ else
 <div class="detail-content-layer book-detail-page">
 <div class="book-detail-breadcrumb-outer">
             <nav class="book-detail-breadcrumb">
-                <AppNativeButton Class="book-detail-bc-link" OnClick="@(() => Nav.NavigateTo(" /"))">Home</AppNativeButton>
+                <AppNativeButton Class="book-detail-bc-link" OnClick="@(() => Nav.NavigateTo("/"))">Home</AppNativeButton>
                 <span class="book-detail-bc-sep">/</span>
                 <AppNativeButton Class="book-detail-bc-link" OnClick="@(() => Nav.NavigateTo(GetLane().Route))">@GetLane().Label</AppNativeButton>
                 @if (!string.IsNullOrEmpty(_work.Author))
@@ -71,7 +71,7 @@ else
 <div class="book-detail-main-outer">
             <div class="book-detail-main-panel">
 <aside class="book-detail-sidebar">
-<div class="book-detail-sidebar-item book-detail-sidebar-person-slot" style="min-height: 80px;">
+<div class="book-detail-sidebar-item book-detail-sidebar-person-slot tl-u-min-height-80px" >
                         <span class="book-detail-sidebar-label">Author</span>
                         @if (!string.IsNullOrEmpty(_work.Author))
                         {
@@ -108,7 +108,7 @@ else
                          || _narratorPerson is not null
                          || !string.IsNullOrEmpty(ActiveWork?.Narrator))
                     {
-                        <div class="book-detail-sidebar-item book-detail-sidebar-person-slot" style="min-height: 80px;">
+                        <div class="book-detail-sidebar-item book-detail-sidebar-person-slot tl-u-min-height-80px" >
                             <span class="book-detail-sidebar-label">Narrator</span>
                             @if (_narratorPerson is not null)
                             {
@@ -132,7 +132,7 @@ else
                             {
                                 <div class="book-detail-sidebar-narrator-text">
                                     <MudIcon Icon="@Icons.Material.Filled.Headphones"
-                                             Style="font-size: 0.9rem; color: var(--tl-accent-primary); margin-right: 5px;" />
+                                             Class="tl-u-font-size-0-9rem tl-u-color-tl-accent-primary tl-u-margin-right-5px" />
                                     <span class="book-detail-sidebar-value">@ActiveWork!.Narrator</span>
                                 </div>
                             }
@@ -228,9 +228,9 @@ else
                             @foreach (var fmt in _fmts)
                             {
                                 var isSliderActive = ActiveFormatKey == fmt.Key;
-                                <AppNativeButton Class="@($"book-format-slider-btn @(isSliderActive ? ")" active" : "")" OnClick="@(() => _selectedFormatKey = fmt.Key)">
+                                <AppNativeButton Class='@($"book-format-slider-btn {(isSliderActive ? " active" : "")}")' OnClick="@(() => _selectedFormatKey = fmt.Key)">
                                     <span class="book-format-slider-content">
-                                        <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
+                                        <MudIcon Icon="@fmt.Icon" Class="tl-u-font-size-1rem tl-u-flex-shrink-0" />
                                         @fmt.Label
                                     </span>
                                 </AppNativeButton>
@@ -282,14 +282,14 @@ else
 <AppNativeButton Class="collection-primary-cta book-desktop-only" OnClick="@OnPrimaryAction">
                         <div class="collection-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
-                                     Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
+                                     Class="tl-u-font-size-1-2rem tl-u-color-hex-1a1208 tl-u-flex-shrink-0" />
                             <span class="collection-primary-cta-label">@PrimaryActionLabel()</span>
                         </div>
                         @if (hasProgress)
                         {
-                            <div class="collection-primary-cta-progress"
-                                 style="width: @(progressPct.ToString("F0"))%">
-                            </div>
+                            <AppCssElement Tag="div" Class="collection-primary-cta-progress"
+                                 Css="@($"width: {progressPct.ToString("F0")}%")">
+                            </AppCssElement>
                         }
                     </AppNativeButton>
 <div class="book-detail-actions book-desktop-only">
@@ -297,7 +297,7 @@ else
                         <AppNativeButton Class="book-detail-action-btn" OnClick="@OnAddTo">
                             <div class="book-detail-action-circle">
                                 <MudIcon Icon="@Icons.Material.Filled.PlaylistAdd"
-                                         Style="color: rgba(248,248,248,0.65); font-size: 1.4rem;" />
+                                         Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-4rem" />
                             </div>
                             <span class="book-detail-action-label">Add To</span>
                         </AppNativeButton>
@@ -305,7 +305,7 @@ else
                         <AppNativeButton Class="book-detail-action-btn" OnClick="@OnShare">
                             <div class="book-detail-action-circle">
                                 <MudIcon Icon="@Icons.Material.Filled.IosShare"
-                                         Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
+                                         Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-3rem" />
                             </div>
                             <span class="book-detail-action-label">Share</span>
                         </AppNativeButton>
@@ -313,7 +313,7 @@ else
                         <AppNativeButton Class="book-detail-action-btn" OnClick="@OpenMediaItemEditor">
                             <div class="book-detail-action-circle">
                                 <MudIcon Icon="@Icons.Material.Filled.Edit"
-                                         Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
+                                         Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-3rem" />
                             </div>
                             <span class="book-detail-action-label">Edit</span>
                         </AppNativeButton>
@@ -325,7 +325,7 @@ else
                                 <AppNativeButton Class="book-detail-action-btn">
                                     <div class="book-detail-action-circle">
                                         <MudIcon Icon="@Icons.Material.Filled.MoreHoriz"
-                                                 Style="color: rgba(248,248,248,0.65); font-size: 1.4rem;" />
+                                                 Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-4rem" />
                                     </div>
                                     <span class="book-detail-action-label">More</span>
                                 </AppNativeButton>
@@ -380,9 +380,9 @@ else
                     {
                         <div class="book-detail-progress-wrap">
                             <div class="book-detail-progress-bar-track">
-                                <div class="book-detail-progress-bar-fill"
-                                     style="width: @(_activeJourney.ProgressPct.ToString("F0"))%">
-                                </div>
+                                <AppCssElement Tag="div" Class="book-detail-progress-bar-fill"
+                                     Css="@($"width: {_activeJourney.ProgressPct.ToString("F0")}%")">
+                                </AppCssElement>
                             </div>
                             <span class="book-detail-progress-label">@_activeJourney.ProgressDisplay</span>
                         </div>
@@ -397,9 +397,9 @@ else
                             @foreach (var fmt in _fmts)
                             {
                                 var isSliderActive = ActiveFormatKey == fmt.Key;
-                                <AppNativeButton Class="@($"book-format-slider-btn @(isSliderActive ? ")" active" : "")" OnClick="@(() => _selectedFormatKey = fmt.Key)">
+                                <AppNativeButton Class='@($"book-format-slider-btn {(isSliderActive ? " active" : "")}")' OnClick="@(() => _selectedFormatKey = fmt.Key)">
                                     <span class="book-format-slider-content">
-                                        <MudIcon Icon="@fmt.Icon" Style="font-size: 1rem; flex-shrink:0;" />
+                                        <MudIcon Icon="@fmt.Icon" Class="tl-u-font-size-1rem tl-u-flex-shrink-0" />
                                         @fmt.Label
                                     </span>
                                 </AppNativeButton>
@@ -417,21 +417,21 @@ else
                         else
                         {
                             <div class="book-detail-cover @(coverIsAudio ? "book-detail-cover-audio" : "") book-detail-cover-placeholder">
-                                <MudIcon Icon="@GetBookIcon()" Style="font-size: 64px; color: rgba(255,255,255,0.18);" />
+                                <MudIcon Icon="@GetBookIcon()" Class="tl-u-font-size-64px tl-u-color-rgba-255-255-255-0-18" />
                             </div>
                         }
                     </div>
 <AppNativeButton Class="collection-primary-cta book-mobile-only" OnClick="@OnPrimaryAction">
                         <div class="collection-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
-                                     Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
+                                     Class="tl-u-font-size-1-2rem tl-u-color-hex-1a1208 tl-u-flex-shrink-0" />
                             <span class="collection-primary-cta-label">@PrimaryActionLabel()</span>
                         </div>
                         @if (hasProgress)
                         {
-                            <div class="collection-primary-cta-progress"
-                                 style="width: @(progressPct.ToString("F0"))%">
-                            </div>
+                            <AppCssElement Tag="div" Class="collection-primary-cta-progress"
+                                 Css="@($"width: {progressPct.ToString("F0")}%")">
+                            </AppCssElement>
                         }
                     </AppNativeButton>
 <div class="book-detail-actions book-mobile-only">
@@ -439,7 +439,7 @@ else
                         <AppNativeButton Class="book-detail-action-btn" OnClick="@OnAddTo">
                             <div class="book-detail-action-circle">
                                 <MudIcon Icon="@Icons.Material.Filled.PlaylistAdd"
-                                         Style="color: rgba(248,248,248,0.65); font-size: 1.4rem;" />
+                                         Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-4rem" />
                             </div>
                             <span class="book-detail-action-label">Add To</span>
                         </AppNativeButton>
@@ -447,7 +447,7 @@ else
                         <AppNativeButton Class="book-detail-action-btn" OnClick="@OnShare">
                             <div class="book-detail-action-circle">
                                 <MudIcon Icon="@Icons.Material.Filled.IosShare"
-                                         Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
+                                         Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-3rem" />
                             </div>
                             <span class="book-detail-action-label">Share</span>
                         </AppNativeButton>
@@ -455,7 +455,7 @@ else
                         <AppNativeButton Class="book-detail-action-btn" OnClick="@OpenMediaItemEditor">
                             <div class="book-detail-action-circle">
                                 <MudIcon Icon="@Icons.Material.Filled.Edit"
-                                         Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
+                                         Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-3rem" />
                             </div>
                             <span class="book-detail-action-label">Edit</span>
                         </AppNativeButton>
@@ -467,7 +467,7 @@ else
                                 <AppNativeButton Class="book-detail-action-btn">
                                     <div class="book-detail-action-circle">
                                         <MudIcon Icon="@Icons.Material.Filled.MoreHoriz"
-                                                 Style="color: rgba(248,248,248,0.65); font-size: 1.4rem;" />
+                                                 Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-4rem" />
                                     </div>
                                     <span class="book-detail-action-label">More</span>
                                 </AppNativeButton>

@@ -1,9 +1,9 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 <div class="global-bg" aria-hidden="true">
-    <div class="global-bg-gradient"
-         style="background: radial-gradient(circle at top center, @(Color ?? "#080B14")22 0%, #080B14 80%);">
-    </div>
+    <AppCssElement Tag="div" Class="global-bg-gradient"
+         Css="@($"background: radial-gradient(circle at top center, {Color ?? "#080B14"}22 0%, #080B14 80%);")">
+    </AppCssElement>
     @if (!string.IsNullOrEmpty(ImageUrl))
     {
         <img src="@ImageUrl" class="global-bg-image" alt="" />

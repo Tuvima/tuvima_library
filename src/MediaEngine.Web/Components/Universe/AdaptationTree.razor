@@ -1,10 +1,10 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 <div class="adaptation-panel">
-    <MudText Typo="Typo.subtitle1" Class="mb-1" Style="color: var(--tl-accent-primary); font-weight: 600;">
+    <MudText Typo="Typo.subtitle1" Class="mb-1 tl-u-color-tl-accent-primary tl-u-font-weight-600" >
         Adaptation Tree
     </MudText>
-    <MudText Typo="Typo.body2" Class="mb-4" Style="color: #888;">
+    <MudText Typo="Typo.body2" Class="mb-4 tl-u-color-hex-888" >
         Works connected by based-on, derivative, and inspired-by relationships.
     </MudText>
 
@@ -16,7 +16,7 @@
     }
     else if (_adaptations?.Works.Count > 0)
     {
-        <div class="adaptation-tree" style="overflow-y: auto; max-height: 500px;">
+        <div class="adaptation-tree tl-u-overflow-y-auto tl-u-max-height-500px" >
             @foreach (var root in _adaptations.Works)
             {
                 <AdaptationTreeNode Node="@root" Depth="0" />

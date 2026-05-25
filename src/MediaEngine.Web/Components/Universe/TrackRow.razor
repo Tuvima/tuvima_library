@@ -1,9 +1,9 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 <div class="track-row" @onclick="HandleClick">
     <div class="track-row-index">
         <span class="track-row-number">@(Index?.ToString() ?? "\u2022")</span>
         <MudIcon Icon="@MudBlazor.Icons.Material.Filled.PlayArrow"
-                 Class="track-row-play" Style="font-size: 18px;" />
+                 Class="track-row-play tl-u-font-size-18px"  />
     </div>
 
     <div class="track-row-cover">
@@ -14,7 +14,7 @@
         else
         {
             <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MusicNote"
-                     Style="font-size: 18px; color: var(--tl-text-faint);" />
+                     Class="tl-u-font-size-18px tl-u-color-tl-text-faint" />
         }
     </div>
 

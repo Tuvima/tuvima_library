@@ -1,5 +1,5 @@
-@namespace MediaEngine.Web.Components.Universe
-<div class="greeting-bar" style="@(string.IsNullOrEmpty(AccentColor) ? "" : $"--greeting-accent: {AccentColor};")">
+﻿@namespace MediaEngine.Web.Components.Universe
+<AppCssElement Tag="div" Class="greeting-bar" Css="@(string.IsNullOrEmpty(AccentColor) ? "" : $"--greeting-accent: {AccentColor};")">
     <div class="greeting-text">
         <span class="greeting-main">@GreetingText</span>
         @if (!string.IsNullOrEmpty(DateText))
@@ -11,7 +11,7 @@
     {
         <span class="greeting-stat">@StatLabel</span>
     }
-</div>
+</AppCssElement>
 
 @code {
     [Parameter] public string? UserName { get; set; }

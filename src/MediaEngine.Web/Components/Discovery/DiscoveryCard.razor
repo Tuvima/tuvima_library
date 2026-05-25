@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Discovery
+﻿@namespace MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Models.ViewDTOs
 @inject NavigationManager Nav
 @inject IDialogService DialogService
@@ -6,11 +6,12 @@
 @inject ILogger<DiscoveryCard> Logger
 @implements IAsyncDisposable
 
-<div class="discovery-card tl-card-hover--media @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @HoverPlacementClass @(Item.IsCollection ? "is-collection-card" : "") @(_expanded ? "is-expanded" : "")"
+<AppCssElement Tag="div"
+     Class='@($"discovery-card tl-card-hover--media {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {(Item.IsCollection ? "is-collection-card" : "")} {(_expanded ? "is-expanded" : "")}")'
      @ref="_cardRef"
-     style="@CardStyle"
+     Css="@CardStyle"
      tabindex="0"
-     @onkeydown="HandleKeyDown">
+     OnKeyDown="@HandleKeyDown">
     <div class="discovery-card-frame">
         <div class="discovery-card-media @(HasArtworkSurface ? "has-artwork-surface" : null)" @onclick="OpenDetails">
             @if (ShowCollectionBanner)
@@ -29,7 +30,7 @@
                 <div class="discovery-card-stack" aria-hidden="true">
                     @for (var index = 0; index < PreviewImages.Count; index++)
                     {
-                        <img src="@PreviewImages[index]" alt="" class="discovery-card-stack-image" style="@GetStackStyle(index)" />
+                        <AppCssElement Tag="img" src="@PreviewImages[index]" alt="" Class="discovery-card-stack-image" Css="@GetStackStyle(index)" />
                     }
                 </div>
             }
@@ -40,7 +41,7 @@
             else
             {
                 <div class="discovery-card-fallback">
-                    <MudIcon Icon="@FallbackIcon" Style="font-size:44px;color:rgba(255,255,255,.18);" />
+                    <MudIcon Icon="@FallbackIcon" Class="tl-u-font-size-44px tl-u-color-rgba-255-255-255--18" />
                     <span>@Item.Title</span>
                 </div>
             }
@@ -63,7 +64,7 @@
             @if (Item.ProgressPct is > 0)
             {
                 <div class="discovery-card-progress">
-                    <div class="discovery-card-progress-fill" style="width:@($"{Math.Min(100, Item.ProgressPct.Value):F0}%");"></div>
+                    <AppCssElement Tag="div" Class="discovery-card-progress-fill" Css="@($"width:{$"{Math.Min(100, Item.ProgressPct.Value):F0}%"};")"></AppCssElement>
                 </div>
             }
 
@@ -91,8 +92,8 @@
             </AppNativeButton>
         </div>
 
-        <div class="discovery-card-hover-panel @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @HoverPlacementClass"
-             style="@HoverPanelStyle">
+        <AppCssElement Tag="div" Class='@($"discovery-card-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass}")'
+             Css="@HoverPanelStyle">
             <div class="discovery-card-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
                  @onclick="OpenDetails"
                  @onclick:stopPropagation="true">
@@ -207,7 +208,7 @@
                     <p class="discovery-card-hover-description">@DisplaySummary</p>
                 }
             </div>
-        </div>
+        </AppCssElement>
     </div>
 
     @if (ShowCaption)
@@ -220,7 +221,7 @@
             }
         </div>
     }
-</div>
+</AppCssElement>
 
 @code {
     [Parameter, EditorRequired] public DiscoveryCardViewModel Item { get; set; } = default!;
@@ -230,7 +231,8 @@
     private bool _hoverRegistered;
     private bool _lastExpandedState;
     private int _hoverImageIndex;
-    private ElementReference _cardRef;
+    private AppCssElement? _cardRef;
+    private ElementReference CardElement => _cardRef?.Element ?? default;
 
     private string ShapeClass => Item.Shape switch
     {
@@ -428,14 +430,14 @@
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("registerDiscoveryCardHover", _cardRef);
+            await JS.InvokeVoidAsync("registerDiscoveryCardHover", CardElement);
             _hoverRegistered = true;
         }
 
         if (_expanded != _lastExpandedState)
         {
             _lastExpandedState = _expanded;
-            await JS.InvokeVoidAsync("setDiscoveryCardHoverExpanded", _cardRef, _expanded);
+            await JS.InvokeVoidAsync("setDiscoveryCardHoverExpanded", CardElement, _expanded);
         }
     }
 
@@ -542,7 +544,7 @@
 
         try
         {
-            await JS.InvokeVoidAsync("unregisterDiscoveryCardHover", _cardRef);
+            await JS.InvokeVoidAsync("unregisterDiscoveryCardHover", CardElement);
         }
         catch (Exception ex)
         {

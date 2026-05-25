@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Shared
+﻿@namespace MediaEngine.Web.Components.Shared
 
 <MudButton Variant="@MudVariant"
            Color="@MudColor"
@@ -11,7 +11,7 @@
            ButtonType="@ButtonType"
            FullWidth="@FullWidth"
            OnClick="HandleClick"
-           Style="@InlineStyle"
+           Style="@ResolvedStyle"
            Class="@RootClass"
            @attributes="AdditionalAttributes">
     @if (ChildContent is not null)
@@ -42,9 +42,11 @@
     [Parameter] public Variant? Variant { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? InlineStyle { get; set; }
+    [Parameter] public string? Css { get; set; }
     [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private AppControlSize AppSize => AppUiMaps.ToAppControlSize(Size);
+    private string? ResolvedStyle => !string.IsNullOrWhiteSpace(Css) ? Css : InlineStyle;
     private Size MudSize => AppUiMaps.ToMudSize(Size);
     private Color MudColor => Color ?? AppUiMaps.ToMudColor(Tone);
     private Variant MudVariant => Variant ?? AppUiMaps.ToMudVariant(ButtonStyle);

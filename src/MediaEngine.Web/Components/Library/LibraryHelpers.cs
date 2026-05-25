@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using MediaEngine.Domain;
 using MediaEngine.Web.Components.LibraryItems;
 using MediaEngine.Web.Models.ViewDTOs;

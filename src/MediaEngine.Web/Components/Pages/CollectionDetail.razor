@@ -29,7 +29,7 @@ else if (_collection is null)
 else
 {
     <article class="tl-detail-page collection-detail-page">
-        <section class="@HeroClass" style="@HeroStyle">
+        <AppCssElement Tag="section" Class="@HeroClass" Css="@HeroStyle">
             <div class="collection-detail-hero__wash"></div>
             <div class="collection-detail-hero__content">
                 <div class="collection-detail-eyebrow">
@@ -61,7 +61,7 @@ else
                                     Palette="@_collection.ArtworkPalette"
                                     Class="collection-detail-artwork-stack" />
             </div>
-        </section>
+        </AppCssElement>
 
         <main class="collection-detail-overview">
             <div class="collection-detail-overview__main">
@@ -427,10 +427,10 @@ else
         string.IsNullOrWhiteSpace(item.Title) ? "Untitled item" : item.Title;
 
     private static string FormatItemMeta(CollectionItemViewModel item) =>
-        string.Join(" · ", new[] { item.Creator, NormalizeMediaType(item.MediaType) }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        string.Join("  -  ", new[] { item.Creator, NormalizeMediaType(item.MediaType) }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private static string FormatLookupMeta(CollectionMediaLookupItemViewModel item) =>
-        string.Join(" · ", new[] { item.Creator, NormalizeMediaType(item.MediaType), item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        string.Join("  -  ", new[] { item.Creator, NormalizeMediaType(item.MediaType), item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private static string NormalizeMediaType(string? mediaType) => mediaType switch
     {

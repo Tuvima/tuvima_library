@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
 <div class="tl-detail-tab-panel @(Model.EntityType == DetailEntityType.Person ? null : "tl-media-overview-panel")">
@@ -83,7 +83,7 @@
                             <h2>@CreditPanelTitle</h2>
                             @if (ShowCastTabLink)
                             {
-                                <AppNativeButton Type="button" OnClick="@(() => OnTabRequested.InvokeAsync(" cast"))">
+                                <AppNativeButton Type="button" OnClick="@(() => OnTabRequested.InvokeAsync("cast"))">
                                     View all cast
                                 </AppNativeButton>
                             }
@@ -92,7 +92,7 @@
                     else if (ShowCastTabLink)
                     {
                         <div class="tl-media-overview-card__credits-heading tl-media-overview-card__credits-heading--link-only">
-                            <AppNativeButton Type="button" OnClick="@(() => OnTabRequested.InvokeAsync(" cast"))">
+                            <AppNativeButton Type="button" OnClick="@(() => OnTabRequested.InvokeAsync("cast"))">
                                 View all cast
                             </AppNativeButton>
                         </div>

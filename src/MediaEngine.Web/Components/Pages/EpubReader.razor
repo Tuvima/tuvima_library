@@ -17,7 +17,7 @@
 
 <div class="reader-shell reader-theme-@_settings.Theme">
 
-    @* ── Persistent close — always visible regardless of chrome state ── *@
+    @* -- Persistent close  -  always visible regardless of chrome state -- *@
     <AppNativeButton Class="reader-persistent-close" OnClick="ExitReader" Title="Close reader">
         <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
     </AppNativeButton>
@@ -31,19 +31,19 @@
     }
     else if (_metadata is not null)
     {
-        @* ── Tap zones ─────────────────────────────────────────────────── *@
+        @* -- Tap zones --------------------------------------------------- *@
         <div class="reader-tap-zone left" @onclick="@(() => HandleTapZone("left"))"></div>
         <div class="reader-tap-zone center" @onclick="@(() => HandleTapZone("center"))"></div>
         <div class="reader-tap-zone right" @onclick="@(() => HandleTapZone("right"))"></div>
 
-        @* ── Content viewport ──────────────────────────────────────────── *@
+        @* -- Content viewport -------------------------------------------- *@
         <div class="reader-content-viewport">
             <div id="reader-columns" class="reader-content-columns" @ref="_contentRef">
                 @((MarkupString)(_currentChapter?.HtmlContent ?? ""))
             </div>
         </div>
 
-        @* ── Top bar chrome ────────────────────────────────────────────── *@
+        @* -- Top bar chrome ---------------------------------------------- *@
         <div class="reader-chrome @(_chromeVisible ? "" : "hidden")">
             <div class="reader-top-bar reader-chrome">
                 <AppNativeButton Class="reader-back-btn" OnClick="ExitReader" Title="Back to library">
@@ -69,7 +69,7 @@
                 </div>
             </div>
 
-            @* ── Bottom bar chrome ─────────────────────────────────────── *@
+            @* -- Bottom bar chrome --------------------------------------- *@
             <div class="reader-bottom-bar reader-chrome">
                 <div class="reader-progress-row">
                     <span class="reader-page-info">@(_currentPageInChapter + 1) / @_totalPagesInChapter</span>
@@ -81,7 +81,7 @@
             </div>
         </div>
 
-        @* ── TOC drawer (left) ─────────────────────────────────────────── *@
+        @* -- TOC drawer (left) ------------------------------------------- *@
         <div class="reader-drawer-overlay @(_tocOpen ? "open" : "")" @onclick="CloseToc"></div>
         <div class="reader-drawer left @(_tocOpen ? "open" : "")">
             <div class="reader-drawer-header">
@@ -105,7 +105,7 @@
             </div>
         </div>
 
-        @* ── Search drawer (right) ─────────────────────────────────────── *@
+        @* -- Search drawer (right) --------------------------------------- *@
         <div class="reader-drawer-overlay @(_searchOpen ? "open" : "")" @onclick="CloseSearch"></div>
         <div class="reader-drawer right @(_searchOpen ? "open" : "")">
             <div class="reader-drawer-header">
@@ -123,7 +123,7 @@
                     @foreach (var hit in _searchResults)
                     {
                         <div class="reader-search-result" @key="@($"{hit.ChapterIndex}-{hit.ContextSnippet}")" @onclick="@(() => NavigateToChapter(hit.ChapterIndex))">
-                            <div class="reader-search-chapter">Chapter @(hit.ChapterIndex + 1) — @hit.ChapterTitle</div>
+                            <div class="reader-search-chapter">Chapter @(hit.ChapterIndex + 1)  -  @hit.ChapterTitle</div>
                             <div class="reader-search-snippet">@((MarkupString)HighlightSnippet(hit.ContextSnippet, _searchQuery))</div>
                         </div>
                     }
@@ -138,7 +138,7 @@
             </div>
         </div>
 
-        @* ── Bookmarks drawer (right) ──────────────────────────────────── *@
+        @* -- Bookmarks drawer (right) ------------------------------------ *@
         <div class="reader-drawer-overlay @(_bookmarksOpen ? "open" : "")" @onclick="CloseBookmarks"></div>
         <div class="reader-drawer right @(_bookmarksOpen ? "open" : "")">
             <div class="reader-drawer-header">
@@ -154,8 +154,8 @@
                     {
                         <div class="reader-list-item" @key="bm.Id" @onclick="@(() => NavigateToChapter(bm.ChapterIndex))">
                             <MudIcon Icon="@Icons.Material.Filled.BookmarkBorder"
-                                     Size="Size.Small" class="reader-list-icon"
-                                     Style="color: var(--reader-accent);" />
+                                     Size="Size.Small" class="reader-list-icon tl-u-color-reader-accent"
+                                      />
                             <div class="reader-list-content">
                                 <div class="reader-list-title">@(bm.Label ?? $"Chapter {bm.ChapterIndex + 1}")</div>
                                 <div class="reader-list-detail">@bm.CreatedAt.ToString("MMM d, yyyy")</div>
@@ -174,7 +174,7 @@
                     </div>
                 }
 
-                <div style="padding: 12px 20px;">
+                <div class="tl-u-padding-12px-20px">
                     <AppButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
                                StartIcon="@Icons.Material.Filled.BookmarkAdd"
                                OnClick="AddBookmark">
@@ -184,7 +184,7 @@
             </div>
         </div>
 
-        @* ── Settings drawer (right) ───────────────────────────────────── *@
+        @* -- Settings drawer (right) ------------------------------------- *@
         <div class="reader-drawer-overlay @(_settingsOpen ? "open" : "")" @onclick="CloseSettings"></div>
         <div class="reader-drawer right @(_settingsOpen ? "open" : "")">
             <div class="reader-drawer-header">
@@ -198,9 +198,9 @@
                 <div class="reader-settings-section">
                     <div class="reader-settings-label">Theme</div>
                     <div class="reader-theme-picker">
-                        <AppNativeButton Class="@($"reader-theme-btn dark @(_settings.Theme == ")" dark" ? "active" : "")" OnClick="@(() => SetTheme(" dark"))">Aa</AppNativeButton>
-                        <AppNativeButton Class="@($"reader-theme-btn sepia @(_settings.Theme == ")" sepia" ? "active" : "")" OnClick="@(() => SetTheme(" sepia"))">Aa</AppNativeButton>
-                        <AppNativeButton Class="@($"reader-theme-btn light @(_settings.Theme == ")" light" ? "active" : "")" OnClick="@(() => SetTheme(" light"))">Aa</AppNativeButton>
+                        <AppNativeButton Class='@($"reader-theme-btn dark {(_settings.Theme == "dark" ? "active" : "")}")' OnClick="@(() => SetTheme("dark"))">Aa</AppNativeButton>
+                        <AppNativeButton Class='@($"reader-theme-btn sepia {(_settings.Theme == "sepia" ? "active" : "")}")' OnClick="@(() => SetTheme("sepia"))">Aa</AppNativeButton>
+                        <AppNativeButton Class='@($"reader-theme-btn light {(_settings.Theme == "light" ? "active" : "")}")' OnClick="@(() => SetTheme("light"))">Aa</AppNativeButton>
                     </div>
                 </div>
 
@@ -210,7 +210,7 @@
                     <div class="reader-font-picker">
                         @foreach (var f in _fontOptions)
                         {
-                            <AppNativeButton Class="@($"reader-font-chip @(_settings.FontFamily == f.Key ? ")" active" : "")" @key="f.Key" InlineStyle="@($"font-family: {f.Value};")" OnClick="@(() => SetFont(f.Key))">
+                            <AppNativeButton Class='@($"reader-font-chip {(_settings.FontFamily == f.Key ? "active" : "")}")' @key="f.Key" Css="@($"font-family: {f.Value};")" OnClick="@(() => SetFont(f.Key))">
                                 @f.Key
                             </AppNativeButton>
                         }
@@ -221,9 +221,9 @@
                 <div class="reader-settings-section">
                     <div class="reader-settings-label">Size</div>
                     <div class="reader-size-control">
-                        <span class="reader-size-label" style="font-size: 0.7rem;">A</span>
+                        <span class="reader-size-label tl-u-font-size-0-7rem" >A</span>
                         <AppNativeInput Type="range" Min="12" Max="32" Value="@_settings.FontSize" OnChange="OnFontSizeChanged" />
-                        <span class="reader-size-label" style="font-size: 1.1rem;">A</span>
+                        <span class="reader-size-label tl-u-font-size-1-1rem" >A</span>
                     </div>
                 </div>
 
@@ -242,16 +242,16 @@
                     <div class="reader-settings-label">Margins</div>
                     <div class="reader-size-control">
                         <MudIcon Icon="@Icons.Material.Filled.FormatIndentDecrease" Size="Size.Small"
-                                 Style="color: var(--reader-chrome-text-dim);" />
+                                 Class="tl-u-color-reader-chrome-text-dim" />
                         <AppNativeInput Type="range" Min="16" Max="80" Value="@_settings.Margins" OnChange="OnMarginChanged" />
                         <MudIcon Icon="@Icons.Material.Filled.FormatIndentIncrease" Size="Size.Small"
-                                 Style="color: var(--reader-chrome-text-dim);" />
+                                 Class="tl-u-color-reader-chrome-text-dim" />
                     </div>
                 </div>
             </div>
         </div>
 
-        @* ── Stats overlay ─────────────────────────────────────────────── *@
+        @* -- Stats overlay ----------------------------------------------- *@
         <div class="reader-stats-overlay @(!_chromeVisible ? "hidden" : "")">
             <div class="reader-stat-row">
                 <span class="reader-stat-label">WPM</span>
@@ -280,7 +280,7 @@
     {
         <div class="reader-loading">
             <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large"
-                     Style="color: var(--reader-chrome-text-dim); font-size: 3rem;" />
+                     Class="tl-u-color-reader-chrome-text-dim tl-u-font-size-3rem" />
             <span class="reader-loading-title">Book not found</span>
             <AppButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExitReader">
                 Return to Library
@@ -595,7 +595,7 @@
     private async Task AddBookmark()
     {
         var chapterTitle = _currentChapter?.Title ?? $"Chapter {_currentChapterIndex + 1}";
-        var label = $"{chapterTitle} — Page {_currentPageInChapter + 1}";
+        var label = $"{chapterTitle}  -  Page {_currentPageInChapter + 1}";
 
         var bm = await Api.CreateBookmarkAsync(AssetId, _currentChapterIndex, null, label);
         if (bm is not null)
@@ -818,5 +818,3 @@
         _dotNetRef?.Dispose();
     }
 }
-
-

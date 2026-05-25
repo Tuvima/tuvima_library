@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 <MudDrawer Open="@Open"
@@ -7,10 +7,10 @@
            Width="480px"
            Overlay="true"
            Variant="DrawerVariant.Temporary"
-           Style="@DrawerStyle">
+           Class="curators-drawer">
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="pa-4">
         <MudIcon Icon="@Icons.Material.Outlined.EditNote" Color="Color.Primary" Class="mr-2" />
-        <MudText Typo="Typo.h6" Style="flex: 1;">Correct Metadata</MudText>
+        <MudText Typo="Typo.h6" Class="tl-u-flex-1">Correct Metadata</MudText>
         <AppIconButton Icon="@Icons.Material.Filled.Close"
                        Color="Color.Default"
                        Size="Size.Small"
@@ -22,7 +22,7 @@
     {
         <AppPanel Elevation="0" Class="tl-card mx-4 mb-4">
             <MudText Typo="Typo.caption" Color="Color.Secondary">Currently editing</MudText>
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@CurrentTitle</MudText>
+            <MudText Typo="Typo.subtitle1" Class="tl-u-font-weight-600">@CurrentTitle</MudText>
         </AppPanel>
     }
 <div class="px-4 mb-4">
@@ -43,19 +43,18 @@
     }
     else if (_results.Count > 0)
     {
-        <div class="px-4" style="overflow-y: auto; max-height: calc(100vh - 400px);">
+        <div class="px-4 tl-u-overflow-y-auto tl-u-max-height-calc-100vh---400px" >
             @foreach (var r in _results)
             {
                 bool isSelected = _selectedResult?.WorkId == r.WorkId;
                 <AppPanel Elevation="0"
-                          Style="@(isSelected ? SelectedResultStyle : ResultCardStyle)"
-                          Class="mb-2 cursor-pointer"
-                          @onclick="@(() => SelectResult(r))">
+                          Class="@($"mb-2 cursor-pointer curator-result-card {(isSelected ? "curator-result-card--selected" : null)}")"
+                          OnClick="@(() => SelectResult(r))">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudIcon Icon="@Icons.Material.Filled.MenuBook"
                                  Color="Color.Primary" Size="Size.Small" />
-                        <div style="min-width: 0; flex: 1;">
-                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
+                        <div class="tl-u-min-width-0 tl-u-flex-1">
+                            <MudText Typo="Typo.subtitle2" Class="tl-u-font-weight-600">
                                 @r.Title
                             </MudText>
                             @if (!string.IsNullOrEmpty(r.Author))
@@ -94,20 +93,20 @@
             </MudText>
             <MudStack Spacing="1">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 60px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-u-min-width-60px">
                         Title:
                     </MudText>
-                    <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                    <MudText Typo="Typo.body2" Class="tl-u-font-weight-600">
                         @_selectedResult.Title
                     </MudText>
                 </MudStack>
                 @if (!string.IsNullOrEmpty(_selectedResult.Author))
                 {
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 60px;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-u-min-width-60px">
                             Author:
                         </MudText>
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                        <MudText Typo="Typo.body2" Class="tl-u-font-weight-600">
                             @_selectedResult.Author
                         </MudText>
                     </MudStack>
@@ -131,7 +130,7 @@
         <MudDivider Class="my-2" />
         <MudExpansionPanels Elevation="0" Class="px-4 mb-4">
             <MudExpansionPanel Text="Claim History"
-                               Style="background: transparent;"
+                               Class="tl-u-background-transparent"
                                Expanded="false">
                 @if (_claimsLoading)
                 {
@@ -154,7 +153,7 @@
                                          Variant="Variant.Outlined">
                                     @claim.ClaimKey
                                 </AppChip>
-                                <MudText Typo="Typo.body2" Style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">
+                                <MudText Typo="Typo.body2" Class="tl-u-flex-1 tl-u-min-width-0 tl-u-overflow-hidden tl-u-text-overflow-ellipsis">
                                     @claim.ClaimValue
                                 </MudText>
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">
@@ -177,35 +176,6 @@
 
 @code {
 
-    private const string DrawerStyle =
-        "background: var(--app-surface); " +
-        "border-left: 1px solid var(--app-border);";
-
-    private const string InnerCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 16px;";
-
-    private const string ResultCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 6px; " +
-        "padding: 12px; " +
-        "transition: border 0.2s ease;";
-
-    private const string SelectedResultStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 2px solid var(--mud-palette-primary); " +
-        "border-radius: 6px; " +
-        "padding: 12px; " +
-        "transition: border 0.2s ease;";
-
-    private const string ClaimCardStyle =
-        "background: rgba(255,255,255,0.03); " +
-        "border: 1px solid var(--tl-border-subtle); " +
-        "border-radius: 4px; " +
-        "padding: 8px 12px;";
     [Parameter] public bool Open { get; set; }
     [Parameter] public EventCallback<bool> OpenChanged { get; set; }
     [Parameter] public Guid EntityId { get; set; }

@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Library
@@ -71,14 +71,14 @@
             <div class="admin-library-breakdown" aria-label="Library media type breakdown">
                 @foreach (var media in MediaBreakdown)
                 {
-                    <div class="admin-library-media" style="@media.AccentStyle">
+                    <AppCssElement Tag="div" Class="admin-library-media" Css="@media.AccentStyle">
                         <span class="admin-library-media__icon">
                             <MudIcon Icon="@media.Icon" />
                         </span>
                         <span class="admin-library-media__label">@media.Label</span>
                         <span class="admin-library-media__count">@FormatCount(media.Count)</span>
                         <span class="admin-library-media__percent">@FormatPercent(media.Percent)</span>
-                    </div>
+                    </AppCssElement>
                 }
             </div>
 
@@ -87,9 +87,9 @@
                 {
                     @foreach (var media in MediaBreakdown.Where(item => item.Count > 0))
                     {
-                        <span class="admin-composition-bar__segment"
+                        <AppCssElement Tag="span" Class="admin-composition-bar__segment"
                               title="@($"{media.Label}: {media.Percent:0.#}%")"
-                              style="@SegmentStyle(media)"></span>
+                              Css="@SegmentStyle(media)"></AppCssElement>
                     }
                 }
                 else
@@ -101,7 +101,7 @@
             <div class="admin-composition-labels" aria-hidden="true">
                 @foreach (var media in MediaBreakdown.Where(item => item.Count > 0))
                 {
-                    <span style="@CompositionLabelStyle(media)">@FormatPercent(media.Percent)</span>
+                    <AppCssElement Tag="span" Css="@CompositionLabelStyle(media)">@FormatPercent(media.Percent)</AppCssElement>
                 }
             </div>
         </div>
@@ -125,7 +125,7 @@
                         <span>@_currentRun.Progress.ToString("0")%</span>
                     </div>
                     <div class="admin-progress-track">
-                        <span class="admin-progress-fill" style="@ProgressStyle(_currentRun.Progress)"></span>
+                        <AppCssElement Tag="span" Class="admin-progress-fill" Css="@ProgressStyle(_currentRun.Progress)"></AppCssElement>
                     </div>
                 </div>
 
@@ -228,8 +228,8 @@
             </div>
 
             <div class="admin-split-bar" aria-label="Playback mode split">
-                <span class="admin-split-bar__transcode" style="@ProgressStyle(_transcodePercent)"></span>
-                <span class="admin-split-bar__direct" style="@ProgressStyle(_directPlayPercent)"></span>
+                <AppCssElement Tag="span" Class="admin-split-bar__transcode" Css="@ProgressStyle(_transcodePercent)"></AppCssElement>
+                <AppCssElement Tag="span" Class="admin-split-bar__direct" Css="@ProgressStyle(_directPlayPercent)"></AppCssElement>
             </div>
 
             @if (_activeEncodeJobs.Count == 0)

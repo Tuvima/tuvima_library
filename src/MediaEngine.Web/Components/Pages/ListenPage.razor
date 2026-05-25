@@ -1,4 +1,4 @@
-@page "/listen"
+﻿@page "/listen"
 @page "/listen/music"
 @page "/listen/music/{Section}"
 @page "/listen/music/albums/{CollectionId:guid}"
@@ -24,13 +24,13 @@
 @if (_redirecting || _loading)
 {
     <div class="listen-state">
-        <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.32);" />
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-rgba-255-255-255-0-32" />
     </div>
 }
 else if (!string.IsNullOrWhiteSpace(_error))
 {
     <div class="listen-state listen-state--error">
-        <MudIcon Icon="@Icons.Material.Outlined.LibraryMusic" Style="font-size: 56px; opacity: 0.22;" />
+        <MudIcon Icon="@Icons.Material.Outlined.LibraryMusic" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
         <h3>Listen could not load</h3>
         <p>@_error</p>
         <AppNativeButton Type="button" Class="listen-button listen-button--secondary" OnClick="ReloadAsync">Try again</AppNativeButton>
@@ -47,8 +47,8 @@ else
                     <div class="listen-rail__label">Music</div>
                     @foreach (var item in MusicLibraryItems)
                     {
-                        <AppNativeButton Type="button" Class="@($"listen-rail__item @(IsRouteActive(item.Route) ? ")" is-active" : null)" OnClick="@(() => NavigateTo(item.Route))">
-                            <MudIcon Icon="@item.Icon" Style="font-size: 18px;" />
+                        <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' OnClick="@(() => NavigateTo(item.Route))">
+                            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
                             <span>@item.Label</span>
                             <span class="listen-rail__meta">@item.Meta</span>
                         </AppNativeButton>
@@ -59,8 +59,8 @@ else
                     <div class="listen-rail__label">Quick access</div>
                     @foreach (var item in QuickAccessItems)
                     {
-                        <AppNativeButton Type="button" Class="@($"listen-rail__item @(IsRouteActive(item.Route) ? ")" is-active" : null)" OnClick="@(() => NavigateTo(item.Route))">
-                            <MudIcon Icon="@item.Icon" Style="font-size: 18px;" />
+                        <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' OnClick="@(() => NavigateTo(item.Route))">
+                            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
                             <span>@item.Label</span>
                             @if (!string.IsNullOrWhiteSpace(item.Meta))
                             {
@@ -74,10 +74,10 @@ else
                     <div class="listen-rail__section-heading">
                         <AppNativeButton Type="button" Class="listen-rail__section-toggle" aria-expanded="@_playlistsExpanded" OnClick="@(() => _playlistsExpanded = !_playlistsExpanded)">
                             <span>Playlists</span>
-                            <MudIcon Icon="@(_playlistsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)" Style="font-size: 18px;" />
+                            <MudIcon Icon="@(_playlistsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)" Class="tl-u-font-size-18px" />
                         </AppNativeButton>
                         <AppNativeButton Type="button" Class="listen-rail__add" AriaLabel="Add playlist" OnClick="TogglePlaylistCreateMenu">
-                            <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 18px;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-18px" />
                         </AppNativeButton>
                         @if (_playlistCreateMenuOpen)
                         {
@@ -90,8 +90,8 @@ else
 
                     @if (_playlistsExpanded)
                     {
-                        <AppNativeButton Type="button" Class="@($"listen-rail__item @(IsRouteActiveExact(PlaylistsRoute) ? ")" is-active" : null)" OnClick="@(() => NavigateTo(PlaylistsRoute))">
-                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 18px;" />
+                        <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActiveExact(PlaylistsRoute) ? " is-active" : null)}")' OnClick="@(() => NavigateTo(PlaylistsRoute))">
+                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-18px" />
                             <span>All Playlists</span>
                         </AppNativeButton>
 
@@ -108,25 +108,26 @@ else
                         {
                             @foreach (var playlist in PlaylistCollections)
                             {
+                                var playlistRoute = $"/listen/music/playlists/{playlist.Id}";
                                 <div class="listen-rail__playlist-row @(playlist.Id == _draggingPlaylistId ? "is-dragging" : null)"
                                      @ondragover:preventDefault="true"
                                      @ondrop="@(() => DropPlaylistReorderAsync(playlist.Id))">
                                     <AppNativeButton Type="button" Class="listen-rail__drag" draggable="true" AriaLabel="@($" Drag to reorder {playlist.Name}")" @ondragstart="@(() => BeginPlaylistReorder(playlist.Id))" @ondragend="EndPlaylistReorder">
-                                        <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Style="font-size: 18px;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="tl-u-font-size-18px" />
                                     </AppNativeButton>
-                                    <AppNativeButton Type="button" Class="@($"listen-rail__item is-child @(IsRouteActive($")" /listen/music/playlists/{playlist.Id}") ? "is-active" : null)" OnClick="@(() => NavigateTo($" /listen/music/playlists/{playlist.Id}"))" @ondragover:preventDefault="true" @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
+                                    <AppNativeButton Type="button" Class='@($"listen-rail__item is-child {(IsRouteActive(playlistRoute) ? "is-active" : null)}")' OnClick="@(() => NavigateTo(playlistRoute))" @ondragover:preventDefault="true" @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
                                         @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
                                         {
                                             <span class="listen-rail__thumb"><img src="@playlist.SquareArtworkUrl" alt="" /></span>
                                         }
                                         else
                                         {
-                                            <MudIcon Icon="@PlaylistIconFor(playlist)" Style="font-size: 18px;" />
+                                            <MudIcon Icon="@PlaylistIconFor(playlist)" Class="tl-u-font-size-18px" />
                                         }
                                         <span>@playlist.Name</span>
                                     </AppNativeButton>
                                     <AppNativeButton Type="button" Class="listen-rail__more" Title="Playlist options" AriaLabel="@($" {playlist.Name} options")" StopPropagation="true" OnClick="@(() => TogglePlaylistActionsMenu(playlist.Id))">
-                                        <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Style="font-size: 18px;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Class="tl-u-font-size-18px" />
                                     </AppNativeButton>
                                     @if (_playlistActionsMenuOpen && _playlistActionsCollectionId == playlist.Id)
                                     {
@@ -146,8 +147,8 @@ else
                     <div class="listen-rail__label">Audiobooks</div>
                     @foreach (var item in AudiobookLibraryItems)
                     {
-                        <AppNativeButton Type="button" Class="@($"listen-rail__item @(IsRouteActive(item.Route) ? ")" is-active" : null)" OnClick="@(() => NavigateTo(item.Route))">
-                            <MudIcon Icon="@item.Icon" Style="font-size: 18px;" />
+                        <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActive(item.Route) ? "is-active" : null)}")' OnClick="@(() => NavigateTo(item.Route))">
+                            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
                             <span>@item.Label</span>
                             @if (!string.IsNullOrWhiteSpace(item.Meta))
                             {
@@ -170,10 +171,10 @@ else
                 </div>
 
                 <div class="listen-mode-switch" role="tablist" aria-label="Listen mode">
-                    <AppNativeButton Type="button" role="tab" aria-selected="@IsMusicMode" Class="@($"listen-mode-switch__option @(IsMusicMode ? ")" is-active" : null)" OnClick="OpenMusicModeAsync">
+                    <AppNativeButton Type="button" role="tab" aria-selected="@IsMusicMode" Class='@($"listen-mode-switch__option {(IsMusicMode ? " is-active" : null)}")' OnClick="OpenMusicModeAsync">
                         Music
                     </AppNativeButton>
-                    <AppNativeButton Type="button" role="tab" aria-selected="@IsAudiobooksView" Class="@($"listen-mode-switch__option @(IsAudiobooksView ? ")" is-active" : null)" OnClick="OpenAudiobooksModeAsync">
+                    <AppNativeButton Type="button" role="tab" aria-selected="@IsAudiobooksView" Class='@($"listen-mode-switch__option {(IsAudiobooksView ? " is-active" : null)}")' OnClick="OpenAudiobooksModeAsync">
                         Audiobooks
                     </AppNativeButton>
                 </div>
@@ -217,7 +218,7 @@ else
                                                 }
                                                 else
                                                 {
-                                                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px;" />
+                                                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-42px" />
                                                 }
                                             </div>
                                             <div class="listen-card__meta listen-card__meta--label">@playlist.Type</div>
@@ -280,7 +281,7 @@ else
                     {
                         <div class="listen-empty">
                             <div>
-                                <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 56px; opacity: 0.22;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
                                 <p>No albums are ready to browse yet.</p>
                             </div>
                         </div>
@@ -301,7 +302,7 @@ else
                                         }
                                         else
                                         {
-                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 42px;" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-42px" />
                                         }
                                     </div>
                                     <div class="listen-card__title">@album.DisplayName</div>
@@ -322,7 +323,7 @@ else
                         }
                         else
                         {
-                            <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 64px;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-64px" />
                         }
                     </div>
                     <div class="listen-detail__copy">
@@ -407,7 +408,7 @@ else
                         <div class="listen-artists__list-body">
                             @foreach (var artist in FilteredArtistGroups)
                             {
-                                <AppNativeButton Type="button" Class="@($"listen-list-item @(string.Equals(artist.DisplayName, SelectedArtistName, StringComparison.OrdinalIgnoreCase) ? ")" is-active" : null)" OnClick="@(() => SelectArtistAsync(artist.DisplayName))">
+                                <AppNativeButton Type="button" Class='@($"listen-list-item {(string.Equals(artist.DisplayName, SelectedArtistName, StringComparison.OrdinalIgnoreCase) ? " is-active" : null)}")' OnClick="@(() => SelectArtistAsync(artist.DisplayName))">
                                     <div class="listen-list-item__thumb">
                                         @if (!string.IsNullOrWhiteSpace(artist.ArtistPhotoUrl))
                                         {
@@ -415,7 +416,7 @@ else
                                         }
                                         else
                                         {
-                                            <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Style="font-size: 20px;" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Class="tl-u-font-size-20px" />
                                         }
                                     </div>
                                     <div>
@@ -432,7 +433,7 @@ else
                         {
                             <div class="listen-empty">
                                 <div>
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.32);" />
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-rgba-255-255-255-0-32" />
                                     <p>Loading artist details...</p>
                                 </div>
                             </div>
@@ -441,7 +442,7 @@ else
                         {
                             <div class="listen-empty">
                                 <div>
-                                    <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Style="font-size: 56px; opacity: 0.22;" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
                                     <p>Choose an artist to view albums.</p>
                                 </div>
                             </div>
@@ -456,7 +457,7 @@ else
                                     }
                                     else
                                     {
-                                        <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Style="font-size: 64px;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Class="tl-u-font-size-64px" />
                                     }
                                 </div>
                                 <div class="listen-detail__copy">
@@ -517,7 +518,7 @@ else
                                                         }
                                                         else
                                                         {
-                                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 42px;" />
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-42px" />
                                                         }
                                                     </div>
                                                     <div class="listen-card__title">@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")</div>
@@ -537,7 +538,7 @@ else
                                                         }
                                                         else
                                                         {
-                                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 42px;" />
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-42px" />
                                                         }
                                                     </div>
                                                     <div class="listen-card__title">@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")</div>
@@ -561,7 +562,7 @@ else
                                 {
                                     <div class="listen-empty">
                                         <div>
-                                            <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 56px; opacity: 0.22;" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
                                             <p>No songs are ready for this artist yet.</p>
                                         </div>
                                     </div>
@@ -618,7 +619,7 @@ else
                     {
                         <div class="listen-empty">
                             <div>
-                                <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 56px; opacity: 0.22;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
                                 <p>No songs are ready to play yet.</p>
                             </div>
                         </div>
@@ -654,7 +655,7 @@ else
                     {
                         <div class="listen-empty">
                             <div>
-                                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 56px; opacity: 0.22;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
                                 <p>No saved playlists yet. Favorites and recently added stay available from Quick access.</p>
                             </div>
                         </div>
@@ -674,7 +675,7 @@ else
                                         }
                                         else
                                         {
-                                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px;" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-42px" />
                                         }
                                     </div>
                                     <div class="listen-card__meta listen-card__meta--label">@card.Type</div>
@@ -697,7 +698,7 @@ else
                         }
                         else if (PlaylistCoverUrls.Count == 0)
                         {
-                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 64px;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-64px" />
                         }
                         else
                         {
@@ -751,7 +752,7 @@ else
                     {
                         <div class="listen-empty">
                             <div>
-                                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 56px; opacity: 0.22;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
                                 <p>This playlist is empty.</p>
                             </div>
                         </div>
@@ -759,8 +760,8 @@ else
                     else
                     {
                         <div class="listen-playlist-track-list" role="table" aria-label="@($"{ActivePlaylistTitle} songs")">
-                            <div class="listen-playlist-track-list__head"
-                                 style="@($"grid-template-columns: {PlaylistGridTemplate}")"
+                            <AppCssElement Tag="div" Class="listen-playlist-track-list__head"
+                                 Css="@($"grid-template-columns: {PlaylistGridTemplate}")"
                                  role="row"
                                  @onmousemove="@(args => ResizeColumn(args.ClientX))"
                                  @onmouseup="EndColumnResize"
@@ -798,21 +799,21 @@ else
                                     </span>
                                 }
                                 <span role="columnheader" class="listen-playlist-track-list__actions-label">Queue / Edit / Remove</span>
-                            </div>
+                            </AppCssElement>
                             @foreach (var row in ActivePlaylistTrackRows)
                             {
                                 var track = row.Work;
                                 var item = row.Item;
-                                <div class="listen-playlist-track-row @(item is not null && item.Id == _draggingPlaylistTrackItemId ? "is-dragging" : null) @(item is not null && item.Id == _playlistTrackDropTargetItemId && !_playlistTrackDropAfter ? "is-drop-before" : null)"
-                                     style="@($"grid-template-columns: {PlaylistGridTemplate}")"
+                                <AppCssElement Tag="div" Class='@($"listen-playlist-track-row {(item is not null && item.Id == _draggingPlaylistTrackItemId ? "is-dragging" : null)} {(item is not null && item.Id == _playlistTrackDropTargetItemId && !_playlistTrackDropAfter ? "is-drop-before" : null)}")'
+                                     Css="@($"grid-template-columns: {PlaylistGridTemplate}")"
                                      role="row"
                                      draggable="true"
-                                     @ondragstart="@(() => item is null ? Task.CompletedTask : BeginPlaylistTrackReorderAsync(item.Id))"
-                                     @ondragend="EndPlaylistTrackReorder"
-                                     @ondblclick="@(() => PlayTracksAsync(ActivePlaylistTracks, track.Id, ActivePlaylistTitle))"
-                                     @ondragover:preventDefault="true"
-                                     @ondragover="@(() => item is null ? Task.CompletedTask : SetPlaylistTrackDropTargetAsync(item.Id, false))"
-                                     @ondrop="@(() => item is null ? Task.CompletedTask : DropPlaylistTrackReorderAsync(item.Id))">
+                                     OnDragStart="@((DragEventArgs _) => item is null ? Task.CompletedTask : BeginPlaylistTrackReorderAsync(item.Id))"
+                                     OnDragEnd="@((DragEventArgs _) => EndPlaylistTrackReorder())"
+                                     OnDoubleClick="@((MouseEventArgs _) => PlayTracksAsync(ActivePlaylistTracks, track.Id, ActivePlaylistTitle))"
+                                     PreventDragOverDefault="true"
+                                     OnDragOver="@((DragEventArgs _) => item is null ? Task.CompletedTask : SetPlaylistTrackDropTargetAsync(item.Id, false))"
+                                     OnDrop="@((DragEventArgs _) => item is null ? Task.CompletedTask : DropPlaylistTrackReorderAsync(item.Id))">
                                     <div class="listen-playlist-track-row__song listen-playlist-track-row__song--no-handle" role="cell">
                                         <div class="listen-playlist-track-row__art">
                                             @if (!string.IsNullOrWhiteSpace(track.CoverUrl))
@@ -832,7 +833,7 @@ else
                                     @if (IsPlaylistColumnVisible("favorite"))
                                     {
                                         <div class="listen-playlist-track-row__favorite" role="cell">
-                                            <AppNativeButton Type="button" Class="@($"listen-track-grid__favorite @(_favoriteWorkIds.Contains(track.Id) ? ")" is-active" : null)" AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(track))">
+                                            <AppNativeButton Type="button" Class='@($"listen-track-grid__favorite {(_favoriteWorkIds.Contains(track.Id) ? " is-active" : null)}")' AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(track))">
                                                 <MudIcon Icon="@(_favoriteWorkIds.Contains(track.Id) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)" Size="Size.Small" />
                                             </AppNativeButton>
                                         </div>
@@ -860,7 +861,7 @@ else
                                             <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
                                         </AppNativeButton>
                                     </div>
-                                </div>
+                                </AppCssElement>
                             }
                             <div class="listen-playlist-track-end-zone @(_draggingPlaylistTrackItemId.HasValue ? "is-active" : null)"
                                  @ondragover:preventDefault="true"

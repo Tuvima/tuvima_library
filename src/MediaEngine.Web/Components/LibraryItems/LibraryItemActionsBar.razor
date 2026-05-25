@@ -1,4 +1,4 @@
-@using MudBlazor
+﻿@using MudBlazor
 
 <div class="rab-container">
 <div class="rab-auto-section">
@@ -6,11 +6,11 @@
             @if (Processing)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                     Style="width: 12px; height: 12px; color: var(--tl-status-success);" />
+                                     Class="tl-u-width-12px tl-u-height-12px tl-u-color-tl-status-success" />
             }
             else
             {
-                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 13px;" />
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="tl-u-font-size-13px" />
             }
             <span>Auto-register above</span>
         </AppNativeButton>
@@ -26,7 +26,7 @@
 @if (FailedCount > 0)
     {
         <AppNativeButton Class="rab-retry-btn" OnClick="OnRetryFailed" Disabled="@Processing">
-            <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 13px;" />
+            <MudIcon Icon="@Icons.Material.Outlined.Refresh" Class="tl-u-font-size-13px" />
             <span>Retry failed (@FailedCount)</span>
         </AppNativeButton>
     }

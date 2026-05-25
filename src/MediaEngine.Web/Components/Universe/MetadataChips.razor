@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @if (Labels is not null && Labels.Count > 0)
 {
     <div class="metadata-chips">
@@ -12,7 +12,7 @@
                      Size="Size.Small"
                      Variant="Variant.Outlined"
                      Color="Color.Default"
-                     Class="@($"metadata-chip {(hasQid ? "has-qid" : "")}")"
+                     Class='@($"metadata-chip {(hasQid ? "has-qid" : "")}")'
                      Text="@label" />
         }
     </div>

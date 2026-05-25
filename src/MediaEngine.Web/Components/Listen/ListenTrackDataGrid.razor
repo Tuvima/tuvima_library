@@ -1,4 +1,4 @@
-@using System.Globalization
+﻿@using System.Globalization
 @using Microsoft.AspNetCore.Components.Web
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
@@ -50,7 +50,7 @@
                          @ondragstart="@(() => HandleDragStartAsync(cell.Item.EntityId))"
                          @ondragend="HandleDragEndAsync">
                         <AppNativeButton Type="button" Class="listen-track-grid__icon-button" StopPropagation="true" OnClick="@(() => ActivateRowAsync(cell.Item.EntityId))">
-                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 18px;" />
+                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Class="tl-u-font-size-18px" />
                         </AppNativeButton>
                     </div>
                 </CellTemplate>
@@ -76,10 +76,10 @@
                             }
                             else
                             {
-                                <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 16px;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Class="tl-u-font-size-16px" />
                             }
                             <AppNativeButton Type="button" Class="listen-track-grid__art-play" Title="Play song" AriaLabel="@($" Play {cell.Item.Title}")" StopPropagation="true" OnClick="@(() => ActivateRowAsync(cell.Item.EntityId))">
-                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 16px;" />
+                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Class="tl-u-font-size-16px" />
                             </AppNativeButton>
                         </div>
                         <div class="listen-track-grid__title-text">@cell.Item.Title</div>
@@ -149,9 +149,9 @@
                             Hidden="@IsHidden(TrackColumnKeys.Favorite)"
                             HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Favorite, hidden))">
                 <CellTemplate Context="cell">
-                    <AppNativeButton Type="button" Class="@($"listen-track-grid__favorite @(cell.Item.IsFavorite ? ")" is-active" : null)" AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(cell.Item.EntityId))">
+                    <AppNativeButton Type="button" Class='@($"listen-track-grid__favorite {(cell.Item.IsFavorite ? " is-active" : null)}")' AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(cell.Item.EntityId))">
                         <MudIcon Icon="@(cell.Item.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
-                                 Style="font-size: 16px;" />
+                                 Class="tl-u-font-size-16px" />
                     </AppNativeButton>
                 </CellTemplate>
             </PropertyColumn>
@@ -345,7 +345,7 @@
                             DragAndDropEnabled="false">
                 <CellTemplate Context="cell">
                     <AppNativeButton Type="button" Class="listen-track-grid__icon-button" AriaLabel="Open track menu" Title="Track menu" StopPropagation="true" OnClick="@(e => OpenContextMenuFromButtonAsync(cell.Item.EntityId, e))">
-                        <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Style="font-size: 18px;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Class="tl-u-font-size-18px" />
                     </AppNativeButton>
                 </CellTemplate>
             </TemplateColumn>

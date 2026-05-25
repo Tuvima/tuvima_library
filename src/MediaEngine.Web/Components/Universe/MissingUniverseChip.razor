@@ -1,4 +1,4 @@
-@* Amber chip shown on libraryItem items that have no Wikidata QID (status 'missing' or 'manual'). *@
+﻿@* Amber chip shown on libraryItem items that have no Wikidata QID (status 'missing' or 'manual'). *@
 
 @if (Show)
 {
@@ -6,9 +6,9 @@
         <AppChip T="string"
                  Size="Size.Small"
                  Variant="Variant.Filled"
-                 Style="background: var(--tl-status-warning-soft); color: var(--tl-status-warning); font-size: 0.68rem; height: 20px; padding: 0 8px;">
+                 Class="tl-u-background-tl-status-warning-soft tl-u-color-tl-status-warning tl-u-font-size-0-68rem tl-u-height-20px tl-u-padding-0-8px">
             <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small"
-                     Style="font-size: 0.7rem; margin-right: 3px;" />
+                     Class="tl-u-font-size-0-7rem tl-u-margin-right-3px" />
             @Label
         </AppChip>
     </MudTooltip>

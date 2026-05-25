@@ -1,25 +1,25 @@
-<div class="library-item-bulk-bar">
+﻿<div class="library-item-bulk-bar">
     <AppChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
         @SelectedCount selected
     </AppChip>
 
     <AppButton Variant="Variant.Text" Size="Size.Small"
                OnClick="OnSelectAll" Disabled="@Processing"
-               Style="color: var(--tl-text-muted); font-size: 0.75rem;">
+               Class="tl-u-color-tl-text-muted tl-u-font-size-0-75rem">
         Select All (@TotalCount)
     </AppButton>
     <AppButton Variant="Variant.Text" Size="Size.Small"
                OnClick="OnDeselectAll" Disabled="@Processing"
-               Style="color: var(--tl-text-muted); font-size: 0.75rem;">
+               Class="tl-u-color-tl-text-muted tl-u-font-size-0-75rem">
         Deselect All
     </AppButton>
 
-    <div style="flex: 1;"></div>
+    <div class="tl-u-flex-1"></div>
 
     @if (Processing)
     {
         <MudProgressCircular Indeterminate="true" Size="Size.Small"
-                             Style="color: var(--tl-text-muted); width: 20px; height: 20px;" />
+                             Class="tl-u-color-tl-text-muted tl-u-width-20px tl-u-height-20px" />
     }
 
     <AppButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"

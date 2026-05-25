@@ -1,4 +1,4 @@
-@page "/watch/player/{AssetId:guid}"
+﻿@page "/watch/player/{AssetId:guid}"
 @using Microsoft.AspNetCore.Components
 @using Microsoft.JSInterop
 @using MediaEngine.Contracts.Playback
@@ -21,7 +21,7 @@
 @if (_loading)
 {
     <div class="watch-player-state">
-        <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.28);" />
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-rgba-255-255-255-0-28" />
     </div>
 }
 else
@@ -29,7 +29,7 @@ else
     <div class="watch-player-page">
         <div class="watch-player-page__topbar">
             <AppNativeButton Type="button" Class="watch-player-button watch-player-button--secondary" OnClick="GoBack">
-                <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
+                <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Class="tl-u-font-size-18px" />
                 <span>Back</span>
             </AppNativeButton>
 
@@ -72,7 +72,7 @@ else
                         @foreach (var segment in VisibleSkipSegments)
                         {
                             <AppNativeButton Type="button" @key="@($" {segment.Kind}-{segment.StartSeconds}-{segment.EndSeconds}")" Class="watch-player-skip-chip" Title="@SkipTitle(segment)" OnClick="() => SkipSegmentAsync(segment)">
-                                <MudIcon Icon="@SkipIcon(segment.Kind)" Style="font-size: 16px;" />
+                                <MudIcon Icon="@SkipIcon(segment.Kind)" Class="tl-u-font-size-16px" />
                                 <span>@SkipLabel(segment.Kind)</span>
                             </AppNativeButton>
                         }

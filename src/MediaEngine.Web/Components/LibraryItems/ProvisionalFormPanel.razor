@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
 
@@ -6,7 +6,7 @@
 @inject ISnackbar Snackbar
 <div class="pfp-info-box">
     <div class="pfp-info-icon">
-        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 13px; color: var(--tl-text-muted);" />
+        <MudIcon Icon="@Icons.Material.Outlined.Info" Class="tl-u-font-size-13px tl-u-color-tl-text-muted" />
     </div>
     <span class="pfp-info-text">
         Marking as provisional - enter enough detail so users can find it and Wikidata can re-match when it becomes available.
@@ -133,7 +133,7 @@
 
     @* Re-check notice *@
     <div class="pfp-recheck-box">
-        <MudIcon Icon="@Icons.Material.Outlined.Autorenew" Style="font-size: 12px; flex-shrink: 0; margin-top: 1px; color: rgba(133,183,235,0.6);" />
+        <MudIcon Icon="@Icons.Material.Outlined.Autorenew" Class="tl-u-font-size-12px tl-u-flex-shrink-0 tl-u-margin-top-1px tl-u-color-rgba-133-183-235-0-6" />
         <span>
             The system will automatically re-check Wikidata when new data becomes available and offer to upgrade this provisional entry.
         </span>
@@ -144,12 +144,12 @@
         @if (_saving)
         {
             <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                 Style="width: 13px; height: 13px; color: rgba(192,184,224,0.7);" />
+                                 Class="tl-u-width-13px tl-u-height-13px tl-u-color-rgba-192-184-224-0-7" />
             <span>Saving...</span>
         }
         else
         {
-            <MudIcon Icon="@Icons.Material.Outlined.BookmarkAdd" Style="font-size: 14px;" />
+            <MudIcon Icon="@Icons.Material.Outlined.BookmarkAdd" Class="tl-u-font-size-14px" />
             <span>Save as provisional</span>
         }
     </AppNativeButton>

@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @* Reusable progress card for the Last Journey hero tile.
    Displays: icon, primary value, progress bar, label. *@
@@ -6,17 +6,17 @@
 <div class="progress-card">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
         <MudIcon Icon="@Icon" Size="Size.Small"
-                 Style="color: var(--app-icon-muted); font-size: 20px;" />
-        <MudText Typo="Typo.body1" Style="font-weight: 600;">
+                 Class="tl-u-color-app-icon-muted tl-u-font-size-20px" />
+        <MudText Typo="Typo.body1" Class="tl-u-font-weight-600">
             @Value
         </MudText>
     </MudStack>
 
     <MudProgressLinear Value="@Percent" Color="Color.Warning" Rounded="false"
-                       Size="Size.Small" Class="mb-1"
-                       Style="height: 4px;" />
+                       Size="Size.Small" Class="mb-1 tl-u-height-4px"
+                        />
 
-    <MudText Typo="Typo.caption" Style="color: var(--app-text-faint);">
+    <MudText Typo="Typo.caption" Class="tl-u-color-app-text-faint">
         @Label
     </MudText>
 </div>

@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Domain.Constants
 @using MediaEngine.Domain.Enums
 @using MediaEngine.Web.Components.Library.DetailDrawer
@@ -51,7 +51,7 @@
                 @* Pinned file path header *@
                 <div class="vdd-details-path">
                     <div class="vdd-details-path-name">
-                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 14px; color: var(--tl-text-muted);" />
+                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Class="tl-u-font-size-14px tl-u-color-tl-text-muted" />
                         <span>@(MediaItem.FileName ?? " - ")</span>
                     </div>
                     @if (!string.IsNullOrEmpty(detailsFolder))
@@ -101,8 +101,8 @@
                         <div class="vdd-metadata-list">
                             @if (_claimsLoading)
                             {
-                                <div style="padding: 8px 0; text-align: center;">
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
+                                <div class="tl-u-padding-8px-0 tl-u-text-align-center">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-text-faint" />
                                 </div>
                             }
                             else
@@ -161,8 +161,8 @@
                         @* -- RETAIL TAB -- *@
                         <div class="vdd-tab-content">
                             @* Always-visible filter-based search (at the top) *@
-                            <div class="vdd-tab-search" style="margin-top: 0; padding-top: 0; border-top: none;">
-                                <div class="vdd-search-bar-wrap" style="margin-top: 4px;">
+                            <div class="vdd-tab-search tl-u-margin-top-0 tl-u-padding-top-0 tl-u-border-top-none" >
+                                <div class="vdd-search-bar-wrap tl-u-margin-top-4px" >
                                     @* Media type row *@
                                     <div class="vdd-search-type-row">
                                         <span class="vdd-search-type-label">Type:</span>
@@ -194,7 +194,7 @@
                                     @* Main search row *@
                                     <div class="vdd-search-main-row">
                                         <div class="vdd-search-input-group">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: var(--tl-text-muted);" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Class="tl-u-font-size-18px tl-u-color-tl-text-muted" />
 
                                             @* Primary field selector *@
                                             <AppSelect T="string"
@@ -278,7 +278,7 @@
                                 @if (hasRetail && HasAnySearchFieldValue())
                                 {
                                     <p class="vdd-rematch-warning">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: var(--tl-status-warning);" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Class="tl-u-font-size-12px tl-u-color-tl-status-warning" />
                                         Quick Search lets you choose a new canonical provider-backed match for this field group.
                                     </p>
                                 }
@@ -287,8 +287,8 @@
                             @* Search results with field comparison cards *@
                             @if (_searching)
                             {
-                                <div style="padding: 8px 0; text-align: center;">
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
+                                <div class="tl-u-padding-8px-0 tl-u-text-align-center">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-text-faint" />
                                 </div>
                             }
                             else if (_hasSearched && _retailSearchResults.Count == 0)
@@ -314,7 +314,7 @@
                             }
                             else if (_retailSearchResults.Count > 0)
                             {
-                                <div class="vdd-search-results" style="max-height: none;">
+                                <div class="vdd-search-results tl-u-max-height-none" >
                                     @foreach (var result in _retailSearchResults)
                                     {
                                         var isExpanded = _pendingRetailMatch == result;
@@ -331,7 +331,7 @@
                                                     }
                                                     else
                                                     {
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 24px; color: var(--tl-border-strong);" />
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-24px tl-u-color-tl-border-strong" />
                                                     }
                                                 </div>
                                                 <div class="vdd-result-title-block">
@@ -343,16 +343,16 @@
                                                     <span class="vdd-result-card-meta">@result.LinkStatusLabel</span>
                                                     @if (!result.IsApplicable && !string.IsNullOrWhiteSpace(result.BlockedReason))
                                                     {
-                                                        <span class="vdd-result-card-meta" style="color: var(--tl-status-warning);">@result.BlockedReason</span>
+                                                        <span class="vdd-result-card-meta tl-u-color-tl-status-warning" >@result.BlockedReason</span>
                                                     }
                                                 </div>
                                                 <div class="vdd-result-score">
-                                                    <span class="vdd-result-score-val" style="color: @GetScoreColor(overallScore);">@overallScore.ToString("F2")</span>
+                                                    <AppCssElement Tag="span" Class="vdd-result-score-val" Css="@($"color: {GetScoreColor(overallScore)};")">@overallScore.ToString("F2")</AppCssElement>
                                                     <div class="vdd-result-score-bar">
                                                         @for (int s = 0; s < 5; s++)
                                                         {
                                                             var filled = s < (int)Math.Round(overallScore * 5);
-                                                            <div class="vdd-score-seg @(filled ? "vdd-score-seg--filled" : "")" style="@(filled ? $"background: {GetScoreColor(overallScore)};" : "")"></div>
+                                                            <AppCssElement Tag="div" Class='@($"vdd-score-seg {(filled ? "vdd-score-seg--filled" : "")}")' Css="@(filled ? $"background: {GetScoreColor(overallScore)};" : "")"></AppCssElement>
                                                         }
                                                     </div>
                                                 </div>
@@ -362,9 +362,9 @@
                                             <div class="vdd-field-compare">
                                                 <div class="vdd-compare-header-row">
                                                     <span class="vdd-compare-col-label">YOUR FILE</span>
-                                                    <span class="vdd-compare-col-label" style="text-align: center;">&lt;-&gt;</span>
+                                                    <span class="vdd-compare-col-label tl-u-text-align-center" >&lt;-&gt;</span>
                                                     <span class="vdd-compare-col-label">PROVIDER MATCH</span>
-                                                    <span class="vdd-compare-col-label" style="text-align: right;">SCORE</span>
+                                                    <span class="vdd-compare-col-label tl-u-text-align-right" >SCORE</span>
                                                 </div>
                                                 @foreach (var comp in fieldComparisons)
                                                 {
@@ -380,14 +380,14 @@
                                                         <div class="vdd-compare-cell vdd-compare-cell--score">
                                                             @if (comp.Score.HasValue)
                                                             {
-                                                                <span style="color: @GetScoreColor(comp.Score.Value); font-weight: 700; font-size: 12px;">@comp.Score.Value.ToString("F2")</span>
+                                                                <AppCssElement Tag="span" Css="@($"color: {GetScoreColor(comp.Score.Value)}; font-weight: 700; font-size: 12px;")">@comp.Score.Value.ToString("F2")</AppCssElement>
                                                                 <div class="vdd-score-mini-bar">
-                                                                    <div class="vdd-score-mini-fill" style="width: @(comp.Score.Value * 100)%; background: @GetScoreColor(comp.Score.Value);"></div>
+                                                                    <AppCssElement Tag="div" Class="vdd-score-mini-fill" Css="@($"width: {comp.Score.Value * 100}%; background: {GetScoreColor(comp.Score.Value)};")"></AppCssElement>
                                                                 </div>
                                                             }
                                                             else
                                                             {
-                                                                <span style="color: var(--tl-text-faint); font-size: 11px;"> - </span>
+                                                                <span class="tl-u-color-tl-text-faint tl-u-font-size-11px"> - </span>
                                                             }
                                                         </div>
                                                     </div>
@@ -472,7 +472,7 @@
                                                             @if (IsRealRetailMatch(MediaItem?.RetailMatch))
                                                             {
                                                                 <span class="vdd-overwrite-warning">
-                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: var(--tl-status-warning);" />
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Class="tl-u-font-size-12px tl-u-color-tl-status-warning" />
                                                                     Replaces the current provider-backed canonical selection for this field group.
                                                                 </span>
                                                             }
@@ -491,7 +491,7 @@
                             @* Existing match status (below search and results) *@
                             @if (hasRetail)
                             {
-                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--tl-divider);">
+                                <div class="tl-u-margin-top-16px tl-u-padding-top-12px tl-u-border-top-1px-solid-tl-divider">
                                     @{
                                         var retailDisplayName = GetRetailProviderDisplayName();
                                         var isManualMatch = MediaItem?.RetailMatch?.Equals("user_manual", StringComparison.OrdinalIgnoreCase) == true;
@@ -503,7 +503,7 @@
                                     @if (GetRetailProviderUrl() is { } retailUrl)
                                     {
                                         <a href="@retailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
-                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Class="tl-u-font-size-11px" />
                                             @retailUrl.Label
                                         </a>
                                     }
@@ -511,7 +511,7 @@
                                     @* Show retail provider claims *@
                                     @if (retailClaims.Count > 0)
                                     {
-                                        <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                        <div class="vdd-metadata-list tl-u-margin-top-8px" >
                                             @foreach (var group in retailClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
                                             {
                                                 var bestClaim = group.OrderByDescending(c => c.Confidence).First();
@@ -531,8 +531,8 @@
                         @* -- WIKIDATA TAB -- *@
                         <div class="vdd-tab-content">
                             @* Always-visible Wikidata search (at the top) *@
-                            <div class="vdd-tab-search" style="margin-top: 0; padding-top: 0; border-top: none;">
-                                <div class="vdd-search-bar-wrap" style="margin-top: 4px;">
+                            <div class="vdd-tab-search tl-u-margin-top-0 tl-u-padding-top-0 tl-u-border-top-none" >
+                                <div class="vdd-search-bar-wrap tl-u-margin-top-4px" >
                                     <div class="vdd-search-type-row">
                                         <span class="vdd-search-type-label">Type:</span>
                                         <AppSelect T="string"
@@ -561,7 +561,7 @@
                                     </div>
                                     <div class="vdd-search-main-row">
                                         <div class="vdd-search-input-group">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: var(--tl-text-muted);" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Class="tl-u-font-size-18px tl-u-color-tl-text-muted" />
                                             <AppTextField T="string"
                                                           @bind-Value="_wikidataSearchQuery"
                                                           Placeholder="@(hasWikidata ? "Search for a different canonical entity..." : "Search by name or enter a QID...")"
@@ -580,7 +580,7 @@
                                 @if (hasWikidata && !string.IsNullOrWhiteSpace(_wikidataSearchQuery))
                                 {
                                     <p class="vdd-rematch-warning">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: var(--tl-status-warning);" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Class="tl-u-font-size-12px tl-u-color-tl-status-warning" />
                                         Quick Search lets you choose a new canonical linked entity for this field group.
                                     </p>
                                 }
@@ -589,8 +589,8 @@
                             @* Search results with field comparison cards *@
                             @if (_searchingWikidata)
                             {
-                                <div style="padding: 8px 0; text-align: center;">
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
+                                <div class="tl-u-padding-8px-0 tl-u-text-align-center">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-text-faint" />
                                 </div>
                             }
                             else if (_hasSearchedWikidata && _wikidataSearchResults.Count == 0)
@@ -616,7 +616,7 @@
                             }
                             else if (_wikidataSearchResults.Count > 0)
                             {
-                                <div class="vdd-search-results" style="max-height: none;">
+                                <div class="vdd-search-results tl-u-max-height-none" >
                                     @foreach (var result in _wikidataSearchResults)
                                     {
                                         var isExpanded = _pendingWikidataMatch == result;
@@ -625,14 +625,14 @@
                                              @onclick="() => SelectWikidataResult(result)">
                                             @* Header: icon + label/QID *@
                                             <div class="vdd-result-header">
-                                                <div class="vdd-result-cover" style="background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.15);">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 24px; color: #A78BFA;" />
+                                                <div class="vdd-result-cover tl-u-background-rgba-167-139-250-0-1 tl-u-border-color-rgba-167-139-250-0-15" >
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Class="tl-u-font-size-24px tl-u-color-hex-a78bfa" />
                                                 </div>
                                                 <div class="vdd-result-title-block">
                                                     <span class="vdd-result-card-title">@result.Label</span>
                                                     <div class="vdd-result-card-qid-row">
                                                         <a href="https://www.wikidata.org/wiki/@result.Qid" target="_blank" rel="noopener" class="vdd-result-qid-link" @onclick:stopPropagation="true">
-                                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 10px;" />
+                                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Class="tl-u-font-size-10px" />
                                                             @result.Qid
                                                         </a>
                                                         @if (!string.IsNullOrEmpty(result.InstanceOf))
@@ -646,24 +646,24 @@
                                                     </div>
                                                     @if (!string.IsNullOrEmpty(result.Description))
                                                     {
-                                                        <span class="vdd-result-card-meta" style="overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal;">@result.Description</span>
+                                                        <span class="vdd-result-card-meta tl-u-overflow-hidden tl-u-text-overflow-ellipsis tl-u-display-webkit-box tl-u-webkit-line-clamp-2 tl-u-webkit-box-orient-vertical tl-u-white-space-normal" >@result.Description</span>
                                                     }
                                                     <span class="vdd-result-card-meta">@result.LinkStatusLabel</span>
                                                     @if (!result.IsApplicable && !string.IsNullOrWhiteSpace(result.BlockedReason))
                                                     {
-                                                        <span class="vdd-result-card-meta" style="color: var(--tl-status-warning);">@result.BlockedReason</span>
+                                                        <span class="vdd-result-card-meta tl-u-color-tl-status-warning" >@result.BlockedReason</span>
                                                     }
                                                 </div>
                                                 <div class="vdd-result-score">
                                                     @{
                                                         var wikiScore = result.Confidence;
                                                     }
-                                                    <span class="vdd-result-score-val" style="color: @GetScoreColor(wikiScore);">@wikiScore.ToString("F2")</span>
+                                                    <AppCssElement Tag="span" Class="vdd-result-score-val" Css="@($"color: {GetScoreColor(wikiScore)};")">@wikiScore.ToString("F2")</AppCssElement>
                                                     <div class="vdd-result-score-bar">
                                                         @for (int s = 0; s < 5; s++)
                                                         {
                                                             var filled = s < (int)Math.Round(wikiScore * 5);
-                                                            <div class="vdd-score-seg @(filled ? "vdd-score-seg--filled" : "")" style="@(filled ? $"background: {GetScoreColor(wikiScore)};" : "")"></div>
+                                                            <AppCssElement Tag="div" Class='@($"vdd-score-seg {(filled ? "vdd-score-seg--filled" : "")}")' Css="@(filled ? $"background: {GetScoreColor(wikiScore)};" : "")"></AppCssElement>
                                                         }
                                                     </div>
                                                 </div>
@@ -675,9 +675,9 @@
                                                 <div class="vdd-field-compare">
                                                     <div class="vdd-compare-header-row">
                                                         <span class="vdd-compare-col-label">YOUR FILE</span>
-                                                        <span class="vdd-compare-col-label" style="text-align: center;">&lt;-&gt;</span>
+                                                        <span class="vdd-compare-col-label tl-u-text-align-center" >&lt;-&gt;</span>
                                                         <span class="vdd-compare-col-label">WIKIDATA</span>
-                                                        <span class="vdd-compare-col-label" style="text-align: right;">SCORE</span>
+                                                        <span class="vdd-compare-col-label tl-u-text-align-right" >SCORE</span>
                                                     </div>
                                                     @foreach (var comp in wikiFieldComparisons)
                                                     {
@@ -693,14 +693,14 @@
                                                             <div class="vdd-compare-cell vdd-compare-cell--score">
                                                                 @if (comp.Score.HasValue)
                                                                 {
-                                                                    <span style="color: @GetScoreColor(comp.Score.Value); font-weight: 700; font-size: 12px;">@comp.Score.Value.ToString("F2")</span>
+                                                                    <AppCssElement Tag="span" Css="@($"color: {GetScoreColor(comp.Score.Value)}; font-weight: 700; font-size: 12px;")">@comp.Score.Value.ToString("F2")</AppCssElement>
                                                                     <div class="vdd-score-mini-bar">
-                                                                        <div class="vdd-score-mini-fill" style="width: @(comp.Score.Value * 100)%; background: @GetScoreColor(comp.Score.Value);"></div>
+                                                                        <AppCssElement Tag="div" Class="vdd-score-mini-fill" Css="@($"width: {comp.Score.Value * 100}%; background: {GetScoreColor(comp.Score.Value)};")"></AppCssElement>
                                                                     </div>
                                                                 }
                                                                 else
                                                                 {
-                                                                    <span style="color: var(--tl-text-faint); font-size: 11px;"> - </span>
+                                                                    <span class="tl-u-color-tl-text-faint tl-u-font-size-11px"> - </span>
                                                                 }
                                                             </div>
                                                         </div>
@@ -763,7 +763,7 @@
                                                             @if (IsWikidataMatched(MediaItem?.WikidataQid))
                                                             {
                                                                 <span class="vdd-overwrite-warning">
-                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: var(--tl-status-warning);" />
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Class="tl-u-font-size-12px tl-u-color-tl-status-warning" />
                                                                     Replaces the current linked canonical selection for this field group (@MediaItem?.WikidataQid).
                                                                 </span>
                                                             }
@@ -788,7 +788,7 @@
                             @* Existing QID status (below search and results) *@
                             @if (hasWikidata)
                             {
-                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--tl-divider);">
+                                <div class="tl-u-margin-top-16px tl-u-padding-top-12px tl-u-border-top-1px-solid-tl-divider">
                                     <div class="vdd-match-status vdd-match-status--ok">
                                         <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
                                         <a href="https://www.wikidata.org/wiki/@MediaItem?.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem?.WikidataQid</a>
@@ -798,7 +798,7 @@
                                     @* Wikidata claims *@
                                     @if (wikiClaims.Count > 0)
                                     {
-                                        <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                        <div class="vdd-metadata-list tl-u-margin-top-8px" >
                                             @foreach (var group in wikiClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
                                             {
                                                 var bestClaim = group.OrderByDescending(c => c.Confidence).First();
@@ -813,7 +813,7 @@
                             }
                             else
                             {
-                                <div class="vdd-match-status vdd-match-status--fail" style="margin-top: 12px;">
+                                <div class="vdd-match-status vdd-match-status--fail tl-u-margin-top-12px" >
                                     <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
                                     <span>No Wikidata identity assigned yet</span>
                                 </div>
@@ -870,7 +870,7 @@
                                 </div>
                             }
                             <div class="vdd-asset-slot">
-                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-16px tl-u-color-tl-border-strong" />
                                 <span class="vdd-asset-upload">@L["LibraryDetail_AssetCustom"]</span>
                             </div>
                         </div>
@@ -887,7 +887,7 @@
                                 </div>
                             }
                             <div class="vdd-asset-slot">
-                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-16px tl-u-color-tl-border-strong" />
                                 <span class="vdd-asset-upload">@L["LibraryDetail_AssetCustom"]</span>
                             </div>
                         </div>
@@ -899,7 +899,7 @@
                             <span class="vdd-asset-label">@assetType</span>
                             <div class="vdd-asset-items">
                                 <div class="vdd-asset-slot">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: var(--tl-border-strong);" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-16px tl-u-color-tl-border-strong" />
                                     <span class="vdd-asset-upload">@L["LibraryDetail_AssetUpload"]</span>
                                 </div>
                             </div>
@@ -946,7 +946,7 @@
                                     stroke-linecap="round"
                                     transform="rotate(-90 32 32)" />
                         </svg>
-                        <span class="vdd-health-pct" style="color: @ringColor;">@((int)hp)%</span>
+                        <AppCssElement Tag="span" Class="vdd-health-pct" Css="@($"color: {ringColor};")">@((int)hp)%</AppCssElement>
                     </div>
                     <div class="vdd-health-label-block">
                         <span class="vdd-health-title">@L["LibraryDetail_HealthScore"]</span>
@@ -961,17 +961,17 @@
                 <DrawerSection Title="@L["LibraryDetail_EntityCounts"]" Icon="@Icons.Material.Outlined.Category">
                     <div class="vdd-entity-counts">
                         <div class="vdd-entity-count-item">
-                            <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: #A78BFA;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Person" Class="tl-u-font-size-16px tl-u-color-hex-a78bfa" />
                             <span class="vdd-entity-count-label">Characters</span>
                             <span class="vdd-entity-count-val">@_universeCharacters.Count</span>
                         </div>
                         <div class="vdd-entity-count-item">
-                            <MudIcon Icon="@Icons.Material.Outlined.LocationOn" Style="font-size: 16px; color: var(--tl-status-info);" />
+                            <MudIcon Icon="@Icons.Material.Outlined.LocationOn" Class="tl-u-font-size-16px tl-u-color-tl-status-info" />
                             <span class="vdd-entity-count-label">Locations</span>
                             <span class="vdd-entity-count-val">@(_universeHealth.EntitiesTotal - _universeCharacters.Count)</span>
                         </div>
                         <div class="vdd-entity-count-item">
-                            <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Style="font-size: 16px; color: var(--tl-accent-primary);" />
+                            <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Class="tl-u-font-size-16px tl-u-color-tl-accent-primary" />
                             <span class="vdd-entity-count-label">Relationships</span>
                             <span class="vdd-entity-count-val">@_universeHealth.RelationshipsTotal</span>
                         </div>
@@ -983,8 +983,8 @@
             <DrawerSection Title="@L["LibraryDetail_SectionCharacters"]" Icon="@Icons.Material.Outlined.TheaterComedy">
                 @if (_loadingUniverseData)
                 {
-                    <div style="padding: 12px 0; text-align: center;">
-                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
+                    <div class="tl-u-padding-12px-0 tl-u-text-align-center">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-text-faint" />
                     </div>
                 }
                 else if (_universeCharacters.Count == 0)
@@ -1004,7 +1004,7 @@
                                     }
                                     else
                                     {
-                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 20px; color: var(--tl-border-strong);" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Class="tl-u-font-size-20px tl-u-color-tl-border-strong" />
                                     }
                                 </div>
                                 <div class="vdd-character-info">
@@ -1023,7 +1023,7 @@
                     </div>
                     @if (_universeCharacters.Count > 12)
                     {
-                        <p class="vdd-stage-hint" style="margin-top: 8px;">+@(_universeCharacters.Count - 12) more  -  open Universe Explorer to see all</p>
+                        <p class="vdd-stage-hint tl-u-margin-top-8px" >+@(_universeCharacters.Count - 12) more  -  open Universe Explorer to see all</p>
                     }
                 }
             </DrawerSection>
@@ -1053,7 +1053,7 @@
                         <div class="vdd-asset-row">
                             <span class="vdd-asset-label">@assetType</span>
                             <div class="vdd-asset-slot">
-                                <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: var(--tl-border-subtle);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-20px tl-u-color-tl-border-subtle" />
                                 <span class="vdd-asset-upload">@L["LibraryDetail_AssetUpload"]</span>
                             </div>
                         </div>
@@ -1069,11 +1069,11 @@
             @* Trigger enrichment + open explorer actions *@
             <div class="vdd-universe-actions">
                 <AppButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-action-btn vdd-action-btn--primary" OnClick="OpenUniverseExplorer">
-                    <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 15px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Collections" Class="tl-u-font-size-15px" />
                     @L["LibraryDetail_OpenExplorer"]
                 </AppButton>
                 <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="vdd-action-btn" OnClick="TriggerEnrichment">
-                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 15px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Class="tl-u-font-size-15px" />
                     @L["LibraryDetail_TriggerEnrichment"]
                 </AppButton>
             </div>
@@ -1099,7 +1099,7 @@
             else
             {
                 <AppButton Variant="Variant.Outlined" Color="Color.Error" Class="vdd-purge-btn" OnClick="HandlePurge">
-                    <MudIcon Icon="@Icons.Material.Outlined.DeleteForever" Style="font-size: 16px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.DeleteForever" Class="tl-u-font-size-16px" />
                     <span>@L["LibraryDetail_ActionPurgeRecord"]</span>
                 </AppButton>
             }

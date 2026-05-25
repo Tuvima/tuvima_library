@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Services.Integration
 @using System.Globalization
@@ -25,7 +25,7 @@
                 <div class="tl-series-selector">
                     @foreach (var option in Placement.AvailableSeries)
                     {
-                        <AppNativeButton Type="button" Class="@($"tl-series-selector__option @(option.IsSelected ? ")" is-selected" : null)" Disabled="@option.IsSelected" OnClick="() => SelectSeriesAsync(option)">
+                        <AppNativeButton Type="button" Class='@($"tl-series-selector__option {(option.IsSelected ? " is-selected" : null)}")' Disabled="@option.IsSelected" OnClick="() => SelectSeriesAsync(option)">
                             @option.SeriesTitle
                         </AppNativeButton>
                     }
@@ -62,7 +62,7 @@
                        aria-label="Previous series items"
                        Disabled="@(!CanPageLeft)"
                        OnClick="PageLeft" />
-        <div class="tl-series-strip" style="@SeriesGridStyle" aria-label="@Placement.SeriesTitle series order">
+        <AppCssElement Tag="div" Class="tl-series-strip" Css="@SeriesGridStyle" aria-label="@($"{Placement.SeriesTitle} series order")">
             @foreach (var item in VisibleItems)
             {
                 var route = SeriesItemRoute(item);
@@ -79,7 +79,7 @@
                     </article>
                 }
             }
-        </div>
+        </AppCssElement>
         <AppIconButton Class="@RightArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronRight"
                        Size="Size.Large"

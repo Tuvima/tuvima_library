@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
@@ -14,7 +14,7 @@
         <span class="isearch-section-label">QUICK SEARCH</span>
 
         <div class="isearch-matched-banner">
-            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 13px; color: var(--tl-status-success);" />
+            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="tl-u-font-size-13px tl-u-color-tl-status-success" />
             <span>Already matched - search to update the canonical choice</span>
         </div>
 
@@ -34,11 +34,11 @@
                 @if (_searching)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 14px; height: 14px; color: var(--tl-text-muted);" />
+                                         Class="tl-u-width-14px tl-u-height-14px tl-u-color-tl-text-muted" />
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Search" Class="tl-u-font-size-14px" />
                 }
             </AppNativeButton>
         </div>
@@ -95,7 +95,7 @@
                         else
                         {
                             <div class="isearch-card-cover isearch-card-cover--placeholder @(isAudiobookCard ? "isearch-card-cover--square" : "")">
-                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 20px; color: var(--tl-text-faint);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-20px tl-u-color-tl-text-faint" />
                             </div>
                         }
 
@@ -112,10 +112,9 @@
                                     @if (c.Description.Length > 120)
                                     {
                                         <MudTooltip Text="@StripHtml(c.Description)" Placement="Placement.Left"
-                                                    RootStyle="max-width: 400px;"
-                                                    Style="white-space: pre-line; overflow-wrap: break-word; font-size: 12px; max-width: 400px; word-break: break-word;">
+                                                    Class="tl-u-white-space-pre-line tl-u-overflow-wrap-break-word tl-u-font-size-12px tl-u-max-width-400px tl-u-word-break-break-word">
                                             <MudIcon Icon="@Icons.Material.Outlined.Info"
-                                                     Style="font-size: 14px; color: var(--tl-text-muted); cursor: help; flex-shrink: 0;"
+                                                     Class="tl-u-font-size-14px tl-u-color-tl-text-muted tl-u-cursor-help tl-u-flex-shrink-0"
                                                      @onclick:stopPropagation="true" />
                                         </MudTooltip>
                                     }
@@ -127,14 +126,14 @@
                                     @foreach (var fm in c.DescriptionFieldMatches)
                                     {
                                         var matchColor = fm.Matched ? "var(--tl-status-success)" : "rgba(200,190,220,0.3)";
-                                        <span class="isearch-card-match-pill" style="border-color: @matchColor; color: @matchColor;"
+                                        <AppCssElement Tag="span" Class="isearch-card-match-pill" Css="@($"border-color: {matchColor}; color: {matchColor};")"
                                               title="@(fm.Matched ? $"{fm.FieldKey}: \"{fm.FileValue}\" found (score: {fm.RawScore:P0})" : $"{fm.FieldKey}: \"{fm.FileValue}\" not found")">
                                             @if (fm.Matched)
                                             {
-                                                <MudIcon Icon="@Icons.Material.Outlined.Check" Style="font-size: 10px;" />
+                                                <MudIcon Icon="@Icons.Material.Outlined.Check" Class="tl-u-font-size-10px" />
                                             }
                                             @fm.FieldKey
-                                        </span>
+                                        </AppCssElement>
                                     }
                                 </div>
                             }
@@ -150,16 +149,16 @@
                                        class="isearch-card-wiki"
                                        title="View on Wikidata"
                                        @onclick:stopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Public" Class="tl-u-font-size-11px" />
                                         <span>@c.Qid</span>
                                     </a>
                                 }
                                 @if (c.CompositeScore > 0)
                                 {
                                     var confColor = LibraryItemHelpers.GetConfidenceHexColor(c.CompositeScore);
-                                    <span class="isearch-card-conf" style="color: @confColor;">
+                                    <AppCssElement Tag="span" Class="isearch-card-conf" Css="@($"color: {confColor};")">
                                         @((int)(c.CompositeScore * 100))%
-                                    </span>
+                                    </AppCssElement>
                                 }
                             </div>
                         </div>
@@ -167,7 +166,7 @@
                         @if (isSelected)
                         {
                             <span class="isearch-card-check">
-                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 16px; color: var(--tl-status-info);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="tl-u-font-size-16px tl-u-color-tl-status-info" />
                             </span>
                         }
                     </div>
@@ -184,11 +183,11 @@
                 @if (_registering)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 14px; height: 14px; color: var(--tl-status-success);" />
+                                         Class="tl-u-width-14px tl-u-height-14px tl-u-color-tl-status-success" />
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 14px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Refresh" Class="tl-u-font-size-14px" />
                 }
                 <span>Apply '@TruncateTitle(_selectedCandidate.Title)' as canonical</span>
             </AppNativeButton>
@@ -196,14 +195,14 @@
         else
         {
             <AppNativeButton Class="isearch-btn-register isearch-btn-register--disabled" Disabled="true">
-                <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 14px;" />
+                <MudIcon Icon="@Icons.Material.Outlined.Refresh" Class="tl-u-font-size-14px" />
                 <span>Select a candidate to apply canonically</span>
             </AppNativeButton>
         }
 
-        <AppNativeButton Class="@($"isearch-btn-unmatch @(_confirmingUnmatch ? ")" isearch-btn-unmatch--confirming" : "")" OnClick="HandleUnmatchClick" Disabled="@_registering">
+        <AppNativeButton Class='@($"isearch-btn-unmatch {(_confirmingUnmatch ? " isearch-btn-unmatch--confirming" : "")}")' OnClick="HandleUnmatchClick" Disabled="@_registering">
             <MudIcon Icon="@(_confirmingUnmatch ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.LinkOff)"
-                     Style="font-size: 14px;" />
+                     Class="tl-u-font-size-14px" />
             <span>@(_confirmingUnmatch ? "Are you sure?" : "Unmatch")</span>
         </AppNativeButton>
 
@@ -212,7 +211,7 @@
         {
             <div class="isearch-result @(_resultSuccess ? "isearch-result--ok" : "isearch-result--err")">
                 <MudIcon Icon="@(_resultSuccess ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Error)"
-                         Style="font-size: 13px;" />
+                         Class="tl-u-font-size-13px" />
                 <span>@_resultMessage</span>
             </div>
         }
@@ -237,11 +236,11 @@ else
                 @if (_searching)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 16px; height: 16px; color: var(--tl-text-muted);" />
+                                         Class="tl-u-width-16px tl-u-height-16px tl-u-color-tl-text-muted" />
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Search" Class="tl-u-font-size-16px" />
                     <span>Search</span>
                 }
             </AppNativeButton>
@@ -263,7 +262,7 @@ else
 @if (_hasSearched && _candidates.Count > 0)
         {
             <div class="isearch-file-banner">
-                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 12px; color: var(--tl-text-muted); flex-shrink: 0;" />
+                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Class="tl-u-font-size-12px tl-u-color-tl-text-muted tl-u-flex-shrink-0" />
                 <span class="isearch-file-banner-label">Your file:</span>
                 <span class="isearch-file-banner-val">@(Item.Title ?? "-")</span>
                 @if (!string.IsNullOrWhiteSpace(Item.Author))
@@ -310,7 +309,7 @@ else
                         else
                         {
                             <div class="isearch-result-cover isearch-result-cover--placeholder @(isAudiobookResult ? "isearch-result-cover--square" : "")">
-                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 20px; color: var(--tl-text-faint);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-20px tl-u-color-tl-text-faint" />
                             </div>
                         }
 
@@ -324,10 +323,9 @@ else
                                     @if (c.Description.Length > 120)
                                     {
                                         <MudTooltip Text="@StripHtml(c.Description)" Placement="Placement.Left"
-                                                    RootStyle="max-width: 400px;"
-                                                    Style="white-space: pre-line; overflow-wrap: break-word; font-size: 12px; max-width: 400px; word-break: break-word;">
+                                                    Class="tl-u-white-space-pre-line tl-u-overflow-wrap-break-word tl-u-font-size-12px tl-u-max-width-400px tl-u-word-break-break-word">
                                             <MudIcon Icon="@Icons.Material.Outlined.Info"
-                                                     Style="font-size: 14px; color: var(--tl-text-muted); cursor: help; flex-shrink: 0;"
+                                                     Class="tl-u-font-size-14px tl-u-color-tl-text-muted tl-u-cursor-help tl-u-flex-shrink-0"
                                                      @onclick:stopPropagation="true" />
                                         </MudTooltip>
                                     }
@@ -342,7 +340,7 @@ else
                                        class="isearch-result-wiki"
                                        title="View on Wikidata"
                                        @onclick:stopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Public" Class="tl-u-font-size-11px" />
                                         <span>Wikidata</span>
                                     </a>
                                 }
@@ -360,17 +358,17 @@ else
                             }
                             <span class="isearch-signal @(titleMatch ? "isearch-signal--match" : "isearch-signal--miss")">
                                 <MudIcon Icon="@(titleMatch ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Close)"
-                                         Style="font-size: 12px;" />
+                                         Class="tl-u-font-size-12px" />
                                 Title
                             </span>
                             <span class="isearch-signal @(authorMatch ? "isearch-signal--match" : "isearch-signal--miss")">
                                 <MudIcon Icon="@(authorMatch ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Close)"
-                                         Style="font-size: 12px;" />
+                                         Class="tl-u-font-size-12px" />
                                 @CreatorLabel
                             </span>
                             <span class="isearch-signal @(yearMatch == "match" ? "isearch-signal--match" : yearMatch == "warn" ? "isearch-signal--warn" : "isearch-signal--miss")">
                                 <MudIcon Icon="@(yearMatch == "match" ? Icons.Material.Outlined.Check : yearMatch == "warn" ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Close)"
-                                         Style="font-size: 12px;" />
+                                         Class="tl-u-font-size-12px" />
                                 Year
                             </span>
 @if (c.DescriptionFieldMatches is { Count: > 0 })
@@ -380,7 +378,7 @@ else
                                     <span class="isearch-signal @(fm.Matched ? "isearch-signal--match" : "isearch-signal--miss")"
                                           title="@(fm.Matched ? $"{DescriptionFieldLabel(fm.FieldKey)} found in description (score {fm.RawScore})" : $"{DescriptionFieldLabel(fm.FieldKey)} not found in description")">
                                         <MudIcon Icon="@(fm.Matched ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Close)"
-                                                 Style="font-size: 12px;" />
+                                                 Class="tl-u-font-size-12px" />
                                         @DescriptionFieldLabel(fm.FieldKey)
                                     </span>
                                 }
@@ -390,7 +388,7 @@ else
                         @if (isSelected)
                         {
                             <AppNativeButton Class="isearch-result-select-btn" StopPropagation="true">
-                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px; color: var(--tl-status-info);" />
+                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="tl-u-font-size-14px tl-u-color-tl-status-info" />
                             </AppNativeButton>
                         }
                     </div>
@@ -440,31 +438,31 @@ else
 <div class="isearch-workspace-actions">
         @if (_selectedCandidate is not null)
         {
-            <AppNativeButton Class="@($"isearch-action-accept @(_confirmingRegister ? ")" isearch-action--confirming" : "")" OnClick="HandleRegisterClick" Disabled="@_registering">
+            <AppNativeButton Class='@($"isearch-action-accept {(_confirmingRegister ? " isearch-action--confirming" : "")}")' OnClick="HandleRegisterClick" Disabled="@_registering">
                 @if (_registering)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                         Style="width: 14px; height: 14px; color: var(--tl-status-success);" />
+                                         Class="tl-u-width-14px tl-u-height-14px tl-u-color-tl-status-success" />
                     <span>Registering...</span>
                 }
                 else if (_confirmingRegister)
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 14px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Class="tl-u-font-size-14px" />
                     <span>Confirm register?</span>
                 }
                 else if (_resultSuccess && _awaitingStage2)
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.HourglassTop" Style="font-size: 14px; color: var(--tl-accent-primary);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.HourglassTop" Class="tl-u-font-size-14px tl-u-color-tl-accent-primary" />
                     <span>Awaiting Wikidata</span>
                 }
                 else if (_resultSuccess && !string.IsNullOrEmpty(_resultMessage))
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px; color: var(--tl-status-success);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="tl-u-font-size-14px tl-u-color-tl-status-success" />
                     <span>Identified</span>
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="tl-u-font-size-14px" />
                     <span>Accept Match</span>
                 }
             </AppNativeButton>
@@ -472,7 +470,7 @@ else
         else
         {
             <AppNativeButton Class="isearch-action-accept isearch-action-accept--disabled" Disabled="true">
-                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="tl-u-font-size-14px" />
                 <span>Select a candidate to register</span>
             </AppNativeButton>
         }
@@ -480,13 +478,13 @@ else
         @if (!_resultSuccess)
         {
             <AppNativeButton Class="isearch-action-provisional" OnClick="HandleProvisionalClick" Disabled="@_registering">
-                <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 14px;" />
+                <MudIcon Icon="@Icons.Material.Outlined.EditNote" Class="tl-u-font-size-14px" />
                 <span>Mark Provisional</span>
             </AppNativeButton>
 
-            <AppNativeButton Class="@($"isearch-action-reject @(_confirmingReject ? ")" isearch-action--confirming" : "")" OnClick="HandleRejectClick" Disabled="@_registering">
+            <AppNativeButton Class='@($"isearch-action-reject {(_confirmingReject ? " isearch-action--confirming" : "")}")' OnClick="HandleRejectClick" Disabled="@_registering">
                 <MudIcon Icon="@(_confirmingReject ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Block)"
-                         Style="font-size: 14px;" />
+                         Class="tl-u-font-size-14px" />
                 <span>@(_confirmingReject ? "Are you sure?" : "Reject")</span>
             </AppNativeButton>
         }
@@ -494,8 +492,7 @@ else
         @if (!string.IsNullOrEmpty(_resultMessage))
         {
             <div class="isearch-result @(_resultSuccess ? (_awaitingStage2 ? "isearch-result--pending" : "isearch-result--ok") : "isearch-result--err")">
-                <MudIcon Icon="@(_resultSuccess ? (_awaitingStage2 ? Icons.Material.Outlined.HourglassTop : Icons.Material.Outlined.CheckCircle) : Icons.Material.Outlined.Error)"
-                         Style="@(_awaitingStage2 ? "font-size: 13px; color: var(--tl-accent-primary);" : "font-size: 13px;")" />
+                <AppMaterialIcon Icon="@(_resultSuccess ? (_awaitingStage2 ? Icons.Material.Outlined.HourglassTop : Icons.Material.Outlined.CheckCircle) : Icons.Material.Outlined.Error)" Css="@(_awaitingStage2 ? "font-size: 13px; color: var(--tl-accent-primary);" : "font-size: 13px;")"  />
                 <span>@_resultMessage</span>
             </div>
         }

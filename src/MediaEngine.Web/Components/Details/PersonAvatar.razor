@@ -1,7 +1,7 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 
-<div class="@AvatarClass"
-     style="@AvatarStyle"
+<AppCssElement Tag="div" Class="@AvatarClass"
+     Css="@AvatarStyle"
      title="@Name"
      aria-label="@Name">
     @if (!string.IsNullOrWhiteSpace(ImageUrl) && !_imageFailed)
@@ -12,7 +12,7 @@
     {
         <span>@ResolvedInitials</span>
     }
-</div>
+</AppCssElement>
 
 @code {
     [Parameter] public string? Name { get; set; }

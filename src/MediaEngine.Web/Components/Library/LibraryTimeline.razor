@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @namespace MediaEngine.Web.Components.Library
 
@@ -8,7 +8,7 @@
     @if (_loading)
     {
         <div class="timeline-loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: var(--tl-text-faint);" />
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-tl-text-faint" />
             <span>Loading history...</span>
         </div>
     }

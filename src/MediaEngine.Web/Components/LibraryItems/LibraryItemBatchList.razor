@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 
 <div class="rbl-container">
@@ -53,9 +53,9 @@
                 {
                     <div class="rbl-progress-section">
                         <div class="rbl-progress-bar-track">
-                            <div class="rbl-progress-bar-fill"
-                                 style="width: @(ActiveProgress.ProgressPercent)%;">
-                            </div>
+                            <AppCssElement Tag="div" Class="rbl-progress-bar-fill"
+                                 Css="@($"width: {ActiveProgress.ProgressPercent}%;")">
+                            </AppCssElement>
                         </div>
                         <div class="rbl-progress-meta">
                             <span class="rbl-progress-count">
@@ -98,19 +98,19 @@
                 }
 <div class="rbl-kpi-row">
                     <div class="rbl-kpi-chip">
-                        <span class="rbl-kpi-number" style="color: var(--tl-status-success);">@batch.FilesIdentified</span>
+                        <span class="rbl-kpi-number tl-u-color-tl-status-success" >@batch.FilesIdentified</span>
                         <span class="rbl-kpi-label">Identified</span>
                     </div>
                     <div class="rbl-kpi-chip">
-                        <span class="rbl-kpi-number" style="color: var(--tl-status-warning);">@batch.FilesReview</span>
+                        <span class="rbl-kpi-number tl-u-color-tl-status-warning" >@batch.FilesReview</span>
                         <span class="rbl-kpi-label">Review</span>
                     </div>
                     <div class="rbl-kpi-chip">
-                        <span class="rbl-kpi-number" style="color: #B4B2A9;">@batch.FilesNoMatch</span>
+                        <span class="rbl-kpi-number tl-u-color-hex-b4b2a9" >@batch.FilesNoMatch</span>
                         <span class="rbl-kpi-label">No Match</span>
                     </div>
                     <div class="rbl-kpi-chip">
-                        <span class="rbl-kpi-number" style="color: var(--tl-status-danger);">@batch.FilesFailed</span>
+                        <span class="rbl-kpi-number tl-u-color-tl-status-danger" >@batch.FilesFailed</span>
                         <span class="rbl-kpi-label">Failed</span>
                     </div>
                 </div>

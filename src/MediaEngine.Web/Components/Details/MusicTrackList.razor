@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Services.Playback
 @inject ListenPlaybackService Playback
@@ -22,7 +22,7 @@
             {
                 var track = Tracks[index];
                 var isPlaying = IsCurrentTrack(track);
-                <AppNativeButton Type="button" Class="@($"tl-detail-track-row @(isPlaying ? ")" is-playing" : null)" role="row" AriaLabel="@($" Play {track.Title}")" OnClick="@(() => PlayTrackAsync(track, index))">
+                <AppNativeButton Type="button" Class='@($"tl-detail-track-row {(isPlaying ? " is-playing" : null)}")' role="row" AriaLabel="@($" Play {track.Title}")" OnClick="@(() => PlayTrackAsync(track, index))">
                     <span class="tl-detail-track-row__number" role="cell">
                         <span class="tl-detail-track-row__ordinal">@DisplayTrackNumber(track, index)</span>
                         <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />

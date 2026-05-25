@@ -1,20 +1,19 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-<div class="provider-card @(IsSlotted ? "provider-card-slotted" : "") @(IsUnavailable ? "provider-card-unavailable" : "")"
-     style="--provider-accent: @_accent.Color;">
+<AppCssElement Tag="div" Class='@($"provider-card {(IsSlotted ? "provider-card-slotted" : "")} {(IsUnavailable ? "provider-card-unavailable" : "")}")'
+     Css="@($"--provider-accent: {_accent.Color};")">
 
     @* Accent bar *@
     <div class="provider-card-accent"></div>
 
     @* Icon + name *@
-    <MudIcon Icon="@_accent.Icon"
-             Size="Size.Small"
-             Style="@($"color: {_accent.Color}; flex-shrink: 0;")" />
+    <AppMaterialIcon Icon="@_accent.Icon"
+             Size="Size.Small" Css="@($"color: {_accent.Color}; flex-shrink: 0;")" />
 
-    <MudText Typo="Typo.body1" Style="flex: 1; font-weight: 500;">
+    <MudText Typo="Typo.body1" Class="tl-u-flex-1 tl-u-font-weight-500">
         @ProviderAccentMap.GetDisplayName(Provider.Name)
     </MudText>
 
@@ -24,9 +23,8 @@
         {
             <MudTooltip Text="@(Provider.HasApiKey ? "API key configured" : "API key required")"
                         Arrow="true" Placement="Placement.Top">
-                <MudIcon Icon="@Icons.Material.Filled.Key"
-                         Size="Size.Small"
-                         Style="@($"color: {(Provider.HasApiKey ? "#4CAF50" : "#FF9800")}; flex-shrink: 0;")" />
+                <AppMaterialIcon Icon="@Icons.Material.Filled.Key"
+                         Size="Size.Small" Css='@($"color: {(Provider.HasApiKey ? "#4CAF50" : "#FF9800")}; flex-shrink: 0;")' />
             </MudTooltip>
         }
 <MudTooltip Text="@GetHealthTooltip()"
@@ -38,8 +36,8 @@
                        Color="Color.Default"
                        title="Configure provider"
                        OnClick="@ToggleFlyout"
-                       Class="provider-config-btn"
-                       Style="margin-left: 2px; flex-shrink: 0;" />
+                       Class="provider-config-btn tl-u-margin-left-2px tl-u-flex-shrink-0"
+                        />
     }
 
     @* Remove button (only shown when slotted) *@
@@ -50,9 +48,9 @@
                        Color="Color.Default"
                        title="Remove from slot"
                        OnClick="@(() => OnRemove.InvokeAsync())"
-                       Style="margin-left: 2px;" />
+                       Class="tl-u-margin-left-2px" />
     }
-</div>
+</AppCssElement>
 <MudPopover Open="@_flyoutOpen"
             AnchorOrigin="Origin.BottomRight"
             TransformOrigin="Origin.TopRight"
@@ -61,7 +59,7 @@
             Class="provider-flyout-popover">
     <MudStack Spacing="3">
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+            <MudText Typo="Typo.subtitle1" Class="tl-u-font-weight-600">
                 @ProviderAccentMap.GetDisplayName(Provider.Name) Settings
             </MudText>
             <AppIconButton Icon="@Icons.Material.Filled.Close"

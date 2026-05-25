@@ -1,10 +1,10 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 @using System.Globalization
 @using MediaEngine.Contracts.Details
 
 @if (Progress is not null)
 {
-    <div class="tl-detail-hero-progress" style="@ProgressStyle" aria-label="@ProgressLabel">
+    <AppCssElement Tag="div" Class="tl-detail-hero-progress" Css="@ProgressStyle" aria-label="@ProgressLabel">
         <div class="tl-detail-hero-progress__label">@ProgressLabel</div>
         <div class="tl-detail-hero-progress__track" role="progressbar"
              aria-valuemin="0"
@@ -12,7 +12,7 @@
              aria-valuenow="@ProgressPercent">
             <span class="tl-detail-hero-progress__fill"></span>
         </div>
-    </div>
+    </AppCssElement>
 }
 
 @code {

@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @inject IJSRuntime JS
 
@@ -30,7 +30,7 @@
         @foreach (var letter in _allLetters)
         {
             var hasItems = _activeLetters.Contains(letter);
-            <AppNativeButton Class="@($"az-strip-letter @(hasItems ? ")" " : "az-strip-inactive")" @key="letter" Disabled="@(!hasItems)" OnClick="@(() => ScrollToLetter(letter))">
+            <AppNativeButton Class='@($"az-strip-letter {(hasItems ? " " : "az-strip-inactive")}")' @key="letter" Disabled="@(!hasItems)" OnClick="@(() => ScrollToLetter(letter))">
                 @letter
             </AppNativeButton>
         }

@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
@@ -19,8 +19,8 @@
 <AppPanel Elevation="0" Class="tl-card pa-4 mb-4">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
             <MudIcon Icon="@Icons.Material.Outlined.Collections" Color="Color.Default" />
-            <div style="flex: 1;">
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Wikidata</MudText>
+            <div class="tl-u-flex-1">
+                <MudText Typo="Typo.subtitle1" Class="tl-u-font-weight-600">Wikidata</MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary">
                     https://www.wikidata.org
                 </MudText>
@@ -31,8 +31,8 @@
         </MudStack>
     </AppPanel>
 <AppPanel Elevation="0" Class="tl-card pa-4 mb-4">
-        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
-                 Style="letter-spacing: 0.08em;">
+        <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2 tl-u-letter-spacing-0-08em"
+                 >
             CONFIGURATION
         </MudText>
 
@@ -97,15 +97,15 @@
             </AppButton>
         </MudStack>
     </AppPanel>
-<MudExpansionPanels Elevation="0" Dense="true" Class="mb-4"
-                        Style="background: transparent;">
+<MudExpansionPanels Elevation="0" Dense="true" Class="mb-4 tl-u-background-transparent"
+                        >
         <MudExpansionPanel Text="Bridge Identifiers"
                            MaxHeight="2000"
-                           Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 8px;">
+                           Class="tl-u-background-transparent tl-u-border-1px-solid-app-glass-border tl-u-border-radius-8px">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Default" />
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Bridge Identifiers</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="tl-u-font-weight-600">Bridge Identifiers</MudText>
                     <AppChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         @_bridges.Count
                     </AppChip>
@@ -120,10 +120,10 @@
                 </MudText>
 
                 <MudSimpleTable Dense="true" Hover="true"
-                                Style="background: transparent;">
+                                Class="tl-u-background-transparent">
                     <thead>
                         <tr>
-                            <th style="width: 40px;">#</th>
+                            <th class="tl-u-width-40px">#</th>
                             <th>Property</th>
                             <th>Target Provider</th>
                             <th>Request Field</th>
@@ -140,7 +140,7 @@
                                 </td>
                                 <td>
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@bridge.PCode</MudText>
+                                        <MudText Typo="Typo.body2" Class="tl-u-font-weight-600">@bridge.PCode</MudText>
                                         <MudText Typo="Typo.body2" Color="Color.Secondary">
                                             - @GetBridgeLabel(bridge.PCode)
                                         </MudText>
@@ -153,7 +153,7 @@
                                     </AppChip>
                                 </td>
                                 <td>
-                                    <code style="font-size: 0.8rem;">@bridge.RequestField</code>
+                                    <code class="tl-u-font-size-0-8rem">@bridge.RequestField</code>
                                 </td>
                             </tr>
                         }
@@ -163,14 +163,14 @@
         </MudExpansionPanel>
     </MudExpansionPanels>
 <MudExpansionPanels Elevation="0" Dense="true"
-                        Style="background: transparent;">
+                        Class="tl-u-background-transparent">
         <MudExpansionPanel Text="Property Map"
                            MaxHeight="4000"
-                           Style="background: transparent; border: 1px solid var(--app-glass-border); border-radius: 8px;">
+                           Class="tl-u-background-transparent tl-u-border-1px-solid-app-glass-border tl-u-border-radius-8px">
             <TitleContent>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Default" />
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Property Map</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="tl-u-font-weight-600">Property Map</MudText>
                     <AppChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         @_propertyCount properties
                     </AppChip>
@@ -185,39 +185,39 @@
 
                 @foreach (var category in _propertiesByCategory)
                 {
-                    <MudText Typo="Typo.overline" Color="Color.Default" Class="mt-3 mb-1"
-                             Style="letter-spacing: 0.08em;">
+                    <MudText Typo="Typo.overline" Color="Color.Default" Class="mt-3 mb-1 tl-u-letter-spacing-0-08em"
+                             >
                         @category.Key
                     </MudText>
 
                     <MudSimpleTable Dense="true" Hover="true"
-                                    Style="background: transparent; margin-bottom: 8px;">
+                                    Class="tl-u-background-transparent tl-u-margin-bottom-8px">
                         <thead>
                             <tr>
                                 <th>P-Code</th>
                                 <th>Claim Key</th>
                                 <th>Scope</th>
-                                <th style="width: 80px;">Confidence</th>
-                                <th style="width: 60px;">Enabled</th>
+                                <th class="tl-u-width-80px">Confidence</th>
+                                <th class="tl-u-width-60px">Enabled</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var prop in category.Value)
                             {
-                                <tr style="@(!prop.Enabled ? "opacity: 0.5;" : "")">
+                                <AppCssElement Tag="tr" Css="@(!prop.Enabled ? "opacity: 0.5;" : "")">
                                     <td>
-                                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                        <MudText Typo="Typo.body2" Class="tl-u-font-weight-500">
                                             @prop.PCode
                                         </MudText>
                                     </td>
                                     <td>
                                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                            <code style="font-size: 0.8rem;">@prop.ClaimKey</code>
+                                            <code class="tl-u-font-size-0-8rem">@prop.ClaimKey</code>
                                             @if (prop.IsBridge)
                                             {
                                                 <AppChip T="string" Size="Size.Small" Color="Color.Warning"
                                                          Variant="Variant.Outlined"
-                                                         Style="font-size: 0.65rem;">
+                                                         Class="tl-u-font-size-0-65rem">
                                                     Bridge
                                                 </AppChip>
                                             }
@@ -236,7 +236,7 @@
                                                  Color="@(prop.Enabled ? Color.Success : Color.Error)"
                                                  Size="Size.Small" />
                                     </td>
-                                </tr>
+                                </AppCssElement>
                             }
                         </tbody>
                     </MudSimpleTable>

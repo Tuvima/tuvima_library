@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Details
+﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
 <section class="tl-detail-panel tl-owned-formats">
@@ -40,7 +40,7 @@
                 <div class="tl-format-progress-row">
                     <span>@ProgressLabel(SelectedFormat)</span>
                     <div class="tl-format-progress-track">
-                        <span style="width:@ProgressPercent(SelectedFormat)%"></span>
+                        <AppCssElement Tag="span" Css="@($"width:{ProgressPercent(SelectedFormat)}%")"></AppCssElement>
                     </div>
                     <strong>@ProgressPercent(SelectedFormat)%</strong>
                 </div>

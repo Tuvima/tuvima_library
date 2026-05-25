@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.MediaEditor
+﻿@namespace MediaEngine.Web.Components.MediaEditor
 @using System.Globalization
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Forms
@@ -26,7 +26,7 @@
                                     }
                                     else
                                     {
-                                        <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 20px; opacity: 0.22;" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.Collections" Class="tl-u-font-size-20px tl-u-opacity-0-22" />
                                     }
                                 </div>
                             }
@@ -39,7 +39,7 @@
                     else
                     {
                         <div class="sme-cover-fallback">
-                            <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 36px; opacity: 0.2;" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-36px tl-u-opacity-0-2" />
                         </div>
                     }
                 </div>
@@ -90,7 +90,7 @@
             {
                 <div class="sme-review-banner">
                     <div class="sme-review-icon" aria-hidden="true">
-                        <MudIcon Icon="@Icons.Material.Outlined.PriorityHigh" Style="font-size: 22px;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.PriorityHigh" Class="tl-u-font-size-22px" />
                     </div>
                     <div class="sme-review-copy">
                         <div class="sme-review-title">Needs review <span class="sme-review-text">- @_reviewSummary</span></div>
@@ -142,7 +142,7 @@
                 else if (!string.IsNullOrWhiteSpace(_loadError))
                 {
                     <div class="sme-empty-panel">
-                        <MudIcon Icon="@Icons.Material.Outlined.CloudOff" Style="font-size: 24px; opacity: 0.18;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.CloudOff" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                         <span>@_loadError</span>
                     </div>
                 }
@@ -232,7 +232,7 @@
                         @if (NavigatorRootNode is null)
                         {
                             <div class="sme-empty-panel">
-                                <MudIcon Icon="@Icons.Material.Outlined.ListAlt" Style="font-size: 24px; opacity: 0.18;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.ListAlt" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                                 <span>@GetContentEmptyStateText()</span>
                             </div>
                         }
@@ -256,7 +256,7 @@
                                     </div>
                                     <div class="sme-content-completion-meter" aria-label="@($"{EditorContentOwnedCount} of {EditorContentTotalCount} {EditorContentItemPlural} owned")">
                                         <div class="sme-content-completion-bar">
-                                            <span style="width: @($"{EditorContentCompletionPercent:F0}%")"></span>
+                                            <AppCssElement Tag="span" Css="@($"width: {$"{EditorContentCompletionPercent:F0}%"}")"></AppCssElement>
                                         </div>
                                         <strong>@EditorContentOwnedCount / @EditorContentTotalCount</strong>
                                     </div>
@@ -280,7 +280,7 @@
                                             </span>
                                             <span class="sme-content-group-meter">
                                                 <span class="sme-content-group-progress" aria-hidden="true">
-                                                    <span style="width: @($"{group.CompletionPercent:F0}%")"></span>
+                                                    <AppCssElement Tag="span" Css="@($"width: {$"{group.CompletionPercent:F0}%"}")"></AppCssElement>
                                                 </span>
                                                 <strong>@group.OwnedCount / @group.TotalCount</strong>
                                             </span>
@@ -299,7 +299,7 @@
                                                                Color="Color.Inherit"
                                                                FullWidth="true"
                                                                Disabled="@(!item.IsClickable)"
-                                                               Class="@($"sme-content-item {(IsContentNodeSelected(item) ? "is-active" : string.Empty)} {(item.IsOwned ? "is-owned" : "is-missing")} {(item.IsClickable ? "is-clickable" : "is-disabled")}")"
+                                                               Class='@($"sme-content-item {(IsContentNodeSelected(item) ? "is-active" : string.Empty)} {(item.IsOwned ? "is-owned" : "is-missing")} {(item.IsClickable ? "is-clickable" : "is-disabled")}")'
                                                                OnClick="@(() => SelectContentItemAsync(group, item))">
                                                         <span class="sme-content-item-badge">@ordinal</span>
                                                         <span class="sme-content-item-copy">
@@ -374,7 +374,7 @@
                                                 }
                                                 else
                                                 {
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 28px; opacity: 0.24;" />
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-28px tl-u-opacity-0-24" />
                                                 }
                                             </div>
                                             <div class="sme-current-match-copy">
@@ -493,14 +493,14 @@
                                             @if (_canonicalSearchResponse is null)
                                             {
                                                 <div class="sme-empty-panel">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Style="font-size: 24px; opacity: 0.18;" />
+                                                    <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                                                     <span>@(IsWikidataSearchMode ? "Search Wikidata for a canonical identity." : "Search retail providers for a provider match.")</span>
                                                 </div>
                                             }
                                             else if (_canonicalSearchResponse.LinkedCandidates.Count == 0 && _canonicalSearchResponse.RetailCandidates.Count == 0)
                                             {
                                                 <div class="sme-empty-panel">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 24px; opacity: 0.18;" />
+                                                    <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                                                     <span>@(_canonicalSearchResponse.NoResultMessage ?? "No safe canonical results were found.")</span>
                                                 </div>
                                             }
@@ -581,7 +581,7 @@
                                                                 }
                                                                 else
                                                                 {
-                                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 24px; opacity: 0.24;" />
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-24px tl-u-opacity-0-24" />
                                                                 }
                                                             </div>
                                                             <div class="sme-match-result-copy">
@@ -642,7 +642,7 @@
                                             {
                                                 <MudTooltip Text="Used to identify the right title, edition, show, or person during matching.">
                                                     <span class="sme-field-info" aria-label="Matching help">
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 14px;" />
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Info" Class="tl-u-font-size-14px" />
                                                     </span>
                                                 </MudTooltip>
                                             }
@@ -693,10 +693,10 @@
                                             var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
                                             <AppButton Variant="Variant.Text"
                                                        Color="Color.Inherit"
-                                                       Class="@($"sme-artwork-rail-item {(isSelectedSlot ? "sme-artwork-rail-item--active" : string.Empty)}")"
+                                                       Class='@($"sme-artwork-rail-item {(isSelectedSlot ? "sme-artwork-rail-item--active" : string.Empty)}")'
                                                        OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
                                                 <span class="sme-artwork-rail-icon">
-                                                    <MudIcon Icon="@slotItem.Icon" Style="font-size: 18px;" />
+                                                    <MudIcon Icon="@slotItem.Icon" Class="tl-u-font-size-18px" />
                                                 </span>
                                                 <span class="sme-artwork-rail-copy">
                                                     <span class="sme-artwork-rail-label">@slotItem.Label</span>
@@ -714,7 +714,7 @@
                                                    Color="Color.Inherit"
                                                    Class="sme-artwork-upload-card"
                                                    title="@SelectedArtworkSlot.UploadHelp">
-                                            <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" Style="font-size: 30px;" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" Class="tl-u-font-size-30px" />
                                             <span>
                                                 <strong>Upload Artwork</strong>
                                             </span>
@@ -782,18 +782,18 @@
                                                                 }
                                                                 else
                                                                 {
-                                                                    <div class="sme-cover-fallback sme-art-slot-placeholder"><MudIcon Icon="@slot.Icon" Style="font-size: 28px; opacity: 0.18;" /></div>
+                                                                    <div class="sme-cover-fallback sme-art-slot-placeholder"><MudIcon Icon="@slot.Icon" Class="tl-u-font-size-28px tl-u-opacity-0-18" /></div>
                                                                 }
                                                                 @if (item.IsPreferred)
                                                                 {
                                                                     <span class="sme-artwork-gallery-check" aria-label="Primary image">
-                                                                        <MudIcon Icon="@Icons.Material.Filled.Check" Style="font-size: 18px;" />
+                                                                        <MudIcon Icon="@Icons.Material.Filled.Check" Class="tl-u-font-size-18px" />
                                                                     </span>
                                                                 }
                                                                 else if (item.IsPending)
                                                                 {
                                                                     <span class="sme-artwork-gallery-check sme-artwork-gallery-check--pending" aria-label="Pending upload">
-                                                                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Style="font-size: 16px;" />
+                                                                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Class="tl-u-font-size-16px" />
                                                                     </span>
                                                                 }
                                                             </div>
@@ -833,7 +833,7 @@
                                                                 {
                                                                     <AppIconButton Icon="@Icons.Material.Outlined.Delete"
                                                                                    Size="Size.Small"
-                                                                                   Class="@($"sme-artwork-card-action sme-artwork-card-action--danger {(isConfirmingDelete ? "sme-artwork-card-action--confirm" : string.Empty)}")"
+                                                                                   Class='@($"sme-artwork-card-action sme-artwork-card-action--danger {(isConfirmingDelete ? "sme-artwork-card-action--confirm" : string.Empty)}")'
                                                                                    aria-label="Delete artwork"
                                                                                    OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(item))" />
                                                                 }
@@ -887,7 +887,7 @@
                                             }
 
                                             <div class="sme-artwork-disclaimer">
-                                                <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 22px;" />
+                                                <MudIcon Icon="@Icons.Material.Outlined.Info" Class="tl-u-font-size-22px" />
                                                 <div class="sme-artwork-disclaimer-title">About Artwork Types</div>
                                                 <div class="sme-artwork-disclaimer-copy">
                                                     Different artwork types serve different purposes. Poster/Cover is the primary display image.
@@ -895,7 +895,7 @@
                                                        target="_blank"
                                                        rel="noopener">
                                                         Learn more about artwork types
-                                                        <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 14px;" />
+                                                        <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Class="tl-u-font-size-14px" />
                                                     </a>
                                                 </div>
                                             </div>
@@ -932,7 +932,7 @@
                         else
                         {
                             <div class="sme-empty-panel">
-                                <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 24px; opacity: 0.18;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Collections" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                                 <span>Artwork changes are single-item only in this pass.</span>
                             </div>
                         }
@@ -1003,7 +1003,7 @@
                         @if (!IsSingleItem || _detail is null)
                         {
                             <div class="sme-empty-panel">
-                                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 24px; opacity: 0.18;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                                 <span>File inspection is available for a single item.</span>
                             </div>
                         }
@@ -1064,7 +1064,7 @@
                             @if (_history.Count == 0)
                             {
                                 <div class="sme-empty-panel">
-                                    <MudIcon Icon="@Icons.Material.Outlined.History" Style="font-size: 24px; opacity: 0.18;" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.History" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                                     <span>No recent history is available.</span>
                                 </div>
                             }
@@ -1139,7 +1139,7 @@
                                    Disabled="@_saving">
                             @if (_saving)
                             {
-                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
+                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="tl-u-color-inherit tl-u-width-14px tl-u-height-14px" />
                             }
                             @GetDirtySaveLabel()
                         </AppButton>

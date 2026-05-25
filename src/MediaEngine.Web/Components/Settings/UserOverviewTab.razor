@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Settings
+﻿@namespace MediaEngine.Web.Components.Settings
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
@@ -218,7 +218,7 @@
                 <div class="user-overview-photo-preview">
                     @if (!string.IsNullOrWhiteSpace(AvatarDialogImageUrl))
                     {
-                        <img src="@AvatarDialogImageUrl" alt="" style="@AvatarPreviewImageStyle" />
+                        <AppCssElement Tag="img" src="@AvatarDialogImageUrl" alt="" Css="@AvatarPreviewImageStyle" />
                     }
                     else
                     {

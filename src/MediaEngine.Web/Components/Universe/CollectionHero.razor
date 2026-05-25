@@ -1,10 +1,10 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @using MediaEngine.Web.Models.ViewDTOs
 @if (Visible && Data is not null)
 {
-    <div class="hero-banner @(Data.IsPortraitMedia ? "hero-portrait" : "hero-landscape")"
-         style="@AmbientStyle">
+    <AppCssElement Tag="div" Class='@($"hero-banner {(Data.IsPortraitMedia ? "hero-portrait" : "hero-landscape")}")'
+         Css="@AmbientStyle">
 <div class="hero-banner-bg">
             <div class="hero-bleed">
                 <div class="hero-backdrop">
@@ -21,8 +21,8 @@
                     @* Gradient fallback when no art at all *@
                     @if (string.IsNullOrEmpty(Data.HeroUrl) && string.IsNullOrEmpty(Data.CoverUrl))
                     {
-                        <div class="hero-gradient"
-                             style="--hero-accent: @(Data.DominantColor ?? "var(--tl-accent-primary)");" />
+                        <AppCssElement Tag="div" Class="hero-gradient"
+                             Css="@($"--hero-accent: {Data.DominantColor ?? "var(--tl-accent-primary)"};")" />
                     }
                 </div>
             </div>
@@ -35,11 +35,11 @@
                      class="hero-mobile-cover" />
 @if (!string.IsNullOrEmpty(Data.MediaTypeLabel))
                 {
-                    <div class="hero-mobile-type-icon"
-                         style="background: @(HeroData.FormatBadgeColor(Data.MediaTypeLabel))">
+                    <AppCssElement Tag="div" Class="hero-mobile-type-icon"
+                         Css="@($"background: {HeroData.FormatBadgeColor(Data.MediaTypeLabel)}")">
                         <MudIcon Icon="@(HeroData.IconForMediaType(Data.MediaTypeLabel))"
-                                 Style="font-size: 0.85rem; color: white;" />
-                    </div>
+                                 Class="tl-u-font-size-0-85rem tl-u-color-white" />
+                    </AppCssElement>
                 }
             </div>
         }
@@ -68,7 +68,7 @@
                 </div>
             }
         </div>
-    </div>
+    </AppCssElement>
 }
 
 @code {

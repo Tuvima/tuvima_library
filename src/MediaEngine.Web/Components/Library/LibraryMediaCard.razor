@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 <div class="vmc-card tl-card-hover--standard @(IsQuarantined ? "vmc-card--quarantined" : "")"
      @onclick="() => OnCardClicked.InvokeAsync(Item.EntityId)">
@@ -7,7 +7,7 @@
     @if (!NeedsAction)
     {
         <AppNativeButton Class="vmc-delete-btn" OnClick="() => OnDeleteClicked.InvokeAsync(Item.EntityId)" StopPropagation="true">
-            <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 14px;" />
+            <MudIcon Icon="@Icons.Material.Outlined.Delete" Class="tl-u-font-size-14px" />
         </AppNativeButton>
     }
 
@@ -21,7 +21,7 @@
             else
             {
                 <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(Item.MediaType)"
-                         Style="font-size: 24px; opacity: 0.2;" />
+                         Class="tl-u-font-size-24px tl-u-opacity-0-2" />
             }
         </div>
         <StatusPill Status="@Item.LibraryDisplayStatus" QuarantineDays="@Item.QuarantineDays" />

@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Library.DetailDrawer
 
 <div class="vdd-header-content">
@@ -9,7 +9,7 @@
         }
         else
         {
-            <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 48px; color: rgba(255,255,255,0.1);" />
+            <MudIcon Icon="@Icons.Material.Outlined.Person" Class="tl-u-font-size-48px tl-u-color-rgba-255-255-255-0-1" />
         }
     </div>
     <div class="vdd-header-info">
@@ -21,13 +21,13 @@
             @if (!string.IsNullOrEmpty(Person?.WikidataQid))
             {
                 <a href="https://www.wikidata.org/wiki/@Person.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
-                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Class="tl-u-font-size-11px" />
                     @Person.WikidataQid
                 </a>
                 @if (!string.IsNullOrWhiteSpace(WikipediaUrl))
                 {
                     <a href="@WikipediaUrl" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
-                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-11px" />
                         Wikipedia
                     </a>
                 }

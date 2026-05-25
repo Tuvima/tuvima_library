@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 
 @* Mobile card-based searchable universe guide *@
 
@@ -10,7 +10,7 @@
                   AdornmentIcon="@Icons.Material.Filled.Search"
                   Immediate="true" />
 
-    <MudStack Row="true" Spacing="1" Class="mb-4" Style="flex-wrap: wrap;">
+    <MudStack Row="true" Spacing="1" Class="mb-4 tl-u-flex-wrap-wrap" >
         <AppChip T="string"
                  Color="@(_filter == "All" ? Color.Warning : Color.Default)"
                  Variant="@(_filter == "All" ? Variant.Filled : Variant.Outlined)"
@@ -38,10 +38,10 @@
     </MudStack>
 
     @* Entity cards *@
-    <div style="overflow-y: auto; max-height: 560px;">
+    <div class="tl-u-overflow-y-auto tl-u-max-height-560px">
         @if (!FilteredEntities.Any())
         {
-            <MudText Typo="Typo.body2" Style="color: #555; text-align: center; padding: 32px 0;">
+            <MudText Typo="Typo.body2" Class="tl-u-color-hex-555 tl-u-text-align-center tl-u-padding-32px-0">
                 No entities match your search.
             </MudText>
         }
@@ -55,7 +55,7 @@
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         @if (!string.IsNullOrWhiteSpace(entity.Image))
                         {
-                            <MudAvatar Size="Size.Medium"><img src="@entity.Image" alt="@entity.Label" style="width:100%;height:100%;object-fit:cover;" /></MudAvatar>
+                            <MudAvatar Size="Size.Medium"><img src="@entity.Image" alt="@entity.Label" class="tl-u-width-100pct tl-u-height-100pct tl-u-object-fit-cover" /></MudAvatar>
                         }
                         else
                         {
@@ -63,24 +63,24 @@
                                 @(entity.Label.Length > 0 ? entity.Label[0].ToString() : "?")
                             </MudAvatar>
                         }
-                        <div style="flex: 1; overflow: hidden;">
-                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <div class="tl-u-flex-1 tl-u-overflow-hidden">
+                            <MudText Typo="Typo.subtitle2" Class="tl-u-font-weight-600 tl-u-white-space-nowrap tl-u-overflow-hidden tl-u-text-overflow-ellipsis">
                                 @entity.Label
                             </MudText>
                             @if (!string.IsNullOrWhiteSpace(entity.Description))
                             {
-                                <MudText Typo="Typo.caption" Style="color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                <MudText Typo="Typo.caption" Class="tl-u-color-hex-888 tl-u-white-space-nowrap tl-u-overflow-hidden tl-u-text-overflow-ellipsis">
                                     @entity.Description
                                 </MudText>
                             }
                         </div>
                         <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                  Color="@GetChipColor(entity.Type)"
-                                 Style="font-size: 10px; height: 20px;">
+                                 Class="tl-u-font-size-10px tl-u-height-20px">
                             @entity.Type
                         </AppChip>
                         <MudIcon Icon="@(_expandedQid == entity.Id ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                 Style="color: #555;" Size="Size.Small" />
+                                 Class="tl-u-color-hex-555" Size="Size.Small" />
                     </MudStack>
 
                     @* Expanded detail *@
@@ -89,17 +89,17 @@
                         <div class="guide-detail">
                             @if (!string.IsNullOrWhiteSpace(entity.Description))
                             {
-                                <MudText Typo="Typo.body2" Class="mb-3" Style="color: #ccc;">
+                                <MudText Typo="Typo.body2" Class="mb-3 tl-u-color-hex-ccc" >
                                     @entity.Description
                                 </MudText>
                             }
 
                             @if (entity.Works?.Count > 0)
                             {
-                                <MudText Typo="Typo.caption" Style="color: var(--tl-accent-primary); font-weight: 600; margin-bottom: 6px; display: block;">
+                                <MudText Typo="Typo.caption" Class="tl-u-color-tl-accent-primary tl-u-font-weight-600 tl-u-margin-bottom-6px tl-u-display-block">
                                     APPEARS IN
                                 </MudText>
-                                <MudStack Row="true" Style="flex-wrap: wrap; gap: 4px;" Class="mb-2">
+                                <MudStack Row="true"  Class="mb-2 tl-u-flex-wrap-wrap tl-u-gap-4px">
                                     @foreach (var work in entity.Works)
                                     {
                                         <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">
@@ -114,14 +114,14 @@
                             }
                             @if (rels.Count > 0)
                             {
-                                <MudText Typo="Typo.caption" Style="color: var(--tl-accent-primary); font-weight: 600; margin-bottom: 6px; display: block;">
+                                <MudText Typo="Typo.caption" Class="tl-u-color-tl-accent-primary tl-u-font-weight-600 tl-u-margin-bottom-6px tl-u-display-block">
                                     RELATIONSHIPS
                                 </MudText>
-                                <MudStack Row="true" Style="flex-wrap: wrap; gap: 4px;">
+                                <MudStack Row="true" Class="tl-u-flex-wrap-wrap tl-u-gap-4px">
                                     @foreach (var rel in rels.Take(8))
                                     {
                                         <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                                 Style="font-size: 11px;">
+                                                 Class="tl-u-font-size-11px">
                                             @rel.Label @GetNodeLabelForQid(rel.Source == entity.Id ? rel.Target : rel.Source)
                                         </AppChip>
                                     }

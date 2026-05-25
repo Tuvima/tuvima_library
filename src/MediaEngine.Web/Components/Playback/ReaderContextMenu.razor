@@ -1,8 +1,8 @@
-@namespace MediaEngine.Web.Components.Playback
+﻿@namespace MediaEngine.Web.Components.Playback
 @inject NavigationManager Nav
 
-<div class="reader-context-menu @(Visible ? "visible" : "")"
-     style="top: @(PositionY)px; left: @(PositionX)px;">
+<AppCssElement Tag="div" Class='@($"reader-context-menu {(Visible ? "visible" : "")}")'
+     Css="@($"top: {PositionY}px; left: {PositionX}px;")">
     <div class="context-menu-actions">
         @* Highlight with colour picker *@
         <div class="context-action-group">
@@ -12,7 +12,7 @@
             <div class="color-dots">
                 @foreach (var color in _highlightColors)
                 {
-                    <AppNativeButton Class="@($"color-dot @(color.Key == _selectedColor ? ")" active" : "")" InlineStyle="@($"background-color: {color.Value}")" OnClick="() => _selectedColor = color.Key" Title="@color.Key">
+                    <AppNativeButton Class='@($"color-dot {(color.Key == _selectedColor ? " active" : "")}")' Css="@($"background-color: {color.Value}")" OnClick="() => _selectedColor = color.Key" Title="@color.Key">
                     </AppNativeButton>
                 }
             </div>
@@ -36,7 +36,7 @@
             <span>Copy</span>
         </AppNativeButton>
     </div>
-</div>
+</AppCssElement>
 
 @code {
     [Parameter] public bool Visible { get; set; }

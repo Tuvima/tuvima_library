@@ -1,4 +1,4 @@
-using MediaEngine.Contracts.Details;
+﻿using MediaEngine.Contracts.Details;
 
 namespace MediaEngine.Web.Components.Details;
 

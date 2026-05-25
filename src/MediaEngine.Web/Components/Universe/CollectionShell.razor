@@ -1,4 +1,4 @@
-<div class="collection-shell">
+﻿<div class="collection-shell">
     @if (ShowToolbar && ToolbarContent is not null)
     {
         <div class="collection-shell-toolbar">
@@ -6,8 +6,8 @@
         </div>
     }
 
-    <div class="collection-shell-body @(SidebarContent is not null ? "collection-shell-body--with-sidebar" : "")"
-         style="@(SidebarContent is not null ? $"--collection-sidebar-width: {SidebarWidth}px;" : "")">
+    <AppCssElement Tag="div" Class='@($"collection-shell-body {(SidebarContent is not null ? "collection-shell-body--with-sidebar" : "")}")'
+         Css="@(SidebarContent is not null ? $"--collection-sidebar-width: {SidebarWidth}px;" : "")">
 
         @if (SidebarContent is not null)
         {
@@ -19,7 +19,7 @@
         <main class="collection-shell-content">
             @ChildContent
         </main>
-    </div>
+    </AppCssElement>
 </div>
 
 @code {

@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 <MudDrawer Open="@IsOpen" Anchor="Anchor.Bottom" Variant="@DrawerVariant.Temporary"
            OpenChanged="OnOpenChanged"
@@ -17,7 +17,7 @@
                     else
                     {
                         <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(Item.MediaType)"
-                                 Style="font-size: 24px; opacity: 0.25;" />
+                                 Class="tl-u-font-size-24px tl-u-opacity-0-25" />
                     }
                 </div>
                 <div class="vmd-info">
@@ -46,12 +46,12 @@
                 @if (Item.LibraryDisplayStatus == LibraryStatus.NeedsReview)
                 {
                     <AppNativeButton Class="vmd-action-btn vmd-action-btn--primary" OnClick="() => OnResolve.InvokeAsync(Item.EntityId)">
-                        <MudIcon Icon="@Icons.Material.Outlined.Build" Style="font-size: 18px;" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Build" Class="tl-u-font-size-18px" />
                         Resolve
                     </AppNativeButton>
                 }
                 <AppNativeButton Class="vmd-action-btn vmd-action-btn--danger" OnClick="() => OnDelete.InvokeAsync(Item.EntityId)">
-                    <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 18px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Delete" Class="tl-u-font-size-18px" />
                     Delete
                 </AppNativeButton>
             </div>

@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Navigation
+﻿@namespace MediaEngine.Web.Components.Navigation
 @using MediaEngine.Web.Services.Navigation
 @inject NavigationManager Nav
 @inject UIOrchestratorService Orchestrator
@@ -7,9 +7,8 @@
 {
     <MudOverlay Visible="true" OnClick="@Close" DarkBackground="true" ZIndex="1300" />
 
-    <AppPanel Class="command-palette mud-elevation-24"
-              Style="position: fixed; top: 15vh; left: 50%; transform: translateX(-50%);
-                     width: min(640px, 90vw); z-index: var(--app-z-modal); overflow: visible;">
+    <AppPanel Class="command-palette mud-elevation-24 tl-u-position-fixed tl-u-top-15vh tl-u-left-50pct tl-u-transform-translatex--50pct tl-u-width-min-640px-90vw tl-u-z-index-app-z-modal tl-u-overflow-visible"
+              >
 
         <AppAutocomplete TItem="PaletteItem"
                          @ref="_autocomplete"
@@ -27,11 +26,10 @@
                          CoerceValue="false"
                          MaxItems="20"
                          Class="pa-2"
-                         InlineStyle="font-size: 1.1rem;">
+                         Css="font-size: 1.1rem;">
             <ItemTemplate Context="item">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="py-1">
-                    <MudIcon Icon="@item.Icon"
-                             Style="@($"color: {item.Color}; font-size: 20px; min-width: 20px;")" />
+                    <AppMaterialIcon Icon="@item.Icon" Css="@($"color: {item.Color}; font-size: 20px; min-width: 20px;")"  />
                     <div>
                         <MudText Typo="Typo.body2">@item.Label</MudText>
                         @if (!string.IsNullOrEmpty(item.Subtitle))

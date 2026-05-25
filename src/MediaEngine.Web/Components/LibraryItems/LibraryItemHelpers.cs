@@ -77,7 +77,7 @@ public static class LibraryItemHelpers
     public static (string Label, string Color, string Icon) FormatReviewTrigger(string? trigger)
     {
         var p = PaletteProvider.Current.ReviewTrigger;
-        // Muted cinematic palette: warm amber, cool slate, soft rose — never raw Material Design.
+        // Muted cinematic palette: warm amber, cool slate, soft rose  -  never raw Material Design.
         return trigger switch
         {
             "LowConfidence"        => ("Needs Verification",     p.LowConfidence,   Icons.Material.Outlined.TrendingDown),
@@ -149,7 +149,7 @@ public static class LibraryItemHelpers
         return $"rgba({r},{g},{b},{alpha})";
     }
 
-    // ── Status helpers (new 4-state model) ────────────────────────────────
+    // -- Status helpers (new 4-state model) --------------------------------
 
     /// <summary>Returns the hex color for the four-state libraryItem model.</summary>
     public static string GetStatusColor(string status)
@@ -211,7 +211,7 @@ public static class LibraryItemHelpers
         _             => status,
     };
 
-    // ── Four-State Colors (LibraryItem Overhaul spec) ────────────────────────
+    // -- Four-State Colors (LibraryItem Overhaul spec) ------------------------
 
     /// <summary>Returns the hex color for the four-state model.</summary>
     public static string GetStateColor(string state)
@@ -256,7 +256,7 @@ public static class LibraryItemHelpers
         _ => Icons.Material.Outlined.Circle,
     };
 
-    // ── Timeline Event Helpers ──────────────────────────────────────────────
+    // -- Timeline Event Helpers ----------------------------------------------
 
     /// <summary>
     /// Formats a day group label for the Timeline view: "TODAY", "YESTERDAY", or day name.
@@ -272,7 +272,7 @@ public static class LibraryItemHelpers
         return local.ToString("MMMM d").ToUpperInvariant();
     }
 
-    // ── Batch Friendly Timestamps ──────────────────────────────────────────
+    // -- Batch Friendly Timestamps ------------------------------------------
 
     /// <summary>
     /// Formats a batch timestamp into a human-friendly label per the LibraryItem spec:
@@ -302,11 +302,11 @@ public static class LibraryItemHelpers
             return $"Yesterday {period}";
         }
 
-        // Within past 7 days — use day name
+        // Within past 7 days  -  use day name
         if (diff.TotalDays < 7)
             return $"{local:dddd}, {local:h:mm tt}";
 
-        // Older — use month + day
+        // Older  -  use month + day
         return $"{local:MMMM d}, {local:h:mm tt}";
     }
 

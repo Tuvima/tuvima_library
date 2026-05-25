@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @using MediaEngine.Web.Models.ViewDTOs
 
 @if (CurrentItem is not null)
@@ -16,8 +16,7 @@
 <div class="hero-info">
                 @* Now Playing pill *@
                 <div class="hero-context-pill">
-                    <MudIcon Icon="@TypeIcon" Size="Size.Small"
-                             Style="@($"font-size: 12px; color: {TypeColor};")" />
+                    <AppMaterialIcon Icon="@TypeIcon" Size="Size.Small" Css="@($"font-size: 12px; color: {TypeColor};")"  />
                     <span class="hero-context-text">@NowContext</span>
                 </div>
 <h2 class="hero-title">
@@ -52,16 +51,16 @@
                 <div class="hero-actions">
                     <AppNativeButton Class="hero-cta" OnClick="HandleCta">
                         <MudIcon Icon="@MudBlazor.Icons.Material.Filled.PlayArrow"
-                                 Size="Size.Small" Style="font-size: 18px;" />
+                                 Size="Size.Small" Class="tl-u-font-size-18px" />
                         @ActionLabel
                     </AppNativeButton>
                     <AppNativeButton Class="hero-action-btn" OnClick="HandleClick">
                         <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.BookmarkBorder"
-                                 Size="Size.Small" Style="font-size: 20px;" />
+                                 Size="Size.Small" Class="tl-u-font-size-20px" />
                     </AppNativeButton>
                     <AppNativeButton Class="hero-action-btn" OnClick="HandleClick">
                         <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Info"
-                                 Size="Size.Small" Style="font-size: 20px;" />
+                                 Size="Size.Small" Class="tl-u-font-size-20px" />
                     </AppNativeButton>
                 </div>
 
@@ -70,8 +69,8 @@
                 {
                     <div class="hero-progress">
                         <div class="hero-progress-track">
-                            <div class="hero-progress-fill"
-                                 style="width: @(CurrentItem.ProgressPct.Value)%;"></div>
+                            <AppCssElement Tag="div" Class="hero-progress-fill"
+                                 Css="@($"width: {CurrentItem.ProgressPct.Value}%;")"></AppCssElement>
                         </div>
                     </div>
                 }
@@ -83,7 +82,7 @@
                         @for (var i = 0; i < Items.Count; i++)
                         {
                             var idx = i;
-                            <AppNativeButton Class="@($"hero-dot @(i == _currentIndex ? ")" hero-dot-active" : "")" OnClick="() => SetIndex(idx)"></AppNativeButton>
+                            <AppNativeButton Class='@($"hero-dot {(i == _currentIndex ? " hero-dot-active" : "")}")' OnClick="() => SetIndex(idx)"></AppNativeButton>
                         }
                     </div>
                 }

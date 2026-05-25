@@ -1,4 +1,4 @@
-@inject UIOrchestratorService Orchestrator
+﻿@inject UIOrchestratorService Orchestrator
 
 <div class="search-panel">
 @if (_comparisonCandidate != null)
@@ -6,7 +6,7 @@
         <div class="sp-comparison-view">
             @* Back link *@
             <AppNativeButton Class="sp-back-link" OnClick="ClearComparison">
-                <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Style="margin-right: 4px;" />
+                <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Class="tl-u-margin-right-4px" />
                 Back to results
             </AppNativeButton>
 
@@ -25,7 +25,7 @@
                         else
                         {
                             <div class="sp-comparison-cover-placeholder">
-                                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Size="Size.Large" Style="opacity: 0.3;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Size="Size.Large" Class="tl-u-opacity-0-3" />
                             </div>
                         }
                     </div>
@@ -41,7 +41,7 @@
                 </div>
 
                 <div class="sp-comparison-arrow">
-                    <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Size="Size.Large" Style="color: var(--tl-accent-primary); opacity: 0.6;" />
+                    <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Size="Size.Large" Class="tl-u-color-tl-accent-primary tl-u-opacity-0-6" />
                 </div>
 
                 @* Candidate *@
@@ -60,7 +60,7 @@
                         else
                         {
                             <div class="sp-comparison-cover-placeholder">
-                                <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Large" Style="opacity: 0.3;" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Large" Class="tl-u-opacity-0-3" />
                             </div>
                         }
                     </div>
@@ -84,12 +84,12 @@
             <div class="sp-source-attribution">
                 @if (_comparisonCandidate is UniverseCandidateDto uc)
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Style="margin-right: 4px; color: var(--tl-accent-primary);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" Class="tl-u-margin-right-4px tl-u-color-tl-accent-primary" />
                     <span>Source: <strong>Wikidata</strong>  -  <span class="sp-qid-pill">@uc.Qid</span></span>
                 }
                 else if (_comparisonCandidate is RetailCandidateDto rc)
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Store" Size="Size.Small" Style="margin-right: 4px; color: #888;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Store" Size="Size.Small" Class="tl-u-margin-right-4px tl-u-color-hex-888" />
                     <span>Source: <strong>@rc.ProviderName</strong></span>
                 }
             </div>
@@ -97,7 +97,7 @@
             @if (_comparisonCandidate is UniverseCandidateDto)
             {
 <div class="sp-wikidata-notice">
-                    <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" Style="color: var(--tl-accent-primary);" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" Class="tl-u-color-tl-accent-primary" />
                     <span>Linking to Wikidata applies <strong>all</strong> available data. Only fields Wikidata does not have can be edited afterward.</span>
                 </div>
 
@@ -152,7 +152,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                            OnClick="@(() => ApplyFromComparison("Universe"))"
                            Disabled="@_applying"
                            Size="Size.Small"
-                           Style="background: var(--tl-accent-primary); color: #000; font-weight: 700; min-width: 160px;">
+                           Class="tl-u-background-tl-accent-primary tl-u-color-hex-000 tl-u-font-weight-700 tl-u-min-width-160px">
                     @(_applying ? "Linking..." : "Link to Wikidata")
                 </AppButton>
             }
@@ -162,14 +162,14 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                            OnClick="@(() => ApplyFromComparison("image"))"
                            Disabled="@_applying"
                            Size="Size.Small"
-                           Style="background: var(--tl-accent-primary); color: #000; font-weight: 700; min-width: 140px;">
+                           Class="tl-u-background-tl-accent-primary tl-u-color-hex-000 tl-u-font-weight-700 tl-u-min-width-140px">
                     @(_applying ? "Applying..." : "Use This Cover")
                 </AppButton>
             }
             <AppButton Variant="Variant.Outlined"
                        OnClick="@(() => { ClearComparison(); _hasSearched = false; })"
                        Size="Size.Small"
-                       Style="border-color: rgba(239,83,80,0.4); color: var(--tl-status-danger);">
+                       Class="tl-u-border-color-rgba-239-83-80-0-4 tl-u-color-tl-status-danger">
                 New Search
             </AppButton>
         </div>
@@ -184,13 +184,13 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search"
                           Immediate="false"
-                          Class="search-panel-input"
-                          Style="flex: 1;"
+                          Class="search-panel-input tl-u-flex-1"
+                          
                           OnKeyDown="@OnSearchKeyDown" />
 
             <AppSelect T="string" @bind-Value="_mediaType"
                        Label="Type" Variant="Variant.Outlined"
-                       Dense="true" Style="min-width: 130px;"
+                       Dense="true" Class="tl-u-min-width-130px"
                        AnchorOrigin="Origin.BottomCenter">
                 <MudSelectItem T="string" Value="@("Books")">Book</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Audiobooks")">Audiobook</MudSelectItem>
@@ -212,12 +212,12 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
         @* Smart search hint *@
         <p class="search-panel-hint sp-search-tip">
             <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small"
-                     Style="font-size: 0.75rem; vertical-align: middle; margin-right: 3px; opacity: 0.5;" />
+                     Class="tl-u-font-size-0-75rem tl-u-vertical-align-middle tl-u-margin-right-3px tl-u-opacity-0-5" />
             Tip: Paste an ISBN, ASIN, TMDB ID, or QID directly
             @if (!string.IsNullOrEmpty(_detectedIdType))
             {
                 <AppChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                         Style="font-size: 0.65rem; height: 16px; padding: 0 6px; background: var(--tl-accent-primary-border); color: var(--tl-accent-primary); margin-left: 6px;">
+                         Class="tl-u-font-size-0-65rem tl-u-height-16px tl-u-padding-0-6px tl-u-background-tl-accent-primary-border tl-u-color-tl-accent-primary tl-u-margin-left-6px">
                     @_detectedIdType detected
                 </AppChip>
             }
@@ -227,7 +227,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
         @if (_searching)
         {
             <MudProgressLinear Indeterminate="true" Color="Color.Primary"
-                               Class="mt-2 mb-2" Style="border-radius: 4px;" />
+                               Class="mt-2 mb-2 tl-u-border-radius-4px"  />
             <p class="search-panel-hint">Searching Wikidata...</p>
         }
 
@@ -242,7 +242,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                     var best = _universeCandidates[0];
                     var bestConfColor = GetTrafficLightColor(best.Confidence);
                 }
-                <div class="sp-best-match-card" style="border-left-color: @bestConfColor;"
+                <AppCssElement Tag="div" Class="sp-best-match-card" Css="@($"border-left-color: {bestConfColor};")"
                      @onclick="@(() => OpenComparison(best))">
                     <div class="sp-best-match-badge">BEST MATCH</div>
                     <div class="sp-result-inner">
@@ -254,7 +254,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                             else
                             {
                                 <div class="search-result-img-placeholder">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Medium" Style="opacity: 0.3;" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Medium" Class="tl-u-opacity-0-3" />
                                 </div>
                             }
                         </div>
@@ -270,22 +270,22 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                             @RenderMatchSignals(best.MatchScores, best)
                         </div>
                     </div>
-                    <div @onclick:stopPropagation="true" style="align-self: flex-end; margin-top: 8px;">
+                    <div @onclick:stopPropagation="true" class="tl-u-align-self-flex-end tl-u-margin-top-8px">
                         <AppButton Variant="Variant.Filled"
                                    Size="Size.Small"
                                    OnClick="@(() => OpenComparison(best))"
-                                   Style="@($"background: {bestConfColor}; color: #000; font-weight: 700;")">
+                                   Css="@($"background: {bestConfColor}; color: #000; font-weight: 700;")">
                             Match &amp; Confirm
                         </AppButton>
                     </div>
-                </div>
+                </AppCssElement>
 
                 @* Other candidates (collapsible) *@
                 @if (_universeCandidates.Count > 1)
                 {
                     <AppNativeButton Class="sp-other-toggle" OnClick="@(() => _showOtherUniverseCandidates = !_showOtherUniverseCandidates)">
                         <MudIcon Icon="@(_showOtherUniverseCandidates ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                 Size="Size.Small" Style="margin-right: 4px;" />
+                                 Size="Size.Small" Class="tl-u-margin-right-4px" />
                         @(_showOtherUniverseCandidates ? "Hide" : "Show") @(_universeCandidates.Count - 1) other candidate@(_universeCandidates.Count - 1 == 1 ? "" : "s")
                     </AppNativeButton>
 
@@ -304,7 +304,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                                         else
                                         {
                                             <div class="search-result-img-placeholder">
-                                                <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Medium" Style="opacity: 0.3;" />
+                                                <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Medium" Class="tl-u-opacity-0-3" />
                                             </div>
                                         }
                                     </div>
@@ -333,7 +333,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
         @if (_hasSearched && !_searching && HasNoResults())
         {
             <div class="search-no-results">
-                <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Style="opacity: 0.3;" />
+                <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Class="tl-u-opacity-0-3" />
                 <p>No matches found.</p>
                 @{
                     var cleaned = GetCleanedQuery();
@@ -413,14 +413,14 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
             @if (!string.IsNullOrEmpty(bridgeLabel))
             {
                 <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: var(--tl-accent-primary); border-color: var(--tl-accent-primary-border);">
+                         Class="tl-u-font-size-0-65rem tl-u-height-18px tl-u-padding-0-6px tl-u-color-tl-accent-primary tl-u-border-color-tl-accent-primary-border">
                     @bridgeLabel
                 </AppChip>
             }
             else
             {
                 <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: var(--tl-border-strong);">
+                         Class="tl-u-font-size-0-65rem tl-u-height-18px tl-u-padding-0-6px tl-u-color-rgba-255-255-255-0-4 tl-u-border-color-tl-border-strong">
                     @c.Qid
                 </AppChip>
             }
@@ -431,7 +431,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
             @if (!string.IsNullOrEmpty(c.InstanceOf))
             {
                 <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                         Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: var(--tl-border-default);">
+                         Class="tl-u-font-size-0-65rem tl-u-height-18px tl-u-padding-0-6px tl-u-color-hex-888 tl-u-border-color-tl-border-default">
                     @TruncateText(c.InstanceOf, 30)
                 </AppChip>
             }
@@ -440,7 +440,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
     private RenderFragment RenderConfidenceChip(double conf) =>
         @<text>
             <AppChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                     Style="@GetConfidenceChipStyle(conf)">
+                     Css="@GetConfidenceChipStyle(conf)">
                 @((int)(conf * 100))%
             </AppChip>
         </text>;

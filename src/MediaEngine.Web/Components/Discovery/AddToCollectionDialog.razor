@@ -1,4 +1,4 @@
-@namespace MediaEngine.Web.Components.Discovery
+﻿@namespace MediaEngine.Web.Components.Discovery
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
@@ -36,7 +36,7 @@
             {
                 <div class="add-to-collection-state">
                     <MudIcon Icon="@Icons.Material.Filled.CollectionsBookmark"
-                             Style="font-size: 40px; color: var(--tl-text-faint);" />
+                             Class="tl-u-font-size-40px tl-u-color-tl-text-faint" />
                     <span>No collections match that search.</span>
                 </div>
             }
@@ -46,7 +46,7 @@
                     @foreach (var collection in FilteredCollections)
                     {
                         var isSelected = _selectedCollectionId == collection.Id;
-                        <AppNativeButton Type="button" Class="@($"add-to-collection-item @(isSelected ? ")" is-selected" : "")" InlineStyle="@($"--collection-accent: {collection.TypeColor};")" OnClick="() => SelectCollection(collection.Id)">
+                        <AppNativeButton Type="button" Class='@($"add-to-collection-item {(isSelected ? " is-selected" : "")}")' Css="@($"--collection-accent: {collection.TypeColor};")" OnClick="() => SelectCollection(collection.Id)">
                             <div class="add-to-collection-item-main">
                                 <div class="add-to-collection-item-name">@collection.Name</div>
                                 @if (!string.IsNullOrWhiteSpace(collection.Description))

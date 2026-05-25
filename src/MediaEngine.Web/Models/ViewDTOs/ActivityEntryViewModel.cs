@@ -39,7 +39,7 @@ public sealed class ActivityEntryViewModel
     [JsonPropertyName("ingestion_run_id")]
     public string? IngestionRunId { get; set; }
 
-    // ── UI helpers ─────────────────────────────────────────────────────────────
+    // -- UI helpers -------------------------------------------------------------
 
     private ActivityRichData? _richData;
     private bool _richDataParsed;
@@ -247,7 +247,7 @@ public sealed class ActivityRichData
     [JsonPropertyName("cover_written")]
     public bool CoverWritten { get; set; }
 
-    // ── MediaAdded-specific fields ────────────────────────────────────────
+    // -- MediaAdded-specific fields ----------------------------------------
 
     [JsonPropertyName("collection_name")]
     public string? CollectionName { get; set; }
@@ -264,13 +264,13 @@ public sealed class ActivityRichData
     [JsonPropertyName("needs_review")]
     public bool NeedsReview { get; set; }
 
-    // ── Unified accessors ─────────────────────────────────────────────────
+    // -- Unified accessors -------------------------------------------------
 
-    /// <summary>Resolved cover URL — prefers <c>cover_url</c>, falls back to <c>cover</c>.</summary>
+    /// <summary>Resolved cover URL  -  prefers <c>cover_url</c>, falls back to <c>cover</c>.</summary>
     [JsonIgnore]
     public string? ResolvedCoverUrl => CoverUrl ?? Cover;
 
-    /// <summary>Resolved organized path — prefers <c>organized_to</c>, falls back to <c>organized_path</c>.</summary>
+    /// <summary>Resolved organized path  -  prefers <c>organized_to</c>, falls back to <c>organized_path</c>.</summary>
     [JsonIgnore]
     public string? ResolvedOrganizedTo => OrganizedTo ?? OrganizedPath;
 

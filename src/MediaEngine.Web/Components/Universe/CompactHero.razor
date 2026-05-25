@@ -1,8 +1,8 @@
-@namespace MediaEngine.Web.Components.Universe
+﻿@namespace MediaEngine.Web.Components.Universe
 @if (Data is not null)
 {
-    <div class="spotlight spotlight-@(ModeClass)"
-         style="--accent: @AccentColor;"
+    <AppCssElement Tag="div" Class='@($"spotlight spotlight-{ModeClass}")'
+         Css="@($"--accent: {AccentColor};")"
          @onclick="HandleClick">
 <div class="spotlight-backdrop" aria-hidden="true">
             @if (!string.IsNullOrEmpty(Data.HeroUrl ?? Data.CoverUrl))
@@ -42,8 +42,8 @@
                 {
                     <div class="spotlight-progress">
                         <div class="spotlight-progress-track">
-                            <div class="spotlight-progress-fill"
-                                 style="width: @(Data.ProgressPct.Value)%;"></div>
+                            <AppCssElement Tag="div" Class="spotlight-progress-fill"
+                                 Css="@($"width: {Data.ProgressPct.Value}%;")"></AppCssElement>
                         </div>
                         <span class="spotlight-progress-text">@($"{Data.ProgressPct.Value:F0}% complete")</span>
                     </div>
@@ -52,18 +52,18 @@
                     <AppNativeButton Class="spotlight-cta" OnClick="HandleCta" StopPropagation="true">
                         @if (!string.IsNullOrEmpty(Data.ActionIcon))
                         {
-                            <MudIcon Icon="@Data.ActionIcon" Size="Size.Small" Style="font-size: 18px;" />
+                            <MudIcon Icon="@Data.ActionIcon" Size="Size.Small" Class="tl-u-font-size-18px" />
                         }
                         else
                         {
-                            <MudIcon Icon="@FallbackIcon" Size="Size.Small" Style="font-size: 18px;" />
+                            <MudIcon Icon="@FallbackIcon" Size="Size.Small" Class="tl-u-font-size-18px" />
                         }
                         @(Data.ActionLabel ?? FallbackLabel)
                     </AppNativeButton>
                 </div>
             </div>
         </div>
-    </div>
+    </AppCssElement>
 }
 
 @code {

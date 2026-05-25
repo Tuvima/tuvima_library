@@ -1,4 +1,4 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
 <div class="ihs-panel">
@@ -24,9 +24,9 @@
 
                 <div class="ihs-entry">
                     <div class="ihs-track">
-                        <div class="ihs-dot" style="background: @m.DotBg;">
-                            <div class="ihs-dot-inner" style="background: @m.DotCore;"></div>
-                        </div>
+                        <AppCssElement Tag="div" Class="ihs-dot" Css="@($"background: {m.DotBg};")">
+                            <AppCssElement Tag="div" Class="ihs-dot-inner" Css="@($"background: {m.DotCore};")"></AppCssElement>
+                        </AppCssElement>
                         @if (!isLast)
                         {
                             <div class="ihs-connector"></div>

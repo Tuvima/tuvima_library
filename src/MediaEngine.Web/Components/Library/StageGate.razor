@@ -1,12 +1,12 @@
-@using MediaEngine.Web.Models.ViewDTOs
+﻿@using MediaEngine.Web.Models.ViewDTOs
 
 <div class="stage-gate">
-    <div class="stage-dot @(Stage.State == LibraryStageState.Running ? "stage-dot--running" : "")"
-         style="background: @DotColor; box-shadow: @DotShadow;"
-         title="@Stage.Label"></div>
+    <AppCssElement Tag="div" Class='@($"stage-dot {(Stage.State == LibraryStageState.Running ? "stage-dot--running" : "")}")'
+         Css="@($"background: {DotColor}; box-shadow: {DotShadow};")"
+         title="@Stage.Label"></AppCssElement>
     @if (!IsLast)
     {
-        <div class="stage-line" style="background: @LineColor;"></div>
+        <AppCssElement Tag="div" Class="stage-line" Css="@($"background: {LineColor};")"></AppCssElement>
     }
 </div>
 
