@@ -1,4 +1,4 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 
 @if (Items.Count == 0 && !Loading)
 {
@@ -34,41 +34,3 @@ else
     [Parameter] public EventCallback<Guid> OnCardClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
 }
-
-<style>
-    .vmg-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 24px;
-        padding: 0;
-    }
-
-    .vmg-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 80px 20px;
-        text-align: center;
-    }
-
-    .vmg-loading {
-        display: flex;
-        justify-content: center;
-        padding: 24px;
-    }
-
-
-    @@media (max-width: 768px) {
-        .vmg-grid {
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-    }
-
-    @@media (min-width: 769px) and (max-width: 1024px) {
-        .vmg-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-</style>

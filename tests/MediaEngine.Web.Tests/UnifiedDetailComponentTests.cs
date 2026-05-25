@@ -312,11 +312,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("OverflowActions=\"Model.OverflowActions\"", hero);
         Assert.Contains("OverflowActionMenu", actions);
         Assert.Contains("class=\"tl-detail-overflow-popover\"", menu);
-        Assert.Contains("@onclick=\"ToggleMenu\"", menu);
+        Assert.Contains("OnClick=\"ToggleMenu\"", menu);
         Assert.Contains("aria-expanded=\"@_isOpen\"", menu);
         Assert.Contains("class=\"tl-detail-overflow-list\"", menuItems);
         Assert.Contains("role=\"menuitem\"", menuItems);
-        Assert.Contains("disabled=\"@action.IsDisabled\"", menuItems);
+        Assert.Contains("Disabled=\"@action.IsDisabled\"", menuItems);
         Assert.DoesNotContain("MudMenuItem", menuItems);
         Assert.Contains("action.Key is \"edit-media\" or \"edit\"", detailPage);
         Assert.Contains("action.Key == \"details\"", detailPage);

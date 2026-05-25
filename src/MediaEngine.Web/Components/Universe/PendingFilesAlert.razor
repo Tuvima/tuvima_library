@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer State
 @inject NavigationManager Nav
@@ -8,17 +8,17 @@
     @if (string.Equals(DisplayMode, "badge", StringComparison.OrdinalIgnoreCase))
     {
         @* Badge mode (mobile): compact inline chip *@
-        <MudChip T="string" Size="Size.Medium"
+        <AppChip T="string" Size="Size.Medium"
                  Color="Color.Warning"
                  Icon="@Icons.Material.Filled.FolderOpen"
                  Class="@Class">
             @_files.Count @(_files.Count == 1 ? "file" : "files") to review
-        </MudChip>
+        </AppChip>
     }
     else
     {
         @* Expandable mode (default web): full alert with file list *@
-        <MudPaper Elevation="0" Style="@GlassStyle" Class="@Class">
+        <AppPanel Elevation="0" Style="@GlassStyle" Class="@Class">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
                 <MudIcon Icon="@Icons.Material.Filled.FolderOpen"
                          Color="Color.Warning" Class="mr-2" />
@@ -27,15 +27,15 @@
                     in the review queue
                 </MudText>
 
-                <MudButton Variant="Variant.Outlined"
+                <AppButton Variant="Variant.Outlined"
                            Size="Size.Small"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.RateReview"
                            OnClick="@(() => Nav.NavigateTo("/settings/review"))">
                     Review Now
-                </MudButton>
+                </AppButton>
 
-                <MudIconButton Icon="@(_expanded
+                <AppIconButton Icon="@(_expanded
                                         ? Icons.Material.Filled.ExpandLess
                                         : Icons.Material.Filled.ExpandMore)"
                                Size="Size.Small"
@@ -73,7 +73,7 @@
                     </tbody>
                 </MudSimpleTable>
             }
-        </MudPaper>
+        </AppPanel>
     }
 }
 

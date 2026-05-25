@@ -1,0 +1,44 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <div class="app-field__label">@Label</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(HelpText))
+    {
+        <div class="app-field__help">@HelpText</div>
+    }
+    <MudSlider T="double"
+               Value="@Value"
+               ValueChanged="@ValueChanged"
+               Min="@Min"
+               Max="@Max"
+               Step="@Step"
+               Color="@MudColor"
+               Disabled="@Disabled"
+               Immediate="@Immediate"
+               @attributes="AdditionalAttributes" />
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public double Value { get; set; }
+    [Parameter] public EventCallback<double> ValueChanged { get; set; }
+    [Parameter] public double Min { get; set; }
+    [Parameter] public double Max { get; set; } = 1;
+    [Parameter] public double Step { get; set; } = 0.1;
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Immediate { get; set; } = true;
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Primary;
+    [Parameter] public Color? Color { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Color MudColor => Color ?? AppUiMaps.ToMudColor(Tone);
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-slider", "app-slider--double", AppUiMaps.ToneClass(Tone), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

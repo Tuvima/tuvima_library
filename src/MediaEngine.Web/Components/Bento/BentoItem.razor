@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Bento
+@namespace MediaEngine.Web.Components.Bento
 
 @* A single tile in the BentoGrid.
    GlowColor drives the accent box-shadow; ColSpan/RowSpan control grid placement. *@
@@ -44,36 +44,3 @@
         }
     }
 }
-
-<style>
-    .bento-item {
-        position:               relative;
-        min-height:             160px;
-        border-radius:          var(--tl-radius-lg);
-        overflow:               hidden;
-
-        background:             var(--app-glass-inner-bg);
-        border:                 1px solid var(--app-glass-inner-border);
-        backdrop-filter:        blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-
-        box-shadow:
-            var(--tl-shadow-sm),
-            0 0 0 1px var(--tl-border-subtle) inset,
-            0 4px 20px var(--bento-glow, var(--tl-accent-primary-soft));
-
-        transition:
-            box-shadow   0.25s ease,
-            border-color 0.25s ease,
-            transform    0.20s ease;
-    }
-
-    .bento-item:hover {
-        transform:    scale(1.02) translateY(-2px);
-        border-color: var(--bento-border, var(--tl-accent-primary-border));
-        box-shadow:
-            var(--tl-shadow-md),
-            0 0 0 1px var(--tl-border-default) inset,
-            0 10px 36px var(--bento-glow-hover, var(--tl-accent-primary-glow));
-    }
-</style>

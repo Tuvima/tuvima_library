@@ -1,4 +1,4 @@
-﻿<div class="collection-shell">
+<div class="collection-shell">
     @if (ShowToolbar && ToolbarContent is not null)
     {
         <div class="collection-shell-toolbar">
@@ -29,53 +29,3 @@
     [Parameter] public int SidebarWidth { get; set; } = 260;
     [Parameter] public bool ShowToolbar { get; set; } = true;
 }
-
-<style>
-    .collection-shell {
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 56px);
-        overflow: hidden;
-        margin-left: 0;
-    }
-
-    .collection-shell-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 8px 16px;
-        background: rgba(8, 13, 30, 0.7);
-        backdrop-filter: blur(8px);
-        border-bottom: 1px solid var(--tl-border-subtle);
-        flex-shrink: 0;
-        flex-wrap: wrap;
-    }
-
-    .collection-shell-body {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        overflow: hidden;
-    }
-
-    .collection-shell-body--with-sidebar {
-        display: grid;
-        grid-template-columns: var(--collection-sidebar-width, 260px) 1fr;
-    }
-
-    .collection-shell-sidebar {
-        display: flex;
-        flex-direction: column;
-        background: rgba(8, 13, 30, 0.5);
-        border-right: 1px solid var(--tl-border-subtle);
-        overflow: hidden;
-    }
-
-    .collection-shell-content {
-        flex: 1;
-        min-width: 0;
-        min-height: 0;
-        overflow: hidden;
-        position: relative;
-    }
-</style>

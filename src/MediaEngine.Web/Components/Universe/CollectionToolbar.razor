@@ -1,21 +1,19 @@
-﻿@using MediaEngine.Web.Components.LibraryItems
+@using MediaEngine.Web.Components.LibraryItems
 <div class="collection-toolbar-toggles">
-    <button class="collection-toolbar-tt @(AllActive ? "collection-toolbar-tt--on" : "")"
-            @onclick="ToggleAll">
+    <AppNativeButton Class="@($"collection-toolbar-tt @(AllActive ? ")" collection-toolbar-tt--on" : "")" OnClick="ToggleAll">
         <MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small"
                  Style="font-size: 1.35rem;" />
         <span>All</span>
-    </button>
+    </AppNativeButton>
 
     @foreach (var mt in _mediaTypes)
     {
         var isOn = ActiveMediaTypes.Contains(mt.Value);
-        <button class="collection-toolbar-tt @(isOn ? "collection-toolbar-tt--on" : "")"
-                @onclick="@(() => Toggle(mt.Value))">
+        <AppNativeButton Class="@($"collection-toolbar-tt @(isOn ? ")" collection-toolbar-tt--on" : "")" OnClick="@(() => Toggle(mt.Value))">
             <MudIcon Icon="@LibraryItemHelpers.GetMediaTypeIcon(mt.Value)" Size="Size.Small"
                      Style="font-size: 1.35rem;" />
             <span>@mt.Label</span>
-        </button>
+        </AppNativeButton>
     }
 </div>
 
@@ -70,50 +68,3 @@
         await ActiveMediaTypesChanged.InvokeAsync(next);
     }
 }
-
-<style>
-    .collection-toolbar-toggles {
-        display: flex;
-        gap: 4px;
-    }
-
-    .collection-toolbar-tt {
-        width: 56px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 8px 6px 6px;
-        border-radius: 8px;
-        border: 1px solid var(--tl-border-subtle);
-        background: transparent;
-        cursor: pointer;
-        transition: all 0.12s ease;
-        color: var(--tl-text-faint);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    }
-
-    .collection-toolbar-tt:hover {
-        border-color: var(--tl-border-strong);
-        color: var(--tl-text-muted);
-    }
-
-    .collection-toolbar-tt--on {
-        background: rgba(201, 146, 46, 0.1);
-        border-color: rgba(201, 146, 46, 0.35);
-        color: var(--tl-accent-primary);
-    }
-
-    .collection-toolbar-tt span {
-        font-size: 9px;
-        font-weight: 500;
-        line-height: 1;
-    }
-
-    .collection-toolbar-sep {
-        width: 1px;
-        height: 32px;
-        background: var(--tl-border-subtle);
-        flex-shrink: 0;
-    }
-</style>

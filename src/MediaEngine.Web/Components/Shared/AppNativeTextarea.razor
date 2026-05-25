@@ -1,0 +1,38 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<textarea class="@Class"
+          placeholder="@Placeholder"
+          rows="@Rows"
+          value="@Value"
+          @oninput="@HandleInput"
+          @onchange="@HandleChange"
+          @attributes="AdditionalAttributes">@Value</textarea>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public int? Rows { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnInput { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnChange { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private async Task HandleInput(ChangeEventArgs args)
+    {
+        if (OnInput.HasDelegate)
+            await OnInput.InvokeAsync(args);
+
+        if (ValueChanged.HasDelegate)
+            await ValueChanged.InvokeAsync(args.Value?.ToString());
+    }
+
+    private async Task HandleChange(ChangeEventArgs args)
+    {
+        if (OnChange.HasDelegate)
+            await OnChange.InvokeAsync(args);
+
+        if (ValueChanged.HasDelegate)
+            await ValueChanged.InvokeAsync(args.Value?.ToString());
+    }
+}

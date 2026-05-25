@@ -30,10 +30,17 @@ public sealed class UiCompositionGuardrailTests
         "src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor",
     ];
 
-    private static readonly string[] RetiredVaultFiles =
+    private static readonly string RemovedRouteSegment = "/" + "va" + "ult";
+    private static readonly string RemovedProductLabel = "Va" + "ult";
+    private static readonly string RemovedWorkspaceLabel = "Library " + RemovedProductLabel;
+    private static readonly string RemovedCssPrefix = "va" + "ult-";
+    private static readonly string RemovedPageComponent = "Library" + "Page";
+    private static readonly string RemovedSurfaceType = "LibrarySurface" + "Preset";
+
+    private static readonly string[] RemovedAllInOneWorkspaceFiles =
     [
-        "src/MediaEngine.Web/Components/Library/LibraryPage.razor",
-        "src/MediaEngine.Web/Models/ViewDTOs/LibrarySurfacePreset.cs",
+        $"src/MediaEngine.Web/Components/Library/{RemovedPageComponent}.razor",
+        $"src/MediaEngine.Web/Models/ViewDTOs/{RemovedSurfaceType}.cs",
         "src/MediaEngine.Web/Components/Library/LibraryActionCenter.razor",
         "src/MediaEngine.Web/Components/Library/LibraryActionCenterCategories.razor",
         "src/MediaEngine.Web/Components/Library/LibraryAddMediaDrawer.razor",
@@ -57,14 +64,6 @@ public sealed class UiCompositionGuardrailTests
         new(@"<(?:button|input|select|textarea|table|dialog|details|summary)\b",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    private static readonly Regex ActiveVaultWorkflowRegex =
-        new(@"\bLibraryPage\b|\bLibrarySurfacePreset\b|vault-|Library Vault|>\s*Vault\s*<",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex ActiveVaultDocsRegex =
-        new(@"\bLibrary Vault\b|\bVault\b.*\b(current|feature|workflow|page|tab|surface|workspace)\b|\b/vault\b",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
     private static readonly Regex RazorCommentRegex =
         new(@"@\*.*?\*@", RegexOptions.Singleline | RegexOptions.Compiled);
 
@@ -74,8 +73,8 @@ public sealed class UiCompositionGuardrailTests
     public static IEnumerable<object[]> MigratedFilesData() =>
         MigratedFiles.Select(path => new object[] { path });
 
-    public static IEnumerable<object[]> RetiredVaultFilesData() =>
-        RetiredVaultFiles.Select(path => new object[] { path });
+    public static IEnumerable<object[]> RemovedAllInOneWorkspaceFilesData() =>
+        RemovedAllInOneWorkspaceFiles.Select(path => new object[] { path });
 
     [Theory]
     [MemberData(nameof(MigratedFilesData))]
@@ -95,16 +94,16 @@ public sealed class UiCompositionGuardrailTests
     }
 
     [Theory]
-    [MemberData(nameof(RetiredVaultFilesData))]
-    public void RetiredVaultFiles_DoNotExist(string relativePath)
+    [MemberData(nameof(RemovedAllInOneWorkspaceFilesData))]
+    public void RemovedAllInOneWorkspaceFiles_DoNotExist(string relativePath)
     {
         Assert.False(
             File.Exists(Path.Combine(RepoRoot, relativePath)),
-            $"{relativePath} belongs to the retired Vault workflow and should not be restored.");
+            $"{relativePath} belongs to the removed all-in-one workspace and should not be restored.");
     }
 
     [Fact]
-    public void ActiveDashboardFiles_DoNotReintroduceVaultWorkflow()
+    public void ActiveDashboardFiles_DoNotReintroduceRemovedWorkspace()
     {
         var roots = new[]
         {
@@ -119,8 +118,8 @@ public sealed class UiCompositionGuardrailTests
             .Where(path => path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)
                 || path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                 || path.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
-            .Where(path => !RetiredVaultFiles.Contains(ToRelativePath(path), StringComparer.OrdinalIgnoreCase))
-            .Where(path => ActiveVaultWorkflowRegex.IsMatch(Sanitize(File.ReadAllText(path))))
+            .Where(path => !RemovedAllInOneWorkspaceFiles.Contains(ToRelativePath(path), StringComparer.OrdinalIgnoreCase))
+            .Where(path => ContainsRemovedWorkspaceLanguage(Sanitize(File.ReadAllText(path))))
             .Select(ToRelativePath)
             .ToList();
 
@@ -128,40 +127,24 @@ public sealed class UiCompositionGuardrailTests
     }
 
     [Fact]
-    public void ActiveDocs_DoNotDescribeVaultAsCurrentFeature()
+    public void RepositoryText_DoesNotUseRemovedWorkspaceVocabulary()
     {
-        var roots = new[]
+        var roots = new List<string>
         {
+            Path.Combine(RepoRoot, "AGENTS.md"),
+            Path.Combine(RepoRoot, "CLAUDE.md"),
             Path.Combine(RepoRoot, "README.md"),
+            Path.Combine(RepoRoot, "src"),
+            Path.Combine(RepoRoot, "tests"),
             Path.Combine(RepoRoot, "docs"),
             Path.Combine(RepoRoot, ".agent"),
         };
 
-        var allowedHistoricalFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "README.md",
-            "docs/architecture/dashboard-ui.md",
-            "docs/architecture/target-state.md",
-            "docs/design-system/README.md",
-            "docs/design-system/SKILL.md",
-            "docs/guides/running-tests.md",
-            "docs/product/feature-truth-inventory.md",
-            ".agent/FIX-PLAN.md",
-            ".agent/features/LIBRARY-DASHBOARD.md",
-            ".agent/skills/DASHBOARD-UI.md",
-        };
-
         var offenders = roots
-            .SelectMany(root =>
-            {
-                if (File.Exists(root))
-                    return [root];
-                return Directory.Exists(root)
-                    ? Directory.EnumerateFiles(root, "*.md", SearchOption.AllDirectories)
-                    : [];
-            })
-            .Where(path => !allowedHistoricalFiles.Contains(ToRelativePath(path)))
-            .Where(path => ActiveVaultDocsRegex.IsMatch(Sanitize(File.ReadAllText(path))))
+            .Where(root => File.Exists(root) || Directory.Exists(root))
+            .SelectMany(EnumerateTextFiles)
+            .Where(path => !IsGeneratedOrBuildOutput(path))
+            .Where(path => ContainsRemovedWorkspaceLanguage(File.ReadAllText(path)))
             .Select(ToRelativePath)
             .ToList();
 
@@ -169,15 +152,48 @@ public sealed class UiCompositionGuardrailTests
     }
 
     [Fact]
-    public void ActiveNavigationResources_DoNotExposeVaultLabel()
+    public void ActiveNavigationResources_ExposeOnlyCurrentDashboardLabels()
     {
         var resourceRoot = Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Resources");
         var offenders = Directory.EnumerateFiles(resourceRoot, "*.resx", SearchOption.AllDirectories)
-            .Where(path => Regex.IsMatch(File.ReadAllText(path), @"<value>\s*Vault\s*</value>", RegexOptions.IgnoreCase))
+            .Where(path => ContainsRemovedWorkspaceLanguage(File.ReadAllText(path)))
             .Select(ToRelativePath)
             .ToList();
 
         Assert.Empty(offenders);
+    }
+
+    private static IEnumerable<string> EnumerateTextFiles(string root)
+    {
+        if (File.Exists(root))
+            return [root];
+
+        return Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
+            .Where(path =>
+            {
+                var extension = Path.GetExtension(path);
+                return extension.Equals(".cs", StringComparison.OrdinalIgnoreCase)
+                    || extension.Equals(".razor", StringComparison.OrdinalIgnoreCase)
+                    || extension.Equals(".css", StringComparison.OrdinalIgnoreCase)
+                    || extension.Equals(".md", StringComparison.OrdinalIgnoreCase)
+                    || extension.Equals(".resx", StringComparison.OrdinalIgnoreCase);
+            });
+    }
+
+    private static bool ContainsRemovedWorkspaceLanguage(string contents)
+    {
+        return contents.Contains(RemovedRouteSegment, StringComparison.OrdinalIgnoreCase)
+            || contents.Contains(RemovedProductLabel, StringComparison.OrdinalIgnoreCase)
+            || contents.Contains(RemovedWorkspaceLabel, StringComparison.OrdinalIgnoreCase)
+            || contents.Contains(RemovedCssPrefix, StringComparison.OrdinalIgnoreCase)
+            || contents.Contains(RemovedPageComponent, StringComparison.OrdinalIgnoreCase)
+            || contents.Contains(RemovedSurfaceType, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsGeneratedOrBuildOutput(string path)
+    {
+        return path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

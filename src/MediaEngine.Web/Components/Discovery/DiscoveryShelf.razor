@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Discovery
+@namespace MediaEngine.Web.Components.Discovery
 @inject IJSRuntime JS
 
 @if (Shelf.Items.Count > 0)
@@ -22,7 +22,7 @@
         <div class="discovery-shelf-track">
             @if (Shelf.Items.Count > 1 && !_atStart)
             {
-                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                <AppIconButton Icon="@Icons.Material.Filled.ChevronLeft"
                                Color="Color.Inherit"
                                Class="discovery-shelf-arrow discovery-shelf-arrow-left"
                                aria-label="Scroll left"
@@ -38,7 +38,7 @@
 
             @if (Shelf.Items.Count > 1 && !_atEnd)
             {
-                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                <AppIconButton Icon="@Icons.Material.Filled.ChevronRight"
                                Color="Color.Inherit"
                                Class="discovery-shelf-arrow discovery-shelf-arrow-right"
                                aria-label="Scroll right"
@@ -104,121 +104,3 @@
         public bool AtEnd { get; set; }
     }
 }
-
-<style>
-    .discovery-shelf {
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-        position: relative;
-        z-index: 0;
-    }
-
-    .discovery-shelf-header {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 16px;
-    }
-
-    .discovery-shelf-copy {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .discovery-shelf-title {
-        margin: 0;
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: clamp(1.4rem, 2vw, 2rem);
-        font-weight: 700;
-        line-height: 1;
-        color: rgba(248, 250, 252, 0.96);
-    }
-
-    .discovery-shelf-subtitle {
-        margin: 0;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.92rem;
-        line-height: 1.5;
-        color: rgba(148, 163, 184, 0.88);
-    }
-
-    .discovery-shelf-link {
-        color: rgba(248, 250, 252, 0.8);
-        text-decoration: none;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.76rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        white-space: nowrap;
-    }
-
-    .discovery-shelf-link:hover {
-        color: white;
-    }
-
-    .discovery-shelf-track {
-        position: relative;
-        overflow: visible;
-    }
-
-    .discovery-shelf-scroll {
-        --discovery-hover-lift: clamp(12px, 1.8vw, 18px);
-        display: flex;
-        align-items: flex-start;
-        gap: clamp(16px, 1.6vw, 24px);
-        overflow-x: auto;
-        scroll-snap-type: x proximity;
-        padding: calc(var(--discovery-hover-lift) + 8px) 2px 12px;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-
-    .discovery-shelf-scroll::-webkit-scrollbar {
-        display: none;
-    }
-
-    .discovery-shelf-arrow {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        width: 56px;
-        z-index: 3;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: rgba(248, 250, 252, 0.92);
-        opacity: 0;
-        transition: opacity 0.18s ease;
-        border-radius: var(--app-radius-md);
-    }
-
-    .discovery-shelf-track:hover .discovery-shelf-arrow {
-        opacity: 1;
-    }
-
-    .discovery-shelf-arrow-left {
-        left: 0;
-        background: linear-gradient(90deg, rgba(6, 10, 18, 0.96) 24%, transparent 100%);
-    }
-
-    .discovery-shelf-arrow-right {
-        right: 0;
-        background: linear-gradient(270deg, rgba(6, 10, 18, 0.96) 24%, transparent 100%);
-    }
-
-    @@media (hover: none) {
-        .discovery-shelf-arrow {
-            display: none;
-        }
-    }
-
-    @@media (max-width: 640px) {
-        .discovery-shelf-header {
-            align-items: flex-start;
-            flex-direction: column;
-        }
-    }
-</style>

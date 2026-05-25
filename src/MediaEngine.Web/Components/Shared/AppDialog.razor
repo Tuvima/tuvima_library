@@ -2,22 +2,43 @@
 
 <MudDialog Visible="@Visible"
            VisibleChanged="OnVisibleChanged"
-           Options="@ResolvedOptions">
+           Options="@ResolvedOptions"
+           Class="@Class"
+           @attributes="AdditionalAttributes">
+    <TitleContent>
+        @if (TitleContent is not null)
+        {
+            @TitleContent
+        }
+    </TitleContent>
     <DialogContent>
-        <AppDialogShell Title="@Title"
-                        Subtitle="@Subtitle"
-                        Eyebrow="@Eyebrow"
-                        Icon="@Icon"
-                        Size="@Size"
-                        OnClose="@CloseAsync">
-            <ChildContent>
-                @ChildContent
-            </ChildContent>
-            <FooterContent>
-                @FooterContent
-            </FooterContent>
-        </AppDialogShell>
+        @if (DialogContent is not null || DialogActions is not null || TitleContent is not null)
+        {
+            @DialogContent
+        }
+        else
+        {
+            <AppDialogShell Title="@Title"
+                            Subtitle="@Subtitle"
+                            Eyebrow="@Eyebrow"
+                            Icon="@Icon"
+                            Size="@Size"
+                            OnClose="@CloseAsync">
+                <ChildContent>
+                    @ChildContent
+                </ChildContent>
+                <FooterContent>
+                    @FooterContent
+                </FooterContent>
+            </AppDialogShell>
+        }
     </DialogContent>
+    <DialogActions>
+        @if (DialogActions is not null)
+        {
+            @DialogActions
+        }
+    </DialogActions>
 </MudDialog>
 
 @code {
@@ -31,7 +52,12 @@
     [Parameter] public DialogOptions? Options { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public RenderFragment? TitleContent { get; set; }
+    [Parameter] public RenderFragment? DialogContent { get; set; }
+    [Parameter] public RenderFragment? DialogActions { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private DialogOptions ResolvedOptions => Options
         ?? new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };

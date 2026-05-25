@@ -26,7 +26,7 @@ public sealed class LibraryItemProjectionTests : IDisposable
     }
 
     [Fact]
-    public async Task LibraryItemProjection_AppliesVaultGateAndNormalizedOverviewCounts()
+    public async Task LibraryItemProjection_AppliesVisibilityGateAndNormalizedOverviewCounts()
     {
         var now = DateTimeOffset.UtcNow;
 

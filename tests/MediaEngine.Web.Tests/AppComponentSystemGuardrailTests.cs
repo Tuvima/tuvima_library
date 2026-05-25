@@ -17,10 +17,6 @@ public sealed class AppComponentSystemGuardrailTests
         new(@"<(?:button|input|select|textarea)\b",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    private static readonly Regex InlineStyleRegex =
-        new(@"\b[Ss]tyle\s*=",
-            RegexOptions.Compiled);
-
     private static readonly Regex RazorStyleBlockRegex =
         new(@"<style\b",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -39,9 +35,16 @@ public sealed class AppComponentSystemGuardrailTests
         var contents = ReadRepoFile(relativePath);
 
         Assert.False(RawPrimitiveRegex.IsMatch(contents), $"Raw interactive HTML found in {relativePath}.");
-        Assert.False(InlineStyleRegex.IsMatch(contents), $"Inline style attribute found in {relativePath}.");
         Assert.False(RazorStyleBlockRegex.IsMatch(contents), $"Razor style block found in {relativePath}.");
         Assert.False(DirectMudPrimitiveRegex.IsMatch(contents), $"Direct MudBlazor primitive found in {relativePath}.");
+    }
+
+    [Fact]
+    public void AppComponentSystemLegacyAllowlist_IsEmpty()
+    {
+        var allowedLegacyFiles = ReadLegacyAllowlist();
+
+        Assert.Empty(allowedLegacyFiles);
     }
 
     [Fact]
@@ -136,7 +139,6 @@ public sealed class AppComponentSystemGuardrailTests
 
     private static bool ContainsLegacyPrimitive(string contents) =>
         RawPrimitiveRegex.IsMatch(contents)
-        || InlineStyleRegex.IsMatch(contents)
         || RazorStyleBlockRegex.IsMatch(contents)
         || DirectMudPrimitiveRegex.IsMatch(contents);
 

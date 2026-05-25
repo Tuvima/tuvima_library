@@ -19,7 +19,7 @@
                              Label="Maximum active jobs"
                              Min="1"
                              Max="4" />
-            <AppSelect @bind-Value="_hardwarePreference"
+            <AppSelect T="string" @bind-Value="_hardwarePreference"
                        Label="Hardware preference"
                        Options="@HardwareOptions" />
         </AppCard>

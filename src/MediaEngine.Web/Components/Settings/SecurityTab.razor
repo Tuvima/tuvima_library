@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
 <MudStack Spacing="4">
@@ -11,10 +11,10 @@
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
             @L["Security_SecurityDescription"]
         </MudText>
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+        <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
             Sign-in settings below are loaded from Engine configuration. Connection and rate-limit controls are read-only in this phase; edit the config source of truth until a save endpoint is available.
-        </MudAlert>
-<MudPaper Elevation="0" Class="tl-card mb-4">
+        </AppAlert>
+<AppPanel Elevation="0" Class="tl-card mb-4">
 
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-4">
                 @L["Security_ConnectionSettings"]
@@ -31,7 +31,7 @@
                         @L["Security_LocalhostBypassDescription"]
                     </MudText>
                 </MudStack>
-                <MudSwitch @bind-Value="_localhostBypass"
+                <AppSwitchRow @bind-Value="_localhostBypass"
                            Color="Color.Primary"
                            Disabled="true"
                            T="bool" />
@@ -50,14 +50,14 @@
                         @L["Security_RequireHttpsDescription"]
                     </MudText>
                 </MudStack>
-                <MudSwitch @bind-Value="_requireHttpsRemote"
+                <AppSwitchRow @bind-Value="_requireHttpsRemote"
                            Color="Color.Primary"
                            Disabled="true"
                            T="bool" />
             </MudStack>
 
-        </MudPaper>
-<MudPaper Elevation="0" Class="tl-card">
+        </AppPanel>
+<AppPanel Elevation="0" Class="tl-card">
 
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
                 <MudIcon Icon="@Icons.Material.Outlined.Speed"
@@ -66,10 +66,10 @@
                     @L["Security_RateLimits"]
                 </MudText>
                 <MudSpacer />
-                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                <AppChip T="string" Size="Size.Small" Color="Color.Default"
                          Style="opacity: 0.6; font-size: 0.7rem;">
                     @L["Security_ReadOnly"]
-                </MudChip>
+                </AppChip>
             </MudStack>
 
             <MudStack Spacing="2">
@@ -118,9 +118,9 @@
 
             </MudStack>
 
-        </MudPaper>
+        </AppPanel>
 
-        <MudPaper Elevation="0" Class="tl-card mt-4">
+        <AppPanel Elevation="0" Class="tl-card mt-4">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
                 <MudIcon Icon="@Icons.Material.Outlined.Login"
                          Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
@@ -128,9 +128,9 @@
                     User sign-in
                 </MudText>
                 <MudSpacer />
-                <MudChip T="string" Size="Size.Small" Color="@AuthModeColor" Style="font-size: 0.7rem;">
+                <AppChip T="string" Size="Size.Small" Color="@AuthModeColor" Style="font-size: 0.7rem;">
                     @_authMode
-                </MudChip>
+                </AppChip>
             </MudStack>
 
             @if (_authLoading)
@@ -152,12 +152,12 @@
                         <MudText Typo="Typo.body2">Client ID</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">@(_authSettings?.OidcClientId ?? "Not configured")</MudText>
                     </MudStack>
-                    <MudAlert Severity="Severity.Info" Class="mt-2">
+                    <AppAlert Severity="Severity.Info" Class="mt-2">
                         SSO accounts are linked to local Tuvima profiles in Settings > Users. OIDC sign-in can be enabled after the authority and client ID are configured.
-                    </MudAlert>
+                    </AppAlert>
                 </MudStack>
             }
-        </MudPaper>
+        </AppPanel>
 
     </div>
 <ApiKeysTab />

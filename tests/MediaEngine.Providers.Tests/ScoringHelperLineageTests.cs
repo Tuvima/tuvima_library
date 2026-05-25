@@ -91,8 +91,8 @@ public sealed class ScoringHelperLineageTests
 
         // Work row receives the parent-scope claims (Year, Director) plus a
         // synthesized Title claim from MaybeSynthesizeParentTitle — standalone
-        // media copies the self-scope Title to the Work row so the Work renders
-        // with a real title rather than "Untitled" in the Vault.
+        // media copies the self-scope Title to the Work row so browse surfaces
+        // render a real title rather than "Untitled".
         var workClaims = claimRepo.Inserted.Where(c => c.EntityId == workId).ToList();
         Assert.Equal(3, workClaims.Count);
         Assert.Contains(workClaims, c => c.ClaimKey == MetadataFieldConstants.Year);
@@ -152,7 +152,7 @@ public sealed class ScoringHelperLineageTests
 
         // Show Work received the parent-scoped claims plus a synthesized Title
         // (from ShowName) added by MaybeSynthesizeParentTitle so the show Work
-        // renders with a real title rather than "Untitled" in the Vault.
+        // renders with a real title rather than "Untitled".
         var showClaims = claimRepo.Inserted.Where(c => c.EntityId == showWorkId).ToList();
         Assert.Equal(5, showClaims.Count);
         Assert.Contains(showClaims, c => c.ClaimKey == MetadataFieldConstants.ShowName);
@@ -163,7 +163,7 @@ public sealed class ScoringHelperLineageTests
 
         // EpisodeNumber and Director (self-scope) are not duplicated onto the show.
         // Note: Title IS present on the show — added by MaybeSynthesizeParentTitle
-        // (sourced from ShowName) so the show Work renders with a real title in the Vault.
+        // (sourced from ShowName) so the show Work renders with a real title.
         Assert.DoesNotContain(showClaims, c => c.ClaimKey == MetadataFieldConstants.EpisodeNumber);
         Assert.DoesNotContain(showClaims, c => c.ClaimKey == MetadataFieldConstants.Director);
     }
@@ -219,7 +219,7 @@ public sealed class ScoringHelperLineageTests
 
         // Album Work receives album, author, year, cover_url plus a synthesized
         // Title (from Album) added by MaybeSynthesizeParentTitle so the album Work
-        // renders with a real title rather than "Untitled" in the Vault.
+        // renders with a real title rather than "Untitled".
         Assert.Equal(5, albumClaims.Count);
         Assert.Contains(albumClaims, c => c.ClaimKey == MetadataFieldConstants.Album);
         Assert.Contains(albumClaims, c => c.ClaimKey == MetadataFieldConstants.Author);
@@ -229,7 +229,7 @@ public sealed class ScoringHelperLineageTests
 
         // TrackNumber stays on the track Work only.
         // Note: Title IS present on the album — added by MaybeSynthesizeParentTitle
-        // (sourced from Album name) so the album Work renders with a real title in the Vault.
+        // (sourced from Album name) so the album Work renders with a real title.
         Assert.DoesNotContain(albumClaims, c => c.ClaimKey == MetadataFieldConstants.TrackNumber);
     }
 

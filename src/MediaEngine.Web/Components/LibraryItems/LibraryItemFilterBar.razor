@@ -1,24 +1,20 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
 <div class="rfb-bar">
 <div class="rfb-tabs">
-        <button class="rfb-tab rfb-tab--review @(ActiveTab == "review" ? "rfb-tab--on" : "")"
-                @onclick="@(() => SetTab("review"))">
+        <AppNativeButton Class="@($"rfb-tab rfb-tab--review @(ActiveTab == ")" review" ? "rfb-tab--on" : "")" OnClick="@(() => SetTab(" review"))">
             In Review <span class="rfb-tab-ct rfb-tab-ct--review">@(FourStateCounts?.InReview ?? Counts?.NeedsReview ?? 0)</span>
-        </button>
-        <button class="rfb-tab rfb-tab--nomatch @(ActiveTab == "provisional" ? "rfb-tab--on" : "")"
-                @onclick="@(() => SetTab("provisional"))">
+        </AppNativeButton>
+        <AppNativeButton Class="@($"rfb-tab rfb-tab--nomatch @(ActiveTab == ")" provisional" ? "rfb-tab--on" : "")" OnClick="@(() => SetTab(" provisional"))">
             Provisional <span class="rfb-tab-ct rfb-tab-ct--nomatch">@(FourStateCounts?.Provisional ?? 0)</span>
-        </button>
-        <button class="rfb-tab rfb-tab--failed @(ActiveTab == "rejected" ? "rfb-tab--on" : "")"
-                @onclick="@(() => SetTab("rejected"))">
+        </AppNativeButton>
+        <AppNativeButton Class="@($"rfb-tab rfb-tab--failed @(ActiveTab == ")" rejected" ? "rfb-tab--on" : "")" OnClick="@(() => SetTab(" rejected"))">
             Rejected <span class="rfb-tab-ct rfb-tab-ct--failed">@(FourStateCounts?.Rejected ?? 0)</span>
-        </button>
-        <button class="rfb-tab @(ActiveTab == "all" ? "rfb-tab--on" : "")"
-                @onclick="@(() => SetTab("all"))">
+        </AppNativeButton>
+        <AppNativeButton Class="@($"rfb-tab @(ActiveTab == ")" all" ? "rfb-tab--on" : "")" OnClick="@(() => SetTab(" all"))">
             All <span class="rfb-tab-ct">@(FourStateCounts?.All ?? Counts?.Total ?? 0)</span>
-        </button>
+        </AppNativeButton>
     </div>
 <div class="rfb-search">
         <FuzzySearchField Value="@SearchText"
@@ -26,15 +22,13 @@
                           Placeholder="Filter items..."
                           Style="max-width: 240px;" />
     </div>
-<button class="rfb-icon-btn @(SelectionMode ? "rfb-icon-btn--on" : "")"
-            @onclick="ToggleSelectionMode"
-            title="Toggle selection mode">
+<AppNativeButton Class="@($"rfb-icon-btn @(SelectionMode ? ")" rfb-icon-btn--on" : "")" OnClick="ToggleSelectionMode" Title="Toggle selection mode">
         <MudIcon Icon="@Icons.Material.Outlined.ChecklistRtl" Style="font-size: 1.1rem;" />
-    </button>
+    </AppNativeButton>
 
     <div class="rfb-spacer"></div>
 <div class="rfb-dropdowns">
-        <MudSelect T="string" Value="@GroupBy" ValueChanged="OnGroupByChanged"
+        <AppSelect T="string" Value="@GroupBy" ValueChanged="OnGroupByChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense"
                    Dense="true" Label="Group by"
                    Style="font-size: 0.78rem; width: 140px;">
@@ -42,15 +36,15 @@
             <MudSelectItem Value="@("media_type")">Media Type</MudSelectItem>
             <MudSelectItem Value="@("confidence")">Confidence</MudSelectItem>
             <MudSelectItem Value="@("status")">Status</MudSelectItem>
-        </MudSelect>
-<MudSelect T="string" Value="@SortBy" ValueChanged="OnSortChanged"
+        </AppSelect>
+<AppSelect T="string" Value="@SortBy" ValueChanged="OnSortChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense"
                    Dense="true" Label="Sort"
                    Style="font-size: 0.78rem; width: 130px;">
             <MudSelectItem Value="@("newest")">Newest</MudSelectItem>
             <MudSelectItem Value="@("oldest")">Oldest</MudSelectItem>
             <MudSelectItem Value="@("confidence")">Confidence</MudSelectItem>
-        </MudSelect>
+        </AppSelect>
     </div>
 </div>
 
@@ -93,148 +87,3 @@
         await SortByChanged.InvokeAsync(sort);
     }
 }
-
-<style>
-    .rfb-bar {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 16px 10px 88px;
-        background: rgba(8,13,30,0.8);
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid var(--tl-divider);
-        position: sticky;
-        top: 56px;
-        z-index: 20;
-        flex-wrap: wrap;
-        row-gap: 8px;
-    }
-
-
-    .rfb-tabs {
-        display: flex;
-        gap: 2px;
-        background: var(--tl-divider);
-        border-radius: 6px;
-        padding: 2px;
-        flex-shrink: 0;
-    }
-    .rfb-tab {
-        background: transparent;
-        border: none;
-        color: rgba(255,255,255,0.4);
-        font-size: 0.6875rem;
-        font-weight: 400;
-        padding: 6px 14px;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        white-space: nowrap;
-    }
-    .rfb-tab:hover { color: rgba(255,255,255,0.7); }
-
-
-    .rfb-tab--on {
-        background: var(--tl-border-subtle);
-        color: #fff;
-        font-weight: 500;
-    }
-
-
-    .rfb-tab--review.rfb-tab--on {
-        background: var(--tl-status-warning-soft);
-        color: var(--tl-status-warning);
-    }
-
-
-    .rfb-tab--nomatch.rfb-tab--on {
-        background: rgba(180,178,169,0.12);
-        color: #B4B2A9;
-    }
-
-
-    .rfb-tab--failed.rfb-tab--on {
-        background: rgba(239,83,80,0.12);
-        color: var(--tl-status-danger);
-    }
-
-
-    .rfb-tab-ct {
-        font-size: 0.6875rem;
-        font-weight: 500;
-        opacity: 0.6;
-        background: var(--tl-border-subtle);
-        padding: 1px 6px;
-        border-radius: 8px;
-    }
-
-
-    .rfb-tab--review.rfb-tab--on .rfb-tab-ct,
-    .rfb-tab-ct--review {
-        background: var(--tl-status-warning-soft);
-        color: var(--tl-status-warning);
-        opacity: 1;
-    }
-    .rfb-tab--nomatch.rfb-tab--on .rfb-tab-ct,
-    .rfb-tab-ct--nomatch {
-        background: rgba(180,178,169,0.15);
-        color: #B4B2A9;
-        opacity: 1;
-    }
-    .rfb-tab--failed.rfb-tab--on .rfb-tab-ct,
-    .rfb-tab-ct--failed {
-        background: var(--tl-status-danger-soft);
-        color: var(--tl-status-danger);
-        opacity: 1;
-    }
-
-
-    .rfb-search { flex-shrink: 0; }
-
-
-    .rfb-icon-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 6px;
-        border: 1px solid var(--tl-border-subtle);
-        background: rgba(255,255,255,0.03);
-        color: rgba(255,255,255,0.4);
-        cursor: pointer;
-        transition: all 0.15s ease;
-        flex-shrink: 0;
-    }
-    .rfb-icon-btn:hover {
-        color: rgba(255,255,255,0.7);
-        border-color: var(--tl-border-strong);
-        background: var(--tl-border-subtle);
-    }
-    .rfb-icon-btn--on {
-        background: var(--tl-accent-primary-soft);
-        border-color: var(--tl-accent-primary-border);
-        color: var(--tl-accent-primary);
-    }
-
-    .rfb-spacer { flex: 1; min-width: 4px; }
-
-
-    .rfb-dropdowns {
-        display: flex;
-        gap: 8px;
-        flex-shrink: 0;
-    }
-
-
-    @@media (max-width: 768px) {
-        .rfb-bar {
-            padding-left: 12px;
-            gap: 8px;
-        }
-        .rfb-spacer { display: none; }
-    }
-</style>

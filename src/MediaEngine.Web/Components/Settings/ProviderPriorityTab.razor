@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject IEngineApiClient ApiClient
 @inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
 @inject ILogger<ProviderPriorityTab> Logger
@@ -174,7 +174,7 @@
 
                             <div class="provider-drop-zone">Drag providers here</div>
                             <div class="provider-media-slot__footer" @onclick:stopPropagation="true">
-                                <AppSelect Value="@GetStrategy(mediaType)"
+                                <AppSelect T="string" Value="@GetStrategy(mediaType)"
                                            ValueChanged="@(v => SetStrategy(mediaType, v ?? "Waterfall"))"
                                            Options="@StrategyOptions"
                                            Disabled="@(_engineConfigurationUnavailable || _liveCatalogue.Count == 0)"
@@ -279,7 +279,7 @@
                                                  Label="Request Timeout (ms)"
                                                  Min="500"
                                                  Max="60000" />
-                                <AppSelect @bind-Value="_drawerAssignment.LanguageStrategy"
+                                <AppSelect T="string" @bind-Value="_drawerAssignment.LanguageStrategy"
                                            Label="Region / Language"
                                            Options="@LanguageStrategyOptions" />
                             </div>

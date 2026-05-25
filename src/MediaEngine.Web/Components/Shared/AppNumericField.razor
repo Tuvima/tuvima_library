@@ -10,15 +10,17 @@
                      InputId="@InputId"
                      Value="@Value"
                      ValueChanged="OnValueChanged"
-                     Variant="Variant.Outlined"
-                     Margin="Margin.Dense"
+                     Variant="@Variant"
+                     Margin="@Margin"
                      Disabled="@Disabled"
                      ReadOnly="@ReadOnly"
                      FullWidth="@FullWidth"
                      Min="@(Min ?? int.MinValue)"
                      Max="@(Max ?? int.MaxValue)"
                      Step="@Step"
-                     Class="app-control app-numeric-field" />
+                     Style="@InlineStyle"
+                     Class="app-control app-numeric-field"
+                     @attributes="AdditionalAttributes" />
 
     @if (!string.IsNullOrWhiteSpace(HelpText))
     {
@@ -40,7 +42,12 @@
     [Parameter] public bool ReadOnly { get; set; }
     [Parameter] public bool FullWidth { get; set; } = true;
     [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string? T { get; set; }
+    [Parameter] public Variant Variant { get; set; } = Variant.Outlined;
+    [Parameter] public Margin Margin { get; set; } = Margin.Dense;
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? InlineStyle { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string RootClass =>
         string.Join(" ", new[] { "app-field", AppUiMaps.SizeClass(Size), Class }

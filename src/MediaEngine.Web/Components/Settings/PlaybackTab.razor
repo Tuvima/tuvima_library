@@ -21,24 +21,24 @@
 }
 else if (!string.IsNullOrWhiteSpace(_loadError))
 {
-    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_loadError</MudAlert>
+    <AppAlert Severity="Severity.Error" Variant="Variant.Outlined">@_loadError</AppAlert>
 }
 else if (_settings is not null)
 {
     <MudStack Spacing="4" Class="settings-playback-page">
         @if (!string.IsNullOrWhiteSpace(_saveError))
         {
-            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_saveError</MudAlert>
+            <AppAlert Severity="Severity.Error" Variant="Variant.Outlined">@_saveError</AppAlert>
         }
 
-        <MudTabs Rounded="true"
+        <AppTabs Rounded="true"
                  Elevation="0"
                  Color="Color.Primary"
                  Class="settings-tab-strip settings-playback-tabs"
                  @bind-ActivePanelIndex="_activeTab">
             <MudTabPanel Text="General" Icon="@Icons.Material.Outlined.Settings">
                 <MudStack Spacing="3" Class="settings-tab-panel">
-                <MudPaper Elevation="0" Class="tl-card settings-summary-strip settings-experience-card">
+                <AppPanel Elevation="0" Class="tl-card settings-summary-strip settings-experience-card">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Class="settings-experience-grid">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="settings-experience-profile">
                             <MudAvatar Size="Size.Large" Color="Color.Primary">@Initials</MudAvatar>
@@ -54,7 +54,7 @@ else if (_settings is not null)
                         @SummaryMetric(Icons.Material.Outlined.ClosedCaption, "Subtitle Language", _settings.Subtitles.DefaultSubtitleLanguage, Color.Warning)
                         @SummaryMetric(Icons.Material.Outlined.MenuBook, "Reading Theme", Display(_settings.Reading.Theme), Color.Warning)
                     </MudStack>
-                </MudPaper>
+                </AppPanel>
 
                 <MudGrid Spacing="3">
                     <MudItem xs="12" lg="6">
@@ -96,7 +96,7 @@ else if (_settings is not null)
                                 <MudSlider T="double" Class="settings-slider" Value="@((double)_settings.Watching.DefaultPlaybackSpeed)" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = (decimal)v))" Min="0.5" Max="2.0" Step="0.05" Color="Color.Primary" />
                                 @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x"])
                             </div>
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = 1.0m))">Reset to 1.0x</MudButton>
+                            <AppButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = 1.0m))">Reset to 1.0x</AppButton>
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
@@ -116,7 +116,7 @@ else if (_settings is not null)
                         <SettingsSectionPanel Title="Quality & Artwork" Icon="@Icons.Material.Outlined.HighQuality">
                             @StringSelect("Preferred video quality", _settings.Watching.PreferredVideoQuality, VideoQualityOptions, v => UpdateAndSaveAsync(() => _settings.Watching.PreferredVideoQuality = v))
                             @BoolRow(Icons.Material.Outlined.Panorama, "Prefer hero banners", "Use wide artwork when available.", _settings.Watching.PreferHeroBanners, v => UpdateAndSaveAsync(() => _settings.Watching.PreferHeroBanners = v))
-                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Server delivery and transcoding settings are managed by administrators under Playback & Delivery.</MudAlert>
+                            <AppAlert Severity="Severity.Info" Variant="Variant.Outlined">Server delivery and transcoding settings are managed by administrators under Playback & Delivery.</AppAlert>
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
@@ -131,7 +131,7 @@ else if (_settings is not null)
                                 <MudSlider T="double" Class="settings-slider" Value="@((double)_settings.Listening.AudiobookDefaultSpeed)" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = (decimal)v))" Min="0.5" Max="3.0" Step="0.05" Color="Color.Primary" />
                                 @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x", "3.0x"])
                             </div>
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = 1.25m))">Reset to 1.25x</MudButton>
+                            <AppButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = 1.25m))">Reset to 1.25x</AppButton>
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
@@ -190,10 +190,10 @@ else if (_settings is not null)
                     </MudItem>
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Preview" Icon="@Icons.Material.Outlined.Preview">
-                            <MudPaper Elevation="0" Class="tl-card tl-card--flush settings-reading-preview">
+                            <AppPanel Elevation="0" Class="tl-card tl-card--flush settings-reading-preview">
                                 <MudText Typo="Typo.subtitle1">@Display(_settings.Reading.Theme) reader preview</MudText>
                                 <MudText Typo="Typo.body2">A short passage shows the selected font scale, spacing, and page layout preferences without changing your actual reader.</MudText>
-                            </MudPaper>
+                            </AppPanel>
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
@@ -218,15 +218,15 @@ else if (_settings is not null)
                     </MudItem>
                     <MudItem xs="12">
                         <SettingsSectionPanel Title="Preview" Icon="@Icons.Material.Outlined.Visibility">
-                            <MudPaper Elevation="0" Class="tl-card tl-card--flush settings-subtitle-preview">
+                            <AppPanel Elevation="0" Class="tl-card tl-card--flush settings-subtitle-preview">
                                 <MudText Typo="@SubtitlePreviewTypo" Color="@SubtitlePreviewColor">The quick brown fox jumps over the lazy dog.</MudText>
-                                <MudChip T="string" Variant="Variant.Outlined">@Display(_settings.Subtitles.SubtitleStyle) - @Display(_settings.Subtitles.SubtitlePosition)</MudChip>
-                            </MudPaper>
+                                <AppChip T="string" Variant="Variant.Outlined">@Display(_settings.Subtitles.SubtitleStyle) - @Display(_settings.Subtitles.SubtitlePosition)</AppChip>
+                            </AppPanel>
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
             </MudTabPanel>
-        </MudTabs>
+        </AppTabs>
     </MudStack>
 }
 @code {
@@ -303,7 +303,7 @@ else if (_settings is not null)
             <MudText Typo="Typo.body1">@title</MudText>
             <MudText Typo="Typo.caption" Color="Color.Secondary">@description</MudText>
         </MudStack>
-        <MudSwitch T="bool" Value="@value" ValueChanged="@changed" Color="Color.Primary" />
+        <AppSwitchRow T="bool" Value="@value" ValueChanged="@changed" Color="Color.Primary" />
     </div>;
 
     private RenderFragment IntSelectRow(string icon, string title, string description, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<div class="settings-preference-row">
@@ -314,32 +314,32 @@ else if (_settings is not null)
             <MudText Typo="Typo.body1">@title</MudText>
             <MudText Typo="Typo.caption" Color="Color.Secondary">@description</MudText>
         </MudStack>
-        <MudSelect T="int" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--row-control" PopoverClass="settings-select-menu">
+        <AppIntSelect Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--row-control" PopoverClass="settings-select-menu">
             @foreach (var option in options)
             {
                 <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
             }
-        </MudSelect>
+        </AppIntSelect>
     </div>;
 
     private RenderFragment IntSelect(string label, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<div class="settings-select-row">
         <MudText Typo="Typo.caption" Class="settings-select-row__label">@label</MudText>
-        <MudSelect T="int" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--menu-control settings-field--number-control" PopoverClass="settings-select-menu">
+        <AppIntSelect Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--menu-control settings-field--number-control" PopoverClass="settings-select-menu">
             @foreach (var option in options)
             {
                 <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
             }
-        </MudSelect>
+        </AppIntSelect>
     </div>;
 
     private RenderFragment StringSelect(string label, string value, IReadOnlyList<string> options, Func<string, Task> changed, Func<string, string>? formatter = null) => @<div class="settings-select-row">
         <MudText Typo="Typo.caption" Class="settings-select-row__label">@label</MudText>
-        <MudSelect T="string" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--menu-control settings-field--text-control" PopoverClass="settings-select-menu">
+        <AppSelect T="string" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--menu-control settings-field--text-control" PopoverClass="settings-select-menu">
             @foreach (var option in options)
             {
                 <MudSelectItem T="string" Value="@option">@((formatter ?? Display)(option))</MudSelectItem>
             }
-        </MudSelect>
+        </AppSelect>
     </div>;
 
     private RenderFragment Glance(string title, string icon, string value) => @<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="settings-glance-item">
@@ -358,7 +358,7 @@ else if (_settings is not null)
 
     private RenderFragment SliderHeader(string label, string value) => @<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="settings-slider-header">
         <MudText Typo="Typo.body2">@label</MudText>
-        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@($"Current: {value}")</MudChip>
+        <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">@($"Current: {value}")</AppChip>
     </MudStack>;
 
     private static RenderFragment SliderLabels(IReadOnlyList<string> labels) => @<MudStack Row="true" Justify="Justify.SpaceBetween" Class="settings-slider-scale">

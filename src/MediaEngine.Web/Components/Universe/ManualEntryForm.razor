@@ -1,4 +1,4 @@
-﻿@inject UIOrchestratorService Orchestrator
+@inject UIOrchestratorService Orchestrator
 
 <div class="manual-form">
     <h4 class="manual-form-title">Create Manual Entry</h4>
@@ -7,79 +7,36 @@
     </p>
 
     <div class="manual-form-fields">
-        <MudTextField @bind-Value="_title" Label="Title *" Required="true"
+        <AppTextField @bind-Value="_title" Label="Title *" Required="true"
                       Variant="Variant.Outlined" FullWidth="true" />
 
         <div class="manual-form-row">
-            <MudTextField @bind-Value="_author" Label="Author / Creator"
+            <AppTextField @bind-Value="_author" Label="Author / Creator"
                           Variant="Variant.Outlined" Style="flex: 1;" />
 
-            <MudTextField @bind-Value="_year" Label="Year"
+            <AppTextField @bind-Value="_year" Label="Year"
                           Variant="Variant.Outlined" Style="max-width: 100px;"
                           InputType="InputType.Number" />
         </div>
 
-        <MudTextField @bind-Value="_description" Label="Description"
+        <AppTextField @bind-Value="_description" Label="Description"
                       Variant="Variant.Outlined" Lines="3" FullWidth="true" />
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</MudAlert>
+        <AppAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</AppAlert>
     }
 
     <div class="manual-form-actions">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <AppButton Variant="Variant.Filled" Color="Color.Primary"
                    OnClick="SubmitManualEntry"
                    Disabled="@(_submitting || string.IsNullOrWhiteSpace(_title))"
                    Size="Size.Small">
             @(_submitting ? "Saving..." : "Create Entry")
-        </MudButton>
+        </AppButton>
     </div>
 </div>
-
-<style>
-    .manual-form {
-        margin-top: 12px;
-        padding: 16px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid var(--tl-border-subtle);
-        border-radius: 8px;
-    }
-
-    .manual-form-title {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-weight: 600;
-        color: #fff;
-        margin: 0 0 4px 0;
-        font-size: 0.95rem;
-    }
-
-    .manual-form-hint {
-        font-size: 0.78rem;
-        color: rgba(255,255,255,0.45);
-        margin: 0 0 14px 0;
-    }
-
-    .manual-form-fields {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .manual-form-row {
-        display: flex;
-        gap: 10px;
-        align-items: flex-start;
-    }
-
-    .manual-form-actions {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 14px;
-    }
-</style>
-
 @code {
     [Parameter] public Guid EntityId { get; set; }
     [Parameter] public string? DefaultTitle { get; set; }

@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
@@ -33,7 +33,7 @@
                     Arrow="true" Placement="Placement.Top">
             <div class="provider-health-dot @GetHealthDotClass()"></div>
         </MudTooltip>
-<MudIconButton Icon="@Icons.Material.Filled.Settings"
+<AppIconButton Icon="@Icons.Material.Filled.Settings"
                        Size="Size.Small"
                        Color="Color.Default"
                        title="Configure provider"
@@ -45,7 +45,7 @@
     @* Remove button (only shown when slotted) *@
     @if (IsSlotted && OnRemove.HasDelegate)
     {
-        <MudIconButton Icon="@Icons.Material.Filled.Close"
+        <AppIconButton Icon="@Icons.Material.Filled.Close"
                        Size="Size.Small"
                        Color="Color.Default"
                        title="Remove from slot"
@@ -64,13 +64,13 @@
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
                 @ProviderAccentMap.GetDisplayName(Provider.Name) Settings
             </MudText>
-            <MudIconButton Icon="@Icons.Material.Filled.Close"
+            <AppIconButton Icon="@Icons.Material.Filled.Close"
                            Size="Size.Small"
                            OnClick="@CloseFlyout" />
         </MudStack>
 
         @* Endpoint *@
-        <MudTextField T="string"
+        <AppTextField T="string"
                       @bind-Value="_editEndpoint"
                       Label="Endpoint URL"
                       Variant="Variant.Outlined"
@@ -79,7 +79,7 @@
                       AdornmentIcon="@Icons.Material.Filled.Language" />
 
         @* Timeout *@
-        <MudNumericField T="int"
+        <AppNumericField T="int"
                          @bind-Value="_editTimeout"
                          Label="Timeout (seconds)"
                          Variant="Variant.Outlined"
@@ -89,7 +89,7 @@
                          AdornmentIcon="@Icons.Material.Filled.Timer" />
 
         @* Throttle *@
-        <MudNumericField T="int"
+        <AppNumericField T="int"
                          @bind-Value="_editThrottle"
                          Label="Throttle (ms between requests)"
                          Variant="Variant.Outlined"
@@ -99,7 +99,7 @@
                          AdornmentIcon="@Icons.Material.Filled.Speed" />
 @if (Provider.RequiresApiKey)
         {
-            <MudTextField T="string"
+            <AppTextField T="string"
                           @bind-Value="_editApiKey"
                           Label="API Key"
                           Variant="Variant.Outlined"
@@ -116,16 +116,16 @@
         }
 
         @* Enabled toggle *@
-        <MudSwitch T="bool" @bind-Value="_editEnabled"
+        <AppSwitchRow T="bool" @bind-Value="_editEnabled"
                    Label="Enabled" Color="Color.Primary" />
 
         @* Action buttons *@
         <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
-            <MudButton Variant="Variant.Text"
+            <AppButton Variant="Variant.Text"
                        Color="Color.Default"
                        Size="Size.Small"
-                       OnClick="@CloseFlyout">Cancel</MudButton>
-            <MudButton Variant="Variant.Filled"
+                       OnClick="@CloseFlyout">Cancel</AppButton>
+            <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        Size="Size.Small"
                        OnClick="@SaveConfigAsync"
@@ -135,7 +135,7 @@
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
                 }
                 Save
-            </MudButton>
+            </AppButton>
         </MudStack>
     </MudStack>
 </MudPopover>
@@ -288,94 +288,3 @@
         _        => "Required for this provider to function.",
     };
 }
-
-<style>
-    .provider-card {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 14px;
-        border-radius: 6px;
-        background: var(--app-surface);
-        border: 1px solid var(--app-border);
-        cursor: grab;
-        user-select: none;
-        transition: box-shadow 0.15s ease, border-color 0.15s ease;
-        position: relative;
-        overflow: visible;
-    }
-
-    .provider-card:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        border-color: var(--provider-accent);
-    }
-
-    .provider-card:active {
-        cursor: grabbing;
-    }
-
-
-    .provider-card-slotted {
-        background: var(--app-active-overlay);
-        padding: 5px 8px;
-        gap: 7px;
-    }
-
-
-    .provider-card-unavailable {
-        opacity: 0.65;
-        cursor: default;
-    }
-
-    .provider-card-unavailable:active {
-        cursor: default;
-    }
-
-    .provider-card-unavailable .provider-config-btn {
-        opacity: 1;
-    }
-
-
-    .provider-card-accent {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 4px;
-        background: var(--provider-accent);
-        border-radius: 6px 0 0 6px;
-    }
-
-
-    .provider-health-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        flex-shrink: 0;
-    }
-
-    .health-online {
-        background: #4CAF50;
-        box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
-    }
-
-    .health-degraded {
-        background: #FFC107;
-        box-shadow: 0 0 4px rgba(255, 193, 7, 0.5);
-    }
-
-    .health-offline {
-        background: #F44336;
-        box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
-    }
-
-
-    .provider-flyout-popover {
-        width: 360px;
-        padding: 20px;
-        border-radius: 8px !important;
-        background: var(--app-surface, #1e1f27) !important;
-        border: 1px solid var(--app-border, #293036) !important;
-        box-shadow: var(--app-shadow-lg, 0 22px 48px rgba(0, 0, 0, 0.3)) !important;
-    }
-</style>

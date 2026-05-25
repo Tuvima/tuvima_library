@@ -1,0 +1,35 @@
+.media-timeline { padding: 0 4px; }
+    .media-timeline-heading { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .timeline-loading { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 12px; color: var(--tl-text-muted); }
+    .timeline-empty { font-size: 12px; color: var(--tl-text-muted); font-style: italic; padding: 4px 0; }
+    .timeline-list { display: flex; flex-direction: column; gap: 0; }
+    .timeline-event { display: grid; grid-template-columns: 20px 1fr; gap: 10px; }
+    .event-track { display: flex; flex-direction: column; align-items: center; }
+    .event-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .event-line { width: 2px; flex: 1; min-height: 12px; background: var(--tl-border-subtle); margin: 2px 0; }
+    .timeline-event:last-child .event-line { display: none; }
+    .event-content { padding-bottom: 14px; }
+    .event-header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .event-type { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.75); }
+    .event-time { font-size: 10px; color: var(--tl-text-muted); white-space: nowrap; flex-shrink: 0; }
+    .event-detail { font-size: 11px; color: rgba(255,255,255,0.45); margin: 3px 0 0 0; line-height: 1.4; }
+
+
+    .event-dot.stage-file      { background: rgba(255,255,255,0.4); }
+    .event-dot.stage-retail    { background: var(--tl-accent-primary); }
+    .event-dot.stage-wikidata  { background: #A78BFA; }
+    .event-dot.stage-universe  { background: var(--tl-status-success); }
+    .event-dot.stage-user      { background: var(--tl-status-info); }
+    .event-dot.stage-other     { background: var(--tl-text-faint); }
+
+
+    .timeline-event.event-warning .event-dot   { background: var(--tl-status-warning); }
+    .timeline-event.event-warning .event-type  { color: var(--tl-status-warning); }
+
+
+    .timeline-fields-details { margin-top: 4px; }
+    .timeline-fields-summary { font-size: 10px; color: var(--tl-text-muted); cursor: pointer; }
+    .timeline-fields-summary:hover { color: var(--tl-text-muted); }
+    .timeline-fields-list { list-style: none; padding: 0; margin: 4px 0 0 0; }
+    .timeline-fields-list li { font-size: 10px; color: rgba(255,255,255,0.4); padding: 1px 0; }
+    .timeline-fields-list li::before { content: "\00B7"; margin-right: 6px; color: var(--tl-text-faint); }

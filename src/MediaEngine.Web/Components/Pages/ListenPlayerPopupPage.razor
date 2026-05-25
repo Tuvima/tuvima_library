@@ -39,23 +39,19 @@
         </div>
 
         <div class="listen-popup__tabs">
-            <button type="button"
-                    class="listen-popup__tab @(_snapshot.ActiveTab == ListenPlaybackTabs.Queue ? "is-active" : null)"
-                    @onclick="@(() => SetTabAsync(ListenPlaybackTabs.Queue))">
+            <AppNativeButton Type="button" Class="@($"listen-popup__tab @(_snapshot.ActiveTab == ListenPlaybackTabs.Queue ? ")" is-active" : null)" OnClick="@(() => SetTabAsync(ListenPlaybackTabs.Queue))">
                 @L["Listen_PlayingNext"]
-            </button>
-            <button type="button"
-                    class="listen-popup__tab @(_snapshot.ActiveTab == ListenPlaybackTabs.History ? "is-active" : null)"
-                    @onclick="@(() => SetTabAsync(ListenPlaybackTabs.History))">
+            </AppNativeButton>
+            <AppNativeButton Type="button" Class="@($"listen-popup__tab @(_snapshot.ActiveTab == ListenPlaybackTabs.History ? ")" is-active" : null)" OnClick="@(() => SetTabAsync(ListenPlaybackTabs.History))">
                 @L["Listen_History"]
-            </button>
+            </AppNativeButton>
         </div>
 
         @if (_snapshot.ActiveTab == ListenPlaybackTabs.Queue)
         {
             <div class="listen-popup__subheader">
                 <span>@L["Listen_PlayingNext"]</span>
-                <button type="button" class="listen-popup__text-action" @onclick="ClearUpcomingAsync">@L["Common_Clear"]</button>
+                <AppNativeButton Type="button" Class="listen-popup__text-action" OnClick="ClearUpcomingAsync">@L["Common_Clear"]</AppNativeButton>
             </div>
 
             @if (UpcomingItems.Count == 0)
@@ -69,7 +65,7 @@
                     {
                         var item = _snapshot.Queue[index];
                         <div class="listen-popup__row">
-                            <button type="button" class="listen-popup__row-main" @onclick="@(() => PlayIndexAsync(index))">
+                            <AppNativeButton Type="button" Class="listen-popup__row-main" OnClick="@(() => PlayIndexAsync(index))">
                                 <div class="listen-popup__row-thumb">
                                     @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
                                     {
@@ -85,10 +81,10 @@
                                     <div class="listen-popup__row-subtitle">@FirstNonBlank(item.Subtitle, item.Album)</div>
                                 </div>
                                 <div class="listen-popup__row-duration">@item.Duration</div>
-                            </button>
-                            <button type="button" class="listen-popup__row-action" @onclick="@(() => RemoveUpcomingAsync(index))">
+                            </AppNativeButton>
+                            <AppNativeButton Type="button" Class="listen-popup__row-action" OnClick="@(() => RemoveUpcomingAsync(index))">
                                 <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
-                            </button>
+                            </AppNativeButton>
                         </div>
                     }
                 </div>
@@ -109,7 +105,7 @@
                 <div class="listen-popup__list">
                     @foreach (var item in _snapshot.History)
                     {
-                        <button type="button" class="listen-popup__row-main" @onclick="@(() => PlayHistoryAsync(item))">
+                        <AppNativeButton Type="button" Class="listen-popup__row-main" OnClick="@(() => PlayHistoryAsync(item))">
                             <div class="listen-popup__row-thumb">
                                 @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
                                 {
@@ -125,7 +121,7 @@
                                 <div class="listen-popup__row-subtitle">@FirstNonBlank(item.Subtitle, item.Album, FormatHistoryStamp(item.PlayedAt))</div>
                             </div>
                             <div class="listen-popup__row-duration">@item.Duration</div>
-                        </button>
+                        </AppNativeButton>
                     }
                 </div>
             }
@@ -133,38 +129,27 @@
 
         <div class="listen-popup__progress">
             <span>@FormatTimestamp(_snapshot.CurrentTimeSeconds)</span>
-            <input type="range"
-                   min="0"
-                   max="@ProgressMax"
-                   step="1"
-                   value="@Math.Min(_snapshot.CurrentTimeSeconds, ProgressMax)"
-                   @oninput="SeekAsync" />
+            <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(_snapshot.CurrentTimeSeconds, ProgressMax)" OnInput="SeekAsync" />
             <span>@FormatTimestamp(Math.Max(0, _snapshot.DurationSeconds - _snapshot.CurrentTimeSeconds))</span>
         </div>
 
         <div class="listen-popup__controls">
-            <button type="button" class="listen-popup__icon" @onclick="ToggleMuteAsync">
+            <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="ToggleMuteAsync">
                 <MudIcon Icon="@(_snapshot.IsMuted || _snapshot.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Style="font-size: 18px;" />
-            </button>
-            <input type="range"
-                   min="0"
-                   max="1"
-                   step="0.05"
-                   value="@_snapshot.Volume"
-                   class="listen-popup__volume"
-                   @oninput="SetVolumeAsync" />
-            <button type="button" class="listen-popup__icon" @onclick="PlayPreviousAsync">
+            </AppNativeButton>
+            <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@_snapshot.Volume" Class="listen-popup__volume" OnInput="SetVolumeAsync" />
+            <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="PlayPreviousAsync">
                 <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Style="font-size: 20px;" />
-            </button>
-            <button type="button" class="listen-popup__play" @onclick="TogglePlayAsync">
+            </AppNativeButton>
+            <AppNativeButton Type="button" Class="listen-popup__play" OnClick="TogglePlayAsync">
                 <MudIcon Icon="@(_snapshot.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Style="font-size: 22px;" />
-            </button>
-            <button type="button" class="listen-popup__icon" @onclick="PlayNextAsync">
+            </AppNativeButton>
+            <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="PlayNextAsync">
                 <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Style="font-size: 20px;" />
-            </button>
-            <button type="button" class="listen-popup__icon" @onclick="ClosePlayerAsync">
+            </AppNativeButton>
+            <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="ClosePlayerAsync">
                 <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
-            </button>
+            </AppNativeButton>
         </div>
     }
 </div>

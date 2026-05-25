@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Browse
+@namespace MediaEngine.Web.Components.Browse
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Contracts.Display
@@ -34,7 +34,7 @@
                     <div class="browse-shell__title-text">@CurrentTab.Label</div>
                 </div>
 
-                <MudTabs ActivePanelIndex="@ActiveBrowseTabIndex"
+                <AppTabs ActivePanelIndex="@ActiveBrowseTabIndex"
                          ActivePanelIndexChanged="OnBrowseTabChanged"
                          Rounded="false"
                          Border="false"
@@ -44,18 +44,18 @@
                     {
                         <MudTabPanel @key="tab.Id" Text="@tab.Label" />
                     }
-                </MudTabs>
+                </AppTabs>
             </div>
 
             <div class="browse-shell__toolbar">
                 @if (_isGroupDrilldown)
                 {
-                    <MudButton Variant="Variant.Outlined"
+                    <AppButton Variant="Variant.Outlined"
                                StartIcon="@Icons.Material.Outlined.ArrowBack"
                                OnClick="NavigateBackFromGroup"
                                Class="browse-shell__back">
                         Back to @CurrentTab.Label
-                    </MudButton>
+                    </AppButton>
                 }
                 else
                 {
@@ -67,18 +67,18 @@
                                     Class="browse-shell__groupings">
                             @foreach (var option in CurrentTab.GroupingOptions)
                             {
-                                <MudChip T="string"
+                                <AppChip T="string"
                                          @key="option.Value"
                                          Value="@option.Value"
                                          Icon="@option.Icon"
                                          Variant="Variant.Text">
                                     @option.Label
-                                </MudChip>
+                                </AppChip>
                             }
                         </MudChipSet>
                     }
 
-                    <MudTextField T="string"
+                    <AppTextField T="string"
                                   @bind-Value="_searchText"
                                   Placeholder="Search your library"
                                   Variant="Variant.Outlined"
@@ -92,16 +92,16 @@
                     <div class="browse-shell__controls">
                         @if (UseListLayout && _selectedItems.Count > 1 && !IsContainerGrouping)
                         {
-                            <MudButton Variant="Variant.Outlined"
+                            <AppButton Variant="Variant.Outlined"
                                        Color="Color.Default"
                                        StartIcon="@Icons.Material.Outlined.Edit"
                                        OnClick="OpenBatchEditorAsync"
                                        Class="browse-shell__batch-edit">
                                 Edit @_selectedItems.Count
-                            </MudButton>
+                            </AppButton>
                         }
 
-                        <MudSelect T="string"
+                        <AppSelect T="string"
                                    Value="_sortBy"
                                    ValueChanged="OnSortChanged"
                                    Label="Sort"
@@ -112,7 +112,7 @@
                             {
                                 <MudSelectItem T="string" @key="option.Value" Value="@option.Value">@option.Label</MudSelectItem>
                             }
-                        </MudSelect>
+                        </AppSelect>
 
                         @if (SupportsLayoutToggle)
                         {
@@ -120,18 +120,18 @@
                                         SelectedValue="@_layout.ToString()"
                                         SelectedValueChanged="OnLayoutChanged"
                                         Class="browse-shell__layout-toggle">
-                                <MudChip T="string"
+                                <AppChip T="string"
                                          Value="@LibraryLayoutMode.Card.ToString()"
                                          Icon="@Icons.Material.Outlined.GridView"
                                          Variant="Variant.Text">
                                     Cards
-                                </MudChip>
-                                <MudChip T="string"
+                                </AppChip>
+                                <AppChip T="string"
                                          Value="@LibraryLayoutMode.List.ToString()"
                                          Icon="@Icons.Material.Outlined.ViewList"
                                          Variant="Variant.Text">
                                     List
-                                </MudChip>
+                                </AppChip>
                             </MudChipSet>
                         }
                     </div>
@@ -190,12 +190,12 @@
             <p>@EmptyStateMessage</p>
             @if (string.IsNullOrWhiteSpace(_searchText))
             {
-                <MudButton Variant="Variant.Text"
+                <AppButton Variant="Variant.Text"
                            Color="Color.Default"
                            StartIcon="@Icons.Material.Outlined.PendingActions"
                            Href="/settings/ingestion">
                     Open Ingestion
-                </MudButton>
+                </AppButton>
             }
         </div>
     }
@@ -212,12 +212,12 @@
     @if (_hasMore && !_isGroupDrilldown && !IsContainerGrouping)
     {
         <div class="browse-shell__load-more">
-            <MudButton Variant="Variant.Filled"
+            <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        OnClick="LoadMoreAsync"
                        Class="browse-shell__load-more-button">
                 Load more
-            </MudButton>
+            </AppButton>
         </div>
     }
 </div>

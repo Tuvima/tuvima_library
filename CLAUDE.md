@@ -26,7 +26,7 @@ Every feature exists in service of that word:
 
 ### Quality Gates and Regression Rules
 
-- Do not recreate the old Vault workflow. No new `/vault` routes, `LibraryPage`, `LibrarySurfacePreset`, Vault navigation labels, Vault docs as current product behavior, or all-in-one media correction workbenches.
+- Do not recreate the old all-in-one management workflow. No new routes, implementation types, navigation labels, docs as current product behavior, or all-in-one media correction workbenches for it.
 - Normal media fixes belong inline on the media surface where the issue appears. Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for Normal, Review, and Batch editing modes.
 - Review Queue is the exception workflow for blocked, uncertain, low-confidence, or unresolved items. Settings/Admin is for configuration and operational state, not a normal media correction workspace.
 - Use `IDatabaseConnection.CreateConnection()` for normal repository, read-service, endpoint, background-job, and request-path database work. Dispose each short-lived connection with `using`.
@@ -316,7 +316,7 @@ The Review Queue is the Engine's safety net for uncertain matches. It lives at `
 
 The queue surfaces items that need human attention: failed retail matches, ambiguous Wikidata candidates, low-confidence matches, missing titles, and items that fell through during enrichment. Review rows can launch the shared editor in review mode, dismiss an item, skip universe matching where supported, or retry/resolve according to existing Engine rules. `PostPipelineService` auto-resolves queue items when a later enrichment pass pushes confidence above threshold.
 
-> **Historical note:** An earlier `/vault` page concept combined browsing, management, and review into one 9-tab surface. That page has been **deprecated**. Browsing now lives on Home, Read, Watch, Listen, Collections, Search, and detail pages; review lives inside Settings/Admin. Do not add new Vault routes, components, docs, or navigation. Normal media correction belongs inline on media pages and details, using `MediaEditorLauncherService` and `SharedMediaEditorShell`; Review uses the same editor in review mode.
+Browsing lives on Home, Read, Watch, Listen, Collections, Search, and detail pages; review lives inside Settings/Admin. Do not add all-in-one management routes, components, docs, or navigation. Normal media correction belongs inline on media pages and details, using `MediaEditorLauncherService` and `SharedMediaEditorShell`; Review uses the same editor in review mode.
 
 ### 3.13 — Universal Parameterized Collection System
 **Detail:** [`docs/architecture/collections.md`](docs/architecture/collections.md)
@@ -533,7 +533,7 @@ Two AI assistants work on this repository:
 
 `CLAUDE.md` is the canonical source. The `.agent/` directory contains supplementary files that must stay in sync. `.agent/SYNC-MAP.md` contains the reverse mapping from `.agent/` files to `CLAUDE.md` sections.
 
-> **Naming note:** Older `.agent/` notes may still mention the retired Library Vault concept as historical context. Current work uses the surface-per-concern layout: `LibraryBrowsePage`, `ReadPage`, `WatchPage`, `ListenPage`, `Collections`, and Settings (with the review queue at `/settings/review`). Do not add new Vault routes, components, docs, or navigation.
+Current work uses the surface-per-concern layout: Home, Read, Watch, Listen, Collections, Search, detail pages, and Settings (with the review queue at `/settings/review`). Do not add all-in-one management routes, components, docs, or navigation.
 
 ### 5.4 — Documentation Upkeep (Diátaxis)
 
@@ -596,7 +596,7 @@ Reusable visual components, organised by feature slice.
 | `Details/` | Detail-page composition extracted from Pages. `DetailPage`, `DetailHero` (+ `DetailHeroPresentation`), `DetailTabs`, `OverviewTab`, `DetailsTab`, `EditionsTab`, `EpisodesTab`, `FormatsTab`, `PeopleAndCharactersTab`, `ChildrenListTab`, `SyncTab`, `IdentityTab`, `UniverseTab`, `CharactersSection`, `ContributorsSection`, `CreditGroupSection`, `CastCharacterPairCard`, `CharacterCreditCard`, `MusicArtistCreditCard`, `MusicTrackList`, `OwnedFormatsPanel`, `OptionalSyncPanel`, `PeoplePreviewStrip`, `PersonAvatar`, `PersonCreditCard`, `RelatedEntityChip`, `SeriesPlacementPanel`, `HeroBackdrop`, `HeroActionRow`, `HeroGenreChips`, `HeroMetadataPills`, `HeroProgressBlock`, `ManageActionsMenu`, `OverflowActionMenu`, `GeneratedIdentity`, `DescriptionAttribution` |
 | `Discovery/` | `DiscoveryHero`, `DiscoveryShelf`, `DiscoveryCard`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |
-| `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, status pills, and group drill-down components. Do not add Vault workflow components here. |
+| `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, status pills, and group drill-down components. Do not add all-in-one management workflow components here. |
 | `Listen/` | `ListenNowPlayingBar`, `ListenTrackDataGrid` |
 | `MediaEditor/` | `SharedMediaEditorShell`, `SharedMediaBatchConfirmDialog` |
 | `Navigation/` | `TopBar`, `AppLogo`, `AppTabs`, `AppSelectorNav`, `CommandPalette` (Ctrl+K), `ProfileDropdown`, `MobileFilterBar` |

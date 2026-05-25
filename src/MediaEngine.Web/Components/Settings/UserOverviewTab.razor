@@ -16,19 +16,19 @@
     }
     else if (_overview is null)
     {
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        <AppAlert Severity="Severity.Info" Variant="Variant.Outlined">
             Your overview is not available yet. Profile details will appear here when the Engine is online.
-        </MudAlert>
+        </AppAlert>
     }
     else
     {
         var profile = _overview.Profile;
 
         <div class="user-overview-grid">
-            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-profile-card">
+            <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-profile-card">
                     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="user-overview-profile-layout">
                         <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-avatar-wrap">
-                            <MudButton Variant="Variant.Text"
+                            <AppButton Variant="Variant.Text"
                                        Color="Color.Inherit"
                                        Class="user-overview-avatar-button"
                                        Disabled="@_avatarDialogBusy"
@@ -49,14 +49,14 @@
                                 <span class="user-overview-avatar-edit-badge">
                                     <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Size="Size.Small" />
                                 </span>
-                            </MudButton>
+                            </AppButton>
                         </MudStack>
 
                         <MudStack Spacing="2" Class="flex-grow-1 user-overview-profile-copy">
                             @if (_editingName)
                             {
                                 <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-name-edit">
-                                    <MudTextField @bind-Value="_displayName"
+                                    <AppTextField @bind-Value="_displayName"
                                                   Variant="Variant.Outlined"
                                                   Margin="Margin.Dense"
                                                   Immediate="true"
@@ -64,13 +64,13 @@
                                                   Disabled="_savingProfile"
                                                   Class="user-overview-name-field"
                                                   aria-label="Display name" />
-                                    <MudIconButton Icon="@Icons.Material.Outlined.Check"
+                                    <AppIconButton Icon="@Icons.Material.Outlined.Check"
                                                    Color="Color.Success"
                                                    Size="Size.Small"
                                                    Disabled="@(_savingProfile || string.IsNullOrWhiteSpace(_displayName) || !ProfileDirty)"
                                                    OnClick="@SaveProfileAsync"
                                                    aria-label="Save display name" />
-                                    <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                                    <AppIconButton Icon="@Icons.Material.Outlined.Close"
                                                    Color="Color.Default"
                                                    Size="Size.Small"
                                                    Disabled="_savingProfile"
@@ -82,7 +82,7 @@
                             {
                                 <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-name-row">
                                     <MudText Typo="Typo.h5" Class="user-overview-profile-name">@profile.DisplayName</MudText>
-                                    <MudIconButton Icon="@Icons.Material.Outlined.Edit"
+                                    <AppIconButton Icon="@Icons.Material.Outlined.Edit"
                                                    Size="Size.Small"
                                                    Color="Color.Default"
                                                    Class="user-overview-inline-edit"
@@ -100,9 +100,9 @@
                             </MudText>
                         </MudStack>
                     </MudStack>
-            </MudPaper>
+            </AppPanel>
 
-            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-stat-strip">
+            <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-stat-strip">
                 <div class="user-overview-stats-grid">
                         @foreach (var stat in StatItems())
                         {
@@ -116,14 +116,14 @@
                             </MudStack>
                         }
                 </div>
-            </MudPaper>
+            </AppPanel>
 
-            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-continue-card">
+            <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-continue-card">
                 <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Continue Your Activity</MudText>
                 <MediaRail Items="@_overview.ContinueItems" EmptyText="Nothing is currently in progress." ShowContinuation="true" />
-            </MudPaper>
+            </AppPanel>
 
-            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-history-card">
+            <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-history-card">
                 <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Recent History</MudText>
                 @if (_overview.RecentItems.Count == 0)
                 {
@@ -145,8 +145,8 @@
                                     </MudStack>
                                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-history-meta">
                                         <MudText Typo="Typo.caption" Color="Color.Secondary">@RelativeTime(item.LastAccessed)</MudText>
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@FriendlyMediaType(item.MediaType)</MudChip>
-                                        <MudIconButton Icon="@Icons.Material.Outlined.MoreHoriz"
+                                        <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">@FriendlyMediaType(item.MediaType)</AppChip>
+                                        <AppIconButton Icon="@Icons.Material.Outlined.MoreHoriz"
                                                        Size="Size.Small"
                                                        Color="Color.Default"
                                                        Class="user-overview-overflow"
@@ -157,15 +157,15 @@
                         }
                     </MudList>
                 }
-            </MudPaper>
+            </AppPanel>
 
-            <MudPaper Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-taste-card">
+            <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-taste-card">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3 user-overview-card-header">
                     <MudText Typo="Typo.h6" Class="settings-card-title">Your Taste / Top Genres</MudText>
                     <MudTooltip Text="Reset personalization is not available until the Engine exposes a reset endpoint.">
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Disabled="true">
+                        <AppButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Disabled="true">
                             Reset personalization
-                        </MudButton>
+                        </AppButton>
                     </MudTooltip>
                 </MudStack>
 
@@ -195,16 +195,16 @@
                         Based on your activity from the last 90 days.
                     </MudText>
                 }
-            </MudPaper>
+            </AppPanel>
         </div>
     }
 </div>
 
-<MudDialog @bind-Visible="_avatarDialogOpen" Options="_avatarDialogOptions" Class="user-overview-photo-dialog">
+<AppDialog @bind-Visible="_avatarDialogOpen" Options="_avatarDialogOptions" Class="user-overview-photo-dialog">
     <TitleContent>
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="user-overview-photo-dialog-title">
             <MudText Typo="Typo.h6">Change photo</MudText>
-            <MudIconButton Icon="@Icons.Material.Outlined.Close"
+            <AppIconButton Icon="@Icons.Material.Outlined.Close"
                            Size="Size.Small"
                            Color="Color.Default"
                            OnClick="@CloseAvatarDialog"
@@ -250,16 +250,16 @@
 
                 @if (!string.IsNullOrWhiteSpace(_avatarDialogError))
                 {
-                    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="user-overview-photo-alert">
+                    <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="user-overview-photo-alert">
                         @_avatarDialogError
-                    </MudAlert>
+                    </AppAlert>
                 }
 
                 @if (_avatarRemoveRequested)
                 {
-                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="user-overview-photo-alert">
+                    <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="user-overview-photo-alert">
                         The current photo will be removed when you save.
-                    </MudAlert>
+                    </AppAlert>
                 }
 
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="user-overview-photo-help">
@@ -273,14 +273,14 @@
                                    MaximumFileCount="1"
                                    Disabled="@_avatarDialogBusy">
                         <CustomContent>
-                            <MudButton Variant="Variant.Text"
+                            <AppButton Variant="Variant.Text"
                                        Color="Color.Primary"
                                        Size="Size.Small"
                                        StartIcon="@Icons.Material.Outlined.AddPhotoAlternate"
                                        Disabled="@_avatarDialogBusy"
                                        OnClick="@context.OpenFilePickerAsync">
                                 Change photo
-                            </MudButton>
+                            </AppButton>
                         </CustomContent>
                         <SelectedTemplate>
                         </SelectedTemplate>
@@ -288,29 +288,29 @@
 
                     @if (CanRemoveAvatarInDialog)
                     {
-                        <MudButton Variant="Variant.Text"
+                        <AppButton Variant="Variant.Text"
                                    Color="@(_confirmRemoveAvatar ? Color.Error : Color.Primary)"
                                    Size="Size.Small"
                                    StartIcon="@Icons.Material.Outlined.DeleteOutline"
                                    Disabled="@_avatarDialogBusy"
                                    OnClick="@RequestRemoveAvatar">
                             @(_confirmRemoveAvatar ? "Confirm remove" : "Remove photo")
-                        </MudButton>
+                        </AppButton>
                     }
                 </MudStack>
             </MudStack>
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@CloseAvatarDialog" Disabled="@_avatarDialogBusy">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled"
+        <AppButton OnClick="@CloseAvatarDialog" Disabled="@_avatarDialogBusy">Cancel</AppButton>
+        <AppButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    Disabled="@(!CanSaveAvatarDialog)"
                    OnClick="@SaveAvatarDialogAsync">
             @(_avatarDialogBusy ? "Saving" : "Save")
-        </MudButton>
+        </AppButton>
     </DialogActions>
-</MudDialog>
+</AppDialog>
 
 @code {
     private bool _loading = true;

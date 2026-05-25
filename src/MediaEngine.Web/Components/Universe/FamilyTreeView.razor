@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 <div class="family-tree-panel">
     <MudText Typo="Typo.subtitle1" Class="mb-3" Style="color: var(--tl-accent-primary); font-weight: 600;">
@@ -7,7 +7,7 @@
 
     @* Character selector *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-        <MudSelect T="string" Value="@_selectedCharQid" ValueChanged="OnCharacterSelected"
+        <AppSelect T="string" Value="@_selectedCharQid" ValueChanged="OnCharacterSelected"
                    Label="Character" Variant="Variant.Outlined" Margin="Margin.Dense"
                    Style="flex: 1; min-width: 200px;"
                    Placeholder="Select a character...">
@@ -15,16 +15,16 @@
             {
                 <MudSelectItem T="string" Value="@node.Id">@node.Label</MudSelectItem>
             }
-        </MudSelect>
-        <MudNumericField T="int" @bind-Value="_generations" Label="Generations"
+        </AppSelect>
+        <AppNumericField T="int" @bind-Value="_generations" Label="Generations"
                          Min="1" Max="5" Style="max-width: 100px;" Margin="Margin.Dense"
                          Variant="Variant.Outlined" />
-        <MudButton Variant="Variant.Filled" Color="Color.Warning"
+        <AppButton Variant="Variant.Filled" Color="Color.Warning"
                    OnClick="LoadTree" Disabled="@(string.IsNullOrEmpty(_selectedCharQid) || _loading)"
                    StartIcon="@Icons.Material.Filled.AccountTree">
             @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
             else { <span>Show Tree</span> }
-        </MudButton>
+        </AppButton>
     </MudStack>
 
     @* Tree display *@
@@ -79,62 +79,9 @@
     }
     else if (_noResults)
     {
-        <MudAlert Severity="Severity.Info">No family relationships found for this character.</MudAlert>
+        <AppAlert Severity="Severity.Info">No family relationships found for this character.</AppAlert>
     }
 </div>
-
-<style>
-    .family-tree-panel {
-        padding: 0;
-    }
-    .family-tree-container {
-        overflow-y: auto;
-        max-height: 420px;
-    }
-    .gen-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        margin-bottom: 4px;
-    }
-    .gen-label {
-        min-width: 90px;
-        color: #888;
-        padding-top: 6px;
-        font-size: 11px;
-        text-align: right;
-    }
-    .gen-members {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        flex: 1;
-    }
-    .family-node {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 8px;
-        border-radius: 8px;
-        background: #1a1a1a;
-        border: 1px solid #333;
-        min-width: 80px;
-        cursor: pointer;
-        transition: border-color 0.15s;
-    }
-    .family-node:hover {
-        border-color: #555;
-    }
-    .family-node-center {
-        border-color: var(--tl-accent-primary) !important;
-    }
-    .gen-divider {
-        height: 1px;
-        background: #222;
-        margin: 8px 0;
-    }
-</style>
-
 @code {
     [Parameter] public string UniverseQid { get; set; } = string.Empty;
     [Parameter] public UniverseGraphResponse? Graph { get; set; }

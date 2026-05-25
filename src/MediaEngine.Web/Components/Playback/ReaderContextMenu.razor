@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Playback
+@namespace MediaEngine.Web.Components.Playback
 @inject NavigationManager Nav
 
 <div class="reader-context-menu @(Visible ? "visible" : "")"
@@ -6,42 +6,35 @@
     <div class="context-menu-actions">
         @* Highlight with colour picker *@
         <div class="context-action-group">
-            <button class="context-btn" title="Highlight"
-                    @onclick="() => OnHighlight.InvokeAsync(_selectedColor)">
+            <AppNativeButton Class="context-btn" Title="Highlight" OnClick="() => OnHighlight.InvokeAsync(_selectedColor)">
                 <MudIcon Icon="@Icons.Material.Filled.Highlight" Size="Size.Small" />
-            </button>
+            </AppNativeButton>
             <div class="color-dots">
                 @foreach (var color in _highlightColors)
                 {
-                    <button class="color-dot @(color.Key == _selectedColor ? "active" : "")"
-                            style="background-color: @color.Value"
-                            @onclick="() => _selectedColor = color.Key"
-                            title="@color.Key">
-                    </button>
+                    <AppNativeButton Class="@($"color-dot @(color.Key == _selectedColor ? ")" active" : "")" InlineStyle="@($"background-color: {color.Value}")" OnClick="() => _selectedColor = color.Key" Title="@color.Key">
+                    </AppNativeButton>
                 }
             </div>
         </div>
 
         @* Note *@
-        <button class="context-btn" title="Add Note"
-                @onclick="() => OnAddNote.InvokeAsync(SelectedText)">
+        <AppNativeButton Class="context-btn" Title="Add Note" OnClick="() => OnAddNote.InvokeAsync(SelectedText)">
             <MudIcon Icon="@Icons.Material.Filled.NoteAdd" Size="Size.Small" />
             <span>Note</span>
-        </button>
+        </AppNativeButton>
 
         @* Dictionary (Wiktionary) *@
-        <button class="context-btn" title="Define"
-                @onclick="LookupWord">
+        <AppNativeButton Class="context-btn" Title="Define" OnClick="LookupWord">
             <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" />
             <span>Define</span>
-        </button>
+        </AppNativeButton>
 
         @* Copy *@
-        <button class="context-btn" title="Copy"
-                @onclick="() => OnCopy.InvokeAsync(SelectedText)">
+        <AppNativeButton Class="context-btn" Title="Copy" OnClick="() => OnCopy.InvokeAsync(SelectedText)">
             <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" />
             <span>Copy</span>
-        </button>
+        </AppNativeButton>
     </div>
 </div>
 

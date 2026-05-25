@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
@@ -51,7 +51,7 @@
                         <MudItem xs="12" sm="6">
                             @if (DeviceContext.Settings.Constraints.AllowTextInput)
                             {
-                                <MudTextField @bind-Value="_displayName"
+                                <AppTextField @bind-Value="_displayName"
                                               Label="@L["Profile_DisplayName"]"
                                               Variant="Variant.Outlined"
                                               FullWidth="true"
@@ -90,7 +90,7 @@
 
             <MudGrid Spacing="3" Class="mb-6">
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string"
+                    <AppSelect T="string"
                                @bind-Value="_dateFormat"
                                Label="@L["Profile_DateFormat"]"
                                Variant="Variant.Outlined"
@@ -100,10 +100,10 @@
                         <MudSelectItem T="string" Value="@("DD/MM/YYYY")">DD/MM/YYYY</MudSelectItem>
                         <MudSelectItem T="string" Value="@("MM/DD/YYYY")">MM/DD/YYYY</MudSelectItem>
                         <MudSelectItem T="string" Value="@("YYYY-MM-DD")">YYYY-MM-DD</MudSelectItem>
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string"
+                    <AppSelect T="string"
                                @bind-Value="_timeFormat"
                                Label="@L["Profile_TimeFormat"]"
                                Variant="Variant.Outlined"
@@ -112,7 +112,7 @@
                         <MudSelectItem T="string" Value="@("System")">@L["Profile_SystemDefault"]</MudSelectItem>
                         <MudSelectItem T="string" Value="@("12-hour")">@L["Profile_TimeFormat12Hour"]</MudSelectItem>
                         <MudSelectItem T="string" Value="@("24-hour")">@L["Profile_TimeFormat24Hour"]</MudSelectItem>
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
             </MudGrid>
 
@@ -134,7 +134,7 @@
 
             <MudGrid Spacing="3" Class="mb-4">
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string"
+                    <AppSelect T="string"
                                @bind-Value="_displayLanguage"
                                Label="@L["Profile_DisplayLanguage"]"
                                Variant="Variant.Outlined"
@@ -145,10 +145,10 @@
                         {
                             <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
                         }
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string"
+                    <AppSelect T="string"
                                @bind-Value="_metadataLanguage"
                                Label="@L["Profile_MetadataLanguage"]"
                                Variant="Variant.Outlined"
@@ -159,13 +159,13 @@
                         {
                             <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
                         }
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
             </MudGrid>
 
             <MudGrid Spacing="3" Class="mb-4">
                 <MudItem xs="12">
-                    <MudSelect T="string"
+                    <AppSelect T="string"
                                @bind-SelectedValues="_additionalLanguages"
                                Label="@L["Profile_AdditionalContentLanguages"]"
                                Variant="Variant.Outlined"
@@ -177,11 +177,11 @@
                         {
                             <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
                         }
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
             </MudGrid>
 
-            <MudSwitch T="bool"
+            <AppSwitchRow T="bool"
                        @bind-Value="_acceptAnyLanguage"
                        Label="@L["Profile_AcceptAnyLanguage"]"
                        Color="Color.Primary"
@@ -194,13 +194,13 @@
         }
 @if (showProfile)
         {
-            <MudButton Variant="Variant.Filled"
+            <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        FullWidth="true"
                        OnClick="@SaveProfileAsync"
                        Disabled="@(_saving || string.IsNullOrWhiteSpace(_displayName))">
                 @(_saving ? L["Profile_Saving"] : L["Profile_SaveProfile"])
-            </MudButton>
+            </AppButton>
         }
     }
 

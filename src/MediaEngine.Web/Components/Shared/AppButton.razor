@@ -11,7 +11,9 @@
            ButtonType="@ButtonType"
            FullWidth="@FullWidth"
            OnClick="HandleClick"
-           Class="@RootClass">
+           Style="@InlineStyle"
+           Class="@RootClass"
+           @attributes="AdditionalAttributes">
     @if (ChildContent is not null)
     {
         @ChildContent
@@ -33,20 +35,25 @@
     [Parameter] public bool FullWidth { get; set; }
     [Parameter] public ButtonType ButtonType { get; set; } = ButtonType.Button;
     [Parameter] public EventCallback OnClick { get; set; }
-    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public object? Size { get; set; } = AppControlSize.Normal;
     [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Neutral;
+    [Parameter] public Color? Color { get; set; }
     [Parameter] public AppButtonStyle ButtonStyle { get; set; } = AppButtonStyle.Outlined;
+    [Parameter] public Variant? Variant { get; set; }
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? InlineStyle { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
+    private AppControlSize AppSize => AppUiMaps.ToAppControlSize(Size);
     private Size MudSize => AppUiMaps.ToMudSize(Size);
-    private Color MudColor => AppUiMaps.ToMudColor(Tone);
-    private Variant MudVariant => AppUiMaps.ToMudVariant(ButtonStyle);
+    private Color MudColor => Color ?? AppUiMaps.ToMudColor(Tone);
+    private Variant MudVariant => Variant ?? AppUiMaps.ToMudVariant(ButtonStyle);
 
     private string RootClass =>
         string.Join(" ", new[]
         {
             "app-button",
-            AppUiMaps.SizeClass(Size),
+            AppUiMaps.SizeClass(AppSize),
             AppUiMaps.ToneClass(Tone),
             $"app-button--{ButtonStyle.ToString().ToLowerInvariant()}",
             Class,

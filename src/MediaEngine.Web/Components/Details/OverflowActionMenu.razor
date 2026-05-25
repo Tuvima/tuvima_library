@@ -4,14 +4,9 @@
 @if (Actions.Count > 0)
 {
     <div class="tl-detail-overflow">
-        <button type="button"
-                class="@ButtonClass"
-                aria-label="More actions"
-                aria-haspopup="menu"
-                aria-expanded="@_isOpen"
-                @onclick="ToggleMenu">
+        <AppNativeButton Type="button" Class="@ButtonClass" AriaLabel="More actions" aria-haspopup="menu" aria-expanded="@_isOpen" OnClick="ToggleMenu">
             <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
-        </button>
+        </AppNativeButton>
 
         @if (_isOpen)
         {

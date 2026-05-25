@@ -1,0 +1,48 @@
+.watch-specs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid var(--tl-border-default);
+        background: rgba(18, 22, 32, 0.72);
+        backdrop-filter: blur(10px);
+    }
+
+    .watch-specs__chip {
+        min-width: 132px;
+        padding: 10px 16px 11px;
+        border-right: 1px solid var(--tl-border-subtle);
+    }
+
+    .watch-specs__chip:last-child {
+        border-right: 0;
+    }
+
+    .watch-specs__label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .watch-specs__value {
+        margin-top: 2px;
+        font-size: 0.78rem;
+        color: rgba(255, 255, 255, 0.62);
+    }
+
+    @@media (max-width: 720px) {
+        .watch-specs {
+            width: 100%;
+        }
+
+        .watch-specs__chip {
+            flex: 1 1 120px;
+            min-width: 0;
+            border-bottom: 1px solid var(--tl-border-subtle);
+        }
+
+        .watch-specs__chip:last-child {
+            border-bottom: 0;
+        }
+    }

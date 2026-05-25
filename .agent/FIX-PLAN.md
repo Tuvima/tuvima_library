@@ -260,11 +260,11 @@ Phase F — Polish (Tier 4)
 
 ## Current Dashboard/Product UI Model
 
-Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. Do not add all-in-one management routes, components, docs, or workbench flows.
 
 ## Current Quality Gates
 
-- Guardrail tests must keep the retired Vault/LibraryPage workflow out of active routes, navigation, docs, and CSS.
+- Guardrail tests must keep removed all-in-one management workflows out of active routes, navigation, docs, and CSS.
 - Media correction flows must use `MediaEditorLauncherService` and `SharedMediaEditorShell` in Normal, Review, or Batch mode.
 - Normal database work must use `CreateConnection()`; `Open()` is startup/schema-only.
 - Silent catches should be logged, surfaced as degraded state, or explicitly documented as best effort.

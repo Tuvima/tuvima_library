@@ -80,7 +80,7 @@ The Dashboard is organized by user experience, not by a separate media managemen
 - **Review Queue** is only for blocked, uncertain, or low-confidence items that need human confirmation.
 - **Settings/Admin** is for configuration and system operations: library folders, provider setup, profiles and roles, device/profile UI settings, ingestion status, system health, logs, and diagnostics.
 
-The old **Vault** concept is deprecated and must not be rebuilt. Do not add new Vault routes, Vault tabs, Vault docs, or a separate media-fixing workbench. Normal media corrections belong inline on the media surface where the issue appears, using `MediaEditorLauncherService` and `SharedMediaEditorShell`. Review uses the same shared editor in review mode.
+The old all-in-one management workspace has been removed and must not be rebuilt. Do not add routes, navigation, docs, tabs, or a separate media-fixing workbench for it. Normal media corrections belong inline on the media surface where the issue appears, using `MediaEditorLauncherService` and `SharedMediaEditorShell`. Review uses the same shared editor in review mode.
 
 Current UI entry points:
 
@@ -92,11 +92,11 @@ Current UI entry points:
 6. `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` for normal, review, and batch editing.
 7. `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` for the Ingestion dashboard at `/settings/ingestion`; it uses the Engine `GET /ingestion/operations` snapshot plus SignalR ingestion progress.
 
-Treat stale references to `LibraryPage`, `LibrarySurfacePreset`, retired Vault CSS, broad management workbenches, or removed Vault docs as cleanup candidates unless they are historical notes explaining that the old workspace was removed.
+Treat stale references to old all-in-one workspace components, retired CSS prefixes, broad management workbenches, or removed-workspace docs as cleanup candidates.
 
 ## Quality Gates and Regression Rules
 
-- Do not recreate the old Vault workflow. No new `/vault` routes, `LibraryPage`, `LibrarySurfacePreset`, Vault navigation labels, Vault docs as current product behavior, or all-in-one media correction workbenches.
+- Do not recreate the old all-in-one management workflow. No new routes, implementation types, navigation labels, docs as current product behavior, or all-in-one media correction workbenches for it.
 - Normal media fixes belong inline on the media surface where the issue appears. Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for Normal, Review, and Batch editing modes.
 - Review Queue is the exception workflow for blocked, uncertain, low-confidence, or unresolved items. Settings/Admin is for configuration and operational state, not a normal media correction workspace.
 - Use `IDatabaseConnection.CreateConnection()` for normal repository, read-service, endpoint, background-job, and request-path database work. Dispose each short-lived connection with `using`.

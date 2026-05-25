@@ -1,10 +1,10 @@
-﻿@namespace MediaEngine.Web.Components.Playback
+@namespace MediaEngine.Web.Components.Playback
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
     <div class="reader-drawer-header">
         <MudText Typo="Typo.h6">Highlights & Notes</MudText>
-        <MudIconButton Icon="@Icons.Material.Filled.Close"
+        <AppIconButton Icon="@Icons.Material.Filled.Close"
                        Color="Color.Inherit"
                        OnClick="OnClose" />
     </div>
@@ -39,12 +39,12 @@
                             <span>Chapter @(highlight.ChapterIndex + 1)</span>
                             <span>@FormatDate(highlight.CreatedAt)</span>
                             <div class="highlight-actions" @onclick:stopPropagation="true">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                <AppIconButton Icon="@Icons.Material.Filled.Edit"
                                                Size="Size.Small"
                                                Color="Color.Default"
                                                OnClick="@(() => OnEdit.InvokeAsync(highlight.Id))"
                                                title="Edit note" />
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                <AppIconButton Icon="@Icons.Material.Filled.Delete"
                                                Size="Size.Small"
                                                Color="Color.Error"
                                                OnClick="@(() => OnDelete.InvokeAsync(highlight.Id))"

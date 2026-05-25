@@ -1,0 +1,39 @@
+.manual-form {
+        margin-top: 12px;
+        padding: 16px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--tl-border-subtle);
+        border-radius: 8px;
+    }
+
+    .manual-form-title {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-weight: 600;
+        color: #fff;
+        margin: 0 0 4px 0;
+        font-size: 0.95rem;
+    }
+
+    .manual-form-hint {
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.45);
+        margin: 0 0 14px 0;
+    }
+
+    .manual-form-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .manual-form-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .manual-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 14px;
+    }

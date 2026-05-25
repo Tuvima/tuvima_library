@@ -45,17 +45,15 @@
             <div class="vmd-actions">
                 @if (Item.LibraryDisplayStatus == LibraryStatus.NeedsReview)
                 {
-                    <button class="vmd-action-btn vmd-action-btn--primary"
-                            @onclick="() => OnResolve.InvokeAsync(Item.EntityId)">
+                    <AppNativeButton Class="vmd-action-btn vmd-action-btn--primary" OnClick="() => OnResolve.InvokeAsync(Item.EntityId)">
                         <MudIcon Icon="@Icons.Material.Outlined.Build" Style="font-size: 18px;" />
                         Resolve
-                    </button>
+                    </AppNativeButton>
                 }
-                <button class="vmd-action-btn vmd-action-btn--danger"
-                        @onclick="() => OnDelete.InvokeAsync(Item.EntityId)">
+                <AppNativeButton Class="vmd-action-btn vmd-action-btn--danger" OnClick="() => OnDelete.InvokeAsync(Item.EntityId)">
                     <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 18px;" />
                     Delete
-                </button>
+                </AppNativeButton>
             </div>
         </div>
     }
@@ -73,126 +71,3 @@
         await IsOpenChanged.InvokeAsync(open);
     }
 }
-
-<style>
-    :deep(.media-mobile-drawer) {
-        border-radius: 24px 24px 0 0 !important;
-        max-height: 60vh !important;
-    }
-
-    :deep(.media-mobile-drawer .mud-drawer-content) {
-        background: #14181d !important;
-    }
-
-    .vmd-content {
-        padding: 24px 20px 32px;
-    }
-
-    .vmd-header {
-        display: flex;
-        gap: 16px;
-        margin-bottom: 20px;
-    }
-
-    .vmd-thumb {
-        width: 56px;
-        height: 56px;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid var(--tl-border-subtle);
-        background: rgba(255, 255, 255, 0.02);
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .vmd-thumb-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .vmd-info {
-        overflow: hidden;
-    }
-
-    .vmd-title {
-        font-size: 16px;
-        font-weight: 800;
-        color: #fff;
-        margin: 0 0 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .vmd-subtitle {
-        font-size: 12px;
-        color: var(--tl-text-muted);
-        font-weight: 700;
-        text-transform: uppercase;
-        margin: 0;
-    }
-
-    .vmd-pipeline-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 16px 0;
-        border-top: 1px solid var(--tl-divider);
-        border-bottom: 1px solid var(--tl-divider);
-    }
-
-    .vmd-stages {
-        display: flex;
-    }
-
-    .vmd-status-row {
-        display: flex;
-        justify-content: center;
-        padding: 16px 0;
-    }
-
-    .vmd-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-top: 8px;
-    }
-
-    .vmd-action-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        width: 100%;
-        padding: 14px;
-        border-radius: 12px;
-        border: none;
-        font-size: 14px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-
-    .vmd-action-btn--primary {
-        background: var(--tl-status-info);
-        color: #fff;
-    }
-
-    .vmd-action-btn--primary:hover {
-        background: var(--tl-status-info);
-    }
-
-    .vmd-action-btn--danger {
-        background: rgba(226, 75, 74, 0.15);
-        color: rgba(226, 75, 74, 0.85);
-        border: 1px solid rgba(226, 75, 74, 0.2);
-    }
-
-    .vmd-action-btn--danger:hover {
-        background: rgba(226, 75, 74, 0.25);
-    }
-</style>
-

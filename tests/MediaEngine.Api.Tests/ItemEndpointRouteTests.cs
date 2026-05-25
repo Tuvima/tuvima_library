@@ -93,9 +93,6 @@ public sealed class ItemEndpointRouteTests
         Assert.Contains("group.MapPost(\"/{entityId:guid}/canonical-apply\", async (", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/{entityId:guid}/retail-match\", async (", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/{entityId:guid}/wikidata-match\", async (", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("VaultItemCanonicalEndpoints", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("VaultCanonicalSearchRequest", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("VaultCanonicalApplyRequest", source, StringComparison.Ordinal);
     }
 
     [Fact]

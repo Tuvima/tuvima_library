@@ -25,7 +25,7 @@
                                   Value="Metadata provider"
                                   Size="@size"
                                   HelpText="Help text stays outside the control frame." />
-                    <AppSelect Label="@($"{size} select")"
+                    <AppSelect T="string" Label="@($"{size} select")"
                                Value="localized"
                                Options="@LanguageOptions"
                                Size="@size" />
@@ -38,8 +38,9 @@
             </div>
             <AppTextarea Label="Textarea" Value="Long-form text uses the same field contract." />
             <AppSearchField Label="Search" Value="books" />
-            <AppAutocomplete Label="Autocomplete"
-                             Value="TMDB"
+            <AppAutocomplete TItem="string"
+                             Label="Autocomplete"
+                             Value="@("TMDB")"
                              SearchFunc="@SearchProvidersAsync" />
             <AppSwitchRow Label="Enabled" Description="Binary settings use row components." Value="true" />
             <AppCheckboxRow Label="Include artwork" Description="Checkbox rows share spacing with switches." Value="true" />

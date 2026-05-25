@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using System.Net.Http.Json
 @using System.Text.Json
 @using System.Text.Json.Serialization
@@ -15,11 +15,11 @@
              Style="color: var(--tl-text-secondary);">
         Enter a title, ISBN, or identifier to search Wikidata. Select a result to see full enrichment data.
     </MudText>
-<MudPaper Elevation="0" Class="pa-4 mb-6"
+<AppPanel Elevation="0" Class="pa-4 mb-6"
               Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 12px;">
         <MudGrid>
             <MudItem xs="12" sm="5">
-                <MudTextField @bind-Value="_title"
+                <AppTextField @bind-Value="_title"
                               Label="Title"
                               Placeholder="e.g. Dune"
                               Variant="Variant.Outlined"
@@ -28,33 +28,33 @@
                               OnKeyUp="@OnKeyUp" />
             </MudItem>
             <MudItem xs="12" sm="3">
-                <MudTextField @bind-Value="_author"
+                <AppTextField @bind-Value="_author"
                               Label="Author (optional)"
                               Placeholder="e.g. Frank Herbert"
                               Variant="Variant.Outlined" />
             </MudItem>
             <MudItem xs="12" sm="2">
-                <MudSelect @bind-Value="_mediaType"
+                <AppSelect @bind-Value="_mediaType"
                            Label="Media Type"
                            Variant="Variant.Outlined">
                     @foreach (var mt in _mediaTypes)
                     {
                         <MudSelectItem Value="@mt">@mt</MudSelectItem>
                     }
-                </MudSelect>
+                </AppSelect>
             </MudItem>
             <MudItem xs="12" sm="2" Class="d-flex align-center">
-                <MudButton Variant="Variant.Filled"
+                <AppButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            FullWidth="true"
                            OnClick="@Search"
                            Disabled="@(_loading || string.IsNullOrWhiteSpace(_title))"
                            StartIcon="@Icons.Material.Outlined.Bolt">
                     Search
-                </MudButton>
+                </AppButton>
             </MudItem>
         </MudGrid>
-    </MudPaper>
+    </AppPanel>
 @if (_loading)
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
@@ -73,27 +73,27 @@
     }
 @if (_error is not null)
     {
-        <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_error</MudAlert>
+        <AppAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_error</AppAlert>
     }
 @if (_enrichUniverseMessage is not null)
     {
-        <MudAlert Severity="Severity.Success" Class="mb-4" Dense="true"
+        <AppAlert Severity="Severity.Success" Class="mb-4" Dense="true"
                   Icon="@Icons.Material.Filled.Collections"
                   ShowCloseIcon="true"
                   CloseIconClicked="@(() => _enrichUniverseMessage = null)">
             @_enrichUniverseMessage
-        </MudAlert>
+        </AppAlert>
     }
 @if (_candidates is not null && _selectedCandidate is null && !_loading)
     {
         @if (_candidates.Count == 0)
         {
-            <MudPaper Elevation="0" Class="pa-4 mb-4"
+            <AppPanel Elevation="0" Class="pa-4 mb-4"
                       Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                 <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">
                     No candidates found. Try a different title or media type.
                 </MudText>
-            </MudPaper>
+            </AppPanel>
         }
         else
         {
@@ -105,20 +105,20 @@
                 @foreach (var candidate in _candidates)
                 {
                     <MudItem xs="12" sm="6" md="4">
-                        <MudPaper Elevation="0" Class="pa-3 cursor-pointer"
+                        <AppPanel Elevation="0" Class="pa-3 cursor-pointer"
                                   Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px; transition: border-color 0.2s;"
                                   @onclick="() => SelectCandidate(candidate)">
                             <div class="d-flex align-center gap-2 mb-2">
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                <AppChip T="string" Size="Size.Small" Color="Color.Primary"
                                          Style="height: 20px; font-size: 0.7rem;">
                                     @candidate.Qid
-                                </MudChip>
+                                </AppChip>
                                 @if (candidate.Match)
                                 {
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Success"
+                                    <AppChip T="string" Size="Size.Small" Color="Color.Success"
                                              Style="height: 20px; font-size: 0.65rem;">
                                         Auto-match
-                                    </MudChip>
+                                    </AppChip>
                                 }
                             </div>
                             <MudText Typo="Typo.body1" Style="color: var(--tl-text-primary); font-weight: 600;">
@@ -143,7 +143,7 @@
                             <MudText Typo="Typo.caption" Style="color: var(--tl-text-muted);" Class="mt-1">
                                 Score: @candidate.Score.ToString("P0")
                             </MudText>
-                        </MudPaper>
+                        </AppPanel>
                     </MudItem>
                 }
             </MudGrid>
@@ -153,17 +153,17 @@
     {
         @* Back button + selected candidate header + Enrich Universe *@
         <div class="d-flex align-center gap-3 mb-4">
-            <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
+            <AppIconButton Icon="@Icons.Material.Outlined.ArrowBack"
                            Color="Color.Default"
                            OnClick="@BackToSearch" />
-            <MudChip T="string" Color="Color.Primary" Size="Size.Small">
+            <AppChip T="string" Color="Color.Primary" Size="Size.Small">
                 @_selectedCandidate.Qid
-            </MudChip>
+            </AppChip>
             <MudText Typo="Typo.h6" Style="color: var(--tl-text-primary); font-weight: 600;">
                 @_selectedCandidate.Label
             </MudText>
             <MudSpacer />
-            <MudButton Variant="Variant.Outlined"
+            <AppButton Variant="Variant.Outlined"
                        Color="Color.Secondary"
                        OnClick="@EnrichUniverse"
                        Disabled="@_enrichingUniverse"
@@ -178,7 +178,7 @@
                 {
                     @:Enrich Universe
                 }
-            </MudButton>
+            </AppButton>
         </div>
 @if (_result is not null)
         {
@@ -186,7 +186,7 @@
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Identity
             </MudText>
-            <MudPaper Elevation="0" Class="pa-4 mb-4"
+            <AppPanel Elevation="0" Class="pa-4 mb-4"
                       Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                 <div class="d-flex align-center gap-4 mb-3">
                     @* Cover art *@
@@ -205,17 +205,17 @@
                     <div>
                         @if (_result.ResolvedQid is not null)
                         {
-                            <MudChip T="string" Icon="@Icons.Material.Outlined.Link"
+                            <AppChip T="string" Icon="@Icons.Material.Outlined.Link"
                                      Color="Color.Primary" Size="Size.Small" Class="mb-1">
                                 QID: @_result.ResolvedQid
-                            </MudChip>
+                            </AppChip>
                         }
                         else
                         {
-                            <MudChip T="string" Icon="@Icons.Material.Outlined.HelpOutline"
+                            <AppChip T="string" Icon="@Icons.Material.Outlined.HelpOutline"
                                      Color="Color.Warning" Size="Size.Small" Class="mb-1">
                                 No QID resolved
-                            </MudChip>
+                            </AppChip>
                         }
                         <MudText Typo="Typo.body2" Style="color: var(--tl-text-secondary);">
                             @_result.ClaimGroups.Count claim group(s) &bull;
@@ -284,14 +284,14 @@
                 {
                     <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No claims returned.</MudText>
                 }
-            </MudPaper>
+            </AppPanel>
 @if (GetBridgeClaims(_result).Count > 0)
             {
                 <MudText Typo="Typo.h6" Class="mb-2"
                          Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                     Bridge IDs (@GetBridgeClaims(_result).Count)
                 </MudText>
-                <MudPaper Elevation="0" Class="pa-4 mb-4"
+                <AppPanel Elevation="0" Class="pa-4 mb-4"
                           Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudGrid>
                         @foreach (var group in GetBridgeClaims(_result))
@@ -313,7 +313,7 @@
                             }
                         }
                     </MudGrid>
-                </MudPaper>
+                </AppPanel>
             }
 <MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
@@ -321,7 +321,7 @@
             </MudText>
             @if (_result.BridgeHintPreview is { Count: > 0 })
             {
-                <MudPaper Elevation="0" Class="pa-4 mb-4"
+                <AppPanel Elevation="0" Class="pa-4 mb-4"
                           Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudText Typo="Typo.caption" Class="mb-3"
                              Style="color: var(--tl-text-muted); font-size: 0.7rem;">
@@ -353,21 +353,21 @@
                                     <td>
                                         @foreach (var provider in hint.TargetProviders)
                                         {
-                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                            <AppChip T="string" Size="Size.Small" Color="Color.Primary"
                                                      Style="height: 18px; font-size: 0.6rem; margin: 1px;">
                                                 @provider
-                                            </MudChip>
+                                            </AppChip>
                                         }
                                     </td>
                                 </tr>
                             }
                         </tbody>
                     </MudSimpleTable>
-                </MudPaper>
+                </AppPanel>
             }
             else
             {
-                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                <AppPanel Elevation="0" Class="pa-3 mb-4"
                           Style="background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.25); border-radius: 10px;">
                     <div class="d-flex align-center gap-2">
                         <MudIcon Icon="@Icons.Material.Outlined.Warning" Size="Size.Small"
@@ -376,7 +376,7 @@
                             No bridge hints would flow to Stage 2 - cover art would rely on text search (ArtworkUnconfirmed)
                         </MudText>
                     </div>
-                </MudPaper>
+                </AppPanel>
             }
 <MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
@@ -409,23 +409,23 @@
                                             @person.Name
                                         </MudText>
                                         <div class="d-flex gap-2">
-                                            <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                            <AppChip T="string" Size="Size.Small" Color="Color.Default"
                                                      Style="height: 18px; font-size: 0.65rem;">
                                                 @person.Role
-                                            </MudChip>
+                                            </AppChip>
                                             @if (person.Qid is not null)
                                             {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                                <AppChip T="string" Size="Size.Small" Color="Color.Primary"
                                                          Style="height: 18px; font-size: 0.65rem;">
                                                     @person.Qid
-                                                </MudChip>
+                                                </AppChip>
                                             }
                                             @if (!string.IsNullOrEmpty(person.Occupation))
                                             {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                                <AppChip T="string" Size="Size.Small" Color="Color.Default"
                                                          Style="height: 18px; font-size: 0.65rem; color: var(--tl-text-secondary);">
                                                     @person.Occupation
-                                                </MudChip>
+                                                </AppChip>
                                             }
                                         </div>
                                     </div>
@@ -466,10 +466,10 @@
             }
             else
             {
-                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                <AppPanel Elevation="0" Class="pa-3 mb-4"
                           Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No people returned.</MudText>
-                </MudPaper>
+                </AppPanel>
             }
 <MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
@@ -478,7 +478,7 @@
 
             @if (_result.FictionalEntities.Count > 0)
             {
-                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                <AppPanel Elevation="0" Class="pa-3 mb-4"
                           Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
                                     Style="background: transparent; font-size: 0.8rem;">
@@ -499,24 +499,24 @@
                                         @(entity.Qid ?? "-")
                                     </td>
                                     <td>
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Secondary"
+                                        <AppChip T="string" Size="Size.Small" Color="Color.Secondary"
                                                  Style="height: 18px; font-size: 0.65rem;">
                                             @entity.EntityType
-                                        </MudChip>
+                                        </AppChip>
                                     </td>
                                     <td style="color: rgba(248,248,248,0.70);">@(entity.Description ?? "-")</td>
                                 </tr>
                             }
                         </tbody>
                     </MudSimpleTable>
-                </MudPaper>
+                </AppPanel>
             }
             else
             {
-                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                <AppPanel Elevation="0" Class="pa-3 mb-4"
                           Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No fictional entities returned.</MudText>
-                </MudPaper>
+                </AppPanel>
             }
 <MudText Typo="Typo.h6" Class="mb-2"
                      Style="color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
@@ -525,7 +525,7 @@
 
             @if (_result.Relationships.Count > 0)
             {
-                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                <AppPanel Elevation="0" Class="pa-3 mb-4"
                           Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudSimpleTable Dense="true" Striped="true" Hover="true"
                                     Style="background: transparent; font-size: 0.8rem;">
@@ -552,10 +552,10 @@
                                         }
                                     </td>
                                     <td>
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Info"
+                                        <AppChip T="string" Size="Size.Small" Color="Color.Info"
                                                  Style="height: 18px; font-size: 0.65rem;">
                                             @rel.RelationshipType
-                                        </MudChip>
+                                        </AppChip>
                                     </td>
                                     <td style="color: var(--tl-text-primary);">
                                         @rel.ObjectLabel
@@ -576,14 +576,14 @@
                             }
                         </tbody>
                     </MudSimpleTable>
-                </MudPaper>
+                </AppPanel>
             }
             else
             {
-                <MudPaper Elevation="0" Class="pa-3 mb-4"
+                <AppPanel Elevation="0" Class="pa-3 mb-4"
                           Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">
                     <MudText Typo="Typo.body2" Style="color: var(--tl-text-muted);">No relationships returned.</MudText>
-                </MudPaper>
+                </AppPanel>
             }
 <MudExpansionPanels Class="mb-6" Elevation="0">
                 <MudExpansionPanel Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 10px;">

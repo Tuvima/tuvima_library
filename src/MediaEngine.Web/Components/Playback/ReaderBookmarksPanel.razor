@@ -1,10 +1,10 @@
-﻿@namespace MediaEngine.Web.Components.Playback
+@namespace MediaEngine.Web.Components.Playback
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
     <div class="reader-drawer-header">
         <MudText Typo="Typo.h6">Bookmarks</MudText>
-        <MudIconButton Icon="@Icons.Material.Filled.Close"
+        <AppIconButton Icon="@Icons.Material.Filled.Close"
                        Color="Color.Inherit"
                        OnClick="OnClose" />
     </div>
@@ -40,7 +40,7 @@
                             </div>
                             <div class="bookmark-meta">
                                 <span class="bookmark-date">@FormatDate(bookmark.CreatedAt)</span>
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                <AppIconButton Icon="@Icons.Material.Filled.Delete"
                                                Size="Size.Small"
                                                Color="Color.Error"
                                                OnClick="@(() => OnDelete.InvokeAsync(bookmark.Id))"
@@ -55,13 +55,13 @@
 
     @* Add Bookmark FAB *@
     <div class="reader-drawer-footer">
-        <MudButton Variant="Variant.Filled"
+        <AppButton Variant="Variant.Filled"
                    Color="Color.Warning"
                    StartIcon="@Icons.Material.Filled.BookmarkAdd"
                    OnClick="OnAddBookmark"
                    FullWidth="true">
             Bookmark This Page
-        </MudButton>
+        </AppButton>
     </div>
 </div>
 

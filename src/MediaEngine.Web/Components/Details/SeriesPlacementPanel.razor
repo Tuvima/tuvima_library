@@ -25,12 +25,9 @@
                 <div class="tl-series-selector">
                     @foreach (var option in Placement.AvailableSeries)
                     {
-                        <button type="button"
-                                class="tl-series-selector__option @(option.IsSelected ? "is-selected" : null)"
-                                disabled="@option.IsSelected"
-                                @onclick="() => SelectSeriesAsync(option)">
+                        <AppNativeButton Type="button" Class="@($"tl-series-selector__option @(option.IsSelected ? ")" is-selected" : null)" Disabled="@option.IsSelected" OnClick="() => SelectSeriesAsync(option)">
                             @option.SeriesTitle
-                        </button>
+                        </AppNativeButton>
                     }
                 </div>
             }
@@ -59,7 +56,7 @@
     </div>
 
     <div class="tl-series-carousel">
-        <MudIconButton Class="@LeftArrowClass"
+        <AppIconButton Class="@LeftArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronLeft"
                        Size="Size.Large"
                        aria-label="Previous series items"
@@ -83,7 +80,7 @@
                 }
             }
         </div>
-        <MudIconButton Class="@RightArrowClass"
+        <AppIconButton Class="@RightArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronRight"
                        Size="Size.Large"
                        aria-label="More series items"
@@ -98,12 +95,9 @@
         <span>@MissingCount missing</span>
         @if (ShowSetDefault)
         {
-            <button type="button"
-                    class="tl-series-default-action"
-                    disabled="@_settingDefault"
-                    @onclick="SetDefaultSeriesAsync">
+            <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSeriesAsync">
                 Set as default
-            </button>
+            </AppNativeButton>
         }
     </div>
 </section>

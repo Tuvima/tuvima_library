@@ -48,7 +48,7 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 | Shared editor | Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for Normal, Review, and Batch modes. |
 | Review exception | Review Queue is only for blocked, uncertain, low-confidence, or unresolved items. |
 | Settings/Admin scope | Settings/Admin is for folders, providers, profiles, roles, ingestion, health, logs, diagnostics, plugins, AI, and review. |
-| No retired workflow | Do not recreate `/vault`, `LibraryPage`, `LibrarySurfacePreset`, Vault labels, or all-in-one media correction workbenches. |
+| No removed management workflow | Do not recreate all-in-one management routes, implementation types, navigation labels, or media correction workbenches. |
 
 ---
 

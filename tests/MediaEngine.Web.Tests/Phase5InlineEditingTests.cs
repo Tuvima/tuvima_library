@@ -172,17 +172,15 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
-    public void SharedEditor_MatchIdentityRefreshDoesNotRecreateVaultWorkbench()
+    public void SharedEditor_MatchIdentityRefreshStaysInsideSharedEditor()
     {
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
 
-        Assert.DoesNotContain("/vault", shell, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Vault", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("workbench", shell, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("/vault", code, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Vault", code, StringComparison.Ordinal);
         Assert.DoesNotContain("workbench", code, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SharedMediaEditorMode.Batch", code, StringComparison.Ordinal);
+        Assert.Contains("SharedMediaEditorMode.Review", code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -323,8 +321,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("sme-local-cancel-button", component, StringComparison.Ordinal);
         Assert.Contains("User Notes", component, StringComparison.Ordinal);
         Assert.Contains("These notes are private and not written to metadata.", component, StringComparison.Ordinal);
-        Assert.Contains("MudChip", component, StringComparison.Ordinal);
-        Assert.Contains("MudIconButton", component, StringComparison.Ordinal);
+        Assert.Contains("AppChip", component, StringComparison.Ordinal);
+        Assert.Contains("AppIconButton", component, StringComparison.Ordinal);
         Assert.DoesNotContain("Field(\"edition\", \"Edition\")", schema, StringComparison.Ordinal);
         Assert.Contains("Field(\"custom_tags\", \"Tags\")", schema, StringComparison.Ordinal);
         Assert.Contains("Add(values, \"custom_tags\"", schema, StringComparison.Ordinal);
@@ -339,27 +337,6 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("request.Mode == SharedMediaEditorMode.Batch && request.EntityIds.Count <= 1", launcher, StringComparison.Ordinal);
         Assert.Contains("_selectedItems.Count > 1", browse, StringComparison.Ordinal);
         Assert.Contains("OpenBatchEditorAsync", browse, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Source_DoesNotReintroduceVaultWorkflow()
-    {
-        var root = FindRepoRoot();
-        var offenders = Directory.EnumerateFiles(Path.Combine(root, "src"), "*", SearchOption.AllDirectories)
-            .Where(path => Path.GetExtension(path) is ".cs" or ".razor" or ".css")
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-            .Where(path =>
-            {
-                var text = File.ReadAllText(path);
-                return text.Contains("/vault", StringComparison.OrdinalIgnoreCase)
-                    || text.Contains("VaultPage", StringComparison.OrdinalIgnoreCase)
-                    || text.Contains("LibrarySurfacePreset", StringComparison.OrdinalIgnoreCase);
-            })
-            .Select(path => Path.GetRelativePath(root, path))
-            .ToArray();
-
-        Assert.Empty(offenders);
     }
 
     private static string ReadSource(string relativePath) =>

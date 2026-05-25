@@ -1,4 +1,4 @@
-﻿@page "/watch/player/{AssetId:guid}"
+@page "/watch/player/{AssetId:guid}"
 @using Microsoft.AspNetCore.Components
 @using Microsoft.JSInterop
 @using MediaEngine.Contracts.Playback
@@ -28,10 +28,10 @@ else
 {
     <div class="watch-player-page">
         <div class="watch-player-page__topbar">
-            <button type="button" class="watch-player-button watch-player-button--secondary" @onclick="GoBack">
+            <AppNativeButton Type="button" Class="watch-player-button watch-player-button--secondary" OnClick="GoBack">
                 <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
                 <span>Back</span>
-            </button>
+            </AppNativeButton>
 
             <div class="watch-player-page__meta">
                 <div class="watch-player-page__eyebrow">@(_detail?.ShowName ?? _detail?.Series ?? "Now playing")</div>
@@ -44,9 +44,9 @@ else
         {
             @if (_manifest?.Warnings.Count > 0)
             {
-                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
                     @string.Join(" ", _manifest.Warnings)
-                </MudAlert>
+                </AppAlert>
             }
             <div class="watch-player-page__surface">
                 <video @ref="_videoRef"
@@ -71,14 +71,10 @@ else
                     <div class="watch-player-page__skipbar">
                         @foreach (var segment in VisibleSkipSegments)
                         {
-                            <button type="button"
-                                    @key="@($"{segment.Kind}-{segment.StartSeconds}-{segment.EndSeconds}")"
-                                    class="watch-player-skip-chip"
-                                    title="@SkipTitle(segment)"
-                                    @onclick="() => SkipSegmentAsync(segment)">
+                            <AppNativeButton Type="button" @key="@($" {segment.Kind}-{segment.StartSeconds}-{segment.EndSeconds}")" Class="watch-player-skip-chip" Title="@SkipTitle(segment)" OnClick="() => SkipSegmentAsync(segment)">
                                 <MudIcon Icon="@SkipIcon(segment.Kind)" Style="font-size: 16px;" />
                                 <span>@SkipLabel(segment.Kind)</span>
-                            </button>
+                            </AppNativeButton>
                         }
                     </div>
                 }
@@ -283,123 +279,3 @@ else
         _dotNetRef?.Dispose();
     }
 }
-
-<style>
-    .watch-player-page {
-        color: rgba(255, 255, 255, 0.92);
-        padding-bottom: 36px;
-    }
-
-    .watch-player-page__topbar {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr);
-        gap: 18px;
-        align-items: start;
-        margin-bottom: 22px;
-    }
-
-    .watch-player-page__eyebrow {
-        font-size: 0.82rem;
-        font-weight: 800;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--tl-text-muted);
-    }
-
-    .watch-player-page h1 {
-        margin: 6px 0 0;
-        font-size: clamp(1.8rem, 4vw, 2.8rem);
-        line-height: 0.96;
-        letter-spacing: -0.04em;
-        color: #fff;
-    }
-
-    .watch-player-page__surface {
-        position: relative;
-        overflow: hidden;
-        border-radius: 26px;
-        border: 1px solid var(--tl-border-subtle);
-        background: #020307;
-        box-shadow: 0 26px 54px rgba(0, 0, 0, 0.32);
-    }
-
-    .watch-player-page__skipbar {
-        position: absolute;
-        right: 18px;
-        bottom: 18px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        justify-content: flex-end;
-        pointer-events: none;
-    }
-
-    .watch-player-skip-chip {
-        pointer-events: auto;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 36px;
-        padding: 0 14px;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.22);
-        background: rgba(5, 8, 16, 0.78);
-        color: rgba(255, 255, 255, 0.94);
-        font-size: 0.82rem;
-        font-weight: 800;
-        backdrop-filter: blur(12px);
-        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
-        cursor: pointer;
-    }
-
-    .watch-player-skip-chip:hover {
-        border-color: rgba(255, 255, 255, 0.38);
-        background: rgba(14, 20, 34, 0.9);
-    }
-
-    .watch-player-page__video {
-        display: block;
-        width: 100%;
-        max-height: calc(100vh - 220px);
-        background: #000;
-    }
-
-    .watch-player-state {
-        min-height: 360px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        text-align: center;
-    }
-
-    .watch-player-state h3 {
-        margin: 0;
-    }
-
-    .watch-player-state p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.58);
-    }
-
-    .watch-player-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 42px;
-        padding: 0 14px;
-        border-radius: var(--app-radius-md);
-        border: 1px solid var(--tl-border-default);
-        background: var(--tl-border-subtle);
-        color: rgba(255, 255, 255, 0.92);
-        font-weight: 800;
-        cursor: pointer;
-    }
-
-    @@media (max-width: 900px) {
-        .watch-player-page__topbar {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>

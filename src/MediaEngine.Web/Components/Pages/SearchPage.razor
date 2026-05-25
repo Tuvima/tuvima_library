@@ -21,7 +21,7 @@
         <p class="search-page-subtitle">@L["Search_Subtitle"]</p>
     </div>
 
-    <MudTextField T="string"
+    <AppTextField T="string"
                   Value="@_query"
                   ValueChanged="OnQueryInputChanged"
                   Placeholder="Search title, author, artist, album, or creator"
@@ -41,49 +41,49 @@
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {
-        <MudPaper Elevation="0" Class="search-empty search-empty--error">
+        <AppPanel Elevation="0" Class="search-empty search-empty--error">
             <MudIcon Icon="@Icons.Material.Outlined.CloudOff" Class="search-empty-icon" />
             <MudText Typo="Typo.h6">Search is unavailable</MudText>
             <MudText Typo="Typo.body2" Class="search-empty-copy">
                 The Dashboard could not reach the Engine search endpoint. Try again after the Engine is online.
             </MudText>
-            <MudButton Variant="Variant.Outlined"
+            <AppButton Variant="Variant.Outlined"
                        Color="Color.Default"
                        StartIcon="@Icons.Material.Outlined.Refresh"
                        OnClick="SearchAsync">
                 Try again
-            </MudButton>
-        </MudPaper>
+            </AppButton>
+        </AppPanel>
     }
     else if (string.IsNullOrWhiteSpace(_query))
     {
-        <MudPaper Elevation="0" Class="search-empty">
+        <AppPanel Elevation="0" Class="search-empty">
             <MudIcon Icon="@Icons.Material.Outlined.Search" Class="search-empty-icon" />
             <MudText Typo="Typo.h6">Search your library</MudText>
             <MudText Typo="Typo.body2" Class="search-empty-copy">
                 Enter a title, creator, author, artist, album, or track name.
             </MudText>
-        </MudPaper>
+        </AppPanel>
     }
     else if (_query.Trim().Length < MinimumQueryLength)
     {
-        <MudPaper Elevation="0" Class="search-empty">
+        <AppPanel Elevation="0" Class="search-empty">
             <MudIcon Icon="@Icons.Material.Outlined.ManageSearch" Class="search-empty-icon" />
             <MudText Typo="Typo.h6">Keep typing</MudText>
             <MudText Typo="Typo.body2" Class="search-empty-copy">
                 Use at least @MinimumQueryLength characters so search can return useful matches.
             </MudText>
-        </MudPaper>
+        </AppPanel>
     }
     else if (_results.Count == 0)
     {
-        <MudPaper Elevation="0" Class="search-empty">
+        <AppPanel Elevation="0" Class="search-empty">
             <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="search-empty-icon" />
             <MudText Typo="Typo.h6">No results found</MudText>
             <MudText Typo="Typo.body2" Class="search-empty-copy">
                 No ingested media matched "@_query".
             </MudText>
-        </MudPaper>
+        </AppPanel>
     }
     else
     {
@@ -96,7 +96,7 @@
                         <MudLink Href="@MediaNavigation.ForSearchResult(result)"
                                  Underline="Underline.None"
                                  Class="search-result-link">
-                            <MudPaper Elevation="0" Class="search-result-row">
+                            <AppPanel Elevation="0" Class="search-result-row">
                             <div class="search-result-art @GetMediaClass(result.MediaType)">
                                 <MudIcon Icon="@GetMediaIcon(result.MediaType)" Class="search-result-art-icon" />
                             </div>
@@ -105,9 +105,9 @@
                                 <div class="search-result-meta">@BuildResultMeta(result)</div>
                             </div>
                             <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="search-result-chevron" />
-                            </MudPaper>
+                            </AppPanel>
                         </MudLink>
-                        <MudIconButton Icon="@Icons.Material.Outlined.Edit"
+                        <AppIconButton Icon="@Icons.Material.Outlined.Edit"
                                        Size="Size.Small"
                                        Class="search-result-edit"
                                        aria-label="Edit metadata"

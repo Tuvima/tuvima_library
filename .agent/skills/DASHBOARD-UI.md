@@ -16,7 +16,7 @@ Use this skill when changing Dashboard visual components, routed pages, navigati
 
 Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns.
 
-The retired Vault workflow must not be recreated. Do not add `/vault` routes, Vault navigation labels, `LibraryPage`, `LibrarySurfacePreset`, or an all-in-one media correction workbench.
+The removed all-in-one management workflow must not be recreated. Do not add routes, navigation labels, implementation types, or an all-in-one media correction workbench for it.
 
 ---
 
@@ -79,7 +79,7 @@ Use existing feature folders before introducing new abstractions.
 
 ## Quality Gates
 
-- Keep the retired Vault/LibraryPage workflow out of active routes, navigation, docs, and CSS.
+- Keep removed all-in-one management workflows out of active routes, navigation, docs, and CSS.
 - Keep media correction inline through the shared editor.
 - Keep Review Queue focused on blocked, uncertain, low-confidence, or unresolved items.
 - Keep Settings/Admin focused on configuration, operations, diagnostics, users, providers, plugins, AI, ingestion, and review.

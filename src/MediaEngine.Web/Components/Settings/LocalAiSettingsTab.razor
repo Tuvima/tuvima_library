@@ -7,40 +7,40 @@
         <SettingsStatusBadge Status="SettingsStatusKind.Live" />
     </MudStack>
 
-    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+    <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
         Local AI runs on this server. Model download URLs are only used to retrieve model files into the local model directory; inference stays local, no telemetry is sent, and provider metadata calls are separate from AI.
-    </MudAlert>
+    </AppAlert>
 
-    <MudTabs Rounded="true" Elevation="0" Color="Color.Primary" Position="Position.Top" Class="settings-tab-strip">
+    <AppTabs Rounded="true" Elevation="0" Color="Color.Primary" Position="Position.Top" Class="settings-tab-strip">
         <MudTabPanel Text="Overview" Icon="@Icons.Material.Outlined.Dashboard">
             <MudGrid Spacing="3">
                 <MudItem xs="12" md="6">
-                    <MudPaper Elevation="0" Class="tl-card pa-4">
+                    <AppPanel Elevation="0" Class="tl-card pa-4">
                         <MudText Typo="Typo.subtitle1" Class="mb-3">AI health</MudText>
                         @if (_status is null)
                         {
-                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI status unavailable. Existing library browsing still works without Local AI.</MudAlert>
+                            <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI status unavailable. Existing library browsing still works without Local AI.</AppAlert>
                         }
                         else
                         {
-                            <MudChip T="string" Color="@(_status.IsReady ? Color.Success : Color.Warning)" Size="Size.Small">@(_status.IsReady ? "Ready" : "Limited")</MudChip>
+                            <AppChip T="string" Color="@(_status.IsReady ? Color.Success : Color.Warning)" Size="Size.Small">@(_status.IsReady ? "Ready" : "Limited")</AppChip>
                             <MudText Typo="Typo.body2" Class="mt-2">Memory profile: @_status.MemoryProfile. Loaded memory: @FormatMb(_status.MemoryUsedMB) of @FormatMb(_status.MemoryLimitMB).</MudText>
                             <MudText Typo="Typo.body2">Current loaded model: @(LoadedModel ?? "None").</MudText>
                         }
-                    </MudPaper>
+                    </AppPanel>
                 </MudItem>
 
                 <MudItem xs="12" md="6">
-                    <MudPaper Elevation="0" Class="tl-card pa-4">
+                    <AppPanel Elevation="0" Class="tl-card pa-4">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
                             <MudText Typo="Typo.subtitle1">Hardware profile</MudText>
-                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" OnClick="RunBenchmark" Disabled="_benchmarking">
+                            <AppButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" OnClick="RunBenchmark" Disabled="_benchmarking">
                                 @if (_benchmarking)
                                 {
                                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
                                 }
                                 Re-run benchmark
-                            </MudButton>
+                            </AppButton>
                         </MudStack>
                         @if (_profile is null)
                         {
@@ -52,11 +52,11 @@
                             <MudText Typo="Typo.body2">Speed: @_profile.TokensPerSecond.ToString("F1") tok/s. RAM: @FormatMb(_profile.AvailableRamMb).</MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Benchmarked: @(_profile.BenchmarkedAt?.ToLocalTime().ToString("g") ?? "Never")</MudText>
                         }
-                    </MudPaper>
+                    </AppPanel>
                 </MudItem>
 
                 <MudItem xs="12" md="6">
-                    <MudPaper Elevation="0" Class="tl-card pa-4">
+                    <AppPanel Elevation="0" Class="tl-card pa-4">
                         <MudText Typo="Typo.subtitle1" Class="mb-3">Resources</MudText>
                         @if (_resources is null)
                         {
@@ -67,11 +67,11 @@
                             <MudText Typo="Typo.body2">Engine RAM: @FormatMb(_resources.EngineRamMb). Free RAM: @FormatMb(_resources.FreeRamMb) of @FormatMb(_resources.TotalRamMb).</MudText>
                             <MudText Typo="Typo.body2">CPU pressure: @CpuPressureLabel(_resources.CpuPressure). Transcoding: @(_resources.TranscodingActive ? "active" : "idle").</MudText>
                         }
-                    </MudPaper>
+                    </AppPanel>
                 </MudItem>
 
                 <MudItem xs="12" md="6">
-                    <MudPaper Elevation="0" Class="tl-card pa-4">
+                    <AppPanel Elevation="0" Class="tl-card pa-4">
                         <MudText Typo="Typo.subtitle1" Class="mb-3">Enrichment</MudText>
                         @if (_progress is null)
                         {
@@ -83,7 +83,7 @@
                             <MudProgressLinear Value="@ProgressPercent" Color="Color.Primary" Rounded="false" Class="mt-2" />
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Use Ingestion for ingestion and background work details. No AI job action is shown here unless the Engine exposes one.</MudText>
                         }
-                    </MudPaper>
+                    </AppPanel>
                 </MudItem>
             </MudGrid>
         </MudTabPanel>
@@ -94,23 +94,23 @@
             <AiFeaturesTab />
         </MudTabPanel>
         <MudTabPanel Text="Runtime" Icon="@Icons.Material.Outlined.Speed">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
+            <AppPanel Elevation="0" Class="tl-card pa-4">
                 @if (_config is null)
                 {
-                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI config unavailable. Runtime controls are not shown as live.</MudAlert>
+                    <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI config unavailable. Runtime controls are not shown as live.</AppAlert>
                 }
                 else
                 {
                     <MudGrid Spacing="3">
-                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_config.ModelsDirectory" Label="Models directory" Variant="Variant.Outlined" FullWidth="true" /></MudItem>
-                        <MudItem xs="12" md="2"><MudNumericField T="int" @bind-Value="_config.IdleUnloadSeconds" Label="Idle unload seconds" Min="1" Variant="Variant.Outlined" /></MudItem>
-                        <MudItem xs="12" md="2"><MudNumericField T="int" @bind-Value="_config.InferenceTimeoutSeconds" Label="Inference timeout seconds" Min="1" Variant="Variant.Outlined" /></MudItem>
-                        <MudItem xs="12" md="2"><MudNumericField T="int" @bind-Value="_config.EnrichmentBatchSize" Label="Enrichment batch size" Min="1" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="6"><AppTextField @bind-Value="_config.ModelsDirectory" Label="Models directory" Variant="Variant.Outlined" FullWidth="true" /></MudItem>
+                        <MudItem xs="12" md="2"><AppNumericField T="int" @bind-Value="_config.IdleUnloadSeconds" Label="Idle unload seconds" Min="1" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="2"><AppNumericField T="int" @bind-Value="_config.InferenceTimeoutSeconds" Label="Inference timeout seconds" Min="1" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="2"><AppNumericField T="int" @bind-Value="_config.EnrichmentBatchSize" Label="Enrichment batch size" Min="1" Variant="Variant.Outlined" /></MudItem>
                     </MudGrid>
-                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-3">Saved values persist to AI config. Model directory and runtime tuning can require Engine restart or model reload to fully apply.</MudAlert>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveConfig" Disabled="_savingConfig" Class="mt-3">Save runtime config</MudButton>
+                    <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-3">Saved values persist to AI config. Model directory and runtime tuning can require Engine restart or model reload to fully apply.</AppAlert>
+                    <AppButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveConfig" Disabled="_savingConfig" Class="mt-3">Save runtime config</AppButton>
                 }
-            </MudPaper>
+            </AppPanel>
         </MudTabPanel>
         <MudTabPanel Text="Vocabulary" Icon="@Icons.Material.Outlined.Style">
             <VibeVocabularyTab />
@@ -119,20 +119,20 @@
             <AiScheduleTab />
         </MudTabPanel>
         <MudTabPanel Text="Enrichment" Icon="@Icons.Material.Outlined.Timeline">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
+            <AppPanel Elevation="0" Class="tl-card pa-4">
                 <MudText Typo="Typo.subtitle1" Class="mb-3">AI enrichment progress</MudText>
                 @if (_progress is null)
                 {
-                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">Enrichment progress unavailable.</MudAlert>
+                    <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined">Enrichment progress unavailable.</AppAlert>
                 }
                 else
                 {
                     <MudText Typo="Typo.body2">@_progress.PendingCount items are waiting for AI enrichment. @_progress.CompletedCount already have enrichment output.</MudText>
-                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-3">Run, pause, retry, and recent job history controls are hidden because no Local AI job-control endpoint exists.</MudAlert>
+                    <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-3">Run, pause, retry, and recent job history controls are hidden because no Local AI job-control endpoint exists.</AppAlert>
                 }
-            </MudPaper>
+            </AppPanel>
         </MudTabPanel>
-    </MudTabs>
+    </AppTabs>
 </div>
 
 @code {

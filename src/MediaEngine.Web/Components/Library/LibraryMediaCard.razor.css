@@ -1,0 +1,99 @@
+.vmc-card {
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        overflow: hidden;
+        padding: 20px;
+        position: relative;
+        cursor: pointer;
+    }
+
+    .vmc-card--quarantined {
+        opacity: 0.5;
+    }
+
+
+    .vmc-delete-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        padding: 6px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        color: var(--tl-text-faint);
+        cursor: pointer;
+        opacity: 0;
+        transition: all 0.15s;
+        z-index: 2;
+    }
+
+    .vmc-card:hover .vmc-delete-btn {
+        opacity: 1;
+    }
+
+    .vmc-delete-btn:hover {
+        color: var(--tl-status-danger);
+        background: rgba(160, 80, 80, 0.1);
+    }
+
+
+    .vmc-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+
+    .vmc-thumb {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--tl-border-subtle);
+        background: rgba(255, 255, 255, 0.02);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vmc-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.6;
+    }
+
+
+    .vmc-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--tl-text-primary);
+        margin: 0 0 4px 0;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .vmc-title--muted {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+
+    .vmc-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--tl-divider);
+    }
+
+    .vmc-pipeline {
+        display: flex;
+        transform: scale(0.9);
+        transform-origin: left center;
+    }

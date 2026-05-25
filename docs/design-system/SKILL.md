@@ -19,6 +19,6 @@ If the user invokes this skill without any other guidance, ask them what they wa
 
 ## Current Dashboard/Product UI Model
 
-Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
+Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. Do not add all-in-one management routes, components, docs, or workbench flows.
 
-Design changes must preserve the current quality gates: no retired Vault/LibraryPage workflow, no Vault navigation label, and media correction controls should launch the shared editor instead of creating a separate management surface.
+Design changes must preserve the current quality gates: no removed all-in-one management workflow, no obsolete management navigation label, and media correction controls should launch the shared editor instead of creating a separate management surface.

@@ -1,4 +1,4 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 
 <div class="stage-gate">
     <div class="stage-dot @(Stage.State == LibraryStageState.Running ? "stage-dot--running" : "")"
@@ -36,35 +36,3 @@
         ? "var(--tl-status-success-border)"
         : "var(--tl-border-subtle)";
 }
-
-<style>
-    .stage-gate {
-        display: flex;
-        align-items: center;
-    }
-
-    .stage-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        z-index: 1;
-        border: 2px solid #0d0f12;
-        flex-shrink: 0;
-    }
-
-    .stage-dot--running {
-        animation: stage-pulse 1.2s ease-in-out infinite;
-    }
-
-    @@keyframes stage-pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.5; transform: scale(0.8); }
-    }
-
-    .stage-line {
-        height: 2px;
-        width: 20px;
-        margin: 0 -2px;
-        flex-shrink: 0;
-    }
-</style>

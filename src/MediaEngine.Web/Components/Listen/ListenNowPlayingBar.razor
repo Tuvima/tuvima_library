@@ -36,37 +36,31 @@
                         </div>
                     </div>
                     <div class="listen-player-panel__actions">
-                        <button type="button" class="listen-player-panel__close" @onclick="Playback.ClosePanel">
+                        <AppNativeButton Type="button" Class="listen-player-panel__close" OnClick="Playback.ClosePanel">
                             <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
-                        </button>
+                        </AppNativeButton>
                     </div>
                 </div>
 
                 <div class="listen-player-panel__tabs" role="tablist" aria-label="Queue panel">
-                    <button type="button"
-                            class="listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.Queue ? "is-active" : null)"
-                            @onclick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Queue))">
+                    <AppNativeButton Type="button" Class="@($"listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.Queue ? ")" is-active" : null)" OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Queue))">
                         Playing Next
-                    </button>
-                    <button type="button"
-                            class="listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.History ? "is-active" : null)"
-                            @onclick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.History))">
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="@($"listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.History ? ")" is-active" : null)" OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.History))">
                         History
-                    </button>
-                    <button type="button"
-                            class="listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.Lyrics ? "is-active" : null)"
-                            @onclick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Lyrics))">
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="@($"listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.Lyrics ? ")" is-active" : null)" OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Lyrics))">
                         Lyrics
-                    </button>
+                    </AppNativeButton>
                 </div>
 
                 @if (Playback.ActiveTab == ListenPlaybackTabs.Queue)
                 {
                     <div class="listen-player-panel__subheader">
                         <span>Playing Next</span>
-                        <button type="button" class="listen-player-panel__text-action" @onclick="ClearUpcoming">
+                        <AppNativeButton Type="button" Class="listen-player-panel__text-action" OnClick="ClearUpcoming">
                             Clear
-                        </button>
+                        </AppNativeButton>
                     </div>
 
                     @if (Playback.UpcomingQueue.Count == 0)
@@ -80,7 +74,7 @@
                             {
                                 var item = Playback.Queue[index];
                                 <div class="listen-player-panel__item">
-                                    <button type="button" class="listen-player-panel__item-main" @onclick="@(() => PlayFromQueueAsync(index))">
+                                    <AppNativeButton Type="button" Class="listen-player-panel__item-main" OnClick="@(() => PlayFromQueueAsync(index))">
                                         <div class="listen-player-panel__item-thumb">
                                             @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
                                             {
@@ -96,13 +90,10 @@
                                             <div class="listen-player-panel__item-subtitle">@FirstNonBlank(item.Subtitle, item.Album, item.MediaType)</div>
                                         </div>
                                         <div class="listen-player-panel__item-duration">@item.Duration</div>
-                                    </button>
-                                    <button type="button"
-                                            class="listen-player-panel__item-remove"
-                                            aria-label="Remove from queue"
-                                            @onclick="@(() => RemoveUpcoming(index))">
+                                    </AppNativeButton>
+                                    <AppNativeButton Type="button" Class="listen-player-panel__item-remove" AriaLabel="Remove from queue" OnClick="@(() => RemoveUpcoming(index))">
                                         <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
-                                    </button>
+                                    </AppNativeButton>
                                 </div>
                             }
                         </div>
@@ -123,7 +114,7 @@
                         <div class="listen-player-panel__list">
                             @foreach (var item in Playback.History)
                             {
-                                <button type="button" class="listen-player-panel__item-main" @onclick="@(() => PlayHistoryItemAsync(item))">
+                                <AppNativeButton Type="button" Class="listen-player-panel__item-main" OnClick="@(() => PlayHistoryItemAsync(item))">
                                     <div class="listen-player-panel__item-thumb">
                                         @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
                                         {
@@ -139,7 +130,7 @@
                                         <div class="listen-player-panel__item-subtitle">@FirstNonBlank(item.Subtitle, item.Album, FormatHistoryStamp(item.PlayedAt))</div>
                                     </div>
                                     <div class="listen-player-panel__item-duration">@item.Duration</div>
-                                </button>
+                                </AppNativeButton>
                             }
                         </div>
                     }
@@ -212,50 +203,38 @@
 
             <div class="listen-player__transport">
                 <div class="listen-player__transport-buttons">
-                    <button type="button" class="listen-player__icon" @onclick="PlayPreviousAsync" disabled="@(Playback.CurrentIndex <= 0)">
+                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayPreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)">
                         <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Style="font-size: 20px;" />
-                    </button>
-                    <button type="button" class="listen-player__play" @onclick="TogglePlayPauseAsync">
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync">
                         <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Style="font-size: 24px;" />
-                    </button>
-                    <button type="button" class="listen-player__icon" @onclick="PlayNextAsync" disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayNextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
                         <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Style="font-size: 20px;" />
-                    </button>
+                    </AppNativeButton>
                 </div>
 
                 <div class="listen-player__progress">
                     <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
-                    <input type="range"
-                           min="0"
-                           max="@ProgressMax"
-                           step="1"
-                           value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)"
-                           class="listen-player__progress-slider"
-                           @oninput="SeekAsync" />
+                    <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)" Class="listen-player__progress-slider" OnInput="SeekAsync" />
                     <span>@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
                 </div>
             </div>
 
             <div class="listen-player__actions">
-                <button type="button" class="listen-player__icon" @onclick="ToggleMuteAsync">
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMuteAsync">
                     <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Style="font-size: 18px;" />
-                </button>
-                <input type="range"
-                       min="0"
-                       max="1"
-                       step="0.05"
-                       value="@Playback.Volume"
-                       class="listen-player__volume-slider"
-                       @oninput="SetVolumeAsync" />
-                <button type="button" class="listen-player__icon" @onclick="Playback.TogglePanel">
+                </AppNativeButton>
+                <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@Playback.Volume" Class="listen-player__volume-slider" OnInput="SetVolumeAsync" />
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="Playback.TogglePanel">
                     <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 18px;" />
-                </button>
-                <button type="button" class="listen-player__icon" @onclick="TogglePopupAsync">
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="TogglePopupAsync">
                     <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Style="font-size: 18px;" />
-                </button>
-                <button type="button" class="listen-player__icon" @onclick="ClosePlayerAsync">
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ClosePlayerAsync">
                     <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
-                </button>
+                </AppNativeButton>
             </div>
         </div>
     </div>
@@ -692,324 +671,3 @@
 
     private sealed record LrcDisplayLine(double StartSeconds, string Text);
 }
-
-<style>
-    .listen-player-shell {
-        position: fixed;
-        inset-inline: 0;
-        bottom: 0;
-        z-index: 1320;
-        pointer-events: none;
-    }
-
-    .listen-player {
-        pointer-events: auto;
-        display: grid;
-        grid-template-columns: minmax(0, 300px) minmax(0, 1fr) auto;
-        gap: 20px;
-        align-items: center;
-        padding: 14px 18px;
-        border-top: 1px solid var(--app-border, #293036);
-        background: var(--app-surface, #1e1f27);
-        box-shadow: var(--app-shadow-lg, 0 -18px 36px rgba(0, 0, 0, 0.3));
-    }
-
-    .listen-player__audio-native {
-        display: none;
-    }
-
-    .listen-player__meta,
-    .listen-player-panel__summary,
-    .listen-player-panel__item-main {
-        min-width: 0;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .listen-player__thumb,
-    .listen-player-panel__thumb,
-    .listen-player-panel__item-thumb {
-        flex-shrink: 0;
-        overflow: hidden;
-        border-radius: var(--app-radius-lg, 8px);
-        background: var(--app-surface-2, #272832);
-        color: var(--app-text-muted, #8391a2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .listen-player__thumb,
-    .listen-player-panel__thumb {
-        width: 54px;
-        height: 54px;
-    }
-
-    .listen-player-panel__item-thumb {
-        width: 40px;
-        height: 40px;
-        border-radius: var(--app-radius-md, 5px);
-    }
-
-    .listen-player__thumb img,
-    .listen-player-panel__thumb img,
-    .listen-player-panel__item-thumb img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .listen-player__copy,
-    .listen-player-panel__copy,
-    .listen-player-panel__item-copy {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .listen-player__title,
-    .listen-player-panel__title,
-    .listen-player-panel__item-title {
-        color: var(--app-text-primary, #aab8c5);
-        font-weight: 700;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .listen-player__subtitle,
-    .listen-player__error,
-    .listen-player-panel__subtitle,
-    .listen-player-panel__item-subtitle,
-    .listen-player-panel__item-duration {
-        color: var(--app-text-muted, #8391a2);
-        font-size: 0.82rem;
-    }
-
-    .listen-player-panel__lyrics {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 8px 2px 24px;
-        overflow-y: auto;
-    }
-
-    .listen-player-panel__lyric-line {
-        color: var(--app-text-muted, #8391a2);
-        font-size: 0.96rem;
-        line-height: 1.45;
-        transition: color 120ms ease, transform 120ms ease;
-    }
-
-    .listen-player-panel__lyric-line.is-active {
-        color: var(--app-text-primary, #aab8c5);
-        font-weight: 800;
-        transform: translateX(4px);
-    }
-
-    .listen-player__error {
-        color: var(--app-error, #f8285a);
-    }
-
-    .listen-player__transport {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .listen-player__transport-buttons,
-    .listen-player__actions {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .listen-player__progress {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        gap: 10px;
-        align-items: center;
-        color: var(--tl-text-secondary);
-        font-size: 0.8rem;
-    }
-
-    .listen-player__progress-slider,
-    .listen-player__volume-slider {
-        width: 100%;
-        accent-color: var(--app-primary, #236dc9);
-    }
-
-    .listen-player__volume-slider {
-        width: 96px;
-    }
-
-    .listen-player__icon,
-    .listen-player__play,
-    .listen-player-panel__close,
-    .listen-player-panel__item-remove,
-    .listen-player-panel__tab,
-    .listen-player-panel__text-action {
-        border: 0;
-        cursor: pointer;
-        transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
-    }
-
-    .listen-player__icon,
-    .listen-player-panel__close,
-    .listen-player-panel__item-remove {
-        width: 38px;
-        height: 38px;
-        border-radius: var(--app-radius-md, 5px);
-        background: var(--app-surface-2, #272832);
-        color: var(--app-text-primary, #aab8c5);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .listen-player__play {
-        width: 44px;
-        height: 44px;
-        border-radius: 999px;
-        background: var(--app-primary, #236dc9);
-        color: white;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .listen-player__icon:hover,
-    .listen-player__play:hover,
-    .listen-player-panel__close:hover,
-    .listen-player-panel__item-remove:hover,
-    .listen-player-panel__tab:hover,
-    .listen-player-panel__text-action:hover {
-        transform: translateY(-1px);
-    }
-
-    .listen-player-panel-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.34);
-        pointer-events: auto;
-    }
-
-    .listen-player-panel {
-        position: fixed;
-        right: 20px;
-        bottom: 96px;
-        width: min(360px, calc(100vw - 24px));
-        max-height: min(70vh, 720px);
-        overflow: hidden;
-        pointer-events: auto;
-        border: 1px solid var(--app-border, #293036);
-        border-radius: var(--app-radius-lg, 8px);
-        background: var(--app-surface, #1e1f27);
-        box-shadow: var(--app-shadow-lg, 0 22px 48px rgba(0, 0, 0, 0.34));
-        display: flex;
-        flex-direction: column;
-    }
-
-    .listen-player-panel__header,
-    .listen-player-panel__subheader {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 14px 16px 0;
-    }
-
-    .listen-player-panel__tabs {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        padding: 14px 16px 0;
-    }
-
-    .listen-player-panel__tab {
-        min-height: 38px;
-        border-radius: var(--app-radius-md, 5px);
-        background: var(--app-surface-2, #272832);
-        color: var(--app-text-secondary, #aab8c5);
-        font-weight: 700;
-    }
-
-    .listen-player-panel__tab.is-active {
-        background: var(--app-active-overlay, var(--tl-accent-primary-soft));
-        color: var(--app-primary, #236dc9);
-    }
-
-    .listen-player-panel__subheader {
-        padding: 14px 16px 10px;
-        color: var(--app-text-secondary, #aab8c5);
-        font-weight: 700;
-    }
-
-    .listen-player-panel__text-action {
-        background: transparent;
-        color: var(--app-text-muted, #8391a2);
-        font-weight: 700;
-    }
-
-    .listen-player-panel__list {
-        overflow: auto;
-        padding: 0 8px 12px;
-    }
-
-    .listen-player-panel__item {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .listen-player-panel__item-main {
-        width: 100%;
-        padding: 10px 8px;
-        border-radius: var(--app-radius-md, 5px);
-        border: 0;
-        background: transparent;
-        color: inherit;
-        text-align: left;
-        cursor: pointer;
-    }
-
-    .listen-player-panel__item-main:hover {
-        background: rgba(255, 255, 255, 0.05);
-    }
-
-    .listen-player-panel__item-duration {
-        margin-left: auto;
-        white-space: nowrap;
-    }
-
-    .listen-player-panel__empty {
-        padding: 8px 16px 18px;
-        color: rgba(255, 255, 255, 0.52);
-        font-size: 0.88rem;
-    }
-
-    @@media (max-width: 960px) {
-        .listen-player {
-            grid-template-columns: 1fr;
-            gap: 14px;
-        }
-
-        .listen-player__actions {
-            justify-content: space-between;
-        }
-
-        .listen-player__volume-slider {
-            flex: 1;
-            max-width: 160px;
-        }
-
-        .listen-player-panel {
-            right: 12px;
-            bottom: 168px;
-        }
-    }
-</style>

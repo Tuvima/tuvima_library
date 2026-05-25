@@ -21,25 +21,23 @@
                 @if (RecentCollections.Count > 1)
                 {
                     <div class="browse-hero__carousel" aria-label="Recent collections">
-                        <MudIconButton Icon="@Icons.Material.Outlined.ChevronLeft"
+                        <AppIconButton Icon="@Icons.Material.Outlined.ChevronLeft"
                                        Size="Size.Small"
                                        aria-label="Previous collection"
                                        OnClick="PreviousHero" />
                         <div class="browse-hero__carousel-rail">
                             @foreach (var collection in RecentCollections.Take(8))
                             {
-                                <button type="button"
-                                        class="browse-hero__carousel-chip @(collection.Id == heroCollection.Id ? "is-active" : null)"
-                                        @onclick="() => SelectHero(collection)">
+                                <AppNativeButton Type="button" Class="@GetHeroChipClass(collection, heroCollection)" OnClick="() => SelectHero(collection)">
                                     @if (!string.IsNullOrWhiteSpace(PrimaryArtwork(collection)))
                                     {
                                         <img src="@PrimaryArtwork(collection)" alt="" />
                                     }
                                     <span>@collection.Name</span>
-                                </button>
+                                </AppNativeButton>
                             }
                         </div>
-                        <MudIconButton Icon="@Icons.Material.Outlined.ChevronRight"
+                        <AppIconButton Icon="@Icons.Material.Outlined.ChevronRight"
                                        Size="Size.Small"
                                        aria-label="Next collection"
                                        OnClick="NextHero" />
@@ -57,17 +55,17 @@
                     <div class="browse-shell__title-text">Collections</div>
                 </div>
 
-                <MudButton Variant="Variant.Filled"
+                <AppButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Add"
                            OnClick="OpenCollectionBuilder"
                            Class="browse-shell__back">
                     New Collection
-                </MudButton>
+                </AppButton>
             </div>
 
             <div class="browse-shell__toolbar">
-                <MudTextField T="string"
+                <AppTextField T="string"
                               Value="_searchText"
                               ValueChanged="OnSearchChanged"
                               Placeholder="Search collections"
@@ -79,7 +77,7 @@
                               Class="browse-shell__search" />
 
                 <div class="browse-shell__controls">
-                    <MudSelect T="string"
+                    <AppSelect T="string"
                                Value="_sortBy"
                                ValueChanged="OnSortChanged"
                                Label="Sort"
@@ -90,7 +88,7 @@
                         <MudSelectItem T="string" Value="@("name")">Name</MudSelectItem>
                         <MudSelectItem T="string" Value="@("items")">Item Count</MudSelectItem>
                         <MudSelectItem T="string" Value="@("type")">Type</MudSelectItem>
-                    </MudSelect>
+                    </AppSelect>
                 </div>
             </div>
         </div>
@@ -244,6 +242,13 @@
             _heroIndex = index;
         }
     }
+
+    private static string GetHeroChipClass(
+        CollectionManagementCatalogViewModel collection,
+        CollectionManagementCatalogViewModel heroCollection) =>
+        collection.Id == heroCollection.Id
+            ? "browse-hero__carousel-chip is-active"
+            : "browse-hero__carousel-chip";
 
     private Task OpenCollection(CollectionManagementCatalogViewModel collection)
     {

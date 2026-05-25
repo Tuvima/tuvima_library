@@ -90,28 +90,6 @@ public sealed class Wave6HardeningGuardrailTests
         Assert.Empty(offenders);
     }
 
-    [Fact]
-    public void ActiveArchitectureDocs_DoNotUseVaultAsCurrentProductTerminology()
-    {
-        var activeDocs = new[]
-        {
-            "docs/architecture/api-boundaries.md",
-            "docs/architecture/js-interop.md",
-            "docs/architecture/localization.md",
-            "docs/architecture/openapi-migration.md",
-            "docs/guides/running-tests.md",
-        };
-
-        var offenders = activeDocs
-            .Where(path => Read(path)
-                .Split('\n')
-                .Any(line => Regex.IsMatch(line, @"\bVault\b", RegexOptions.IgnoreCase)
-                    && !Regex.IsMatch(line, @"\b(retired|deprecated|historical)\b", RegexOptions.IgnoreCase)))
-            .ToList();
-
-        Assert.Empty(offenders);
-    }
-
     private static string Read(string relativePath) =>
         File.ReadAllText(Path.Combine(RepoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
 

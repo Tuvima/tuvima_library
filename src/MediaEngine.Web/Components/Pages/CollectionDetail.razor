@@ -104,7 +104,7 @@ else
                                 @foreach (var item in group.Items)
                                 {
                                     <article class="collection-detail-item-card">
-                                        <button type="button" class="collection-detail-item-card__art" @onclick="() => OpenItem(item)">
+                                        <AppNativeButton Type="button" Class="collection-detail-item-card__art" OnClick="() => OpenItem(item)">
                                             @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
                                             {
                                                 <img src="@item.CoverUrl" alt="" />
@@ -113,14 +113,14 @@ else
                                             {
                                                 <MudIcon Icon="@IconForMediaType(item.MediaType)" />
                                             }
-                                        </button>
+                                        </AppNativeButton>
                                         <div class="collection-detail-item-card__copy">
-                                            <button type="button" @onclick="() => OpenItem(item)">@DisplayTitle(item)</button>
+                                            <AppNativeButton Type="button" OnClick="() => OpenItem(item)">@DisplayTitle(item)</AppNativeButton>
                                             <span>@FormatItemMeta(item)</span>
                                         </div>
                                         @if (CanManageItems)
                                         {
-                                            <MudIconButton Icon="@Icons.Material.Outlined.RemoveCircle"
+                                            <AppIconButton Icon="@Icons.Material.Outlined.RemoveCircle"
                                                            Size="Size.Small"
                                                            Color="Color.Error"
                                                            OnClick="() => RemoveItemAsync(item)"
@@ -145,7 +145,7 @@ else
                     <h2>Add or Remove Items</h2>
                     <p>Search the library to add works. Remove existing items from the overview cards.</p>
 
-                    <MudTextField T="string"
+                    <AppTextField T="string"
                                   Value="_itemSearch"
                                   ValueChanged="SearchItemsAsync"
                                   Placeholder="Search library items"
@@ -176,7 +176,7 @@ else
                                         <strong>@result.Title</strong>
                                         <span>@FormatLookupMeta(result)</span>
                                     </div>
-                                    <MudIconButton Icon="@(result.AlreadyInCollection ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.AddCircle)"
+                                    <AppIconButton Icon="@(result.AlreadyInCollection ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.AddCircle)"
                                                    Size="Size.Small"
                                                    Color="@(result.AlreadyInCollection ? Color.Success : Color.Primary)"
                                                    Disabled="@result.AlreadyInCollection"

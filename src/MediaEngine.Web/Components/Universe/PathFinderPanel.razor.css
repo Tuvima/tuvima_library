@@ -1,0 +1,48 @@
+.pathfinder-panel {
+        padding: 0;
+    }
+    .slot {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        min-width: 120px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .slot-empty {
+        border: 1px dashed #444;
+        background: #1a1a1a;
+    }
+    .slot-filled {
+        border: 1px solid var(--tl-accent-primary-border);
+        background: #1a1a1a;
+    }
+    .path-trail {
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #333;
+        margin-bottom: 8px;
+        cursor: pointer;
+        background: #111;
+        transition: border-color 0.15s;
+    }
+    .path-trail:hover, .path-trail-selected {
+        border-color: var(--tl-accent-primary);
+    }
+    .hop-chain {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+    }
+    .hop-node {
+        color: #e0e0e0;
+        font-weight: 500;
+    }
+    .hop-arrow {
+        color: #555;
+        font-size: 11px;
+    }

@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 <div class="pathfinder-panel">
@@ -24,7 +24,7 @@
                 <MudText Typo="Typo.caption" Style="color: #e0e0e0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     @_startLabel
                 </MudText>
-                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                <AppIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
                                Style="color: #888;" OnClick="ClearStart" />
             }
         </div>
@@ -44,7 +44,7 @@
                 <MudText Typo="Typo.caption" Style="color: #e0e0e0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     @_endLabel
                 </MudText>
-                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                <AppIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
                                Style="color: #888;" OnClick="ClearEnd" />
             }
         </div>
@@ -52,28 +52,28 @@
 
     @* Controls *@
     <MudStack Row="true" Spacing="2" Class="mb-4">
-        <MudButton Variant="Variant.Filled"
+        <AppButton Variant="Variant.Filled"
                    Color="Color.Warning"
                    Disabled="@(_startQid is null || _endQid is null || _loading)"
                    OnClick="FindPath"
                    StartIcon="@Icons.Material.Filled.Route">
             @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
             else { <span>Find Path</span> }
-        </MudButton>
-        <MudButton Variant="Variant.Outlined"
+        </AppButton>
+        <AppButton Variant="Variant.Outlined"
                    Color="Color.Default"
                    OnClick="Clear"
                    Disabled="@(_startQid is null && _endQid is null)">
             Clear
-        </MudButton>
-        <MudNumericField T="int" @bind-Value="_maxHops" Label="Max hops"
+        </AppButton>
+        <AppNumericField T="int" @bind-Value="_maxHops" Label="Max hops"
                          Min="2" Max="8" Style="max-width: 80px;" Margin="Margin.Dense" Variant="Variant.Outlined" />
     </MudStack>
 
     @* Results *@
     @if (_noPathFound)
     {
-        <MudAlert Severity="Severity.Info">No path found within @_maxHops hops.</MudAlert>
+        <AppAlert Severity="Severity.Info">No path found within @_maxHops hops.</AppAlert>
     }
     else if (_paths?.Count > 0)
     {
@@ -111,58 +111,6 @@
         }
     }
 </div>
-
-<style>
-    .pathfinder-panel {
-        padding: 0;
-    }
-    .slot {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 12px;
-        border-radius: 8px;
-        min-width: 120px;
-        cursor: pointer;
-        transition: border-color 0.2s;
-    }
-    .slot-empty {
-        border: 1px dashed #444;
-        background: #1a1a1a;
-    }
-    .slot-filled {
-        border: 1px solid var(--tl-accent-primary-border);
-        background: #1a1a1a;
-    }
-    .path-trail {
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid #333;
-        margin-bottom: 8px;
-        cursor: pointer;
-        background: #111;
-        transition: border-color 0.15s;
-    }
-    .path-trail:hover, .path-trail-selected {
-        border-color: var(--tl-accent-primary);
-    }
-    .hop-chain {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 4px;
-        font-size: 12px;
-    }
-    .hop-node {
-        color: #e0e0e0;
-        font-weight: 500;
-    }
-    .hop-arrow {
-        color: #555;
-        font-size: 11px;
-    }
-</style>
-
 @code {
     [Parameter] public string UniverseQid { get; set; } = string.Empty;
     [Parameter] public UniverseGraphResponse? Graph { get; set; }

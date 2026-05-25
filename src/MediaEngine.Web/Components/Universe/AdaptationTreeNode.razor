@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 
 @* Recursive tree node for AdaptationTree *@
 
@@ -22,18 +22,18 @@
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                 @if (Node.Year.HasValue)
                 {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                    <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                              Style="font-size: 10px; height: 20px;">
                         @Node.Year
-                    </MudChip>
+                    </AppChip>
                 }
                 @if (!string.IsNullOrWhiteSpace(Node.MediaType))
                 {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                    <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                              Color="@GetMediaTypeColor(Node.MediaType)"
                              Style="font-size: 10px; height: 20px;">
                         @Node.MediaType
-                    </MudChip>
+                    </AppChip>
                 }
                 @if (!string.IsNullOrWhiteSpace(Node.RelationshipToParent))
                 {
@@ -54,54 +54,6 @@
         </div>
     }
 </div>
-
-<style>
-    .adaptation-node {
-        position: relative;
-    }
-    .adaptation-card {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 10px;
-        margin-bottom: 4px;
-        background: #111;
-        border: 1px solid #2a2a2a;
-        border-radius: 8px;
-        transition: border-color 0.15s;
-    }
-    .adaptation-card:hover {
-        border-color: #444;
-    }
-    .adapt-thumb {
-        width: 40px;
-        height: 56px;
-        border-radius: 4px;
-        object-fit: cover;
-        flex-shrink: 0;
-    }
-    .adapt-thumb-placeholder {
-        width: 40px;
-        height: 56px;
-        border-radius: 4px;
-        background: #1a1a1a;
-        border: 1px solid #333;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .adapt-info {
-        flex: 1;
-        overflow: hidden;
-    }
-    .adaptation-children {
-        border-left: 2px solid #2a2a2a;
-        margin-left: 12px;
-        padding-left: 0;
-    }
-</style>
-
 @code {
     [Parameter] public AdaptationNodeDto Node { get; set; } = new();
     [Parameter] public int Depth { get; set; }

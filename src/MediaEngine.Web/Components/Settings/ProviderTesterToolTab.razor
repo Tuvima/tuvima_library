@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Domain
 @using MediaEngine.Domain.Constants
 @using MediaEngine.Domain.Enums
@@ -22,11 +22,11 @@
     </MudText>
 
     @* -- Filters -- *@
-    <MudPaper Elevation="0" Class="pa-4 mb-4"
+    <AppPanel Elevation="0" Class="pa-4 mb-4"
               Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 12px;">
         <MudGrid>
             <MudItem xs="12" sm="4">
-                <MudSelect Value="@_selectedMediaType"
+                <AppSelect Value="@_selectedMediaType"
                            Label="Media Type"
                            Variant="Variant.Outlined"
                            T="string"
@@ -35,10 +35,10 @@
                     {
                         <MudSelectItem Value="@mt">@mt</MudSelectItem>
                     }
-                </MudSelect>
+                </AppSelect>
             </MudItem>
             <MudItem xs="12" sm="4">
-                <MudSelect @bind-Value="_selectedProvider"
+                <AppSelect @bind-Value="_selectedProvider"
                            Label="Provider"
                            Variant="Variant.Outlined"
                            T="string">
@@ -62,23 +62,23 @@
                             </div>
                         </MudSelectItem>
                     }
-                </MudSelect>
+                </AppSelect>
             </MudItem>
             <MudItem xs="12" sm="4" Class="d-flex align-center">
-                <MudButton Variant="Variant.Filled"
+                <AppButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            FullWidth="true"
                            OnClick="@RunSearch"
                            Disabled="@(_loading || !HasAnyFieldValue())"
                            StartIcon="@Icons.Material.Outlined.Bolt">
                     Search
-                </MudButton>
+                </AppButton>
             </MudItem>
         </MudGrid>
-    </MudPaper>
+    </AppPanel>
 
     @* -- Search Fields -- *@
-    <MudPaper Elevation="0" Class="pa-4 mb-4"
+    <AppPanel Elevation="0" Class="pa-4 mb-4"
               Style="background: var(--tl-divider); border: 1px solid var(--tl-border-subtle); border-radius: 12px;">
 
         @* Field picker chips *@
@@ -90,13 +90,13 @@
             @foreach (var field in _searchableFields)
             {
                 var isActive = _activeFields.Contains(field.FieldKey);
-                <MudChip T="string"
+                <AppChip T="string"
                          Color="@(isActive ? Color.Primary : Color.Default)"
                          Variant="@(isActive ? Variant.Filled : Variant.Outlined)"
                          OnClick="@(() => ToggleField(field.FieldKey))"
                          Style="@(isActive ? "" : "border-color: var(--tl-border-strong); color: var(--tl-text-muted);")">
                     @field.DisplayLabel
-                </MudChip>
+                </AppChip>
             }
         </div>
 
@@ -105,7 +105,7 @@
             @foreach (var field in _searchableFields.Where(f => _activeFields.Contains(f.FieldKey)))
             {
                 <MudItem xs="12" sm="4">
-                    <MudTextField @bind-Value="_fieldValues[field.FieldKey]"
+                    <AppTextField @bind-Value="_fieldValues[field.FieldKey]"
                                   Label="@field.DisplayLabel"
                                   Placeholder="@($"Enter {field.DisplayLabel.ToLower()}...")"
                                   Variant="Variant.Outlined"
@@ -116,7 +116,7 @@
                 </MudItem>
             }
         </MudGrid>
-    </MudPaper>
+    </AppPanel>
 
     @* -- Loading -- *@
     @if (_loading)
@@ -131,7 +131,7 @@
     @* -- Error -- *@
     @if (!string.IsNullOrEmpty(_error))
     {
-        <MudAlert Severity="Severity.Error" Class="mb-4" Variant="Variant.Outlined">@_error</MudAlert>
+        <AppAlert Severity="Severity.Error" Class="mb-4" Variant="Variant.Outlined">@_error</AppAlert>
     }
 
     @* -- Wikidata Results -- *@
@@ -149,7 +149,7 @@
             }
         </div>
 
-        <MudPaper Elevation="0" Class="tl-card tl-card--flush mb-4"
+        <AppPanel Elevation="0" Class="tl-card tl-card--flush mb-4"
                   Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 12px; overflow: hidden;">
             <div class="pa-3 d-flex align-center gap-2"
                  style="background: var(--tl-status-success-soft); border-bottom: 1px solid var(--tl-border-subtle);">
@@ -187,12 +187,12 @@
                             </MudText>
                         </div>
                         <div class="d-flex flex-column align-end" style="flex-shrink: 0;">
-                            <MudChip T="string" Size="Size.Small"
+                            <AppChip T="string" Size="Size.Small"
                                      Color="@GetScoreColor(result.Confidence)"
                                      Variant="Variant.Outlined"
                                      Style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;">
                                 @result.Confidence.ToString("F2")
-                            </MudChip>
+                            </AppChip>
                             <MudText Typo="Typo.caption" Style="color: var(--tl-text-faint); margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;">
                                 @result.Qid
                             </MudText>
@@ -244,11 +244,11 @@
                                 <div class="d-flex flex-wrap gap-1 mb-2">
                                     @foreach (var (key, val) in result.BridgeIds)
                                     {
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                        <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                                  Style="font-size: 0.65rem; height: 20px; color: var(--tl-text-muted); border-color: rgba(255,255,255,0.1);"
                                                  title="@val">
                                             @LibraryHelpers.FormatClaimKey(key)
-                                        </MudChip>
+                                        </AppChip>
                                     }
                                 </div>
                             }
@@ -277,7 +277,7 @@
                     }
                 </div>
             }
-        </MudPaper>
+        </AppPanel>
     }
 
     @* -- Retail Results -- *@
@@ -303,7 +303,7 @@
             var providerColor = Catalogue.GetAccentColor(providerGroup.Key);
             var providerDisplay = Catalogue.GetDisplayName(providerGroup.Key);
 
-            <MudPaper Elevation="0" Class="tl-card tl-card--flush mb-4"
+            <AppPanel Elevation="0" Class="tl-card tl-card--flush mb-4"
                       Style="background: rgba(255,255,255,0.03); border: 1px solid var(--tl-border-subtle); border-radius: 12px; overflow: hidden;">
 
                 @* Provider header *@
@@ -373,13 +373,13 @@
 
                             @* Score badges *@
                             <div class="d-flex flex-column align-end" style="flex-shrink: 0;">
-                                <MudChip T="string"
+                                <AppChip T="string"
                                          Size="Size.Small"
                                          Color="@GetScoreColor(result.CompositeScore)"
                                          Variant="Variant.Outlined"
                                          Style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;">
                                     @result.CompositeScore.ToString("F2")
-                                </MudChip>
+                                </AppChip>
                                 @if (result.Confidence > 0 && Math.Abs(result.Confidence - result.CompositeScore) > 0.01)
                                 {
                                     <MudText Typo="Typo.caption" Style="color: var(--tl-text-faint); margin-top: 2px; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;"
@@ -491,13 +491,13 @@
                                         <div class="d-flex flex-wrap gap-1">
                                             @foreach (var (label, val) in bridges)
                                             {
-                                                <MudChip T="string"
+                                                <AppChip T="string"
                                                          Size="Size.Small"
                                                          Variant="Variant.Outlined"
                                                          Style="font-size: 0.65rem; height: 22px; color: var(--tl-text-secondary); border-color: var(--tl-border-default);"
                                                          title="@val">
                                                     @label: @(val.Length > 30 ? val[..27] + "..." : val)
-                                                </MudChip>
+                                                </AppChip>
                                             }
                                         </div>
                                     </div>
@@ -532,13 +532,13 @@
                                         <div class="d-flex flex-wrap gap-2">
                                             @foreach (var fm in result.DescriptionFieldMatches)
                                             {
-                                                <MudChip T="string"
+                                                <AppChip T="string"
                                                          Size="Size.Small"
                                                          Variant="Variant.Outlined"
                                                          Style="@($"font-size: 0.65rem; height: 22px; color: {(fm.Matched ? "#4CAF50" : "var(--tl-text-muted)")}; border-color: {(fm.Matched ? "var(--tl-status-success-border)" : "var(--tl-border-subtle)")};")">
                                                     @LibraryHelpers.FormatClaimKey(fm.FieldKey)
                                                     @(fm.Matched ? " \u2713" : " \u2717")
-                                                </MudChip>
+                                                </AppChip>
                                             }
                                         </div>
                                     </div>
@@ -547,39 +547,17 @@
                         }
                     </div>
                 }
-            </MudPaper>
+            </AppPanel>
         }
     }
     else if (!_loading && _hasSearched && _universeResults is not { Count: > 0 })
     {
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+        <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
             No results found. Try broadening your search or changing the media type.
-        </MudAlert>
+        </AppAlert>
     }
 
 </div>
-
-<style>
-    .pt-result-row {
-        border-bottom: 1px solid var(--tl-divider);
-        transition: background 0.15s ease;
-    }
-    .pt-result-row:last-child {
-        border-bottom: none;
-    }
-    .pt-result-row:hover {
-        background: rgba(255,255,255,0.02);
-    }
-    .pt-result-expanded {
-        background: rgba(255,255,255,0.03);
-    }
-    .pt-detail-panel {
-        padding: 0 16px 16px;
-        padding-left: 75px;
-        border-top: 1px solid var(--tl-divider);
-    }
-</style>
-
 @code {
 
     private string _selectedMediaType = "Books";
@@ -861,5 +839,3 @@
         _ => null,
     };
 }
-
-

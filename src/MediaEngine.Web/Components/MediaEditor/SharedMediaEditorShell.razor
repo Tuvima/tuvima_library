@@ -9,7 +9,7 @@
 <NavigationLock ConfirmExternalNavigation="@IsDirty"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
-<MudDialog Class="sme-dialog">
+<AppDialog Class="sme-dialog">
     <DialogContent>
         <div class="sme-shell">
             <div class="sme-header">
@@ -68,17 +68,17 @@
                     <div class="sme-header-actions">
                         <AppMediaTypeSelect Value="@_selectedMediaType"
                                             ValueChanged="OnSelectedMediaTypeChanged" />
-                        <MudButton Variant="Variant.Filled"
+                        <AppButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    Class="sme-header-type-action"
                                    Disabled="@_reclassifying"
                                    OnClick="ReclassifyMediaTypeAsync">
                             @(_reclassifying ? "Updating..." : "Change Type")
-                        </MudButton>
+                        </AppButton>
                     </div>
                 }
 
-                <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                <AppIconButton Icon="@Icons.Material.Outlined.Close"
                                Size="Size.Small"
                                Color="Color.Inherit"
                                Class="sme-close"
@@ -101,7 +101,7 @@
             <div class="sme-workspace">
                 <div class="sme-main-pane">
                     <div class="settings-admin-panel">
-                        <MudTabs ActivePanelIndex="@ActiveTabIndex"
+                        <AppTabs ActivePanelIndex="@ActiveTabIndex"
                                  ActivePanelIndexChanged="OnTabChanged"
                                  Rounded="true"
                                  Border="false"
@@ -112,19 +112,19 @@
                             {
                                 <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" Disabled="@IsTabDisabled(tab.Id)" />
                             }
-                        </MudTabs>
+                        </AppTabs>
                     </div>
 
                     @if (HasContainerReturnState)
                     {
                         <div class="sme-container-return">
-                            <MudButton Variant="Variant.Text"
+                            <AppButton Variant="Variant.Text"
                                        Color="Color.Inherit"
                                        StartIcon="@Icons.Material.Outlined.ArrowBack"
                                        Class="sme-container-return-button"
                                        OnClick="ReturnToContainerEditorAsync">
                                 @ContainerReturnLabel
-                            </MudButton>
+                            </AppButton>
                             @if (!string.IsNullOrWhiteSpace(ContainerReturnContext))
                             {
                                 <span>@ContainerReturnContext</span>
@@ -266,7 +266,7 @@
                                 {
                                     var collapsed = IsContentGroupCollapsed(group);
                                     <div class="sme-content-group @(collapsed ? "is-collapsed" : string.Empty)">
-                                        <MudButton Variant="Variant.Text"
+                                        <AppButton Variant="Variant.Text"
                                                    Color="Color.Inherit"
                                                    FullWidth="true"
                                                    Class="sme-content-group-header"
@@ -285,7 +285,7 @@
                                                 <strong>@group.OwnedCount / @group.TotalCount</strong>
                                             </span>
                                             <MudIcon Icon="@(collapsed ? Icons.Material.Outlined.KeyboardArrowDown : Icons.Material.Outlined.KeyboardArrowUp)" Size="Size.Small" />
-                                        </MudButton>
+                                        </AppButton>
 
                                         @if (!collapsed)
                                         {
@@ -295,7 +295,7 @@
                                                     var item = entry.node;
                                                     var ordinal = GetContentOrdinalLabel(item, entry.index);
                                                     var meta = GetContentRowMeta(item);
-                                                    <MudButton Variant="Variant.Text"
+                                                    <AppButton Variant="Variant.Text"
                                                                Color="Color.Inherit"
                                                                FullWidth="true"
                                                                Disabled="@(!item.IsClickable)"
@@ -328,7 +328,7 @@
                                                         {
                                                             <span class="sme-content-missing">No file in library</span>
                                                         }
-                                                    </MudButton>
+                                                    </AppButton>
                                                 }
                                             </div>
                                         }
@@ -458,7 +458,7 @@
                                         </div>
 
                                         <div class="settings-admin-panel">
-                                            <MudTabs ActivePanelIndex="@MatchSearchModeIndex"
+                                            <AppTabs ActivePanelIndex="@MatchSearchModeIndex"
                                                      ActivePanelIndexChanged="OnMatchSearchModeChanged"
                                                      Rounded="true"
                                                      Border="false"
@@ -467,11 +467,11 @@
                                                      Class="settings-tab-strip sme-match-search-tabs">
                                                 <MudTabPanel Text="Retail" Icon="@Icons.Material.Outlined.TravelExplore" />
                                                 <MudTabPanel Text="Wikidata" Icon="@Icons.Material.Outlined.Hub" />
-                                            </MudTabs>
+                                            </AppTabs>
                                         </div>
 
                                         <div class="sme-search-row">
-                                            <MudTextField T="string"
+                                            <AppTextField T="string"
                                                           Value="@_canonicalSearchQuery"
                                                           ValueChanged="@((string? value) => _canonicalSearchQuery = value ?? string.Empty)"
                                                           Placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
@@ -479,14 +479,14 @@
                                                           Margin="Margin.Dense"
                                                           Immediate="true"
                                                           Class="sme-text-input" />
-                                            <MudButton Variant="Variant.Filled"
+                                            <AppButton Variant="Variant.Filled"
                                                        Color="Color.Primary"
                                                        Class="sme-inline-btn sme-inline-btn--primary"
                                                        Disabled="@_searchingCanonical"
                                                        StartIcon="@Icons.Material.Outlined.Search"
                                                        OnClick="SearchCanonicalAsync">
                                                 @(_searchingCanonical ? "Searching..." : IsWikidataSearchMode ? "Search Wikidata" : "Search Retail")
-                                            </MudButton>
+                                            </AppButton>
                                         </div>
 
                                         <div class="sme-match-results">
@@ -510,7 +510,7 @@
                                                 {
                                                     var candidateId = GetCandidateId(candidate);
                                                     <div class="sme-match-result-card @(IsCandidateSelected(candidateId) ? "sme-match-result-card--selected" : "")">
-                                                        <MudButton Variant="Variant.Text"
+                                                        <AppButton Variant="Variant.Text"
                                                                    Color="Color.Inherit"
                                                                    FullWidth="true"
                                                                    Class="sme-match-result-summary"
@@ -534,33 +534,33 @@
                                                                 }
                                                             </div>
                                                             <span class="sme-candidate-badge">@(candidate.IsApplicable ? "QID" : "Suggestion")</span>
-                                                        </MudButton>
+                                                        </AppButton>
                                                         @if (IsCandidateSelected(candidateId))
                                                         {
                                                             @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
-                                                            <MudButton Variant="Variant.Filled"
+                                                            <AppButton Variant="Variant.Filled"
                                                                        Color="Color.Primary"
                                                                        Class="sme-inline-btn sme-inline-btn--primary"
                                                                        Disabled="@(!candidate.IsApplicable)"
                                                                        OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
                                                                 Use This QID
-                                                            </MudButton>
+                                                            </AppButton>
                                                         }
                                                     </div>
                                                 }
                                                 <div class="sme-file-actions">
-                                                    <MudButton Variant="Variant.Outlined"
+                                                    <AppButton Variant="Variant.Outlined"
                                                                Color="Color.Inherit"
                                                                Class="sme-inline-btn"
                                                                OnClick="MarkWikidataMissingAsync">
                                                         Mark Wikidata Missing
-                                                    </MudButton>
-                                                    <MudButton Variant="Variant.Outlined"
+                                                    </AppButton>
+                                                    <AppButton Variant="Variant.Outlined"
                                                                Color="Color.Inherit"
                                                                Class="sme-inline-btn"
                                                                OnClick="ClearWikidataMatchAsync">
                                                         Clear QID
-                                                    </MudButton>
+                                                    </AppButton>
                                                 </div>
                                             }
                                             else
@@ -569,7 +569,7 @@
                                                 {
                                                     var candidateId = GetCandidateId(candidate);
                                                     <div class="sme-match-result-card @(IsCandidateSelected(candidateId) ? "sme-match-result-card--selected" : "")">
-                                                        <MudButton Variant="Variant.Text"
+                                                        <AppButton Variant="Variant.Text"
                                                                    Color="Color.Inherit"
                                                                    FullWidth="true"
                                                                    Class="sme-match-result-summary"
@@ -600,17 +600,17 @@
                                                                 }
                                                             </div>
                                                             <span class="sme-candidate-badge">@(candidate.IsApplicable ? candidate.ProviderName : "Suggestion")</span>
-                                                        </MudButton>
+                                                        </AppButton>
                                                         @if (IsCandidateSelected(candidateId))
                                                         {
                                                             @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
-                                                            <MudButton Variant="Variant.Filled"
+                                                            <AppButton Variant="Variant.Filled"
                                                                        Color="Color.Primary"
                                                                        Class="sme-inline-btn sme-inline-btn--primary"
                                                                        Disabled="@(!candidate.IsApplicable)"
                                                                        OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
                                                                 Use This Match
-                                                            </MudButton>
+                                                            </AppButton>
                                                         }
                                                     </div>
                                                 }
@@ -650,7 +650,7 @@
                                         <div class="sme-field-control">
                                             @if (field.InputKind == "textarea")
                                             {
-                                                <MudTextField T="string"
+                                                <AppTextField T="string"
                                                               Value="@GetEditableValue(field.Key)"
                                                               ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
                                                               Placeholder="@GetPlaceholder(field)"
@@ -662,7 +662,7 @@
                                             }
                                             else
                                             {
-                                                <MudTextField T="string"
+                                                <AppTextField T="string"
                                                               Value="@GetEditableValue(field.Key)"
                                                               ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
                                                               Placeholder="@GetPlaceholder(field)"
@@ -691,7 +691,7 @@
                                         @foreach (var slotItem in ArtworkSlots)
                                         {
                                             var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
-                                            <MudButton Variant="Variant.Text"
+                                            <AppButton Variant="Variant.Text"
                                                        Color="Color.Inherit"
                                                        Class="@($"sme-artwork-rail-item {(isSelectedSlot ? "sme-artwork-rail-item--active" : string.Empty)}")"
                                                        OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
@@ -704,13 +704,13 @@
                                                 <span class="sme-artwork-rail-badge">
                                                     <span class="sme-artwork-rail-count">@GetArtworkSlotCount(slotItem)</span>
                                                 </span>
-                                            </MudButton>
+                                            </AppButton>
                                         }
                                     </div>
 
                                     @if (SelectedArtworkSlot is not null)
                                     {
-                                        <MudButton Variant="Variant.Outlined"
+                                        <AppButton Variant="Variant.Outlined"
                                                    Color="Color.Inherit"
                                                    Class="sme-artwork-upload-card"
                                                    title="@SelectedArtworkSlot.UploadHelp">
@@ -723,7 +723,7 @@
                                                            OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(SelectedArtworkSlot.AssetType, args))"
                                                            accept="@GetArtworkAcceptedTypes(SelectedArtworkSlot.AssetType)" />
                                             </span>
-                                        </MudButton>
+                                        </AppButton>
                                     }
                                 </div>
 
@@ -738,12 +738,12 @@
                                                 <div class="sme-artwork-readonly-actions">
                                                     @foreach (var scope in GetArtworkReadOnlySwitchTargets())
                                                     {
-                                                        <MudButton Variant="Variant.Outlined"
+                                                        <AppButton Variant="Variant.Outlined"
                                                                    Color="Color.Inherit"
                                                                    Class="sme-inline-btn"
                                                                    OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
                                                             Open @scope.Label
-                                                        </MudButton>
+                                                        </AppButton>
                                                     }
                                                 </div>
                                             }
@@ -803,14 +803,14 @@
                                                         {
                                                             <div class="sme-artwork-delete-confirm" @onclick:stopPropagation="true">
                                                                 <span>Delete?</span>
-                                                                <MudButton Variant="Variant.Text"
+                                                                <AppButton Variant="Variant.Text"
                                                                            Color="Color.Inherit"
                                                                            Class="sme-artwork-confirm-button"
-                                                                           OnClick="@(() => CancelArtworkDelete(item))">Cancel</MudButton>
-                                                                <MudButton Variant="Variant.Filled"
+                                                                           OnClick="@(() => CancelArtworkDelete(item))">Cancel</AppButton>
+                                                                <AppButton Variant="Variant.Filled"
                                                                            Color="Color.Error"
                                                                            Class="sme-artwork-confirm-button sme-artwork-confirm-button--danger"
-                                                                           OnClick="@(() => ConfirmArtworkDeleteAsync(item))">Delete</MudButton>
+                                                                           OnClick="@(() => ConfirmArtworkDeleteAsync(item))">Delete</AppButton>
                                                             </div>
                                                         }
 
@@ -823,7 +823,7 @@
                                                                 }
                                                             </div>
                                                             <div class="sme-artwork-card-actions" @onclick:stopPropagation="true">
-                                                                <MudIconButton Icon="@Icons.Material.Outlined.ZoomIn"
+                                                                <AppIconButton Icon="@Icons.Material.Outlined.ZoomIn"
                                                                                Size="Size.Small"
                                                                                Class="sme-artwork-card-action"
                                                                                Disabled="@string.IsNullOrWhiteSpace(item.ImageUrl)"
@@ -831,7 +831,7 @@
                                                                                OnClick="@(() => OpenArtworkZoom(slot, item))" />
                                                                 @if (item.VariantId != Guid.Empty)
                                                                 {
-                                                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete"
+                                                                    <AppIconButton Icon="@Icons.Material.Outlined.Delete"
                                                                                    Size="Size.Small"
                                                                                    Class="@($"sme-artwork-card-action sme-artwork-card-action--danger {(isConfirmingDelete ? "sme-artwork-card-action--confirm" : string.Empty)}")"
                                                                                    aria-label="Delete artwork"
@@ -846,7 +846,7 @@
                                             @if (_showArtworkUrlInput && string.Equals(slot.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase))
                                             {
                                                 <div class="sme-artwork-import-url-row">
-                                                    <MudTextField T="string"
+                                                    <AppTextField T="string"
                                                                   Value="@_artworkUrlInput"
                                                                   ValueChanged="@((string? value) => _artworkUrlInput = value ?? string.Empty)"
                                                                   Placeholder="Paste an image URL"
@@ -856,8 +856,8 @@
                                                                   Immediate="true"
                                                                   Class="sme-text-input" />
                                                     <div class="sme-artwork-import-url-actions">
-                                                        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="ToggleArtworkUrlInput">Cancel</MudButton>
-                                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="sme-inline-btn sme-inline-btn--primary" Disabled="@(_artworkUrlSubmitting || string.IsNullOrWhiteSpace(_artworkUrlInput))" OnClick="ApplyArtworkUrlAsync">Add</MudButton>
+                                                        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="ToggleArtworkUrlInput">Cancel</AppButton>
+                                                        <AppButton Variant="Variant.Filled" Color="Color.Primary" Class="sme-inline-btn sme-inline-btn--primary" Disabled="@(_artworkUrlSubmitting || string.IsNullOrWhiteSpace(_artworkUrlInput))" OnClick="ApplyArtworkUrlAsync">Add</AppButton>
                                                     </div>
                                                 </div>
                                             }
@@ -866,10 +866,10 @@
                                             {
                                                 <div class="sme-artwork-import-status">
                                                     <span>@GetPendingArtworkFileName(slot.AssetType)</span>
-                                                    <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Clear</MudButton>
+                                                    <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Clear</AppButton>
                                                     @if (HasArtworkUploadError(slot.AssetType))
                                                     {
-                                                        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => RetryArtworkUploadAsync(slot.AssetType))">Retry Upload</MudButton>
+                                                        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => RetryArtworkUploadAsync(slot.AssetType))">Retry Upload</AppButton>
                                                     }
                                                 </div>
                                             }
@@ -882,7 +882,7 @@
                                             @if (focusedItem?.IsPending == true)
                                             {
                                                 <div class="sme-artwork-selection-actions">
-                                                    <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Cancel Pending</MudButton>
+                                                    <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Cancel Pending</AppButton>
                                                 </div>
                                             }
 
@@ -909,7 +909,7 @@
                             {
                                 <div class="sme-art-lightbox" @onclick="CloseArtworkZoom">
                                     <div class="sme-art-lightbox-panel" @onclick:stopPropagation="true">
-                                        <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                                        <AppIconButton Icon="@Icons.Material.Outlined.Close"
                                                        Size="Size.Small"
                                                        Class="sme-art-lightbox-close"
                                                        Color="Color.Inherit"
@@ -968,7 +968,7 @@
                                             <div class="sme-field-control">
                                                 @if (field.InputKind == "textarea")
                                                 {
-                                                    <MudTextField T="string"
+                                                    <AppTextField T="string"
                                                                   Value="@GetEditableValue(field.Key)"
                                                                   ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
                                                                   Placeholder="@GetPlaceholder(field)"
@@ -980,7 +980,7 @@
                                                 }
                                                 else
                                                 {
-                                                    <MudTextField T="string"
+                                                    <AppTextField T="string"
                                                                   Value="@GetEditableValue(field.Key)"
                                                                   ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
                                                                   Placeholder="@GetPlaceholder(field)"
@@ -1097,18 +1097,18 @@
                 @if (_confirmDiscard)
                 {
                     <div class="sme-discard-warning">Discard unsaved changes?</div>
-                    <MudButton Variant="Variant.Text"
+                    <AppButton Variant="Variant.Text"
                                Color="Color.Inherit"
                                Class="sme-footer-btn sme-footer-btn--ghost"
                                OnClick="@(() => _confirmDiscard = false)">
                         Keep Editing
-                    </MudButton>
-                    <MudButton Variant="Variant.Filled"
+                    </AppButton>
+                    <AppButton Variant="Variant.Filled"
                                Color="Color.Error"
                                Class="sme-footer-btn sme-footer-btn--danger"
                                OnClick="DiscardAndClose">
                         Discard
-                    </MudButton>
+                    </AppButton>
                 }
                 else
                 {
@@ -1116,23 +1116,23 @@
                     @if (_pendingMembershipPreview is not null)
                     {
                         <div class="sme-footer-note">@_pendingMembershipPreview.Message</div>
-                        <MudButton Variant="Variant.Text"
+                        <AppButton Variant="Variant.Text"
                                    Color="Color.Inherit"
                                    Class="sme-footer-btn sme-footer-btn--ghost"
                                    OnClick="@(() => _pendingMembershipPreview = null)">
                             Keep Editing
-                        </MudButton>
-                        <MudButton Variant="Variant.Filled"
+                        </AppButton>
+                        <AppButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    Class="sme-footer-btn sme-footer-btn--primary"
                                    OnClick="ConfirmMembershipMoveAsync"
                                    Disabled="@_saving">
                             Save and Move
-                        </MudButton>
+                        </AppButton>
                     }
                     else if (IsDirty)
                     {
-                        <MudButton Variant="Variant.Filled"
+                        <AppButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    Class="sme-footer-btn sme-footer-btn--primary"
                                    OnClick="SaveAsync"
@@ -1142,24 +1142,24 @@
                                 <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                             }
                             @GetDirtySaveLabel()
-                        </MudButton>
+                        </AppButton>
                     }
                     else if (Request.Mode == SharedMediaEditorMode.Review)
                     {
-                        <MudButton Variant="Variant.Filled"
+                        <AppButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    Class="sme-footer-btn sme-footer-btn--primary"
                                    OnClick="ResolveReviewWithoutChangesAsync"
                                    Disabled="@_saving">
                             @(_saving ? "Resolving..." : GetResolveReviewLabel())
-                        </MudButton>
+                        </AppButton>
                     }
                 }
             </div>
             }
         </div>
     </DialogContent>
-</MudDialog>
+</AppDialog>
 
 @code {
     private RenderFragment RenderSuggestedFields(string candidateId, Dictionary<string, string> fields) => @<div>

@@ -1,4 +1,4 @@
-﻿@page "/universe/{Qid}/explore"
+@page "/universe/{Qid}/explore"
 @using MediaEngine.Web.Components.Universe
 @using MediaEngine.Web.Services.Theming
 @inject IEngineApiClient ApiClient
@@ -12,30 +12,30 @@
 <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
 @if (DeviceContext.IsMobile)
 {
-    <MudPaper Class="chronicle-explorer-empty pa-6" Elevation="0">
+    <AppPanel Class="chronicle-explorer-empty pa-6" Elevation="0">
         <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Large" Color="Color.Default" />
         <MudText Typo="Typo.h5">Chronicle Explorer is unavailable on mobile</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
             The relationship graph needs a larger workspace. Open this Universe from a desktop or tablet-sized web view.
         </MudText>
-    </MudPaper>
+    </AppPanel>
 }
 else if (_loading)
 {
-    <MudPaper Class="chronicle-explorer-empty pa-6" Elevation="0">
+    <AppPanel Class="chronicle-explorer-empty pa-6" Elevation="0">
         <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
         <MudText Typo="Typo.body2" Color="Color.Secondary">Loading Universe Graph data...</MudText>
-    </MudPaper>
+    </AppPanel>
 }
 else if (_graph is null || !_hasGraphData)
 {
-    <MudPaper Class="chronicle-explorer-empty pa-6" Elevation="0">
+    <AppPanel Class="chronicle-explorer-empty pa-6" Elevation="0">
         <MudIcon Icon="@Icons.Material.Filled.Hub" Size="Size.Large" Color="Color.Default" />
         <MudText Typo="Typo.h5">Universe Graph unavailable</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
             Tuvima has not found enough real character, location, organization, event, or relationship data for this Universe yet.
         </MudText>
-    </MudPaper>
+    </AppPanel>
 }
 else
 {
@@ -43,39 +43,39 @@ else
         @(_graph?.Universe.Label ?? "Loading...")
     </MudText>
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-        <MudChip T="string" Color="Color.Primary" Size="Size.Small">
+        <AppChip T="string" Color="Color.Primary" Size="Size.Small">
             @(_graph?.Nodes.Count ?? 0) entities
-        </MudChip>
-        <MudChip T="string" Color="Color.Secondary" Size="Size.Small">
+        </AppChip>
+        <AppChip T="string" Color="Color.Secondary" Size="Size.Small">
             @(_graph?.Edges.Count ?? 0) relationships
-        </MudChip>
+        </AppChip>
         @if (_characterCount > 0)
         {
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+            <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">
                 @_characterCount characters
-            </MudChip>
+            </AppChip>
         }
         @if (_locationCount > 0)
         {
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+            <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">
                 @_locationCount locations
-            </MudChip>
+            </AppChip>
         }
         @if (_orgCount > 0)
         {
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+            <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">
                 @_orgCount organizations
-            </MudChip>
+            </AppChip>
         }
     </MudStack>
 @if (_loreDeltaChanges > 0)
     {
-        <MudAlert Severity="Severity.Warning" Class="mb-3"
+        <AppAlert Severity="Severity.Warning" Class="mb-3"
                   CloseIconClicked="@(() => _loreDeltaChanges = 0)">
             New Lore Discovered: @_loreDeltaChanges entities have been updated on Wikidata since last enrichment.
-        </MudAlert>
+        </AppAlert>
     }
-<MudTabs @bind-ActivePanelIndex="_activeMode" Class="mb-3"
+<AppTabs @bind-ActivePanelIndex="_activeMode" Class="mb-3"
              ApplyEffectsToContainer="false"
              SliderColor="Color.Warning"
              Rounded="false">
@@ -89,7 +89,7 @@ else
                      ToolTip="Character to performer mapping" />
         <MudTabPanel Text="Adaptations" Icon="@Icons.Material.Filled.Merge"
                      ToolTip="Adaptation chain" />
-    </MudTabs>
+    </AppTabs>
 @if (_activeMode == 0 || _activeMode == 1 || _activeMode == 2)
     {
 @if (_activeMode == 0)
@@ -106,37 +106,37 @@ else
                 }
                 else if (_hasTemporalData && DeviceContext.IsTelevision)
                 {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                    <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">
                         Timeline available on desktop
-                    </MudChip>
+                    </AppChip>
                 }
 
                 <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                    <MudChip T="string" Color="@(_showCharacters ? Color.Primary : Color.Default)"
+                    <AppChip T="string" Color="@(_showCharacters ? Color.Primary : Color.Default)"
                              Variant="@(_showCharacters ? Variant.Filled : Variant.Outlined)"
                              OnClick="@(() => ToggleTypeFilter("Character"))">
                         Characters
-                    </MudChip>
-                    <MudChip T="string" Color="@(_showLocations ? Color.Success : Color.Default)"
+                    </AppChip>
+                    <AppChip T="string" Color="@(_showLocations ? Color.Success : Color.Default)"
                              Variant="@(_showLocations ? Variant.Filled : Variant.Outlined)"
                              OnClick="@(() => ToggleTypeFilter("Location"))">
                         Locations
-                    </MudChip>
-                    <MudChip T="string" Color="@(_showOrganizations ? Color.Warning : Color.Default)"
+                    </AppChip>
+                    <AppChip T="string" Color="@(_showOrganizations ? Color.Warning : Color.Default)"
                              Variant="@(_showOrganizations ? Variant.Filled : Variant.Outlined)"
                              OnClick="@(() => ToggleTypeFilter("Organization"))">
                         Organizations
-                    </MudChip>
+                    </AppChip>
                 </MudStack>
 
-                <MudSelect T="string" Value="@_layout" ValueChanged="OnLayoutChanged"
+                <AppSelect T="string" Value="@_layout" ValueChanged="OnLayoutChanged"
                            Label="Layout" Variant="Variant.Outlined" Margin="Margin.Dense"
                            Class="chronicle-explorer-layout">
                     <MudSelectItem T="string" Value="@("cose")">Force-directed</MudSelectItem>
                     <MudSelectItem T="string" Value="@("concentric")">Concentric</MudSelectItem>
                     <MudSelectItem T="string" Value="@("grid")">Grid</MudSelectItem>
                     <MudSelectItem T="string" Value="@("dagre")">Hierarchical</MudSelectItem>
-                </MudSelect>
+                </AppSelect>
             </MudStack>
         }
 <MudGrid>
@@ -146,11 +146,11 @@ else
                 </div>
             </MudItem>
             <MudItem xs="12" md="@(_activeMode == 0 ? 5 : 4)">
-                <MudPaper Class="chronicle-explorer-panel pa-3">
+                <AppPanel Class="chronicle-explorer-panel pa-3">
                     @if (_activeMode == 0)
                     {
                         @* Mode 1: entity list *@
-                        <MudTextField T="string" @bind-Value="_entitySearch" Placeholder="Search entities..."
+                        <AppTextField T="string" @bind-Value="_entitySearch" Placeholder="Search entities..."
                                       Variant="Variant.Outlined"
                                       Adornment="Adornment.Start"
                                       AdornmentIcon="@Icons.Material.Filled.Search"
@@ -186,21 +186,21 @@ else
                         @* Mode 3: Family Tree *@
                         <FamilyTreeView UniverseQid="@Qid" Graph="@_graph" />
                     }
-                </MudPaper>
+                </AppPanel>
             </MudItem>
         </MudGrid>
     }
     else if (_activeMode == 3)
     {
-<MudPaper Class="chronicle-explorer-full-panel pa-4">
+<AppPanel Class="chronicle-explorer-full-panel pa-4">
             <CastComparison UniverseQid="@Qid" />
-        </MudPaper>
+        </AppPanel>
     }
     else if (_activeMode == 4)
     {
-<MudPaper Class="chronicle-explorer-full-panel pa-4">
+<AppPanel Class="chronicle-explorer-full-panel pa-4">
             <AdaptationTree UniverseQid="@Qid" />
-        </MudPaper>
+        </AppPanel>
     }
 }
 </MudContainer>
@@ -228,9 +228,9 @@ else
                 <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Appears in</MudText>
                 @foreach (var work in _selectedEntity.Works)
                 {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                    <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">
                         @work.Label
-                    </MudChip>
+                    </AppChip>
                 }
             }
 

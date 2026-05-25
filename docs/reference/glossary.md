@@ -137,11 +137,8 @@ Writing resolved metadata back into supported file tags after enrichment or user
 
 ## Retired Terms
 
-**Vault**  
-The old all-in-one media management workspace. It is retired and must not be described as current product behavior.
-
-**LibraryPage / LibrarySurfacePreset**  
-Old implementation concepts that should not be reintroduced. Current browse and correction flows use Home, Read, Watch, Listen, Collections, Search, detail pages, Review Queue, and Settings/Admin.
+**Removed all-in-one workspace**  
+Old management concepts that should not be reintroduced. Current browse and correction flows use Home, Read, Watch, Listen, Collections, Search, detail pages, Review Queue, and Settings/Admin.
 
 ## Related
 

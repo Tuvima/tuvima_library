@@ -40,6 +40,6 @@ Review uses the same shared editor as inline media editing, but with review-spec
 
 ## What Review Is Not
 
-Review Queue is not the retired all-in-one correction workspace, `LibraryPage`, or an all-purpose management workbench. It should not be used for routine browsing or normal media fixes. Those fixes belong inline on Read, Watch, Listen, Search, and detail surfaces.
+Review Queue is not an all-purpose management workbench. It should not be used for routine browsing or normal media fixes. Those fixes belong inline on Read, Watch, Listen, Search, and detail surfaces.
 
 

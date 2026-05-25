@@ -40,7 +40,7 @@
                     }
                     @foreach (var credit in visibleCredits)
                     {
-                        <button class="pbd-work-row" @onclick="() => OnWorkClicked.InvokeAsync(credit.WorkId)">
+                        <AppNativeButton Class="pbd-work-row" OnClick="() => OnWorkClicked.InvokeAsync(credit.WorkId)">
                             <div class="pbd-work-thumb">
                                 @if (!string.IsNullOrEmpty(credit.CoverUrl))
                                 {
@@ -65,13 +65,13 @@
                                 }
                             </div>
                             <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
-                        </button>
+                        </AppNativeButton>
                     }
                     @if (!_showAllWorks && remaining > 0)
                     {
-                        <button class="pbd-show-more-btn" @onclick="() => _showAllWorks = true">
+                        <AppNativeButton Class="pbd-show-more-btn" OnClick="() => _showAllWorks = true">
                             Show @remaining more
-                        </button>
+                        </AppNativeButton>
                     }
                 </div>
             </div>
@@ -92,7 +92,7 @@
             <div class="pbd-identity-items">
                 @foreach (var alias in Aliases.Aliases.OrderByDescending(a => !string.IsNullOrEmpty(a.WikidataQid)))
                 {
-                    <button class="vdd-identity-link" @onclick="() => OnPersonAliasClicked.InvokeAsync(alias.Id)">
+                    <AppNativeButton Class="vdd-identity-link" OnClick="() => OnPersonAliasClicked.InvokeAsync(alias.Id)">
                         <div class="vdd-alias-avatar">
                             @if (!string.IsNullOrEmpty(alias.HeadshotUrl))
                             {
@@ -107,7 +107,7 @@
                             <span class="vdd-alias-name">@alias.Name</span>
                             <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
                         </div>
-                    </button>
+                    </AppNativeButton>
                 }
             </div>
         }
@@ -125,7 +125,7 @@
         <div class="pbd-members-list">
             @foreach (var member in GroupMembers)
             {
-                <button class="pbd-work-row" @onclick="() => OnMemberClicked.InvokeAsync(member.Id)">
+                <AppNativeButton Class="pbd-work-row" OnClick="() => OnMemberClicked.InvokeAsync(member.Id)">
                     <div class="pbd-work-thumb" style="border-radius: 50%;">
                         <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: var(--tl-text-faint);" />
                     </div>
@@ -137,7 +137,7 @@
                         }
                     </div>
                     <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
-                </button>
+                </AppNativeButton>
             }
         </div>
     </DrawerSection>
@@ -150,7 +150,7 @@
         <div class="pbd-members-list">
             @foreach (var group in MemberOfGroups)
             {
-                <button class="pbd-work-row" @onclick="() => OnMemberClicked.InvokeAsync(group.Id)">
+                <AppNativeButton Class="pbd-work-row" OnClick="() => OnMemberClicked.InvokeAsync(group.Id)">
                     <div class="pbd-work-thumb" style="border-radius: 6px;">
                         <MudIcon Icon="@Icons.Material.Outlined.Groups" Style="font-size: 16px; color: var(--tl-text-faint);" />
                     </div>
@@ -162,7 +162,7 @@
                         }
                     </div>
                     <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: var(--tl-border-strong); flex-shrink: 0;" />
-                </button>
+                </AppNativeButton>
             }
         </div>
     </DrawerSection>
@@ -329,199 +329,3 @@
             : null;
     }
 }
-
-<style>
-
-    .pbd-biography {
-        font-size: 13px;
-        line-height: 1.7;
-        color: rgba(255, 255, 255, 0.65);
-        margin: 0;
-    }
-
-
-    .pbd-occupation {
-        font-size: 11px;
-        font-style: italic;
-        color: rgba(255, 255, 255, 0.4);
-        margin-top: 2px;
-    }
-
-
-    .pbd-last-enriched {
-        font-size: 10px;
-        color: var(--tl-text-faint);
-        margin-top: 4px;
-    }
-
-
-    .pbd-social-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        padding: 4px 0;
-    }
-
-    .pbd-social-btn {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: var(--tl-border-subtle);
-        border: 1px solid var(--tl-border-subtle);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: background 0.15s;
-        text-decoration: none;
-        color: var(--tl-text-muted);
-    }
-
-    .pbd-social-btn:hover {
-        background: var(--tl-border-default);
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-
-    .pbd-role-group {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        margin-bottom: 12px;
-    }
-
-    .pbd-role-group:last-child {
-        margin-bottom: 0;
-    }
-
-    .pbd-role-label {
-        font-size: 9px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--tl-text-muted);
-    }
-
-    .pbd-works-list {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-
-    .pbd-work-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 6px 8px;
-        border-radius: 8px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        width: 100%;
-        text-align: left;
-        transition: background 0.15s;
-        color: inherit;
-    }
-
-    .pbd-work-row:hover {
-        background: var(--tl-divider);
-    }
-
-    .pbd-work-thumb {
-        width: 36px;
-        height: 36px;
-        border-radius: 6px;
-        background: var(--tl-divider);
-        border: 1px solid var(--tl-border-subtle);
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .pbd-work-thumb-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .pbd-work-info {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .pbd-work-title {
-        font-size: 13px;
-        font-weight: 700;
-        color: rgba(255, 255, 255, 0.8);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .pbd-work-type {
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-
-
-    .pbd-identity-items {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        margin-top: 6px;
-    }
-
-
-    .pbd-identities {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-
-    .pbd-members-list {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-
-    .pbd-empty-hint {
-        font-size: 12px;
-        font-style: italic;
-        color: var(--tl-text-faint);
-        margin: 0;
-        padding: 4px 0;
-    }
-
-
-    .pbd-show-more-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        padding: 8px;
-        margin-top: 4px;
-        border-radius: 8px;
-        background: var(--tl-status-info-soft);
-        border: 1px solid var(--tl-status-info-soft);
-        color: var(--tl-status-info);
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.15s;
-    }
-
-    .pbd-show-more-btn:hover {
-        background: var(--tl-status-info-soft);
-    }
-</style>
-

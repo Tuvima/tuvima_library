@@ -1,0 +1,225 @@
+.pfp-info-box {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+        margin: 12px 16px 0;
+        background: rgba(180, 178, 169, 0.06);
+        border: 1px solid rgba(180, 178, 169, 0.10);
+        border-radius: 8px;
+    }
+
+    .pfp-info-icon {
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .pfp-info-text {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(200, 190, 220, 0.55);
+        line-height: 1.5;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    }
+
+
+    .pfp-form-section {
+        padding: 14px 16px 12px;
+        border-top: 1px solid var(--tl-accent-primary-soft);
+        margin-top: 12px;
+    }
+
+    .pfp-section-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: rgba(200, 190, 220, 0.30);
+        margin-bottom: 12px;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    }
+
+
+    .pfp-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 10px;
+    }
+
+    .pfp-field--half {
+        flex: 1;
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    .pfp-field-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .pfp-label {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(200, 190, 220, 0.45);
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        letter-spacing: 0.3px;
+    }
+
+    .pfp-required {
+        color: rgba(226, 75, 74, 0.6);
+        margin-left: 2px;
+    }
+
+    .pfp-input,
+    .pfp-select,
+    .pfp-textarea {
+        background: var(--tl-accent-primary-soft);
+        border: 1px solid var(--tl-accent-primary-border);
+        color: var(--tl-text-primary);
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 12px;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-weight: 400;
+        outline: none;
+        transition: border-color 0.15s ease, background 0.15s ease;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .pfp-input:focus,
+    .pfp-select:focus,
+    .pfp-textarea:focus {
+        border-color: rgba(140, 120, 180, 0.50);
+        background: rgba(140, 120, 180, 0.09);
+    }
+
+    .pfp-input::placeholder,
+    .pfp-textarea::placeholder {
+        color: rgba(200, 190, 220, 0.25);
+        font-weight: 300;
+    }
+
+    .pfp-select {
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='var(--tl-text-muted)' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 28px;
+    }
+
+    .pfp-select option {
+        background: #0c0a14;
+        color: var(--tl-text-primary);
+    }
+
+    .pfp-textarea {
+        resize: vertical;
+        min-height: 60px;
+        line-height: 1.5;
+    }
+
+
+    .pfp-type-fields {
+        margin-top: 4px;
+    }
+
+    .pfp-divider-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: rgba(200, 190, 220, 0.20);
+        margin-bottom: 8px;
+        padding-top: 6px;
+        border-top: 1px solid var(--tl-accent-primary-soft);
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    }
+
+
+    .pfp-recheck-box {
+        display: flex;
+        align-items: flex-start;
+        gap: 7px;
+        padding: 8px 10px;
+        margin-top: 4px;
+        background: rgba(55, 138, 221, 0.06);
+        border: 1px solid rgba(55, 138, 221, 0.10);
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(133, 183, 235, 0.70);
+        line-height: 1.5;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    }
+
+
+    .pfp-actions-section {
+        padding: 10px 16px 14px;
+        border-top: 1px solid var(--tl-accent-primary-soft);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .pfp-btn-save {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s ease, opacity 0.15s ease;
+        background: var(--tl-accent-primary-border);
+        border: 1px solid var(--tl-accent-primary-border);
+        color: var(--tl-text-secondary);
+    }
+
+    .pfp-btn-save:hover:not(:disabled) {
+        background: var(--tl-accent-primary-border);
+        border-color: var(--tl-accent-primary-border);
+    }
+
+    .pfp-btn-save:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .pfp-btn-cancel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 11px;
+        font-weight: 400;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+        background: transparent;
+        border: 1px solid var(--tl-accent-primary-soft);
+        color: rgba(200, 190, 220, 0.40);
+    }
+
+    .pfp-btn-cancel:hover:not(:disabled) {
+        background: var(--tl-accent-primary-soft);
+        color: rgba(200, 190, 220, 0.65);
+        border-color: var(--tl-accent-primary-border);
+    }
+
+    .pfp-btn-cancel:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }

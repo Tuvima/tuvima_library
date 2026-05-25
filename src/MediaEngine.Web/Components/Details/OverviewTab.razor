@@ -83,18 +83,18 @@
                             <h2>@CreditPanelTitle</h2>
                             @if (ShowCastTabLink)
                             {
-                                <button type="button" @onclick="@(() => OnTabRequested.InvokeAsync("cast"))">
+                                <AppNativeButton Type="button" OnClick="@(() => OnTabRequested.InvokeAsync(" cast"))">
                                     View all cast
-                                </button>
+                                </AppNativeButton>
                             }
                         </div>
                     }
                     else if (ShowCastTabLink)
                     {
                         <div class="tl-media-overview-card__credits-heading tl-media-overview-card__credits-heading--link-only">
-                            <button type="button" @onclick="@(() => OnTabRequested.InvokeAsync("cast"))">
+                            <AppNativeButton Type="button" OnClick="@(() => OnTabRequested.InvokeAsync(" cast"))">
                                 View all cast
-                            </button>
+                            </AppNativeButton>
                         </div>
                     }
 
@@ -127,9 +127,9 @@
 
                         @if (ShowInlineCreditsToggle)
                         {
-                            <button type="button" class="tl-credit-group__toggle" @onclick="ToggleCreditsExpanded">
+                            <AppNativeButton Type="button" Class="tl-credit-group__toggle" OnClick="ToggleCreditsExpanded">
                                 @(_creditsExpanded ? "Show fewer credits" : "View all credits")
-                            </button>
+                            </AppNativeButton>
                         }
                     }
                 </div>

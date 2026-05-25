@@ -1,4 +1,4 @@
-﻿@page "/read/{AssetId:guid}"
+@page "/read/{AssetId:guid}"
 @layout MediaEngine.Web.Shared.ReaderLayout
 
 @namespace MediaEngine.Web.Components.Pages
@@ -18,9 +18,9 @@
 <div class="reader-shell reader-theme-@_settings.Theme">
 
     @* ── Persistent close — always visible regardless of chrome state ── *@
-    <button class="reader-persistent-close" @onclick="ExitReader" title="Close reader">
+    <AppNativeButton Class="reader-persistent-close" OnClick="ExitReader" Title="Close reader">
         <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
-    </button>
+    </AppNativeButton>
 
     @if (_loading)
     {
@@ -46,26 +46,26 @@
         @* ── Top bar chrome ────────────────────────────────────────────── *@
         <div class="reader-chrome @(_chromeVisible ? "" : "hidden")">
             <div class="reader-top-bar reader-chrome">
-                <button class="reader-back-btn" @onclick="ExitReader" title="Back to library">
+                <AppNativeButton Class="reader-back-btn" OnClick="ExitReader" Title="Back to library">
                     <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" />
-                </button>
+                </AppNativeButton>
                 <div class="reader-title-section">
                     <div class="reader-book-title">@_metadata.Title</div>
                     <div class="reader-chapter-title">@(_currentChapter?.Title ?? "")</div>
                 </div>
                 <div class="reader-actions">
-                    <button class="reader-action-btn" @onclick="ToggleToc" title="Table of Contents (T)">
+                    <AppNativeButton Class="reader-action-btn" OnClick="ToggleToc" Title="Table of Contents (T)">
                         <MudIcon Icon="@Icons.Material.Filled.Toc" Size="Size.Small" />
-                    </button>
-                    <button class="reader-action-btn" @onclick="ToggleSearch" title="Search (S)">
+                    </AppNativeButton>
+                    <AppNativeButton Class="reader-action-btn" OnClick="ToggleSearch" Title="Search (S)">
                         <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Small" />
-                    </button>
-                    <button class="reader-action-btn" @onclick="ToggleBookmarks" title="Bookmarks (B)">
+                    </AppNativeButton>
+                    <AppNativeButton Class="reader-action-btn" OnClick="ToggleBookmarks" Title="Bookmarks (B)">
                         <MudIcon Icon="@Icons.Material.Filled.Bookmark" Size="Size.Small" />
-                    </button>
-                    <button class="reader-action-btn" @onclick="ToggleSettings" title="Settings">
+                    </AppNativeButton>
+                    <AppNativeButton Class="reader-action-btn" OnClick="ToggleSettings" Title="Settings">
                         <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" />
-                    </button>
+                    </AppNativeButton>
                 </div>
             </div>
 
@@ -74,9 +74,7 @@
                 <div class="reader-progress-row">
                     <span class="reader-page-info">@(_currentPageInChapter + 1) / @_totalPagesInChapter</span>
                     <div class="reader-slider">
-                        <input type="range" min="0" max="@Math.Max(1, _totalPagesInChapter - 1)"
-                               value="@_currentPageInChapter"
-                               @onchange="OnSliderChanged" />
+                        <AppNativeInput Type="range" Min="0" Max="@Math.Max(1, _totalPagesInChapter - 1)" Value="@_currentPageInChapter" OnChange="OnSliderChanged" />
                     </div>
                     <span class="reader-percent">@(ComputeOverallPercent())%</span>
                 </div>
@@ -88,9 +86,9 @@
         <div class="reader-drawer left @(_tocOpen ? "open" : "")">
             <div class="reader-drawer-header">
                 <h3>Contents</h3>
-                <button class="reader-drawer-close" @onclick="CloseToc">
+                <AppNativeButton Class="reader-drawer-close" OnClick="CloseToc">
                     <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
-                </button>
+                </AppNativeButton>
             </div>
             <div class="reader-drawer-body">
                 @if (_toc is not null)
@@ -112,16 +110,12 @@
         <div class="reader-drawer right @(_searchOpen ? "open" : "")">
             <div class="reader-drawer-header">
                 <h3>Search</h3>
-                <button class="reader-drawer-close" @onclick="CloseSearch">
+                <AppNativeButton Class="reader-drawer-close" OnClick="CloseSearch">
                     <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
-                </button>
+                </AppNativeButton>
             </div>
             <div class="reader-search-input-wrap">
-                <input class="reader-search-input" type="text"
-                       placeholder="Search in book..."
-                       @bind="_searchQuery"
-                       @bind:event="oninput"
-                       @onkeydown="OnSearchKeyDown" />
+                <AppNativeInput Class="reader-search-input" Type="text" Placeholder="Search in book..." @bind="_searchQuery" @bind:event="oninput" OnKeyDown="OnSearchKeyDown" />
             </div>
             <div class="reader-drawer-body">
                 @if (_searchResults.Count > 0)
@@ -149,9 +143,9 @@
         <div class="reader-drawer right @(_bookmarksOpen ? "open" : "")">
             <div class="reader-drawer-header">
                 <h3>Bookmarks</h3>
-                <button class="reader-drawer-close" @onclick="CloseBookmarks">
+                <AppNativeButton Class="reader-drawer-close" OnClick="CloseBookmarks">
                     <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
-                </button>
+                </AppNativeButton>
             </div>
             <div class="reader-drawer-body">
                 @if (_bookmarks.Count > 0)
@@ -166,10 +160,9 @@
                                 <div class="reader-list-title">@(bm.Label ?? $"Chapter {bm.ChapterIndex + 1}")</div>
                                 <div class="reader-list-detail">@bm.CreatedAt.ToString("MMM d, yyyy")</div>
                             </div>
-                            <button class="reader-list-delete" @onclick:stopPropagation="true"
-                                    @onclick="@(() => DeleteBookmark(bm.Id))">
+                            <AppNativeButton Class="reader-list-delete" StopPropagation="true" OnClick="@(() => DeleteBookmark(bm.Id))">
                                 <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
-                            </button>
+                            </AppNativeButton>
                         </div>
                     }
                 }
@@ -182,11 +175,11 @@
                 }
 
                 <div style="padding: 12px 20px;">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                    <AppButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
                                StartIcon="@Icons.Material.Filled.BookmarkAdd"
                                OnClick="AddBookmark">
                         Bookmark This Page
-                    </MudButton>
+                    </AppButton>
                 </div>
             </div>
         </div>
@@ -196,21 +189,18 @@
         <div class="reader-drawer right @(_settingsOpen ? "open" : "")">
             <div class="reader-drawer-header">
                 <h3>Reading Settings</h3>
-                <button class="reader-drawer-close" @onclick="CloseSettings">
+                <AppNativeButton Class="reader-drawer-close" OnClick="CloseSettings">
                     <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
-                </button>
+                </AppNativeButton>
             </div>
             <div class="reader-drawer-body">
                 @* Theme *@
                 <div class="reader-settings-section">
                     <div class="reader-settings-label">Theme</div>
                     <div class="reader-theme-picker">
-                        <button class="reader-theme-btn dark @(_settings.Theme == "dark" ? "active" : "")"
-                                @onclick="@(() => SetTheme("dark"))">Aa</button>
-                        <button class="reader-theme-btn sepia @(_settings.Theme == "sepia" ? "active" : "")"
-                                @onclick="@(() => SetTheme("sepia"))">Aa</button>
-                        <button class="reader-theme-btn light @(_settings.Theme == "light" ? "active" : "")"
-                                @onclick="@(() => SetTheme("light"))">Aa</button>
+                        <AppNativeButton Class="@($"reader-theme-btn dark @(_settings.Theme == ")" dark" ? "active" : "")" OnClick="@(() => SetTheme(" dark"))">Aa</AppNativeButton>
+                        <AppNativeButton Class="@($"reader-theme-btn sepia @(_settings.Theme == ")" sepia" ? "active" : "")" OnClick="@(() => SetTheme(" sepia"))">Aa</AppNativeButton>
+                        <AppNativeButton Class="@($"reader-theme-btn light @(_settings.Theme == ")" light" ? "active" : "")" OnClick="@(() => SetTheme(" light"))">Aa</AppNativeButton>
                     </div>
                 </div>
 
@@ -220,12 +210,9 @@
                     <div class="reader-font-picker">
                         @foreach (var f in _fontOptions)
                         {
-                            <button class="reader-font-chip @(_settings.FontFamily == f.Key ? "active" : "")"
-                                    @key="f.Key"
-                                    style="font-family: @f.Value;"
-                                    @onclick="@(() => SetFont(f.Key))">
+                            <AppNativeButton Class="@($"reader-font-chip @(_settings.FontFamily == f.Key ? ")" active" : "")" @key="f.Key" InlineStyle="@($"font-family: {f.Value};")" OnClick="@(() => SetFont(f.Key))">
                                 @f.Key
-                            </button>
+                            </AppNativeButton>
                         }
                     </div>
                 </div>
@@ -235,8 +222,7 @@
                     <div class="reader-settings-label">Size</div>
                     <div class="reader-size-control">
                         <span class="reader-size-label" style="font-size: 0.7rem;">A</span>
-                        <input type="range" min="12" max="32" value="@_settings.FontSize"
-                               @onchange="OnFontSizeChanged" />
+                        <AppNativeInput Type="range" Min="12" Max="32" Value="@_settings.FontSize" OnChange="OnFontSizeChanged" />
                         <span class="reader-size-label" style="font-size: 1.1rem;">A</span>
                     </div>
                 </div>
@@ -246,8 +232,7 @@
                     <div class="reader-settings-label">Line Spacing</div>
                     <div class="reader-size-control">
                         <span class="reader-size-label">1.2</span>
-                        <input type="range" min="12" max="24" value="@((int)(_settings.LineHeight * 10))"
-                               @onchange="OnLineHeightChanged" />
+                        <AppNativeInput Type="range" Min="12" Max="24" Value="@($"{(int)(_settings.LineHeight * 10)}")" OnChange="OnLineHeightChanged" />
                         <span class="reader-size-label">2.4</span>
                     </div>
                 </div>
@@ -258,8 +243,7 @@
                     <div class="reader-size-control">
                         <MudIcon Icon="@Icons.Material.Filled.FormatIndentDecrease" Size="Size.Small"
                                  Style="color: var(--reader-chrome-text-dim);" />
-                        <input type="range" min="16" max="80" value="@_settings.Margins"
-                               @onchange="OnMarginChanged" />
+                        <AppNativeInput Type="range" Min="16" Max="80" Value="@_settings.Margins" OnChange="OnMarginChanged" />
                         <MudIcon Icon="@Icons.Material.Filled.FormatIndentIncrease" Size="Size.Small"
                                  Style="color: var(--reader-chrome-text-dim);" />
                     </div>
@@ -298,9 +282,9 @@
             <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large"
                      Style="color: var(--reader-chrome-text-dim); font-size: 3rem;" />
             <span class="reader-loading-title">Book not found</span>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExitReader">
+            <AppButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExitReader">
                 Return to Library
-            </MudButton>
+            </AppButton>
         </div>
     }
 </div>

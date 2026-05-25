@@ -1,10 +1,10 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
 
 @inject UIOrchestratorService Orchestrator
 
-<MudDialog>
+<AppDialog>
     <TitleContent>
         <div class="rpd-title">
             <MudIcon Icon="@Icons.Material.Outlined.Warning" Class="rpd-title-icon" />
@@ -21,7 +21,7 @@
                 </div>
             }
 
-            <MudSelect T="string" @bind-Value="_category" Label="Category" Variant="Variant.Outlined"
+            <AppSelect T="string" @bind-Value="_category" Label="Category" Variant="Variant.Outlined"
                        Dense="true" Margin="Margin.Dense">
                 <MudSelectItem Value="@("Wrong title or author")">Wrong title or author</MudSelectItem>
                 <MudSelectItem Value="@("Wrong cover art")">Wrong cover art</MudSelectItem>
@@ -30,18 +30,18 @@
                 <MudSelectItem Value="@("Missing metadata")">Missing metadata</MudSelectItem>
                 <MudSelectItem Value="@("Wrong match")">Wrong Wikidata match</MudSelectItem>
                 <MudSelectItem Value="@("Other")">Other</MudSelectItem>
-            </MudSelect>
+            </AppSelect>
 
-            <MudTextField T="string" @bind-Value="_note" Label="Details (optional)"
+            <AppTextField T="string" @bind-Value="_note" Label="Details (optional)"
                           Variant="Variant.Outlined" Lines="3"
                           Placeholder="Describe the problem..."
                           Margin="Margin.Dense" />
         </div>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Text" Size="Size.Small"
-                   Class="rpd-cancel">Cancel</MudButton>
-        <MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
+        <AppButton OnClick="Cancel" Variant="Variant.Text" Size="Size.Small"
+                   Class="rpd-cancel">Cancel</AppButton>
+        <AppButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
                    Disabled="@(string.IsNullOrEmpty(_category) || _submitting)">
             @if (_submitting)
             {
@@ -49,9 +49,9 @@
                                      Class="rpd-spinner" />
             }
             Submit Report
-        </MudButton>
+        </AppButton>
     </DialogActions>
-</MudDialog>
+</AppDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
@@ -89,54 +89,3 @@
             MudDialog.Close(DialogResult.Cancel());
     }
 }
-
-<style>
-    .rpd-content {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        min-width: 320px;
-    }
-
-    .rpd-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .rpd-title-icon {
-        font-size: 20px;
-        color: var(--tl-status-warning);
-    }
-
-    .rpd-item-label {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: 8px 10px;
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 8px;
-        border: 0.5px solid var(--tl-border-subtle);
-    }
-
-    .rpd-item-eyebrow {
-        color: rgba(255,255,255,0.40);
-        font-size: 11px;
-    }
-
-    .rpd-item-title {
-        color: rgba(255,255,255,0.80);
-        font-size: 13px;
-        font-weight: 500;
-    }
-
-    .rpd-cancel {
-        color: rgba(255,255,255,0.45);
-    }
-
-    .rpd-spinner {
-        width: 14px;
-        height: 14px;
-        margin-right: 6px;
-    }
-</style>

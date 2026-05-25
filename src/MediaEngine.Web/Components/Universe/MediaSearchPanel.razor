@@ -1,14 +1,14 @@
-﻿@inject UIOrchestratorService Orchestrator
+@inject UIOrchestratorService Orchestrator
 
 <div class="search-panel">
 @if (_comparisonCandidate != null)
     {
         <div class="sp-comparison-view">
             @* Back link *@
-            <button class="sp-back-link" @onclick="ClearComparison">
+            <AppNativeButton Class="sp-back-link" OnClick="ClearComparison">
                 <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Style="margin-right: 4px;" />
                 Back to results
-            </button>
+            </AppNativeButton>
 
             <div class="sp-comparison-title">Compare &amp; Apply Match</div>
 
@@ -131,16 +131,12 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                         <div class="sp-cover-chooser-label">Cover Art</div>
                         <div class="sp-cover-chooser-options">
                             <label class="sp-cover-option @(_useCandidateCover == false ? "sp-cover-option-selected" : "")">
-                                <input type="radio" name="coverChoice_@EntityId" value="current"
-                                       checked="@(_useCandidateCover == false)"
-                                       @onchange="@(() => _useCandidateCover = false)" />
+                                <AppNativeInput Type="radio" Name="@($"coverChoice_{EntityId}")" Value="@("current")" Checked="@(_useCandidateCover == false)" OnChange="@(() => _useCandidateCover = false)" />
                                 <img src="@CurrentCoverUrl" alt="current" class="sp-cover-thumb" />
                                 <span>Keep current</span>
                             </label>
                             <label class="sp-cover-option @(_useCandidateCover == true ? "sp-cover-option-selected" : "")">
-                                <input type="radio" name="coverChoice_@EntityId" value="candidate"
-                                       checked="@(_useCandidateCover == true)"
-                                       @onchange="@(() => _useCandidateCover = true)" />
+                                <AppNativeInput Type="radio" Name="@($"coverChoice_{EntityId}")" Value="@("candidate")" Checked="@(_useCandidateCover == true)" OnChange="@(() => _useCandidateCover = true)" />
                                 <img src="@GetCandidateCoverUrl()" alt="candidate" class="sp-cover-thumb" />
                                 <span>Use candidate</span>
                             </label>
@@ -152,37 +148,37 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
 <div class="sp-sticky-bar">
             @if (_comparisonCandidate is UniverseCandidateDto)
             {
-                <MudButton Variant="Variant.Filled"
+                <AppButton Variant="Variant.Filled"
                            OnClick="@(() => ApplyFromComparison("Universe"))"
                            Disabled="@_applying"
                            Size="Size.Small"
                            Style="background: var(--tl-accent-primary); color: #000; font-weight: 700; min-width: 160px;">
                     @(_applying ? "Linking..." : "Link to Wikidata")
-                </MudButton>
+                </AppButton>
             }
             else
             {
-                <MudButton Variant="Variant.Filled"
+                <AppButton Variant="Variant.Filled"
                            OnClick="@(() => ApplyFromComparison("image"))"
                            Disabled="@_applying"
                            Size="Size.Small"
                            Style="background: var(--tl-accent-primary); color: #000; font-weight: 700; min-width: 140px;">
                     @(_applying ? "Applying..." : "Use This Cover")
-                </MudButton>
+                </AppButton>
             }
-            <MudButton Variant="Variant.Outlined"
+            <AppButton Variant="Variant.Outlined"
                        OnClick="@(() => { ClearComparison(); _hasSearched = false; })"
                        Size="Size.Small"
                        Style="border-color: rgba(239,83,80,0.4); color: var(--tl-status-danger);">
                 New Search
-            </MudButton>
+            </AppButton>
         </div>
     }
     else
     {
 @* Search Controls *@
         <div class="search-panel-controls">
-            <MudTextField @bind-Value="_query"
+            <AppTextField @bind-Value="_query"
                           Placeholder="Search title, author, ISBN, QID..."
                           Variant="Variant.Outlined"
                           Adornment="Adornment.Start"
@@ -192,7 +188,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                           Style="flex: 1;"
                           OnKeyDown="@OnSearchKeyDown" />
 
-            <MudSelect T="string" @bind-Value="_mediaType"
+            <AppSelect T="string" @bind-Value="_mediaType"
                        Label="Type" Variant="Variant.Outlined"
                        Dense="true" Style="min-width: 130px;"
                        AnchorOrigin="Origin.BottomCenter">
@@ -202,15 +198,15 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                 <MudSelectItem T="string" Value="@("TV")">TV Show</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Music")">Music</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Comic")">Comic</MudSelectItem>
-            </MudSelect>
+            </AppSelect>
 
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            <AppButton Variant="Variant.Filled" Color="Color.Primary"
                        OnClick="RunSearch"
                        Disabled="@(_searching || string.IsNullOrWhiteSpace(_query))"
                        StartIcon="@Icons.Material.Filled.Search"
                        Size="Size.Medium">
                 Search
-            </MudButton>
+            </AppButton>
         </div>
 
         @* Smart search hint *@
@@ -220,10 +216,10 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
             Tip: Paste an ISBN, ASIN, TMDB ID, or QID directly
             @if (!string.IsNullOrEmpty(_detectedIdType))
             {
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                <AppChip T="string" Size="Size.Small" Variant="Variant.Filled"
                          Style="font-size: 0.65rem; height: 16px; padding: 0 6px; background: var(--tl-accent-primary-border); color: var(--tl-accent-primary); margin-left: 6px;">
                     @_detectedIdType detected
-                </MudChip>
+                </AppChip>
             }
         </p>
 
@@ -237,7 +233,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
 
         @if (!string.IsNullOrEmpty(_errorMessage))
         {
-            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</MudAlert>
+            <AppAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_errorMessage</AppAlert>
         }
 @if (_universeCandidates.Count > 0)
         {
@@ -275,23 +271,23 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                         </div>
                     </div>
                     <div @onclick:stopPropagation="true" style="align-self: flex-end; margin-top: 8px;">
-                        <MudButton Variant="Variant.Filled"
+                        <AppButton Variant="Variant.Filled"
                                    Size="Size.Small"
                                    OnClick="@(() => OpenComparison(best))"
                                    Style="@($"background: {bestConfColor}; color: #000; font-weight: 700;")">
                             Match &amp; Confirm
-                        </MudButton>
+                        </AppButton>
                     </div>
                 </div>
 
                 @* Other candidates (collapsible) *@
                 @if (_universeCandidates.Count > 1)
                 {
-                    <button class="sp-other-toggle" @onclick="@(() => _showOtherUniverseCandidates = !_showOtherUniverseCandidates)">
+                    <AppNativeButton Class="sp-other-toggle" OnClick="@(() => _showOtherUniverseCandidates = !_showOtherUniverseCandidates)">
                         <MudIcon Icon="@(_showOtherUniverseCandidates ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
                                  Size="Size.Small" Style="margin-right: 4px;" />
                         @(_showOtherUniverseCandidates ? "Hide" : "Show") @(_universeCandidates.Count - 1) other candidate@(_universeCandidates.Count - 1 == 1 ? "" : "s")
-                    </button>
+                    </AppNativeButton>
 
                     @if (_showOtherUniverseCandidates)
                     {
@@ -345,7 +341,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
                 @if (!string.IsNullOrEmpty(cleaned) && cleaned != _query.Trim())
                 {
                     <p class="search-panel-hint">
-                        Did you mean: <button class="sp-did-you-mean" @onclick="@(() => { _query = cleaned; })">@cleaned</button>?
+                        Did you mean: <AppNativeButton Class="sp-did-you-mean" OnClick="@(() => { _query = cleaned; })">@cleaned</AppNativeButton>?
                     </p>
                 }
                 <p class="search-panel-hint">Try a different query, or create a manual entry.</p>
@@ -356,12 +352,12 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
         @if (_hasSearched || _showManualForm)
         {
             <div class="search-panel-actions">
-                <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                <AppButton Variant="Variant.Outlined" Color="Color.Default"
                            StartIcon="@Icons.Material.Outlined.Edit"
                            OnClick="@(() => _showManualForm = !_showManualForm)"
                            Size="Size.Small">
                     @(_showManualForm ? "Cancel Manual Entry" : "Create Manually")
-                </MudButton>
+                </AppButton>
             </div>
         }
     }
@@ -375,7 +371,7 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
 
     @if (!string.IsNullOrEmpty(_successMessage))
     {
-        <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">@_successMessage</MudAlert>
+        <AppAlert Severity="Severity.Success" Dense="true" Class="mt-2">@_successMessage</AppAlert>
     }
 
 </div>
@@ -416,17 +412,17 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
             }
             @if (!string.IsNullOrEmpty(bridgeLabel))
             {
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                          Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: var(--tl-accent-primary); border-color: var(--tl-accent-primary-border);">
                     @bridgeLabel
-                </MudChip>
+                </AppChip>
             }
             else
             {
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                          Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: rgba(255,255,255,0.4); border-color: var(--tl-border-strong);">
                     @c.Qid
-                </MudChip>
+                </AppChip>
             }
         </text>;
 
@@ -434,19 +430,19 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
         @<text>
             @if (!string.IsNullOrEmpty(c.InstanceOf))
             {
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                          Style="font-size: 0.65rem; height: 18px; padding: 0 6px; color: #888; border-color: var(--tl-border-default);">
                     @TruncateText(c.InstanceOf, 30)
-                </MudChip>
+                </AppChip>
             }
         </text>;
 
     private RenderFragment RenderConfidenceChip(double conf) =>
         @<text>
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+            <AppChip T="string" Size="Size.Small" Variant="Variant.Filled"
                      Style="@GetConfidenceChipStyle(conf)">
                 @((int)(conf * 100))%
-            </MudChip>
+            </AppChip>
         </text>;
 
     private RenderFragment RenderMatchSignals(FieldMatchScoresDto? scores, UniverseCandidateDto? uc) =>
@@ -465,437 +461,6 @@ var hasBothCovers = !string.IsNullOrEmpty(CurrentCoverUrl) && !string.IsNullOrEm
             }
         </text>;
 }
-<style>
-
-    .search-panel {
-        padding: 16px 16px 8px 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    }
-
-
-    .search-panel-tabs {
-        display: flex;
-        gap: 4px;
-        border-bottom: 1px solid var(--tl-border-subtle);
-        padding-bottom: 0;
-        margin-bottom: 0;
-    }
-
-    .search-tab {
-        background: transparent;
-        border: none;
-        color: var(--tl-text-muted);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.8rem;
-        font-weight: 500;
-        padding: 8px 14px;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-    }
-
-    .search-tab:hover { color: rgba(255,255,255,0.8); }
-
-    .search-tab-active {
-        color: var(--tl-accent-primary);
-        border-bottom-color: var(--tl-accent-primary);
-    }
-
-
-    .search-panel-controls {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-
-    .search-panel-input { flex: 1; min-width: 200px; }
-
-    .search-panel-hint {
-        font-size: 0.78rem;
-        color: rgba(255,255,255,0.4);
-        margin: 0;
-        text-align: center;
-    }
-
-    .sp-search-tip {
-        font-size: 0.75rem;
-        text-align: left;
-        display: flex;
-        align-items: center;
-        margin-top: -4px;
-    }
-
-
-    .sp-results-section {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .sp-section-label {
-        font-size: 0.72rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--tl-text-muted);
-        display: flex;
-        align-items: center;
-        padding: 0 2px;
-        margin-bottom: 2px;
-    }
-
-
-    .sp-best-match-card {
-        display: flex;
-        flex-direction: column;
-        background: var(--tl-border-subtle);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-left: 2px solid #4CAF50;
-        border-radius: 8px;
-        padding: 12px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        position: relative;
-    }
-
-    .sp-best-match-card:hover {
-        background: rgba(255,255,255,0.09);
-        border-color: var(--tl-accent-primary-border);
-        border-left-width: 2px;
-    }
-
-    .sp-best-match-badge {
-        position: absolute;
-        top: 8px;
-        right: 10px;
-        font-size: 0.6rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        color: var(--tl-accent-primary);
-        background: var(--tl-accent-primary-soft);
-        border: 1px solid var(--tl-accent-primary-border);
-        border-radius: 3px;
-        padding: 2px 6px;
-    }
-
-    .sp-result-inner {
-        display: flex;
-        gap: 14px;
-        align-items: flex-start;
-    }
-
-
-    .sp-other-toggle {
-        background: transparent;
-        border: none;
-        color: rgba(255,255,255,0.4);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.75rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        padding: 4px 2px;
-        transition: color 0.15s;
-    }
-
-    .sp-other-toggle:hover { color: rgba(255,255,255,0.7); }
-
-
-    .search-results-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        flex: 1;
-        overflow-y: auto;
-        padding-right: 4px;
-    }
-
-    .search-result-card {
-        display: flex;
-        align-items: flex-start;
-        gap: 14px;
-        background: var(--tl-divider);
-        border: 1px solid var(--tl-border-subtle);
-        border-radius: 8px;
-        padding: 12px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        position: relative;
-    }
-
-    .search-result-card:hover {
-        background: rgba(255,255,255,0.07);
-        border-color: var(--tl-accent-primary-border);
-    }
-
-    .search-result-card:hover .search-result-img {
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-    }
-
-    .search-result-cover    { flex-shrink: 0; width: 80px; height: 120px; overflow: hidden; border-radius: 4px; }
-    .search-result-img      { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; transition: transform 0.15s ease, box-shadow 0.15s ease; }
-    .search-result-img-placeholder {
-        width: 100%; height: 100%;
-        background: rgba(255,255,255,0.05);
-        border-radius: 4px;
-        display: flex; align-items: center; justify-content: center;
-    }
-
-    .search-result-details {
-        flex: 1; min-width: 0;
-        display: flex; flex-direction: column; gap: 4px;
-    }
-
-    .search-result-title {
-        font-weight: 600; font-size: 0.88rem; color: #fff;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-
-    .search-result-meta       { font-size: 0.76rem; color: var(--tl-text-muted); }
-    .search-result-description {
-        font-size: 0.76rem; color: rgba(255,255,255,0.38); line-height: 1.4;
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
-
-    .search-result-footer {
-        display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 2px;
-    }
-
-
-    .sp-match-signals {
-        display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
-    }
-
-    .sp-signal {
-        font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    }
-
-    .sp-signal-good    { background: var(--tl-status-success-soft);  color: #4CAF50; }
-    .sp-signal-warn    { background: var(--tl-status-warning-soft);  color: var(--tl-status-warning); }
-    .sp-signal-missing { background: rgba(239,83,80,0.12);  color: var(--tl-status-danger); }
-
-
-    .search-no-results {
-        text-align: center; padding: 24px;
-        color: rgba(255,255,255,0.4);
-        display: flex; flex-direction: column; align-items: center; gap: 8px;
-    }
-
-    .sp-did-you-mean {
-        background: none; border: none;
-        color: var(--tl-accent-primary); font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: inherit; cursor: pointer;
-        text-decoration: underline; padding: 0;
-    }
-
-
-    .search-panel-actions {
-        display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-    }
-
-
-    .sp-comparison-view {
-        display: flex; flex-direction: column; gap: 14px;
-        padding-bottom: 80px;
-    }
-
-    .sp-back-link {
-        background: none; border: none;
-        color: var(--tl-text-muted); font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 0.8rem; cursor: pointer;
-        display: flex; align-items: center;
-        padding: 0; transition: color 0.15s;
-    }
-
-    .sp-back-link:hover { color: var(--tl-accent-primary); }
-
-    .sp-comparison-title {
-        font-size: 0.95rem; font-weight: 700; color: var(--tl-text-primary);
-    }
-
-    .sp-comparison-summary {
-        display: flex; gap: 12px; align-items: flex-start;
-    }
-
-    .sp-comparison-side {
-        flex: 1; display: flex; flex-direction: column; align-items: center;
-        gap: 8px; padding: 12px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 8px;
-    }
-
-    .sp-comparison-current  { border-color: rgba(255,255,255,0.1); }
-    .sp-comparison-candidate { border-color: var(--tl-accent-primary-border); }
-
-    .sp-comparison-side-label {
-        font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.08em; color: rgba(255,255,255,0.4);
-    }
-
-    .sp-comparison-cover-wrap { width: 90px; height: 135px; }
-
-    .sp-comparison-cover {
-        width: 100%; height: 100%; object-fit: cover; border-radius: 4px;
-    }
-
-    .sp-comparison-cover-placeholder {
-        width: 100%; height: 100%;
-        background: var(--tl-divider);
-        border-radius: 4px;
-        display: flex; align-items: center; justify-content: center;
-    }
-
-    .sp-comparison-side-title {
-        font-size: 0.82rem; font-weight: 600; color: #fff;
-        text-align: center; line-height: 1.3;
-    }
-
-    .sp-comparison-side-meta {
-        font-size: 0.74rem; color: var(--tl-text-muted); text-align: center;
-    }
-
-    .sp-comparison-arrow {
-        display: flex; align-items: center; padding-top: 60px; flex-shrink: 0;
-    }
-
-
-    .sp-source-attribution {
-        display: flex; align-items: center;
-        font-size: 0.78rem; color: var(--tl-text-muted);
-        padding: 8px 12px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 6px;
-    }
-
-    .sp-qid-pill {
-        font-family: monospace; font-size: 0.7rem;
-        background: var(--tl-accent-primary-soft);
-        color: var(--tl-accent-primary);
-        padding: 1px 6px; border-radius: 3px; margin-left: 4px;
-    }
-
-
-    .sp-wikidata-notice {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 12px;
-        background: var(--tl-accent-primary-soft);
-        border: 1px solid var(--tl-accent-primary-border);
-        border-radius: 6px;
-        margin-bottom: 10px;
-        font-size: 0.72rem;
-        color: rgba(255,255,255,0.7);
-    }
-
-
-    .sp-diff-table {
-        display: flex; flex-direction: column; gap: 0;
-        border: 1px solid var(--tl-border-subtle);
-        border-radius: 8px; overflow: hidden;
-    }
-
-    .sp-diff-header {
-        display: grid;
-        grid-template-columns: 100px 1fr 1fr 40px;
-        background: var(--tl-border-subtle);
-        padding: 8px 12px;
-        font-size: 0.68rem; font-weight: 700;
-        text-transform: uppercase; letter-spacing: 0.06em;
-        color: rgba(255,255,255,0.4);
-    }
-
-    .sp-diff-row {
-        display: grid;
-        grid-template-columns: 100px 1fr 1fr 40px;
-        padding: 8px 12px;
-        border-top: 1px solid rgba(255,255,255,0.05);
-        transition: background 0.1s;
-    }
-
-    .sp-diff-row:hover { background: rgba(255,255,255,0.02); }
-
-    .sp-diff-row-changed {
-        border-left: 3px solid var(--tl-accent-primary-border);
-        padding-left: 9px;
-        background: var(--tl-accent-primary-soft);
-    }
-
-    .sp-diff-col-field  { display: flex; align-items: center; }
-    .sp-diff-col-current, .sp-diff-col-candidate { display: flex; align-items: center; padding: 0 8px; }
-    .sp-diff-col-apply  { display: flex; align-items: center; justify-content: center; }
-
-    .sp-diff-field-name {
-        font-size: 0.74rem; font-weight: 600; color: rgba(255,255,255,0.55);
-    }
-
-    .sp-diff-value { font-size: 0.78rem; color: rgba(255,255,255,0.8); line-height: 1.3; }
-    .sp-diff-empty { color: var(--tl-text-faint); font-style: italic; }
-
-    .sp-diff-checkbox {
-        width: 16px; height: 16px; cursor: pointer;
-        accent-color: var(--tl-accent-primary);
-    }
-
-
-    .sp-cover-chooser {
-        padding: 12px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid var(--tl-border-subtle);
-        border-radius: 8px;
-    }
-
-    .sp-cover-chooser-label {
-        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.06em; color: rgba(255,255,255,0.4);
-        margin-bottom: 10px;
-    }
-
-    .sp-cover-chooser-options { display: flex; gap: 16px; }
-
-    .sp-cover-option {
-        display: flex; flex-direction: column; align-items: center; gap: 6px;
-        cursor: pointer; padding: 8px; border-radius: 6px;
-        border: 2px solid transparent;
-        font-size: 0.74rem; color: rgba(255,255,255,0.55);
-        transition: all 0.15s;
-    }
-
-    .sp-cover-option input { display: none; }
-
-    .sp-cover-option-selected {
-        border-color: var(--tl-accent-primary);
-        background: var(--tl-accent-primary-soft);
-        color: var(--tl-accent-primary);
-    }
-
-    .sp-cover-thumb {
-        width: 60px; height: 90px; object-fit: cover; border-radius: 4px;
-    }
-
-
-    .sp-sticky-bar {
-        position: sticky;
-        bottom: 0;
-        background: rgba(10,10,10,0.95);
-        backdrop-filter: blur(8px);
-        border-top: 1px solid rgba(255,255,255,0.1);
-        padding: 10px 0 6px 0;
-        display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-        z-index: 10;
-    }
-</style>
-
 @code {
     [Parameter] public Guid EntityId { get; set; }
     [Parameter] public string? InitialQuery { get; set; }

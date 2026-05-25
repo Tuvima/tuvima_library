@@ -1,15 +1,23 @@
 @namespace MediaEngine.Web.Components.Shared
 
-<section class="@RootClass">
+<section class="@RootClass"
+         style="@InlineStyle"
+         @onclick="HandleClick"
+         @attributes="AdditionalAttributes">
     @ChildContent
 </section>
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public AppSurfaceDensity Density { get; set; } = AppSurfaceDensity.Normal;
+    [Parameter] public EventCallback OnClick { get; set; }
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? InlineStyle { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string RootClass =>
         string.Join(" ", new[] { "app-panel", $"app-panel--{Density.ToString().ToLowerInvariant()}", Class }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task HandleClick(MouseEventArgs _) => OnClick.InvokeAsync();
 }

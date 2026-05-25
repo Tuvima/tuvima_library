@@ -97,7 +97,7 @@
                           Placeholder="@L["Users_DisplayNamePlaceholder"].Value"
                           MaxLength="50" />
 
-            <AppSelect @bind-Value="_newRole"
+            <AppSelect T="string" @bind-Value="_newRole"
                        Label="@L["Users_RoleLabel"].Value"
                        Options="@RoleOptions" />
 

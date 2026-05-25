@@ -1,0 +1,44 @@
+.collection-toolbar-toggles {
+        display: flex;
+        gap: 4px;
+    }
+
+    .collection-toolbar-tt {
+        width: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 6px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--tl-border-subtle);
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.12s ease;
+        color: var(--tl-text-faint);
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    }
+
+    .collection-toolbar-tt:hover {
+        border-color: var(--tl-border-strong);
+        color: var(--tl-text-muted);
+    }
+
+    .collection-toolbar-tt--on {
+        background: rgba(201, 146, 46, 0.1);
+        border-color: rgba(201, 146, 46, 0.35);
+        color: var(--tl-accent-primary);
+    }
+
+    .collection-toolbar-tt span {
+        font-size: 9px;
+        font-weight: 500;
+        line-height: 1;
+    }
+
+    .collection-toolbar-sep {
+        width: 1px;
+        height: 32px;
+        background: var(--tl-border-subtle);
+        flex-shrink: 0;
+    }

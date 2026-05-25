@@ -148,17 +148,6 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("Local AI runs on this server", localAi, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Source_DoesNotReintroduceVaultWorkflow()
-    {
-        var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
-        var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
-
-        Assert.DoesNotContain("/vault", settings, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Vault", settings, StringComparison.Ordinal);
-        Assert.DoesNotContain("Vault", nav, StringComparison.Ordinal);
-    }
-
     private static string ReadRepoFile(string relativePath) =>
         File.ReadAllText(GetRepoPath(relativePath));
 

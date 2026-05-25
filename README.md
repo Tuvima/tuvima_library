@@ -77,7 +77,7 @@ Tuvima is Early Access, but it is not just a mockup. Current builds include:
 - Local AI model inventory, downloads, load/unload actions, hardware/resource status, feature flags, vocabulary, and schedules where Engine endpoints exist.
 - Plugin listing, enable/disable, settings JSON, dynamic manifests, health checks, and job views for current plugin capabilities.
 - API key/profile management, UI/device/profile settings, activity logs, ingestion dashboards, and review workflows.
-- Library Vault workspace has been removed; current browsing lives on Home, Read, Watch, Listen, Collections, Search, and detail pages.
+- Current browsing lives on Home, Read, Watch, Listen, Collections, Search, and detail pages; Settings/Admin handles configuration and operational review.
 
 For the detailed truth table, see [Product Status](https://tuvima.github.io/tuvima_library/product/status/) and [Feature Truth Inventory](https://tuvima.github.io/tuvima_library/product/feature-truth-inventory/).
 

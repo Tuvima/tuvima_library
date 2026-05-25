@@ -236,7 +236,7 @@ public sealed class UiShellRenderTests : TestContext
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "PlaybackTab.razor"));
 
-        Assert.Contains("<MudTabs", source);
+        Assert.Contains("<AppTabs", source);
         Assert.Contains("settings-tab-strip", source);
         Assert.Contains("settings-summary-strip", source);
         Assert.Contains("settings-field--compact", source);
@@ -340,28 +340,20 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void Source_DoesNotReintroduceVaultWorkflow()
+    public void Source_ExposesCurrentDashboardRoutes()
     {
-        var componentRoot = GetRepoFile("src", "MediaEngine.Web");
-        var files = Directory.EnumerateFiles(componentRoot, "*.*", SearchOption.AllDirectories)
-            .Where(file => file.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)
-                           || file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
-                           || file.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+        var routeSources = Directory
+            .EnumerateFiles(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages"), "*.razor", SearchOption.TopDirectoryOnly)
+            .Select(File.ReadAllText)
+            .ToArray();
 
-        foreach (var file in files)
-        {
-            var source = File.ReadAllText(file);
-            Assert.DoesNotContain("@page \"/vault", source, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotMatch(@"Href\s*=\s*""/vault\b", source);
-            Assert.DoesNotMatch(@"class=""[^""]*\bvault-", source);
-            Assert.DoesNotContain("LibrarySurfacePreset", source);
-            Assert.DoesNotContain("LibraryPage", source);
-        }
-
-        var readme = File.ReadAllText(GetRepoFile("README.md"));
-        Assert.Contains("Library Vault workspace has been removed", readme);
+        Assert.Contains(routeSources, source => source.Contains("@page \"/\"", StringComparison.Ordinal));
+        Assert.Contains(routeSources, source => source.Contains("@page \"/read", StringComparison.Ordinal));
+        Assert.Contains(routeSources, source => source.Contains("@page \"/watch", StringComparison.Ordinal));
+        Assert.Contains(routeSources, source => source.Contains("@page \"/listen", StringComparison.Ordinal));
+        Assert.Contains(routeSources, source => source.Contains("@page \"/collections", StringComparison.Ordinal));
+        Assert.Contains(routeSources, source => source.Contains("@page \"/search", StringComparison.Ordinal));
+        Assert.Contains(routeSources, source => source.Contains("@page \"/settings", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -401,7 +393,7 @@ public sealed class UiShellRenderTests : TestContext
             Assert.DoesNotContain("Playlist", cut.Markup);
             Assert.Contains("Continue browsing", cut.Markup);
             Assert.Contains("Search collections", cut.Markup);
-            Assert.Contains("Recently Updated", cut.Markup);
+            Assert.NotEmpty(cut.FindAll(".app-select"));
             Assert.DoesNotContain("CROSS-MEDIA COLLECTIONS", cut.Markup);
             Assert.DoesNotContain("WATCH COLLECTIONS", cut.Markup);
             Assert.DoesNotContain("LISTEN COLLECTIONS", cut.Markup);
@@ -678,7 +670,7 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Dune", cut.Markup);
             Assert.Contains("Frank Herbert", cut.Markup);
             Assert.NotEmpty(cut.FindAll(".search-results-list"));
-            Assert.NotEmpty(cut.FindAll(".mud-paper"));
+            Assert.NotEmpty(cut.FindAll(".search-result-row"));
             Assert.NotEmpty(cut.FindAll(".mud-link"));
         });
     }

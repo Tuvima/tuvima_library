@@ -22,11 +22,7 @@
             {
                 var track = Tracks[index];
                 var isPlaying = IsCurrentTrack(track);
-                <button type="button"
-                        class="tl-detail-track-row @(isPlaying ? "is-playing" : null)"
-                        role="row"
-                        aria-label="@($"Play {track.Title}")"
-                        @onclick="@(() => PlayTrackAsync(track, index))">
+                <AppNativeButton Type="button" Class="@($"tl-detail-track-row @(isPlaying ? ")" is-playing" : null)" role="row" AriaLabel="@($" Play {track.Title}")" OnClick="@(() => PlayTrackAsync(track, index))">
                     <span class="tl-detail-track-row__number" role="cell">
                         <span class="tl-detail-track-row__ordinal">@DisplayTrackNumber(track, index)</span>
                         <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
@@ -53,7 +49,7 @@
                             <span class="tl-detail-track-row__quality">@track.Quality</span>
                         }
                     </span>
-                </button>
+                </AppNativeButton>
             }
         </div>
     </section>

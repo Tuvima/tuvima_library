@@ -13,7 +13,7 @@
 <NavigationLock ConfirmExternalNavigation="@_hasUnsavedChanges"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
-<MudDialog Class="collection-editor-dialog">
+<AppDialog Class="collection-editor-dialog">
     <DialogContent>
         <AppDialogShell Eyebrow="@DialogEyebrow"
                         Title="@DialogTitle"
@@ -24,7 +24,7 @@
             <ChildContent>
                 @if (VisibleTabs.Length > 1)
                 {
-                    <MudTabs ActivePanelIndex="@ActiveTabIndex"
+                    <AppTabs ActivePanelIndex="@ActiveTabIndex"
                              ActivePanelIndexChanged="OnTabChanged"
                              Rounded="false"
                              Border="false"
@@ -34,7 +34,7 @@
                         {
                             <MudTabPanel Text="@tab.Label" />
                         }
-                    </MudTabs>
+                    </AppTabs>
                 }
 
                 <div class="collection-editor-body">
@@ -67,14 +67,14 @@
                 }
 
                 <div class="collection-editor-footer-actions">
-                    <MudButton Variant="Variant.Text"
+                    <AppButton Variant="Variant.Text"
                                Color="Color.Inherit"
                                Class="collection-editor-btn collection-editor-btn--ghost"
                                OnClick="Cancel"
                                Disabled="@_saving">
                         Cancel
-                    </MudButton>
-                    <MudButton Variant="Variant.Filled"
+                    </AppButton>
+                    <AppButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                Class="collection-editor-btn collection-editor-btn--primary"
                                OnClick="SaveCollection"
@@ -84,13 +84,13 @@
                             <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                         }
                         @(IsPlaylistDialog ? "Create" : SaveButtonText)
-                    </MudButton>
+                    </AppButton>
                 </div>
                 </div>
             </FooterContent>
         </AppDialogShell>
     </DialogContent>
-</MudDialog>
+</AppDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
@@ -852,7 +852,7 @@
                 </label>
             }
 
-            <MudTextField T="string"
+            <AppTextField T="string"
                           Value="_name"
                           ValueChanged="OnNameChanged"
                           Placeholder="Playlist Title"
@@ -860,7 +860,7 @@
                           Immediate="true"
                           Class="collection-editor-field app-dialog-field" />
 
-            <MudTextField T="string"
+            <AppTextField T="string"
                           Value="_description"
                           ValueChanged="OnDescriptionChanged"
                           Placeholder="Description (Optional)"
@@ -872,7 +872,7 @@
             @if (!IsPlaylistDialog)
             {
                 <div class="collection-editor-grid">
-                <MudSelect T="string"
+                <AppSelect T="string"
                            Value="_collectionType"
                            ValueChanged="OnCollectionTypeChanged"
                            Label="Collection type"
@@ -881,9 +881,9 @@
                            Class="collection-editor-field app-dialog-field app-dialog-select">
                     <MudSelectItem T="string" Value="@("Custom")">Collection</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Playlist")">Playlist</MudSelectItem>
-                </MudSelect>
+                </AppSelect>
 
-                <MudTextField T="string"
+                <AppTextField T="string"
                               @bind-Value="_iconName"
                               Label="Icon"
                               Placeholder="Optional MudBlazor icon"
@@ -966,7 +966,7 @@
                     var rule = _rules[idx];
 
                     <div class="collection-editor-rule-row">
-                        <MudSelect T="string"
+                        <AppSelect T="string"
                                    Value="rule.Field"
                                    Variant="Variant.Outlined"
                                    Dense="true"
@@ -978,16 +978,16 @@
                             <MudSelectItem T="string" Value="@("series")">Series</MudSelectItem>
                             <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
                             <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
-                        </MudSelect>
+                        </AppSelect>
 
-                        <MudSelect T="string" @bind-Value="rule.Op" Variant="Variant.Outlined" Dense="true" Class="app-dialog-field app-dialog-select">
+                        <AppSelect T="string" @bind-Value="rule.Op" Variant="Variant.Outlined" Dense="true" Class="app-dialog-field app-dialog-select">
                             @foreach (var op in GetOperatorsForField(rule.Field))
                             {
                                 <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
                             }
-                        </MudSelect>
+                        </AppSelect>
 
-                        <MudTextField T="string"
+                        <AppTextField T="string"
                                       Value="rule.Value"
                                       ValueChanged="@(value => OnRuleValueChanged(rule, value))"
                                       Variant="Variant.Outlined"
@@ -996,8 +996,8 @@
                                       DebounceInterval="350"
                                       Class="collection-editor-rule-input app-dialog-field" />
 
-                        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="@(() => AddRule(idx))" aria-label="Add rule" />
-                        <MudIconButton Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Disabled="@(_rules.Count == 1)" OnClick="@(() => RemoveRule(idx))" aria-label="Remove rule" />
+                        <AppIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="@(() => AddRule(idx))" aria-label="Add rule" />
+                        <AppIconButton Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Disabled="@(_rules.Count == 1)" OnClick="@(() => RemoveRule(idx))" aria-label="Remove rule" />
                     </div>
                 }
             </div>
@@ -1023,7 +1023,7 @@
                 }
                 else
                 {
-                    <MudTextField T="string"
+                    <AppTextField T="string"
                                   Value="_itemSearchText"
                                   ValueChanged="OnItemSearchChanged"
                                   Label="Add items"
@@ -1052,7 +1052,7 @@
                                                 <div class="collection-editor-item-title">@work.Title</div>
                                                 <div class="collection-editor-item-meta">@FormatWorkMeta(work)</div>
                                             </div>
-                                            <MudIconButton Icon="@Icons.Material.Outlined.AddCircle" Size="Size.Small" OnClick="@(() => AddManualItemAsync(work))" aria-label="Add item" />
+                                            <AppIconButton Icon="@Icons.Material.Outlined.AddCircle" Size="Size.Small" OnClick="@(() => AddManualItemAsync(work))" aria-label="Add item" />
                                         </div>
                                     }
                                 </div>
@@ -1079,9 +1079,9 @@
                                                 <div class="collection-editor-item-title">@item.Title</div>
                                                 <div class="collection-editor-item-meta">@FormatManualItemMeta(item)</div>
                                             </div>
-                                            <MudIconButton Icon="@Icons.Material.Outlined.KeyboardArrowUp" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Min(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, -1))" aria-label="Move item up" />
-                                            <MudIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Max(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, 1))" aria-label="Move item down" />
-                                            <MudIconButton Icon="@Icons.Material.Outlined.RemoveCircle" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveManualItemAsync(item))" aria-label="Remove item" />
+                                            <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowUp" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Min(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, -1))" aria-label="Move item up" />
+                                            <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Max(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, 1))" aria-label="Move item down" />
+                                            <AppIconButton Icon="@Icons.Material.Outlined.RemoveCircle" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveManualItemAsync(item))" aria-label="Remove item" />
                                         </div>
                                     }
                                 </div>
@@ -1096,7 +1096,7 @@
                     <div class="collection-editor-note collection-editor-note--tight">
                         <span>The preview below shows what currently matches these rules.</span>
                     </div>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="RunPreview">Refresh preview</MudButton>
+                    <AppButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="RunPreview">Refresh preview</AppButton>
                 </div>
 
                 @if (_previewResult is null)
@@ -1137,18 +1137,18 @@
         <div class="collection-editor-section-title">Options</div>
 
         <div class="collection-editor-grid">
-            <MudSelect T="string" @bind-Value="_sortField" Label="Sort field" Variant="Variant.Outlined" Class="collection-editor-field">
+            <AppSelect T="string" @bind-Value="_sortField" Label="Sort field" Variant="Variant.Outlined" Class="collection-editor-field">
                 <MudSelectItem T="string" Value="@string.Empty">Library default</MudSelectItem>
                 <MudSelectItem T="string" Value="@("title")">Title</MudSelectItem>
                 <MudSelectItem T="string" Value="@("creator")">Creator</MudSelectItem>
                 <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
                 <MudSelectItem T="string" Value="@("added_at")">Date Added</MudSelectItem>
-            </MudSelect>
+            </AppSelect>
 
-            <MudSelect T="string" @bind-Value="_sortDirection" Label="Sort direction" Variant="Variant.Outlined" Class="collection-editor-field">
+            <AppSelect T="string" @bind-Value="_sortDirection" Label="Sort direction" Variant="Variant.Outlined" Class="collection-editor-field">
                 <MudSelectItem T="string" Value="@("asc")">Ascending</MudSelectItem>
                 <MudSelectItem T="string" Value="@("desc")">Descending</MudSelectItem>
-            </MudSelect>
+            </AppSelect>
         </div>
 
         @if (!SupportsManualItems)

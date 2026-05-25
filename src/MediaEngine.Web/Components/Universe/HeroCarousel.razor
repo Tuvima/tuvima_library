@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 @using MediaEngine.Web.Models.ViewDTOs
 
 @if (CurrentItem is not null)
@@ -50,19 +50,19 @@
 
                 @* Action buttons *@
                 <div class="hero-actions">
-                    <button class="hero-cta" @onclick="HandleCta">
+                    <AppNativeButton Class="hero-cta" OnClick="HandleCta">
                         <MudIcon Icon="@MudBlazor.Icons.Material.Filled.PlayArrow"
                                  Size="Size.Small" Style="font-size: 18px;" />
                         @ActionLabel
-                    </button>
-                    <button class="hero-action-btn" @onclick="HandleClick">
+                    </AppNativeButton>
+                    <AppNativeButton Class="hero-action-btn" OnClick="HandleClick">
                         <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.BookmarkBorder"
                                  Size="Size.Small" Style="font-size: 20px;" />
-                    </button>
-                    <button class="hero-action-btn" @onclick="HandleClick">
+                    </AppNativeButton>
+                    <AppNativeButton Class="hero-action-btn" OnClick="HandleClick">
                         <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Info"
                                  Size="Size.Small" Style="font-size: 20px;" />
-                    </button>
+                    </AppNativeButton>
                 </div>
 
                 @* Progress bar *@
@@ -83,8 +83,7 @@
                         @for (var i = 0; i < Items.Count; i++)
                         {
                             var idx = i;
-                            <button class="hero-dot @(i == _currentIndex ? "hero-dot-active" : "")"
-                                    @onclick="() => SetIndex(idx)"></button>
+                            <AppNativeButton Class="@($"hero-dot @(i == _currentIndex ? ")" hero-dot-active" : "")" OnClick="() => SetIndex(idx)"></AppNativeButton>
                         }
                     </div>
                 }
@@ -162,277 +161,3 @@
             await OnCtaClicked.InvokeAsync(CurrentItem);
     }
 }
-
-<style>
-    .hero-carousel {
-        margin-bottom: 4rem;
-        margin-top: 2rem;
-        padding: 0 1.5rem;
-    }
-
-    @@media (min-width: 768px) {
-        .hero-carousel {
-            padding: 0 4rem;
-        }
-    }
-
-    .hero-layout {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2.5rem;
-    }
-
-    @@media (min-width: 768px) {
-        .hero-layout {
-            flex-direction: row;
-            gap: 3.5rem;
-        }
-    }
-
-
-    .hero-cover {
-        position: relative;
-        flex-shrink: 0;
-        height: 320px;
-    }
-
-    @@media (min-width: 768px) {
-        .hero-cover {
-            height: 440px;
-        }
-    }
-
-    .hero-cover-img {
-        height: 100%;
-        border-radius: 16px;
-        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.80);
-        position: relative;
-    }
-
-    .hero-cover-ring {
-        position: absolute;
-        inset: 0;
-        border-radius: 16px;
-        border: 1px solid var(--tl-border-default);
-        pointer-events: none;
-    }
-
-
-    .hero-info {
-        position: relative;
-        z-index: 20;
-        max-width: 48rem;
-        flex-grow: 1;
-        text-align: center;
-        padding: 1rem 0;
-    }
-
-    @@media (min-width: 768px) {
-        .hero-info {
-            text-align: left;
-        }
-    }
-
-
-    .hero-context-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: rgba(201, 146, 46, 0.20);
-        border: 1px solid rgba(201, 146, 46, 0.30);
-        border-radius: 999px;
-        padding: 6px 16px;
-        margin-bottom: 1.5rem;
-    }
-
-    .hero-context-text {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 10px;
-        font-weight: 900;
-        color: var(--tl-accent-primary);
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-    }
-
-
-    .hero-title {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 2.5rem;
-        font-weight: 900;
-        color: white;
-        line-height: 0.85;
-        letter-spacing: -0.05em;
-        margin-bottom: 1.5rem;
-        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.50);
-    }
-
-    @@media (min-width: 768px) {
-        .hero-title {
-            font-size: 4.5rem;
-        }
-    }
-
-    .hero-title-line {
-        display: block;
-    }
-
-
-    .hero-meta {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 12px;
-        font-weight: 700;
-        color: rgba(148, 163, 184, 1);
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        margin-bottom: 2rem;
-        opacity: 0.80;
-    }
-
-    @@media (min-width: 768px) {
-        .hero-meta {
-            justify-content: flex-start;
-        }
-    }
-
-    .hero-meta-dot {
-        width: 4px;
-        height: 4px;
-        background: rgba(71, 85, 105, 1);
-        border-radius: 50%;
-    }
-
-    .hero-meta-rating {
-        border: 1px solid rgba(51, 65, 85, 1);
-        border-radius: 4px;
-        padding: 2px 6px;
-        font-size: 9px;
-    }
-
-
-    .hero-actions {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1.5rem;
-        margin-bottom: 2.5rem;
-    }
-
-    @@media (min-width: 768px) {
-        .hero-actions {
-            flex-direction: row;
-        }
-    }
-
-    .hero-cta {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        background: white;
-        color: black;
-        border: none;
-        border-radius: 999px;
-        padding: 1rem 2.5rem;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 12px;
-        font-weight: 900;
-        cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
-        transition: all 0.2s ease;
-    }
-
-    .hero-cta:hover {
-        background: rgba(226, 232, 240, 1);
-        transform: scale(1.05);
-    }
-
-    .hero-cta:active {
-        transform: scale(0.95);
-    }
-
-    .hero-action-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 48px;
-        height: 48px;
-        background: var(--tl-border-default);
-        border: 1px solid var(--tl-border-default);
-        border-radius: 50%;
-        color: white;
-        cursor: pointer;
-        transition: background 0.2s ease;
-    }
-
-    .hero-action-btn:hover {
-        background: rgba(255, 255, 255, 0.20);
-    }
-
-
-    .hero-progress {
-        width: 100%;
-        max-width: 280px;
-        margin: 0 auto 2rem;
-    }
-
-    @@media (min-width: 768px) {
-        .hero-progress {
-            margin: 0 0 2rem;
-        }
-    }
-
-    .hero-progress-track {
-        height: 2.5px;
-        width: 100%;
-        background: var(--tl-border-default);
-        border-radius: 999px;
-        overflow: hidden;
-    }
-
-    .hero-progress-fill {
-        height: 100%;
-        background: #FFB800;
-        border-radius: 999px;
-        box-shadow: 0 0 15px rgba(255, 184, 0, 0.53);
-        transition: width 1s ease;
-    }
-
-
-    .hero-dots {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        margin-top: 1rem;
-    }
-
-    @@media (min-width: 768px) {
-        .hero-dots {
-            justify-content: flex-start;
-        }
-    }
-
-    .hero-dot {
-        height: 6px;
-        width: 6px;
-        background: rgba(255, 255, 255, 0.20);
-        border: none;
-        border-radius: 999px;
-        cursor: pointer;
-        padding: 0;
-        transition: all 0.5s ease;
-    }
-
-    .hero-dot:hover {
-        background: rgba(255, 255, 255, 0.40);
-    }
-
-    .hero-dot-active {
-        width: 32px;
-        background: var(--tl-accent-primary);
-    }
-</style>

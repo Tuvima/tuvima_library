@@ -1,0 +1,26 @@
+.bento-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+        width: 100%;
+        padding-bottom: 24px;
+    }
+
+
+    @@media (min-width: 960px) {
+        .bento-grid:not([style*="grid-template-columns"]) {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+
+    @@media (max-width: 600px) {
+        .bento-grid:not([style*="grid-template-columns"]) {
+            grid-template-columns: 1fr;
+        }
+
+        .bento-grid .bento-item {
+            grid-column: span 1 !important;
+            grid-row:    span 1 !important;
+        }
+    }

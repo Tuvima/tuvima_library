@@ -11,8 +11,8 @@
                   Value="@Value"
                   ValueChanged="OnValueChanged"
                   Placeholder="@Placeholder"
-                  Variant="Variant.Outlined"
-                  Margin="Margin.Dense"
+                  Variant="@Variant"
+                  Margin="@Margin"
                   InputType="@InputType"
                   Disabled="@Disabled"
                   ReadOnly="@ReadOnly"
@@ -22,8 +22,13 @@
                   Adornment="@Adornment"
                   AdornmentIcon="@AdornmentIcon"
                   OnAdornmentClick="@OnAdornmentClick"
+                  OnKeyDown="@OnKeyDown"
                   OnKeyUp="@OnKeyUp"
-                  Class="app-control app-text-field" />
+                  DebounceInterval="@DebounceInterval"
+                  OnDebounceIntervalElapsed="@OnDebounceIntervalElapsed"
+                  Style="@InlineStyle"
+                  Class="app-control app-text-field"
+                  @attributes="AdditionalAttributes" />
 
     @if (!string.IsNullOrWhiteSpace(HelpText))
     {
@@ -48,9 +53,18 @@
     [Parameter] public Adornment Adornment { get; set; }
     [Parameter] public string? AdornmentIcon { get; set; }
     [Parameter] public EventCallback<MouseEventArgs> OnAdornmentClick { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
     [Parameter] public EventCallback<KeyboardEventArgs> OnKeyUp { get; set; }
+    [Parameter] public double DebounceInterval { get; set; }
+    [Parameter] public EventCallback<string> OnDebounceIntervalElapsed { get; set; }
     [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string? T { get; set; }
+    [Parameter] public Variant Variant { get; set; } = Variant.Outlined;
+    [Parameter] public Margin Margin { get; set; } = Margin.Dense;
+    [Parameter] public bool Dense { get; set; } = true;
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? InlineStyle { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string RootClass =>
         string.Join(" ", new[]

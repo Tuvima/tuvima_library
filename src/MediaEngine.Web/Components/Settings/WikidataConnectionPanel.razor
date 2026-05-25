@@ -9,7 +9,7 @@
 
     <MudGrid>
         <MudItem xs="12" sm="6">
-            <MudTextField @bind-Value="_wikidataApiUrl"
+            <AppTextField @bind-Value="_wikidataApiUrl"
                           Label="Wikidata API"
                           Placeholder="https://www.wikidata.org/w/api.php"
                           Variant="Variant.Outlined"
@@ -20,7 +20,7 @@
                           AdornmentIcon="@Icons.Material.Filled.Api" />
         </MudItem>
         <MudItem xs="12" sm="6">
-            <MudTextField @bind-Value="_sparqlUrl"
+            <AppTextField @bind-Value="_sparqlUrl"
                           Label="SPARQL Endpoint"
                           Placeholder="https://query.wikidata.org/sparql"
                           Variant="Variant.Outlined"
@@ -31,7 +31,7 @@
                           AdornmentIcon="@Icons.Material.Filled.Storage" />
         </MudItem>
         <MudItem xs="12" sm="6">
-            <MudNumericField T="int" @bind-Value="_throttleMs"
+            <AppNumericField T="int" @bind-Value="_throttleMs"
                              Label="Throttle (ms)"
                              Min="0" Max="5000"
                              Variant="Variant.Outlined"
@@ -39,7 +39,7 @@
                              Disabled="@(!IsAdmin)" />
         </MudItem>
         <MudItem xs="12" sm="6">
-            <MudNumericField T="int" @bind-Value="_maxConcurrency"
+            <AppNumericField T="int" @bind-Value="_maxConcurrency"
                              Label="Max Concurrency"
                              Min="1" Max="5"
                              Variant="Variant.Outlined"
@@ -48,7 +48,7 @@
         </MudItem>
     </MudGrid>
 <MudStack Row="true" Spacing="2" Class="mt-3 mb-4">
-        <MudButton Variant="Variant.Outlined"
+        <AppButton Variant="Variant.Outlined"
                    Color="Color.Primary"
                    Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.PlayArrow"
@@ -63,11 +63,11 @@
             {
                 @:Test Connection
             }
-        </MudButton>
+        </AppButton>
     </MudStack>
 @if (TestResult is not null)
     {
-        <MudAlert Severity="@(TestResult.Success ? Severity.Success : Severity.Error)"
+        <AppAlert Severity="@(TestResult.Success ? Severity.Success : Severity.Error)"
                   Class="mb-4"
                   Dense="true">
             @TestResult.Message
@@ -75,7 +75,7 @@
             {
                 <span style="margin-left: 8px; opacity: 0.7;">(@(TestResult.ResponseTimeMs)ms)</span>
             }
-        </MudAlert>
+        </AppAlert>
     }
 <MudDivider Class="mb-3" />
 
@@ -90,9 +90,9 @@
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" Color="Color.Default" />
                     <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Bridge Identifiers</MudText>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                    <AppChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         @_bridges.Count
-                    </MudChip>
+                    </AppChip>
                 </MudStack>
             </TitleContent>
             <ChildContent>
@@ -129,10 +129,10 @@
                                     </MudStack>
                                 </td>
                                 <td>
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                    <AppChip T="string" Size="Size.Small" Color="Color.Default"
                                              Variant="Variant.Text">
                                         @WikidataPropertyDefaults.GetTargetProvider(bridge.PCode)
-                                    </MudChip>
+                                    </AppChip>
                                 </td>
                                 <td>
                                     <code style="font-size: 0.8rem;">@bridge.RequestField</code>
@@ -152,9 +152,9 @@
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" Color="Color.Default" />
                     <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Property Map</MudText>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                    <AppChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
                         @_propertyCount properties
-                    </MudChip>
+                    </AppChip>
                 </MudStack>
             </TitleContent>
             <ChildContent>
@@ -195,11 +195,11 @@
                                             <code style="font-size: 0.8rem;">@prop.ClaimKey</code>
                                             @if (prop.IsBridge)
                                             {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                <AppChip T="string" Size="Size.Small" Color="Color.Warning"
                                                          Variant="Variant.Outlined"
                                                          Style="font-size: 0.65rem;">
                                                     Bridge
-                                                </MudChip>
+                                                </AppChip>
                                             }
                                         </MudStack>
                                     </td>
@@ -210,12 +210,12 @@
                                         <MudText Typo="Typo.body2">@prop.Confidence.ToString("P0")</MudText>
                                     </td>
                                     <td>
-                                        <MudChip T="string" Size="Size.Small"
+                                        <AppChip T="string" Size="Size.Small"
                                                  Variant="Variant.Outlined"
                                                  Color="@(prop.StageApplicability == "Human Collection" ? Color.Success : Color.Info)"
                                                  Style="font-size: 0.6rem;">
                                             @prop.StageApplicability
-                                        </MudChip>
+                                        </AppChip>
                                     </td>
                                 </tr>
                             }
@@ -228,7 +228,7 @@
 @if (IsAdmin)
     {
         <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
-            <MudButton Variant="Variant.Filled"
+            <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        Size="Size.Small"
                        StartIcon="@Icons.Material.Filled.Save"
@@ -243,7 +243,7 @@
                 {
                     @:Save Connection Settings
                 }
-            </MudButton>
+            </AppButton>
         </MudStack>
     }
 </div>
@@ -317,10 +317,3 @@
     }
 
 }
-
-<style>
-    .wikidata-connection-panel {
-        padding-top: 8px;
-    }
-</style>
-

@@ -15,13 +15,9 @@
         <div class="tl-format-switcher" role="tablist" aria-label="Owned formats">
             @foreach (var format in Formats)
             {
-                <button type="button"
-                        role="tab"
-                        aria-selected="@(format.Id == SelectedFormat.Id)"
-                        class="@(format.Id == SelectedFormat.Id ? "is-active" : null)"
-                        @onclick="@(() => SelectFormat(format.Id))">
+                <AppNativeButton Type="button" role="tab" aria-selected="@(format.Id == SelectedFormat.Id)" Class="@(format.Id == SelectedFormat.Id ? " is-active" : null)" OnClick="@(() => SelectFormat(format.Id))">
                     @FormatLabel(format)
-                </button>
+                </AppNativeButton>
             }
         </div>
     }
@@ -50,7 +46,7 @@
                 </div>
                 @foreach (var action in SelectedFormat.Actions.Take(1))
                 {
-                    <button type="button" class="tl-detail-mini-action">@action.Label</button>
+                    <AppNativeButton Type="button" Class="tl-detail-mini-action">@action.Label</AppNativeButton>
                 }
             </div>
         </article>
@@ -60,13 +56,13 @@
             <div class="tl-alternate-formats" aria-label="Alternate formats">
                 @foreach (var format in AlternateFormats)
                 {
-                    <button type="button" class="tl-alternate-format" @onclick="@(() => SelectFormat(format.Id))">
+                    <AppNativeButton Type="button" Class="tl-alternate-format" OnClick="@(() => SelectFormat(format.Id))">
                         @if (!string.IsNullOrWhiteSpace(format.CoverUrl))
                         {
                             <img src="@format.CoverUrl" alt="@format.DisplayName" />
                         }
                         <span>@FormatLabel(format)</span>
-                    </button>
+                    </AppNativeButton>
                 }
             </div>
         }
@@ -100,7 +96,7 @@
                     <p>@FormatSummary(format)</p>
                     @foreach (var action in format.Actions.Take(1))
                     {
-                        <button type="button" class="tl-detail-mini-action">@action.Label</button>
+                        <AppNativeButton Type="button" Class="tl-detail-mini-action">@action.Label</AppNativeButton>
                     }
                 </div>
             </article>

@@ -16,9 +16,9 @@
         </div>
         @if (CanToggle(group))
         {
-            <button type="button" class="tl-credit-group__toggle" @onclick="@(() => ToggleGroup(group))">
+            <AppNativeButton Type="button" Class="tl-credit-group__toggle" OnClick="@(() => ToggleGroup(group))">
                 @ToggleLabel(group)
-            </button>
+            </AppNativeButton>
         }
     </section>
 }

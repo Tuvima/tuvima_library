@@ -1,4 +1,4 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.LibraryItems
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
@@ -20,13 +20,8 @@
 
         @* Search input row *@
         <div class="isearch-input-row">
-            <input class="isearch-input isearch-input--muted"
-                   type="text"
-                   placeholder="Search to update the canonical choice..."
-                   @bind="_query"
-                   @bind:event="oninput"
-                   @onkeydown="HandleSearchKeyDown" />
-            <select class="isearch-type-select" @bind="_mediaType">
+            <AppNativeInput Class="isearch-input isearch-input--muted" Type="text" Placeholder="Search to update the canonical choice..." @bind="_query" @bind:event="oninput" OnKeyDown="HandleSearchKeyDown" />
+            <AppNativeSelect Class="isearch-type-select" @bind="_mediaType">
                 <option value="">Any</option>
                 <option value="Books">Book</option>
                 <option value="Audiobooks">Audiobook</option>
@@ -34,8 +29,8 @@
                 <option value="TV">TV</option>
                 <option value="Music">Music</option>
                 <option value="Comics">Comic</option>
-            </select>
-            <button class="isearch-btn" @onclick="RunSearch" disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
+            </AppNativeSelect>
+            <AppNativeButton Class="isearch-btn" OnClick="RunSearch" Disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
                 @if (_searching)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
@@ -45,7 +40,7 @@
                 {
                     <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
                 }
-            </button>
+            </AppNativeButton>
         </div>
 
         @* Hint *@
@@ -185,7 +180,7 @@
     <div class="isearch-actions-section">
         @if (_selectedCandidate is not null)
         {
-            <button class="isearch-btn-register" @onclick="RegisterSelected" disabled="@_registering">
+            <AppNativeButton Class="isearch-btn-register" OnClick="RegisterSelected" Disabled="@_registering">
                 @if (_registering)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
@@ -196,22 +191,21 @@
                     <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 14px;" />
                 }
                 <span>Apply '@TruncateTitle(_selectedCandidate.Title)' as canonical</span>
-            </button>
+            </AppNativeButton>
         }
         else
         {
-            <button class="isearch-btn-register isearch-btn-register--disabled" disabled>
+            <AppNativeButton Class="isearch-btn-register isearch-btn-register--disabled" Disabled="true">
                 <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 14px;" />
                 <span>Select a candidate to apply canonically</span>
-            </button>
+            </AppNativeButton>
         }
 
-        <button class="isearch-btn-unmatch @(_confirmingUnmatch ? "isearch-btn-unmatch--confirming" : "")"
-                @onclick="HandleUnmatchClick" disabled="@_registering">
+        <AppNativeButton Class="@($"isearch-btn-unmatch @(_confirmingUnmatch ? ")" isearch-btn-unmatch--confirming" : "")" OnClick="HandleUnmatchClick" Disabled="@_registering">
             <MudIcon Icon="@(_confirmingUnmatch ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.LinkOff)"
                      Style="font-size: 14px;" />
             <span>@(_confirmingUnmatch ? "Are you sure?" : "Unmatch")</span>
-        </button>
+        </AppNativeButton>
 
         @* Registration result *@
         @if (!string.IsNullOrEmpty(_resultMessage))
@@ -229,13 +223,8 @@ else
 <div class="isearch-workspace">
         <h3 class="isearch-heading">Find Match</h3>
 <div class="isearch-search-row">
-            <input class="isearch-input isearch-input--primary"
-                   type="text"
-                   placeholder="Search title, author, ISBN..."
-                   @bind="_query"
-                   @bind:event="oninput"
-                   @onkeydown="HandleSearchKeyDown" />
-            <select class="isearch-type-select isearch-type-select--primary" @bind="_mediaType">
+            <AppNativeInput Class="isearch-input isearch-input--primary" Type="text" Placeholder="Search title, author, ISBN..." @bind="_query" @bind:event="oninput" OnKeyDown="HandleSearchKeyDown" />
+            <AppNativeSelect Class="isearch-type-select isearch-type-select--primary" @bind="_mediaType">
                 <option value="">Any</option>
                 <option value="Books">Book</option>
                 <option value="Audiobooks">Audiobook</option>
@@ -243,8 +232,8 @@ else
                 <option value="TV">TV</option>
                 <option value="Music">Music</option>
                 <option value="Comics">Comic</option>
-            </select>
-            <button class="isearch-search-btn" @onclick="RunSearch" disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
+            </AppNativeSelect>
+            <AppNativeButton Class="isearch-search-btn" OnClick="RunSearch" Disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
                 @if (_searching)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
@@ -255,7 +244,7 @@ else
                     <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px;" />
                     <span>Search</span>
                 }
-            </button>
+            </AppNativeButton>
         </div>
 <span class="isearch-search-hint">
             @if (!_hasSearched)
@@ -400,10 +389,9 @@ else
 
                         @if (isSelected)
                         {
-                            <button class="isearch-result-select-btn"
-                                    @onclick:stopPropagation="true">
+                            <AppNativeButton Class="isearch-result-select-btn" StopPropagation="true">
                                 <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px; color: var(--tl-status-info);" />
-                            </button>
+                            </AppNativeButton>
                         }
                     </div>
                 }
@@ -452,8 +440,7 @@ else
 <div class="isearch-workspace-actions">
         @if (_selectedCandidate is not null)
         {
-            <button class="isearch-action-accept @(_confirmingRegister ? "isearch-action--confirming" : "")"
-                    @onclick="HandleRegisterClick" disabled="@_registering">
+            <AppNativeButton Class="@($"isearch-action-accept @(_confirmingRegister ? ")" isearch-action--confirming" : "")" OnClick="HandleRegisterClick" Disabled="@_registering">
                 @if (_registering)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true"
@@ -480,29 +467,28 @@ else
                     <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
                     <span>Accept Match</span>
                 }
-            </button>
+            </AppNativeButton>
         }
         else
         {
-            <button class="isearch-action-accept isearch-action-accept--disabled" disabled>
+            <AppNativeButton Class="isearch-action-accept isearch-action-accept--disabled" Disabled="true">
                 <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 14px;" />
                 <span>Select a candidate to register</span>
-            </button>
+            </AppNativeButton>
         }
 
         @if (!_resultSuccess)
         {
-            <button class="isearch-action-provisional" @onclick="HandleProvisionalClick" disabled="@_registering">
+            <AppNativeButton Class="isearch-action-provisional" OnClick="HandleProvisionalClick" Disabled="@_registering">
                 <MudIcon Icon="@Icons.Material.Outlined.EditNote" Style="font-size: 14px;" />
                 <span>Mark Provisional</span>
-            </button>
+            </AppNativeButton>
 
-            <button class="isearch-action-reject @(_confirmingReject ? "isearch-action--confirming" : "")"
-                    @onclick="HandleRejectClick" disabled="@_registering">
+            <AppNativeButton Class="@($"isearch-action-reject @(_confirmingReject ? ")" isearch-action--confirming" : "")" OnClick="HandleRejectClick" Disabled="@_registering">
                 <MudIcon Icon="@(_confirmingReject ? Icons.Material.Outlined.Warning : Icons.Material.Outlined.Block)"
                          Style="font-size: 14px;" />
                 <span>@(_confirmingReject ? "Are you sure?" : "Reject")</span>
-            </button>
+            </AppNativeButton>
         }
 
         @if (!string.IsNullOrEmpty(_resultMessage))
@@ -910,1010 +896,3 @@ else
         public Dictionary<string, string> RawFields { get; set; } = [];
     }
 }
-
-<style>
-
-    .isearch-section {
-        padding: 12px 16px;
-        border-top: none;
-    }
-
-    .isearch-section-label {
-        display: block;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        color: rgba(200, 190, 220, 0.30);
-        margin-bottom: 10px;
-    }
-
-
-    .isearch-matched-banner {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 10px;
-        border-radius: 8px;
-        background: rgba(93, 202, 165, 0.06);
-        border: 1px solid var(--tl-status-success-soft);
-        font-size: 11px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.50);
-        margin-bottom: 10px;
-    }
-
-
-    .isearch-input-row {
-        display: flex;
-        gap: 6px;
-        margin-bottom: 6px;
-    }
-
-    .isearch-input {
-        flex: 1;
-        min-width: 0;
-        padding: 6px 10px;
-        border-radius: 8px;
-        border: 1px solid var(--tl-accent-primary-border);
-        background: var(--tl-accent-primary-soft);
-        color: var(--tl-text-primary);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 12px;
-        font-weight: 400;
-        outline: none;
-        transition: border-color 0.15s ease;
-    }
-
-    .isearch-input:focus {
-        border-color: rgba(201, 146, 46, 0.45);
-    }
-
-    .isearch-input::placeholder {
-        color: rgba(200, 190, 220, 0.25);
-        font-weight: 300;
-    }
-
-    .isearch-input--muted {
-        opacity: 0.7;
-    }
-
-    .isearch-type-select {
-        width: 72px;
-        padding: 6px 4px;
-        border-radius: 8px;
-        border: 1px solid var(--tl-accent-primary-border);
-        background: var(--tl-accent-primary-soft);
-        color: rgba(200, 190, 220, 0.65);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 11px;
-        font-weight: 400;
-        outline: none;
-        cursor: pointer;
-        -webkit-appearance: none;
-    }
-
-    .isearch-type-select option {
-        background: #0e0b1a;
-        color: var(--tl-text-primary);
-    }
-
-    .isearch-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        flex-shrink: 0;
-        border-radius: 8px;
-        border: 1px solid var(--tl-accent-primary-border);
-        background: var(--tl-accent-primary-soft);
-        color: rgba(200, 190, 220, 0.55);
-        cursor: pointer;
-        transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    .isearch-btn:hover:not(:disabled) {
-        background: var(--tl-accent-primary-border);
-        border-color: rgba(140, 120, 180, 0.25);
-    }
-
-    .isearch-btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-
-
-    .isearch-hint {
-        display: block;
-        font-size: 11px;
-        font-weight: 300;
-        color: rgba(200, 190, 220, 0.30);
-        margin-bottom: 10px;
-    }
-
-    .isearch-hint--empty {
-        color: rgba(239, 159, 39, 0.55);
-    }
-
-
-    .isearch-candidates {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-
-    }
-
-    .isearch-card {
-        display: flex;
-        gap: 10px;
-        padding: 10px;
-        border-radius: 12px;
-        background: var(--tl-accent-primary-soft);
-        border: 1px solid var(--tl-accent-primary-soft);
-        cursor: pointer;
-        transition: border-color 0.15s ease, background 0.15s ease;
-        position: relative;
-    }
-
-    .isearch-card:hover {
-        background: rgba(140, 120, 180, 0.09);
-        border-color: var(--tl-accent-primary-border);
-    }
-
-    .isearch-card--selected {
-        border-color: rgba(74, 144, 217, 0.55);
-        background: rgba(74, 144, 217, 0.06);
-    }
-
-    .isearch-card--selected:hover {
-        border-color: var(--tl-status-info-border);
-    }
-
-
-    .isearch-card-cover {
-        width: 48px;
-        height: 72px;
-        border-radius: 6px;
-        object-fit: cover;
-        flex-shrink: 0;
-    }
-
-
-    .isearch-card-cover--square {
-        height: 48px;
-    }
-
-    .isearch-card-cover--placeholder {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--tl-accent-primary-soft);
-        border: 1px solid var(--tl-accent-primary-soft);
-    }
-
-
-    .isearch-card-body {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .isearch-card-title {
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--tl-text-primary);
-        line-height: 1.3;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-    }
-
-    .isearch-card-author {
-        font-size: 11px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.45);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .isearch-card-desc {
-        font-size: 11px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.30);
-        line-height: 1.4;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-    }
-
-    .isearch-card-desc--full {
-        font-size: 11px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.45);
-        line-height: 1.5;
-        max-height: 200px;
-        overflow-y: auto;
-        padding-right: 4px;
-    }
-
-    .isearch-card-desc--full :deep(p) {
-        margin: 0 0 6px 0;
-    }
-
-    .isearch-card-desc--full :deep(br) {
-        display: block;
-        content: "";
-        margin-top: 4px;
-    }
-
-    .isearch-card-desc-toggle {
-        display: block;
-        background: none;
-        border: none;
-        padding: 0;
-        margin: 2px 0 0 0;
-        cursor: pointer;
-        font-size: 10px;
-        font-weight: 500;
-        color: rgba(74, 144, 217, 0.7);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-
-    .isearch-card-desc-toggle:hover {
-        color: rgba(74, 144, 217, 1.0);
-    }
-
-    .isearch-card-desc-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 4px;
-    }
-
-    .isearch-card-footer {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 2px;
-    }
-
-    .isearch-card-year {
-        font-size: 11px;
-        font-weight: 300;
-        color: rgba(200, 190, 220, 0.35);
-    }
-
-    .isearch-card-qid {
-        font-size: 11px;
-        font-weight: 500;
-        color: var(--tl-status-warning);
-        font-variant-numeric: tabular-nums;
-    }
-
-    .isearch-card-wiki {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        font-size: 10px;
-        font-weight: 500;
-        color: rgba(74, 144, 217, 0.60);
-        text-decoration: none;
-        transition: color 0.15s ease;
-    }
-
-    .isearch-card-wiki:hover {
-        color: rgba(74, 144, 217, 0.90);
-    }
-
-    .isearch-card-conf {
-        font-size: 11px;
-        font-weight: 500;
-        font-variant-numeric: tabular-nums;
-    }
-
-    .isearch-card-provider {
-        font-size: 10px;
-        color: rgba(200, 190, 220, 0.4);
-        text-transform: capitalize;
-    }
-
-    .isearch-card-matches {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        margin-top: 4px;
-    }
-
-    .isearch-card-match-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        font-size: 10px;
-        padding: 1px 6px;
-        border: 1px solid;
-        border-radius: 8px;
-        text-transform: capitalize;
-    }
-
-    .isearch-card-check {
-        position: absolute;
-        top: 6px;
-        right: 6px;
-    }
-
-
-    .isearch-file-hints {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 6px;
-        padding: 8px 12px;
-        margin: 0 4px 8px;
-        background: rgba(74, 144, 217, 0.08);
-        border: 1px solid rgba(74, 144, 217, 0.15);
-        border-radius: 6px;
-    }
-
-    .isearch-file-hints-label {
-        font-size: 11px;
-        color: rgba(200, 190, 220, 0.6);
-        font-weight: 500;
-    }
-
-    .isearch-file-hint-pill {
-        display: inline-flex;
-        gap: 4px;
-        font-size: 11px;
-        padding: 2px 8px;
-        background: rgba(74, 144, 217, 0.12);
-        border-radius: 10px;
-    }
-
-    .isearch-file-hint-key {
-        color: rgba(200, 190, 220, 0.5);
-    }
-
-    .isearch-file-hint-val {
-        color: rgba(200, 190, 220, 0.9);
-        font-weight: 500;
-    }
-
-
-    .isearch-actions-section {
-        padding: 12px 16px;
-        border-top: 1px solid var(--tl-accent-primary-soft);
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .isearch-btn-register {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 14px;
-        border-radius: 8px;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: opacity 0.15s ease, background 0.15s ease;
-        width: 100%;
-        justify-content: center;
-        background: var(--tl-status-success-soft);
-        border: 1px solid rgba(93, 202, 165, 0.25);
-        color: rgba(93, 202, 165, 0.90);
-    }
-
-    .isearch-btn-register:hover:not(:disabled) {
-        background: var(--tl-status-success-soft);
-    }
-
-    .isearch-btn-register:disabled {
-        cursor: not-allowed;
-        opacity: 0.6;
-    }
-
-    .isearch-btn-register--disabled {
-        background: rgba(93, 202, 165, 0.06);
-        border: 1px solid var(--tl-status-success-soft);
-        color: var(--tl-status-success-border);
-    }
-
-
-    .isearch-secondary-actions {
-        display: flex;
-        gap: 6px;
-    }
-
-    .isearch-btn-provisional {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        padding: 7px 0;
-        border-radius: 8px;
-        border: 1px solid rgba(140, 120, 180, 0.2);
-        background: var(--tl-accent-primary-soft);
-        color: rgba(192, 184, 224, 0.7);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 11px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background 0.15s ease;
-    }
-
-    .isearch-btn-provisional:hover:not(:disabled) {
-        background: var(--tl-accent-primary-border);
-    }
-
-    .isearch-btn-provisional:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .isearch-btn-reject {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        padding: 7px 0;
-        border-radius: 8px;
-        border: 1px solid rgba(226, 75, 74, 0.2);
-        background: transparent;
-        color: rgba(226, 75, 74, 0.6);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 11px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background 0.15s ease;
-    }
-
-    .isearch-btn-reject:hover:not(:disabled) {
-        background: rgba(226, 75, 74, 0.08);
-    }
-
-    .isearch-btn-reject:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-
-    .isearch-btn-unmatch {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        padding: 7px 0;
-        border-radius: 8px;
-        border: 1px solid rgba(226, 75, 74, 0.2);
-        background: transparent;
-        color: rgba(226, 75, 74, 0.6);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 11px;
-        font-weight: 500;
-        cursor: pointer;
-        width: 100%;
-        transition: background 0.15s ease;
-    }
-
-    .isearch-btn-unmatch:hover:not(:disabled) {
-        background: rgba(226, 75, 74, 0.08);
-    }
-
-    .isearch-btn-unmatch:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-
-    .isearch-result {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 10px;
-        border-radius: 8px;
-        font-size: 11px;
-        font-weight: 400;
-    }
-
-    .isearch-result--ok {
-        background: rgba(93, 202, 165, 0.08);
-        color: rgba(93, 202, 165, 0.85);
-    }
-
-    .isearch-result--err {
-        background: rgba(239, 83, 80, 0.08);
-        color: rgba(239, 83, 80, 0.85);
-    }
-
-
-    .isearch-btn-reject--confirming {
-        background: rgba(211, 47, 47, 0.25) !important;
-        border-color: rgba(211, 47, 47, 0.5) !important;
-        animation: pulse-confirm 1s ease-in-out infinite;
-    }
-
-    .isearch-btn-register--confirming {
-        background: rgba(255, 183, 77, 0.20) !important;
-        border-color: rgba(255, 183, 77, 0.4) !important;
-        animation: pulse-confirm 1s ease-in-out infinite;
-    }
-
-    .isearch-btn-unmatch--confirming {
-        background: rgba(211, 47, 47, 0.20) !important;
-        border-color: rgba(211, 47, 47, 0.4) !important;
-        animation: pulse-confirm 1s ease-in-out infinite;
-    }
-
-    @@keyframes pulse-confirm {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-    }
-
-
-    .isearch-workspace {
-        padding: 20px 20px 0;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
-
-    .isearch-heading {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--tl-text-primary);
-        margin: 0;
-    }
-
-
-    .isearch-search-row {
-        display: flex;
-        gap: 8px;
-    }
-
-    .isearch-input--primary {
-        flex: 1;
-        min-width: 0;
-        padding: 10px 14px;
-        height: 40px;
-        border-radius: 8px;
-        border: 1px solid var(--tl-accent-primary-border);
-        background: var(--tl-accent-primary-soft);
-        color: var(--tl-text-primary);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 14px;
-        font-weight: 400;
-        outline: none;
-        transition: border-color 0.15s ease;
-        box-sizing: border-box;
-    }
-
-    .isearch-input--primary:focus {
-        border-color: rgba(201, 146, 46, 0.50);
-    }
-
-    .isearch-input--primary::placeholder {
-        color: rgba(200, 190, 220, 0.30);
-        font-weight: 300;
-    }
-
-    .isearch-type-select--primary {
-        width: 90px;
-        height: 40px;
-        padding: 8px 8px;
-        border-radius: 8px;
-        border: 1px solid var(--tl-accent-primary-border);
-        background: var(--tl-accent-primary-soft);
-        color: rgba(200, 190, 220, 0.70);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 12px;
-        font-weight: 400;
-        outline: none;
-        cursor: pointer;
-        -webkit-appearance: none;
-        box-sizing: border-box;
-    }
-
-    .isearch-type-select--primary option {
-        background: #0e0b1a;
-        color: var(--tl-text-primary);
-    }
-
-    .isearch-search-btn {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 0 16px;
-        height: 40px;
-        border-radius: 8px;
-        border: 1px solid var(--tl-accent-primary-border);
-        background: var(--tl-accent-primary-soft);
-        color: rgba(200, 190, 220, 0.70);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background 0.15s ease, border-color 0.15s ease;
-        flex-shrink: 0;
-        box-sizing: border-box;
-    }
-
-    .isearch-search-btn:hover:not(:disabled) {
-        background: var(--tl-accent-primary-border);
-        border-color: var(--tl-accent-primary-border);
-    }
-
-    .isearch-search-btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-
-
-    .isearch-search-hint {
-        display: block;
-        font-size: 12px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.35);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    }
-
-    .isearch-search-hint--empty {
-        color: rgba(239, 159, 39, 0.55);
-    }
-
-
-    .isearch-results-list {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        max-height: 260px;
-        overflow-y: auto;
-    }
-
-    .isearch-result-item {
-        display: flex;
-        gap: 12px;
-        padding: 14px 16px;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: background 0.12s ease;
-        position: relative;
-        align-items: flex-start;
-    }
-
-    .isearch-result-item:hover {
-        background: rgba(255, 255, 255, 0.03);
-    }
-
-    .isearch-result-item--selected {
-        background: rgba(74, 144, 217, 0.06);
-    }
-
-    .isearch-result-item--selected:hover {
-        background: rgba(74, 144, 217, 0.09);
-    }
-
-
-    .isearch-result-cover {
-        width: 48px;
-        height: 72px;
-        border-radius: 6px;
-        object-fit: cover;
-        flex-shrink: 0;
-    }
-
-
-    .isearch-result-cover--square {
-        height: 48px;
-    }
-
-    .isearch-result-cover--placeholder {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--tl-accent-primary-soft);
-        border: 1px solid var(--tl-accent-primary-soft);
-    }
-
-    .isearch-result-body {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-
-    .isearch-result-title {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--tl-text-primary);
-        line-height: 1.35;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-    }
-
-    .isearch-result-desc {
-        font-size: 12px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.35);
-        line-height: 1.4;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-    }
-
-    .isearch-result-meta {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 2px;
-    }
-
-    .isearch-result-qid {
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--tl-status-warning);
-        font-variant-numeric: tabular-nums;
-    }
-
-    .isearch-result-wiki {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        font-size: 11px;
-        font-weight: 500;
-        color: rgba(74, 144, 217, 0.75);
-        text-decoration: none;
-        transition: color 0.12s ease;
-    }
-
-    .isearch-result-wiki:hover {
-        color: rgba(74, 144, 217, 1);
-    }
-
-    .isearch-result-year {
-        font-size: 11px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.35);
-    }
-
-
-    .isearch-result-signals {
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        align-self: center;
-        min-width: 80px;
-    }
-
-    .isearch-signal {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 11px;
-        font-weight: 500;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-    }
-
-    .isearch-signal--match {
-        color: var(--tl-status-success);
-    }
-
-    .isearch-signal--warn {
-        color: var(--tl-status-warning);
-    }
-
-    .isearch-signal--miss {
-        color: rgba(239, 83, 80, 0.6);
-    }
-
-    .isearch-result-select-btn {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        padding: 0;
-    }
-
-
-    .isearch-comparison {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 24px;
-        padding: 16px 0 0;
-    }
-
-    .isearch-comparison-col {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .isearch-comparison-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: rgba(200, 190, 220, 0.50);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
-    }
-
-    .isearch-comparison-field {
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-    }
-
-    .isearch-comparison-key {
-        font-size: 10px;
-        font-weight: 500;
-        color: rgba(200, 190, 220, 0.30);
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-    }
-
-    .isearch-comparison-val {
-        font-size: 13px;
-        font-weight: 400;
-        color: rgba(200, 190, 220, 0.70);
-    }
-
-    .isearch-comparison-val--match {
-        color: rgba(93, 202, 165, 0.80);
-    }
-
-    .isearch-comparison-val--warn {
-        color: rgba(239, 159, 39, 0.80);
-    }
-
-
-    .isearch-workspace-actions {
-        display: flex;
-        gap: 12px;
-        padding: 16px 20px 20px;
-        align-items: center;
-    }
-
-    .isearch-action-accept {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px 20px;
-        border-radius: 8px;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: opacity 0.15s ease, background 0.15s ease;
-        background: var(--tl-status-success-soft);
-        border: 1px solid rgba(93, 202, 165, 0.30);
-        color: rgba(93, 202, 165, 0.90);
-    }
-
-    .isearch-action-accept:hover:not(:disabled) {
-        background: rgba(93, 202, 165, 0.22);
-    }
-
-    .isearch-action-accept:disabled {
-        cursor: not-allowed;
-        opacity: 0.6;
-    }
-
-    .isearch-action-accept--disabled {
-        background: rgba(93, 202, 165, 0.06);
-        border: 1px solid var(--tl-status-success-soft);
-        color: var(--tl-status-success-border);
-    }
-
-    .isearch-action-provisional {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        padding: 10px 16px;
-        border-radius: 8px;
-        border: 1px solid var(--tl-accent-primary-border);
-        background: transparent;
-        color: rgba(192, 184, 224, 0.70);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background 0.15s ease;
-    }
-
-    .isearch-action-provisional:hover:not(:disabled) {
-        background: var(--tl-accent-primary-soft);
-    }
-
-    .isearch-action-provisional:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .isearch-action-reject {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        padding: 10px 16px;
-        border-radius: 8px;
-        border: none;
-        background: transparent;
-        color: rgba(226, 75, 74, 0.65);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background 0.15s ease;
-    }
-
-    .isearch-action-reject:hover:not(:disabled) {
-        background: rgba(226, 75, 74, 0.08);
-    }
-
-    .isearch-action-reject:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .isearch-action--confirming {
-        animation: pulse-confirm 1s ease-in-out infinite;
-    }
-
-
-    .isearch-cover-hover-wrap {
-        position: relative;
-        flex-shrink: 0;
-        cursor: pointer;
-    }
-
-
-    .isearch-file-banner {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 4px;
-        padding: 6px 10px;
-        margin-bottom: 8px;
-        border-radius: 6px;
-        background: var(--tl-accent-primary-soft);
-        border: 1px solid var(--tl-accent-primary-border);
-        font-size: 11px;
-        line-height: 1.4;
-    }
-
-    .isearch-file-banner-label {
-        font-weight: 600;
-        color: rgba(200, 190, 220, 0.45);
-        letter-spacing: 0.3px;
-        margin-right: 2px;
-    }
-
-    .isearch-file-banner-val {
-        color: rgba(200, 190, 220, 0.75);
-    }
-
-    .isearch-file-banner-narrator {
-        color: rgba(180, 160, 220, 0.70);
-        font-style: italic;
-    }
-
-    .isearch-file-banner-sep {
-        color: rgba(200, 190, 220, 0.25);
-    }
-</style>

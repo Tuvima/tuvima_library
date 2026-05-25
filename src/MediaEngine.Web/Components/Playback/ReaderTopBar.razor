@@ -1,8 +1,8 @@
-﻿@namespace MediaEngine.Web.Components.Playback
+@namespace MediaEngine.Web.Components.Playback
 
 <div class="reader-top-bar @(Visible ? "visible" : "")">
     <div class="reader-top-left">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+        <AppIconButton Icon="@Icons.Material.Filled.ArrowBack"
                        Color="Color.Inherit"
                        OnClick="OnBack" />
         <div class="reader-title-group">
@@ -11,19 +11,19 @@
         </div>
     </div>
     <div class="reader-top-right">
-        <MudIconButton Icon="@Icons.Material.Filled.Bookmark"
+        <AppIconButton Icon="@Icons.Material.Filled.Bookmark"
                        Color="Color.Inherit"
                        OnClick="OnToggleBookmarks"
                        title="Bookmarks (B)" />
-        <MudIconButton Icon="@Icons.Material.Filled.Search"
+        <AppIconButton Icon="@Icons.Material.Filled.Search"
                        Color="Color.Inherit"
                        OnClick="OnToggleSearch"
                        title="Search (Ctrl+F)" />
-        <MudIconButton Icon="@Icons.Material.Filled.FormatListBulleted"
+        <AppIconButton Icon="@Icons.Material.Filled.FormatListBulleted"
                        Color="Color.Inherit"
                        OnClick="OnToggleToc"
                        title="Table of Contents (T)" />
-        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+        <AppIconButton Icon="@Icons.Material.Filled.Settings"
                        Color="Color.Inherit"
                        OnClick="OnToggleSettings"
                        title="Settings" />

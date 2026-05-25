@@ -27,7 +27,7 @@
                 <AppSwitchRow @bind-Value="_fallbackToHls"
                               Label="Fallback to HLS"
                               Disabled="true" />
-                <AppSelect @bind-Value="_defaultStreamingMode"
+                <AppSelect T="string" @bind-Value="_defaultStreamingMode"
                            Label="Default streaming mode"
                            Options="@StreamingModeOptions"
                            Disabled="true" />
@@ -47,14 +47,14 @@
                 <AppSwitchRow @bind-Value="_extractSubtitles"
                               Label="Subtitle extraction"
                               Disabled="true" />
-                <AppSelect @bind-Value="_subtitleBurnInPolicy"
+                <AppSelect T="string" @bind-Value="_subtitleBurnInPolicy"
                            Label="Subtitle burn-in policy"
                            Options="@SubtitlePolicyOptions"
                            Disabled="true" />
                 <AppSwitchRow @bind-Value="_audioPassthrough"
                               Label="Default audio passthrough"
                               Disabled="true" />
-                <AppSelect @bind-Value="_languageFallback"
+                <AppSelect T="string" @bind-Value="_languageFallback"
                            Label="Language fallback"
                            Options="@LanguageFallbackOptions"
                            Disabled="true" />

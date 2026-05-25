@@ -23,8 +23,9 @@ public sealed class CollectionsHubTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor"));
         var heroSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseHero.razor"));
+        var heroStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseHero.razor.css"));
         var browseShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor"));
-        var browseShellStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\BrowseShellStyles.razor"));
+        var browseShellStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\BrowseShellStyles.razor.css"));
 
         Assert.Contains("GetCollectionManagementCatalogAsync", source, StringComparison.Ordinal);
         Assert.Contains("<BrowseShellStyles", source, StringComparison.Ordinal);
@@ -52,22 +53,23 @@ public sealed class CollectionsHubTests
         Assert.Contains("SecondaryAccentColor = secondaryAccentColor", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Mode = type == \"Playlist\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaKind = \"Playlist\"", source, StringComparison.Ordinal);
-        Assert.Contains("browse-hero__carousel", heroSource, StringComparison.Ordinal);
+        Assert.Contains("browse-hero__carousel", heroStylesSource, StringComparison.Ordinal);
         Assert.Contains("FooterContent", heroSource, StringComparison.Ordinal);
         var cardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\DiscoveryCard.razor"));
+        var cardStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\DiscoveryCard.razor.css"));
         Assert.Contains("is-collection-card", cardSource, StringComparison.Ordinal);
         Assert.Contains("--discovery-secondary-accent", cardSource, StringComparison.Ordinal);
         Assert.Contains("<TuvimaArtworkStack", cardSource, StringComparison.Ordinal);
         Assert.Contains("CollectionArtworkStackItems", cardSource, StringComparison.Ordinal);
         Assert.Contains("discovery-card-collection-copy", cardSource, StringComparison.Ordinal);
         Assert.Contains("ShowMediaKindBadge => !ShowCollectionBanner", cardSource, StringComparison.Ordinal);
-        Assert.Contains("16 / 7.25", cardSource, StringComparison.Ordinal);
-        Assert.Contains("discovery-card-artwork-stack--collection-tile", cardSource, StringComparison.Ordinal);
+        Assert.Contains("16 / 7.25", cardStylesSource, StringComparison.Ordinal);
+        Assert.Contains("discovery-card-artwork-stack--collection-tile", cardStylesSource, StringComparison.Ordinal);
         Assert.Contains("Palette=\"@Item.ArtworkPalette\"", cardSource, StringComparison.Ordinal);
-        Assert.Contains("--art-bg-base", cardSource, StringComparison.Ordinal);
-        Assert.Contains("inset:0 10px 0 38%", cardSource, StringComparison.Ordinal);
-        Assert.Contains("background:transparent; overflow:visible", cardSource, StringComparison.Ordinal);
-        Assert.Contains("left:min(90%, calc(var(--left) + 10%))", cardSource, StringComparison.Ordinal);
+        Assert.Contains("--art-bg-base", cardStylesSource, StringComparison.Ordinal);
+        Assert.Contains("inset:0 10px 0 38%", cardStylesSource, StringComparison.Ordinal);
+        Assert.Contains("background:transparent; overflow:visible", cardStylesSource, StringComparison.Ordinal);
+        Assert.Contains("left:min(90%, calc(var(--left) + 10%))", cardStylesSource, StringComparison.Ordinal);
         Assert.Contains("ArtworkStackItems = artworkStackItems", source, StringComparison.Ordinal);
         Assert.Contains("ToArtworkShape(item.ArtworkShape, item.MediaType)", source, StringComparison.Ordinal);
         Assert.Contains("\"Video\", collection.WatchCount", source, StringComparison.Ordinal);

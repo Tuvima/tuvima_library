@@ -4,14 +4,10 @@
 <div class="tl-detail-overflow-list" role="none">
     @foreach (var action in Actions)
     {
-        <button type="button"
-                role="menuitem"
-                disabled="@action.IsDisabled"
-                class="@GetActionClass(action)"
-                @onclick="@(() => SelectAsync(action))">
+        <AppNativeButton Type="button" role="menuitem" Disabled="@action.IsDisabled" Class="@GetActionClass(action)" OnClick="@(() => SelectAsync(action))">
             <MudIcon Icon="@HeroActionRow.IconFor(action)" Size="Size.Small" />
             <span>@action.Label</span>
-        </button>
+        </AppNativeButton>
     }
 </div>
 

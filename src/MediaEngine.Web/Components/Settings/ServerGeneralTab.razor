@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
@@ -14,7 +14,7 @@
                 @L["ServerGeneral_ServerIdentityDescription"]
             </MudText>
 
-            <MudTextField @bind-Value="_serverName"
+            <AppTextField @bind-Value="_serverName"
                           Label="@L["ServerGeneral_ServerNameLabel"]"
                           Variant="Variant.Outlined"
                           HelperText="@L["ServerGeneral_ServerNameHelper"]"
@@ -35,7 +35,7 @@
 
             <MudGrid Spacing="3">
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string" @bind-Value="_displayLanguage"
+                    <AppSelect T="string" @bind-Value="_displayLanguage"
                                Label="@L["Profile_DisplayLanguage"]"
                                Variant="Variant.Outlined"
                                HelperText="@L["Profile_DisplayLanguageHelper"]"
@@ -44,11 +44,11 @@
                         {
                             <MudSelectItem Value="@lang.Code">@lang.Label</MudSelectItem>
                         }
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
 
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string" @bind-Value="_metadataLanguage"
+                    <AppSelect T="string" @bind-Value="_metadataLanguage"
                                Label="@L["Profile_MetadataLanguage"]"
                                Variant="Variant.Outlined"
                                HelperText="@L["Profile_MetadataLanguageHelper"]"
@@ -57,11 +57,11 @@
                         {
                             <MudSelectItem Value="@lang.Code">@lang.Label</MudSelectItem>
                         }
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
 
                 <MudItem xs="12">
-                    <MudSelect T="string"
+                    <AppSelect T="string"
                                @bind-SelectedValues="_additionalLanguages"
                                Label="@L["Profile_AdditionalContentLanguages"]"
                                Variant="Variant.Outlined"
@@ -72,11 +72,11 @@
                         {
                             <MudSelectItem Value="@lang.Code">@lang.Label</MudSelectItem>
                         }
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
 
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string" @bind-Value="_country"
+                    <AppSelect T="string" @bind-Value="_country"
                                Label="@L["ServerGeneral_CountryLabel"]"
                                Variant="Variant.Outlined"
                                HelperText="@L["ServerGeneral_CountryHelper"]"
@@ -85,11 +85,11 @@
                         {
                             <MudSelectItem Value="@c.Code">@c.Label</MudSelectItem>
                         }
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
 
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string" @bind-Value="_dateFormat"
+                    <AppSelect T="string" @bind-Value="_dateFormat"
                                Label="@L["ServerGeneral_DateFormatLabel"]"
                                Variant="Variant.Outlined"
                                Disabled="@_saving">
@@ -97,22 +97,22 @@
                         <MudSelectItem Value="@("short")">@L["ServerGeneral_DateFormatShort"] (e.g. @ShortDateExample)</MudSelectItem>
                         <MudSelectItem Value="@("long")">@L["ServerGeneral_DateFormatLong"] (e.g. @LongDateExample)</MudSelectItem>
                         <MudSelectItem Value="@("iso")">@L["ServerGeneral_DateFormatIso"] (@IsoDateExample)</MudSelectItem>
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
 
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string" @bind-Value="_timeFormat"
+                    <AppSelect T="string" @bind-Value="_timeFormat"
                                Label="@L["ServerGeneral_TimeFormatLabel"]"
                                Variant="Variant.Outlined"
                                Disabled="@_saving">
                         <MudSelectItem Value="@("system")">@L["ServerGeneral_TimeFormatSystem"] (@SystemTimeExample)</MudSelectItem>
                         <MudSelectItem Value="@("12h")">@L["ServerGeneral_TimeFormat12h"] (e.g. @TwelveHourExample)</MudSelectItem>
                         <MudSelectItem Value="@("24h")">@L["ServerGeneral_TimeFormat24h"] (e.g. @TwentyFourHourExample)</MudSelectItem>
-                    </MudSelect>
+                    </AppSelect>
                 </MudItem>
             </MudGrid>
 
-            <MudSwitch T="bool"
+            <AppSwitchRow T="bool"
                        @bind-Value="_acceptAnyLanguage"
                        Label="@L["Profile_AcceptAnyLanguage"]"
                        Color="Color.Primary"
@@ -123,26 +123,26 @@
 
             @if (_languageChanged)
             {
-                <MudAlert Severity="Severity.Info" Dense="true">
+                <AppAlert Severity="Severity.Info" Dense="true">
                     @L["ServerGeneral_LanguageChangeNotice"]
-                </MudAlert>
+                </AppAlert>
             }
         </MudStack>
     </div>
 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
-        <MudButton Variant="Variant.Outlined"
+        <AppButton Variant="Variant.Outlined"
                    Color="Color.Default"
                    OnClick="@ResetAsync"
                    Disabled="@(_saving || _loading || !_isDirty)">
             @L["ServerGeneral_Reset"]
-        </MudButton>
-        <MudButton Variant="Variant.Filled"
+        </AppButton>
+        <AppButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Outlined.Save"
                    OnClick="@SaveAsync"
                    Disabled="@(_saving || _loading || !_isDirty)">
             @(_saving ? L["ServerGeneral_Saving"] : L["ServerGeneral_SaveChanges"])
-        </MudButton>
+        </AppButton>
     </MudStack>
 
 </MudStack>

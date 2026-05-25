@@ -15,12 +15,12 @@
         {
             <label class="tl-season-dropdown">
                 <span class="sr-only">Season</span>
-                <select value="@SelectedKey" @onchange="SelectSeason">
+                <AppNativeSelect Value="@SelectedKey" OnChange="SelectSeason">
                     @foreach (var group in VisibleGroups)
                     {
                         <option value="@group.Key">@group.Title</option>
                     }
-                </select>
+                </AppNativeSelect>
             </label>
         }
     </div>

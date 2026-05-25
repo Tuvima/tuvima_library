@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @inject DiscoveryComposerService Discovery
 @inject UIOrchestratorService Orchestrator
 @inject SetupReadinessService ReadinessService
@@ -24,23 +24,23 @@ else if (IsEmpty)
         </p>
 
         <div class="home-discovery-empty-actions">
-            <MudButton Variant="Variant.Filled"
+            <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        Size="MudBlazor.Size.Large"
                        StartIcon="@Icons.Material.Outlined.RocketLaunch"
                        Href="/settings/setup">
                 Open setup checklist
-            </MudButton>
-            <MudButton Variant="Variant.Outlined"
+            </AppButton>
+            <AppButton Variant="Variant.Outlined"
                        Color="Color.Default"
                        Size="MudBlazor.Size.Large"
                        StartIcon="@Icons.Material.Outlined.FolderOpen"
                        Href="/settings/folders">
                 Configure folders
-            </MudButton>
+            </AppButton>
             @if (_readiness?.CanScan == true)
             {
-                <MudButton Variant="Variant.Filled"
+                <AppButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            Size="MudBlazor.Size.Large"
                            StartIcon="@Icons.Material.Outlined.PlayArrow"
@@ -55,22 +55,22 @@ else if (IsEmpty)
                     {
                         <text>Scan now</text>
                     }
-                </MudButton>
+                </AppButton>
             }
-            <MudButton Variant="Variant.Text"
+            <AppButton Variant="Variant.Text"
                        Color="Color.Default"
                        Size="MudBlazor.Size.Large"
                        StartIcon="@Icons.Material.Outlined.PendingActions"
                        Href="/settings/ingestion">
                 Open Ingestion
-            </MudButton>
+            </AppButton>
         </div>
 
         @if (Env.IsDevelopment())
         {
             <div class="home-discovery-dev-tools">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">Development tools</MudText>
-                <MudButton Variant="Variant.Outlined"
+                <AppButton Variant="Variant.Outlined"
                            Color="Color.Warning"
                            StartIcon="@Icons.Material.Filled.AutoStories"
                            Size="MudBlazor.Size.Medium"
@@ -86,7 +86,7 @@ else if (IsEmpty)
                     {
                         <text>@L["Home_SeedLibrary"]</text>
                     }
-                </MudButton>
+                </AppButton>
             </div>
         }
     </div>

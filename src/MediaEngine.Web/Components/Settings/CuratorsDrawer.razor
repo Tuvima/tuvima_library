@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 <MudDrawer Open="@Open"
@@ -11,7 +11,7 @@
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="pa-4">
         <MudIcon Icon="@Icons.Material.Outlined.EditNote" Color="Color.Primary" Class="mr-2" />
         <MudText Typo="Typo.h6" Style="flex: 1;">Correct Metadata</MudText>
-        <MudIconButton Icon="@Icons.Material.Filled.Close"
+        <AppIconButton Icon="@Icons.Material.Filled.Close"
                        Color="Color.Default"
                        Size="Size.Small"
                        OnClick="@CloseDrawer" />
@@ -20,13 +20,13 @@
     <MudDivider Class="mb-2" />
 @if (EntityId != Guid.Empty)
     {
-        <MudPaper Elevation="0" Class="tl-card mx-4 mb-4">
+        <AppPanel Elevation="0" Class="tl-card mx-4 mb-4">
             <MudText Typo="Typo.caption" Color="Color.Secondary">Currently editing</MudText>
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">@CurrentTitle</MudText>
-        </MudPaper>
+        </AppPanel>
     }
 <div class="px-4 mb-4">
-        <MudTextField @bind-Value="_query"
+        <AppTextField @bind-Value="_query"
                       Label="Search by title, ISBN, or Wikidata ID"
                       Variant="Variant.Outlined"
                       Adornment="Adornment.Start"
@@ -47,7 +47,7 @@
             @foreach (var r in _results)
             {
                 bool isSelected = _selectedResult?.WorkId == r.WorkId;
-                <MudPaper Elevation="0"
+                <AppPanel Elevation="0"
                           Style="@(isSelected ? SelectedResultStyle : ResultCardStyle)"
                           Class="mb-2 cursor-pointer"
                           @onclick="@(() => SelectResult(r))">
@@ -65,9 +65,9 @@
                                 </MudText>
                             }
                         </div>
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                        <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">
                             @r.MediaType
-                        </MudChip>
+                        </AppChip>
                     </MudStack>
                     @if (!string.IsNullOrEmpty(r.CollectionDisplayName))
                     {
@@ -75,7 +75,7 @@
                             Collection: @r.CollectionDisplayName
                         </MudText>
                     }
-                </MudPaper>
+                </AppPanel>
             }
         </div>
     }
@@ -88,7 +88,7 @@
 @if (_selectedResult is not null)
     {
         <MudDivider Class="my-3" />
-        <MudPaper Elevation="0" Class="tl-card mx-4 mb-2">
+        <AppPanel Elevation="0" Class="tl-card mx-4 mb-2">
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
                 New values from selected candidate:
             </MudText>
@@ -113,17 +113,17 @@
                     </MudStack>
                 }
             </MudStack>
-        </MudPaper>
+        </AppPanel>
 
         <div class="px-4 mb-4">
-            <MudButton Variant="Variant.Filled"
+            <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        FullWidth="true"
                        StartIcon="@Icons.Material.Filled.Lock"
                        OnClick="@ApplyCorrectionAsync"
                        Disabled="@_applying">
                 @(_applying ? "Applying..." : "Apply Correction")
-            </MudButton>
+            </AppButton>
         </div>
     }
 @if (EntityId != Guid.Empty)
@@ -147,13 +147,13 @@
                 {
                     @foreach (var claim in _claims)
                     {
-                        <MudPaper Elevation="0" Class="tl-card tl-card--compact mb-1">
+                        <AppPanel Elevation="0" Class="tl-card tl-card--compact mb-1">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudChip T="string" Size="Size.Small"
+                                <AppChip T="string" Size="Size.Small"
                                          Color="@(claim.IsUserLocked ? Color.Warning : Color.Default)"
                                          Variant="Variant.Outlined">
                                     @claim.ClaimKey
-                                </MudChip>
+                                </AppChip>
                                 <MudText Typo="Typo.body2" Style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">
                                     @claim.ClaimValue
                                 </MudText>
@@ -166,7 +166,7 @@
                                              Size="Size.Small" Color="Color.Warning" />
                                 }
                             </MudStack>
-                        </MudPaper>
+                        </AppPanel>
                     }
                 }
             </MudExpansionPanel>

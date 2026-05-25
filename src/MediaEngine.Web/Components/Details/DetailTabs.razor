@@ -4,11 +4,9 @@
 <nav class="tl-detail-tabs" aria-label="Detail sections">
     @foreach (var tab in Tabs)
     {
-        <button type="button"
-                class="tl-detail-tab @(tab.Key == ActiveTab ? "is-active" : null)"
-                @onclick="@(() => ActiveTabChanged.InvokeAsync(tab.Key))">
+        <AppNativeButton Type="button" Class="@($"tl-detail-tab @(tab.Key == ActiveTab ? ")" is-active" : null)" OnClick="@(() => ActiveTabChanged.InvokeAsync(tab.Key))">
             @tab.Label
-        </button>
+        </AppNativeButton>
     }
 </nav>
 

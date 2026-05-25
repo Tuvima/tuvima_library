@@ -15,7 +15,7 @@ tags:
 
 > **NONE of the features in this document are implemented.** This document describes the planned future state of Tuvima Library. It exists to preserve design decisions and prevent accidental overlap with what is already built.
 
-Target-state work still follows the current quality gates: do not bring back the retired Vault/LibraryPage workflow, keep media correction inline through the shared editor, keep Review Queue as the exception workflow, and keep Settings/Admin focused on configuration and operations.
+Target-state work still follows the current quality gates: do not bring back removed all-in-one management workflows, keep media correction inline through the shared editor, keep Review Queue as the exception workflow, and keep Settings/Admin focused on configuration and operations.
 
 ---
 
@@ -305,5 +305,4 @@ Library statistics and personal reading/watching history charts.
 
 ## Current Dashboard/Product UI Model
 
-Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. The old Vault concept is deprecated and must not be recreated; do not add new Vault routes, components, docs, or management-workbench flows.
-
+Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns. Do not add all-in-one management routes, components, docs, or workbench flows.

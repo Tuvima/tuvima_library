@@ -12,17 +12,17 @@
                     @foreach (var genre in ParseList(GenreValue))
                     {
                         var captured = genre;
-                        <MudChip T="string"
+                        <AppChip T="string"
                                  Variant="Variant.Outlined"
                                  Size="Size.Small"
                                  Class="sme-local-chip"
                                  OnClose="@(() => RemoveListValueAsync(GenreValue, captured, GenreValueChanged))">
                             @captured
-                        </MudChip>
+                        </AppChip>
                     }
                     @if (_addingGenre)
                     {
-                        <MudTextField T="string"
+                        <AppTextField T="string"
                                       @bind-Value="_newGenre"
                                       Placeholder="Add genre"
                                       Variant="Variant.Text"
@@ -33,23 +33,23 @@
                     <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="sme-local-chip-box-icon" />
                 </div>
                 <div class="sme-local-add-actions">
-                    <MudButton Variant="Variant.Outlined"
+                    <AppButton Variant="Variant.Outlined"
                                Color="Color.Inherit"
                                Size="Size.Small"
                                StartIcon="@Icons.Material.Outlined.Add"
                                Class="sme-local-add-button"
                                OnClick="AddGenreAsync">
                         Add
-                    </MudButton>
+                    </AppButton>
                     @if (_addingGenre)
                     {
-                        <MudButton Variant="Variant.Text"
+                        <AppButton Variant="Variant.Text"
                                    Color="Color.Inherit"
                                    Size="Size.Small"
                                    Class="sme-local-cancel-button"
                                    OnClick="CancelGenreAdd">
                             Cancel
-                        </MudButton>
+                        </AppButton>
                     }
                 </div>
             </div>
@@ -62,17 +62,17 @@
                     @foreach (var tag in ParseList(TagValue))
                     {
                         var captured = tag;
-                        <MudChip T="string"
+                        <AppChip T="string"
                                  Variant="Variant.Outlined"
                                  Size="Size.Small"
                                  Class="sme-local-chip"
                                  OnClose="@(() => RemoveListValueAsync(TagValue, captured, TagValueChanged))">
                             @captured
-                        </MudChip>
+                        </AppChip>
                     }
                     @if (_addingTag)
                     {
-                        <MudTextField T="string"
+                        <AppTextField T="string"
                                       @bind-Value="_newTag"
                                       Placeholder="Add tag"
                                       Variant="Variant.Text"
@@ -83,23 +83,23 @@
                     <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="sme-local-chip-box-icon" />
                 </div>
                 <div class="sme-local-add-actions">
-                    <MudButton Variant="Variant.Outlined"
+                    <AppButton Variant="Variant.Outlined"
                                Color="Color.Inherit"
                                Size="Size.Small"
                                StartIcon="@Icons.Material.Outlined.Add"
                                Class="sme-local-add-button"
                                OnClick="AddTagAsync">
                         Add
-                    </MudButton>
+                    </AppButton>
                     @if (_addingTag)
                     {
-                        <MudButton Variant="Variant.Text"
+                        <AppButton Variant="Variant.Text"
                                    Color="Color.Inherit"
                                    Size="Size.Small"
                                    Class="sme-local-cancel-button"
                                    OnClick="CancelTagAdd">
                             Cancel
-                        </MudButton>
+                        </AppButton>
                     }
                 </div>
             </div>
@@ -112,7 +112,7 @@
                     @for (var score = 1; score <= 5; score++)
                     {
                         var capturedScore = score;
-                        <MudIconButton Icon="@GetStarIcon(score)"
+                        <AppIconButton Icon="@GetStarIcon(score)"
                                        Size="Size.Small"
                                        Color="Color.Inherit"
                                        Class="sme-local-star-button"
@@ -121,13 +121,13 @@
                     }
                 </div>
                 <span class="sme-local-rating-text">@RatingLabel</span>
-                <MudButton Variant="Variant.Outlined"
+                <AppButton Variant="Variant.Outlined"
                            Color="Color.Inherit"
                            Size="Size.Small"
                            Class="sme-local-clear-button"
                            OnClick="@(() => RatingValueChanged.InvokeAsync(string.Empty))">
                     Clear
-                </MudButton>
+                </AppButton>
             </div>
         </div>
     </div>
@@ -139,7 +139,7 @@
             <div class="sme-local-notes-title">User Notes</div>
             <div class="sme-local-notes-description">Your personal notes about this item.</div>
         </div>
-        <MudTextField T="string"
+        <AppTextField T="string"
                       Value="@CommentValue"
                       ValueChanged="OnCommentChangedAsync"
                       Placeholder="Add notes about this item..."

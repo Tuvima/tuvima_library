@@ -1,0 +1,26 @@
+.metadata-chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .metadata-chip {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif) !important;
+        font-size: 0.72rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.02em;
+        border-color: rgba(248, 248, 248, 0.15) !important;
+        color: rgba(248, 248, 248, 0.70) !important;
+    }
+
+    .metadata-chip.has-qid {
+        border-color: rgba(201, 146, 46, 0.35) !important;
+        color: rgba(248, 248, 248, 0.85) !important;
+        cursor: pointer;
+    }
+
+    .metadata-chip.has-qid:hover {
+        border-color: var(--tl-status-warning) !important;
+        background: rgba(201, 146, 46, 0.08) !important;
+    }

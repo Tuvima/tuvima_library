@@ -55,18 +55,6 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("Duplicate tag", vocabulary, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Source_DoesNotReintroduceVaultWorkflow()
-    {
-        var localAi = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LocalAiSettingsTab.razor");
-        var models = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ModelsTab.razor");
-
-        Assert.DoesNotContain("/vault", localAi, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Vault", localAi, StringComparison.Ordinal);
-        Assert.DoesNotContain("/vault", models, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Vault", models, StringComparison.Ordinal);
-    }
-
     private static string ReadRepoFile(string relativePath) =>
         File.ReadAllText(Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,

@@ -1,25 +1,39 @@
 @namespace MediaEngine.Web.Components.Shared
 
-<MudAlert Severity="@Severity"
-          Variant="Variant.Outlined"
+<MudAlert Severity="@ResolvedSeverity"
+          Variant="@ResolvedVariant"
           Icon="@Icon"
-          Class="@RootClass">
+          Dense="@Dense"
+          ShowCloseIcon="@ShowCloseIcon"
+          CloseIconClicked="@CloseIconClicked"
+          Style="@InlineStyle"
+          Class="@RootClass"
+          @attributes="AdditionalAttributes">
     @ChildContent
 </MudAlert>
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Info;
+    [Parameter] public Severity? Severity { get; set; }
+    [Parameter] public Variant Variant { get; set; } = Variant.Outlined;
     [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Dense { get; set; }
+    [Parameter] public bool ShowCloseIcon { get; set; }
+    [Parameter] public EventCallback CloseIconClicked { get; set; }
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? InlineStyle { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private Severity Severity => Tone switch
+    private Severity ResolvedSeverity => Severity ?? Tone switch
     {
-        AppUiTone.Success => Severity.Success,
-        AppUiTone.Warning => Severity.Warning,
-        AppUiTone.Error => Severity.Error,
-        _ => Severity.Info,
+        AppUiTone.Success => MudBlazor.Severity.Success,
+        AppUiTone.Warning => MudBlazor.Severity.Warning,
+        AppUiTone.Error => MudBlazor.Severity.Error,
+        _ => MudBlazor.Severity.Info,
     };
+
+    private Variant ResolvedVariant => Variant;
 
     private string RootClass =>
         string.Join(" ", new[] { "app-alert", AppUiMaps.ToneClass(Tone), Class }

@@ -81,8 +81,8 @@ Settings/Admin should not host normal media browse/edit pages.
 
 ## Guardrails
 
-- Do not add new Vault routes, Vault tabs, `vault-` CSS, or docs that describe Vault as current product behavior.
-- Do not restore `LibraryPage` or `LibrarySurfacePreset`.
+- Do not add all-in-one management routes, tabs, CSS prefixes, or docs that describe removed workflows as current product behavior.
+- Do not restore removed all-in-one management implementation types.
 - Do not route normal media fixes through a management workbench.
 - Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for normal, review, and batch edit flows.
 - Refresh the current surface only after the shared editor returns a successful result; canceled edits should not mutate UI state.

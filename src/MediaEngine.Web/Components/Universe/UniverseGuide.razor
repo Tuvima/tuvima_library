@@ -1,40 +1,40 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 
 @* Mobile card-based searchable universe guide *@
 
 <div class="universe-guide">
     @* Search + filter bar *@
-    <MudTextField T="string" @bind-Value="_search" Placeholder="Search entities..."
+    <AppTextField T="string" @bind-Value="_search" Placeholder="Search entities..."
                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
                   Adornment="Adornment.Start"
                   AdornmentIcon="@Icons.Material.Filled.Search"
                   Immediate="true" />
 
     <MudStack Row="true" Spacing="1" Class="mb-4" Style="flex-wrap: wrap;">
-        <MudChip T="string"
+        <AppChip T="string"
                  Color="@(_filter == "All" ? Color.Warning : Color.Default)"
                  Variant="@(_filter == "All" ? Variant.Filled : Variant.Outlined)"
                  OnClick="@(() => _filter = "All")" Size="Size.Small">
             All
-        </MudChip>
-        <MudChip T="string"
+        </AppChip>
+        <AppChip T="string"
                  Color="@(_filter == "Character" ? Color.Primary : Color.Default)"
                  Variant="@(_filter == "Character" ? Variant.Filled : Variant.Outlined)"
                  OnClick="@(() => _filter = "Character")" Size="Size.Small">
             Characters
-        </MudChip>
-        <MudChip T="string"
+        </AppChip>
+        <AppChip T="string"
                  Color="@(_filter == "Location" ? Color.Success : Color.Default)"
                  Variant="@(_filter == "Location" ? Variant.Filled : Variant.Outlined)"
                  OnClick="@(() => _filter = "Location")" Size="Size.Small">
             Locations
-        </MudChip>
-        <MudChip T="string"
+        </AppChip>
+        <AppChip T="string"
                  Color="@(_filter == "Organization" ? Color.Warning : Color.Default)"
                  Variant="@(_filter == "Organization" ? Variant.Filled : Variant.Outlined)"
                  OnClick="@(() => _filter = "Organization")" Size="Size.Small">
             Organizations
-        </MudChip>
+        </AppChip>
     </MudStack>
 
     @* Entity cards *@
@@ -74,11 +74,11 @@
                                 </MudText>
                             }
                         </div>
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                        <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                  Color="@GetChipColor(entity.Type)"
                                  Style="font-size: 10px; height: 20px;">
                             @entity.Type
-                        </MudChip>
+                        </AppChip>
                         <MudIcon Icon="@(_expandedQid == entity.Id ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
                                  Style="color: #555;" Size="Size.Small" />
                     </MudStack>
@@ -102,9 +102,9 @@
                                 <MudStack Row="true" Style="flex-wrap: wrap; gap: 4px;" Class="mb-2">
                                     @foreach (var work in entity.Works)
                                     {
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                        <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">
                                             @work.Label
-                                        </MudChip>
+                                        </AppChip>
                                     }
                                 </MudStack>
                             }
@@ -120,10 +120,10 @@
                                 <MudStack Row="true" Style="flex-wrap: wrap; gap: 4px;">
                                     @foreach (var rel in rels.Take(8))
                                     {
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                        <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                                  Style="font-size: 11px;">
                                             @rel.Label @GetNodeLabelForQid(rel.Source == entity.Id ? rel.Target : rel.Source)
-                                        </MudChip>
+                                        </AppChip>
                                     }
                                 </MudStack>
                             }
@@ -134,33 +134,6 @@
         }
     </div>
 </div>
-
-<style>
-    .universe-guide {
-        padding: 0;
-    }
-    .guide-card {
-        background: #111;
-        border: 1px solid #2a2a2a;
-        border-radius: 8px;
-        padding: 10px 12px;
-        margin-bottom: 6px;
-        cursor: pointer;
-        transition: border-color 0.15s;
-    }
-    .guide-card:hover {
-        border-color: #444;
-    }
-    .guide-card-expanded {
-        border-color: var(--tl-accent-primary-border);
-    }
-    .guide-detail {
-        margin-top: 10px;
-        padding-top: 10px;
-        border-top: 1px solid #2a2a2a;
-    }
-</style>
-
 @code {
     [Parameter] public string UniverseQid { get; set; } = string.Empty;
     [Parameter] public UniverseGraphResponse? Graph { get; set; }

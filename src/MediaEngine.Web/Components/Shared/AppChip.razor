@@ -2,10 +2,12 @@
 
 <span class="@RootClass"
       title="@Title"
+      style="@InlineStyle"
       role="@Role"
       tabindex="@TabIndex"
       @onclick="HandleClick"
-      @onkeydown="HandleKeyDown">
+      @onkeydown="HandleKeyDown"
+      @attributes="AdditionalAttributes">
     @if (!string.IsNullOrWhiteSpace(Icon))
     {
         <MudIcon Icon="@Icon" Size="MudBlazor.Size.Small" />
@@ -26,20 +28,38 @@
     [Parameter] public string? Title { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Neutral;
-    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Compact;
+    [Parameter] public object? Size { get; set; } = AppControlSize.Compact;
+    [Parameter] public Color? Color { get; set; }
+    [Parameter] public Variant? Variant { get; set; }
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public EventCallback OnClick { get; set; }
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? T { get; set; }
+    [Parameter] public string? InlineStyle { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string? Role => OnClick.HasDelegate && !Disabled ? "button" : null;
     private int? TabIndex => OnClick.HasDelegate && !Disabled ? 0 : null;
+
+    private AppUiTone ResolvedTone => Color switch
+    {
+        MudBlazor.Color.Primary => AppUiTone.Primary,
+        MudBlazor.Color.Info => AppUiTone.Info,
+        MudBlazor.Color.Success => AppUiTone.Success,
+        MudBlazor.Color.Warning => AppUiTone.Warning,
+        MudBlazor.Color.Error => AppUiTone.Error,
+        _ => Tone,
+    };
+
+    private AppControlSize AppSize => AppUiMaps.ToAppControlSize(Size);
 
     private string RootClass =>
         string.Join(" ", new[]
         {
             "app-chip",
-            AppUiMaps.SizeClass(Size),
-            AppUiMaps.ToneClass(Tone),
+            AppUiMaps.SizeClass(AppSize),
+            AppUiMaps.ToneClass(ResolvedTone),
+            Variant == MudBlazor.Variant.Filled ? "app-chip--filled" : null,
             OnClick.HasDelegate ? "app-chip--clickable" : null,
             Disabled ? "is-disabled" : null,
             Class,

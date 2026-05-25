@@ -1,10 +1,10 @@
-﻿@namespace MediaEngine.Web.Components.Playback
+@namespace MediaEngine.Web.Components.Playback
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="reader-drawer reader-drawer-right @(Open ? "open" : "")">
     <div class="reader-drawer-header">
         <MudText Typo="Typo.h6">Reading Settings</MudText>
-        <MudIconButton Icon="@Icons.Material.Filled.Close"
+        <AppIconButton Icon="@Icons.Material.Filled.Close"
                        Color="Color.Inherit"
                        OnClick="OnClose" />
     </div>
@@ -12,18 +12,15 @@
 <div class="settings-section">
             <MudText Typo="Typo.subtitle2" Class="settings-label">Theme</MudText>
             <div class="theme-picker">
-                <button class="theme-chip theme-dark @(Settings.Theme == "dark" ? "active" : "")"
-                        @onclick='() => ChangeTheme("dark")'>
+                <AppNativeButton Class="@($"theme-chip theme-dark @(Settings.Theme == ")" dark" ? "active" : "")" OnClick='() => ChangeTheme("dark")'>
                     Dark
-                </button>
-                <button class="theme-chip theme-sepia @(Settings.Theme == "sepia" ? "active" : "")"
-                        @onclick='() => ChangeTheme("sepia")'>
+                </AppNativeButton>
+                <AppNativeButton Class="@($"theme-chip theme-sepia @(Settings.Theme == ")" sepia" ? "active" : "")" OnClick='() => ChangeTheme("sepia")'>
                     Sepia
-                </button>
-                <button class="theme-chip theme-light @(Settings.Theme == "light" ? "active" : "")"
-                        @onclick='() => ChangeTheme("light")'>
+                </AppNativeButton>
+                <AppNativeButton Class="@($"theme-chip theme-light @(Settings.Theme == ")" light" ? "active" : "")" OnClick='() => ChangeTheme("light")'>
                     Light
-                </button>
+                </AppNativeButton>
             </div>
         </div>
 <div class="settings-section">
@@ -31,11 +28,9 @@
             <div class="font-picker">
                 @foreach (var font in _fonts)
                 {
-                    <button class="font-chip @(Settings.FontFamily == font.Value ? "active" : "")"
-                            style="font-family: @font.Value"
-                            @onclick="() => ChangeFont(font.Value)">
+                    <AppNativeButton Class="@($"font-chip @(Settings.FontFamily == font.Value ? ")" active" : "")" InlineStyle="@($"font-family: {font.Value}")" OnClick="() => ChangeFont(font.Value)">
                         @font.Label
-                    </button>
+                    </AppNativeButton>
                 }
             </div>
         </div>
@@ -44,7 +39,7 @@
                 Size: @(Settings.FontSize)px
             </MudText>
             <div class="settings-slider-row">
-                <MudIconButton Icon="@Icons.Material.Filled.TextDecrease"
+                <AppIconButton Icon="@Icons.Material.Filled.TextDecrease"
                                Size="Size.Small" Color="Color.Inherit"
                                OnClick="DecreaseFontSize" />
                 <MudSlider T="int"
@@ -53,7 +48,7 @@
                            Min="12" Max="32" Step="1"
                            Color="Color.Warning"
                            Class="flex-grow-1" />
-                <MudIconButton Icon="@Icons.Material.Filled.TextIncrease"
+                <AppIconButton Icon="@Icons.Material.Filled.TextIncrease"
                                Size="Size.Small" Color="Color.Inherit"
                                OnClick="IncreaseFontSize" />
             </div>

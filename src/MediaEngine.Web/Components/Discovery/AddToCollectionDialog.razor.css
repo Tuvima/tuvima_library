@@ -1,0 +1,210 @@
+.add-to-collection-shell {
+        min-width: min(680px, 100vw - 32px);
+        max-width: 760px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 28px;
+        border-radius: var(--app-radius-md);
+        background:
+            linear-gradient(180deg, rgba(14, 20, 36, 0.98) 0%, rgba(7, 10, 18, 0.98) 100%);
+        border: 1px solid var(--tl-border-subtle);
+        color: #f8fafc;
+    }
+
+    .add-to-collection-header {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .add-to-collection-eyebrow {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.72);
+    }
+
+    .add-to-collection-title {
+        margin: 0;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(1.5rem, 2vw, 2rem);
+        font-weight: 700;
+        line-height: 1.05;
+        color: rgba(248, 250, 252, 0.96);
+    }
+
+    .add-to-collection-copy {
+        margin: 0;
+        max-width: 560px;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 0.95rem;
+        line-height: 1.5;
+        color: rgba(226, 232, 240, 0.72);
+    }
+
+    .add-to-collection-search {
+        width: 100%;
+    }
+
+    .add-to-collection-state {
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        color: rgba(226, 232, 240, 0.68);
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    }
+
+    .add-to-collection-list {
+        display: grid;
+        gap: 12px;
+        max-height: min(420px, 55vh);
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .add-to-collection-item {
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 16px;
+        padding: 16px 18px;
+        border-radius: var(--app-radius-md);
+        border: 1px solid var(--tl-border-subtle);
+        background: rgba(255, 255, 255, 0.03);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .add-to-collection-item:hover {
+        transform: translateY(-1px);
+        border-color: var(--tl-border-default);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .add-to-collection-item.is-selected {
+        border-color: color-mix(in srgb, var(--collection-accent) 70%, white 8%);
+        background: color-mix(in srgb, var(--collection-accent) 14%, rgba(255, 255, 255, 0.02));
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--collection-accent) 40%, transparent);
+    }
+
+    .add-to-collection-item-main {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .add-to-collection-item-name {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: rgba(248, 250, 252, 0.95);
+    }
+
+    .add-to-collection-item-description {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 0.86rem;
+        line-height: 1.45;
+        color: rgba(226, 232, 240, 0.66);
+    }
+
+    .add-to-collection-item-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 10px;
+        white-space: nowrap;
+    }
+
+    .add-to-collection-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: var(--app-radius-sm);
+        background: var(--tl-border-subtle);
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.86);
+    }
+
+    .add-to-collection-count {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 0.8rem;
+        color: rgba(148, 163, 184, 0.82);
+    }
+
+    .add-to-collection-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .add-to-collection-btn {
+        min-width: 160px;
+        height: 44px;
+        padding: 0 18px;
+        border-radius: var(--app-radius-md);
+        border: none;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+
+    .add-to-collection-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+    }
+
+    .add-to-collection-btn:disabled {
+        opacity: 0.55;
+        cursor: default;
+    }
+
+    .add-to-collection-btn-primary {
+        background: linear-gradient(135deg, #1ce783 0%, #6ee7b7 100%);
+        color: #04110a;
+    }
+
+    .add-to-collection-btn-secondary {
+        background: var(--tl-border-subtle);
+        color: rgba(248, 250, 252, 0.92);
+        border: 1px solid var(--tl-border-subtle);
+    }
+
+    @@media (max-width: 720px) {
+        .add-to-collection-shell {
+            min-width: min(100vw - 24px, 100%);
+            padding: 22px 18px;
+        }
+
+        .add-to-collection-item {
+            grid-template-columns: 1fr;
+        }
+
+        .add-to-collection-item-meta {
+            align-items: flex-start;
+        }
+
+        .add-to-collection-actions {
+            flex-direction: column-reverse;
+        }
+
+        .add-to-collection-btn {
+            width: 100%;
+        }
+    }

@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
@@ -9,13 +9,13 @@
         <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
         <MudText Typo="Typo.h6">@L["ApiKeys_GuestApiKeys"]</MudText>
         <MudSpacer />
-        <MudButton Variant="Variant.Filled"
+        <AppButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Add"
                    OnClick="@OpenGenerateDialog"
                    Disabled="@_loading">
             @L["ApiKeys_GenerateKey"]
-        </MudButton>
+        </AppButton>
     </MudStack>
 
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
@@ -28,13 +28,13 @@
     }
     else if (_keys.Count == 0)
     {
-        <MudAlert Severity="Severity.Info" Class="mt-2">
+        <AppAlert Severity="Severity.Info" Class="mt-2">
             @L["ApiKeys_NoKeysIssued"]
-        </MudAlert>
+        </AppAlert>
     }
     else
     {
-        <MudTable Items="@_keys" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm"
+        <AppDataTable Items="@_keys" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm"
                   Class="tl-table-transparent">
             <HeaderContent>
                 <MudTh>@L["ApiKeys_Label"]</MudTh>
@@ -61,24 +61,24 @@
                     </MudText>
                 </MudTd>
                 <MudTd Class="tl-text-right">
-                    <MudIconButton Icon="@(_revealedKeys.Contains(context.Id)
+                    <AppIconButton Icon="@(_revealedKeys.Contains(context.Id)
                                              ? Icons.Material.Filled.VisibilityOff
                                              : Icons.Material.Filled.Visibility)"
                                    Color="Color.Default"
                                    Size="Size.Medium"
                                    title="@L["ApiKeys_ToggleKeyVisibility"]"
                                    OnClick="@(() => ToggleReveal(context.Id))" />
-                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                    <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                    Color="Color.Error"
                                    Size="Size.Medium"
                                    title="@L["ApiKeys_RevokeThisKey"]"
                                    OnClick="@(() => RevokeKeyAsync(context))" />
                 </MudTd>
             </RowTemplate>
-        </MudTable>
+        </AppDataTable>
 
         @* Revoke All Keys *@
-        <MudButton Variant="Variant.Outlined"
+        <AppButton Variant="Variant.Outlined"
                    Color="Color.Error"
                    FullWidth="true"
                    StartIcon="@Icons.Material.Filled.DeleteSweep"
@@ -86,10 +86,10 @@
                    Class="mt-4"
                    Disabled="@_revokingAll">
             @L["ApiKeys_RevokeAllKeys"]
-        </MudButton>
+        </AppButton>
     }
 </div>
-<MudDialog @bind-Visible="_generateOpen" Options="_dialogOptions">
+<AppDialog @bind-Visible="_generateOpen" Options="_dialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6">
             <MudIcon Icon="@Icons.Material.Filled.VpnKey" Class="mr-2" />
@@ -97,7 +97,7 @@
         </MudText>
     </TitleContent>
     <DialogContent>
-        <MudTextField @bind-Value="_newLabel"
+        <AppTextField @bind-Value="_newLabel"
                       Label="@L["ApiKeys_Label"]"
                       Placeholder="@L["ApiKeys_LabelPlaceholder"]"
                       Variant="Variant.Outlined"
@@ -107,7 +107,7 @@
 
         @if (_newKey is not null)
         {
-            <MudAlert Severity="Severity.Warning" Class="mt-4" Icon="@Icons.Material.Filled.Warning">
+            <AppAlert Severity="Severity.Warning" Class="mt-4" Icon="@Icons.Material.Filled.Warning">
                 <MudText Typo="Typo.subtitle2" Class="mb-2">
                     @L["ApiKeys_CopyKeyNow"]
                 </MudText>
@@ -115,7 +115,7 @@
                     <code class="tl-inline-code tl-inline-code--strong tl-flex-1">
                         @_newKey.Key
                     </code>
-                    <MudIconButton Icon="@(_copyAnimating
+                    <AppIconButton Icon="@(_copyAnimating
                                              ? Icons.Material.Filled.Check
                                              : Icons.Material.Filled.ContentCopy)"
                                    Color="@(_copyAnimating ? Color.Success : Color.Default)"
@@ -123,32 +123,32 @@
                                    title="@L["ApiKeys_CopyKeyToClipboard"]"
                                    OnClick="@CopyKeyAsync" />
                 </MudStack>
-            </MudAlert>
+            </AppAlert>
         }
     </DialogContent>
     <DialogActions>
         @if (_newKey is null)
         {
-            <MudButton OnClick="@CloseGenerateDialog">@L["ApiKeys_Cancel"]</MudButton>
-            <MudButton Variant="Variant.Filled"
+            <AppButton OnClick="@CloseGenerateDialog">@L["ApiKeys_Cancel"]</AppButton>
+            <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        Disabled="@(string.IsNullOrWhiteSpace(_newLabel) || _generating)"
                        OnClick="@GenerateKeyAsync">
                 @(_generating ? L["ApiKeys_Generating"] : L["ApiKeys_Generate"])
-            </MudButton>
+            </AppButton>
         }
         else
         {
-            <MudButton Variant="Variant.Filled"
+            <AppButton Variant="Variant.Filled"
                        Color="Color.Success"
                        StartIcon="@Icons.Material.Filled.Check"
                        OnClick="@DismissNewKey">
                 @L["ApiKeys_IveSavedTheKey"]
-            </MudButton>
+            </AppButton>
         }
     </DialogActions>
-</MudDialog>
-<MudDialog @bind-Visible="_revokeAllOpen" Options="_dialogOptions">
+</AppDialog>
+<AppDialog @bind-Visible="_revokeAllOpen" Options="_dialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6" Color="Color.Error">
             <MudIcon Icon="@Icons.Material.Filled.Warning" Class="mr-2" Color="Color.Error" />
@@ -164,15 +164,15 @@
         </MudText>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@CloseRevokeAllDialog">@L["ApiKeys_Cancel"]</MudButton>
-        <MudButton Variant="Variant.Filled"
+        <AppButton OnClick="@CloseRevokeAllDialog">@L["ApiKeys_Cancel"]</AppButton>
+        <AppButton Variant="Variant.Filled"
                    Color="Color.Error"
                    OnClick="@RevokeAllKeysAsync"
                    Disabled="@_revokingAll">
             @(_revokingAll ? L["ApiKeys_Revoking"] : L["ApiKeys_RevokeAll"])
-        </MudButton>
+        </AppButton>
     </DialogActions>
-</MudDialog>
+</AppDialog>
 
 @code {
 

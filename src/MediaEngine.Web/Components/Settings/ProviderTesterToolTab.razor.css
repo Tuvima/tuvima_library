@@ -1,0 +1,18 @@
+.pt-result-row {
+        border-bottom: 1px solid var(--tl-divider);
+        transition: background 0.15s ease;
+    }
+    .pt-result-row:last-child {
+        border-bottom: none;
+    }
+    .pt-result-row:hover {
+        background: rgba(255,255,255,0.02);
+    }
+    .pt-result-expanded {
+        background: rgba(255,255,255,0.03);
+    }
+    .pt-detail-panel {
+        padding: 0 16px 16px;
+        padding-left: 75px;
+        border-top: 1px solid var(--tl-divider);
+    }

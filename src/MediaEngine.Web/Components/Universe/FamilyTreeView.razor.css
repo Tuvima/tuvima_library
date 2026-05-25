@@ -1,0 +1,49 @@
+.family-tree-panel {
+        padding: 0;
+    }
+    .family-tree-container {
+        overflow-y: auto;
+        max-height: 420px;
+    }
+    .gen-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 4px;
+    }
+    .gen-label {
+        min-width: 90px;
+        color: #888;
+        padding-top: 6px;
+        font-size: 11px;
+        text-align: right;
+    }
+    .gen-members {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        flex: 1;
+    }
+    .family-node {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px;
+        border-radius: 8px;
+        background: #1a1a1a;
+        border: 1px solid #333;
+        min-width: 80px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+    .family-node:hover {
+        border-color: #555;
+    }
+    .family-node-center {
+        border-color: var(--tl-accent-primary) !important;
+    }
+    .gen-divider {
+        height: 1px;
+        background: #222;
+        margin: 8px 0;
+    }

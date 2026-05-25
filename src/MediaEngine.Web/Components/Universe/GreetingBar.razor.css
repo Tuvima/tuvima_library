@@ -1,0 +1,50 @@
+.greeting-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px 8px 16px;
+        min-height: 48px;
+    }
+
+    .greeting-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .greeting-main {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: clamp(1.1rem, 1.8vw, 1.4rem);
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.88);
+        letter-spacing: -0.01em;
+    }
+
+    .greeting-date {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 0.78rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.35);
+    }
+
+    .greeting-stat {
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.30);
+        white-space: nowrap;
+    }
+
+    @@media (max-width: 768px) {
+        .greeting-bar {
+            padding: 8px 12px 4px 12px;
+        }
+
+        .greeting-main {
+            font-size: 1rem;
+        }
+
+        .greeting-date {
+            display: none;
+        }
+    }

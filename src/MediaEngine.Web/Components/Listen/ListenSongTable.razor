@@ -15,10 +15,7 @@
         {
             if (Sortable && IsSortableColumn(column.Key))
             {
-                <button type="button"
-                        class="listen-song-table__sort-header @(column.Key == "song" ? "listen-song-table__song-head" : null) @(column.Key == "favorite" ? "listen-song-table__favorite-head" : null)"
-                        role="columnheader"
-                        @onclick="@(() => ToggleSort(column.Key))">
+                <AppNativeButton Type="button" Class="@GetSortHeaderClass(column.Key)" role="columnheader" OnClick="@(() => ToggleSort(column.Key))">
                     <span>@column.Label</span>
                     @if (!string.IsNullOrWhiteSpace(SortIndicator(column.Key)))
                     {
@@ -28,7 +25,7 @@
                           @onclick:stopPropagation="true"
                           @onmousedown:stopPropagation="true"
                           @onmousedown="@((args) => BeginColumnResize(column.Key, args.ClientX))"></span>
-                </button>
+                </AppNativeButton>
             }
             else
             {
@@ -64,26 +61,16 @@
                         {
                             <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Size="Size.Small" />
                         }
-                        <button type="button"
-                                class="listen-song-table__art-play"
-                                title="Play song"
-                                aria-label="@($"Play {track.Title}")"
-                                @onclick:stopPropagation="true"
-                                @onclick="@(() => PlayAsync(track.Id, false))">
+                        <AppNativeButton Type="button" Class="listen-song-table__art-play" Title="Play song" AriaLabel="@($" Play {track.Title}")" StopPropagation="true" OnClick="@(() => PlayAsync(track.Id, false))">
                             <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
-                        </button>
+                        </AppNativeButton>
                     </div>
                 }
                 else
                 {
-                    <button type="button"
-                            class="listen-song-table__play-only"
-                            title="Play song"
-                            aria-label="@($"Play {track.Title}")"
-                            @onclick:stopPropagation="true"
-                            @onclick="@(() => PlayAsync(track.Id, false))">
+                    <AppNativeButton Type="button" Class="listen-song-table__play-only" Title="Play song" AriaLabel="@($" Play {track.Title}")" StopPropagation="true" OnClick="@(() => PlayAsync(track.Id, false))">
                         <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
-                    </button>
+                    </AppNativeButton>
                 }
                 <span class="listen-song-table__title">@track.Title</span>
             </div>
@@ -94,14 +81,9 @@
                 {
                     case "favorite":
                         <div class="listen-song-table__favorite" role="cell">
-                            <button type="button"
-                                    class="listen-song-table__favorite-button @(FavoriteIds.Contains(track.Id) ? "is-active" : null)"
-                                    aria-label="Toggle favorite"
-                                    title="Toggle favorite"
-                                    @onclick:stopPropagation="true"
-                                    @onclick="@(() => ToggleFavoriteAsync(track))">
+                            <AppNativeButton Type="button" Class="@($"listen-song-table__favorite-button @(FavoriteIds.Contains(track.Id) ? ")" is-active" : null)" AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(track))">
                                 <MudIcon Icon="@(FavoriteIds.Contains(track.Id) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)" Size="Size.Small" />
-                            </button>
+                            </AppNativeButton>
                         </div>
                         break;
                     case "time":
@@ -124,34 +106,19 @@
                         break;
                     case "queue":
                         <div class="listen-song-table__queue" role="cell">
-                            <button type="button"
-                                    class="listen-song-table__icon-button"
-                                    title="Add to queue"
-                                    aria-label="@($"Add {track.Title} to queue")"
-                                    @onclick:stopPropagation="true"
-                                    @onclick="@(() => QueueAsync(track))">
+                            <AppNativeButton Type="button" Class="listen-song-table__icon-button" Title="Add to queue" AriaLabel="@($" Add {track.Title} to queue")" StopPropagation="true" OnClick="@(() => QueueAsync(track))">
                                 <MudIcon Icon="@Icons.Material.Outlined.PlaylistAdd" Size="Size.Small" />
-                            </button>
+                            </AppNativeButton>
                         </div>
                         break;
                     case "editDelete":
                         <div class="listen-song-table__edit-delete" role="cell">
-                            <button type="button"
-                                    class="listen-song-table__icon-button"
-                                    title="Edit song"
-                                    aria-label="@($"Edit {track.Title}")"
-                                    @onclick:stopPropagation="true"
-                                    @onclick="@(() => EditAsync(track))">
+                            <AppNativeButton Type="button" Class="listen-song-table__icon-button" Title="Edit song" AriaLabel="@($" Edit {track.Title}")" StopPropagation="true" OnClick="@(() => EditAsync(track))">
                                 <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
-                            </button>
-                            <button type="button"
-                                    class="listen-song-table__icon-button listen-song-table__icon-button--danger"
-                                    title="Delete song"
-                                    aria-label="@($"Delete {track.Title}")"
-                                    @onclick:stopPropagation="true"
-                                    @onclick="@(() => DeleteAsync(track))">
+                            </AppNativeButton>
+                            <AppNativeButton Type="button" Class="listen-song-table__icon-button listen-song-table__icon-button--danger" Title="Delete song" AriaLabel="@($" Delete {track.Title}")" StopPropagation="true" OnClick="@(() => DeleteAsync(track))">
                                 <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
-                            </button>
+                            </AppNativeButton>
                         </div>
                         break;
                 }
@@ -326,6 +293,19 @@
             "track_number" => "track",
             _ => string.IsNullOrWhiteSpace(column) ? "dateAdded" : column,
         };
+
+    private static string GetSortHeaderClass(string columnKey)
+    {
+        var classes = new List<string> { "listen-song-table__sort-header" };
+
+        if (columnKey == "song")
+            classes.Add("listen-song-table__song-head");
+
+        if (columnKey == "favorite")
+            classes.Add("listen-song-table__favorite-head");
+
+        return string.Join(" ", classes);
+    }
 
     private Task PlayAsync(Guid? startWorkId, bool shuffle)
         => OnPlayRequested?.Invoke(DisplayTracks, startWorkId, SourceLabel, shuffle) ?? Task.CompletedTask;

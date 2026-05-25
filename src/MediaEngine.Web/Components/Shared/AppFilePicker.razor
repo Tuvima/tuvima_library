@@ -1,0 +1,31 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<label class="@RootClass">
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+    else
+    {
+        <span>@Label</span>
+    }
+    <InputFile class="app-file-picker__input"
+               OnChange="@OnChange"
+               accept="@Accept"
+               multiple="@Multiple"
+               disabled="@Disabled" />
+</label>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Choose file";
+    [Parameter] public string? Accept { get; set; }
+    [Parameter] public bool Multiple { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnChange { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-file-picker", Disabled ? "is-disabled" : null, Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

@@ -1,8 +1,8 @@
-﻿@namespace MediaEngine.Web.Components.Playback
+@namespace MediaEngine.Web.Components.Playback
 
 <div class="reader-bottom-bar @(Visible ? "visible" : "")">
     <div class="reader-progress-row">
-        <MudIconButton Icon="@Icons.Material.Filled.SkipPrevious"
+        <AppIconButton Icon="@Icons.Material.Filled.SkipPrevious"
                        Color="Color.Inherit" Size="Size.Small"
                        OnClick="OnPreviousChapter"
                        Disabled="@(CurrentChapter <= 0)"
@@ -16,7 +16,7 @@
                    Color="Color.Warning"
                    Class="reader-page-slider" />
 
-        <MudIconButton Icon="@Icons.Material.Filled.SkipNext"
+        <AppIconButton Icon="@Icons.Material.Filled.SkipNext"
                        Color="Color.Inherit" Size="Size.Small"
                        OnClick="OnNextChapter"
                        Disabled="@(CurrentChapter >= TotalChapters - 1)"
@@ -26,11 +26,11 @@
     <div class="reader-page-info">
         <span class="reader-page-count">Page @(CurrentPage + 1) of @TotalPages</span>
         <span class="reader-percentage">@OverallPercentage.ToString("F0")%</span>
-        <MudIconButton Icon="@Icons.Material.Filled.BarChart"
+        <AppIconButton Icon="@Icons.Material.Filled.BarChart"
                        Color="Color.Inherit" Size="Size.Small"
                        OnClick="OnToggleStats"
                        title="Reading Statistics" />
-        <MudIconButton Icon="@(IsFullscreen ? Icons.Material.Filled.FullscreenExit : Icons.Material.Filled.Fullscreen)"
+        <AppIconButton Icon="@(IsFullscreen ? Icons.Material.Filled.FullscreenExit : Icons.Material.Filled.Fullscreen)"
                        Color="Color.Inherit" Size="Size.Small"
                        OnClick="OnToggleFullscreen"
                        title="Fullscreen (F)" />

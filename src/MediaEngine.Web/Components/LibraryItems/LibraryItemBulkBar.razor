@@ -1,18 +1,18 @@
-﻿<div class="library-item-bulk-bar">
-    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+<div class="library-item-bulk-bar">
+    <AppChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
         @SelectedCount selected
-    </MudChip>
+    </AppChip>
 
-    <MudButton Variant="Variant.Text" Size="Size.Small"
+    <AppButton Variant="Variant.Text" Size="Size.Small"
                OnClick="OnSelectAll" Disabled="@Processing"
                Style="color: var(--tl-text-muted); font-size: 0.75rem;">
         Select All (@TotalCount)
-    </MudButton>
-    <MudButton Variant="Variant.Text" Size="Size.Small"
+    </AppButton>
+    <AppButton Variant="Variant.Text" Size="Size.Small"
                OnClick="OnDeselectAll" Disabled="@Processing"
                Style="color: var(--tl-text-muted); font-size: 0.75rem;">
         Deselect All
-    </MudButton>
+    </AppButton>
 
     <div style="flex: 1;"></div>
 
@@ -22,21 +22,21 @@
                              Style="color: var(--tl-text-muted); width: 20px; height: 20px;" />
     }
 
-    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+    <AppButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Check" OnClick="OnApprove"
                Disabled="@Processing">
         Approve
-    </MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
+    </AppButton>
+    <AppButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Block" OnClick="OnReject"
                Disabled="@Processing">
         Reject
-    </MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
+    </AppButton>
+    <AppButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Warning" OnClick="OnDelete"
                Disabled="@Processing">
         Delete from Library
-    </MudButton>
+    </AppButton>
 </div>
 
 @code {
@@ -49,18 +49,3 @@
     [Parameter] public EventCallback OnSelectAll { get; set; }
     [Parameter] public EventCallback OnDeselectAll { get; set; }
 }
-
-<style>
-    .library-item-bulk-bar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px 8px 88px;
-        background: rgba(8,13,30,0.85);
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid var(--tl-border-subtle);
-        position: sticky;
-        top: 104px;
-        z-index: 15;
-    }
-</style>

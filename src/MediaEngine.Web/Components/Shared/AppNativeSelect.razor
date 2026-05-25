@@ -1,0 +1,28 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<select class="@Class"
+        value="@Value"
+        disabled="@Disabled"
+        @onchange="@HandleChange"
+        @attributes="AdditionalAttributes">
+    @ChildContent
+</select>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public object? Value { get; set; }
+    [Parameter] public EventCallback<object?> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnChange { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private async Task HandleChange(ChangeEventArgs args)
+    {
+        if (OnChange.HasDelegate)
+            await OnChange.InvokeAsync(args);
+
+        if (ValueChanged.HasDelegate)
+            await ValueChanged.InvokeAsync(args.Value);
+    }
+}

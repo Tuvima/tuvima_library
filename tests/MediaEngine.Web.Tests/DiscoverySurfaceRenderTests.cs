@@ -39,13 +39,14 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
         };
 
         var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Discovery/DiscoveryCard.razor.css"));
 
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-art-popover.is-cover-square"));
         Assert.Contains("--discovery-hover-panel-width: clamp(248px, 18vw, 292px)", cut.Markup);
-        Assert.Contains("flex:0 0 auto", cut.Markup);
-        Assert.Contains("aspect-ratio:var(--discovery-card-media-aspect)", cut.Markup);
-        Assert.Contains(".discovery-card-image.is-contained { object-fit:contain; padding:0; background:transparent; }", cut.Markup);
-        Assert.DoesNotContain("overflow:hidden auto", cut.Markup);
+        Assert.Contains("flex:0 0 auto", css);
+        Assert.Contains("aspect-ratio:var(--discovery-card-media-aspect)", css);
+        Assert.Contains(".discovery-card-image.is-contained { object-fit:contain; padding:0; background:transparent; }", css);
+        Assert.DoesNotContain("overflow:hidden auto", css);
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-image.is-contained"));
         Assert.Equal(2, cut.FindAll(".discovery-card-chip").Count);
         Assert.DoesNotContain("A sharp indie record with close harmonies.", cut.Markup);
@@ -77,11 +78,12 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
         };
 
         var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Discovery/DiscoveryCard.razor.css"));
 
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-art-popover.is-portrait.is-cover-portrait"));
         Assert.Contains("--discovery-hover-panel-width: clamp(430px, 40vw, 560px)", cut.Markup);
-        Assert.Contains("grid-template-columns:minmax(150px,38%) minmax(220px,1fr)", cut.Markup);
-        Assert.Contains("max-height:min(62vh,420px)", cut.Markup);
+        Assert.Contains("grid-template-columns:minmax(150px,38%) minmax(220px,1fr)", css);
+        Assert.Contains("max-height:min(62vh,420px)", css);
         Assert.DoesNotContain("A dreamlike horror comic with mythic scale.", cut.Markup);
         Assert.Empty(cut.FindAll(".discovery-card-hover-context-list"));
         Assert.Empty(cut.FindAll("button[aria-label='Details']"));
@@ -226,5 +228,20 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
         Assert.NotEmpty(cut.FindAll(".discovery-hero-shell.is-banner-hero"));
         Assert.NotEmpty(cut.FindAll(".discovery-hero-logo"));
         Assert.NotEmpty(cut.FindAll(".discovery-hero-preview.is-portrait-preview"));
+    }
+
+    private static string FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+                return directory.FullName;
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root.");
     }
 }

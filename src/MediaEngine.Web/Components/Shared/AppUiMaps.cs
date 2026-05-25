@@ -11,6 +11,21 @@ internal static class AppUiMaps
         _ => Size.Medium,
     };
 
+    public static Size ToMudSize(object? size) => size switch
+    {
+        Size mudSize => mudSize,
+        AppControlSize appSize => ToMudSize(appSize),
+        _ => Size.Medium,
+    };
+
+    public static AppControlSize ToAppControlSize(object? size) => size switch
+    {
+        AppControlSize appSize => appSize,
+        Size.Small => AppControlSize.Compact,
+        Size.Large => AppControlSize.Large,
+        _ => AppControlSize.Normal,
+    };
+
     public static Color ToMudColor(AppUiTone tone) => tone switch
     {
         AppUiTone.Primary => Color.Primary,

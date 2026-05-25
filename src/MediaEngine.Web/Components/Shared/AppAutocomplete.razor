@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Shared
+@typeparam TItem
 
 <div class="@RootClass">
     @if (!string.IsNullOrWhiteSpace(Label))
@@ -6,36 +7,76 @@
         <label class="app-field__label" for="@InputId">@Label</label>
     }
 
-    <MudAutocomplete T="string"
+    <MudAutocomplete T="TItem"
+                     @ref="_autocomplete"
                      InputId="@InputId"
                      Value="@Value"
                      ValueChanged="OnValueChanged"
                      SearchFunc="@SearchFunc"
+                     ToStringFunc="@ToStringFunc"
                      Placeholder="@Placeholder"
-                     Variant="Variant.Outlined"
-                     Margin="Margin.Dense"
-                     Dense="true"
+                     Variant="@Variant"
+                     Margin="@Margin"
+                     Dense="@Dense"
                      Disabled="@Disabled"
                      FullWidth="@FullWidth"
-                     Class="app-control app-autocomplete" />
+                     Adornment="@Adornment"
+                     AdornmentIcon="@AdornmentIcon"
+                     Underline="@Underline"
+                     ResetValueOnEmptyText="@ResetValueOnEmptyText"
+                     CoerceText="@CoerceText"
+                     CoerceValue="@CoerceValue"
+                     MaxItems="@MaxItems"
+                     Style="@InlineStyle"
+                     Class="app-control app-autocomplete"
+                     @attributes="AdditionalAttributes">
+        <ItemTemplate Context="item">
+            @if (ItemTemplate is not null)
+            {
+                @ItemTemplate(item)
+            }
+        </ItemTemplate>
+    </MudAutocomplete>
 </div>
 
 @code {
     private readonly string InputId = $"app-auto-{Guid.NewGuid():N}";
+    private MudAutocomplete<TItem>? _autocomplete;
 
     [Parameter] public string? Label { get; set; }
-    [Parameter] public string? Value { get; set; }
-    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
-    [Parameter] public Func<string?, CancellationToken, Task<IEnumerable<string>>>? SearchFunc { get; set; }
+    [Parameter] public TItem? Value { get; set; }
+    [Parameter] public EventCallback<TItem?> ValueChanged { get; set; }
+    [Parameter] public Func<string?, CancellationToken, Task<IEnumerable<TItem>>>? SearchFunc { get; set; }
+    [Parameter] public Func<TItem?, string>? ToStringFunc { get; set; }
     [Parameter] public string? Placeholder { get; set; }
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public bool FullWidth { get; set; } = true;
     [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public Variant Variant { get; set; } = Variant.Outlined;
+    [Parameter] public Margin Margin { get; set; } = Margin.Dense;
+    [Parameter] public bool Dense { get; set; } = true;
+    [Parameter] public Adornment Adornment { get; set; }
+    [Parameter] public string? AdornmentIcon { get; set; }
+    [Parameter] public bool Underline { get; set; } = true;
+    [Parameter] public bool ResetValueOnEmptyText { get; set; }
+    [Parameter] public bool CoerceText { get; set; }
+    [Parameter] public bool CoerceValue { get; set; }
+    [Parameter] public int MaxItems { get; set; } = 10;
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? InlineStyle { get; set; }
+    [Parameter] public RenderFragment<TItem>? ItemTemplate { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string RootClass =>
         string.Join(" ", new[] { "app-field", AppUiMaps.SizeClass(Size), Class }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private Task OnValueChanged(string? value) => ValueChanged.InvokeAsync(value);
+    public async Task FocusAsync()
+    {
+        if (_autocomplete is not null)
+            await _autocomplete.FocusAsync();
+    }
+
+    private Task OnValueChanged(TItem? value) => ValueChanged.InvokeAsync(value);
 }
