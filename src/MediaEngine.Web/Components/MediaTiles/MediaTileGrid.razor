@@ -1,0 +1,18 @@
+@namespace MediaEngine.Web.Components.MediaTiles
+
+<div class="media-tile-grid @Class">
+    @foreach (var item in Items)
+    {
+        <MediaTile Item="@item"
+                   HoverMode="@HoverMode"
+                   OnEditClicked="@OnEditClicked"
+                   @key="item.Id" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MediaTileViewModel> Items { get; set; } = [];
+    [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
+    [Parameter] public EventCallback<MediaTileViewModel> OnEditClicked { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

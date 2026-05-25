@@ -32,9 +32,69 @@ public sealed class DisplayJourneyProjectionReader
                 cv_series_w.value AS Series,
                 cv_narrator_w.value AS Narrator,
                 COALESCE(cv_cover_a.value, cv_cover_item.value, cv_cover_w.value) AS CoverUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url_s', 'poster_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url_s', 'poster_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('cover_url_s', 'poster_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1)
+                ) AS CoverSmallUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url_m', 'poster_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url_m', 'poster_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('cover_url_m', 'poster_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1)
+                ) AS CoverMediumUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url_l', 'poster_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url_l', 'poster_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('cover_url_l', 'poster_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1)
+                ) AS CoverLargeUrl,
                 COALESCE(cv_square_a.value, cv_square_item.value, cv_square_w.value) AS SquareUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'square_url_s' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'square_url_s' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'square_url_s' LIMIT 1)
+                ) AS SquareSmallUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'square_url_m' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'square_url_m' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'square_url_m' LIMIT 1)
+                ) AS SquareMediumUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'square_url_l' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'square_url_l' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'square_url_l' LIMIT 1)
+                ) AS SquareLargeUrl,
                 COALESCE(cv_background_a.value, cv_background_item.value, cv_background_w.value) AS BackgroundUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('background_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1)
+                ) AS BackgroundSmallUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('background_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1)
+                ) AS BackgroundMediumUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('background_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1)
+                ) AS BackgroundLargeUrl,
                 COALESCE(cv_banner_a.value, cv_banner_item.value, cv_banner_w.value) AS BannerUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('banner_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('banner_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('banner_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1)
+                ) AS BannerSmallUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('banner_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('banner_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('banner_url_m', 'episode_still_url_m', 'still_url_m') LIMIT 1)
+                ) AS BannerMediumUrl,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('banner_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('banner_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('banner_url_l', 'episode_still_url_l', 'still_url_l') LIMIT 1)
+                ) AS BannerLargeUrl,
                 COALESCE(cv_logo_a.value, cv_logo_item.value, cv_logo_w.value) AS LogoUrl,
                 COALESCE(cv_cover_state_a.value, cv_cover_state_item.value, cv_cover_state_w.value) AS CoverState,
                 COALESCE(cv_square_state_a.value, cv_square_state_item.value, cv_square_state_w.value) AS SquareState,

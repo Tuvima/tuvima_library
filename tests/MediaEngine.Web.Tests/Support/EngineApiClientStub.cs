@@ -586,7 +586,33 @@ internal class EngineApiClientStub : DispatchProxy
     {
         var workId = Guid.Parse("90000000-0000-0000-0000-000000000001");
         var action = new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: "/listen/music/songs");
-        var artwork = new DisplayArtworkDto("/art/test-cover.jpg", "/art/test-square.jpg", null, null, null, null, null, null, null, null, null, null, null, "#1ED760");
+        var artwork = new DisplayArtworkDto(
+            CoverUrl: "/art/test-cover.jpg",
+            CoverSmallUrl: "/art/test-cover-s.jpg",
+            CoverMediumUrl: "/art/test-cover-m.jpg",
+            CoverLargeUrl: "/art/test-cover-l.jpg",
+            SquareUrl: "/art/test-square.jpg",
+            SquareSmallUrl: "/art/test-square-s.jpg",
+            SquareMediumUrl: "/art/test-square-m.jpg",
+            SquareLargeUrl: "/art/test-square-l.jpg",
+            BannerUrl: null,
+            BannerSmallUrl: null,
+            BannerMediumUrl: null,
+            BannerLargeUrl: null,
+            BackgroundUrl: null,
+            BackgroundSmallUrl: null,
+            BackgroundMediumUrl: null,
+            BackgroundLargeUrl: null,
+            LogoUrl: null,
+            CoverWidthPx: null,
+            CoverHeightPx: null,
+            SquareWidthPx: null,
+            SquareHeightPx: null,
+            BannerWidthPx: null,
+            BannerHeightPx: null,
+            BackgroundWidthPx: null,
+            BackgroundHeightPx: null,
+            AccentColor: "#1ED760");
         var card = new DisplayCardDto(
             Id: workId,
             WorkId: workId,

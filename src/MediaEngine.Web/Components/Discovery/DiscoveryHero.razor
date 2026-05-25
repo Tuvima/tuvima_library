@@ -20,7 +20,7 @@
                     <div class="discovery-hero-eyebrow">@Hero.Eyebrow</div>
                 }
 
-                @if (!string.IsNullOrWhiteSpace(Hero.LogoUrl) && Hero.SurfaceKind == DiscoverySurfaceKind.BannerLandscape)
+                @if (!string.IsNullOrWhiteSpace(Hero.LogoUrl) && Hero.SurfaceKind == MediaTileSurfaceKind.BannerLandscape)
                 {
                     <img src="@Hero.LogoUrl" alt="@Hero.Title" class="discovery-hero-logo" />
                 }
@@ -117,16 +117,16 @@
 
     private int _heroBackdropIndex;
 
-    private string HeroSurfaceClass => Hero.SurfaceKind == DiscoverySurfaceKind.BannerLandscape ? "is-banner-hero" : "is-cover-hero";
+    private string HeroSurfaceClass => Hero.SurfaceKind == MediaTileSurfaceKind.BannerLandscape ? "is-banner-hero" : "is-cover-hero";
 
     private string PreviewClass => Hero.PreviewSurfaceKind switch
     {
-        DiscoverySurfaceKind.CoverSquare or DiscoverySurfaceKind.ArtistPhotoSquare => "is-square-preview",
-        DiscoverySurfaceKind.BannerLandscape => "is-landscape-preview",
+        MediaTileSurfaceKind.CoverSquare or MediaTileSurfaceKind.ArtistPhotoSquare => "is-square-preview",
+        MediaTileSurfaceKind.BannerLandscape => "is-landscape-preview",
         _ => "is-portrait-preview",
     };
 
-    private string PreviewImageFitClass => Hero.TileImageFitMode == DiscoveryImageFitMode.Contain
+    private string PreviewImageFitClass => Hero.TileImageFitMode == MediaTileImageFitMode.Contain
         ? "is-contained"
         : "is-fill";
 

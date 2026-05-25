@@ -1,0 +1,8 @@
+.media-tile-grid {
+    --media-tile-hover-lift: clamp(26px, 3vw, 34px);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: clamp(18px, 2vw, 28px);
+    overflow: visible;
+}

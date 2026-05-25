@@ -41,4 +41,9 @@ public interface IEntityAssetRepository
     Task<IReadOnlyList<EntityAsset>> GetPreferredByEntitiesAsync(
         IReadOnlyCollection<string> entityIds,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Get every preferred artwork asset for maintenance and repair passes.
+    /// </summary>
+    Task<IReadOnlyList<EntityAsset>> GetPreferredArtworkAsync(CancellationToken ct = default);
 }

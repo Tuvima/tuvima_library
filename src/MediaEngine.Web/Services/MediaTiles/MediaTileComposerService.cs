@@ -2,13 +2,13 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
 
-namespace MediaEngine.Web.Services.Discovery;
+namespace MediaEngine.Web.Services.MediaTiles;
 
-public sealed class DiscoveryComposerService
+public sealed class MediaTileComposerService
 {
     private readonly IEngineApiClient _api;
 
-    public DiscoveryComposerService(IEngineApiClient api)
+    public MediaTileComposerService(IEngineApiClient api)
     {
         _api = api;
     }
@@ -28,7 +28,7 @@ public sealed class DiscoveryComposerService
     public static DiscoveryPageViewModel FromDisplayPage(DisplayPageDto page)
     {
         var shelves = page.Shelves
-            .Select(shelf => new DiscoveryShelfViewModel
+            .Select(shelf => new MediaTileShelfViewModel
             {
                 Title = shelf.Title,
                 Subtitle = shelf.Subtitle,
@@ -38,8 +38,8 @@ public sealed class DiscoveryComposerService
             .ToList();
 
         var heroArtwork = page.Hero?.Artwork;
-        var heroSurfaceKind = heroArtwork is null ? DiscoverySurfaceKind.BannerLandscape : ResolveHeroSurfaceKind(heroArtwork);
-        var heroPreviewSurfaceKind = heroArtwork is null ? DiscoverySurfaceKind.CoverPortrait : ResolvePreviewSurfaceKind(heroArtwork);
+        var heroSurfaceKind = heroArtwork is null ? MediaTileSurfaceKind.BannerLandscape : ResolveHeroSurfaceKind(heroArtwork);
+        var heroPreviewSurfaceKind = heroArtwork is null ? MediaTileSurfaceKind.CoverPortrait : ResolvePreviewSurfaceKind(heroArtwork);
 
         return new DiscoveryPageViewModel
         {
@@ -50,10 +50,10 @@ public sealed class DiscoveryComposerService
                 Eyebrow = page.Hero.Eyebrow ?? "From your library",
                 Title = page.Hero.Title,
                 Subtitle = page.Hero.Subtitle,
-                BackgroundImageUrl = page.Hero.Artwork.BackgroundUrl ?? page.Hero.Artwork.BannerUrl,
-                HeroBackgroundImageUrl = page.Hero.Artwork.BackgroundUrl ?? page.Hero.Artwork.BannerUrl,
-                BannerImageUrl = page.Hero.Artwork.BannerUrl,
-                PreviewImageUrl = page.Hero.Artwork.CoverUrl ?? page.Hero.Artwork.SquareUrl,
+                BackgroundImageUrl = FirstNonBlank(page.Hero.Artwork.BackgroundLargeUrl, page.Hero.Artwork.BannerLargeUrl, page.Hero.Artwork.BackgroundMediumUrl, page.Hero.Artwork.BannerMediumUrl),
+                HeroBackgroundImageUrl = FirstNonBlank(page.Hero.Artwork.BackgroundLargeUrl, page.Hero.Artwork.BannerLargeUrl, page.Hero.Artwork.BackgroundMediumUrl, page.Hero.Artwork.BannerMediumUrl),
+                BannerImageUrl = FirstNonBlank(page.Hero.Artwork.BannerLargeUrl, page.Hero.Artwork.BannerMediumUrl),
+                PreviewImageUrl = FirstNonBlank(page.Hero.Artwork.CoverLargeUrl, page.Hero.Artwork.SquareLargeUrl, page.Hero.Artwork.CoverMediumUrl, page.Hero.Artwork.SquareMediumUrl),
                 SurfaceKind = heroSurfaceKind,
                 PreviewSurfaceKind = heroPreviewSurfaceKind,
                 LogoUrl = page.Hero.Artwork.LogoUrl,
@@ -71,39 +71,32 @@ public sealed class DiscoveryComposerService
         };
     }
 
-    public static DiscoveryCardViewModel FromDisplayCard(DisplayCardDto card)
+    public static MediaTileViewModel FromDisplayCard(DisplayCardDto card)
     {
         var bucket = GetBucket(card.MediaType);
-        var shape = card.PreferredShape switch
-        {
-            "landscape" => DiscoveryCardShape.Landscape,
-            "square" => DiscoveryCardShape.Square,
-            _ => DiscoveryCardShape.Portrait,
-        };
-
         var presentation = card.Presentation switch
         {
-            "tvSeries" => DiscoveryCardPresentation.TvSeries,
-            "movieSeries" => DiscoveryCardPresentation.MovieSeries,
-            "bookSeries" => DiscoveryCardPresentation.BookSeries,
-            "comicSeries" => DiscoveryCardPresentation.ComicSeries,
-            "audiobookSeries" => DiscoveryCardPresentation.AudiobookSeries,
-            "album" => DiscoveryCardPresentation.Album,
-            "artist" => DiscoveryCardPresentation.Artist,
-            _ => DiscoveryCardPresentation.Default,
+            "tvSeries" => MediaTilePresentation.TvSeries,
+            "movieSeries" => MediaTilePresentation.MovieSeries,
+            "bookSeries" => MediaTilePresentation.BookSeries,
+            "comicSeries" => MediaTilePresentation.ComicSeries,
+            "audiobookSeries" => MediaTilePresentation.AudiobookSeries,
+            "album" => MediaTilePresentation.Album,
+            "artist" => MediaTilePresentation.Artist,
+            _ => MediaTilePresentation.Default,
         };
 
-        var surface = DiscoveryArtworkResolver.Resolve(
+        var surface = MediaTileArtworkResolver.Resolve(
             bucket,
             presentation,
             [
-                new ArtworkVariant(ArtworkRole.Background, card.Artwork.BackgroundUrl, card.Artwork.BackgroundWidthPx, card.Artwork.BackgroundHeightPx),
-                new ArtworkVariant(ArtworkRole.Banner, card.Artwork.BannerUrl, card.Artwork.BannerWidthPx, card.Artwork.BannerHeightPx),
-                new ArtworkVariant(ArtworkRole.Square, card.Artwork.SquareUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
-                new ArtworkVariant(ArtworkRole.Cover, card.Artwork.CoverUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Background, card.Artwork.BackgroundSmallUrl, card.Artwork.BackgroundMediumUrl, card.Artwork.BackgroundLargeUrl, card.Artwork.BackgroundWidthPx, card.Artwork.BackgroundHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Banner, card.Artwork.BannerSmallUrl, card.Artwork.BannerMediumUrl, card.Artwork.BannerLargeUrl, card.Artwork.BannerWidthPx, card.Artwork.BannerHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Square, card.Artwork.SquareSmallUrl, card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Cover, card.Artwork.CoverSmallUrl, card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
             ]);
 
-        return new DiscoveryCardViewModel
+        return new MediaTileViewModel
         {
             Id = card.Id,
             WorkId = card.WorkId,
@@ -118,20 +111,23 @@ public sealed class DiscoveryComposerService
             HoverFacts = card.Facts,
             MediaKind = card.MediaType,
             AccentColor = card.Artwork.AccentColor ?? AccentForBucket(bucket),
-            Shape = shape,
+            Shape = surface.Shape,
             Presentation = presentation,
             SurfaceKind = surface.SurfaceKind,
             HoverLayout = surface.HoverLayout,
+            HoverMode = bucket is MediaTileBucket.Movie or MediaTileBucket.Tv ? MediaTileHoverMode.Expanded : MediaTileHoverMode.Preview,
             TileTextMode = string.Equals(card.TileTextMode, "coverOnly", StringComparison.OrdinalIgnoreCase)
-                ? DiscoveryTileTextMode.CoverOnly
-                : DiscoveryTileTextMode.Caption,
+                ? MediaTileTextMode.CoverOnly
+                : MediaTileTextMode.Caption,
             PreviewPlacement = string.Equals(card.PreviewPlacement, "bottom", StringComparison.OrdinalIgnoreCase)
-                ? DiscoveryPreviewPlacement.Bottom
-                : DiscoveryPreviewPlacement.Smart,
+                ? MediaTilePreviewPlacement.Bottom
+                : MediaTilePreviewPlacement.Smart,
             TileImageUrl = surface.TileImageUrl,
+            TileImageSrcSet = surface.TileImageSrcSet,
             HoverImageUrl = surface.HoverImageUrl,
-            HeroBackgroundImageUrl = card.Artwork.BackgroundUrl,
-            PreviewImageUrl = card.Artwork.CoverUrl ?? card.Artwork.SquareUrl,
+            HoverImageSrcSet = surface.HoverImageSrcSet,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
             TileImageFitMode = surface.TileImageFitMode,
             HoverImageFitMode = surface.HoverImageFitMode,
             NavigationUrl = card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl ?? "/",
@@ -142,6 +138,7 @@ public sealed class DiscoveryComposerService
                 ?? card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl,
             PrimaryActionLabel = card.Actions.FirstOrDefault()?.Label ?? "Open",
             ProgressPct = card.Progress?.Percent,
+            ProgressLabel = card.Progress?.Label,
             Creator = card.Subtitle,
             SortTimestamp = card.SortTimestamp,
             IsCollection = card.Flags.IsCollection,
@@ -154,65 +151,65 @@ public sealed class DiscoveryComposerService
         return page ?? throw new InvalidOperationException($"Display API did not return a page for {surface}.");
     }
 
-    private static DiscoveryBucket GetBucket(string? mediaType)
+    private static MediaTileBucket GetBucket(string? mediaType)
     {
         var value = (mediaType ?? string.Empty).ToLowerInvariant();
         if (value.Contains("comic") || value.Contains("cbz") || value.Contains("cbr"))
         {
-            return DiscoveryBucket.Comic;
+            return MediaTileBucket.Comic;
         }
 
         if (value.Contains("audiobook") || value.Contains("m4b"))
         {
-            return DiscoveryBucket.Audiobook;
+            return MediaTileBucket.Audiobook;
         }
 
         if (value.Contains("music"))
         {
-            return DiscoveryBucket.Music;
+            return MediaTileBucket.Music;
         }
 
         if (value.Contains("movie") || value.Contains("video"))
         {
-            return DiscoveryBucket.Movie;
+            return MediaTileBucket.Movie;
         }
 
         if (value.Contains("tv"))
         {
-            return DiscoveryBucket.Tv;
+            return MediaTileBucket.Tv;
         }
 
         if (value.Contains("book") || value.Contains("epub"))
         {
-            return DiscoveryBucket.Book;
+            return MediaTileBucket.Book;
         }
 
-        return DiscoveryBucket.Other;
+        return MediaTileBucket.Other;
     }
 
-    private static string AccentForBucket(DiscoveryBucket bucket) => bucket switch
+    private static string AccentForBucket(MediaTileBucket bucket) => bucket switch
     {
-        DiscoveryBucket.Book => "var(--tl-media-book)",
-        DiscoveryBucket.Comic => "var(--tl-media-comic)",
-        DiscoveryBucket.Audiobook => "var(--tl-media-audio)",
-        DiscoveryBucket.Movie => "var(--tl-status-info)",
-        DiscoveryBucket.Tv => "var(--tl-media-video)",
-        DiscoveryBucket.Music => "var(--tl-media-audio)",
+        MediaTileBucket.Book => "var(--tl-media-book)",
+        MediaTileBucket.Comic => "var(--tl-media-comic)",
+        MediaTileBucket.Audiobook => "var(--tl-media-audio)",
+        MediaTileBucket.Movie => "var(--tl-status-info)",
+        MediaTileBucket.Tv => "var(--tl-media-video)",
+        MediaTileBucket.Music => "var(--tl-media-audio)",
         _ => "var(--tl-accent-primary)",
     };
 
-    private static DiscoverySurfaceKind ResolveHeroSurfaceKind(DisplayArtworkDto artwork)
+    private static MediaTileSurfaceKind ResolveHeroSurfaceKind(DisplayArtworkDto artwork)
     {
         if (HasUsableLandscape(artwork.BackgroundUrl, artwork.BackgroundWidthPx, artwork.BackgroundHeightPx)
             || HasUsableLandscape(artwork.BannerUrl, artwork.BannerWidthPx, artwork.BannerHeightPx))
         {
-            return DiscoverySurfaceKind.BannerLandscape;
+            return MediaTileSurfaceKind.BannerLandscape;
         }
 
         return ResolvePreviewSurfaceKind(artwork);
     }
 
-    private static DiscoverySurfaceKind ResolvePreviewSurfaceKind(DisplayArtworkDto artwork)
+    private static MediaTileSurfaceKind ResolvePreviewSurfaceKind(DisplayArtworkDto artwork)
     {
         if (!string.IsNullOrWhiteSpace(artwork.CoverUrl))
         {
@@ -221,18 +218,18 @@ public sealed class DiscoveryComposerService
 
         if (!string.IsNullOrWhiteSpace(artwork.SquareUrl))
         {
-            return ShapeFromDimensions(artwork.SquareWidthPx, artwork.SquareHeightPx, DiscoverySurfaceKind.CoverSquare);
+            return ShapeFromDimensions(artwork.SquareWidthPx, artwork.SquareHeightPx, MediaTileSurfaceKind.CoverSquare);
         }
 
         if (!string.IsNullOrWhiteSpace(artwork.BannerUrl))
         {
-            return DiscoverySurfaceKind.BannerLandscape;
+            return MediaTileSurfaceKind.BannerLandscape;
         }
 
-        return DiscoverySurfaceKind.CoverPortrait;
+        return MediaTileSurfaceKind.CoverPortrait;
     }
 
-    private static DiscoverySurfaceKind ShapeFromDimensions(int? width, int? height, DiscoverySurfaceKind fallback = DiscoverySurfaceKind.CoverPortrait)
+    private static MediaTileSurfaceKind ShapeFromDimensions(int? width, int? height, MediaTileSurfaceKind fallback = MediaTileSurfaceKind.CoverPortrait)
     {
         if (width is not > 0 || height is not > 0)
         {
@@ -242,12 +239,12 @@ public sealed class DiscoveryComposerService
         var ratio = width.Value / (double)height.Value;
         if (ratio >= 1.45)
         {
-            return DiscoverySurfaceKind.BannerLandscape;
+            return MediaTileSurfaceKind.BannerLandscape;
         }
 
         return ratio >= 0.85
-            ? DiscoverySurfaceKind.CoverSquare
-            : DiscoverySurfaceKind.CoverPortrait;
+            ? MediaTileSurfaceKind.CoverSquare
+            : MediaTileSurfaceKind.CoverPortrait;
     }
 
     private static bool HasUsableLandscape(string? url, int? width, int? height) =>
@@ -255,9 +252,12 @@ public sealed class DiscoveryComposerService
         && width is > 0
         && height is > 0
         && width.Value / (double)height.Value >= 1.45;
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }
 
-public enum DiscoveryBucket
+public enum MediaTileBucket
 {
     Other,
     Book,

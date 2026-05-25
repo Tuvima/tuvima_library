@@ -171,19 +171,53 @@ public sealed class DisplayCardBuilder
         new(DisplayMediaRules.IsWatchKind(mediaType) || DisplayMediaRules.IsListenKind(mediaType), DisplayMediaRules.IsReadKind(mediaType), !isCollection, isCollection, false);
 
     private static DisplayArtworkDto ArtworkFor(IDisplayArtworkRow row) =>
-        new(row.CoverUrl, row.SquareUrl, row.BannerUrl, row.BackgroundUrl, row.LogoUrl, ParseInt(row.CoverWidthPx), ParseInt(row.CoverHeightPx), ParseInt(row.SquareWidthPx), ParseInt(row.SquareHeightPx), ParseInt(row.BannerWidthPx), ParseInt(row.BannerHeightPx), ParseInt(row.BackgroundWidthPx), ParseInt(row.BackgroundHeightPx), row.AccentColor);
+        new(
+            row.CoverUrl,
+            row.CoverSmallUrl,
+            row.CoverMediumUrl,
+            row.CoverLargeUrl,
+            row.SquareUrl,
+            row.SquareSmallUrl,
+            row.SquareMediumUrl,
+            row.SquareLargeUrl,
+            row.BannerUrl,
+            row.BannerSmallUrl,
+            row.BannerMediumUrl,
+            row.BannerLargeUrl,
+            row.BackgroundUrl,
+            row.BackgroundSmallUrl,
+            row.BackgroundMediumUrl,
+            row.BackgroundLargeUrl,
+            row.LogoUrl,
+            ParseInt(row.CoverWidthPx),
+            ParseInt(row.CoverHeightPx),
+            ParseInt(row.SquareWidthPx),
+            ParseInt(row.SquareHeightPx),
+            ParseInt(row.BannerWidthPx),
+            ParseInt(row.BannerHeightPx),
+            ParseInt(row.BackgroundWidthPx),
+            ParseInt(row.BackgroundHeightPx),
+            row.AccentColor);
 
     private static IReadOnlyList<string> BuildFacts(string mediaKind, string title, string? year, string? genre, string? author, string? artist, string? narrator, string? series, string? season, string? episode, string? track, string? album)
         => DisplayFactBuilder.Build(mediaKind, title, year, genre, author, artist, narrator, series, season, episode, track, album);
 
     private static string PreferredShape(string mediaType, string? backgroundUrl, string? bannerUrl, string? squareUrl)
     {
-        if (!string.IsNullOrWhiteSpace(backgroundUrl) || !string.IsNullOrWhiteSpace(bannerUrl))
+        var mediaKind = DisplayMediaRules.NormalizeDisplayKind(mediaType);
+        if (mediaKind is "Music" or "Audiobook")
         {
-            return "landscape";
+            return "square";
         }
 
-        if (DisplayMediaRules.NormalizeDisplayKind(mediaType) is "Music" or "Audiobook" || !string.IsNullOrWhiteSpace(squareUrl))
+        if (mediaKind is "Movie" or "TV")
+        {
+            return !string.IsNullOrWhiteSpace(backgroundUrl) || !string.IsNullOrWhiteSpace(bannerUrl)
+                ? "landscape"
+                : "portrait";
+        }
+
+        if (mediaKind is not "Book" and not "Comic" && !string.IsNullOrWhiteSpace(squareUrl))
         {
             return "square";
         }
@@ -204,11 +238,6 @@ public sealed class DisplayCardBuilder
 
     private static string CollectionShape(string lane, string mediaKind, DisplayWorkRow representative)
     {
-        if (lane == "watch")
-        {
-            return "landscape";
-        }
-
         if (lane == "listen" || mediaKind is "Music" or "Audiobook")
         {
             return "square";

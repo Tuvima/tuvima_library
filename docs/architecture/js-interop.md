@@ -21,7 +21,7 @@ Dashboard components that register JavaScript callbacks must also unregister the
 ## Current High-Risk Registrations
 
 - Ctrl+K command palette: `registerCtrlK` / `unregisterCtrlK`.
-- Discovery card hover: `registerDiscoveryCardHover` / `unregisterDiscoveryCardHover`.
+- Media tile hover: `registerMediaTileHover` / `unregisterMediaTileHover`.
 - Listen playback callbacks: `registerStateHandler`, `registerCommandHandler`, and popup unload registration have paired unregister methods.
 - EPUB reader and Cytoscape registrations expose dispose/destroy methods and should keep using them from component disposal.
 

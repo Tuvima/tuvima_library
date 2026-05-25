@@ -1,5 +1,5 @@
-﻿@page "/"
-@inject DiscoveryComposerService Discovery
+@page "/"
+@inject MediaTileComposerService MediaTiles
 @inject UIOrchestratorService Orchestrator
 @inject SetupReadinessService ReadinessService
 @inject UniverseStateContainer State
@@ -112,7 +112,7 @@ else
             <div class="home-discovery-shelves">
                 @foreach (var shelf in _page.Shelves)
                 {
-                    <DiscoveryShelf Shelf="@shelf" />
+                    <MediaTileShelf Shelf="@shelf" />
                 }
             </div>
         </div>
@@ -145,7 +145,7 @@ else
 
         try
         {
-            _page = await Discovery.BuildHomeAsync();
+            _page = await MediaTiles.BuildHomeAsync();
             if (IsEmpty)
             {
                 _readiness = await ReadinessService.GetSnapshotAsync();

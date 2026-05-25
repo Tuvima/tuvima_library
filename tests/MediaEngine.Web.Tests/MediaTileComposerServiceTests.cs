@@ -1,11 +1,11 @@
 using MediaEngine.Contracts.Display;
 using MediaEngine.Domain;
 using MediaEngine.Web.Models.ViewDTOs;
-using MediaEngine.Web.Services.Discovery;
+using MediaEngine.Web.Services.MediaTiles;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class DiscoveryComposerServiceTests
+public sealed class MediaTileComposerServiceTests
 {
     [Fact]
     public void FromDisplayCard_PreservesCompactDisplayHintsAndProgress()
@@ -25,9 +25,21 @@ public sealed class DiscoveryComposerServiceTests
             Facts: ["Frank Herbert", "Science Fiction"],
             Artwork: new DisplayArtworkDto(
                 CoverUrl: "http://localhost:61495/stream/11111111-1111-1111-1111-111111111111/cover",
+                CoverSmallUrl: "http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s",
+                CoverMediumUrl: "http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=m",
+                CoverLargeUrl: "http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=l",
                 SquareUrl: null,
+                SquareSmallUrl: null,
+                SquareMediumUrl: null,
+                SquareLargeUrl: null,
                 BannerUrl: null,
+                BannerSmallUrl: null,
+                BannerMediumUrl: null,
+                BannerLargeUrl: null,
                 BackgroundUrl: null,
+                BackgroundSmallUrl: null,
+                BackgroundMediumUrl: null,
+                BackgroundLargeUrl: null,
                 LogoUrl: null,
                 CoverWidthPx: 1000,
                 CoverHeightPx: 1500,
@@ -47,12 +59,15 @@ public sealed class DiscoveryComposerServiceTests
             Flags: new DisplayCardFlagsDto(IsPlayable: false, IsReadable: true, CanAddToCollection: true, IsCollection: false, IsFavorite: false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
 
-        var mapped = DiscoveryComposerService.FromDisplayCard(card);
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
 
-        Assert.Equal(DiscoveryTileTextMode.CoverOnly, mapped.TileTextMode);
-        Assert.Equal(DiscoveryPreviewPlacement.Bottom, mapped.PreviewPlacement);
+        Assert.Equal(MediaTileTextMode.CoverOnly, mapped.TileTextMode);
+        Assert.Equal(MediaTilePreviewPlacement.Bottom, mapped.PreviewPlacement);
         Assert.Equal(["Frank Herbert", "Science Fiction"], mapped.HoverFacts);
         Assert.Equal(32, mapped.ProgressPct);
+        Assert.Equal("http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s", mapped.TileImageUrl);
+        Assert.Equal("http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s 320w, http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=m 960w", mapped.TileImageSrcSet);
+        Assert.Equal("http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=m", mapped.HoverImageUrl);
         Assert.Equal($"/read/{assetId}", mapped.PrimaryNavigationUrl);
         Assert.Equal("Continue Reading", mapped.PrimaryActionLabel);
     }
@@ -72,7 +87,33 @@ public sealed class DiscoveryComposerServiceTests
             Title: "Arrival",
             Subtitle: null,
             Facts: ["2016", "Science Fiction"],
-            Artwork: new DisplayArtworkDto("/cover.jpg", null, null, "/background.jpg", null, null, null, null, null, null, null, null, null, "#60A5FA"),
+            Artwork: new DisplayArtworkDto(
+                CoverUrl: "/cover.jpg",
+                CoverSmallUrl: "/cover-s.jpg",
+                CoverMediumUrl: "/cover-m.jpg",
+                CoverLargeUrl: "/cover-l.jpg",
+                SquareUrl: null,
+                SquareSmallUrl: null,
+                SquareMediumUrl: null,
+                SquareLargeUrl: null,
+                BannerUrl: null,
+                BannerSmallUrl: null,
+                BannerMediumUrl: null,
+                BannerLargeUrl: null,
+                BackgroundUrl: "/background.jpg",
+                BackgroundSmallUrl: "/background-s.jpg",
+                BackgroundMediumUrl: "/background-m.jpg",
+                BackgroundLargeUrl: "/background-l.jpg",
+                LogoUrl: null,
+                CoverWidthPx: null,
+                CoverHeightPx: null,
+                SquareWidthPx: null,
+                SquareHeightPx: null,
+                BannerWidthPx: null,
+                BannerHeightPx: null,
+                BackgroundWidthPx: null,
+                BackgroundHeightPx: null,
+                AccentColor: "#60A5FA"),
             PreferredShape: "landscape",
             Presentation: "movie",
             TileTextMode: "caption",
@@ -89,13 +130,15 @@ public sealed class DiscoveryComposerServiceTests
             Shelves: [new DisplayShelfDto("movies", "Movies in your library", null, [card], null)],
             Catalog: [card]);
 
-        var mapped = DiscoveryComposerService.FromDisplayPage(page);
+        var mapped = MediaTileComposerService.FromDisplayPage(page);
 
         Assert.Equal("watch", mapped.Key);
         Assert.Equal("Arrival", mapped.Hero?.Title);
         Assert.Single(mapped.Shelves);
         Assert.Single(mapped.Catalog);
         Assert.Equal(["2016", "Science Fiction"], mapped.Catalog[0].HoverFacts);
+        Assert.Equal("/background-s.jpg", mapped.Catalog[0].TileImageUrl);
+        Assert.Equal("/background-m.jpg", mapped.Catalog[0].HoverImageUrl);
     }
 
     private static WorkViewModel CreateWork(

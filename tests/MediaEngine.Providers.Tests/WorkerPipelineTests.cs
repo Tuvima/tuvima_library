@@ -2602,6 +2602,15 @@ public sealed class WorkerPipelineTests
                 .ToList();
             return Task.FromResult<IReadOnlyList<EntityAsset>>(assets);
         }
+
+        public Task<IReadOnlyList<EntityAsset>> GetPreferredArtworkAsync(CancellationToken ct = default)
+        {
+            var assets = Assets
+                .Where(asset => asset.IsPreferred
+                    && string.Equals(asset.AssetClassValue, "Artwork", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            return Task.FromResult<IReadOnlyList<EntityAsset>>(assets);
+        }
     }
 
     private sealed class StubImageCacheRepository : IImageCacheRepository

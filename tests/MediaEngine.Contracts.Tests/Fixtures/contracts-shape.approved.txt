@@ -336,9 +336,21 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayActionDto
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayArtworkDto
   CoverUrl: System.String | nullability=nullable | accessors=get,init
+  CoverSmallUrl: System.String | nullability=nullable | accessors=get,init
+  CoverMediumUrl: System.String | nullability=nullable | accessors=get,init
+  CoverLargeUrl: System.String | nullability=nullable | accessors=get,init
   SquareUrl: System.String | nullability=nullable | accessors=get,init
+  SquareSmallUrl: System.String | nullability=nullable | accessors=get,init
+  SquareMediumUrl: System.String | nullability=nullable | accessors=get,init
+  SquareLargeUrl: System.String | nullability=nullable | accessors=get,init
   BannerUrl: System.String | nullability=nullable | accessors=get,init
+  BannerSmallUrl: System.String | nullability=nullable | accessors=get,init
+  BannerMediumUrl: System.String | nullability=nullable | accessors=get,init
+  BannerLargeUrl: System.String | nullability=nullable | accessors=get,init
   BackgroundUrl: System.String | nullability=nullable | accessors=get,init
+  BackgroundSmallUrl: System.String | nullability=nullable | accessors=get,init
+  BackgroundMediumUrl: System.String | nullability=nullable | accessors=get,init
+  BackgroundLargeUrl: System.String | nullability=nullable | accessors=get,init
   LogoUrl: System.String | nullability=nullable | accessors=get,init
   CoverWidthPx: System.Int32? | nullability=nullable | accessors=get,init
   CoverHeightPx: System.Int32? | nullability=nullable | accessors=get,init

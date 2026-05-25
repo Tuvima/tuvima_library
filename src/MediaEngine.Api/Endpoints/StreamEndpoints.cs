@@ -4,6 +4,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Processors.Contracts;
+using MediaEngine.Providers.Helpers;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -95,6 +96,7 @@ public static class StreamEndpoints
             Guid variantId,
             string? size,
             IEntityAssetRepository entityAssetRepo,
+            AssetPathService assetPathService,
             IHttpClientFactory httpFactory,
             CancellationToken ct) =>
         {
@@ -102,11 +104,28 @@ public static class StreamEndpoints
             if (variant is null)
                 return Results.NotFound($"Artwork variant '{variantId}' not found.");
 
-            var renditionPath = ResolveArtworkPath(variant, size);
+            var hasRequestedSize = !string.IsNullOrWhiteSpace(size);
+            var normalizedSize = NormalizeArtworkSize(size);
+            if (hasRequestedSize && normalizedSize is null)
+            {
+                return Results.BadRequest("Artwork size must be one of 's', 'm', or 'l'.");
+            }
+
+            if (normalizedSize is not null)
+            {
+                await EnsureArtworkRenditionsAsync(variant, entityAssetRepo, assetPathService, ct);
+            }
+
+            var renditionPath = ResolveArtworkPath(variant, normalizedSize);
             if (!string.IsNullOrWhiteSpace(renditionPath) && File.Exists(renditionPath))
             {
                 var bytes = await File.ReadAllBytesAsync(renditionPath, ct);
                 return Results.File(bytes, GetImageMimeType(renditionPath), Path.GetFileName(renditionPath));
+            }
+
+            if (normalizedSize is not null)
+            {
+                return Results.NotFound($"Artwork rendition '{normalizedSize}' is not available.");
             }
 
             if (!string.IsNullOrWhiteSpace(variant.ImageUrl)
@@ -428,11 +447,44 @@ public static class StreamEndpoints
         return lineage?.TargetForParentScope ?? fallbackOwnerEntityId ?? assetId;
     }
 
+    private static async Task EnsureArtworkRenditionsAsync(
+        EntityAsset asset,
+        IEntityAssetRepository entityAssetRepo,
+        AssetPathService assetPathService,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(asset.LocalImagePath)
+            || !File.Exists(asset.LocalImagePath)
+            || !ArtworkVariantHelper.ShouldGenerateRenditions(asset.AssetTypeValue))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(asset.LocalImagePathSmall)
+            && File.Exists(asset.LocalImagePathSmall)
+            && !string.IsNullOrWhiteSpace(asset.LocalImagePathMedium)
+            && File.Exists(asset.LocalImagePathMedium)
+            && !string.IsNullOrWhiteSpace(asset.LocalImagePathLarge)
+            && File.Exists(asset.LocalImagePathLarge))
+        {
+            return;
+        }
+
+        ArtworkVariantHelper.StampMetadataAndRenditions(asset, assetPathService);
+        await entityAssetRepo.UpsertAsync(asset, ct);
+    }
+
+    private static string? NormalizeArtworkSize(string? size)
+    {
+        var normalized = (size ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized is "s" or "m" or "l" ? normalized : null;
+    }
+
     private static string? ResolveArtworkPath(EntityAsset asset, string? size) => (size ?? string.Empty).Trim().ToLowerInvariant() switch
     {
-        "s" => asset.LocalImagePathSmall ?? asset.LocalImagePath,
-        "m" => asset.LocalImagePathMedium ?? asset.LocalImagePath,
-        "l" => asset.LocalImagePathLarge ?? asset.LocalImagePath,
+        "s" => asset.LocalImagePathSmall,
+        "m" => asset.LocalImagePathMedium,
+        "l" => asset.LocalImagePathLarge,
         _ => asset.LocalImagePath,
     };
 

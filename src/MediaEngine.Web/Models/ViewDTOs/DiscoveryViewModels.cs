@@ -1,59 +1,4 @@
-using MediaEngine.Domain.Models;
-
 namespace MediaEngine.Web.Models.ViewDTOs;
-
-public enum DiscoveryCardShape
-{
-    Portrait,
-    Landscape,
-    Square,
-}
-
-public enum DiscoveryCardPresentation
-{
-    Default,
-    TvSeries,
-    MovieSeries,
-    BookSeries,
-    ComicSeries,
-    AudiobookSeries,
-    Album,
-    Artist,
-}
-
-public enum DiscoverySurfaceKind
-{
-    BannerLandscape,
-    CoverPortrait,
-    CoverSquare,
-    ArtistPhotoSquare,
-}
-
-public enum DiscoveryHoverLayout
-{
-    ArtOnlyPopover,
-    BannerPopover,
-}
-
-public enum DiscoveryImageFitMode
-{
-    Fill,
-    Contain,
-}
-
-public enum DiscoveryTileTextMode
-{
-    Caption,
-    CoverOnly,
-}
-
-public enum DiscoveryPreviewPlacement
-{
-    Smart,
-    Bottom,
-}
-
-public sealed record DiscoveryMediaCountViewModel(string Icon, string Label, int Count);
 
 public sealed class DiscoveryHeroViewModel
 {
@@ -67,74 +12,20 @@ public sealed class DiscoveryHeroViewModel
     public string? HeroBackgroundImageUrl { get; init; }
     public string? BannerImageUrl { get; init; }
     public string? PreviewImageUrl { get; init; }
-    public DiscoverySurfaceKind PreviewSurfaceKind { get; init; } = DiscoverySurfaceKind.CoverPortrait;
-    public DiscoveryImageFitMode TileImageFitMode { get; init; } = DiscoveryImageFitMode.Fill;
-    public DiscoveryImageFitMode HoverImageFitMode { get; init; } = DiscoveryImageFitMode.Contain;
+    public MediaTileSurfaceKind PreviewSurfaceKind { get; init; } = MediaTileSurfaceKind.CoverPortrait;
+    public MediaTileImageFitMode TileImageFitMode { get; init; } = MediaTileImageFitMode.Fill;
+    public MediaTileImageFitMode HoverImageFitMode { get; init; } = MediaTileImageFitMode.Contain;
     public string? LogoUrl { get; init; }
     public string AccentColor { get; init; } = "var(--tl-accent-primary)";
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
     public double? ProgressPct { get; init; }
     public Guid? RepresentativeEntityId { get; init; }
-    public DiscoverySurfaceKind SurfaceKind { get; init; } = DiscoverySurfaceKind.BannerLandscape;
+    public MediaTileSurfaceKind SurfaceKind { get; init; } = MediaTileSurfaceKind.BannerLandscape;
     public string PrimaryActionLabel { get; init; } = "Open";
     public string PrimaryNavigationUrl { get; init; } = "/";
     public string SecondaryActionLabel { get; init; } = "Details";
     public string? SecondaryNavigationUrl { get; init; }
-}
-
-public sealed class DiscoveryCardViewModel
-{
-    public Guid Id { get; init; }
-    public Guid? WorkId { get; init; }
-    public Guid? CollectionId { get; init; }
-    public string Title { get; init; } = string.Empty;
-    public string? Subtitle { get; init; }
-    public string? Description { get; init; }
-    public string? CoverUrl { get; init; }
-    public string? BackgroundUrl { get; init; }
-    public string? BannerUrl { get; init; }
-    public string? HeroUrl { get; init; }
-    public string? LogoUrl { get; init; }
-    public IReadOnlyList<string> PreviewImages { get; init; } = [];
-    public IReadOnlyList<ArtworkStackItem> ArtworkStackItems { get; init; } = [];
-    public string? StatusText { get; init; }
-    public string? MetaText { get; init; }
-    public IReadOnlyList<DiscoveryMediaCountViewModel> MediaCounts { get; init; } = [];
-    public IReadOnlyList<string> ContextLines { get; init; } = [];
-    public IReadOnlyList<string> HoverFacts { get; init; } = [];
-    public string? Tldr { get; init; }
-    public IReadOnlyList<string> VibeTags { get; init; } = [];
-    public string MediaKind { get; init; } = string.Empty;
-    public string AccentColor { get; init; } = "var(--tl-status-info)";
-    public string SecondaryAccentColor { get; init; } = "#111827";
-    public ArtworkPalette? ArtworkPalette { get; init; }
-    public DiscoveryCardShape Shape { get; init; } = DiscoveryCardShape.Portrait;
-    public DiscoveryCardPresentation Presentation { get; init; } = DiscoveryCardPresentation.Default;
-    public DiscoverySurfaceKind SurfaceKind { get; init; } = DiscoverySurfaceKind.CoverPortrait;
-    public DiscoveryHoverLayout HoverLayout { get; init; } = DiscoveryHoverLayout.ArtOnlyPopover;
-    public DiscoveryTileTextMode TileTextMode { get; init; } = DiscoveryTileTextMode.Caption;
-    public DiscoveryPreviewPlacement PreviewPlacement { get; init; } = DiscoveryPreviewPlacement.Smart;
-    public string? TileImageUrl { get; init; }
-    public string? HoverImageUrl { get; init; }
-    public string? HeroBackgroundImageUrl { get; init; }
-    public string? PreviewImageUrl { get; init; }
-    public DiscoveryImageFitMode TileImageFitMode { get; init; } = DiscoveryImageFitMode.Fill;
-    public DiscoveryImageFitMode HoverImageFitMode { get; init; } = DiscoveryImageFitMode.Contain;
-    public Guid? RepresentativeEntityId { get; init; }
-    public string NavigationUrl { get; init; } = "/";
-    public string? PrimaryNavigationUrl { get; init; }
-    public string? DetailsNavigationUrl { get; init; }
-    public string PrimaryActionLabel { get; init; } = "Open";
-    public double? ProgressPct { get; init; }
-    public string? Creator { get; init; }
-    public string? CollectionKey { get; init; }
-    public IReadOnlyList<string> Genres { get; init; } = [];
-    public int SortYear { get; init; }
-    public DateTimeOffset SortTimestamp { get; init; }
-    public bool IsCollection { get; init; }
-
-    public bool CanAddToCollection => WorkId.HasValue && !IsCollection;
 }
 
 public sealed class DiscoveryHubViewModel
@@ -151,22 +42,14 @@ public sealed class DiscoveryHubViewModel
     public string NavigationUrl { get; init; } = "/";
 }
 
-public sealed class DiscoveryShelfViewModel
-{
-    public string Title { get; init; } = string.Empty;
-    public string? Subtitle { get; init; }
-    public IReadOnlyList<DiscoveryCardViewModel> Items { get; init; } = [];
-    public string? SeeAllRoute { get; init; }
-}
-
 public sealed class DiscoveryPageViewModel
 {
     public string Key { get; init; } = string.Empty;
     public string AccentColor { get; init; } = "var(--tl-accent-primary)";
     public DiscoveryHeroViewModel? Hero { get; init; }
     public IReadOnlyList<DiscoveryHubViewModel> Hubs { get; init; } = [];
-    public IReadOnlyList<DiscoveryShelfViewModel> Shelves { get; init; } = [];
-    public IReadOnlyList<DiscoveryCardViewModel> Catalog { get; init; } = [];
+    public IReadOnlyList<MediaTileShelfViewModel> Shelves { get; init; } = [];
+    public IReadOnlyList<MediaTileViewModel> Catalog { get; init; } = [];
     public string EmptyTitle { get; init; } = "Your library is empty.";
     public string EmptySubtitle { get; init; } = "Add media to start discovering it here.";
 }

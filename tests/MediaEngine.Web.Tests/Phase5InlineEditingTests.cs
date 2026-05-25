@@ -18,7 +18,7 @@ public sealed class Phase5InlineEditingTests
     {
         var browse = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
         var table = ReadSource("src/MediaEngine.Web/Components/Library/LibraryConfigurableTable.razor");
-        var card = ReadSource("src/MediaEngine.Web/Components/Discovery/DiscoveryCard.razor");
+        var card = ReadSource("src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor");
         var group = ReadSource("src/MediaEngine.Web/Components/Library/MediaGroupPage.razor");
 
         Assert.Contains("MediaEditorLauncherService MediaEditorLauncher", browse, StringComparison.Ordinal);

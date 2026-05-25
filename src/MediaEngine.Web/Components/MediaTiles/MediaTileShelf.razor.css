@@ -1,4 +1,4 @@
-.discovery-shelf {
+.media-tile-shelf {
         display: flex;
         flex-direction: column;
         gap: 18px;
@@ -6,20 +6,20 @@
         z-index: 0;
     }
 
-    .discovery-shelf-header {
+    .media-tile-shelf-header {
         display: flex;
         align-items: flex-end;
         justify-content: space-between;
         gap: 16px;
     }
 
-    .discovery-shelf-copy {
+    .media-tile-shelf-copy {
         display: flex;
         flex-direction: column;
         gap: 6px;
     }
 
-    .discovery-shelf-title {
+    .media-tile-shelf-title {
         margin: 0;
         font-family: Georgia, 'Times New Roman', serif;
         font-size: clamp(1.4rem, 2vw, 2rem);
@@ -28,7 +28,7 @@
         color: rgba(248, 250, 252, 0.96);
     }
 
-    .discovery-shelf-subtitle {
+    .media-tile-shelf-subtitle {
         margin: 0;
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.92rem;
@@ -36,7 +36,7 @@
         color: rgba(148, 163, 184, 0.88);
     }
 
-    .discovery-shelf-link {
+    .media-tile-shelf-link {
         color: rgba(248, 250, 252, 0.8);
         text-decoration: none;
         font-family: var(--app-font-sans, 'Nunito', sans-serif);
@@ -47,32 +47,32 @@
         white-space: nowrap;
     }
 
-    .discovery-shelf-link:hover {
+    .media-tile-shelf-link:hover {
         color: white;
     }
 
-    .discovery-shelf-track {
+    .media-tile-shelf-track {
         position: relative;
         overflow: visible;
     }
 
-    .discovery-shelf-scroll {
-        --discovery-hover-lift: clamp(12px, 1.8vw, 18px);
+    .media-tile-shelf-scroll {
+        --media-tile-hover-lift: clamp(12px, 1.8vw, 18px);
         display: flex;
         align-items: flex-start;
         gap: clamp(16px, 1.6vw, 24px);
         overflow-x: auto;
         scroll-snap-type: x proximity;
-        padding: calc(var(--discovery-hover-lift) + 8px) 2px 12px;
+        padding: calc(var(--media-tile-hover-lift) + 8px) 2px 12px;
         scrollbar-width: none;
         -ms-overflow-style: none;
     }
 
-    .discovery-shelf-scroll::-webkit-scrollbar {
+    .media-tile-shelf-scroll::-webkit-scrollbar {
         display: none;
     }
 
-    .discovery-shelf-arrow {
+    .media-tile-shelf-arrow {
         position: absolute;
         top: 0;
         bottom: 0;
@@ -87,28 +87,28 @@
         border-radius: var(--app-radius-md);
     }
 
-    .discovery-shelf-track:hover .discovery-shelf-arrow {
+    .media-tile-shelf-track:hover .media-tile-shelf-arrow {
         opacity: 1;
     }
 
-    .discovery-shelf-arrow-left {
+    .media-tile-shelf-arrow-left {
         left: 0;
         background: linear-gradient(90deg, rgba(6, 10, 18, 0.96) 24%, transparent 100%);
     }
 
-    .discovery-shelf-arrow-right {
+    .media-tile-shelf-arrow-right {
         right: 0;
         background: linear-gradient(270deg, rgba(6, 10, 18, 0.96) 24%, transparent 100%);
     }
 
     @@media (hover: none) {
-        .discovery-shelf-arrow {
+        .media-tile-shelf-arrow {
             display: none;
         }
     }
 
     @@media (max-width: 640px) {
-        .discovery-shelf-header {
+        .media-tile-shelf-header {
             align-items: flex-start;
             flex-direction: column;
         }

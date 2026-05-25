@@ -1,11 +1,11 @@
-﻿@namespace MediaEngine.Web.Components.Browse
+@namespace MediaEngine.Web.Components.Browse
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Contracts.Display
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
-@using MediaEngine.Web.Services.Discovery
+@using MediaEngine.Web.Services.MediaTiles
 @using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Navigation
@@ -201,12 +201,10 @@
     }
     else
     {
-        <div class="browse-shell__grid">
-            @foreach (var card in _cards)
-            {
-                <DiscoveryCard Item="@card" @key="card.Id" OnEditClicked="OpenCardEditorAsync" />
-            }
-        </div>
+        <MediaTileGrid Items="@_cards"
+                       HoverMode="@GridHoverMode"
+                       OnEditClicked="OpenCardEditorAsync"
+                       Class="browse-shell__grid" />
     }
 
     @if (_hasMore && !_isGroupDrilldown && !IsContainerGrouping)
@@ -229,7 +227,7 @@
     private const int PageSize = 72;
 
     private readonly HashSet<Guid> _selectedItems = [];
-    private readonly List<DiscoveryCardViewModel> _cards = [];
+    private readonly List<MediaTileViewModel> _cards = [];
 
     private string _activeTabId = string.Empty;
     private string _grouping = "all";
@@ -265,6 +263,9 @@
     private bool IsContainerGrouping => BrowseQueryBuilder.IsContainerGrouping(_grouping);
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
+    private MediaTileHoverMode GridHoverMode => IsWatchMedia(CurrentTab.MediaType)
+        ? MediaTileHoverMode.Expanded
+        : MediaTileHoverMode.Preview;
     private string EmptyStateTitle =>
         !string.IsNullOrWhiteSpace(_searchText)
             ? "No matches found"
@@ -408,16 +409,19 @@
             }
             else
             {
-                if (!UseListLayout && await LoadDisplayCardsAsync(append))
+                if (!UseListLayout)
                 {
+                    if (!await LoadDisplayCardsAsync(append))
+                    {
+                        throw new InvalidOperationException("Display API did not return a browse page.");
+                    }
+
                     await journeyTask;
                 }
                 else
                 {
                     var itemsTask = LoadItemsAsync(append);
                     await Task.WhenAll(journeyTask, itemsTask);
-                    _cards.Clear();
-                    _cards.AddRange(_items.Select(ToItemCard));
                 }
             }
 
@@ -452,7 +456,7 @@
             return false;
         }
 
-        var incoming = SortCards(page.Catalog.Select(DiscoveryComposerService.FromDisplayCard)).ToList();
+        var incoming = SortCards(page.Catalog.Select(MediaTileComposerService.FromDisplayCard)).ToList();
         if (append)
         {
             _cards.AddRange(incoming);
@@ -568,7 +572,7 @@
         };
     }
 
-    private IEnumerable<DiscoveryCardViewModel> SortCards(IEnumerable<DiscoveryCardViewModel> source)
+    private IEnumerable<MediaTileViewModel> SortCards(IEnumerable<MediaTileViewModel> source)
     {
         return _sortBy switch
         {
@@ -721,49 +725,7 @@
         };
     }
 
-    private DiscoveryCardViewModel ToItemCard(LibraryItemViewModel item)
-    {
-        var presentation = item.MediaType switch
-        {
-            "Music" => "album",
-            _ => "default",
-        };
-        var wideArtwork = BrowseArtworkRules.ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
-        var navigationUrl = MediaNavigation.ForLibraryItem(item);
-        var card = new DisplayCardDto(
-            Id: item.EntityId,
-            WorkId: item.EntityId,
-            AssetId: null,
-            CollectionId: null,
-            MediaType: FormatMediaLabel(item.MediaType),
-            GroupingType: "work",
-            Title: item.Title,
-            Subtitle: item.Creator ?? item.ContextLabel,
-            Facts: BrowseArtworkRules.CompactFacts(item.ContextLabel, item.Year, item.Runtime ?? item.Duration),
-            Artwork: new DisplayArtworkDto(item.CoverUrl, item.ArtistPhotoUrl, item.BannerUrl, wideArtwork, null, null, null, null, null, null, null, null, null, AccentForMedia(item.MediaType)),
-            PreferredShape: BrowseArtworkRules.PreferredDisplayShape(item.MediaType, wideArtwork, item.ArtistPhotoUrl),
-            Presentation: presentation,
-            TileTextMode: "caption",
-            PreviewPlacement: IsReadMedia(item.MediaType) ? "bottom" : "smart",
-            Progress: null,
-            Actions:
-            [
-                new DisplayActionDto("openWork", Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open" : "Details", item.EntityId, null, null, navigationUrl),
-            ],
-            Flags: new DisplayCardFlagsDto(IsPlayableMedia(item.MediaType), IsReadMedia(item.MediaType), true, false, false),
-            SortTimestamp: item.CreatedAt);
-
-        return WithCardOverrides(
-            DiscoveryComposerService.FromDisplayCard(card),
-            description: BuildItemDescription(item),
-            heroUrl: null,
-            previewImages: null,
-            creator: item.Creator,
-            collectionKey: item.ContextLabel,
-            sortYear: ParseYear(item.Year));
-    }
-
-    private DiscoveryCardViewModel ToGroupCard(ContentGroupViewModel group)
+    private MediaTileViewModel ToGroupCard(ContentGroupViewModel group)
     {
         var presentation = (_activeTabId, _grouping) switch
         {
@@ -783,6 +745,18 @@
         var coverUrl = string.Equals(presentation, "artist", StringComparison.OrdinalIgnoreCase)
             ? group.ArtistPhotoUrl
             : group.CoverUrl;
+        var coverSmallUrl = MediaTileArtworkUrl.Sized(coverUrl, "s");
+        var coverMediumUrl = MediaTileArtworkUrl.Sized(coverUrl, "m");
+        var coverLargeUrl = MediaTileArtworkUrl.Sized(coverUrl, "l");
+        var artistSmallUrl = MediaTileArtworkUrl.Sized(group.ArtistPhotoUrl, "s");
+        var artistMediumUrl = MediaTileArtworkUrl.Sized(group.ArtistPhotoUrl, "m");
+        var artistLargeUrl = MediaTileArtworkUrl.Sized(group.ArtistPhotoUrl, "l");
+        var bannerSmallUrl = MediaTileArtworkUrl.Sized(group.BannerUrl, "s");
+        var bannerMediumUrl = MediaTileArtworkUrl.Sized(group.BannerUrl, "m");
+        var bannerLargeUrl = MediaTileArtworkUrl.Sized(group.BannerUrl, "l");
+        var backgroundSmallUrl = MediaTileArtworkUrl.Sized(wideArtwork, "s");
+        var backgroundMediumUrl = MediaTileArtworkUrl.Sized(wideArtwork, "m");
+        var backgroundLargeUrl = MediaTileArtworkUrl.Sized(wideArtwork, "l");
         var card = new DisplayCardDto(
             Id: GetGroupNavigationId(group),
             WorkId: null,
@@ -793,7 +767,7 @@
             Title: group.DisplayName,
             Subtitle: group.Creator ?? group.Network,
             Facts: BrowseArtworkRules.CompactFacts(group.Year, $"{group.WorkCount} items"),
-            Artwork: new DisplayArtworkDto(coverUrl, group.ArtistPhotoUrl, group.BannerUrl, wideArtwork, group.LogoUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx, group.BannerWidthPx, group.BannerHeightPx, group.BackgroundWidthPx, group.BackgroundHeightPx, group.MediaTypeColor ?? AccentForMedia(group.PrimaryMediaType)),
+            Artwork: new DisplayArtworkDto(coverUrl, coverSmallUrl, coverMediumUrl, coverLargeUrl, group.ArtistPhotoUrl, artistSmallUrl, artistMediumUrl, artistLargeUrl, group.BannerUrl, bannerSmallUrl, bannerMediumUrl, bannerLargeUrl, wideArtwork, backgroundSmallUrl, backgroundMediumUrl, backgroundLargeUrl, group.LogoUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx, group.BannerWidthPx, group.BannerHeightPx, group.BackgroundWidthPx, group.BackgroundHeightPx, group.MediaTypeColor ?? AccentForMedia(group.PrimaryMediaType)),
             PreferredShape: BrowseArtworkRules.PreferredDisplayShape(group.PrimaryMediaType, wideArtwork, group.ArtistPhotoUrl),
             Presentation: presentation,
             TileTextMode: "caption",
@@ -804,10 +778,10 @@
             SortTimestamp: group.CreatedAt);
 
         return WithCardOverrides(
-            DiscoveryComposerService.FromDisplayCard(card),
+            MediaTileComposerService.FromDisplayCard(card),
             description: BuildGroupDescription(group),
             heroUrl: null,
-            previewImages: !string.Equals(presentation, "artist", StringComparison.OrdinalIgnoreCase) && group.CoverUrl is { Length: > 0 } cover ? [cover] : [],
+            previewImages: !string.Equals(presentation, "artist", StringComparison.OrdinalIgnoreCase) && MediaTileArtworkUrl.Sized(group.CoverUrl, "s") is { Length: > 0 } cover ? [cover] : [],
             creator: group.Creator,
             collectionKey: group.DisplayName,
             sortYear: ParseYear(group.Year));
@@ -941,7 +915,7 @@
         return Task.CompletedTask;
     }
 
-    private Task OpenCardEditorAsync(DiscoveryCardViewModel card)
+    private Task OpenCardEditorAsync(MediaTileViewModel card)
     {
         var item = _items.FirstOrDefault(candidate => candidate.EntityId == card.WorkId);
         return OpenEditorAsync(
@@ -1292,8 +1266,8 @@
         return new Guid(bytes);
     }
 
-    private static DiscoveryCardViewModel WithCardOverrides(
-        DiscoveryCardViewModel card,
+    private static MediaTileViewModel WithCardOverrides(
+        MediaTileViewModel card,
         string? description,
         string? heroUrl,
         IReadOnlyList<string>? previewImages,
@@ -1313,6 +1287,7 @@
         HeroUrl = heroUrl,
         LogoUrl = card.LogoUrl,
         PreviewImages = previewImages ?? card.PreviewImages,
+        ArtworkStackItems = card.ArtworkStackItems,
         StatusText = card.StatusText,
         MetaText = card.MetaText,
         MediaCounts = card.MediaCounts,
@@ -1322,14 +1297,21 @@
         VibeTags = card.VibeTags,
         MediaKind = card.MediaKind,
         AccentColor = card.AccentColor,
+        SecondaryAccentColor = card.SecondaryAccentColor,
+        ArtworkPalette = card.ArtworkPalette,
         Shape = card.Shape,
         Presentation = card.Presentation,
         SurfaceKind = card.SurfaceKind,
         HoverLayout = card.HoverLayout,
+        HoverMode = card.HoverMode,
         TileTextMode = card.TileTextMode,
         PreviewPlacement = card.PreviewPlacement,
         TileImageUrl = card.TileImageUrl,
+        TileImageSrcSet = card.TileImageSrcSet,
+        TileImageSizes = card.TileImageSizes,
         HoverImageUrl = card.HoverImageUrl,
+        HoverImageSrcSet = card.HoverImageSrcSet,
+        HoverImageSizes = card.HoverImageSizes,
         HeroBackgroundImageUrl = card.HeroBackgroundImageUrl,
         PreviewImageUrl = card.PreviewImageUrl,
         TileImageFitMode = card.TileImageFitMode,
@@ -1340,6 +1322,7 @@
         DetailsNavigationUrl = card.DetailsNavigationUrl,
         PrimaryActionLabel = card.PrimaryActionLabel,
         ProgressPct = card.ProgressPct,
+        ProgressLabel = card.ProgressLabel,
         Creator = creator,
         CollectionKey = collectionKey,
         Genres = card.Genres,
@@ -1375,42 +1358,6 @@
 
     private static bool IsPlayableMedia(string? mediaType) =>
         IsWatchMedia(mediaType) || IsListenMedia(mediaType);
-
-    private static DiscoveryBucket GetDiscoveryBucket(string? mediaType)
-    {
-        var normalized = mediaType ?? string.Empty;
-        if (normalized.Contains("music", StringComparison.OrdinalIgnoreCase))
-        {
-            return DiscoveryBucket.Music;
-        }
-
-        if (normalized.Contains("audio", StringComparison.OrdinalIgnoreCase))
-        {
-            return DiscoveryBucket.Audiobook;
-        }
-
-        if (normalized.Contains("tv", StringComparison.OrdinalIgnoreCase))
-        {
-            return DiscoveryBucket.Tv;
-        }
-
-        if (normalized.Contains("movie", StringComparison.OrdinalIgnoreCase))
-        {
-            return DiscoveryBucket.Movie;
-        }
-
-        if (normalized.Contains("comic", StringComparison.OrdinalIgnoreCase))
-        {
-            return DiscoveryBucket.Comic;
-        }
-
-        if (normalized.Contains("book", StringComparison.OrdinalIgnoreCase))
-        {
-            return DiscoveryBucket.Book;
-        }
-
-        return DiscoveryBucket.Other;
-    }
 
     private static string BuildItemDescription(LibraryItemViewModel item)
     {

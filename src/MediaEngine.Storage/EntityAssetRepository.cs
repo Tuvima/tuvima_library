@@ -288,4 +288,21 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
 
         return Task.FromResult<IReadOnlyList<EntityAsset>>(results);
     }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<EntityAsset>> GetPreferredArtworkAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var results = conn.Query<EntityAsset>($"""
+            SELECT {SelectColumns}
+            FROM   entity_assets
+            WHERE  is_preferred = 1
+            AND    asset_class = 'Artwork'
+            ORDER BY updated_at DESC, created_at DESC;
+            """).ToList();
+
+        return Task.FromResult<IReadOnlyList<EntityAsset>>(results);
+    }
 }

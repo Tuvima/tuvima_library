@@ -3,7 +3,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Components.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
-using MediaEngine.Web.Services.Discovery;
+using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Theming;
 using MediaEngine.Web.Tests.Support;
@@ -38,7 +38,7 @@ public sealed class Phase1SetupReadinessTests : TestContext
         Services.AddScoped<ActiveProfileSessionService>();
         Services.AddScoped<UIOrchestratorService>();
         Services.AddScoped<SetupReadinessService>();
-        Services.AddScoped<DiscoveryComposerService>();
+        Services.AddScoped<MediaTileComposerService>();
     }
 
     [Fact]

@@ -3,7 +3,7 @@ using MediaEngine.Web.Components.Collections;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Models.ViewDTOs;
-using MediaEngine.Web.Services.Discovery;
+using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Playback;
@@ -49,7 +49,7 @@ public sealed class UiShellRenderTests : TestContext
         Services.AddScoped<ActiveProfileSessionService>();
         Services.AddScoped<UIOrchestratorService>();
         Services.AddScoped<CollectionEditorLauncherService>();
-        Services.AddScoped<DiscoveryComposerService>();
+        Services.AddScoped<MediaTileComposerService>();
         Services.AddScoped<ListenPlaybackService>();
         Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
         Services.AddScoped<MediaReactionService>();
@@ -380,7 +380,7 @@ public sealed class UiShellRenderTests : TestContext
             Assert.NotEmpty(cut.FindAll(".browse-shell__search"));
             Assert.NotEmpty(cut.FindAll(".browse-shell__sort"));
             Assert.NotEmpty(cut.FindAll(".browse-shell__grid"));
-            Assert.NotEmpty(cut.FindAll(".discovery-card"));
+            Assert.NotEmpty(cut.FindAll(".media-tile"));
             Assert.Empty(cut.FindAll(".collections-hub__tabs"));
             Assert.Empty(cut.FindAll(".collections-hub-tab"));
             Assert.Empty(cut.FindAll(".collection-hub-section"));

@@ -154,7 +154,7 @@ public sealed class ArchitecturalHardeningTests
         Assert.DoesNotContain("<style>", drawer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("LibraryDetailDrawerHeader", drawer);
         Assert.Contains("LibraryDetailDrawerStatusBanners", drawer);
-        Assert.Contains("__discoveryHoverFrame", appJs);
+        Assert.Contains("__mediaTileHoverFrame", appJs);
         Assert.Contains("cancelAnimationFrame", appJs);
         Assert.Contains("ShouldRender", universeTab);
     }

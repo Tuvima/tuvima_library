@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Collections
+@namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Models.ViewDTOs
@@ -110,12 +110,9 @@
     }
     else
     {
-        <div class="browse-shell__grid">
-            @foreach (var card in CollectionCards)
-            {
-                <DiscoveryCard Item="@card" @key="card.Id" />
-            }
-        </div>
+        <MediaTileGrid Items="@CollectionCards"
+                       HoverMode="@MediaTileHoverMode.Expanded"
+                       Class="browse-shell__grid" />
     }
 </div>
 
@@ -161,8 +158,8 @@
         }
     }
 
-    private IReadOnlyList<DiscoveryCardViewModel> CollectionCards =>
-        FilteredCollections.Select(ToDiscoveryCard).ToList();
+    private IReadOnlyList<MediaTileViewModel> CollectionCards =>
+        FilteredCollections.Select(ToMediaTile).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -277,10 +274,10 @@
             await LoadCollectionsAsync();
     }
 
-    private static DiscoveryCardViewModel ToDiscoveryCard(CollectionManagementCatalogViewModel collection)
+    private static MediaTileViewModel ToMediaTile(CollectionManagementCatalogViewModel collection)
     {
         var previewImages = collection.ArtworkItems
-            .Select(item => item.CoverUrl)
+            .Select(item => MediaTileArtworkUrl.Sized(item.CoverUrl, "s"))
             .Where(url => !string.IsNullOrWhiteSpace(url))
             .Cast<string>()
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -291,12 +288,17 @@
             .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
             .ToList();
         var primaryArtwork = PrimaryArtwork(collection);
+        var primarySmall = MediaTileArtworkUrl.Sized(primaryArtwork, "s");
+        var primaryMedium = MediaTileArtworkUrl.Sized(primaryArtwork, "m");
+        var heroArtwork = HeroBackground(collection);
+        var heroSmall = MediaTileArtworkUrl.Sized(heroArtwork, "s");
+        var heroMedium = MediaTileArtworkUrl.Sized(heroArtwork, "m");
         var presentation = ResolvePresentation(collection);
         var paletteArtwork = PaletteArtwork(collection);
         var accentColor = FirstNonBlank(paletteArtwork?.PrimaryColor, paletteArtwork?.AccentColor, "var(--tl-accent-primary)")!;
         var secondaryAccentColor = FirstNonBlank(paletteArtwork?.SecondaryColor, paletteArtwork?.AccentColor, paletteArtwork?.PrimaryColor, "#111827")!;
 
-        return new DiscoveryCardViewModel
+        return new MediaTileViewModel
         {
             Id = collection.Id,
             CollectionId = collection.Id,
@@ -316,14 +318,16 @@
             AccentColor = accentColor,
             SecondaryAccentColor = secondaryAccentColor,
             ArtworkPalette = collection.ArtworkPalette,
-            Shape = DiscoveryCardShape.Landscape,
+            Shape = MediaTileShape.Landscape,
             Presentation = presentation,
-            SurfaceKind = DiscoverySurfaceKind.BannerLandscape,
-            HoverLayout = DiscoveryHoverLayout.BannerPopover,
-            TileTextMode = DiscoveryTileTextMode.CoverOnly,
-            TileImageUrl = HeroBackground(collection) ?? primaryArtwork,
-            HoverImageUrl = primaryArtwork,
-            HeroBackgroundImageUrl = HeroBackground(collection),
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
+            TileTextMode = MediaTileTextMode.CoverOnly,
+            TileImageUrl = heroSmall ?? primarySmall,
+            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(heroSmall ?? primarySmall, heroMedium ?? primaryMedium),
+            HoverImageUrl = heroMedium ?? primaryMedium,
+            HoverImageSrcSet = BuildMediumSrcSet(heroMedium ?? primaryMedium),
+            HeroBackgroundImageUrl = heroMedium,
             NavigationUrl = $"/collection/{collection.Id:D}",
             PrimaryNavigationUrl = $"/collection/{collection.Id:D}",
             DetailsNavigationUrl = $"/collection/{collection.Id:D}",
@@ -357,7 +361,7 @@
         collection.IsGlobal ? "Shared" : "Personal",
     ];
 
-    private static IReadOnlyList<DiscoveryMediaCountViewModel> BuildMediaCounts(CollectionManagementCatalogViewModel collection)
+    private static IReadOnlyList<MediaTileMediaCountViewModel> BuildMediaCounts(CollectionManagementCatalogViewModel collection)
     {
         var artworkCounts = collection.ArtworkItems
             .GroupBy(item => NormalizeMediaType(item.MediaType), StringComparer.OrdinalIgnoreCase)
@@ -373,25 +377,25 @@
                 .ToList();
         }
 
-        var counts = new List<DiscoveryMediaCountViewModel>();
+        var counts = new List<MediaTileMediaCountViewModel>();
         if (collection.WatchCount > 0)
         {
-            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.PlayArrow, "Video", collection.WatchCount));
+            counts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.PlayArrow, "Video", collection.WatchCount));
         }
 
         if (collection.ListenCount > 0)
         {
-            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.Headphones, "Audio", collection.ListenCount));
+            counts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.Headphones, "Audio", collection.ListenCount));
         }
 
         if (collection.ReadCount > 0)
         {
-            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.MenuBook, "Books", collection.ReadCount));
+            counts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MenuBook, "Books", collection.ReadCount));
         }
 
         if (collection.OtherCount > 0)
         {
-            counts.Add(new DiscoveryMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
+            counts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
         }
 
         return counts;
@@ -402,15 +406,15 @@
             .Select(count => $"{count.Count} {count.Label}")
             .ToList();
 
-    private static DiscoveryMediaCountViewModel ToMediaCount(string mediaType, int count) => mediaType switch
+    private static MediaTileMediaCountViewModel ToMediaCount(string mediaType, int count) => mediaType switch
     {
-        "Movies" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.Movie, "Movies", count),
-        "TV" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.LiveTv, "TV", count),
-        "Music" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.MusicNote, "Music", count),
-        "Audiobooks" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.Headphones, "Audiobooks", count),
-        "Comics" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.AutoStories, "Comics", count),
-        "Books" => new DiscoveryMediaCountViewModel(Icons.Material.Filled.MenuBook, "Books", count),
-        _ => new DiscoveryMediaCountViewModel(Icons.Material.Filled.Theaters, "Media", count),
+        "Movies" => new MediaTileMediaCountViewModel(Icons.Material.Filled.Movie, "Movies", count),
+        "TV" => new MediaTileMediaCountViewModel(Icons.Material.Filled.LiveTv, "TV", count),
+        "Music" => new MediaTileMediaCountViewModel(Icons.Material.Filled.MusicNote, "Music", count),
+        "Audiobooks" => new MediaTileMediaCountViewModel(Icons.Material.Filled.Headphones, "Audiobooks", count),
+        "Comics" => new MediaTileMediaCountViewModel(Icons.Material.Filled.AutoStories, "Comics", count),
+        "Books" => new MediaTileMediaCountViewModel(Icons.Material.Filled.MenuBook, "Books", count),
+        _ => new MediaTileMediaCountViewModel(Icons.Material.Filled.Theaters, "Media", count),
     };
 
     private static string NormalizeMediaType(string? mediaType)
@@ -445,18 +449,18 @@
         _ => 8,
     };
 
-    private static DiscoveryCardPresentation ResolvePresentation(CollectionManagementCatalogViewModel collection)
+    private static MediaTilePresentation ResolvePresentation(CollectionManagementCatalogViewModel collection)
     {
         if (collection.WatchCount > 0 && collection.ReadCount == 0 && collection.ListenCount == 0)
-            return DiscoveryCardPresentation.MovieSeries;
+            return MediaTilePresentation.MovieSeries;
 
         if (collection.ListenCount > 0 && collection.ReadCount == 0 && collection.WatchCount == 0)
-            return DiscoveryCardPresentation.AudiobookSeries;
+            return MediaTilePresentation.AudiobookSeries;
 
         if (collection.ReadCount > 0 && collection.WatchCount == 0 && collection.ListenCount == 0)
-            return DiscoveryCardPresentation.BookSeries;
+            return MediaTilePresentation.BookSeries;
 
-        return DiscoveryCardPresentation.Default;
+        return MediaTilePresentation.Default;
     }
 
     private static string CollectionSubtitle(CollectionManagementCatalogViewModel collection) =>
@@ -468,11 +472,14 @@
     private static string? HeroBackground(CollectionManagementCatalogViewModel collection) =>
         FirstNonBlank(collection.ArtworkItems.Skip(1).FirstOrDefault()?.CoverUrl, PrimaryArtwork(collection));
 
+    private static string? BuildMediumSrcSet(string? url) =>
+        string.IsNullOrWhiteSpace(url) ? null : $"{url} 960w";
+
     private static ArtworkStackItem ToArtworkStackItem(CollectionArtworkItemViewModel item) => new()
     {
         Id = item.WorkId.ToString("D"),
         Title = item.Title,
-        ImageUrl = item.CoverUrl ?? string.Empty,
+        ImageUrl = MediaTileArtworkUrl.Sized(item.CoverUrl, "s") ?? string.Empty,
         MediaType = item.MediaType,
         Shape = ToArtworkShape(item.ArtworkShape, item.MediaType),
     };

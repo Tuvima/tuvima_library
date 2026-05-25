@@ -1,5 +1,6 @@
 using Bunit;
 using MediaEngine.Web.Components.Discovery;
+using MediaEngine.Web.Components.MediaTiles;
 using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -8,18 +9,18 @@ using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class DiscoverySurfaceRenderTests : TestContext
+public sealed class MediaTileSurfaceRenderTests : TestContext
 {
-    public DiscoverySurfaceRenderTests()
+    public MediaTileSurfaceRenderTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddMudServices();
     }
 
     [Fact]
-    public void DiscoveryCard_ArtOnlyPopoverUsesCompactArtPreview()
+    public void MediaTile_ArtOnlyPopoverUsesCompactArtPreview()
     {
-        var item = new DiscoveryCardViewModel
+        var item = new MediaTileViewModel
         {
             Id = Guid.NewGuid(),
             Title = "The Record",
@@ -28,9 +29,9 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             VibeTags = ["Wry", "Kinetic"],
             MediaKind = "Music",
             AccentColor = "#1ED760",
-            Shape = DiscoveryCardShape.Square,
-            SurfaceKind = DiscoverySurfaceKind.CoverSquare,
-            HoverLayout = DiscoveryHoverLayout.ArtOnlyPopover,
+            Shape = MediaTileShape.Square,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
             TileImageUrl = "/art/album.jpg",
             HoverImageUrl = "/art/album.jpg",
             NavigationUrl = "/listen/music",
@@ -38,26 +39,27 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             PrimaryActionLabel = "Open",
         };
 
-        var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
-        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Discovery/DiscoveryCard.razor.css"));
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
 
-        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-art-popover.is-cover-square"));
-        Assert.Contains("--discovery-hover-panel-width: clamp(248px, 18vw, 292px)", cut.Markup);
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-cover-square"));
+        Assert.DoesNotContain("style=", cut.Markup);
+        Assert.Contains(".media-tile.is-square { width:var(--media-tile-media-height); --media-tile-media-aspect:1 / 1; --media-tile-hover-panel-width:clamp(248px,18vw,292px);", css);
         Assert.Contains("flex:0 0 auto", css);
-        Assert.Contains("aspect-ratio:var(--discovery-card-media-aspect)", css);
-        Assert.Contains(".discovery-card-image.is-contained { object-fit:contain; padding:0; background:transparent; }", css);
+        Assert.Contains("aspect-ratio:var(--media-tile-media-aspect)", css);
+        Assert.Contains(".media-tile-image.is-contained { object-fit:contain; padding:0; background:transparent; }", css);
         Assert.DoesNotContain("overflow:hidden auto", css);
-        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-image.is-contained"));
-        Assert.Equal(2, cut.FindAll(".discovery-card-chip").Count);
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-contained"));
+        Assert.Equal(2, cut.FindAll(".media-tile-chip").Count);
         Assert.DoesNotContain("A sharp indie record with close harmonies.", cut.Markup);
-        Assert.Empty(cut.FindAll(".discovery-card-hover-logo"));
+        Assert.Empty(cut.FindAll(".media-tile-hover-logo"));
         Assert.Empty(cut.FindAll("button[aria-label='Details']"));
     }
 
     [Fact]
-    public void DiscoveryCard_PortraitPopoverUsesSideBySidePreview()
+    public void MediaTile_PortraitPopoverUsesSideBySidePreview()
     {
-        var item = new DiscoveryCardViewModel
+        var item = new MediaTileViewModel
         {
             Id = Guid.NewGuid(),
             Title = "The Sandman",
@@ -66,9 +68,9 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             Genres = ["Fantasy", "Horror"],
             MediaKind = "Comic",
             AccentColor = "#C9922E",
-            Shape = DiscoveryCardShape.Portrait,
-            SurfaceKind = DiscoverySurfaceKind.CoverPortrait,
-            HoverLayout = DiscoveryHoverLayout.ArtOnlyPopover,
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
             TileImageUrl = "/art/sandman.jpg",
             HoverImageUrl = "/art/sandman.jpg",
             NavigationUrl = "/read/comics",
@@ -77,63 +79,65 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             PrimaryActionLabel = "Read",
         };
 
-        var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
-        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Discovery/DiscoveryCard.razor.css"));
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
 
-        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-art-popover.is-portrait.is-cover-portrait"));
-        Assert.Contains("--discovery-hover-panel-width: clamp(430px, 40vw, 560px)", cut.Markup);
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-portrait.is-cover-portrait"));
+        Assert.DoesNotContain("style=", cut.Markup);
+        Assert.Contains(".media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(430px,40vw,560px);", css);
         Assert.Contains("grid-template-columns:minmax(150px,38%) minmax(220px,1fr)", css);
         Assert.Contains("max-height:min(62vh,420px)", css);
         Assert.DoesNotContain("A dreamlike horror comic with mythic scale.", cut.Markup);
-        Assert.Empty(cut.FindAll(".discovery-card-hover-context-list"));
+        Assert.Empty(cut.FindAll(".media-tile-hover-context-list"));
         Assert.Empty(cut.FindAll("button[aria-label='Details']"));
     }
 
     [Fact]
-    public void DiscoveryCard_BannerPopoverKeepsLandscapeVariant()
+    public void MediaTile_BannerPopoverKeepsLandscapeVariant()
     {
-        var item = new DiscoveryCardViewModel
+        var item = new MediaTileViewModel
         {
             Id = Guid.NewGuid(),
             Title = "Funny AF with Kevin Hart",
             Subtitle = "Netflix",
             MediaKind = "TV",
             AccentColor = "#38BDF8",
-            Shape = DiscoveryCardShape.Landscape,
-            SurfaceKind = DiscoverySurfaceKind.BannerLandscape,
-            HoverLayout = DiscoveryHoverLayout.BannerPopover,
+            Shape = MediaTileShape.Landscape,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
             TileImageUrl = "/art/banner.jpg",
             HoverImageUrl = "/art/banner.jpg",
-            TileImageFitMode = DiscoveryImageFitMode.Fill,
-            HoverImageFitMode = DiscoveryImageFitMode.Fill,
+            TileImageFitMode = MediaTileImageFitMode.Fill,
+            HoverImageFitMode = MediaTileImageFitMode.Fill,
             LogoUrl = "/art/logo.png",
             NavigationUrl = "/watch/tv",
             PrimaryNavigationUrl = "/watch/tv",
             PrimaryActionLabel = "Continue watching",
         };
 
-        var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
-        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-banner-popover.is-banner-surface"));
-        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-landscape"));
-        Assert.Contains("--discovery-hover-panel-width: clamp(360px, 28vw, 440px)", cut.Markup);
-        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-logo"));
-        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-image.is-fill"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-banner-popover.is-banner-surface"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-landscape"));
+        Assert.DoesNotContain("style=", cut.Markup);
+        Assert.Contains(".media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(360px,28vw,440px);", File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css")));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-logo"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-fill"));
     }
 
     [Fact]
-    public void DiscoveryCard_MediaClickOpensDetailsAndPrimaryButtonKeepsPrimaryRoute()
+    public void MediaTile_MediaClickOpensDetailsAndPrimaryButtonKeepsPrimaryRoute()
     {
-        var item = new DiscoveryCardViewModel
+        var item = new MediaTileViewModel
         {
             Id = Guid.NewGuid(),
             Title = "Project Hail Mary",
             Subtitle = "Andy Weir",
             MediaKind = "Book",
             AccentColor = "#5DCAA5",
-            Shape = DiscoveryCardShape.Portrait,
-            SurfaceKind = DiscoverySurfaceKind.CoverPortrait,
-            HoverLayout = DiscoveryHoverLayout.ArtOnlyPopover,
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
             TileImageUrl = "/art/hail-mary.jpg",
             HoverImageUrl = "/art/hail-mary.jpg",
             NavigationUrl = "/read/books",
@@ -142,12 +146,12 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             PrimaryActionLabel = "Read",
         };
         var navigation = Services.GetRequiredService<NavigationManager>();
-        var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
-        cut.Find(".discovery-card-media").Click();
+        cut.Find(".media-tile-media").Click();
         Assert.EndsWith("/read/books/work/project-hail-mary", navigation.Uri, StringComparison.Ordinal);
 
-        cut.Find(".discovery-card-hover-art").Click();
+        cut.Find(".media-tile-hover-art").Click();
         Assert.EndsWith("/read/books/work/project-hail-mary", navigation.Uri, StringComparison.Ordinal);
 
         cut.Find("button[aria-label='Read']").Click();
@@ -155,18 +159,18 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
     }
 
     [Fact]
-    public void DiscoveryCard_KeyboardActivationOpensDetails()
+    public void MediaTile_KeyboardActivationOpensDetails()
     {
-        var item = new DiscoveryCardViewModel
+        var item = new MediaTileViewModel
         {
             Id = Guid.NewGuid(),
             Title = "Dune",
             Subtitle = "Frank Herbert",
             MediaKind = "Book",
             AccentColor = "#5DCAA5",
-            Shape = DiscoveryCardShape.Portrait,
-            SurfaceKind = DiscoverySurfaceKind.CoverPortrait,
-            HoverLayout = DiscoveryHoverLayout.ArtOnlyPopover,
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
             TileImageUrl = "/art/dune.jpg",
             HoverImageUrl = "/art/dune.jpg",
             NavigationUrl = "/read/books",
@@ -175,11 +179,59 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             PrimaryActionLabel = "Read",
         };
         var navigation = Services.GetRequiredService<NavigationManager>();
-        var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
-        cut.Find(".discovery-card").TriggerEvent("onkeydown", new KeyboardEventArgs { Key = "Enter" });
+        cut.Find(".media-tile").TriggerEvent("onkeydown", new KeyboardEventArgs { Key = "Enter" });
 
         Assert.EndsWith("/read/books/work/dune", navigation.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MediaTile_DisabledHoverDoesNotRenderHoverPanel()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "Quiet Tile",
+            MediaKind = "Book",
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            TileImageUrl = "/art/quiet.jpg",
+            HoverImageUrl = "/art/quiet-large.jpg",
+            NavigationUrl = "/read/books",
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters
+            .Add(component => component.Item, item)
+            .Add(component => component.HoverMode, MediaTileHoverMode.None));
+
+        Assert.Empty(cut.FindAll(".media-tile-hover-panel"));
+        Assert.Empty(cut.FindAll(".media-tile-touch-toggle"));
+    }
+
+    [Fact]
+    public void MediaTile_PreviewHoverRendersArtWithoutExpandedBody()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "Preview Tile",
+            MediaKind = "Book",
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            TileImageUrl = "/art/preview-s.jpg",
+            HoverImageUrl = "/art/preview-m.jpg",
+            NavigationUrl = "/read/books",
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters
+            .Add(component => component.Item, item)
+            .Add(component => component.HoverMode, MediaTileHoverMode.Preview));
+
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-hover-preview"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-image"));
+        Assert.Empty(cut.FindAll(".media-tile-hover-body"));
     }
 
     [Fact]
@@ -194,7 +246,7 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             AccentColor = "#5DCAA5",
             HeroBackgroundImageUrl = "/art/book-cover.jpg",
             PreviewImageUrl = "/art/book-cover.jpg",
-            SurfaceKind = DiscoverySurfaceKind.CoverPortrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
             PrimaryActionLabel = "Continue reading",
             PrimaryNavigationUrl = "/read/books",
         };
@@ -218,7 +270,7 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             HeroBackgroundImageUrl = "/art/show-banner.jpg",
             PreviewImageUrl = "/art/show-cover.jpg",
             LogoUrl = "/art/show-logo.png",
-            SurfaceKind = DiscoverySurfaceKind.BannerLandscape,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
             PrimaryActionLabel = "Continue watching",
             PrimaryNavigationUrl = "/watch/tv",
         };

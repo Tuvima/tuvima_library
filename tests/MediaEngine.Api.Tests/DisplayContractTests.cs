@@ -24,9 +24,21 @@ public sealed class DisplayContractTests
             Facts: ["2016", "Science Fiction"],
             Artwork: new DisplayArtworkDto(
                 CoverUrl: "/stream/22222222-2222-2222-2222-222222222222/cover",
+                CoverSmallUrl: "/stream/artwork/22222222-2222-2222-2222-222222222222?size=s",
+                CoverMediumUrl: "/stream/artwork/22222222-2222-2222-2222-222222222222?size=m",
+                CoverLargeUrl: "/stream/artwork/22222222-2222-2222-2222-222222222222?size=l",
                 SquareUrl: null,
+                SquareSmallUrl: null,
+                SquareMediumUrl: null,
+                SquareLargeUrl: null,
                 BannerUrl: null,
+                BannerSmallUrl: null,
+                BannerMediumUrl: null,
+                BannerLargeUrl: null,
                 BackgroundUrl: null,
+                BackgroundSmallUrl: null,
+                BackgroundMediumUrl: null,
+                BackgroundLargeUrl: null,
                 LogoUrl: null,
                 CoverWidthPx: 1000,
                 CoverHeightPx: 1500,
@@ -60,6 +72,8 @@ public sealed class DisplayContractTests
         Assert.Contains("\"workId\":\"11111111-1111-1111-1111-111111111111\"", json, StringComparison.Ordinal);
         Assert.Contains("\"assetId\":\"22222222-2222-2222-2222-222222222222\"", json, StringComparison.Ordinal);
         Assert.Contains("\"preferredShape\":\"portrait\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"coverSmallUrl\":\"/stream/artwork/22222222-2222-2222-2222-222222222222?size=s\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"coverMediumUrl\":\"/stream/artwork/22222222-2222-2222-2222-222222222222?size=m\"", json, StringComparison.Ordinal);
         Assert.Contains("\"tileTextMode\":\"coverOnly\"", json, StringComparison.Ordinal);
         Assert.Contains("\"previewPlacement\":\"bottom\"", json, StringComparison.Ordinal);
         Assert.Contains("\"progress\":{\"percent\":42", json, StringComparison.Ordinal);
@@ -104,10 +118,10 @@ public sealed class DisplayContractTests
     }
 
     [Fact]
-    public void WebBrowseSurfaces_UseDisplayApiBeforeLegacyComposition()
+    public void WebBrowseSurfaces_UseDisplayApiAndMediaTiles()
     {
         var clientSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IEngineApiClient.cs"));
-        var composerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Discovery\DiscoveryComposerService.cs"));
+        var composerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\MediaTiles\MediaTileComposerService.cs"));
         var browseShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor"));
 
         Assert.Contains("GetDisplayBrowseAsync", clientSource, StringComparison.Ordinal);
@@ -115,11 +129,13 @@ public sealed class DisplayContractTests
         Assert.Contains("GetDisplayBrowseAsync(lane: \"watch\"", composerSource, StringComparison.Ordinal);
         Assert.Contains("GetDisplayBrowseAsync(lane: \"listen\"", composerSource, StringComparison.Ordinal);
         Assert.Contains("LoadDisplayCardsAsync", browseShellSource, StringComparison.Ordinal);
-        Assert.Contains("DiscoveryComposerService.FromDisplayCard", browseShellSource, StringComparison.Ordinal);
+        Assert.Contains("MediaTileComposerService.FromDisplayCard", browseShellSource, StringComparison.Ordinal);
+        Assert.Contains("<MediaTileGrid", browseShellSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToItemCard", browseShellSource, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DisplayProjection_FallsBackThroughAssetAndWorkArtwork()
+    public void DisplayProjection_ExposesSizedArtworkFields()
     {
         var workProjection = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayWorkProjectionReader.cs"));
         var journeyProjection = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayJourneyProjectionReader.cs"));
@@ -129,6 +145,11 @@ public sealed class DisplayContractTests
         Assert.Contains("entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')", workProjection, StringComparison.Ordinal);
         Assert.Contains("episode_still_url", workProjection, StringComparison.Ordinal);
         Assert.Contains("episode_still_url", journeyProjection, StringComparison.Ordinal);
+        Assert.Contains("cover_url_s", workProjection, StringComparison.Ordinal);
+        Assert.Contains("cover_url_m", workProjection, StringComparison.Ordinal);
+        Assert.Contains("background_url_l", workProjection, StringComparison.Ordinal);
+        Assert.Contains("cover_url_s", journeyProjection, StringComparison.Ordinal);
+        Assert.Contains("background_url_m", journeyProjection, StringComparison.Ordinal);
         Assert.Contains("cv_cover_a", journeyProjection, StringComparison.Ordinal);
         Assert.Contains("cv_cover_item", journeyProjection, StringComparison.Ordinal);
         Assert.Contains("COALESCE(cv_cover_a.value, cv_cover_item.value, cv_cover_w.value) AS CoverUrl", journeyProjection, StringComparison.Ordinal);

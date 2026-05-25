@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Shared
+@namespace MediaEngine.Web.Shared
 @inherits LayoutComponentBase
 @inject ThemeService ThemeService
 @inject DeviceContextService DeviceContext
@@ -175,7 +175,7 @@
     </MudMainContent>
 </MudLayout>
 
-<div id="discovery-hover-host" class="discovery-hover-host" aria-hidden="true"></div>
+<div id="media-tile-hover-host" class="media-tile-hover-host" aria-hidden="true"></div>
 
 <ListenNowPlayingBar />
 
@@ -593,14 +593,14 @@
         transform: translateY(0);
     }
 
-    .discovery-hover-host {
+    .media-tile-hover-host {
         position: fixed;
         inset: 0;
         pointer-events: none;
         z-index: 4000;
     }
 
-    .discovery-hover-host > .discovery-card-hover-panel {
+    .media-tile-hover-host > .media-tile-hover-panel {
         pointer-events: auto;
     }
 

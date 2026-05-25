@@ -515,7 +515,33 @@ public sealed class DisplayComposerService
         $"{work.Album?.Trim()}|{FirstNonBlank(work.Artist, work.Author)?.Trim()}";
 
     private static DisplayArtworkDto ArtworkFor(IDisplayArtworkRow row) =>
-        new(row.CoverUrl, row.SquareUrl, row.BannerUrl, row.BackgroundUrl, row.LogoUrl, ParseInt(row.CoverWidthPx), ParseInt(row.CoverHeightPx), ParseInt(row.SquareWidthPx), ParseInt(row.SquareHeightPx), ParseInt(row.BannerWidthPx), ParseInt(row.BannerHeightPx), ParseInt(row.BackgroundWidthPx), ParseInt(row.BackgroundHeightPx), row.AccentColor);
+        new(
+            row.CoverUrl,
+            row.CoverSmallUrl,
+            row.CoverMediumUrl,
+            row.CoverLargeUrl,
+            row.SquareUrl,
+            row.SquareSmallUrl,
+            row.SquareMediumUrl,
+            row.SquareLargeUrl,
+            row.BannerUrl,
+            row.BannerSmallUrl,
+            row.BannerMediumUrl,
+            row.BannerLargeUrl,
+            row.BackgroundUrl,
+            row.BackgroundSmallUrl,
+            row.BackgroundMediumUrl,
+            row.BackgroundLargeUrl,
+            row.LogoUrl,
+            ParseInt(row.CoverWidthPx),
+            ParseInt(row.CoverHeightPx),
+            ParseInt(row.SquareWidthPx),
+            ParseInt(row.SquareHeightPx),
+            ParseInt(row.BannerWidthPx),
+            ParseInt(row.BannerHeightPx),
+            ParseInt(row.BackgroundWidthPx),
+            ParseInt(row.BackgroundHeightPx),
+            row.AccentColor);
 
     private static IReadOnlyList<string> AlbumFacts(IReadOnlyList<DisplayWorkRow> works, string? artist, string? year, string? genre)
     {

@@ -156,13 +156,13 @@
     }
 
     .browse-shell__grid {
-        --discovery-hover-clearance: clamp(104px, 11vw, 136px);
-        --discovery-hover-lift: clamp(26px, 3vw, 34px);
+        --media-tile-hover-clearance: clamp(104px, 11vw, 136px);
+        --media-tile-hover-lift: clamp(26px, 3vw, 34px);
         display: flex;
         flex-wrap: wrap;
         align-items: flex-start;
         gap: clamp(78px, 8vw, 104px) clamp(18px, 2vw, 28px);
-        padding: calc(var(--discovery-hover-lift) + 6px) 0 calc(var(--discovery-hover-clearance) + 18px);
+        padding: calc(var(--media-tile-hover-lift) + 6px) 0 calc(var(--media-tile-hover-clearance) + 18px);
         justify-content: flex-start;
         overflow: visible;
     }

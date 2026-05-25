@@ -4364,9 +4364,21 @@ public sealed class EngineApiClient : IEngineApiClient
         artwork with
         {
             CoverUrl = artwork.CoverUrl is null ? null : AbsoluteUrl(artwork.CoverUrl),
+            CoverSmallUrl = artwork.CoverSmallUrl is null ? null : AbsoluteUrl(artwork.CoverSmallUrl),
+            CoverMediumUrl = artwork.CoverMediumUrl is null ? null : AbsoluteUrl(artwork.CoverMediumUrl),
+            CoverLargeUrl = artwork.CoverLargeUrl is null ? null : AbsoluteUrl(artwork.CoverLargeUrl),
             SquareUrl = artwork.SquareUrl is null ? null : AbsoluteUrl(artwork.SquareUrl),
+            SquareSmallUrl = artwork.SquareSmallUrl is null ? null : AbsoluteUrl(artwork.SquareSmallUrl),
+            SquareMediumUrl = artwork.SquareMediumUrl is null ? null : AbsoluteUrl(artwork.SquareMediumUrl),
+            SquareLargeUrl = artwork.SquareLargeUrl is null ? null : AbsoluteUrl(artwork.SquareLargeUrl),
             BannerUrl = artwork.BannerUrl is null ? null : AbsoluteUrl(artwork.BannerUrl),
+            BannerSmallUrl = artwork.BannerSmallUrl is null ? null : AbsoluteUrl(artwork.BannerSmallUrl),
+            BannerMediumUrl = artwork.BannerMediumUrl is null ? null : AbsoluteUrl(artwork.BannerMediumUrl),
+            BannerLargeUrl = artwork.BannerLargeUrl is null ? null : AbsoluteUrl(artwork.BannerLargeUrl),
             BackgroundUrl = artwork.BackgroundUrl is null ? null : AbsoluteUrl(artwork.BackgroundUrl),
+            BackgroundSmallUrl = artwork.BackgroundSmallUrl is null ? null : AbsoluteUrl(artwork.BackgroundSmallUrl),
+            BackgroundMediumUrl = artwork.BackgroundMediumUrl is null ? null : AbsoluteUrl(artwork.BackgroundMediumUrl),
+            BackgroundLargeUrl = artwork.BackgroundLargeUrl is null ? null : AbsoluteUrl(artwork.BackgroundLargeUrl),
             LogoUrl = artwork.LogoUrl is null ? null : AbsoluteUrl(artwork.LogoUrl),
         };
 

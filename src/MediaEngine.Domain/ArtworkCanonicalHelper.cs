@@ -47,6 +47,7 @@ public static class ArtworkCanonicalHelper
 
         var values = new List<CanonicalValue>();
         var baseUrl = $"/stream/artwork/{asset.Id}";
+        var hasRenditions = ShouldGenerateRenditions(asset.AssetTypeValue);
         var smallUrl = $"/stream/artwork/{asset.Id}?size=s";
         var mediumUrl = $"/stream/artwork/{asset.Id}?size=m";
         var largeUrl = $"/stream/artwork/{asset.Id}?size=l";
@@ -59,9 +60,12 @@ public static class ArtworkCanonicalHelper
         var prefix = ResolveMetadataPrefix(asset.AssetTypeValue);
         if (!string.IsNullOrWhiteSpace(prefix))
         {
-            values.Add(Create(entityId, $"{prefix}_url_s", smallUrl, lastScoredAt));
-            values.Add(Create(entityId, $"{prefix}_url_m", mediumUrl, lastScoredAt));
-            values.Add(Create(entityId, $"{prefix}_url_l", largeUrl, lastScoredAt));
+            if (hasRenditions)
+            {
+                values.Add(Create(entityId, $"{prefix}_url_s", smallUrl, lastScoredAt));
+                values.Add(Create(entityId, $"{prefix}_url_m", mediumUrl, lastScoredAt));
+                values.Add(Create(entityId, $"{prefix}_url_l", largeUrl, lastScoredAt));
+            }
 
             if (!string.IsNullOrWhiteSpace(asset.AspectClass))
             {
@@ -145,5 +149,11 @@ public static class ArtworkCanonicalHelper
         "DiscArt" => "disc_art",
         "ClearArt" => "clear_art",
         _ => null,
+    };
+
+    private static bool ShouldGenerateRenditions(string assetTypeValue) => assetTypeValue switch
+    {
+        "Logo" or "ClearArt" or "DiscArt" => false,
+        _ => true,
     };
 }

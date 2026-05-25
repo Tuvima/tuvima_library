@@ -576,7 +576,7 @@ Non-UI logic the Dashboard needs, organised by concern.
 |---|---|---|
 | `Branding/` | `StreamingServiceLogoResolver.cs` | Resolves streaming-service logos for display chips |
 | `Configuration/` | `DashboardConfigurationReader.cs`, `DashboardPaletteReloadService.cs` | Dashboard-side config read + palette hot-reload |
-| `Discovery/` | `DiscoveryComposerService.cs` | Builds the home-page discovery feed |
+| `MediaTiles/` | `MediaTileComposerService.cs`, `MediaTileArtworkResolver.cs` | Builds shared browse tile shelves and resolves sized artwork for Home, Read, Watch, Listen, and Collections |
 | `Editing/` | `MediaEditorLauncherService.cs`, `CollectionEditorLauncherService.cs`, `*Models.cs` | Editor open/close state and DTOs |
 | `Integration/` | `EngineApiClient.cs` + `IEngineApiClient.cs`, `UIOrchestratorService.cs`, `UniverseStateContainer.cs`, `UniverseMapper.cs`, `ProviderCatalogueService.cs`, `IntercomEvents.cs` | All HTTP + SignalR communication with the Engine |
 | `Narration/` | `PhraseTemplateService.cs` + interface | Narrated-copy phrase templates |
@@ -594,7 +594,8 @@ Reusable visual components, organised by feature slice.
 | `Browse/` | `MediaBrowseShell`, `MediaBrowseHero`, `BrowseQueryBuilder`, `BrowseState`, `BrowseArtworkRules` — shared shell and extracted query/state/artwork helpers used by Read / Watch / Listen |
 | `Collections/` | `CollectionsPage`, `CollectionHubCard`, `CollectionHubSection`, `CollectionInlineInspector`, `CollectionArtworkStack`, `CollectionSectionLabel`, `CollectionEditorShell` |
 | `Details/` | Detail-page composition extracted from Pages. `DetailPage`, `DetailHero` (+ `DetailHeroPresentation`), `DetailTabs`, `OverviewTab`, `DetailsTab`, `EditionsTab`, `EpisodesTab`, `FormatsTab`, `PeopleAndCharactersTab`, `ChildrenListTab`, `SyncTab`, `IdentityTab`, `UniverseTab`, `CharactersSection`, `ContributorsSection`, `CreditGroupSection`, `CastCharacterPairCard`, `CharacterCreditCard`, `MusicArtistCreditCard`, `MusicTrackList`, `OwnedFormatsPanel`, `OptionalSyncPanel`, `PeoplePreviewStrip`, `PersonAvatar`, `PersonCreditCard`, `RelatedEntityChip`, `SeriesPlacementPanel`, `HeroBackdrop`, `HeroActionRow`, `HeroGenreChips`, `HeroMetadataPills`, `HeroProgressBlock`, `ManageActionsMenu`, `OverflowActionMenu`, `GeneratedIdentity`, `DescriptionAttribution` |
-| `Discovery/` | `DiscoveryHero`, `DiscoveryShelf`, `DiscoveryCard`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
+| `Discovery/` | `DiscoveryHero`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
+| `MediaTiles/` | `MediaTile`, `MediaTileGrid`, `MediaTileShelf` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |
 | `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, status pills, and group drill-down components. Do not add all-in-one management workflow components here. |
 | `Listen/` | `ListenNowPlayingBar`, `ListenTrackDataGrid` |

@@ -754,6 +754,7 @@ builder.Services.AddSingleton<IIngestionOperationsStatusService, IngestionOperat
 builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<MediaOperationRecoveryHostedService>();
 builder.Services.AddHostedService<HierarchyRepairStartupService>();
+builder.Services.AddHostedService<ArtworkRenditionRepairStartupService>();
 builder.Services.AddHostedService<RejectedFileCleanupService>();
 builder.Services.AddHostedService<RetagSweepWorker>();
 builder.Services.AddHostedService<MissingUniverseSweepService>();

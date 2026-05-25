@@ -2,7 +2,7 @@ using Bunit;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Models.ViewDTOs;
-using MediaEngine.Web.Services.Discovery;
+using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Navigation;
@@ -78,7 +78,7 @@ public sealed class Phase3BrowseFoundationTests : TestContext
                 "Andy Weir")));
         }));
 
-        var composer = new DiscoveryComposerService(Services.GetRequiredService<IEngineApiClient>());
+        var composer = new MediaTileComposerService(Services.GetRequiredService<IEngineApiClient>());
 
         var page = await composer.BuildHomeAsync();
 
@@ -102,7 +102,7 @@ public sealed class Phase3BrowseFoundationTests : TestContext
                 [])));
         }));
 
-        var composer = new DiscoveryComposerService(Services.GetRequiredService<IEngineApiClient>());
+        var composer = new MediaTileComposerService(Services.GetRequiredService<IEngineApiClient>());
 
         var page = await composer.BuildHomeAsync();
 
@@ -131,9 +131,9 @@ public sealed class Phase3BrowseFoundationTests : TestContext
     }
 
     [Fact]
-    public void Discovery_DoesNotRenderFakeRecommendationsOrProgressWithoutData()
+    public void MediaTiles_DoNotRenderFakeRecommendationsOrProgressWithoutData()
     {
-        var page = DiscoveryComposerService.FromDisplayPage(CreateDisplayPage(
+        var page = MediaTileComposerService.FromDisplayPage(CreateDisplayPage(
             "home",
             "Home",
             "read",
@@ -161,7 +161,33 @@ public sealed class Phase3BrowseFoundationTests : TestContext
         var assetId = Guid.Parse("33000000-0000-0000-0000-000000000002");
         var details = new DisplayActionDto("openWork", "Details", WorkId: workId, WebUrl: "/book/33000000-0000-0000-0000-000000000001");
         var resume = new DisplayActionDto("readAsset", "Continue", WorkId: workId, AssetId: assetId, WebUrl: "/read/33000000-0000-0000-0000-000000000002");
-        var artwork = new DisplayArtworkDto("/cover.jpg", null, null, null, null, 900, 1400, null, null, null, null, null, null, "#5DCAA5");
+        var artwork = new DisplayArtworkDto(
+            CoverUrl: "/cover.jpg",
+            CoverSmallUrl: "/cover-s.jpg",
+            CoverMediumUrl: "/cover-m.jpg",
+            CoverLargeUrl: "/cover-l.jpg",
+            SquareUrl: null,
+            SquareSmallUrl: null,
+            SquareMediumUrl: null,
+            SquareLargeUrl: null,
+            BannerUrl: null,
+            BannerSmallUrl: null,
+            BannerMediumUrl: null,
+            BannerLargeUrl: null,
+            BackgroundUrl: null,
+            BackgroundSmallUrl: null,
+            BackgroundMediumUrl: null,
+            BackgroundLargeUrl: null,
+            LogoUrl: null,
+            CoverWidthPx: 900,
+            CoverHeightPx: 1400,
+            SquareWidthPx: null,
+            SquareHeightPx: null,
+            BannerWidthPx: null,
+            BannerHeightPx: null,
+            BackgroundWidthPx: null,
+            BackgroundHeightPx: null,
+            AccentColor: "#5DCAA5");
         var card = new DisplayCardDto(
             Id: workId,
             WorkId: workId,

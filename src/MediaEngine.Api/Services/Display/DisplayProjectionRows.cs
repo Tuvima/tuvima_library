@@ -3,9 +3,21 @@ namespace MediaEngine.Api.Services.Display;
 public interface IDisplayArtworkRow
 {
     string? CoverUrl { get; }
+    string? CoverSmallUrl { get; }
+    string? CoverMediumUrl { get; }
+    string? CoverLargeUrl { get; }
     string? SquareUrl { get; }
+    string? SquareSmallUrl { get; }
+    string? SquareMediumUrl { get; }
+    string? SquareLargeUrl { get; }
     string? BannerUrl { get; }
+    string? BannerSmallUrl { get; }
+    string? BannerMediumUrl { get; }
+    string? BannerLargeUrl { get; }
     string? BackgroundUrl { get; }
+    string? BackgroundSmallUrl { get; }
+    string? BackgroundMediumUrl { get; }
+    string? BackgroundLargeUrl { get; }
     string? LogoUrl { get; }
     string? CoverWidthPx { get; }
     string? CoverHeightPx { get; }
@@ -43,9 +55,21 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? EpisodeNumber { get; set; }
     public string? TrackNumber { get; set; }
     public string? CoverUrl { get; set; }
+    public string? CoverSmallUrl { get; set; }
+    public string? CoverMediumUrl { get; set; }
+    public string? CoverLargeUrl { get; set; }
     public string? SquareUrl { get; set; }
+    public string? SquareSmallUrl { get; set; }
+    public string? SquareMediumUrl { get; set; }
+    public string? SquareLargeUrl { get; set; }
     public string? BannerUrl { get; set; }
+    public string? BannerSmallUrl { get; set; }
+    public string? BannerMediumUrl { get; set; }
+    public string? BannerLargeUrl { get; set; }
     public string? BackgroundUrl { get; set; }
+    public string? BackgroundSmallUrl { get; set; }
+    public string? BackgroundMediumUrl { get; set; }
+    public string? BackgroundLargeUrl { get; set; }
     public string? LogoUrl { get; set; }
     public string? CoverState { get; set; }
     public string? SquareState { get; set; }
@@ -83,9 +107,21 @@ public sealed class DisplayJourneyRow : IDisplayArtworkRow
     public string? EpisodeNumber { get; set; }
     public string? TrackNumber { get; set; }
     public string? CoverUrl { get; set; }
+    public string? CoverSmallUrl { get; set; }
+    public string? CoverMediumUrl { get; set; }
+    public string? CoverLargeUrl { get; set; }
     public string? SquareUrl { get; set; }
+    public string? SquareSmallUrl { get; set; }
+    public string? SquareMediumUrl { get; set; }
+    public string? SquareLargeUrl { get; set; }
     public string? BannerUrl { get; set; }
+    public string? BannerSmallUrl { get; set; }
+    public string? BannerMediumUrl { get; set; }
+    public string? BannerLargeUrl { get; set; }
     public string? BackgroundUrl { get; set; }
+    public string? BackgroundSmallUrl { get; set; }
+    public string? BackgroundMediumUrl { get; set; }
+    public string? BackgroundLargeUrl { get; set; }
     public string? LogoUrl { get; set; }
     public string? CoverState { get; set; }
     public string? SquareState { get; set; }

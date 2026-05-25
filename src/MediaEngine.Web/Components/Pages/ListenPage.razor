@@ -1,4 +1,4 @@
-﻿@page "/listen"
+@page "/listen"
 @page "/listen/music"
 @page "/listen/music/{Section}"
 @page "/listen/music/albums/{CollectionId:guid}"
@@ -193,10 +193,10 @@ else
                     <div class="listen-home__content">
                         @foreach (var shelf in _musicHomePage.Shelves)
                         {
-                            <DiscoveryShelf Shelf="@shelf" />
+                            <MediaTileShelf Shelf="@shelf" />
                         }
 
-                        @if (HomePlaylistCards.Count > 0)
+                        @if (HomePlaylistTiles.Count > 0)
                         {
                             <section class="listen-section">
                                 <div class="listen-section__header">
@@ -207,27 +207,9 @@ else
                                     </div>
                                 </div>
 
-                                <div class="listen-card-grid">
-                                    @foreach (var playlist in HomePlaylistCards)
-                                    {
-                                        <AppNativeButton Type="button" Class="listen-card listen-card--playlist" OnClick="@(() => NavigateTo(playlist.Route))">
-                                            <div class="listen-card__art listen-card__art--playlist">
-                                                @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
-                                                {
-                                                    <img src="@playlist.SquareArtworkUrl" alt="" />
-                                                }
-                                                else
-                                                {
-                                                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-42px" />
-                                                }
-                                            </div>
-                                            <div class="listen-card__meta listen-card__meta--label">@playlist.Type</div>
-                                            <div class="listen-card__title">@playlist.Title</div>
-                                            <div class="listen-card__meta">@playlist.Meta</div>
-                                            <p>@playlist.Description</p>
-                                        </AppNativeButton>
-                                    }
-                                </div>
+                                <MediaTileGrid Items="@HomePlaylistTiles"
+                                               HoverMode="@MediaTileHoverMode.None"
+                                               Class="listen-card-grid" />
                             </section>
                         }
                     </div>
@@ -288,28 +270,9 @@ else
                     }
                     else
                     {
-                        <div class="listen-card-grid listen-card-grid--albums">
-                            @foreach (var album in FilteredAlbumGroups)
-                            {
-                                <AppNativeButton Type="button" Class="listen-card listen-card--album" OnClick="@(() => OpenAlbum(album))" AriaLabel="@($" Open album {album.DisplayName}")">
-                                    <div class="listen-card__art listen-card__art--album">
-                                        @if (!string.IsNullOrWhiteSpace(album.CoverUrl ?? album.ArtistPhotoUrl))
-                                        {
-                                            <img src="@(album.CoverUrl ?? album.ArtistPhotoUrl)"
-                                                 alt="@album.DisplayName"
-                                                 loading="lazy"
-                                                 decoding="async" />
-                                        }
-                                        else
-                                        {
-                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-42px" />
-                                        }
-                                    </div>
-                                    <div class="listen-card__title">@album.DisplayName</div>
-                                    <div class="listen-card__meta">@FirstNonBlank(album.Creator, album.Year, Pluralize(album.WorkCount, "track"))</div>
-                                </AppNativeButton>
-                            }
-                        </div>
+                        <MediaTileGrid Items="@AlbumTiles"
+                                       HoverMode="@MediaTileHoverMode.None"
+                                       Class="listen-card-grid listen-card-grid--albums" />
                     }
                 </section>
             }
@@ -498,55 +461,9 @@ else
                                             <p class="listen-section__summary">Open an album to view and manage its tracks.</p>
                                         </div>
                                     </div>
-                                    <div class="listen-card-grid listen-card-grid--albums">
-                                        @foreach (var album in ArtistAlbums)
-                                        {
-                                            var albumRoute = album.AlbumCollectionId.HasValue
-                                                ? $"/listen/music/albums/{album.AlbumCollectionId.Value}"
-                                                : BuildAlbumDetailRoute(album.SeasonLabel, _artistDetail?.DisplayName);
-
-                                            @if (albumRoute is null)
-                                            {
-                                                <div class="listen-card listen-card--album" aria-label="Album tile">
-                                                    <div class="listen-card__art listen-card__art--album">
-                                                        @if (!string.IsNullOrWhiteSpace(album.CoverUrl))
-                                                        {
-                                                            <img src="@album.CoverUrl"
-                                                                 alt="@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")"
-                                                                 loading="lazy"
-                                                                 decoding="async" />
-                                                        }
-                                                        else
-                                                        {
-                                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-42px" />
-                                                        }
-                                                    </div>
-                                                    <div class="listen-card__title">@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")</div>
-                                                    <div class="listen-card__meta">@FirstNonBlank(album.Year, Pluralize(album.Episodes.Count, "track"))</div>
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <AppNativeButton Type="button" Class="listen-card listen-card--album" OnClick="@(() => NavigateTo(albumRoute))" AriaLabel="@($" Open album {album.SeasonLabel ?? $"Album {album.SeasonNumber}"}")">
-                                                    <div class="listen-card__art listen-card__art--album">
-                                                        @if (!string.IsNullOrWhiteSpace(album.CoverUrl))
-                                                        {
-                                                            <img src="@album.CoverUrl"
-                                                                 alt="@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")"
-                                                                 loading="lazy"
-                                                                 decoding="async" />
-                                                        }
-                                                        else
-                                                        {
-                                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-42px" />
-                                                        }
-                                                    </div>
-                                                    <div class="listen-card__title">@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")</div>
-                                                    <div class="listen-card__meta">@FirstNonBlank(album.Year, Pluralize(album.Episodes.Count, "track"))</div>
-                                                </AppNativeButton>
-                                            }
-                                        }
-                                    </div>
+                                    <MediaTileGrid Items="@ArtistAlbumTiles"
+                                                   HoverMode="@MediaTileHoverMode.None"
+                                                   Class="listen-card-grid listen-card-grid--albums" />
                                 </section>
                             }
 
@@ -662,29 +579,9 @@ else
                     }
                     else
                     {
-                        <div class="listen-card-grid">
-                            @foreach (var playlist in PlaylistCollections)
-                            {
-                                var card = ToPlaylistCard(playlist);
-
-                                <AppNativeButton Type="button" Class="listen-card listen-card--playlist" OnClick="@(() => NavigateTo(card.Route))">
-                                    <div class="listen-card__art listen-card__art--playlist">
-                                        @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
-                                        {
-                                            <img src="@playlist.SquareArtworkUrl" alt="" />
-                                        }
-                                        else
-                                        {
-                                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-42px" />
-                                        }
-                                    </div>
-                                    <div class="listen-card__meta listen-card__meta--label">@card.Type</div>
-                                    <div class="listen-card__title">@card.Title</div>
-                                    <div class="listen-card__meta">@card.Meta</div>
-                                    <p>@card.Description</p>
-                                </AppNativeButton>
-                            }
-                        </div>
+                        <MediaTileGrid Items="@PlaylistTiles"
+                                       HoverMode="@MediaTileHoverMode.None"
+                                       Class="listen-card-grid" />
                     }
                 </section>
             }

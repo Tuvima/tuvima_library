@@ -17,7 +17,7 @@ public sealed class DashboardReliabilityGuardrailTests
     [InlineData(@"src\MediaEngine.Web\Components\LibraryItems\LibraryItemGrid.razor", "@key=\"item.EntityId\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Universe\AlphabeticalGrid.razor", "@key=\"@GetItemKey(item)\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Universe\PosterSwimlane.razor", "@key=\"item.Id\"")]
-    [InlineData(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor", "@key=\"card.Id\"")]
+    [InlineData(@"src\MediaEngine.Web\Components\MediaTiles\MediaTileGrid.razor", "@key=\"item.Id\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Library\LibraryConfigurableTable.razor", "@key=\"item.EntityId\"")]
     [InlineData(@"src\MediaEngine.Web\Shared\MainLayout.razor", "@key=\"link.Path\"")]
     public void HighRiskListComponents_UseStableKeys(string relativePath, string expectedKey)

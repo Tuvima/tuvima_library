@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Components.Web;
@@ -8,7 +10,7 @@ using Microsoft.JSInterop;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
 using MediaEngine.Web.Models.ViewDTOs;
-using MediaEngine.Web.Services.Discovery;
+using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Navigation;
@@ -182,9 +184,18 @@ public partial class ListenPage
         .Where(CanAcceptPlaylistItems)
         .ToList();
     private bool HasPlaylistCollections => PlaylistCollections.Count > 0;
-    private IReadOnlyList<ListenPlaylistCard> HomePlaylistCards => PlaylistCollections
+    private IReadOnlyList<MediaTileViewModel> HomePlaylistTiles => PlaylistCollections
         .Take(6)
-        .Select(ToPlaylistCard)
+        .Select(ToPlaylistTile)
+        .ToList();
+    private IReadOnlyList<MediaTileViewModel> AlbumTiles => FilteredAlbumGroups
+        .Select(ToAlbumTile)
+        .ToList();
+    private IReadOnlyList<MediaTileViewModel> ArtistAlbumTiles => ArtistAlbums
+        .Select(ToArtistAlbumTile)
+        .ToList();
+    private IReadOnlyList<MediaTileViewModel> PlaylistTiles => PlaylistCollections
+        .Select(ToPlaylistTile)
         .ToList();
     private IReadOnlyList<string> SongGenres => _musicWorks
         .SelectMany(work => work.Genres)
@@ -422,7 +433,7 @@ public partial class ListenPage
 
             _favoriteWorkIds = (await Reactions.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
             _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
-            _musicHomePage = DiscoveryComposerService.FromDisplayPage(
+            _musicHomePage = MediaTileComposerService.FromDisplayPage(
                 musicHomeTask.Result ?? throw new InvalidOperationException("Display API did not return the music home page."));
 
             if (IsAlbumDetail)
@@ -1074,12 +1085,6 @@ public partial class ListenPage
         }
 
         return await ApiClient.GetCollectionGroupDetailAsync(CollectionId.Value);
-    }
-
-    private void OpenAlbum(ContentGroupViewModel album)
-    {
-        var route = BuildAlbumDetailRoute(album.DisplayName, album.Creator);
-        NavigateTo(route);
     }
 
     private string BuildAlbumDetailRoute(string? albumName, string? artistName = null, Guid? trackId = null, bool edit = false)
@@ -1994,17 +1999,90 @@ public partial class ListenPage
     private static string Pluralize(int count, string singular)
         => count == 1 ? $"1 {singular}" : $"{count} {singular}s";
 
-    private static ListenPlaylistCard ToPlaylistCard(ManagedCollectionViewModel playlist)
-        => new(
-            playlist.Name,
-            $"{playlist.TypeLabel} Playlist",
-            $"{playlist.ItemCount} items",
-            $"/listen/music/playlists/{playlist.Id}",
-            playlist.Description ?? "Playlist detail with queue-first listening controls.",
-            playlist.SquareArtworkUrl);
+    private static MediaTileViewModel ToPlaylistTile(ManagedCollectionViewModel playlist)
+    {
+        var route = $"/listen/music/playlists/{playlist.Id}";
+        return SquareTile(
+            id: playlist.Id,
+            title: playlist.Name,
+            subtitle: $"{playlist.ItemCount} items",
+            imageUrl: playlist.SquareArtworkUrl,
+            route: route,
+            presentation: MediaTilePresentation.Album,
+            primaryActionLabel: "Open");
+    }
+
+    private MediaTileViewModel ToAlbumTile(ContentGroupViewModel album) =>
+        SquareTile(
+            id: album.CollectionId,
+            title: album.DisplayName,
+            subtitle: FirstNonBlank(album.Creator, album.Year, Pluralize(album.WorkCount, "track")),
+            imageUrl: album.CoverUrl ?? album.ArtistPhotoUrl,
+            route: BuildAlbumDetailRoute(album.DisplayName, album.Creator),
+            presentation: MediaTilePresentation.Album,
+            primaryActionLabel: "Open");
+
+    private MediaTileViewModel ToArtistAlbumTile(CollectionGroupSeasonViewModel album)
+    {
+        var title = album.SeasonLabel ?? $"Album {album.SeasonNumber}";
+        var route = album.AlbumCollectionId.HasValue
+            ? $"/listen/music/albums/{album.AlbumCollectionId.Value}"
+            : BuildAlbumDetailRoute(album.SeasonLabel, _artistDetail?.DisplayName);
+
+        return SquareTile(
+            id: album.AlbumCollectionId ?? GenerateDeterministicGuid($"{_artistDetail?.DisplayName}:{title}"),
+            title: title,
+            subtitle: FirstNonBlank(album.Year, Pluralize(album.Episodes.Count, "track")),
+            imageUrl: album.CoverUrl,
+            route: route,
+            presentation: MediaTilePresentation.Album,
+            primaryActionLabel: "Open");
+    }
+
+    private static MediaTileViewModel SquareTile(
+        Guid id,
+        string title,
+        string? subtitle,
+        string? imageUrl,
+        string route,
+        MediaTilePresentation presentation,
+        string primaryActionLabel)
+    {
+        var small = MediaTileArtworkUrl.Sized(imageUrl, "s");
+        var medium = MediaTileArtworkUrl.Sized(imageUrl, "m");
+        return new MediaTileViewModel
+        {
+            Id = id,
+            Title = title,
+            Subtitle = subtitle,
+            CoverUrl = imageUrl,
+            MediaKind = "Music",
+            Shape = MediaTileShape.Square,
+            Presentation = presentation,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.None,
+            TileTextMode = MediaTileTextMode.Caption,
+            TileImageUrl = small,
+            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(small, medium),
+            HoverImageUrl = medium,
+            HoverImageSrcSet = string.IsNullOrWhiteSpace(medium) ? null : $"{medium} 960w",
+            NavigationUrl = route,
+            DetailsNavigationUrl = route,
+            PrimaryNavigationUrl = route,
+            PrimaryActionLabel = primaryActionLabel,
+            AccentColor = "var(--tl-media-audio)",
+            SortTimestamp = DateTimeOffset.UtcNow,
+        };
+    }
+
+    private static Guid GenerateDeterministicGuid(string value)
+    {
+        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(value));
+        return new Guid(bytes);
+    }
 
     private sealed record ListenNavItem(string Label, string Route, string Icon, string? Meta = null, bool IsChild = false);
-    private sealed record ListenPlaylistCard(string Title, string Type, string Meta, string Route, string Description, string? SquareArtworkUrl);
     private sealed record ListenPlaylistTrackRow(CollectionItemViewModel? Item, WorkViewModel Work, int Index);
     private sealed record PlaylistColumnDefinition(string Key, string Label);
 }

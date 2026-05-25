@@ -74,9 +74,9 @@
                 </div>
 
                 <div class="tv-browse-page__hero-art">
-                    @if (!string.IsNullOrWhiteSpace(_heroDetail.CoverUrl))
+                    @if (!string.IsNullOrWhiteSpace(HeroCoverUrl))
                     {
-                        <img src="@_heroDetail.CoverUrl" alt="@_heroDetail.DisplayName" />
+                        <img src="@HeroCoverUrl" alt="@_heroDetail.DisplayName" />
                     }
                     else
                     {
@@ -141,31 +141,9 @@
     }
     else if (_layout == LibraryLayoutMode.Card)
     {
-        <div class="tv-browse-page__grid">
-            @foreach (var show in _visibleShows)
-            {
-                <AppNativeButton Type="button" Class="tv-show-card" OnClick="() => OpenShow(show.CollectionId)">
-                    <div class="tv-show-card__poster">
-                        @if (!string.IsNullOrWhiteSpace(show.CoverUrl))
-                        {
-                            <img src="@show.CoverUrl" alt="@show.DisplayName" />
-                        }
-                        else
-                        {
-                            <div class="tv-show-card__placeholder">
-                                <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Class="tl-u-font-size-52px" />
-                            </div>
-                        }
-                    </div>
-                    <div class="tv-show-card__title">@show.DisplayName</div>
-                    <div class="tv-show-card__subtitle">@BuildShowSubtitle(show)</div>
-                    @if (show.SeasonCount is > 0)
-                    {
-                        <div class="tv-show-card__meta">@($"{show.SeasonCount.Value} seasons")</div>
-                    }
-                </AppNativeButton>
-            }
-        </div>
+        <MediaTileGrid Items="@TvShowTiles"
+                       HoverMode="@MediaTileHoverMode.Expanded"
+                       Class="tv-browse-page__media-tile-grid" />
     }
     else
     {
@@ -174,9 +152,9 @@
             {
                 <AppNativeButton Type="button" Class="tv-list-row" OnClick="() => OpenShow(show.CollectionId)">
                     <div class="tv-list-row__art">
-                        @if (!string.IsNullOrWhiteSpace(show.CoverUrl))
+                        @if (!string.IsNullOrWhiteSpace(GetSmallArtworkUrl(show.CoverUrl)))
                         {
-                            <img src="@show.CoverUrl" alt="@show.DisplayName" />
+                            <img src="@GetSmallArtworkUrl(show.CoverUrl)" alt="@show.DisplayName" loading="lazy" decoding="async" />
                         }
                         else
                         {
@@ -214,10 +192,15 @@
     private bool _watchlistBusy;
 
     private string? HeroBackgroundUrl =>
-        _heroDetail?.BackgroundUrl
-        ?? _heroDetail?.BannerUrl
-        ?? _heroDetail?.Works.Select(work => work.HeroUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url))
-        ?? _heroDetail?.CoverUrl;
+        GetLargeArtworkUrl(
+            _heroDetail?.BackgroundUrl
+            ?? _heroDetail?.BannerUrl
+            ?? _heroDetail?.Works.Select(work => work.HeroUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url))
+            ?? _heroDetail?.CoverUrl);
+
+    private string? HeroCoverUrl => GetLargeArtworkUrl(_heroDetail?.CoverUrl);
+
+    private IReadOnlyList<MediaTileViewModel> TvShowTiles => _visibleShows.Select(ToTvShowTile).ToList();
 
     private string HeroEyebrow => _heroJourney is not null ? "Continue watching" : "From your library";
 
@@ -391,7 +374,7 @@
 
     private void OpenShow(Guid collectionId)
     {
-        Nav.NavigateTo($"/watch/tv/show/{collectionId}?returnUrl={Uri.EscapeDataString(CurrentRelativeUrl())}");
+        Nav.NavigateTo(BuildShowUrl(collectionId));
     }
 
     private void NavigateToPlayer(Guid assetId, Guid workId, Guid? collectionId)
@@ -430,6 +413,61 @@
     private string GetLayoutClass(LibraryLayoutMode layout) =>
         $"tv-browse-page__layout-button{(_layout == layout ? " is-active" : string.Empty)}";
 
+    private MediaTileViewModel ToTvShowTile(ContentGroupViewModel show)
+    {
+        var wideArtwork = FirstNonBlank(show.BannerUrl, show.BackgroundUrl, show.HeroUrl);
+        var hasWideArtwork = !string.IsNullOrWhiteSpace(GetSmallArtworkUrl(wideArtwork));
+        var primaryArtwork = hasWideArtwork ? wideArtwork : show.CoverUrl;
+        var small = GetSmallArtworkUrl(primaryArtwork);
+        var medium = GetMediumArtworkUrl(primaryArtwork);
+        var large = GetLargeArtworkUrl(primaryArtwork);
+        var showUrl = BuildShowUrl(show.CollectionId);
+        var subtitle = BuildShowSubtitle(show);
+
+        return new MediaTileViewModel
+        {
+            Id = show.CollectionId,
+            CollectionId = show.CollectionId,
+            Title = show.DisplayName,
+            Subtitle = subtitle,
+            Description = show.Description,
+            Tldr = show.Tagline,
+            MediaKind = "TV",
+            Shape = hasWideArtwork ? MediaTileShape.Landscape : MediaTileShape.Portrait,
+            Presentation = MediaTilePresentation.TvSeries,
+            SurfaceKind = hasWideArtwork ? MediaTileSurfaceKind.BannerLandscape : MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = hasWideArtwork ? MediaTileHoverLayout.BannerPopover : MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileTextMode = MediaTileTextMode.Caption,
+            TileImageUrl = small,
+            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(small, medium),
+            HoverImageUrl = medium,
+            HoverImageSrcSet = MediaTileArtworkUrl.SrcSet(medium, large),
+            HeroBackgroundImageUrl = large,
+            PreviewImageUrl = medium,
+            LogoUrl = show.LogoUrl,
+            MetaText = subtitle,
+            HoverFacts = BuildShowFacts(show),
+            NavigationUrl = showUrl,
+            DetailsNavigationUrl = showUrl,
+            PrimaryNavigationUrl = showUrl,
+            PrimaryActionLabel = "Open show",
+            SortTimestamp = show.CreatedAt,
+        };
+    }
+
+    private IReadOnlyList<string> BuildShowFacts(ContentGroupViewModel show)
+    {
+        var facts = new[]
+        {
+            show.Year,
+            show.Network,
+            show.SeasonCount is > 0 ? $"{show.SeasonCount.Value} seasons" : null,
+        };
+
+        return facts.Where(fact => !string.IsNullOrWhiteSpace(fact)).Cast<string>().ToList();
+    }
+
     private string BuildShowSubtitle(ContentGroupViewModel show)
     {
         var parts = new[]
@@ -441,6 +479,18 @@
 
         return string.Join("  -  ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
+
+    private string BuildShowUrl(Guid collectionId) =>
+        $"/watch/tv/show/{collectionId}?returnUrl={Uri.EscapeDataString(CurrentRelativeUrl())}";
+
+    private static string? GetSmallArtworkUrl(string? url) => MediaTileArtworkUrl.Sized(url, "s");
+
+    private static string? GetMediumArtworkUrl(string? url) => MediaTileArtworkUrl.Sized(url, "m");
+
+    private static string? GetLargeArtworkUrl(string? url) => MediaTileArtworkUrl.Sized(url, "l");
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string? BuildHeroSubtitle(CollectionGroupDetailViewModel? detail)
     {
