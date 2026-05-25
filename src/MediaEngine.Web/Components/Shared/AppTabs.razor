@@ -1,0 +1,17 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudTabs Class="@RootClass"
+         Elevation="0"
+         Rounded="false"
+         Border="false"
+         ApplyEffectsToContainer="false">
+    @ChildContent
+</MudTabs>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-tabs", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

@@ -1,0 +1,23 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <div class="app-field__label">@Label</div>
+    }
+    @ChildContent
+    @if (!string.IsNullOrWhiteSpace(HelpText))
+    {
+        <div class="app-field__help">@HelpText</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-field", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

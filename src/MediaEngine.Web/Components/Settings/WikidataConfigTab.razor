@@ -1,350 +1,145 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
-<div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Public" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Wikidata_PageTitle"]</MudText>
-    </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["Wikidata_PageDescription"]
-    </MudText>
-<MudPaper Elevation="0" Class="tl-card pa-5 mb-4">
 
-        @* Section label *@
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
-            <MudIcon Icon="@Icons.Material.Outlined.VerifiedUser"
-                     Size="Size.Small" Color="Color.Default" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                @L["Wikidata_Stage2Title"]
-            </MudText>
-            <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                     Variant="Variant.Outlined"
-                     Style="font-size: 0.65rem; height: 20px;">
-                @L["Wikidata_Stage2Badge"]
-            </MudChip>
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-            @L["Wikidata_Stage2Description"]
-        </MudText>
-<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2"
-                 Style="letter-spacing: 0.08em; display: block;">
-            @L["Wikidata_PropertiesFetched"]
-        </MudText>
-        <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap;" Class="mb-5">
+<div class="tl-page">
+    <div class="wikidata-config__header">
+        <MudIcon Icon="@Icons.Material.Outlined.Public" />
+        <div>
+            <h2 class="wikidata-config__title">@L["Wikidata_PageTitle"]</h2>
+            <p class="wikidata-config__description">@L["Wikidata_PageDescription"]</p>
+        </div>
+    </div>
+
+    <AppCard Class="wikidata-config__card">
+        <header class="wikidata-config__section-header">
+            <MudIcon Icon="@Icons.Material.Outlined.VerifiedUser" Size="Size.Small" />
+            <h3>@L["Wikidata_Stage2Title"]</h3>
+            <AppChip Text="@L["Wikidata_Stage2Badge"]" />
+        </header>
+        <p class="wikidata-config__copy">@L["Wikidata_Stage2Description"]</p>
+
+        <div class="wikidata-config__eyebrow">@L["Wikidata_PropertiesFetched"]</div>
+        <div class="wikidata-config__chip-row">
             @foreach (var prop in _stage2Properties)
             {
-                <MudChip T="string"
-                         Size="Size.Small"
-                         Color="Color.Default"
-                         Variant="Variant.Outlined"
-                         Icon="@Icons.Material.Filled.CheckCircle"
-                         Style="font-size: 0.75rem;">
-                    @prop
-                </MudChip>
+                <AppChip Text="@prop" Icon="@Icons.Material.Filled.CheckCircle" />
             }
-        </MudStack>
-<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
-                 Style="letter-spacing: 0.08em; display: block;">
-            @L["Wikidata_MatchingThresholds"]
-        </MudText>
+        </div>
 
-        <MudGrid Spacing="4" Class="mb-2">
+        <div class="wikidata-config__eyebrow">@L["Wikidata_MatchingThresholds"]</div>
+        <div class="wikidata-config__grid">
+            <AppSlider @bind-Value="_autoAcceptThreshold"
+                       Label="@L["Wikidata_AutoAcceptThresholdLabel"]"
+                       HelpText="@L["Wikidata_AutoAcceptThresholdDescription"]"
+                       Min="50"
+                       Max="100"
+                       ShowBounds="true" />
+            <AppSlider @bind-Value="_reviewThreshold"
+                       Label="@L["Wikidata_ReviewThresholdLabel"]"
+                       HelpText="@L["Wikidata_ReviewThresholdDescription"]"
+                       Min="30"
+                       Max="90"
+                       Tone="AppUiTone.Info"
+                       ShowBounds="true" />
+        </div>
 
-            <MudItem xs="12" sm="6">
-                <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    @L["Wikidata_AutoAcceptThresholdLabel"]
-                </MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
-                         Style="display: block;">
-                    @L["Wikidata_AutoAcceptThresholdDescription"]
-                </MudText>
-                <MudSlider T="int"
-                           @bind-Value="_autoAcceptThreshold"
-                           Min="50" Max="100" Step="1"
-                           Color="Color.Primary"
-                           Immediate="true">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.caption">50</MudText>
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                            @_autoAcceptThreshold
-                        </MudText>
-                        <MudText Typo="Typo.caption">100</MudText>
-                    </MudStack>
-                </MudSlider>
-            </MudItem>
+        <div class="wikidata-config__divider"></div>
+        <div class="wikidata-config__eyebrow">@L["Wikidata_PipelineOptions"]</div>
+        <div class="wikidata-config__grid">
+            <AppSwitchRow @bind-Value="_continueOnFailure"
+                          Label="@L["Wikidata_ContinueOnFailureLabel"]" />
+            <AppNumericField @bind-Value="_maxQidCandidates"
+                             Label="@L["Wikidata_MaxQidCandidatesLabel"]"
+                             Min="1"
+                             Max="20"
+                             HelpText="@L["Wikidata_MaxQidCandidatesHelper"]" />
+            <AppNumericField @bind-Value="_wikipediaMaxChars"
+                             Label="@L["Wikidata_WikipediaMaxCharsLabel"]"
+                             Min="100"
+                             Max="5000"
+                             Step="100"
+                             HelpText="@L["Wikidata_WikipediaMaxCharsHelper"]" />
+        </div>
+    </AppCard>
 
-            <MudItem xs="12" sm="6">
-                <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    @L["Wikidata_ReviewThresholdLabel"]
-                </MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
-                         Style="display: block;">
-                    @L["Wikidata_ReviewThresholdDescription"]
-                </MudText>
-                <MudSlider T="int"
-                           @bind-Value="_reviewThreshold"
-                           Min="30" Max="90" Step="1"
-                           Color="Color.Secondary"
-                           Immediate="true">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.caption">30</MudText>
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                            @_reviewThreshold
-                        </MudText>
-                        <MudText Typo="Typo.caption">90</MudText>
-                    </MudStack>
-                </MudSlider>
-            </MudItem>
+    <AppCard Class="wikidata-config__card">
+        <header class="wikidata-config__section-header">
+            <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
+            <h3>@L["Wikidata_Stage3Title"]</h3>
+            <AppChip Text="@L["Wikidata_Stage3Badge"]" />
+            <AppSwitchRow @bind-Value="_stage3Enabled"
+                          Label="@L["Wikidata_Stage3Enabled"]"
+                          Class="wikidata-config__header-switch" />
+        </header>
+        <p class="wikidata-config__copy">@L["Wikidata_Stage3Description"]</p>
 
-        </MudGrid>
+        <div class="wikidata-config__eyebrow">@L["Wikidata_DataGroups"]</div>
+        <div class="wikidata-config__rows">
+            <AppSwitchRow @bind-Value="_enrichPeople"
+                          Label="@L["Wikidata_PeopleGroupTitle"]"
+                          Description="@L["Wikidata_PeopleGroupDescription"]"
+                          Icon="@Icons.Material.Outlined.Person"
+                          Class="wikidata-config__row" />
+            <AppSwitchRow @bind-Value="_enrichLore"
+                          Label="@L["Wikidata_UniverseLoreGroupTitle"]"
+                          Description="@L["Wikidata_UniverseLoreGroupDescription"]"
+                          Icon="@Icons.Material.Outlined.Collections"
+                          Class="wikidata-config__row" />
+            <AppSwitchRow @bind-Value="_enrichCrossMedia"
+                          Label="@L["Wikidata_CrossMediaGroupTitle"]"
+                          Description="@L["Wikidata_CrossMediaGroupDescription"]"
+                          Icon="@Icons.Material.Outlined.DeviceHub"
+                          Class="wikidata-config__row" />
+        </div>
 
-        <MudDivider Class="my-4" />
-<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
-                 Style="letter-spacing: 0.08em; display: block;">
-            @L["Wikidata_PipelineOptions"]
-        </MudText>
+        <div class="wikidata-config__divider"></div>
+        <div class="wikidata-config__eyebrow">@L["Wikidata_SchedulingDepth"]</div>
+        <div class="wikidata-config__grid">
+            <AppNumericField @bind-Value="_backgroundIdleDelay"
+                             Label="@L["Wikidata_BackgroundIdleDelayLabel"]"
+                             Min="1"
+                             Max="300"
+                             HelpText="@L["Wikidata_BackgroundIdleDelayHelper"]" />
+            <AppTextField @bind-Value="_nightlySweepCron"
+                          Label="@L["Wikidata_NightlySweepCronLabel"]"
+                          HelpText="@L["Wikidata_NightlySweepCronHelper"]"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Outlined.Schedule" />
+            <AppSlider @bind-Value="_lineageDepth"
+                       Label="@L["Wikidata_RelationshipDepthLabel"]"
+                       HelpText="@L["Wikidata_RelationshipDepthDescription"]"
+                       Min="1"
+                       Max="3"
+                       ShowBounds="true" />
+            <AppSwitchRow @bind-Value="_loreDeltaOnExplorerOpen"
+                          Label="@L["Wikidata_LoreDeltaLabel"]"
+                          Description="@L["Wikidata_LoreDeltaDescription"]" />
+            <AppSlider @bind-Value="_stage3BatchSize"
+                       Label="@L["Wikidata_Stage3BatchSize"]"
+                       HelpText="@L["Wikidata_Stage3BatchSizeHelper"]"
+                       Min="5"
+                       Max="100"
+                       Step="5"
+                       ShowBounds="true" />
+            <AppSlider @bind-Value="_stage3RefreshDays"
+                       Label="@L["Wikidata_Stage3RefreshDays"]"
+                       HelpText="@L["Wikidata_Stage3RefreshDaysHelper"]"
+                       Min="7"
+                       Max="90"
+                       ShowBounds="true" />
+        </div>
 
-        <MudGrid Spacing="3">
-
-            <MudItem xs="12" sm="6" Class="d-flex align-center">
-                <MudSwitch T="bool"
-                           @bind-Value="_continueOnFailure"
-                           Color="Color.Primary"
-                           Label="@L["Wikidata_ContinueOnFailureLabel"]" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField T="int"
-                                 @bind-Value="_maxQidCandidates"
-                                 Label="@L["Wikidata_MaxQidCandidatesLabel"]"
-                                 Min="1" Max="20"
-                                 Variant="Variant.Outlined"
-                                 Margin="Margin.Dense"
-                                 FullWidth="true"
-                                 HelperText="@L["Wikidata_MaxQidCandidatesHelper"]" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField T="int"
-                                 @bind-Value="_wikipediaMaxChars"
-                                 Label="@L["Wikidata_WikipediaMaxCharsLabel"]"
-                                 Min="100" Max="5000" Step="100"
-                                 Variant="Variant.Outlined"
-                                 Margin="Margin.Dense"
-                                 FullWidth="true"
-                                 HelperText="@L["Wikidata_WikipediaMaxCharsHelper"]" />
-            </MudItem>
-
-        </MudGrid>
-
-    </MudPaper>
-<MudPaper Elevation="0" Class="tl-card pa-5 mb-4">
-
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
-            <MudIcon Icon="@Icons.Material.Outlined.AccountTree"
-                     Size="Size.Small" Color="Color.Default" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                @L["Wikidata_Stage3Title"]
-            </MudText>
-            <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                     Variant="Variant.Outlined"
-                     Style="font-size: 0.65rem; height: 20px;">
-                @L["Wikidata_Stage3Badge"]
-            </MudChip>
-            <div style="flex: 1;" />
-            <MudSwitch T="bool"
-                       @bind-Value="_stage3Enabled"
-                       Color="Color.Primary"
-                       Label="@L["Wikidata_Stage3Enabled"]" />
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-            @L["Wikidata_Stage3Description"]
-        </MudText>
-<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
-                 Style="letter-spacing: 0.08em; display: block;">
-            @L["Wikidata_DataGroups"]
-        </MudText>
-
-        <MudPaper Elevation="0" Class="tl-setting-row pa-3 mb-2">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Outlined.Person"
-                         Size="Size.Small" Color="Color.Default" />
-                <div style="flex: 1;">
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Wikidata_PeopleGroupTitle"]</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        @L["Wikidata_PeopleGroupDescription"]
-                    </MudText>
-                </div>
-                <MudSwitch T="bool"
-                           @bind-Value="_enrichPeople"
-                           Color="Color.Primary" />
-            </MudStack>
-        </MudPaper>
-
-        <MudPaper Elevation="0" Class="tl-setting-row pa-3 mb-2">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Outlined.Collections"
-                         Size="Size.Small" Color="Color.Default" />
-                <div style="flex: 1;">
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Wikidata_UniverseLoreGroupTitle"]</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        @L["Wikidata_UniverseLoreGroupDescription"]
-                    </MudText>
-                </div>
-                <MudSwitch T="bool"
-                           @bind-Value="_enrichLore"
-                           Color="Color.Primary" />
-            </MudStack>
-        </MudPaper>
-
-        <MudPaper Elevation="0" Class="tl-setting-row pa-3 mb-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Outlined.DeviceHub"
-                         Size="Size.Small" Color="Color.Default" />
-                <div style="flex: 1;">
-                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Wikidata_CrossMediaGroupTitle"]</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        @L["Wikidata_CrossMediaGroupDescription"]
-                    </MudText>
-                </div>
-                <MudSwitch T="bool"
-                           @bind-Value="_enrichCrossMedia"
-                           Color="Color.Primary" />
-            </MudStack>
-        </MudPaper>
-
-        <MudDivider Class="my-4" />
-<MudText Typo="Typo.overline" Color="Color.Default" Class="mb-3"
-                 Style="letter-spacing: 0.08em; display: block;">
-            @L["Wikidata_SchedulingDepth"]
-        </MudText>
-
-        <MudGrid Spacing="3">
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField T="int"
-                                 @bind-Value="_backgroundIdleDelay"
-                                 Label="@L["Wikidata_BackgroundIdleDelayLabel"]"
-                                 Min="1" Max="300"
-                                 Variant="Variant.Outlined"
-                                 Margin="Margin.Dense"
-                                 FullWidth="true"
-                                 HelperText="@L["Wikidata_BackgroundIdleDelayHelper"]" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudTextField @bind-Value="_nightlySweepCron"
-                              Label="@L["Wikidata_NightlySweepCronLabel"]"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              FullWidth="true"
-                              HelperText="@L["Wikidata_NightlySweepCronHelper"]"
-                              Adornment="Adornment.End"
-                              AdornmentIcon="@Icons.Material.Outlined.Schedule" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    @L["Wikidata_RelationshipDepthLabel"]
-                </MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
-                         Style="display: block;">
-                    @L["Wikidata_RelationshipDepthDescription"]
-                </MudText>
-                <MudSlider T="int"
-                           @bind-Value="_lineageDepth"
-                           Min="1" Max="3" Step="1"
-                           Color="Color.Primary"
-                           Immediate="true">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.caption">1</MudText>
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                            @_lineageDepth
-                        </MudText>
-                        <MudText Typo="Typo.caption">3</MudText>
-                    </MudStack>
-                </MudSlider>
-            </MudItem>
-
-            <MudItem xs="12" sm="6" Class="d-flex align-center">
-                <div>
-                    <MudSwitch T="bool"
-                               @bind-Value="_loreDeltaOnExplorerOpen"
-                               Color="Color.Primary"
-                               Label="@L["Wikidata_LoreDeltaLabel"]" />
-                    <MudText Typo="Typo.caption" Color="Color.Secondary"
-                             Style="display: block; margin-left: 52px; margin-top: -4px;">
-                        @L["Wikidata_LoreDeltaDescription"]
-                    </MudText>
-                </div>
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    @L["Wikidata_Stage3BatchSize"]
-                </MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
-                         Style="display: block;">
-                    @L["Wikidata_Stage3BatchSizeHelper"]
-                </MudText>
-                <MudSlider T="int"
-                           @bind-Value="_stage3BatchSize"
-                           Min="5" Max="100" Step="5"
-                           Color="Color.Primary"
-                           Immediate="true">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.caption">5</MudText>
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                            @_stage3BatchSize
-                        </MudText>
-                        <MudText Typo="Typo.caption">100</MudText>
-                    </MudStack>
-                </MudSlider>
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    @L["Wikidata_Stage3RefreshDays"]
-                </MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2"
-                         Style="display: block;">
-                    @L["Wikidata_Stage3RefreshDaysHelper"]
-                </MudText>
-                <MudSlider T="int"
-                           @bind-Value="_stage3RefreshDays"
-                           Min="7" Max="90" Step="1"
-                           Color="Color.Primary"
-                           Immediate="true">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.caption">7</MudText>
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                            @_stage3RefreshDays
-                        </MudText>
-                        <MudText Typo="Typo.caption">90</MudText>
-                    </MudStack>
-                </MudSlider>
-            </MudItem>
-
-        </MudGrid>
-
-        <MudDivider Class="my-4" />
-<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-            <div style="flex: 1;">
-                <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
-                    @L["Wikidata_Stage3TriggerNow"]
-                </MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary"
-                         Style="display: block; margin-top: 2px;">
-                    @L["Wikidata_Stage3TriggerHint"]
-                </MudText>
+        <div class="wikidata-config__divider"></div>
+        <div class="wikidata-config__trigger">
+            <div>
+                <div class="wikidata-config__trigger-title">@L["Wikidata_Stage3TriggerNow"]</div>
+                <div class="wikidata-config__trigger-copy">@L["Wikidata_Stage3TriggerHint"]</div>
             </div>
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Primary"
-                       Size="Size.Small"
+            <AppButton Tone="AppUiTone.Primary"
+                       Size="AppControlSize.Compact"
                        StartIcon="@Icons.Material.Outlined.PlayArrow"
                        OnClick="@TriggerManualSweepAsync"
-                       Disabled="@(_triggering || !_stage3Enabled)"
-                       Style="border-radius: 8px; min-width: 130px;">
+                       Disabled="@(_triggering || !_stage3Enabled)">
                 @if (_triggering)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
@@ -354,21 +149,20 @@
                 {
                     @:@L["Wikidata_Stage3TriggerNow"]
                 }
-            </MudButton>
-        </MudStack>
+            </AppButton>
+        </div>
+    </AppCard>
 
-    </MudPaper>
-<MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
-        <MudButton Variant="Variant.Text"
-                   Color="Color.Default"
-                   Size="Size.Small"
+    <AppActionBar>
+        <AppButton ButtonStyle="AppButtonStyle.Text"
+                   Size="AppControlSize.Compact"
                    StartIcon="@Icons.Material.Outlined.RestartAlt"
                    OnClick="@ResetToDefaults">
             @L["Wikidata_ResetToDefaults"]
-        </MudButton>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Size="Size.Small"
+        </AppButton>
+        <AppButton Tone="AppUiTone.Primary"
+                   ButtonStyle="AppButtonStyle.Filled"
+                   Size="AppControlSize.Compact"
                    StartIcon="@Icons.Material.Filled.Save"
                    OnClick="@SaveAsync"
                    Disabled="@_saving">
@@ -381,13 +175,11 @@
             {
                 @:@L["Wikidata_SaveConfiguration"]
             }
-        </MudButton>
-    </MudStack>
-
+        </AppButton>
+    </AppActionBar>
 </div>
 
 @code {
-
     private static readonly string[] _stage2Properties =
     [
         "Title",
@@ -453,14 +245,4 @@
         await Task.Delay(400);
         _saving = false;
     }
-
-    private const string SectionCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px;";
-
-    private const string ToggleRowStyle =
-        "background: var(--app-glass-bg); " +
-        "border: 1px solid var(--app-glass-border); " +
-        "border-radius: 8px;";
 }

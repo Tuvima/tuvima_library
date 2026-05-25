@@ -6,242 +6,155 @@
 @inject IStringLocalizer<SharedStrings> L
 @inject ILogger<MaintenanceTab> Logger
 @implements IDisposable
-<div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Build" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Maintenance_PageTitle"]</MudText>
-    </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["Maintenance_PageDescription"]
-    </MudText>
-<MudPaper Elevation="0" Class="tl-card mb-6">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Outlined.FactCheck"
-                     Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                @L["Maintenance_ReconciliationTitle"]
-            </MudText>
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-            @L["Maintenance_ReconciliationDescription"]
-        </MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
-                  Class="maintenance-action-row">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
+
+<div class="tl-page maintenance-page">
+    <AppPageHeader Title="@L["Maintenance_PageTitle"].Value"
+                   Subtitle="@L["Maintenance_PageDescription"].Value" />
+
+    <AppCard Title="@L["Maintenance_ReconciliationTitle"].Value"
+             Description="@L["Maintenance_ReconciliationDescription"].Value">
+        <AppActionBar Align="AppHorizontalAlignment.Start" Class="maintenance-action-row">
+            <AppButton Label="@(_reconciling ? L["Maintenance_Scanning"].Value : L["Maintenance_ReconcileNow"].Value)"
                        StartIcon="@Icons.Material.Filled.PlayArrow"
-                       OnClick="@RunReconciliationAsync"
-                       Disabled="@_reconciling">
-                @(_reconciling ? L["Maintenance_Scanning"] : L["Maintenance_ReconcileNow"])
-            </MudButton>
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@_reconciling"
+                       OnClick="@RunReconciliationAsync" />
             @if (_lastResult is not null)
             {
-                <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                         Style="opacity: 0.8;">
-                    @_lastResult.TotalScanned scanned  -  @_lastResult.MissingCount missing  -  @(_lastResult.ElapsedMs)ms
-                </MudChip>
+                <AppChip Text="@($"{_lastResult.TotalScanned} scanned - {_lastResult.MissingCount} missing - {_lastResult.ElapsedMs}ms")" />
             }
-        </MudStack>
-    </MudPaper>
-<MudPaper Elevation="0" Class="tl-card mb-6">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Filled.AutoFixHigh"
-                     Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                @L["Maintenance_UniverseEnrichmentTitle"]
-            </MudText>
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-            @L["Maintenance_UniverseEnrichmentDescription"]
-        </MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
-                  Class="maintenance-action-row">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
+        </AppActionBar>
+    </AppCard>
+
+    <AppCard Title="@L["Maintenance_UniverseEnrichmentTitle"].Value"
+             Description="@L["Maintenance_UniverseEnrichmentDescription"].Value">
+        <AppActionBar Align="AppHorizontalAlignment.Start" Class="maintenance-action-row">
+            <AppButton Label="@(_pass2Loading ? L["Maintenance_Running"].Value : L["Maintenance_RunPass2Now"].Value)"
                        StartIcon="@Icons.Material.Filled.AutoFixHigh"
-                       OnClick="@TriggerPass2Async"
-                       Disabled="@(_pass2Loading || _pass2Status?.PendingCount == 0)">
-                @(_pass2Loading ? L["Maintenance_Running"] : L["Maintenance_RunPass2Now"])
-            </MudButton>
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@(_pass2Loading || _pass2Status?.PendingCount == 0)"
+                       OnClick="@TriggerPass2Async" />
             @if (_pass2Status?.PendingCount > 0)
             {
-                <MudChip T="string" Size="Size.Small" Color="Color.Info">
-                    @_pass2Status.PendingCount @L["Maintenance_Pending"]
-                </MudChip>
+                <AppChip Text="@($"{_pass2Status.PendingCount} {L["Maintenance_Pending"].Value}")"
+                         Tone="AppUiTone.Info" />
             }
-        </MudStack>
-    </MudPaper>
-<MudPaper Elevation="0" Class="tl-card mb-6">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Outlined.LabelImportant"
-                     Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                Auto Re-tag Sweep
-            </MudText>
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+        </AppActionBar>
+    </AppCard>
+
+    <AppCard Title="Auto Re-tag Sweep">
+        <p class="maintenance-card-copy">
             Walks every matched file and re-applies metadata whenever
             <code>writeback-fields.json</code> changes or a tagger version is bumped.
             Locked files are retried in the next off-hours window; permanent
             failures are routed to the Review Queue.
-        </MudText>
+        </p>
 
         @if (_retagState is { HasPendingDiff: true, PendingDiff.Count: > 0 })
         {
-            <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Class="mb-3" Dense="true">
-                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                    A change to <code>writeback-fields.json</code> is waiting for you to Apply.
-                </MudText>
-                <MudText Typo="Typo.caption">
-                    Click Apply to re-tag every file affected by the change below.
-                    Nothing will touch the library until you do.
-                </MudText>
-            </MudAlert>
+            <AppAlert Tone="AppUiTone.Warning">
+                <strong>A change to <code>writeback-fields.json</code> is waiting for you to Apply.</strong>
+                <span>Click Apply to re-tag every file affected by the change below. Nothing will touch the library until you do.</span>
+            </AppAlert>
 
-            <MudStack Spacing="1" Class="mb-3">
+            <div class="maintenance-diff-list">
                 @foreach (var d in _retagState.PendingDiff)
                 {
-                    <div style="border-left: 2px solid var(--app-accent); padding-left: 12px;">
-                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@d.MediaType</MudText>
+                    <div class="maintenance-diff">
+                        <div class="maintenance-diff__media">@d.MediaType</div>
                         @if (d.AddedFields.Count > 0)
                         {
-                            <MudText Typo="Typo.caption" Style="color: #7cb342;">
-                                + @string.Join(", ", d.AddedFields)
-                            </MudText>
+                            <div class="maintenance-diff__added">+ @string.Join(", ", d.AddedFields)</div>
                         }
                         @if (d.RemovedFields.Count > 0)
                         {
-                            <MudText Typo="Typo.caption" Style="color: #e57373;">
-                                - @string.Join(", ", d.RemovedFields)
-                            </MudText>
+                            <div class="maintenance-diff__removed">- @string.Join(", ", d.RemovedFields)</div>
                         }
                     </div>
                 }
-            </MudStack>
+            </div>
         }
 
         @if (_retagRunning && _retagProgress is not null)
         {
-            <MudStack Spacing="1" Class="mb-3">
-                <MudProgressLinear Indeterminate="@(!_retagProgress.IsFinal)"
-                                   Color="Color.Primary"
-                                   Value="@(_retagProgress.IsFinal ? 100 : 0)" />
-                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    Processed @_retagProgress.Processed  -
-                    @_retagProgress.Succeeded written  -
-                    @_retagProgress.Transient retrying  -
+            <div class="maintenance-progress">
+                <AppProgressBar Indeterminate="@(!_retagProgress.IsFinal)"
+                                Value="@(_retagProgress.IsFinal ? 100 : 0)" />
+                <div class="maintenance-progress__meta">
+                    Processed @_retagProgress.Processed -
+                    @_retagProgress.Succeeded written -
+                    @_retagProgress.Transient retrying -
                     @_retagProgress.Terminal failed
-                </MudText>
-            </MudStack>
+                </div>
+            </div>
         }
 
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
-                  Class="maintenance-action-row">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
+        <AppActionBar Align="AppHorizontalAlignment.Start" Class="maintenance-action-row">
+            <AppButton Label="Apply"
                        StartIcon="@Icons.Material.Filled.Check"
-                       OnClick="@ApplyRetagPendingAsync"
-                       Disabled="@(_retagBusy || _retagState?.HasPendingDiff != true)">
-                Apply
-            </MudButton>
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Default"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@(_retagBusy || _retagState?.HasPendingDiff != true)"
+                       OnClick="@ApplyRetagPendingAsync" />
+            <AppButton Label="Run Now"
                        StartIcon="@Icons.Material.Filled.PlayArrow"
-                       OnClick="@RunRetagNowAsync"
-                       Disabled="@_retagBusy">
-                Run Now
-            </MudButton>
-        </MudStack>
-    </MudPaper>
-<MudPaper Elevation="0" Class="tl-card mb-6">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Outlined.Fingerprint"
-                     Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                Library Hash Sweep
-            </MudText>
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                       Disabled="@_retagBusy"
+                       OnClick="@RunRetagNowAsync" />
+        </AppActionBar>
+    </AppCard>
+
+    <AppCard Title="Library Hash Sweep">
+        <p class="maintenance-card-copy">
             Fingerprints every media file across all configured library source paths.
             The hash cache lets Tuvima detect moved and renamed files without re-reading
             every byte - subsequent sweeps only re-hash files whose size or modification
             time have changed.
-        </MudText>
+        </p>
 
         @if (_sweepRunning && _sweepProgress is not null)
         {
-            <MudStack Spacing="1" Class="mb-3">
-                <MudProgressLinear Color="Color.Primary"
-                                    Value="@SweepPercent"
-                                    Max="100"
-                         Rounded="false"
-                                    Size="Size.Medium" />
-                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    @_sweepProgress.Processed / @_sweepProgress.Discovered files  -
-                    @_sweepProgress.Hashed hashed  -
-                    @_sweepProgress.Cached cached  -
-                    @_sweepProgress.Failed failed  -
+            <div class="maintenance-progress">
+                <AppProgressBar Value="@SweepPercent" ShowValue="true" />
+                <div class="maintenance-progress__meta">
+                    @_sweepProgress.Processed / @_sweepProgress.Discovered files -
+                    @_sweepProgress.Hashed hashed -
+                    @_sweepProgress.Cached cached -
+                    @_sweepProgress.Failed failed -
                     @FormatBytes(_sweepProgress.BytesHashed)
-                </MudText>
-            </MudStack>
+                </div>
+            </div>
         }
         else if (_sweepComplete && _sweepProgress is not null)
         {
-            <MudAlert Severity="Severity.Success" Variant="Variant.Text" Dense="true" Class="mb-3">
+            <AppAlert Tone="AppUiTone.Success">
                 Completed - @_sweepProgress.Discovered files discovered,
                 @_sweepProgress.Hashed hashed,
                 @_sweepProgress.Cached from cache,
                 @_sweepProgress.Failed failed
                 (@_sweepProgress.ElapsedSeconds.ToString("F1")s)
-            </MudAlert>
+            </AppAlert>
         }
 
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
-                  Class="maintenance-action-row">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
+        <AppActionBar Align="AppHorizontalAlignment.Start" Class="maintenance-action-row">
+            <AppButton Label="@(_sweepRunning ? "Sweeping..." : "Run Sweep Now")"
                        StartIcon="@Icons.Material.Filled.PlayArrow"
-                       OnClick="@RunInitialSweepAsync"
-                       Disabled="@_sweepRunning">
-                @(_sweepRunning ? "Sweeping..." : "Run Sweep Now")
-            </MudButton>
-        </MudStack>
-    </MudPaper>
-<MudPaper Elevation="0" Class="tl-card mb-6">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Outlined.FindInPage"
-                     Color="Color.Secondary" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                @L["Maintenance_LibraryCrawlTitle"]
-            </MudText>
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
-            @L["Maintenance_LibraryCrawlDescription"]
-        </MudText>
-    </MudPaper>
-<MudPaper Elevation="0" Class="tl-card">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Outlined.Sync"
-                     Color="Color.Secondary" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
-                @L["Maintenance_WeeklySyncTitle"]
-            </MudText>
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
-            @L["Maintenance_WeeklySyncDescription"]
-        </MudText>
-    </MudPaper>
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@_sweepRunning"
+                       OnClick="@RunInitialSweepAsync" />
+        </AppActionBar>
+    </AppCard>
 
+    <AppCard Title="@L["Maintenance_LibraryCrawlTitle"].Value"
+             Description="@L["Maintenance_LibraryCrawlDescription"].Value" />
+
+    <AppCard Title="@L["Maintenance_WeeklySyncTitle"].Value"
+             Description="@L["Maintenance_WeeklySyncDescription"].Value" />
 </div>
 
 @code {
-
-    private const string InnerCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 24px;";
-
     private bool _reconciling;
     private ReconciliationResultDto? _lastResult;
 
@@ -432,12 +345,3 @@
         }
     }
 }
-
-<style>
-    @@media (max-width: 768px) {
-        .maintenance-action-row {
-            flex-wrap: wrap !important;
-        }
-    }
-</style>
-

@@ -1,0 +1,64 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <label class="app-field__label" for="@InputId">@Label</label>
+    }
+
+    <MudTextField T="string"
+                  InputId="@InputId"
+                  Value="@Value"
+                  ValueChanged="OnValueChanged"
+                  Placeholder="@Placeholder"
+                  Variant="Variant.Outlined"
+                  Margin="Margin.Dense"
+                  InputType="@InputType"
+                  Disabled="@Disabled"
+                  ReadOnly="@ReadOnly"
+                  FullWidth="@FullWidth"
+                  Immediate="@Immediate"
+                  MaxLength="@MaxLength"
+                  Adornment="@Adornment"
+                  AdornmentIcon="@AdornmentIcon"
+                  OnAdornmentClick="@OnAdornmentClick"
+                  OnKeyUp="@OnKeyUp"
+                  Class="app-control app-text-field" />
+
+    @if (!string.IsNullOrWhiteSpace(HelpText))
+    {
+        <div class="app-field__help">@HelpText</div>
+    }
+</div>
+
+@code {
+    private readonly string InputId = $"app-text-{Guid.NewGuid():N}";
+
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public InputType InputType { get; set; } = InputType.Text;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool FullWidth { get; set; } = true;
+    [Parameter] public bool Immediate { get; set; } = true;
+    [Parameter] public int MaxLength { get; set; } = 524288;
+    [Parameter] public Adornment Adornment { get; set; }
+    [Parameter] public string? AdornmentIcon { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnAdornmentClick { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> OnKeyUp { get; set; }
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-field",
+            AppUiMaps.SizeClass(Size),
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task OnValueChanged(string? value) => ValueChanged.InvokeAsync(value);
+}

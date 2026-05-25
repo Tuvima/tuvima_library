@@ -1,0 +1,22 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<ol class="@RootClass">
+    @foreach (var step in Steps)
+    {
+        <li class="app-step-indicator__step @(step.Number == ActiveStep ? "is-active" : null)">
+            <span class="app-step-indicator__number">@step.Number</span>
+            <span class="app-step-indicator__label">@step.Label</span>
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter] public IReadOnlyList<AppStep> Steps { get; set; } = [];
+    [Parameter] public int ActiveStep { get; set; } = 1;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-step-indicator", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    public sealed record AppStep(int Number, string Label);
+}

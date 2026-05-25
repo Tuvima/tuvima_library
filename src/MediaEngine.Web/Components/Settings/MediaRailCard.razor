@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 
-<MudCard Outlined="true" Class="settings-media-rail-card">
+<AppCard Density="AppSurfaceDensity.Compact" Class="settings-media-rail-card">
     @if (!string.IsNullOrWhiteSpace(Item.Route))
     {
         <MudLink Href="@Item.Route" Underline="Underline.None" Color="Color.Inherit">
@@ -12,33 +12,23 @@
     {
         @CardContent
     }
-</MudCard>
+</AppCard>
 
 @code {
     [Parameter, EditorRequired] public ProfileOverviewItemViewModel Item { get; set; } = new();
     [Parameter] public bool ShowContinuation { get; set; }
 
-    private RenderFragment CardContent => @<MudStack Spacing="1" Class="settings-media-rail-card__content">
+    private RenderFragment CardContent => @<div class="settings-media-rail-card__content">
         <div class="settings-media-rail-card__art-shell">
-            @if (!string.IsNullOrWhiteSpace(Item.CoverUrl))
-            {
-                <MudImage Src="@Item.CoverUrl"
-                          Alt=""
-                          ObjectFit="ObjectFit.Cover"
-                          Height="178"
-                          Width="134"
-                          Elevation="0"
-                          Class="settings-media-rail-card__art" />
-            }
-            else
-            {
-                <MudPaper Elevation="0" Outlined="true" Height="178px" Width="134px" Class="settings-media-rail-card__fallback d-flex align-center justify-center">
-                    <MudIcon Icon="@MediaIcon(Item.MediaType)" Size="Size.Large" Color="Color.Primary" />
-                </MudPaper>
-            }
-            <span class="settings-media-rail-card__badge">
-                <MudIcon Icon="@MediaIcon(Item.MediaType)" Size="Size.Small" />
-            </span>
+            <AppMediaArtwork ImageUrl="@Item.CoverUrl"
+                             Alt=""
+                             FallbackIcon="@MediaIcon(Item.MediaType)"
+                             Progress="@(Item.ProgressPct > 0 ? Math.Clamp(Item.ProgressPct, 0, 100) : null)"
+                             Class="settings-media-rail-card__art">
+                <Badge>
+                    <MudIcon Icon="@MediaIcon(Item.MediaType)" Size="Size.Small" />
+                </Badge>
+            </AppMediaArtwork>
         </div>
         @if (ShowContinuation)
         {
@@ -46,11 +36,7 @@
         }
         <MudText Typo="Typo.body2" Class="settings-media-rail-card__title">@Item.Title</MudText>
         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="settings-media-rail-card__progress-copy">@ProgressCopy()</MudText>
-        @if (Item.ProgressPct > 0)
-        {
-            <MudProgressLinear Value="@Math.Clamp(Item.ProgressPct, 0, 100)" Color="Color.Primary" Rounded="true" Class="settings-media-rail-card__progress" />
-        }
-    </MudStack>;
+    </div>;
 
     private string ProgressCopy()
     {

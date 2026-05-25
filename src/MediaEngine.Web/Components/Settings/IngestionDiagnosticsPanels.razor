@@ -78,7 +78,10 @@
                         </div>
                         <div>
                             <span class="@StatusBadgeClass(reason.Count > 0 ? "warning" : "complete")">@FormatCount(reason.Count)</span>
-                            <MudButton Href="/settings/review" Size="Size.Small" Variant="Variant.Outlined" Disabled="@(reason.Count == 0)">Review</MudButton>
+                            <AppButton Label="Review"
+                                       Href="/settings/review"
+                                       Size="AppControlSize.Compact"
+                                       Disabled="@(reason.Count == 0)" />
                         </div>
                     </div>
                 }

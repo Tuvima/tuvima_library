@@ -1,0 +1,15 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<section class="@RootClass">
+    @ChildContent
+</section>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public AppSurfaceDensity Density { get; set; } = AppSurfaceDensity.Normal;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-panel", $"app-panel--{Density.ToString().ToLowerInvariant()}", Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

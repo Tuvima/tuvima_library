@@ -1,0 +1,19 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public AppHorizontalAlignment Align { get; set; } = AppHorizontalAlignment.End;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-action-bar",
+            $"app-action-bar--{Align.ToString().ToLowerInvariant()}",
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

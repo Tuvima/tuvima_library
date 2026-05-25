@@ -1,0 +1,56 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudButton Variant="@MudVariant"
+           Color="@MudColor"
+           Size="@MudSize"
+           Disabled="@Disabled"
+           Href="@Href"
+           Target="@Target"
+           StartIcon="@StartIcon"
+           EndIcon="@EndIcon"
+           ButtonType="@ButtonType"
+           FullWidth="@FullWidth"
+           OnClick="HandleClick"
+           Class="@RootClass">
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+    else
+    {
+        @Label
+    }
+</MudButton>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? StartIcon { get; set; }
+    [Parameter] public string? EndIcon { get; set; }
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string? Target { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool FullWidth { get; set; }
+    [Parameter] public ButtonType ButtonType { get; set; } = ButtonType.Button;
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Neutral;
+    [Parameter] public AppButtonStyle ButtonStyle { get; set; } = AppButtonStyle.Outlined;
+    [Parameter] public string? Class { get; set; }
+
+    private Size MudSize => AppUiMaps.ToMudSize(Size);
+    private Color MudColor => AppUiMaps.ToMudColor(Tone);
+    private Variant MudVariant => AppUiMaps.ToMudVariant(ButtonStyle);
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-button",
+            AppUiMaps.SizeClass(Size),
+            AppUiMaps.ToneClass(Tone),
+            $"app-button--{ButtonStyle.ToString().ToLowerInvariant()}",
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task HandleClick(MouseEventArgs _) => OnClick.InvokeAsync();
+}

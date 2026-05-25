@@ -1,16 +1,11 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
+
 <div class="tl-page">
-    <MudStack AlignItems="AlignItems.Center" Spacing="4" Class="pa-8">
-        <MudIcon Icon="@Icons.Material.Filled.Wifi"
-                 Size="Size.Large"
-                 Color="Color.Secondary"
-                 Style="font-size: 4rem; opacity: 0.4;" />
-        <MudText Typo="Typo.h6" Color="Color.Secondary">@L["Connectivity_Title"]</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
-            @L["Connectivity_ComingSoon"]
-        </MudText>
-    </MudStack>
+    <AppPageState Kind="AppPageStateKind.Empty"
+                  Icon="@Icons.Material.Filled.Wifi"
+                  Title="@L["Connectivity_Title"].Value"
+                  Message="@L["Connectivity_ComingSoon"].Value" />
 </div>
 
 @code {

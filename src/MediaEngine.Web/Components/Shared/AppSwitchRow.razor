@@ -1,0 +1,49 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass" @onclick:stopPropagation="@StopClickPropagation">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Size="MudBlazor.Size.Small" Class="app-switch-row__icon" />
+    }
+    @if (!string.IsNullOrWhiteSpace(Label) || !string.IsNullOrWhiteSpace(Description))
+    {
+        <div class="app-switch-row__copy">
+            @if (!string.IsNullOrWhiteSpace(Label))
+            {
+                <div class="app-switch-row__label">@Label</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <div class="app-switch-row__description">@Description</div>
+            }
+        </div>
+    }
+    <MudSwitch T="bool"
+               Value="@Value"
+               ValueChanged="@ValueChanged"
+               Color="@MudColor"
+               Disabled="@Disabled"
+               Label="@SwitchLabel"
+               Class="app-switch-row__control" />
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool StopClickPropagation { get; set; }
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Success;
+    [Parameter] public string? SwitchLabel { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private Color MudColor => AppUiMaps.ToMudColor(Tone);
+
+    private bool HasCopy => !string.IsNullOrWhiteSpace(Label) || !string.IsNullOrWhiteSpace(Description);
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-switch-row", AppUiMaps.ToneClass(Tone), HasCopy ? null : "app-switch-row--control-only", Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

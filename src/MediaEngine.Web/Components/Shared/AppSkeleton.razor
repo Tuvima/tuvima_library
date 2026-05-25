@@ -1,0 +1,12 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass" aria-hidden="true"></div>
+
+@code {
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-skeleton", AppUiMaps.SizeClass(Size), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

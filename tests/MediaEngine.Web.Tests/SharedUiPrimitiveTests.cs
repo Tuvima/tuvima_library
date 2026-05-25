@@ -3,6 +3,7 @@ using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Components.Shared;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
@@ -12,6 +13,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     public SharedUiPrimitiveTests()
     {
         Services.AddMudServices();
+        JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
     [Fact]
@@ -73,6 +75,97 @@ public sealed class SharedUiPrimitiveTests : TestContext
 
         Assert.Single(cut.FindAll($".{expectedClass}"));
         Assert.Contains("Status", cut.Markup);
+    }
+
+    [Fact]
+    public void AppButton_MapsToneSizeVariantAndClickCallback()
+    {
+        var clicked = false;
+
+        var cut = RenderComponent<AppButton>(parameters => parameters
+            .Add(component => component.Label, "Save")
+            .Add(component => component.Tone, AppUiTone.Primary)
+            .Add(component => component.Size, AppControlSize.Compact)
+            .Add(component => component.ButtonStyle, AppButtonStyle.Filled)
+            .Add(component => component.StartIcon, Icons.Material.Filled.Save)
+            .Add(component => component.OnClick, EventCallback.Factory.Create(this, () => clicked = true)));
+
+        Assert.Single(cut.FindAll(".app-button"));
+        Assert.Single(cut.FindAll(".app-control--compact"));
+        Assert.Single(cut.FindAll(".app-tone--primary"));
+        Assert.Single(cut.FindAll(".app-button--filled"));
+        Assert.Contains("Save", cut.Markup);
+
+        cut.Find("button").Click();
+        Assert.True(clicked);
+    }
+
+    [Fact]
+    public void AppTextField_RendersLabelHelpTextAndSizeClass()
+    {
+        var cut = RenderComponent<AppTextField>(parameters => parameters
+            .Add(component => component.Label, "Provider Name")
+            .Add(component => component.Value, "TMDB")
+            .Add(component => component.HelpText, "Shown below the field.")
+            .Add(component => component.Size, AppControlSize.Large));
+
+        Assert.Single(cut.FindAll(".app-field"));
+        Assert.Single(cut.FindAll(".app-control--large"));
+        Assert.Contains("Provider Name", cut.Markup);
+        Assert.Contains("Shown below the field.", cut.Markup);
+    }
+
+    [Fact]
+    public void AppSelect_RendersSharedFieldAndOptions()
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<AppSelect>(1);
+            builder.AddAttribute(2, nameof(AppSelect.Label), "Region");
+            builder.AddAttribute(3, nameof(AppSelect.Value), "localized");
+            builder.AddAttribute(4, nameof(AppSelect.Options), new[]
+            {
+                new AppSelectOption("source", "Source defaults"),
+                new AppSelectOption("localized", "Localized metadata"),
+            });
+            builder.AddAttribute(5, nameof(AppSelect.Size), AppControlSize.Normal);
+            builder.CloseComponent();
+        });
+
+        Assert.Single(cut.FindAll(".app-field"));
+        Assert.Single(cut.FindAll(".app-control--normal"));
+        Assert.Contains("Region", cut.Markup);
+        Assert.Contains("Localized metadata", cut.Markup);
+    }
+
+    [Fact]
+    public void AppSwitchRow_RendersLabelDescriptionAndDisabledState()
+    {
+        var cut = RenderComponent<AppSwitchRow>(parameters => parameters
+            .Add(component => component.Label, "Status")
+            .Add(component => component.Description, "Provider is enabled.")
+            .Add(component => component.Value, true)
+            .Add(component => component.Disabled, true));
+
+        Assert.Single(cut.FindAll(".app-switch-row"));
+        Assert.Contains("Status", cut.Markup);
+        Assert.Contains("Provider is enabled.", cut.Markup);
+        Assert.Contains("disabled", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AppProviderLogo_UsesSharedSizingAndFallback()
+    {
+        var cut = RenderComponent<AppProviderLogo>(parameters => parameters
+            .Add(component => component.FallbackText, "TM")
+            .Add(component => component.AccentColor, "#22C55E")
+            .Add(component => component.Size, AppControlSize.Large));
+
+        Assert.Single(cut.FindAll(".app-provider-logo"));
+        Assert.Single(cut.FindAll(".app-control--large"));
+        Assert.Contains("TM", cut.Markup);
     }
 
     [Fact]

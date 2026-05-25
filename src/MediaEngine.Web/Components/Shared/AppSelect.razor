@@ -1,0 +1,67 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <label class="app-field__label" for="@InputId">@Label</label>
+    }
+
+    <MudSelect T="string"
+               InputId="@InputId"
+               Value="@Value"
+               ValueChanged="OnValueChanged"
+               Placeholder="@Placeholder"
+               Variant="Variant.Outlined"
+               Margin="Margin.Dense"
+               Dense="true"
+               Disabled="@Disabled"
+               FullWidth="@FullWidth"
+               PopoverClass="@PopoverClass"
+               Class="app-control app-select">
+        @if (Options is not null)
+        {
+            @foreach (var option in Options)
+            {
+                <MudSelectItem T="string" Value="@option.Value">
+                    @if (!string.IsNullOrWhiteSpace(option.Icon))
+                    {
+                        <MudIcon Icon="@option.Icon" Size="MudBlazor.Size.Small" Class="app-select__option-icon" />
+                    }
+                    @option.Label
+                </MudSelectItem>
+            }
+        }
+        else
+        {
+            @ChildContent
+        }
+    </MudSelect>
+
+    @if (!string.IsNullOrWhiteSpace(HelpText))
+    {
+        <div class="app-field__help">@HelpText</div>
+    }
+</div>
+
+@code {
+    private readonly string InputId = $"app-select-{Guid.NewGuid():N}";
+
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public IReadOnlyList<AppSelectOption>? Options { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool FullWidth { get; set; } = true;
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string PopoverClass { get; set; } = "app-select__popover";
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-field", AppUiMaps.SizeClass(Size), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task OnValueChanged(string? value) => ValueChanged.InvokeAsync(value);
+}

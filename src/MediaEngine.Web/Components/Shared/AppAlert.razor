@@ -1,0 +1,27 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudAlert Severity="@Severity"
+          Variant="Variant.Outlined"
+          Icon="@Icon"
+          Class="@RootClass">
+    @ChildContent
+</MudAlert>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Info;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private Severity Severity => Tone switch
+    {
+        AppUiTone.Success => Severity.Success,
+        AppUiTone.Warning => Severity.Warning,
+        AppUiTone.Error => Severity.Error,
+        _ => Severity.Info,
+    };
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-alert", AppUiMaps.ToneClass(Tone), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

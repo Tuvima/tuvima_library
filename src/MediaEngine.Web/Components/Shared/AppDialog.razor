@@ -1,0 +1,51 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudDialog Visible="@Visible"
+           VisibleChanged="OnVisibleChanged"
+           Options="@ResolvedOptions">
+    <DialogContent>
+        <AppDialogShell Title="@Title"
+                        Subtitle="@Subtitle"
+                        Eyebrow="@Eyebrow"
+                        Icon="@Icon"
+                        Size="@Size"
+                        OnClose="@CloseAsync">
+            <ChildContent>
+                @ChildContent
+            </ChildContent>
+            <FooterContent>
+                @FooterContent
+            </FooterContent>
+        </AppDialogShell>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Size { get; set; } = "Large";
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public DialogOptions? Options { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private DialogOptions ResolvedOptions => Options
+        ?? new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+    private async Task OnVisibleChanged(bool visible)
+    {
+        Visible = visible;
+        await VisibleChanged.InvokeAsync(visible);
+    }
+
+    private async Task CloseAsync()
+    {
+        await OnVisibleChanged(false);
+        if (OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
+}

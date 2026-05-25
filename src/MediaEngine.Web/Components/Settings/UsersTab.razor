@@ -1,266 +1,201 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
-<div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Group" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Users_PageTitle"]</MudText>
-        <MudSpacer />
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.PersonAdd"
-                   OnClick="@OpenCreateDialog"
-                   Disabled="@_loading">
-            @L["Users_NewProfile"]
-        </MudButton>
-    </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["Users_PageDescription"]
-    </MudText>
+
+<div class="tl-page users-page">
+    <AppPageHeader Title="@L["Users_PageTitle"].Value"
+                   Subtitle="@L["Users_PageDescription"].Value"
+                   Class="users-page__header">
+        <Actions>
+            <AppButton Label="@L["Users_NewProfile"].Value"
+                       StartIcon="@Icons.Material.Filled.PersonAdd"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@_loading"
+                       OnClick="@OpenCreateDialog" />
+        </Actions>
+    </AppPageHeader>
 
     @if (_loading)
     {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+        <AppProgressBar Indeterminate="true" Class="users-page__progress" />
     }
     else if (_allRows.Count == 0)
     {
-        <MudAlert Severity="Severity.Info" Class="mt-2">
-            @L["Users_NoProfiles"]
-        </MudAlert>
+        <AppEmptyState Title="@L["Users_NoProfiles"].Value" />
     }
     else
     {
-        <MudSimpleTable Dense="true" Hover="true" Striped="false"
-                        Style="background: transparent;">
+        <AppTable Class="users-table">
             <thead>
                 <tr>
-                    <th style="@ThStyle">@L["Users_ColAvatar"]</th>
-                    <th style="@ThStyle">@L["Users_ColName"]</th>
-                    <th style="@ThStyle">@L["Users_ColRole"]</th>
-                    <th style="@ThStyle">Sign-in</th>
-                    <th style="@ThStyle">@L["Users_ColLastActive"]</th>
-                    <th style="@ThStyle">@L["Users_ColStatus"]</th>
-                    <th style="@ThStyle text-align:right">@L["Users_ColActions"]</th>
+                    <th>@L["Users_ColAvatar"]</th>
+                    <th>@L["Users_ColName"]</th>
+                    <th>@L["Users_ColRole"]</th>
+                    <th>Sign-in</th>
+                    <th>@L["Users_ColLastActive"]</th>
+                    <th>@L["Users_ColStatus"]</th>
+                    <th class="users-table__actions">@L["Users_ColActions"]</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var row in _allRows)
                 {
                     <tr>
-                        @* Avatar *@
-                        <td style="@TdStyle">
-                            <MudAvatar Size="Size.Small"
-                                       Style="@($"background: {row.AvatarColor}; font-size: 0.75rem;")">
-                                @(row.Initials)
-                            </MudAvatar>
+                        <td>
+                            <AppAvatar Initials="@row.Initials"
+                                       AccentColor="@row.AvatarColor"
+                                       Size="AppControlSize.Compact"
+                                       Title="@row.DisplayName" />
                         </td>
-
-                        @* Name *@
-                        <td style="@TdStyle">
-                            <MudText Style="font-weight: 500;">@row.DisplayName</MudText>
+                        <td>
+                            <div class="users-table__name">@row.DisplayName</div>
                         </td>
-
-                        @* Role badge *@
-                        <td style="@TdStyle">
-                            <MudChip T="string" Size="Size.Small"
-                                     Color="@RoleColor(row.Role)"
-                                     Style="font-size: 0.75rem;">
-                                @row.Role
-                            </MudChip>
+                        <td>
+                            <AppChip Text="@row.Role" Tone="@RoleTone(row.Role)" />
                         </td>
-
-                        <td style="@TdStyle">
-                            <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="font-size: 0.75rem;">
-                                @(row.ExternalLoginCount == 0 ? "Local profile" : $"{row.ExternalLoginCount} linked")
-                            </MudChip>
+                        <td>
+                            <AppChip Text="@(row.ExternalLoginCount == 0 ? "Local profile" : $"{row.ExternalLoginCount} linked")" />
                         </td>
-
-                        @* Last Active *@
-                        <td style="@TdStyle">
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                @row.LastActive
-                            </MudText>
+                        <td>
+                            <span class="users-table__muted">@row.LastActive</span>
                         </td>
-
-                        @* Status pill *@
-                        <td style="@TdStyle">
-                            <div style="@StatusPillStyle(row.Status)">
-                                @row.Status
-                            </div>
+                        <td>
+                            <AppStatusBadge Text="@row.Status" Tone="@StatusTone(row.Status)" />
                         </td>
-
-                        @* Actions *@
-                        <td style="@TdStyle text-align:right">
-                            <MudIconButton Icon="@Icons.Material.Outlined.Link"
-                                           Color="Color.Default"
-                                           Size="Size.Medium"
-                                           title="Manage sign-in accounts"
+                        <td class="users-table__actions">
+                            <AppIconButton Icon="@Icons.Material.Outlined.Link"
+                                           Tooltip="Manage sign-in accounts"
+                                           AriaLabel="Manage sign-in accounts"
                                            Disabled="@row.Id.Equals(Guid.Empty)"
                                            OnClick="@(() => OpenExternalLoginsDialogAsync(row))" />
-                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                           Color="Color.Error"
-                                           Size="Size.Medium"
-                                           title="@L["Users_DeleteProfileTooltip"]"
+                            <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                           Tooltip="@L["Users_DeleteProfileTooltip"].Value"
+                                           AriaLabel="@L["Users_DeleteProfileTooltip"].Value"
+                                           Tone="AppUiTone.Error"
                                            Disabled="@row.IsSeed"
                                            OnClick="@(() => DeleteProfileAsync(row))" />
                         </td>
                     </tr>
                 }
             </tbody>
-        </MudSimpleTable>
+        </AppTable>
     }
-
 </div>
-<MudDialog @bind-Visible="_createOpen" Options="_dialogOptions">
-    <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Class="mr-2" />
-            @L["Users_CreateProfileTitle"]
-        </MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudTextField @bind-Value="_newDisplayName"
-                      Label="@L["Users_DisplayNameLabel"]"
-                      Placeholder="@L["Users_DisplayNamePlaceholder"]"
-                      Variant="Variant.Outlined"
-                      FullWidth="true"
-                      Immediate="true"
-                      MaxLength="50"
-                      Class="mb-4" />
 
-        <MudSelect @bind-Value="_newRole"
-                   Label="@L["Users_RoleLabel"]"
-                   Variant="Variant.Outlined"
-                   FullWidth="true"
-                   Class="mb-4">
-            <MudSelectItem Value="@("Administrator")">@L["Users_RoleAdministrator"]</MudSelectItem>
-            <MudSelectItem Value="@("Curator")">@L["Users_RoleCurator"]</MudSelectItem>
-            <MudSelectItem Value="@("Consumer")">@L["Users_RoleConsumer"]</MudSelectItem>
-        </MudSelect>
+<AppDialog @bind-Visible="_createOpen"
+           Title="@L["Users_CreateProfileTitle"].Value"
+           Icon="@Icons.Material.Filled.PersonAdd"
+           Size="Small"
+           Options="@_dialogOptions"
+           OnClose="@CloseCreateDialog">
+    <ChildContent>
+        <AppForm>
+            <AppTextField @bind-Value="_newDisplayName"
+                          Label="@L["Users_DisplayNameLabel"].Value"
+                          Placeholder="@L["Users_DisplayNamePlaceholder"].Value"
+                          MaxLength="50" />
 
-        @* Preview *@
-        <MudStack AlignItems="AlignItems.Center" Class="mt-4">
-            <MudAvatar Size="Size.Large"
-                       Style="@($"background: {_newAvatarColor}; width: 64px; height: 64px; font-size: 1.5rem;")">
-                @(_newDisplayName.Length > 0 ? _newDisplayName[0].ToString().ToUpper() : "?")
-            </MudAvatar>
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@CloseCreateDialog">@L["Users_Cancel"]</MudButton>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Disabled="@(string.IsNullOrWhiteSpace(_newDisplayName) || _creating)"
-                   OnClick="@CreateProfileAsync">
-            @(_creating ? L["Users_Creating"] : L["Users_Create"])
-        </MudButton>
-    </DialogActions>
-</MudDialog>
+            <AppSelect @bind-Value="_newRole"
+                       Label="@L["Users_RoleLabel"].Value"
+                       Options="@RoleOptions" />
 
-<MudDialog @bind-Visible="_externalLoginsOpen" Options="_dialogOptions">
-    <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Outlined.Link" Class="mr-2" />
-            Sign-in accounts
-        </MudText>
-    </TitleContent>
-    <DialogContent>
+            <div class="users-dialog-preview">
+                <AppAvatar Initials="@PreviewInitial"
+                           AccentColor="@_newAvatarColor"
+                           Size="AppControlSize.Large"
+                           Title="@PreviewInitial" />
+            </div>
+        </AppForm>
+    </ChildContent>
+    <FooterContent>
+        <AppActionBar>
+            <AppButton Label="@L["Users_Cancel"].Value"
+                       OnClick="@CloseCreateDialog" />
+            <AppButton Label="@(_creating ? L["Users_Creating"].Value : L["Users_Create"].Value)"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@(string.IsNullOrWhiteSpace(_newDisplayName) || _creating)"
+                       OnClick="@CreateProfileAsync" />
+        </AppActionBar>
+    </FooterContent>
+</AppDialog>
+
+<AppDialog @bind-Visible="_externalLoginsOpen"
+           Title="Sign-in accounts"
+           Icon="@Icons.Material.Outlined.Link"
+           Size="Small"
+           Options="@_dialogOptions"
+           OnClose="@CloseExternalLoginsDialog">
+    <ChildContent>
         @if (_selectedUser is not null)
         {
-            <MudText Typo="Typo.subtitle2" Class="mb-3">@_selectedUser.DisplayName</MudText>
+            <div class="users-dialog-title">@_selectedUser.DisplayName</div>
         }
 
         @if (_externalLoginsLoading)
         {
-            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" />
+            <AppProgressBar Indeterminate="true" Class="users-page__progress" />
         }
         else if (_externalLogins.Count == 0)
         {
-            <MudAlert Severity="Severity.Info" Class="mb-4">
+            <AppAlert Tone="AppUiTone.Info">
                 No SSO or OAuth accounts are linked to this profile yet.
-            </MudAlert>
+            </AppAlert>
         }
         else
         {
-            <MudStack Spacing="2" Class="mb-4">
+            <div class="users-linked-list">
                 @foreach (var login in _externalLogins)
                 {
-                    <MudPaper Elevation="0" Class="tl-card tl-card--compact">
-                        <MudStack Row="true" AlignItems="AlignItems.Center">
-                            <MudStack Spacing="0" Style="flex:1; min-width: 0;">
-                                <MudText Typo="Typo.body2" Style="font-weight:600;">@login.Provider</MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                                    @(login.Email ?? login.DisplayName ?? login.Subject)
-                                </MudText>
-                            </MudStack>
-                            <MudIconButton Icon="@Icons.Material.Outlined.LinkOff"
-                                           Color="Color.Error"
-                                           Size="Size.Small"
-                                           title="Unlink account"
-                                           OnClick="@(() => UnlinkExternalLoginAsync(login.Id))" />
-                        </MudStack>
-                    </MudPaper>
+                    <AppCard Density="AppSurfaceDensity.Compact" Class="users-linked-account">
+                        <div class="users-linked-account__body">
+                            <div class="users-linked-account__provider">@login.Provider</div>
+                            <div class="users-linked-account__identity">
+                                @(login.Email ?? login.DisplayName ?? login.Subject)
+                            </div>
+                        </div>
+                        <AppIconButton Icon="@Icons.Material.Outlined.LinkOff"
+                                       Tooltip="Unlink account"
+                                       AriaLabel="Unlink account"
+                                       Tone="AppUiTone.Error"
+                                       Size="AppControlSize.Compact"
+                                       OnClick="@(() => UnlinkExternalLoginAsync(login.Id))" />
+                    </AppCard>
                 }
-            </MudStack>
+            </div>
         }
 
-        <MudDivider Class="my-4" />
-        <MudText Typo="Typo.subtitle2" Class="mb-3">Link account manually</MudText>
-        <MudTextField @bind-Value="_newLoginProvider"
-                      Label="Provider"
-                      Placeholder="oidc, google, microsoft, authentik"
-                      Variant="Variant.Outlined"
-                      FullWidth="true"
-                      Class="mb-3" />
-        <MudTextField @bind-Value="_newLoginSubject"
-                      Label="Subject"
-                      Placeholder="Stable user ID from the identity provider"
-                      Variant="Variant.Outlined"
-                      FullWidth="true"
-                      Class="mb-3" />
-        <MudTextField @bind-Value="_newLoginEmail"
-                      Label="Email"
-                      Variant="Variant.Outlined"
-                      FullWidth="true"
-                      Class="mb-3" />
-        <MudTextField @bind-Value="_newLoginDisplayName"
-                      Label="Display name"
-                      Variant="Variant.Outlined"
-                      FullWidth="true" />
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@CloseExternalLoginsDialog">Close</MudButton>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Disabled="@(_selectedUser is null || string.IsNullOrWhiteSpace(_newLoginProvider) || string.IsNullOrWhiteSpace(_newLoginSubject) || _linkingExternalLogin)"
-                   OnClick="@LinkExternalLoginAsync">
-            @(_linkingExternalLogin ? "Linking" : "Link account")
-        </MudButton>
-    </DialogActions>
-</MudDialog>
+        <div class="users-dialog-divider"></div>
+        <div class="users-dialog-title">Link account manually</div>
+        <AppForm>
+            <AppTextField @bind-Value="_newLoginProvider"
+                          Label="Provider"
+                          Placeholder="oidc, google, microsoft, authentik" />
+            <AppTextField @bind-Value="_newLoginSubject"
+                          Label="Subject"
+                          Placeholder="Stable user ID from the identity provider" />
+            <AppTextField @bind-Value="_newLoginEmail"
+                          Label="Email" />
+            <AppTextField @bind-Value="_newLoginDisplayName"
+                          Label="Display name" />
+        </AppForm>
+    </ChildContent>
+    <FooterContent>
+        <AppActionBar>
+            <AppButton Label="Close"
+                       OnClick="@CloseExternalLoginsDialog" />
+            <AppButton Label="@(_linkingExternalLogin ? "Linking" : "Link account")"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@(_selectedUser is null || string.IsNullOrWhiteSpace(_newLoginProvider) || string.IsNullOrWhiteSpace(_newLoginSubject) || _linkingExternalLogin)"
+                       OnClick="@LinkExternalLoginAsync" />
+        </AppActionBar>
+    </FooterContent>
+</AppDialog>
 
 @code {
-
-    private const string ThStyle =
-        "padding: 12px 16px; " +
-        "font-size: 0.75rem; " +
-        "text-transform: uppercase; " +
-        "letter-spacing: 0.08em; " +
-        "color: var(--mud-palette-text-secondary); " +
-        "border-bottom: 1px solid var(--app-glass-border);";
-
-    private const string TdStyle =
-        "padding: 14px 16px; " +
-        "border-bottom: 1px solid var(--tl-divider); " +
-        "vertical-align: middle;";
-
-    private const string LinkedAccountStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 12px;";
-
     private sealed record UserRow(
         Guid   Id,
         string DisplayName,
@@ -296,32 +231,35 @@
         CloseOnEscapeKey = true,
     };
 
+    private IReadOnlyList<AppSelectOption> RoleOptions =>
+    [
+        new("Administrator", L["Users_RoleAdministrator"].Value),
+        new("Curator", L["Users_RoleCurator"].Value),
+        new("Consumer", L["Users_RoleConsumer"].Value),
+    ];
+
+    private string PreviewInitial =>
+        _newDisplayName.Length > 0 ? _newDisplayName[0].ToString().ToUpperInvariant() : "?";
+
     protected override async Task OnInitializedAsync()
     {
         await RefreshProfilesAsync();
     }
 
-    private static Color RoleColor(string role) => role switch
+    private static AppUiTone RoleTone(string role) => role switch
     {
-        "Administrator" => Color.Primary,
-        "Curator"       => Color.Info,
-        "Consumer"      => Color.Default,
-        "Viewer"        => Color.Default,
-        "Reviewer"      => Color.Warning,
-        _               => Color.Default,
+        "Administrator" => AppUiTone.Primary,
+        "Curator"       => AppUiTone.Info,
+        "Reviewer"      => AppUiTone.Warning,
+        _               => AppUiTone.Neutral,
     };
 
-    private static string StatusPillStyle(string status)
+    private static AppStatusTone StatusTone(string status) => status switch
     {
-        var (bg, color) = status switch
-        {
-            "Active"  => ("var(--tl-status-success-soft)", "var(--tl-status-success)"),
-            "Pending" => ("var(--tl-status-warning-soft)",  "var(--tl-status-warning)"),
-            _         => ("var(--tl-status-idle-soft)", "var(--tl-text-muted)"),
-        };
-        return $"display: inline-block; padding: 2px 10px; border-radius: 9999px; " +
-               $"background: {bg}; color: {color}; font-size: 0.75rem; font-weight: 500;";
-    }
+        "Active"  => AppStatusTone.Success,
+        "Pending" => AppStatusTone.Warning,
+        _         => AppStatusTone.Neutral,
+    };
 
     private static string GetInitials(string displayName)
     {
@@ -496,5 +434,4 @@
         _newLoginEmail = null;
         _newLoginDisplayName = null;
     }
-
 }

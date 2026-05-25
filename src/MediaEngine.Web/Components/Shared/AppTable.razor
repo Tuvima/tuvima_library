@@ -1,0 +1,15 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    <table class="app-table">
+        @ChildContent
+    </table>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-table-shell", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

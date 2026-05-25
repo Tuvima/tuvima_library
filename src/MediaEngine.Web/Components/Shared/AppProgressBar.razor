@@ -20,11 +20,13 @@
     [Parameter] public string? Title { get; set; }
     [Parameter] public string? AccentColor { get; set; }
     [Parameter] public bool ShowValue { get; set; }
+    [Parameter] public bool Indeterminate { get; set; }
     [Parameter] public string? Class { get; set; }
 
     private double ClampedValue => Math.Clamp(Value ?? 0, 0, 100);
 
-    private string FillStyle =>
+    private string? FillStyle =>
+        Indeterminate ? null :
         string.IsNullOrWhiteSpace(AccentColor)
             ? $"width: {ClampedValue:F0}%;"
             : $"width: {ClampedValue:F0}%; --app-progress-accent: {AccentColor};";
@@ -33,6 +35,7 @@
         string.Join(" ", new[]
         {
             "app-progress-bar",
+            Indeterminate ? "app-progress-bar--indeterminate" : null,
             Class,
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
 }

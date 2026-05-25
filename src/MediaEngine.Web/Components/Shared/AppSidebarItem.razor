@@ -1,0 +1,21 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<a class="@RootClass" href="@Href" aria-current="@(Active ? "page" : null)">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Size="Size.Small" />
+    }
+    <span>@Label</span>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Active { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-sidebar-item", Active ? "is-active" : null, Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

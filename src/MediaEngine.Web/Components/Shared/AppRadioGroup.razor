@@ -1,0 +1,37 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <div class="app-field__label">@Label</div>
+    }
+    <MudRadioGroup T="string" Value="@Value" ValueChanged="@ValueChanged" Class="app-radio-group__control">
+        @if (Options is not null)
+        {
+            @foreach (var option in Options)
+            {
+                <MudRadio T="string" Value="@option.Value" Color="@MudColor">@option.Label</MudRadio>
+            }
+        }
+        else
+        {
+            @ChildContent
+        }
+    </MudRadioGroup>
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyList<AppSelectOption>? Options { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Primary;
+    [Parameter] public string? Class { get; set; }
+
+    private Color MudColor => AppUiMaps.ToMudColor(Tone);
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-radio-group", AppUiMaps.ToneClass(Tone), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

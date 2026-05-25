@@ -1,0 +1,199 @@
+@page "/design-system/components"
+@rendermode InteractiveServer
+@namespace MediaEngine.Web.Components.Pages
+
+<PageTitle>Tuvima Components</PageTitle>
+
+<div class="design-system-preview">
+    <header class="design-system-preview__header">
+        <div>
+            <p class="design-system-preview__eyebrow">Design System</p>
+            <h1 class="design-system-preview__title">Tuvima UI Components</h1>
+            <p class="design-system-preview__subtitle">
+                Canonical controls for app screens in compact, normal, and large sizes.
+            </p>
+        </div>
+        <AppStatusBadge Text="Preview" Tone="AppStatusTone.Info" Icon="@Icons.Material.Outlined.Palette" />
+    </header>
+
+    <div class="design-system-preview__grid">
+        <AppCard Title="Form Controls" Description="Shared field wrappers own MudBlazor control sizing and alignment.">
+            <div class="design-system-preview__form-grid">
+                @foreach (var size in Sizes)
+                {
+                    <AppTextField Label="@($"{size} text")"
+                                  Value="Metadata provider"
+                                  Size="@size"
+                                  HelpText="Help text stays outside the control frame." />
+                    <AppSelect Label="@($"{size} select")"
+                               Value="localized"
+                               Options="@LanguageOptions"
+                               Size="@size" />
+                    <AppNumericField Label="@($"{size} number")"
+                                     Value="10"
+                                     Min="1"
+                                     Max="60"
+                                     Size="@size" />
+                }
+            </div>
+            <AppTextarea Label="Textarea" Value="Long-form text uses the same field contract." />
+            <AppSearchField Label="Search" Value="books" />
+            <AppAutocomplete Label="Autocomplete"
+                             Value="TMDB"
+                             SearchFunc="@SearchProvidersAsync" />
+            <AppSwitchRow Label="Enabled" Description="Binary settings use row components." Value="true" />
+            <AppCheckboxRow Label="Include artwork" Description="Checkbox rows share spacing with switches." Value="true" />
+        </AppCard>
+
+        <AppCard Title="Actions" Description="Buttons and icon buttons share size, tone, and variant mapping.">
+            @foreach (var tone in Tones)
+            {
+                <div class="design-system-preview__row">
+                    <AppButton Label="@tone.ToString()"
+                               Tone="@tone"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               StartIcon="@Icons.Material.Filled.Check" />
+                    <AppButton Label="Outlined" Tone="@tone" />
+                    <AppIconButton Icon="@Icons.Material.Outlined.MoreVert"
+                                   Tone="@tone"
+                                   AriaLabel="@($"{tone} icon action")"
+                                   Tooltip="@($"{tone} icon action")" />
+                </div>
+            }
+            <AppActionBar>
+                <AppButton Label="Cancel" />
+                <AppButton Label="Save" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" />
+            </AppActionBar>
+        </AppCard>
+
+        <AppCard Title="Navigation" Description="Tabs, segmented controls, breadcrumbs, and steps are centralized.">
+            <AppSegmentedControl Options="@SegmentOptions" Value="providers" AriaLabel="Preview segment" />
+            <AppTabs>
+                <AppTabPanel Text="Providers" Icon="@Icons.Material.Outlined.Hub">
+                    <div class="design-system-preview__tab-content">Provider tab content</div>
+                </AppTabPanel>
+                <AppTabPanel Text="Artwork" Icon="@Icons.Material.Outlined.Image">
+                    <div class="design-system-preview__tab-content">Artwork tab content</div>
+                </AppTabPanel>
+            </AppTabs>
+            <AppBreadcrumbs>
+                <a href="/settings">Settings</a>
+                <span>Metadata</span>
+                <span>Components</span>
+            </AppBreadcrumbs>
+            <AppStepIndicator Steps="@Steps" ActiveStep="2" />
+        </AppCard>
+
+        <AppCard Title="Feedback" Description="Alerts, chips, badges, progress, empty, and error states.">
+            <AppAlert Tone="AppUiTone.Info">The shared alert wrapper owns severity and tone mapping.</AppAlert>
+            <div class="design-system-preview__row">
+                @foreach (var tone in Tones)
+                {
+                    <AppChip Text="@tone.ToString()" Tone="@tone" Icon="@Icons.Material.Outlined.Circle" />
+                }
+            </div>
+            <AppProgressBar Label="Provider sync" Value="68" ShowValue="true" />
+            <AppSkeleton />
+            <AppEmptyState Title="No providers" Message="Empty states should be reusable, not page-local." />
+            <AppErrorState Title="Engine unavailable" Message="The app can render a consistent error state." />
+        </AppCard>
+
+        <AppCard Title="Surfaces And Data" Description="Cards, panels, tables, definitions, and domain primitives.">
+            <AppPanel>
+                <AppDefinitionList>
+                    <dt>Size contract</dt>
+                    <dd>36px / 42px / 48px</dd>
+                    <dt>Implementation</dt>
+                    <dd>MudBlazor behind App components</dd>
+                    <dt>Page CSS</dt>
+                    <dd>Layout only</dd>
+                </AppDefinitionList>
+            </AppPanel>
+            <AppTable>
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>AppTextField</td>
+                        <td>Approved</td>
+                    </tr>
+                    <tr>
+                        <td>AppButton</td>
+                        <td>Approved</td>
+                    </tr>
+                </tbody>
+            </AppTable>
+        </AppCard>
+
+        <AppCard Title="Media And Provider Primitives" Description="Reusable artwork, provider logo, and avatar sizing.">
+            <div class="design-system-preview__row">
+                @foreach (var size in Sizes)
+                {
+                    <AppProviderLogo Icon="@Icons.Material.Outlined.Movie"
+                                     AccentColor="var(--tl-accent-primary-soft)"
+                                     FallbackText="TM"
+                                     Size="@size"
+                                     AltText="" />
+                    <AppAvatar Icon="@Icons.Material.Outlined.Person"
+                               AccentColor="var(--tl-status-info-soft)"
+                               Initials="AD"
+                               Size="@size" />
+                }
+            </div>
+        </AppCard>
+    </div>
+</div>
+
+@code {
+    private static readonly AppControlSize[] Sizes =
+    [
+        AppControlSize.Compact,
+        AppControlSize.Normal,
+        AppControlSize.Large,
+    ];
+
+    private static readonly AppUiTone[] Tones =
+    [
+        AppUiTone.Neutral,
+        AppUiTone.Primary,
+        AppUiTone.Info,
+        AppUiTone.Success,
+        AppUiTone.Warning,
+        AppUiTone.Error,
+    ];
+
+    private static readonly IReadOnlyList<AppSelectOption> LanguageOptions =
+    [
+        new("source", "Source defaults"),
+        new("localized", "Localized metadata"),
+        new("both", "Source + localized"),
+    ];
+
+    private static readonly IReadOnlyList<AppSelectOption> SegmentOptions =
+    [
+        new("providers", "Providers", Icons.Material.Outlined.Hub),
+        new("artwork", "Artwork", Icons.Material.Outlined.Image),
+        new("review", "Review", Icons.Material.Outlined.RateReview),
+    ];
+
+    private static readonly IReadOnlyList<AppStepIndicator.AppStep> Steps =
+    [
+        new(1, "Retail Lookup"),
+        new(2, "Identity"),
+        new(3, "Enrichment"),
+    ];
+
+    private static Task<IEnumerable<string>> SearchProvidersAsync(string? value, CancellationToken cancellationToken)
+    {
+        string[] providers = ["Apple API", "Comic Vine", "Fanart.tv", "MusicBrainz", "Open Library", "TMDB"];
+        var result = string.IsNullOrWhiteSpace(value)
+            ? providers
+            : providers.Where(provider => provider.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult<IEnumerable<string>>(result);
+    }
+}

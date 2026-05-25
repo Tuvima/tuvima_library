@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
 @inject DeviceContextService DeviceContext
@@ -13,397 +13,255 @@
 
 @if (unavailable)
 {
-    <div class="tl-page">
-        <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="py-8">
-            <MudIcon Icon="@Icons.Material.Outlined.DesktopAccessDisabled"
-                     Color="Color.Secondary"
-                     Class="tl-icon-xl" />
-            <MudText Typo="Typo.h6" Color="Color.Secondary">@L["Libraries_NotAvailable"]</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="tl-text-center">
-                @L["Libraries_NotAvailableDescription"]
-            </MudText>
-        </MudStack>
+    <div class="tl-page libraries-page">
+        <AppPageState Kind="AppPageStateKind.Unavailable"
+                      Icon="@Icons.Material.Outlined.DesktopAccessDisabled"
+                      Title="@L["Libraries_NotAvailable"].Value"
+                      Message="@L["Libraries_NotAvailableDescription"].Value" />
     </div>
 }
 else
 {
-<div class="tl-page">
-
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
-        <MudText Typo="Typo.h6">@L["Libraries_LibraryPaths"]</MudText>
-        <SettingsStatusBadge Status="@(_engineUnavailable ? SettingsStatusKind.EngineUnavailable : SettingsStatusKind.Live)" />
-        <MudSpacer />
-        <MudButton Variant="Variant.Text"
-                   Color="Color.Default"
-                   Size="Size.Small"
-                   OnClick="@CheckInitialHealthAsync"
-                   StartIcon="@Icons.Material.Outlined.Refresh">
-            Folder health
-        </MudButton>
-        <MudButton Variant="Variant.Text"
-                   Color="Color.Default"
-                   Size="Size.Small"
-                   Href="/settings/setup"
-                   StartIcon="@Icons.Material.Outlined.RocketLaunch">
-            Setup checklist
-        </MudButton>
-        <MudButton Variant="Variant.Text"
-                   Color="Color.Default"
-                   Size="Size.Small"
-                   Href="/settings/ingestion"
-                   StartIcon="@Icons.Material.Outlined.PendingActions">
-            Ingestion
-        </MudButton>
-        @if (readOnly)
-        {
-            <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                     Icon="@Icons.Material.Outlined.Visibility"
-                     Class="tl-ml-auto">
-                @L["Libraries_ViewOnly"]
-            </MudChip>
-        }
-    </MudStack>
-@if (_engineUnavailable)
-{
-    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">
-        The Engine is unavailable, so folder settings cannot be validated or saved. Existing values are not replaced with defaults.
-    </MudAlert>
-}
-else if (!string.IsNullOrWhiteSpace(_loadError))
-{
-    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
-        @_loadError
-    </MudAlert>
-}
-<div class="folder-path-row mb-5">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-            <div class="health-dot @HealthClass(_libraryHealthy, _libValidating, _libraryRoot)" />
-            <MudText Typo="Typo.subtitle2" Class="tl-font-semibold">@L["Libraries_LibraryFolder"]</MudText>
-        </MudStack>
-        <MudText Typo="Typo.caption" Class="folder-path-help">
-            The Library Root is where Tuvima keeps organized media after files are accepted.
-        </MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-            <MudTextField @bind-Value="_libraryRoot"
-                      @bind-Value:after="@(() => OnPathChanged(nameof(_libraryRoot)))"
-                          Placeholder="/path/to/library"
-                          Variant="Variant.Text"
-                          FullWidth="true"
-                          Immediate="true"
-                          ReadOnly="@(readOnly || _engineUnavailable)"
-                          Margin="Margin.Dense" />
-            <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
-                           Size="Size.Medium"
-                           Color="Color.Default"
-                           Disabled="@(readOnly || _engineUnavailable)"
-                           OnClick="@(() => BrowseAsync(nameof(_libraryRoot)))"
-                           title="@L["Libraries_BrowseFolders"]" />
-        </MudStack>
-        <MudText Typo="Typo.caption" Style="@StatusStyle(_libraryHealthy, _libValidating, _libraryRoot)" Class="mt-1">
-            @StatusLabel(_libTestResult, _libValidating, _libraryRoot)
-        </MudText>
-    </div>
-<div class="folder-path-row mb-5">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-            <div class="health-dot @HealthClass(_watchHealthy, _watchValidating, _watchDir)" />
-            <MudText Typo="Typo.subtitle2" Class="tl-font-semibold">@L["Libraries_WatchFolder"]</MudText>
-        </MudStack>
-        <MudText Typo="Typo.caption" Class="folder-path-help">
-            The Watch Folder is where new files are detected when you scan or drop media in.
-        </MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-            <MudTextField @bind-Value="_watchDir"
-                      @bind-Value:after="@(() => OnPathChanged(nameof(_watchDir)))"
-                          Placeholder="/path/to/watch"
-                          Variant="Variant.Text"
-                          FullWidth="true"
-                          Immediate="true"
-                          ReadOnly="@(readOnly || _engineUnavailable)"
-                          Margin="Margin.Dense" />
-            <MudIconButton Icon="@Icons.Material.Outlined.FolderOpen"
-                           Size="Size.Medium"
-                           Color="Color.Default"
-                           Disabled="@(readOnly || _engineUnavailable)"
-                           OnClick="@(() => BrowseAsync(nameof(_watchDir)))"
-                           title="@L["Libraries_BrowseFolders"]" />
-        </MudStack>
-        <MudText Typo="Typo.caption" Style="@StatusStyle(_watchHealthy, _watchValidating, _watchDir)" Class="mt-1">
-            @StatusLabel(_watchTestResult, _watchValidating, _watchDir)
-        </MudText>
-    </div>
-<MudDivider Class="my-6" />
-@if (_libraries is { Count: > 0 })
-    {
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
-            <MudIcon Icon="@Icons.Material.Outlined.Storage" Color="Color.Default" />
-            <MudText Typo="Typo.subtitle2" Class="tl-section-title">@L["Libraries_ConfiguredLibraries"]</MudText>
-        </MudStack>
-        <MudText Typo="Typo.caption" Class="tl-section-hint">
-            @L["Libraries_ConfiguredLibrariesHint"]
-        </MudText>
-
-        @foreach (var lib in _libraries)
-        {
-            <MudPaper Elevation="0" Class="tl-card tl-card--compact mb-3">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-                    <MudText Typo="Typo.subtitle2" Class="tl-section-title">@lib.Name</MudText>
-                    @foreach (var mt in lib.MediaTypes)
-                    {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                 Class="tl-chip-muted">@mt</MudChip>
-                    }
-                    @if (lib.ReadOnly)
-                    {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                  Icon="@Icons.Material.Outlined.Lock"
-                                  Class="tl-chip-muted">Read-only</MudChip>
-                    }
-                    @{
-                        var wbLabel = lib.WritebackOverride switch
-                        {
-                            true  => "Writeback: On",
-                            false => "Writeback: Off",
-                            null  => "Writeback: Global default",
-                        };
-                        var wbColor = lib.WritebackOverride switch
-                        {
-                            true  => Color.Success,
-                            false => Color.Error,
-                            null  => Color.Default,
-                        };
-                    }
-                    <MudChip T="string" Size="Size.Small" Color="@wbColor"
-                             Class="tl-chip-muted">@wbLabel</MudChip>
-                </MudStack>
-
-                @foreach (var path in lib.EffectiveSourcePaths)
+    <div class="tl-page libraries-page">
+        <AppPageHeader Title="@L["Libraries_LibraryPaths"].Value"
+                       Class="libraries-page__header">
+            <Stats>
+                <AppStatusBadge Text="@(_engineUnavailable ? "Engine unavailable" : "Live")"
+                                Tone="@(_engineUnavailable ? AppStatusTone.Error : AppStatusTone.Success)" />
+            </Stats>
+            <Actions>
+                <AppButton Label="Folder health"
+                           StartIcon="@Icons.Material.Outlined.Refresh"
+                           ButtonStyle="AppButtonStyle.Text"
+                           OnClick="@CheckInitialHealthAsync" />
+                <AppButton Label="Setup checklist"
+                           StartIcon="@Icons.Material.Outlined.RocketLaunch"
+                           ButtonStyle="AppButtonStyle.Text"
+                           Href="/settings/setup" />
+                <AppButton Label="Ingestion"
+                           StartIcon="@Icons.Material.Outlined.PendingActions"
+                           ButtonStyle="AppButtonStyle.Text"
+                           Href="/settings/ingestion" />
+                @if (readOnly)
                 {
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="ml-2 mb-1">
-                        <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small"
-                                 Class="tl-muted-icon" />
-                        <MudText Typo="Typo.body2"
-                                 Class="tl-mono-muted">
-                            @path
-                        </MudText>
-                    </MudStack>
+                    <AppChip Text="@L["Libraries_ViewOnly"].Value"
+                             Icon="@Icons.Material.Outlined.Visibility" />
                 }
-            </MudPaper>
-        }
+            </Actions>
+        </AppPageHeader>
 
-        <MudDivider Class="my-6" />
-    }
-<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
-        <MudText Typo="Typo.subtitle2" Class="tl-section-title">@L["Libraries_FileOrganization"]</MudText>
-    </MudStack>
-    <MudText Typo="Typo.caption" Class="tl-section-hint">
-        @L["Libraries_FileOrganizationHint"]
-    </MudText>
-
-    @* Token chip strip *@
-    @if (!readOnly)
-    {
-        <div class="org-token-strip mb-3">
-            @foreach (var token in AvailableTokens)
-            {
-                <button class="org-token-chip" @onclick="@(() => AppendToken(token))">
-                    <span class="org-token-brace">{</span>@token<span class="org-token-brace">}</span>
-                </button>
-            }
-        </div>
-    }
-
-    @* Template text field + Reset to default *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
-        <MudTextField @bind-Value="_organizationTemplate"
-                      Placeholder="@DefaultOrganizationTemplate"
-                      Variant="Variant.Text"
-                      FullWidth="true"
-                      Immediate="true"
-                      ReadOnly="@(readOnly || _engineUnavailable)"
-                      Margin="Margin.Dense" />
-        @if (!readOnly)
+        @if (_engineUnavailable)
         {
-            <MudIconButton Icon="@Icons.Material.Outlined.RestartAlt"
-                           Size="Size.Small"
-                           Color="Color.Default"
-                           OnClick="@ResetTemplateToDefault"
-                           Disabled="@_engineUnavailable"
-                           title="@L["Libraries_ResetPathToDefault"]" />
+            <AppAlert Tone="AppUiTone.Error">
+                The Engine is unavailable, so folder settings cannot be validated or saved. Existing values are not replaced with defaults.
+            </AppAlert>
         }
-    </MudStack>
+        else if (!string.IsNullOrWhiteSpace(_loadError))
+        {
+            <AppAlert Tone="AppUiTone.Warning">
+                @_loadError
+            </AppAlert>
+        }
 
-    @* Live folder-structure preview *@
-    @{
-        var previewParts = LivePreviewParts();
-    }
-    @if (previewParts.Count > 0)
-    {
-        <MudPaper Elevation="0" Class="tl-panel tl-panel--compact mb-5 mt-2">
-            <MudText Typo="Typo.caption" Class="tl-section-hint tl-section-hint--tight">
-                @L["Libraries_PreviewExampleOutput"]
-            </MudText>
-            <div class="org-preview-tree">
-                @for (int i = 0; i < previewParts.Count - 1; i++)
-                {
-                    var depth = i;
-                    <div class="org-preview-folder" style="padding-left: @(depth * 16)px;">
-                        <span class="org-preview-icon">ðŸ“</span>
-                        <span class="org-preview-name">@previewParts[i]</span>
-                    </div>
-                }
-                @{
-                    var fileName = previewParts[^1];
-                    var fileDepth = previewParts.Count - 1;
-                }
-                <div class="org-preview-file" style="padding-left: @(fileDepth * 16)px;">
-                    <span class="org-preview-icon">ðŸ“„</span>
-                    <span class="org-preview-name">@fileName</span>
+        <AppCard Class="libraries-paths">
+            <div class="folder-path-row">
+                <div class="folder-path-heading">
+                    <span class="health-dot @HealthClass(_libraryHealthy, _libValidating, _libraryRoot)"></span>
+                    <span>@L["Libraries_LibraryFolder"]</span>
+                </div>
+                <div class="folder-path-help">
+                    The Library Root is where Tuvima keeps organized media after files are accepted.
+                </div>
+                <div class="folder-path-input-row">
+                    <AppTextField Value="@_libraryRoot"
+                                  ValueChanged="@((string? value) => OnPathValueChanged(nameof(_libraryRoot), value))"
+                                  Placeholder="/path/to/library"
+                                  ReadOnly="@(readOnly || _engineUnavailable)" />
+                    <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen"
+                                   Tooltip="@L["Libraries_BrowseFolders"].Value"
+                                   AriaLabel="@L["Libraries_BrowseFolders"].Value"
+                                   Disabled="@(readOnly || _engineUnavailable)"
+                                   OnClick="@(() => BrowseAsync(nameof(_libraryRoot)))" />
+                </div>
+                <div class="@StatusTextClass(_libraryHealthy, _libValidating, _libraryRoot)">
+                    @StatusLabel(_libTestResult, _libValidating, _libraryRoot)
                 </div>
             </div>
-        </MudPaper>
-    }
-    else
-    {
-        <div class="mb-5" />
-    }
 
-    @if (!readOnly)
-    {
-        @if (!string.IsNullOrWhiteSpace(_templateValidationError))
+            <div class="folder-path-row">
+                <div class="folder-path-heading">
+                    <span class="health-dot @HealthClass(_watchHealthy, _watchValidating, _watchDir)"></span>
+                    <span>@L["Libraries_WatchFolder"]</span>
+                </div>
+                <div class="folder-path-help">
+                    The Watch Folder is where new files are detected when you scan or drop media in.
+                </div>
+                <div class="folder-path-input-row">
+                    <AppTextField Value="@_watchDir"
+                                  ValueChanged="@((string? value) => OnPathValueChanged(nameof(_watchDir), value))"
+                                  Placeholder="/path/to/watch"
+                                  ReadOnly="@(readOnly || _engineUnavailable)" />
+                    <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen"
+                                   Tooltip="@L["Libraries_BrowseFolders"].Value"
+                                   AriaLabel="@L["Libraries_BrowseFolders"].Value"
+                                   Disabled="@(readOnly || _engineUnavailable)"
+                                   OnClick="@(() => BrowseAsync(nameof(_watchDir)))" />
+                </div>
+                <div class="@StatusTextClass(_watchHealthy, _watchValidating, _watchDir)">
+                    @StatusLabel(_watchTestResult, _watchValidating, _watchDir)
+                </div>
+            </div>
+        </AppCard>
+
+        @if (_libraries is { Count: > 0 })
         {
-            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3">
-                @_templateValidationError
-            </MudAlert>
-        }
-        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-4">
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Default"
-                       Href="/settings/ingestion"
-                       StartIcon="@Icons.Material.Outlined.PendingActions">
-                Open Ingestion
-            </MudButton>
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Primary"
-                       OnClick="@ScanAfterSaveAsync"
-                       StartIcon="@Icons.Material.Outlined.ManageSearch"
-                       Disabled="@(_engineUnavailable || HasUnsavedChanges || string.IsNullOrWhiteSpace(_watchDir))">
-                Scan saved watch folder
-            </MudButton>
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Default"
-                       OnClick="@ResetAllChanges"
-                       StartIcon="@Icons.Material.Outlined.Undo"
-                       Disabled="@(!HasUnsavedChanges)">
-                @L["Libraries_Reset"]
-            </MudButton>
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       OnClick="@SaveFoldersAsync"
-                       Disabled="@(_savingFolders || _engineUnavailable || !HasUnsavedChanges)">
-                @(_savingFolders ? L["Libraries_Saving"] : L["Libraries_SaveChanges"])
-            </MudButton>
-        </MudStack>
-    }
+            <section class="libraries-section">
+                <div class="libraries-section__title">
+                    <MudIcon Icon="@Icons.Material.Outlined.Storage" />
+                    <span>@L["Libraries_ConfiguredLibraries"]</span>
+                </div>
+                <p class="libraries-section__hint">
+                    @L["Libraries_ConfiguredLibrariesHint"]
+                </p>
 
-</div>
+                <div class="libraries-configured-list">
+                    @foreach (var lib in _libraries)
+                    {
+                        <AppCard Density="AppSurfaceDensity.Compact" Class="library-config-card">
+                            <div class="library-config-card__header">
+                                <span class="library-config-card__name">@lib.Name</span>
+                                <div class="library-config-card__chips">
+                                    @foreach (var mt in lib.MediaTypes)
+                                    {
+                                        <AppChip Text="@mt" />
+                                    }
+                                    @if (lib.ReadOnly)
+                                    {
+                                        <AppChip Text="Read-only"
+                                                 Icon="@Icons.Material.Outlined.Lock"
+                                                 Tone="AppUiTone.Warning" />
+                                    }
+                                    <AppChip Text="@WritebackLabel(lib.WritebackOverride)"
+                                             Tone="@WritebackTone(lib.WritebackOverride)" />
+                                </div>
+                            </div>
+
+                            <div class="library-config-card__paths">
+                                @foreach (var path in lib.EffectiveSourcePaths)
+                                {
+                                    <div class="library-path">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small" />
+                                        <span>@path</span>
+                                    </div>
+                                }
+                            </div>
+                        </AppCard>
+                    }
+                </div>
+            </section>
+        }
+
+        <section class="libraries-section">
+            <div class="libraries-section__title">
+                <span>@L["Libraries_FileOrganization"]</span>
+            </div>
+            <p class="libraries-section__hint">
+                @L["Libraries_FileOrganizationHint"]
+            </p>
+
+            @if (!readOnly)
+            {
+                <div class="org-token-strip">
+                    @foreach (var token in AvailableTokens)
+                    {
+                        <AppChip OnClick="@(() => AppendToken(token))"
+                                 Class="org-token-chip">
+                            <span class="org-token-brace">{</span>@token<span class="org-token-brace">}</span>
+                        </AppChip>
+                    }
+                </div>
+            }
+
+            <div class="organization-template-row">
+                <AppTextField @bind-Value="_organizationTemplate"
+                              Placeholder="@DefaultOrganizationTemplate"
+                              ReadOnly="@(readOnly || _engineUnavailable)" />
+                @if (!readOnly)
+                {
+                    <AppIconButton Icon="@Icons.Material.Outlined.RestartAlt"
+                                   Tooltip="@L["Libraries_ResetPathToDefault"].Value"
+                                   AriaLabel="@L["Libraries_ResetPathToDefault"].Value"
+                                   Size="AppControlSize.Compact"
+                                   Disabled="@_engineUnavailable"
+                                   OnClick="@ResetTemplateToDefault" />
+                }
+            </div>
+
+            @{
+                var previewParts = LivePreviewParts();
+            }
+            @if (previewParts.Count > 0)
+            {
+                <AppPanel Density="AppSurfaceDensity.Compact" Class="org-preview-panel">
+                    <div class="libraries-section__hint libraries-section__hint--tight">
+                        @L["Libraries_PreviewExampleOutput"]
+                    </div>
+                    <div class="org-preview-tree">
+                        @for (int i = 0; i < previewParts.Count - 1; i++)
+                        {
+                            var depth = i;
+                            <div class="@PreviewRowClass("org-preview-folder", depth)">
+                                <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small" />
+                                <span class="org-preview-name">@previewParts[i]</span>
+                            </div>
+                        }
+                        @{
+                            var fileName = previewParts[^1];
+                            var fileDepth = previewParts.Count - 1;
+                        }
+                        <div class="@PreviewRowClass("org-preview-file", fileDepth)">
+                            <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
+                            <span class="org-preview-name">@fileName</span>
+                        </div>
+                    </div>
+                </AppPanel>
+            }
+
+            @if (!readOnly)
+            {
+                @if (!string.IsNullOrWhiteSpace(_templateValidationError))
+                {
+                    <AppAlert Tone="AppUiTone.Warning">
+                        @_templateValidationError
+                    </AppAlert>
+                }
+                <AppActionBar>
+                    <AppButton Label="Open Ingestion"
+                               StartIcon="@Icons.Material.Outlined.PendingActions"
+                               ButtonStyle="AppButtonStyle.Text"
+                               Href="/settings/ingestion" />
+                    <AppButton Label="Scan saved watch folder"
+                               StartIcon="@Icons.Material.Outlined.ManageSearch"
+                               Tone="AppUiTone.Primary"
+                               Disabled="@(_engineUnavailable || HasUnsavedChanges || string.IsNullOrWhiteSpace(_watchDir))"
+                               OnClick="@ScanAfterSaveAsync" />
+                    <AppButton Label="@L["Libraries_Reset"].Value"
+                               StartIcon="@Icons.Material.Outlined.Undo"
+                               ButtonStyle="AppButtonStyle.Text"
+                               Disabled="@(!HasUnsavedChanges)"
+                               OnClick="@ResetAllChanges" />
+                    <AppButton Label="@(_savingFolders ? L["Libraries_Saving"].Value : L["Libraries_SaveChanges"].Value)"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               Tone="AppUiTone.Primary"
+                               Disabled="@(_savingFolders || _engineUnavailable || !HasUnsavedChanges)"
+                               OnClick="@SaveFoldersAsync" />
+                </AppActionBar>
+            }
+        </section>
+    </div>
 }
 
-<style>
-    .folder-path-row {
-        position: relative;
-    }
-    .folder-path-help {
-        display: block;
-        margin: 0 0 6px 14px;
-        color: var(--tl-text-muted);
-    }
-    .health-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        flex-shrink: 0;
-        transition: background 0.2s ease;
-    }
-    .health-dot.health-ok     { background: var(--tl-status-success); }
-    .health-dot.health-error  { background: var(--tl-status-danger); }
-    .health-dot.health-idle   { background: var(--tl-text-faint); }
-    .health-dot.health-busy   { background: #ff9800; animation: health-pulse 1s ease-in-out infinite; }
-
-    @@keyframes health-pulse {
-        0%, 100% { opacity: 1; }
-        50%      { opacity: 0.3; }
-    }
-
-    @@media (max-width: 768px) {
-        .folder-path-row .mud-stack {
-            flex-wrap: wrap;
-        }
-    }
-
-
-    .org-token-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-
-    .org-token-chip {
-        background: var(--app-glass-inner-bg, rgba(255,255,255,0.05));
-        border: 1px solid rgba(201, 146, 46, 0.35);
-        border-radius: 6px;
-        padding: 4px 10px;
-        cursor: pointer;
-        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-        font-size: 0.78rem;
-        font-weight: 500;
-        color: rgba(248, 248, 248, 0.80);
-        transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    .org-token-chip:hover {
-        background: rgba(201, 146, 46, 0.15);
-        border-color: var(--tl-status-warning);
-        color: var(--tl-accent-primary);
-    }
-
-    .org-token-brace {
-        color: var(--tl-status-warning);
-        font-weight: 700;
-    }
-
-
-    .org-preview-tree {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .org-preview-folder,
-    .org-preview-file {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-        font-size: 0.80rem;
-    }
-
-    .org-preview-folder { color: rgba(248, 248, 248, 0.65); }
-    .org-preview-file   { color: rgba(201, 146, 46, 0.80); }
-
-    .org-preview-icon {
-        font-size: 0.85rem;
-        flex-shrink: 0;
-    }
-
-    .org-preview-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-</style>
-
 @code {
-
     private const string DefaultOrganizationTemplate = "{Category}/{Author}/{Title} ({Edition}){Ext}";
     private static readonly string[] AvailableTokens =
         ["Category", "Author", "Title", "Series", "Year", "MediaType", "Edition", "Ext"];
@@ -542,7 +400,21 @@ else if (!string.IsNullOrWhiteSpace(_loadError))
             _libraryHealthy = r is { Exists: true, HasRead: true, HasWrite: true };
             _engineUnavailable = _engineUnavailable || r is null;
         }
+    }
 
+    private void OnPathValueChanged(string field, string? value)
+    {
+        switch (field)
+        {
+            case nameof(_libraryRoot):
+                _libraryRoot = value ?? string.Empty;
+                break;
+            case nameof(_watchDir):
+                _watchDir = value ?? string.Empty;
+                break;
+        }
+
+        OnPathChanged(field);
     }
 
     private void OnPathChanged(string field)
@@ -568,7 +440,6 @@ else if (!string.IsNullOrWhiteSpace(_loadError))
                 else
                     _watchHealthy = false;
                 break;
-
         }
     }
 
@@ -749,14 +620,32 @@ else if (!string.IsNullOrWhiteSpace(_loadError))
         healthy                           ? "health-ok"    :
                                             "health-error";
 
-    private static string StatusStyle(bool healthy, bool validating, string path)
+    private static string StatusTextClass(bool healthy, bool validating, string path) =>
+        string.Join(" ", new[]
+        {
+            "folder-path-status",
+            validating                      ? "folder-path-status--validating" :
+            string.IsNullOrWhiteSpace(path) ? "folder-path-status--empty" :
+            healthy                         ? "folder-path-status--healthy" :
+                                              "folder-path-status--error",
+        });
+
+    private static string WritebackLabel(bool? enabled) => enabled switch
     {
-        var color = validating                      ? "var(--mud-palette-warning)" :
-                    string.IsNullOrWhiteSpace(path) ? "var(--app-text-soft)"       :
-                    healthy                         ? "var(--mud-palette-success)"  :
-                                                      "var(--mud-palette-error)";
-        return $"color: {color}; font-size: 0.75rem;";
-    }
+        true => "Writeback: On",
+        false => "Writeback: Off",
+        _ => "Writeback: Global default",
+    };
+
+    private static AppUiTone WritebackTone(bool? enabled) => enabled switch
+    {
+        true => AppUiTone.Success,
+        false => AppUiTone.Error,
+        _ => AppUiTone.Neutral,
+    };
+
+    private static string PreviewRowClass(string baseClass, int depth) =>
+        $"{baseClass} org-preview-depth-{Math.Clamp(depth, 0, 8)}";
 
     private string StatusLabel(PathTestResultDto? result, bool validating, string path)
     {

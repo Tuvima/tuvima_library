@@ -1,0 +1,35 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<section class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Title) || !string.IsNullOrWhiteSpace(Description) || Actions is not null)
+    {
+        <header class="app-section__header">
+            <div>
+                @if (!string.IsNullOrWhiteSpace(Title))
+                {
+                    <h2 class="app-section__title">@Title</h2>
+                }
+                @if (!string.IsNullOrWhiteSpace(Description))
+                {
+                    <p class="app-section__description">@Description</p>
+                }
+            </div>
+            @if (Actions is not null)
+            {
+                <div class="app-section__actions">@Actions</div>
+            }
+        </header>
+    }
+    @ChildContent
+</section>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-section", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

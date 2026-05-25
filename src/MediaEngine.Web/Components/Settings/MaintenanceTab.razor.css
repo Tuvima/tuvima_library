@@ -1,0 +1,59 @@
+.maintenance-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-5);
+}
+
+.maintenance-card-copy {
+    margin: 0;
+    color: var(--tl-text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+.maintenance-diff-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-2);
+}
+
+.maintenance-diff {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-1);
+    padding-left: var(--tl-space-3);
+    border-left: 2px solid var(--tl-accent-primary);
+}
+
+.maintenance-diff__media {
+    color: var(--tl-text-primary);
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.maintenance-diff__added {
+    color: var(--tl-status-success);
+    font-size: 0.78rem;
+}
+
+.maintenance-diff__removed {
+    color: var(--tl-status-danger);
+    font-size: 0.78rem;
+}
+
+.maintenance-progress {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-2);
+}
+
+.maintenance-progress__meta {
+    color: var(--tl-text-muted);
+    font-size: 0.78rem;
+}
+
+@media (max-width: 768px) {
+    .maintenance-action-row {
+        flex-wrap: wrap;
+    }
+}

@@ -1,0 +1,12 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<AppPageState Kind="AppPageStateKind.Empty"
+              Title="@Title"
+              Message="@Message"
+              Actions="@Action" />
+
+@code {
+    [Parameter] public string Title { get; set; } = "Nothing here";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public RenderFragment? Action { get; set; }
+}

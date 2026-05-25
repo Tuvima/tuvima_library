@@ -1,0 +1,40 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudTooltip Text="@Tooltip" Disabled="@string.IsNullOrWhiteSpace(Tooltip)">
+    <MudIconButton Icon="@Icon"
+                   Color="@MudColor"
+                   Size="@MudSize"
+                   Disabled="@Disabled"
+                   Href="@Href"
+                   Target="@Target"
+                   aria-label="@AriaLabel"
+                   OnClick="HandleClick"
+                   Class="@RootClass" />
+</MudTooltip>
+
+@code {
+    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public string? Tooltip { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string? Target { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Neutral;
+    [Parameter] public string? Class { get; set; }
+
+    private Size MudSize => AppUiMaps.ToMudSize(Size);
+    private Color MudColor => AppUiMaps.ToMudColor(Tone);
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-icon-button",
+            AppUiMaps.SizeClass(Size),
+            AppUiMaps.ToneClass(Tone),
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task HandleClick(MouseEventArgs _) => OnClick.InvokeAsync();
+}

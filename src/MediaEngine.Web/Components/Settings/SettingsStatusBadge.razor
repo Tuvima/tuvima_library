@@ -1,17 +1,29 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 
-<MudChip T="string"
-         Size="@Size"
-         Color="@SettingsStatus.Color(Status)"
-         Variant="Variant.Outlined"
-         Icon="@Icon">
-    @SettingsStatus.Label(Status)
-</MudChip>
+<AppChip Text="@SettingsStatus.Label(Status)"
+         Icon="@Icon"
+         Tone="@Tone"
+         Size="@Size" />
 
 @code {
     [Parameter] public SettingsStatusKind Status { get; set; } = SettingsStatusKind.Live;
-    [Parameter] public MudBlazor.Size Size { get; set; } = MudBlazor.Size.Small;
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Compact;
+
+    private AppUiTone Tone => Status switch
+    {
+        SettingsStatusKind.Live => AppUiTone.Success,
+        SettingsStatusKind.Partial => AppUiTone.Info,
+        SettingsStatusKind.Planned => AppUiTone.Neutral,
+        SettingsStatusKind.Experimental => AppUiTone.Primary,
+        SettingsStatusKind.NotConnected => AppUiTone.Warning,
+        SettingsStatusKind.EngineUnavailable => AppUiTone.Error,
+        SettingsStatusKind.ReadOnly => AppUiTone.Neutral,
+        SettingsStatusKind.RequiresRestart => AppUiTone.Warning,
+        SettingsStatusKind.RequiresProviderCredentials => AppUiTone.Warning,
+        SettingsStatusKind.RequiresAdminRole => AppUiTone.Warning,
+        _ => AppUiTone.Info,
+    };
 
     private string Icon => Status switch
     {

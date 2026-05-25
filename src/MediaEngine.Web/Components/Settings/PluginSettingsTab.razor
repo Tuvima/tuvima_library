@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@using System.Globalization
 @using System.Text.Json
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
@@ -7,167 +8,167 @@
 
 @if (_loading)
 {
-    <MudStack Spacing="3">
-        <MudSkeleton Height="72px" />
-        <MudGrid Spacing="3">
-            <MudItem xs="12" md="5"><MudSkeleton Height="420px" /></MudItem>
-            <MudItem xs="12" md="7"><MudSkeleton Height="420px" /></MudItem>
-        </MudGrid>
-    </MudStack>
+    <div class="settings-plugin-loading">
+        <AppSkeleton Size="AppControlSize.Large" />
+        <div class="settings-plugin-loading__grid">
+            <AppSkeleton Size="AppControlSize.Large" />
+            <AppSkeleton Size="AppControlSize.Large" />
+        </div>
+    </div>
 }
 else
 {
-    <MudStack Spacing="4" Class="settings-playback-page settings-plugin-page">
-        <MudPaper Elevation="0" Class="tl-card settings-summary-strip settings-plugin-summary">
+    <div class="settings-playback-page settings-plugin-page">
+        <AppCard Class="settings-summary-strip settings-plugin-summary">
             <div class="settings-plugin-summary__grid">
-                @Metric(Icons.Material.Outlined.Extension, "Plugins", _plugins.Count.ToString(), Color.Primary)
-                @Metric(Icons.Material.Outlined.PowerSettingsNew, "Enabled", _plugins.Count(p => p.Enabled).ToString(), Color.Success)
-                @Metric(Icons.Material.Outlined.DynamicFeed, "Dynamic", _plugins.Count(p => !p.IsBuiltIn).ToString(), Color.Info)
-                @Metric(Icons.Material.Outlined.ReportProblem, "Needs setup", _plugins.Count(p => !string.IsNullOrWhiteSpace(p.LoadError)).ToString(), Color.Warning)
+                <AppMetricCard Icon="@Icons.Material.Outlined.Extension"
+                               Label="Plugins"
+                               Value="@_plugins.Count.ToString()"
+                               Tone="AppStatusTone.Primary" />
+                <AppMetricCard Icon="@Icons.Material.Outlined.PowerSettingsNew"
+                               Label="Enabled"
+                               Value="@_plugins.Count(p => p.Enabled).ToString()"
+                               Tone="AppStatusTone.Success" />
+                <AppMetricCard Icon="@Icons.Material.Outlined.DynamicFeed"
+                               Label="Dynamic"
+                               Value="@_plugins.Count(p => !p.IsBuiltIn).ToString()"
+                               Tone="AppStatusTone.Info" />
+                <AppMetricCard Icon="@Icons.Material.Outlined.ReportProblem"
+                               Label="Needs setup"
+                               Value="@_plugins.Count(p => !string.IsNullOrWhiteSpace(p.LoadError)).ToString()"
+                               Tone="AppStatusTone.Warning" />
                 <div class="settings-plugin-summary__actions">
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Primary"
-                               Size="Size.Small"
+                    <AppButton Label="Reload"
                                StartIcon="@Icons.Material.Outlined.Refresh"
-                               OnClick="ReloadAsync">
-                        Reload
-                    </MudButton>
+                               Tone="AppUiTone.Primary"
+                               OnClick="@ReloadAsync" />
                 </div>
             </div>
-        </MudPaper>
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        </AppCard>
+
+        <AppAlert Tone="AppUiTone.Info">
             Partial. Plugin list, enable/disable, settings JSON, manifest editing for dynamic plugins, health checks, jobs, delete actions, and the approved GitHub catalog use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
-        </MudAlert>
+        </AppAlert>
 
         @if (!string.IsNullOrWhiteSpace(_error))
         {
-            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
+            <AppAlert Tone="AppUiTone.Error">@_error</AppAlert>
         }
 
         <div class="settings-plugin-manager">
-            <MudPaper Elevation="0" Class="tl-card settings-plugin-list-panel">
-                <MudStack Spacing="2">
-                    <MudTextField T="string"
-                                  @bind-Value="_search"
-                                  Placeholder="Search plugins..."
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Outlined.Search"
-                                  Immediate="true" />
+            <AppCard Class="settings-plugin-list-panel">
+                <AppSearchField Value="@_search"
+                                ValueChanged="@((string? value) => _search = value ?? string.Empty)"
+                                Placeholder="Search plugins..." />
 
-                    <MudStack Row="true" Spacing="1" Class="settings-plugin-filter-row">
-                        @FilterButton("all", "All")
-                        @FilterButton("enabled", "Enabled")
-                        @FilterButton("dynamic", "Dynamic")
-                        @FilterButton("setup", "Needs setup")
-                    </MudStack>
+                <AppActionBar Align="AppHorizontalAlignment.Start" Class="settings-plugin-filter-row">
+                    @FilterButton("all", "All")
+                    @FilterButton("enabled", "Enabled")
+                    @FilterButton("dynamic", "Dynamic")
+                    @FilterButton("setup", "Needs setup")
+                </AppActionBar>
 
-                    <MudStack Spacing="1" Class="settings-plugin-list">
-                        @foreach (var plugin in FilteredPlugins)
-                        {
-                            var selected = string.Equals(plugin.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase);
-                            <button type="button"
-                                    class="settings-plugin-list-item @(selected ? "settings-plugin-list-item--selected" : null)"
-                                    @onclick="@(() => SelectPlugin(plugin.Id))">
-                                <span class="settings-plugin-list-item__icon">
-                                    <MudIcon Icon="@PluginIcon(plugin)" Size="Size.Small" />
+                <div class="settings-plugin-list">
+                    @foreach (var plugin in FilteredPlugins)
+                    {
+                        var selected = string.Equals(plugin.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase);
+                        <div class="settings-plugin-list-item @(selected ? "settings-plugin-list-item--selected" : null)"
+                             role="button"
+                             tabindex="0"
+                             @onclick="@(() => SelectPlugin(plugin.Id))">
+                            <span class="settings-plugin-list-item__icon">
+                                <MudIcon Icon="@PluginIcon(plugin)" Size="Size.Small" />
+                            </span>
+                            <span class="settings-plugin-list-item__body">
+                                <span class="settings-plugin-list-item__title">@plugin.Name</span>
+                                <span class="settings-plugin-list-item__meta">@plugin.Id - v@(plugin.Version)</span>
+                                <span class="settings-plugin-list-item__chips">
+                                    <span>@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")</span>
+                                    @if (plugin.ToolRequirements.Count > 0)
+                                    {
+                                        <span>Tools</span>
+                                    }
+                                    @if (plugin.AiPermissions.Count > 0)
+                                    {
+                                        <span>AI</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(plugin.LoadError))
+                                    {
+                                        <span class="settings-plugin-list-item__chip--warning">Setup</span>
+                                    }
                                 </span>
-                                <span class="settings-plugin-list-item__body">
-                                    <span class="settings-plugin-list-item__title">@plugin.Name</span>
-                                    <span class="settings-plugin-list-item__meta">@plugin.Id - v@(plugin.Version)</span>
-                                    <span class="settings-plugin-list-item__chips">
-                                        <span>@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")</span>
-                                        @if (plugin.ToolRequirements.Count > 0)
-                                        {
-                                            <span>Tools</span>
-                                        }
-                                        @if (plugin.AiPermissions.Count > 0)
-                                        {
-                                            <span>AI</span>
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(plugin.LoadError))
-                                        {
-                                            <span class="settings-plugin-list-item__chip--warning">Setup</span>
-                                        }
-                                    </span>
-                                </span>
-                                <MudSwitch T="bool"
-                                           Value="@plugin.Enabled"
-                                           ValueChanged="@(v => SetEnabledAsync(plugin, v))"
-                                           Color="Color.Primary"
-                                           StopClickPropagation="true" />
-                            </button>
-                        }
-                    </MudStack>
+                            </span>
+                            <AppSwitchRow Value="@plugin.Enabled"
+                                          ValueChanged="@(v => SetEnabledAsync(plugin, v))"
+                                          StopClickPropagation="true"
+                                          Class="settings-plugin-list-item__toggle" />
+                        </div>
+                    }
+                </div>
 
-                    <MudDivider />
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@FilteredPlugins.Count() of @_plugins.Count plugins shown</MudText>
-                </MudStack>
-            </MudPaper>
+                <div class="settings-plugin-list-count">@FilteredPlugins.Count() of @_plugins.Count plugins shown</div>
+            </AppCard>
 
-            <MudPaper Elevation="0" Class="tl-card settings-plugin-detail-panel">
+            <AppCard Class="settings-plugin-detail-panel">
                 @if (SelectedPlugin is null)
                 {
-                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No plugin is selected.</MudAlert>
+                    <AppAlert Tone="AppUiTone.Info">No plugin is selected.</AppAlert>
                 }
                 else
                 {
                     var plugin = SelectedPlugin;
                     EnsureJsonBuffers(plugin);
 
-                    <MudStack Spacing="3">
+                    <div class="settings-plugin-detail-stack">
                         <div class="settings-plugin-detail-header">
                             <span class="settings-plugin-detail-header__icon">
                                 <MudIcon Icon="@PluginIcon(plugin)" />
                             </span>
                             <div class="settings-plugin-detail-header__copy">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                    <MudText Typo="Typo.h6">@plugin.Name</MudText>
-                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@plugin.Version</MudChip>
-                                    <MudChip T="string" Size="Size.Small" Color="@(plugin.IsBuiltIn ? Color.Default : Color.Info)" Variant="Variant.Outlined">@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")</MudChip>
-                                </MudStack>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">@plugin.Id</MudText>
-                                <MudText Typo="Typo.body2">@plugin.Description</MudText>
+                                <div class="settings-plugin-detail-header__title-row">
+                                    <span class="settings-plugin-detail-header__title">@plugin.Name</span>
+                                    <AppChip Text="@plugin.Version" />
+                                    <AppChip Text="@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")"
+                                             Tone="@(plugin.IsBuiltIn ? AppUiTone.Neutral : AppUiTone.Info)" />
+                                </div>
+                                <div class="settings-plugin-detail-header__id">@plugin.Id</div>
+                                <div class="settings-plugin-detail-header__description">@plugin.Description</div>
                             </div>
-                            <MudSwitch T="bool"
-                                       Value="@plugin.Enabled"
-                                       ValueChanged="@(v => SetEnabledAsync(plugin, v))"
-                                       Color="Color.Primary" />
+                            <AppSwitchRow Value="@plugin.Enabled"
+                                          ValueChanged="@(v => SetEnabledAsync(plugin, v))"
+                                          Class="settings-plugin-detail-header__switch" />
                         </div>
 
                         @if (!string.IsNullOrWhiteSpace(plugin.LoadError))
                         {
-                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">@plugin.LoadError</MudAlert>
+                            <AppAlert Tone="AppUiTone.Warning">@plugin.LoadError</AppAlert>
                         }
 
-                        <MudStack Row="true" Spacing="1" Class="settings-plugin-chiprow">
+                        <div class="settings-plugin-chiprow">
                             @foreach (var capability in plugin.Capabilities)
                             {
                                 <MudTooltip Text="@capability.Description">
-                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@capability.Name</MudChip>
+                                    <AppChip Text="@capability.Name" />
                                 </MudTooltip>
                             }
                             @if (plugin.ToolRequirements.Count > 0)
                             {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">@plugin.ToolRequirements.Count tool(s)</MudChip>
+                                <AppChip Text="@($"{plugin.ToolRequirements.Count} tool(s)")"
+                                         Tone="AppUiTone.Warning" />
                             }
                             @if (plugin.AiPermissions.Count > 0)
                             {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Outlined">@plugin.AiPermissions.Count AI permission(s)</MudChip>
+                                <AppChip Text="@($"{plugin.AiPermissions.Count} AI permission(s)")"
+                                         Tone="AppUiTone.Primary" />
                             }
-                        </MudStack>
+                        </div>
 
-                        <MudTabs Rounded="true"
-                                 Elevation="0"
-                                 Color="Color.Primary"
-                                 Position="Position.Top"
-                                 Class="settings-tab-strip settings-plugin-tabs">
-                            <MudTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
-                                <MudStack Spacing="3">
+                        <AppTabs Class="settings-tab-strip settings-plugin-tabs">
+                            <AppTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
+                                <div class="settings-plugin-tab-body">
                                     @if (plugin.Settings.Count == 0)
                                     {
-                                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">This plugin does not expose user settings.</MudAlert>
+                                        <AppAlert Tone="AppUiTone.Info">This plugin does not expose user settings.</AppAlert>
                                     }
                                     else
                                     {
@@ -176,208 +177,251 @@ else
                                             @SettingEditor(plugin, setting.Key, setting.Value)
                                         }
                                     }
-                                </MudStack>
-                            </MudTabPanel>
-                            <MudTabPanel Text="JSON" Icon="@Icons.Material.Outlined.DataObject">
-                                <MudStack Spacing="2">
-                                    <MudText Typo="Typo.subtitle2">Settings JSON</MudText>
-                                    <MudTextField T="string"
-                                                  Value="@_settingsJson[plugin.Id]"
-                                                  ValueChanged="@(v => _settingsJson[plugin.Id] = v ?? "{}")"
-                                                  Variant="Variant.Outlined"
-                                                  Lines="16"
-                                                  Class="settings-plugin-json-editor" />
-                                    <MudStack Row="true" Spacing="2">
-                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Save" OnClick="@(() => SaveSettingsJsonAsync(plugin))">Save settings JSON</MudButton>
-                                        <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => ResetSettingsJson(plugin))">Reset</MudButton>
-                                    </MudStack>
-                                </MudStack>
-                            </MudTabPanel>
-                            <MudTabPanel Text="Manifest" Icon="@Icons.Material.Outlined.Description">
+                                </div>
+                            </AppTabPanel>
+                            <AppTabPanel Text="JSON" Icon="@Icons.Material.Outlined.DataObject">
+                                <div class="settings-plugin-tab-body">
+                                    <div class="settings-plugin-tab-title">Settings JSON</div>
+                                    <AppTextarea Value="@_settingsJson[plugin.Id]"
+                                                 ValueChanged="@(v => _settingsJson[plugin.Id] = v ?? "{}")"
+                                                 Lines="16"
+                                                 Class="settings-plugin-json-editor" />
+                                    <AppActionBar Align="AppHorizontalAlignment.Start">
+                                        <AppButton Label="Save settings JSON"
+                                                   StartIcon="@Icons.Material.Outlined.Save"
+                                                   ButtonStyle="AppButtonStyle.Filled"
+                                                   Tone="AppUiTone.Primary"
+                                                   OnClick="@(() => SaveSettingsJsonAsync(plugin))" />
+                                        <AppButton Label="Reset"
+                                                   StartIcon="@Icons.Material.Outlined.Restore"
+                                                   OnClick="@(() => ResetSettingsJson(plugin))" />
+                                    </AppActionBar>
+                                </div>
+                            </AppTabPanel>
+                            <AppTabPanel Text="Manifest" Icon="@Icons.Material.Outlined.Description">
                                 @if (plugin.IsBuiltIn)
                                 {
-                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Built-in plugin manifests are compiled into Tuvima Library and cannot be edited here.</MudAlert>
+                                    <AppAlert Tone="AppUiTone.Info">Built-in plugin manifests are compiled into Tuvima Library and cannot be edited here.</AppAlert>
                                 }
                                 else
                                 {
-                                    <MudStack Spacing="2">
-                                        <MudText Typo="Typo.subtitle2">Plugin manifest JSON</MudText>
-                                        <MudTextField T="string"
-                                                      Value="@GetManifestJson(plugin)"
-                                                      ValueChanged="@(v => _manifestJson[plugin.Id] = v ?? "{}")"
-                                                      Variant="Variant.Outlined"
-                                                      Lines="18"
-                                                      Class="settings-plugin-json-editor" />
-                                        <MudStack Row="true" Spacing="2">
-                                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Save" OnClick="@(() => SaveManifestJsonAsync(plugin))">Save manifest JSON</MudButton>
-                                            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="@(() => LoadManifestJsonAsync(plugin, force: true))">Reload manifest</MudButton>
-                                        </MudStack>
-                                    </MudStack>
+                                    <div class="settings-plugin-tab-body">
+                                        <div class="settings-plugin-tab-title">Plugin manifest JSON</div>
+                                        <AppTextarea Value="@GetManifestJson(plugin)"
+                                                     ValueChanged="@(v => _manifestJson[plugin.Id] = v ?? "{}")"
+                                                     Lines="18"
+                                                     Class="settings-plugin-json-editor" />
+                                        <AppActionBar Align="AppHorizontalAlignment.Start">
+                                            <AppButton Label="Save manifest JSON"
+                                                       StartIcon="@Icons.Material.Outlined.Save"
+                                                       ButtonStyle="AppButtonStyle.Filled"
+                                                       Tone="AppUiTone.Primary"
+                                                       OnClick="@(() => SaveManifestJsonAsync(plugin))" />
+                                            <AppButton Label="Reload manifest"
+                                                       StartIcon="@Icons.Material.Outlined.Refresh"
+                                                       OnClick="@(() => LoadManifestJsonAsync(plugin, force: true))" />
+                                        </AppActionBar>
+                                    </div>
                                 }
-                            </MudTabPanel>
-                            <MudTabPanel Text="Jobs & health" Icon="@Icons.Material.Outlined.HealthAndSafety">
-                                <MudStack Spacing="3">
-                                    <MudStack Row="true" Spacing="2">
-                                        <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" StartIcon="@Icons.Material.Outlined.HealthAndSafety" OnClick="@(() => CheckHealthAsync(plugin))">Check health</MudButton>
-                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.History" OnClick="@(() => LoadJobsAsync(plugin))">Refresh jobs</MudButton>
-                                    </MudStack>
+                            </AppTabPanel>
+                            <AppTabPanel Text="Jobs & health" Icon="@Icons.Material.Outlined.HealthAndSafety">
+                                <div class="settings-plugin-tab-body">
+                                    <AppActionBar Align="AppHorizontalAlignment.Start">
+                                        <AppButton Label="Check health"
+                                                   StartIcon="@Icons.Material.Outlined.HealthAndSafety"
+                                                   Size="AppControlSize.Compact"
+                                                   OnClick="@(() => CheckHealthAsync(plugin))" />
+                                        <AppButton Label="Refresh jobs"
+                                                   StartIcon="@Icons.Material.Outlined.History"
+                                                   Size="AppControlSize.Compact"
+                                                   Tone="AppUiTone.Primary"
+                                                   OnClick="@(() => LoadJobsAsync(plugin))" />
+                                    </AppActionBar>
 
                                     @if (_health.TryGetValue(plugin.Id, out var health))
                                     {
-                                        <MudAlert Severity="@HealthSeverity(health.Status)" Variant="Variant.Outlined">
+                                        <AppAlert Tone="@HealthTone(health.Status)">
                                             @health.Status
                                             @if (health.Checks.Count > 0)
                                             {
                                                 <span> - @string.Join(" ", health.Checks.Select(c => c.Message).Where(m => !string.IsNullOrWhiteSpace(m)))</span>
                                             }
-                                        </MudAlert>
+                                        </AppAlert>
                                     }
 
                                     @if (_jobs.TryGetValue(plugin.Id, out var jobs) && jobs.Count > 0)
                                     {
-                                        <MudTable T="PluginJobViewModel" Items="jobs.Take(8)" Dense="true" Elevation="0" Class="settings-plugin-job-table">
-                                            <HeaderContent>
-                                                <MudTh>Status</MudTh>
-                                                <MudTh>Type</MudTh>
-                                                <MudTh>Assets</MudTh>
-                                                <MudTh>Segments</MudTh>
-                                            </HeaderContent>
-                                            <RowTemplate>
-                                                <MudTd>@context.Status</MudTd>
-                                                <MudTd>@context.JobType</MudTd>
-                                                <MudTd>@context.AssetsScanned</MudTd>
-                                                <MudTd>@context.SegmentsWritten</MudTd>
-                                            </RowTemplate>
-                                        </MudTable>
+                                        <AppTable Class="settings-plugin-job-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Status</th>
+                                                    <th>Type</th>
+                                                    <th>Assets</th>
+                                                    <th>Segments</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var job in jobs.Take(8))
+                                                {
+                                                    <tr>
+                                                        <td>@job.Status</td>
+                                                        <td>@job.JobType</td>
+                                                        <td>@job.AssetsScanned</td>
+                                                        <td>@job.SegmentsWritten</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </AppTable>
                                     }
                                     else
                                     {
-                                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No recent jobs are recorded for this plugin.</MudAlert>
+                                        <AppAlert Tone="AppUiTone.Info">No recent jobs are recorded for this plugin.</AppAlert>
                                     }
-                                </MudStack>
-                            </MudTabPanel>
-                            <MudTabPanel Text="Approved catalog" Icon="@Icons.Material.Outlined.Verified">
-                                <MudStack Spacing="3">
-                                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.CloudDownload" OnClick="LoadApprovedCatalogAsync">Refresh GitHub catalog</MudButton>
+                                </div>
+                            </AppTabPanel>
+                            <AppTabPanel Text="Approved catalog" Icon="@Icons.Material.Outlined.Verified">
+                                <div class="settings-plugin-tab-body">
+                                    <div class="settings-plugin-catalog-header">
+                                        <AppButton Label="Refresh GitHub catalog"
+                                                   StartIcon="@Icons.Material.Outlined.CloudDownload"
+                                                   Size="AppControlSize.Compact"
+                                                   Tone="AppUiTone.Primary"
+                                                   OnClick="@LoadApprovedCatalogAsync" />
                                         @if (_approvedCatalog?.LastUpdated is not null)
                                         {
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Updated @_approvedCatalog.LastUpdated.Value.ToLocalTime().ToString("g")</MudText>
+                                            <span class="settings-plugin-updated">Updated @_approvedCatalog.LastUpdated.Value.ToLocalTime().ToString("g")</span>
                                         }
-                                    </MudStack>
+                                    </div>
 
                                     @if (_approvedCatalogLoading)
                                     {
-                                        <MudSkeleton Height="120px" />
+                                        <AppSkeleton Size="AppControlSize.Large" />
                                     }
                                     else if (_approvedCatalog is null)
                                     {
-                                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">The approved plugin catalog has not been loaded yet.</MudAlert>
+                                        <AppAlert Tone="AppUiTone.Info">The approved plugin catalog has not been loaded yet.</AppAlert>
                                     }
                                     else
                                     {
-                                        <MudAlert Severity="@CatalogSeverity(_approvedCatalog.Status)" Variant="Variant.Outlined">
+                                        <AppAlert Tone="@CatalogTone(_approvedCatalog.Status)">
                                             GitHub catalog status: @_approvedCatalog.Status
                                             @if (!string.IsNullOrWhiteSpace(_approvedCatalog.Message))
                                             {
                                                 <span> - @_approvedCatalog.Message</span>
                                             }
-                                        </MudAlert>
+                                        </AppAlert>
 
                                         @if (_approvedCatalog.Plugins.Count == 0)
                                         {
-                                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No approved third-party plugins are listed right now.</MudAlert>
+                                            <AppAlert Tone="AppUiTone.Info">No approved third-party plugins are listed right now.</AppAlert>
                                         }
                                         else
                                         {
-                                            <MudTable T="ApprovedPluginViewModel" Items="_approvedCatalog.Plugins" Dense="true" Elevation="0" Class="settings-plugin-job-table">
-                                                <HeaderContent>
-                                                    <MudTh>Plugin</MudTh>
-                                                    <MudTh>Status</MudTh>
-                                                    <MudTh>Capabilities</MudTh>
-                                                    <MudTh>Package</MudTh>
-                                                </HeaderContent>
-                                                <RowTemplate>
-                                                    <MudTd>
-                                                        <MudText Typo="Typo.body2">@context.Name</MudText>
-                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Id - v@context.Version</MudText>
-                                                        @if (!string.IsNullOrWhiteSpace(context.Description))
-                                                        {
-                                                            <MudText Typo="Typo.caption">@context.Description</MudText>
-                                                        }
-                                                    </MudTd>
-                                                    <MudTd>@context.Status</MudTd>
-                                                    <MudTd>@string.Join(", ", context.Capabilities)</MudTd>
-                                                    <MudTd>
-                                                        @if (!string.IsNullOrWhiteSpace(context.ReleaseUrl))
-                                                        {
-                                                            <MudLink Href="@context.ReleaseUrl" Target="_blank">Release</MudLink>
-                                                        }
-                                                        @if (!string.IsNullOrWhiteSpace(context.PackageUrl))
-                                                        {
-                                                            <MudText Typo="Typo.caption">
-                                                                <MudLink Href="@context.PackageUrl" Target="_blank">Package</MudLink>
-                                                            </MudText>
-                                                        }
-                                                        @if (!string.IsNullOrWhiteSpace(context.Sha256))
-                                                        {
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">SHA-256 pinned</MudText>
-                                                        }
-                                                        @if (!string.IsNullOrWhiteSpace(context.InstallNotes))
-                                                        {
-                                                            <MudText Typo="Typo.caption">@context.InstallNotes</MudText>
-                                                        }
-                                                    </MudTd>
-                                                </RowTemplate>
-                                            </MudTable>
+                                            <AppTable Class="settings-plugin-job-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Plugin</th>
+                                                        <th>Status</th>
+                                                        <th>Capabilities</th>
+                                                        <th>Package</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var item in _approvedCatalog.Plugins)
+                                                    {
+                                                        <tr>
+                                                            <td>
+                                                                <div class="settings-plugin-table-title">@item.Name</div>
+                                                                <div class="settings-plugin-table-meta">@item.Id - v@item.Version</div>
+                                                                @if (!string.IsNullOrWhiteSpace(item.Description))
+                                                                {
+                                                                    <div class="settings-plugin-table-meta">@item.Description</div>
+                                                                }
+                                                            </td>
+                                                            <td>@item.Status</td>
+                                                            <td>@string.Join(", ", item.Capabilities)</td>
+                                                            <td>
+                                                                <div class="settings-plugin-link-stack">
+                                                                    @if (!string.IsNullOrWhiteSpace(item.ReleaseUrl))
+                                                                    {
+                                                                        <MudLink Href="@item.ReleaseUrl" Target="_blank">Release</MudLink>
+                                                                    }
+                                                                    @if (!string.IsNullOrWhiteSpace(item.PackageUrl))
+                                                                    {
+                                                                        <MudLink Href="@item.PackageUrl" Target="_blank">Package</MudLink>
+                                                                    }
+                                                                    @if (!string.IsNullOrWhiteSpace(item.Sha256))
+                                                                    {
+                                                                        <span>SHA-256 pinned</span>
+                                                                    }
+                                                                    @if (!string.IsNullOrWhiteSpace(item.InstallNotes))
+                                                                    {
+                                                                        <span>@item.InstallNotes</span>
+                                                                    }
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </AppTable>
                                         }
                                     }
-                                </MudStack>
-                            </MudTabPanel>
-                            <MudTabPanel Text="How to use" Icon="@Icons.Material.Outlined.MenuBook">
-                                <MudStack Spacing="3">
-                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                </div>
+                            </AppTabPanel>
+                            <AppTabPanel Text="How to use" Icon="@Icons.Material.Outlined.MenuBook">
+                                <div class="settings-plugin-tab-body">
+                                    <AppAlert Tone="AppUiTone.Info">
                                         Admins use this page to enable built-in plugins, configure dynamic plugins, check health, and discover approved plugins from GitHub. Installing a downloaded plugin is still a manual dynamic-plugin folder step.
-                                    </MudAlert>
-                                    <MudSimpleTable Dense="true" Class="settings-plugin-job-table">
+                                    </AppAlert>
+                                    <AppTable Class="settings-plugin-job-table">
                                         <tbody>
                                             <tr><td>Use a plugin</td><td>Download an approved release, verify the published SHA-256 when one is provided, extract it under the library root at .data/plugins/plugin-folder, reload the Engine, then enable it here.</td></tr>
                                             <tr><td>Configure a plugin</td><td>Select the plugin, edit typed settings or Settings JSON, then run Jobs & health before relying on scheduled work.</td></tr>
                                             <tr><td>Build a plugin</td><td>Create a .NET class library that references MediaEngine.Plugins, implement ITuvimaPlugin, ship plugin.json beside the compiled assembly, and list only the permissions, tools, and AI roles the plugin actually needs.</td></tr>
                                             <tr><td>Submit for approval</td><td>Publish a GitHub release with a versioned archive, checksum, source repository, manifest, and installation notes so maintainers can add it to the approved catalog.</td></tr>
                                         </tbody>
-                                    </MudSimpleTable>
-                                </MudStack>
-                            </MudTabPanel>
-                            <MudTabPanel Text="Danger" Icon="@Icons.Material.Outlined.Delete">
-                                @if (plugin.IsBuiltIn)
-                                {
-                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Built-in plugins can be disabled, but they cannot be deleted from this page.</MudAlert>
-                                }
-                                else
-                                {
-                                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
-                                        Deleting this plugin removes its dynamic plugin folder and saved plugin configuration.
-                                    </MudAlert>
-                                    @if (string.Equals(_deletePluginId, plugin.Id, StringComparison.OrdinalIgnoreCase))
+                                    </AppTable>
+                                </div>
+                            </AppTabPanel>
+                            <AppTabPanel Text="Danger" Icon="@Icons.Material.Outlined.Delete">
+                                <div class="settings-plugin-tab-body">
+                                    @if (plugin.IsBuiltIn)
                                     {
-                                        <MudStack Row="true" Spacing="2">
-                                            <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteForever" OnClick="@(() => DeletePluginAsync(plugin))">Confirm delete</MudButton>
-                                            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => _deletePluginId = null)">Cancel</MudButton>
-                                        </MudStack>
+                                        <AppAlert Tone="AppUiTone.Info">Built-in plugins can be disabled, but they cannot be deleted from this page.</AppAlert>
                                     }
                                     else
                                     {
-                                        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Delete" OnClick="@(() => _deletePluginId = plugin.Id)">Delete plugin</MudButton>
+                                        <AppAlert Tone="AppUiTone.Warning">
+                                            Deleting this plugin removes its dynamic plugin folder and saved plugin configuration.
+                                        </AppAlert>
+                                        @if (string.Equals(_deletePluginId, plugin.Id, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <AppActionBar Align="AppHorizontalAlignment.Start">
+                                                <AppButton Label="Confirm delete"
+                                                           StartIcon="@Icons.Material.Outlined.DeleteForever"
+                                                           ButtonStyle="AppButtonStyle.Filled"
+                                                           Tone="AppUiTone.Error"
+                                                           OnClick="@(() => DeletePluginAsync(plugin))" />
+                                                <AppButton Label="Cancel"
+                                                           OnClick="@(() => _deletePluginId = null)" />
+                                            </AppActionBar>
+                                        }
+                                        else
+                                        {
+                                            <AppButton Label="Delete plugin"
+                                                       StartIcon="@Icons.Material.Outlined.Delete"
+                                                       Tone="AppUiTone.Error"
+                                                       OnClick="@(() => _deletePluginId = plugin.Id)" />
+                                        }
                                     }
-                                }
-                            </MudTabPanel>
-                        </MudTabs>
-                    </MudStack>
+                                </div>
+                            </AppTabPanel>
+                        </AppTabs>
+                    </div>
                 }
-            </MudPaper>
+            </AppCard>
         </div>
-    </MudStack>
+    </div>
 }
 
 @code {
@@ -482,6 +526,17 @@ else
         {
             Snackbar.Add($"Setting JSON is invalid: {ex.Message}", Severity.Error);
         }
+    }
+
+    private async Task SaveNumberSettingAsync(PluginViewModel plugin, string key, string? raw)
+    {
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+        {
+            Snackbar.Add("Setting number is invalid.", Severity.Error);
+            return;
+        }
+
+        await SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(parsed, _json));
     }
 
     private async Task SaveSettingsJsonAsync(PluginViewModel plugin)
@@ -633,47 +688,44 @@ else
         };
     }
 
-    private RenderFragment Metric(string icon, string label, string value, Color color) => @<div class="settings-plugin-summary__metric">
-        <MudIcon Icon="@icon" Color="@color" />
-        <span>
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
-            <MudText Typo="Typo.subtitle1">@value</MudText>
-        </span>
-    </div>;
-
-    private RenderFragment FilterButton(string value, string label) => @<MudButton Variant="@(string.Equals(_filter, value, StringComparison.OrdinalIgnoreCase) ? Variant.Filled : Variant.Outlined)"
-                                                                                  Color="Color.Primary"
-                                                                                  Size="Size.Small"
-                                                                                  OnClick="@(() => _filter = value)">@label</MudButton>;
+    private RenderFragment FilterButton(string value, string label) => @<AppButton Label="@label"
+                                                                                   ButtonStyle="@(string.Equals(_filter, value, StringComparison.OrdinalIgnoreCase) ? AppButtonStyle.Filled : AppButtonStyle.Outlined)"
+                                                                                   Tone="AppUiTone.Primary"
+                                                                                   Size="AppControlSize.Compact"
+                                                                                   OnClick="@(() => _filter = value)" />;
 
     private RenderFragment SettingEditor(PluginViewModel plugin, string key, JsonElement value) => value.ValueKind switch
     {
-        JsonValueKind.True or JsonValueKind.False => @<div class="settings-preference-row">
-            <span class="settings-preference-row__icon"><MudIcon Icon="@Icons.Material.Outlined.ToggleOn" Size="Size.Small" Color="Color.Primary" /></span>
-            <MudStack Spacing="0" Class="settings-preference-row__text"><MudText Typo="Typo.body1">@ToTitle(key)</MudText><MudText Typo="Typo.caption" Color="Color.Secondary">@key</MudText></MudStack>
-            <MudSwitch T="bool" Value="@value.GetBoolean()" ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v, _json)))" Color="Color.Primary" />
-        </div>,
-        JsonValueKind.Number => @<div class="settings-select-row">
-            <MudText Typo="Typo.caption" Class="settings-select-row__label">@ToTitle(key)</MudText>
-            <MudNumericField T="double" Value="@ReadNumber(value)" ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v, _json)))" HelperText="@key" Variant="Variant.Outlined" Margin="Margin.Dense" />
-        </div>,
-        JsonValueKind.String => @<div class="settings-select-row">
-            <MudText Typo="Typo.caption" Class="settings-select-row__label">@ToTitle(key)</MudText>
-            <MudTextField T="string" Value="@ReadString(value)" ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v ?? string.Empty, _json)))" Placeholder="@key" Variant="Variant.Outlined" Margin="Margin.Dense" />
-        </div>,
-        _ => @<div class="settings-select-row">
-            <MudText Typo="Typo.caption" Class="settings-select-row__label">@ToTitle(key)</MudText>
-            <MudTextField T="string" Value="@value.GetRawText()" ValueChanged="@(v => SaveRawSettingAsync(plugin, key, v ?? "null"))" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="4" />
-        </div>,
+        JsonValueKind.True or JsonValueKind.False => @<AppSwitchRow Label="@ToTitle(key)"
+                                                                    Description="@key"
+                                                                    Icon="@Icons.Material.Outlined.ToggleOn"
+                                                                    Value="@value.GetBoolean()"
+                                                                    ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v, _json)))" />,
+        JsonValueKind.Number => @<AppTextField Label="@ToTitle(key)"
+                                               Value="@ReadNumberText(value)"
+                                               ValueChanged="@(v => SaveNumberSettingAsync(plugin, key, v))"
+                                               HelpText="@key"
+                                               InputType="InputType.Number" />,
+        JsonValueKind.String => @<AppTextField Label="@ToTitle(key)"
+                                               Value="@ReadString(value)"
+                                               ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v ?? string.Empty, _json)))"
+                                               Placeholder="@key" />,
+        _ => @<AppTextarea Label="@ToTitle(key)"
+                           Value="@value.GetRawText()"
+                           ValueChanged="@(v => SaveRawSettingAsync(plugin, key, v ?? "null"))"
+                           Lines="4" />,
     };
 
     private static string ReadString(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
 
-    private static double ReadNumber(JsonElement value) => value.TryGetDouble(out var parsed) ? parsed : 0;
+    private static string ReadNumberText(JsonElement value) =>
+        value.TryGetDouble(out var parsed)
+            ? parsed.ToString(CultureInfo.InvariantCulture)
+            : "0";
 
-    private static Severity HealthSeverity(string status) => string.Equals(status, "healthy", StringComparison.OrdinalIgnoreCase) ? Severity.Success : Severity.Warning;
+    private static AppUiTone HealthTone(string status) => string.Equals(status, "healthy", StringComparison.OrdinalIgnoreCase) ? AppUiTone.Success : AppUiTone.Warning;
 
-    private static Severity CatalogSeverity(string status) => string.Equals(status, "ok", StringComparison.OrdinalIgnoreCase) ? Severity.Success : Severity.Warning;
+    private static AppUiTone CatalogTone(string status) => string.Equals(status, "ok", StringComparison.OrdinalIgnoreCase) ? AppUiTone.Success : AppUiTone.Warning;
 
     private static string PluginIcon(PluginViewModel plugin) => plugin.Id switch
     {

@@ -1,0 +1,16 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass" role="group" aria-label="@AriaLabel">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-button-group", AppUiMaps.SizeClass(Size), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

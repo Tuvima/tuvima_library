@@ -1,0 +1,33 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass" role="tablist" aria-label="@AriaLabel">
+    @foreach (var option in Options)
+    {
+        <button type="button"
+                class="app-segmented-control__item @(option.Value == Value ? "is-selected" : null)"
+                role="tab"
+                aria-selected="@(option.Value == Value)"
+                @onclick="@(() => SelectOption(option.Value))">
+            @if (!string.IsNullOrWhiteSpace(option.Icon))
+            {
+                <MudIcon Icon="@option.Icon" Size="MudBlazor.Size.Small" />
+            }
+            <span>@option.Label</span>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<AppSelectOption> Options { get; set; } = [];
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-segmented-control", AppUiMaps.SizeClass(Size), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task SelectOption(string value) => ValueChanged.InvokeAsync(value);
+}

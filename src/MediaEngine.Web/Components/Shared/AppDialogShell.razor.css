@@ -48,6 +48,10 @@
     border: 1px solid var(--tl-accent-primary-border);
 }
 
+.app-dialog-shell__icon .mud-icon-root {
+    font-size: 22px;
+}
+
 .app-dialog-shell__copy {
     min-width: 0;
     flex: 1;

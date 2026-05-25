@@ -1,0 +1,49 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<span class="@RootClass"
+      title="@Title"
+      role="@Role"
+      tabindex="@TabIndex"
+      @onclick="HandleClick">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Size="MudBlazor.Size.Small" />
+    }
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+    else
+    {
+        <span>@Text</span>
+    }
+</span>
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Neutral;
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Compact;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string? Role => OnClick.HasDelegate && !Disabled ? "button" : null;
+    private int? TabIndex => OnClick.HasDelegate && !Disabled ? 0 : null;
+
+    private string RootClass =>
+        string.Join(" ", new[]
+        {
+            "app-chip",
+            AppUiMaps.SizeClass(Size),
+            AppUiMaps.ToneClass(Tone),
+            OnClick.HasDelegate ? "app-chip--clickable" : null,
+            Disabled ? "is-disabled" : null,
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task HandleClick(MouseEventArgs _) =>
+        Disabled ? Task.CompletedTask : OnClick.InvokeAsync();
+}

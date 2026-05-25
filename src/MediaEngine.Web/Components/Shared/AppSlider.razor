@@ -1,0 +1,56 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <div class="app-field__label">@Label</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(HelpText))
+    {
+        <div class="app-field__help">@HelpText</div>
+    }
+    <MudSlider T="int"
+               Value="@Value"
+               ValueChanged="@ValueChanged"
+               Min="@Min"
+               Max="@Max"
+               Step="@Step"
+               Color="@MudColor"
+               Disabled="@Disabled"
+               Immediate="@Immediate">
+        @if (ShowBounds)
+        {
+            <div class="app-slider__bounds">
+                <span>@Min</span>
+                <strong>@Value</strong>
+                <span>@Max</span>
+            </div>
+        }
+    </MudSlider>
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public int Value { get; set; }
+    [Parameter] public EventCallback<int> ValueChanged { get; set; }
+    [Parameter] public int Min { get; set; }
+    [Parameter] public int Max { get; set; } = 100;
+    [Parameter] public int Step { get; set; } = 1;
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Immediate { get; set; } = true;
+    [Parameter] public bool ShowBounds { get; set; }
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Primary;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private Color MudColor => AppUiMaps.ToMudColor(Tone);
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-slider", AppUiMaps.ToneClass(Tone), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

@@ -1,0 +1,21 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudMenu Icon="@Icon"
+         Size="@MudSize"
+         Dense="true"
+         Class="@RootClass"
+         PopoverClass="app-overflow-menu__popover">
+    @ChildContent
+</MudMenu>
+
+@code {
+    [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.MoreVert;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string? Class { get; set; }
+
+    private Size MudSize => AppUiMaps.ToMudSize(Size);
+    private string RootClass =>
+        string.Join(" ", new[] { "app-overflow-menu", AppUiMaps.SizeClass(Size), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

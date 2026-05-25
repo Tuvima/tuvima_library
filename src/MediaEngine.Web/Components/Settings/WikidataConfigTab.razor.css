@@ -1,0 +1,117 @@
+.wikidata-config__header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--tl-space-3);
+    margin-bottom: var(--tl-space-6);
+    color: var(--tl-text-primary);
+}
+
+.wikidata-config__header .mud-icon-root {
+    color: var(--tl-accent-primary);
+}
+
+.wikidata-config__title {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.25;
+    font-weight: 800;
+}
+
+.wikidata-config__description,
+.wikidata-config__copy,
+.wikidata-config__trigger-copy {
+    margin: var(--tl-space-1) 0 0;
+    color: var(--tl-text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.wikidata-config__card {
+    margin-bottom: var(--tl-space-4);
+}
+
+.wikidata-config__section-header {
+    display: flex;
+    align-items: center;
+    gap: var(--tl-space-2);
+}
+
+.wikidata-config__section-header h3 {
+    margin: 0;
+    color: var(--tl-text-primary);
+    font-size: 1rem;
+    line-height: 1.3;
+    font-weight: 800;
+}
+
+.wikidata-config__header-switch {
+    margin-left: auto;
+}
+
+.wikidata-config__eyebrow {
+    margin: var(--tl-space-5) 0 var(--tl-space-2);
+    color: var(--tl-text-muted);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.wikidata-config__chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--tl-space-2);
+}
+
+.wikidata-config__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--tl-space-4);
+}
+
+.wikidata-config__rows {
+    display: grid;
+    gap: var(--tl-space-2);
+}
+
+.wikidata-config__row {
+    padding: var(--tl-space-3);
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--tl-radius-lg);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.wikidata-config__divider {
+    height: 1px;
+    margin: var(--tl-space-5) 0;
+    background: var(--tl-divider);
+}
+
+.wikidata-config__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--tl-space-4);
+}
+
+.wikidata-config__trigger-title {
+    color: var(--tl-text-primary);
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+@media (max-width: 760px) {
+    .wikidata-config__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .wikidata-config__section-header,
+    .wikidata-config__trigger {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .wikidata-config__header-switch {
+        margin-left: 0;
+    }
+}

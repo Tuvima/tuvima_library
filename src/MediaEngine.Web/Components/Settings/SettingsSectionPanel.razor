@@ -1,14 +1,12 @@
 @namespace MediaEngine.Web.Components.Settings
 
-<MudPaper Elevation="0" Class="@Class">
-    <MudStack Spacing="2">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="settings-section-card__header">
-            <MudIcon Icon="@Icon" Color="Color.Primary" />
-            <MudText Typo="Typo.subtitle1">@Title</MudText>
-        </MudStack>
-        @ChildContent
-    </MudStack>
-</MudPaper>
+<AppCard Class="@Class">
+    <div class="settings-section-card__header">
+        <MudIcon Icon="@Icon" Color="Color.Primary" />
+        <span class="settings-section-card__title">@Title</span>
+    </div>
+    @ChildContent
+</AppCard>
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;

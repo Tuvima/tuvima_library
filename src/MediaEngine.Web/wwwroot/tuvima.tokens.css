@@ -102,6 +102,9 @@
     --tl-control-height-sm: 36px;
     --tl-control-height-md: 42px;
     --tl-control-height-lg: 48px;
+    --tl-control-height-compact: var(--tl-control-height-sm);
+    --tl-control-height-normal: var(--tl-control-height-md);
+    --tl-control-height-large: var(--tl-control-height-lg);
     --tl-control-radius: 10px;
     --tl-control-padding-x: 12px;
     --tl-control-gap: 12px;

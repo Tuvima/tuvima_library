@@ -1,0 +1,36 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<span class="@RootClass" style="@AccentStyle" title="@Title">
+    @if (!string.IsNullOrWhiteSpace(ImageUrl))
+    {
+        <img src="@ImageUrl" alt="@AltText" />
+    }
+    else if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Size="@MudSize" />
+    }
+    else
+    {
+        <span>@Initials</span>
+    }
+</span>
+
+@code {
+    [Parameter] public string? ImageUrl { get; set; }
+    [Parameter] public string? AltText { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Initials { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? AccentColor { get; set; }
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public string? Class { get; set; }
+
+    private Size MudSize => AppUiMaps.ToMudSize(Size);
+
+    private string? AccentStyle =>
+        string.IsNullOrWhiteSpace(AccentColor) ? null : $"--app-avatar-accent: {AccentColor};";
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-avatar", AppUiMaps.SizeClass(Size), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

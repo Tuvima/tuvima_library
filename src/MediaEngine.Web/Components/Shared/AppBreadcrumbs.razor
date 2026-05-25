@@ -1,0 +1,13 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<nav class="@RootClass" aria-label="Breadcrumb">
+    @ChildContent
+</nav>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-breadcrumbs", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

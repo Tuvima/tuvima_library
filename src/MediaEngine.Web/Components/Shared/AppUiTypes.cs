@@ -43,3 +43,54 @@ public enum AppSurfaceDensity
     Normal,
     Comfortable,
 }
+
+public enum AppControlSize
+{
+    Compact,
+    Normal,
+    Large,
+}
+
+public enum AppUiTone
+{
+    Neutral,
+    Primary,
+    Info,
+    Success,
+    Warning,
+    Error,
+}
+
+public enum AppButtonStyle
+{
+    Filled,
+    Outlined,
+    Text,
+    Ghost,
+}
+
+public enum AppEmphasis
+{
+    Low,
+    Medium,
+    High,
+}
+
+public enum AppHorizontalAlignment
+{
+    Start,
+    Center,
+    End,
+    Stretch,
+}
+
+public enum AppSurfaceVariant
+{
+    Default,
+    Raised,
+    Selected,
+    Warning,
+    Danger,
+}
+
+public sealed record AppSelectOption(string Value, string Label, string? Icon = null);

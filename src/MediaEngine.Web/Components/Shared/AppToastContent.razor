@@ -1,0 +1,27 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@RootClass">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Size="Size.Small" />
+    }
+    <div>
+        <div class="app-toast-content__title">@Title</div>
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="app-toast-content__message">@Message</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Info;
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-toast-content", AppUiMaps.ToneClass(Tone), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}
