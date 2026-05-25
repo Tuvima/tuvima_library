@@ -2,27 +2,32 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-        <MudText Typo="Typo.h6">Features</MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(_config is null || _saving)">Save feature flags</MudButton>
-    </MudStack>
+    <AppPageHeader Title="Features">
+        <Actions>
+            <AppButton Label="Save feature flags"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       OnClick="SaveAsync"
+                       Disabled="@(_config is null || _saving)" />
+        </Actions>
+    </AppPageHeader>
 
     @if (_config is null)
     {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI config unavailable. Feature toggles are not shown as live.</MudAlert>
+        <AppAlert Tone="AppUiTone.Warning">AI config unavailable. Feature toggles are not shown as live.</AppAlert>
     }
     else
     {
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
+        <AppAlert Tone="AppUiTone.Info" Class="mb-3">
             Feature toggles persist to config/ai.json. A feature is active only when it is enabled, connected, the Engine is healthy, and required model/hardware checks pass.
-        </MudAlert>
+        </AppAlert>
 
         @if (!string.IsNullOrWhiteSpace(_message))
         {
-            <MudAlert Severity="@_messageSeverity" Variant="Variant.Outlined" Class="mb-3">@_message</MudAlert>
+            <AppAlert Tone="@MessageTone" Class="mb-3">@_message</AppAlert>
         }
 
-        <MudSimpleTable Dense="true" Hover="true">
+        <AppTable Class="ai-feature-table">
             <thead>
                 <tr>
                     <th>Feature</th>
@@ -39,29 +44,32 @@
                     var dependency = GetDependency(feature);
                     <tr>
                         <td>
-                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@feature.Name</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@feature.Description</MudText>
+                            <strong class="ai-feature-table__name">@feature.Name</strong>
+                            <span class="ai-feature-table__description">@feature.Description</span>
                         </td>
-                        <td><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@feature.Key</MudChip></td>
+                        <td><AppChip Text="@feature.Key" /></td>
                         <td>
-                            <MudText Typo="Typo.caption">Model: @(feature.RequiredModelRole ?? "none")</MudText><br />
-                            <MudText Typo="Typo.caption">Tier: @feature.RequiredHardwareTier</MudText>
-                        </td>
-                        <td>
-                            <MudChip T="string" Size="Size.Small" Color="@dependency.Color">@dependency.Label</MudChip>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">@dependency.Explanation</MudText>
+                            <span class="ai-feature-table__description">Model: @(feature.RequiredModelRole ?? "none")</span>
+                            <span class="ai-feature-table__description">Tier: @feature.RequiredHardwareTier</span>
                         </td>
                         <td>
-                            <MudSwitch T="bool" Value="@enabled" ValueChanged="@((bool value) => SetEnabled(feature.Key, value))" Color="Color.Primary" Disabled="@(!feature.Connected)" />
+                            <AppChip Text="@dependency.Label" Tone="@dependency.Tone" />
+                            <span class="ai-feature-table__description">@dependency.Explanation</span>
+                        </td>
+                        <td>
+                            <AppSwitchRow Value="@enabled"
+                                          ValueChanged="@((bool value) => SetEnabled(feature.Key, value))"
+                                          Disabled="@(!feature.Connected)"
+                                          StopClickPropagation="true" />
                             @if (!feature.Connected)
                             {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Saved setting is not connected to Engine behavior yet.</MudText>
+                                <span class="ai-feature-table__description">Saved setting is not connected to Engine behavior yet.</span>
                             }
                         </td>
                     </tr>
                 }
             </tbody>
-        </MudSimpleTable>
+        </AppTable>
     }
 </div>
 
@@ -72,6 +80,7 @@
     private bool _saving;
     private string? _message;
     private Severity _messageSeverity = Severity.Info;
+    private AppUiTone MessageTone => ToTone(_messageSeverity);
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,34 +114,34 @@
     private DependencyStatus GetDependency(FeatureDefinition feature)
     {
         if (!feature.Connected)
-            return new("Not connected", "This setting is saved but the Engine does not use it yet.", Color.Default);
+            return new("Not connected", "This setting is saved but the Engine does not use it yet.", AppUiTone.Neutral);
 
         if (_status is null)
-            return new("Engine unavailable", "AI status could not be loaded.", Color.Warning);
+            return new("Engine unavailable", "AI status could not be loaded.", AppUiTone.Warning);
 
         if (!IsEnabled(feature.Key))
-            return new("Disabled", "Enable the feature and save config.", Color.Default);
+            return new("Disabled", "Enable the feature and save config.", AppUiTone.Neutral);
 
         if (!string.IsNullOrWhiteSpace(feature.RequiredModelRole))
         {
             var model = _models.FirstOrDefault(m => string.Equals(m.Role, feature.RequiredModelRole, StringComparison.OrdinalIgnoreCase));
             if (model is null)
-                return new("Missing model", $"{feature.RequiredModelRole} is not configured.", Color.Error);
+                return new("Missing model", $"{feature.RequiredModelRole} is not configured.", AppUiTone.Error);
 
             if (model.State.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
-                return new("Downloading model", $"{feature.RequiredModelRole} is still downloading.", Color.Info);
+                return new("Downloading model", $"{feature.RequiredModelRole} is still downloading.", AppUiTone.Info);
 
             if (!model.State.Equals("Ready", StringComparison.OrdinalIgnoreCase) && !model.Loaded && !model.Active)
-                return new("Missing model", $"{feature.RequiredModelRole} is not downloaded.", Color.Error);
+                return new("Missing model", $"{feature.RequiredModelRole} is not downloaded.", AppUiTone.Error);
         }
 
         if (!HardwareAdequate(feature.RequiredHardwareTier))
-            return new("Hardware limited", $"This feature is best on {feature.RequiredHardwareTier} tier hardware.", Color.Warning);
+            return new("Hardware limited", $"This feature is best on {feature.RequiredHardwareTier} tier hardware.", AppUiTone.Warning);
 
         if (!_status.IsReady && feature.RequiredModelRole is not null)
-            return new("Enabled but blocked", "AI subsystem is not fully ready.", Color.Warning);
+            return new("Enabled but blocked", "AI subsystem is not fully ready.", AppUiTone.Warning);
 
-        return new("Ready", $"{feature.RequiredModelRole ?? "No model"} dependency is available.", Color.Success);
+        return new("Ready", $"{feature.RequiredModelRole ?? "No model"} dependency is available.", AppUiTone.Success);
     }
 
     private bool HardwareAdequate(string tier)
@@ -149,7 +158,15 @@
         _ => 0,
     };
 
-    private sealed record DependencyStatus(string Label, string Explanation, Color Color);
+    private static AppUiTone ToTone(Severity severity) => severity switch
+    {
+        Severity.Success => AppUiTone.Success,
+        Severity.Warning => AppUiTone.Warning,
+        Severity.Error => AppUiTone.Error,
+        _ => AppUiTone.Info,
+    };
+
+    private sealed record DependencyStatus(string Label, string Explanation, AppUiTone Tone);
     private sealed record FeatureDefinition(string Key, string Name, string Description, string? RequiredModelRole, string RequiredHardwareTier, bool Connected);
 
     private static IReadOnlyList<FeatureDefinition> FeatureDefinitions() =>

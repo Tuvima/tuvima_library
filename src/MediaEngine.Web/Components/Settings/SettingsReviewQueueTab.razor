@@ -5,119 +5,102 @@
 @using MediaEngine.Web.Services.Editing
 
 <div class="tl-page settings-review-page">
-    <MudStack Spacing="3">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="settings-review-toolbar">
-            <MudStack Spacing="1">
-                <MudText Typo="Typo.h6">Review Queue</MudText>
-                <MudText Typo="Typo.body2" Class="settings-muted">
-                    Pending items that need human confirmation before they move forward.
-                </MudText>
-            </MudStack>
-            <MudButton Variant="Variant.Outlined"
-                       Size="Size.Small"
+    <AppPageHeader Title="Review Queue"
+                   Subtitle="Pending items that need human confirmation before they move forward.">
+        <Actions>
+            <AppButton Label="Refresh"
+                       Size="AppControlSize.Compact"
                        StartIcon="@Icons.Material.Outlined.Refresh"
                        Disabled="@_loading"
-                       OnClick="LoadAsync">
-                Refresh
-            </MudButton>
-        </MudStack>
+                       OnClick="LoadAsync" />
+        </Actions>
+    </AppPageHeader>
 
-        @if (_loading)
-        {
-            <MudProgressLinear Indeterminate="true" Color="Color.Warning" />
-        }
-        else if (!string.IsNullOrWhiteSpace(_error))
-        {
-            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">@_error</MudAlert>
-        }
-
-        <MudTable Items="@_items"
-                  Dense="true"
-                  Hover="true"
-                  Elevation="0"
-                  Breakpoint="Breakpoint.Sm"
-                  Class="settings-review-table">
-            <HeaderContent>
-                <MudTh>Item</MudTh>
-                <MudTh>Reason</MudTh>
-                <MudTh>Evidence</MudTh>
-                <MudTh>Age</MudTh>
-                <MudTh>Actions</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="Item">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <div class="settings-review-cover">
-                            @if (!string.IsNullOrWhiteSpace(context.CoverUrl))
-                            {
-                                <img src="@context.CoverUrl" alt="" />
-                            }
-                            else
-                            {
-                                <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" Style="font-size: 20px;" />
-                            }
-                        </div>
-                        <MudStack Spacing="0">
-                            <MudText Typo="Typo.subtitle2">@DisplayTitle(context)</MudText>
-                            <MudText Typo="Typo.caption" Class="settings-muted">@FirstNonBlank(context.MediaType, context.EntityType, "Unknown")</MudText>
-                        </MudStack>
-                    </MudStack>
-                </MudTd>
-                <MudTd DataLabel="Reason">
-                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">
-                        @FormatTrigger(context.Trigger)
-                    </MudChip>
-                </MudTd>
-                <MudTd DataLabel="Evidence">
-                    <MudStack Spacing="0">
-                        <MudText Typo="Typo.body2">@ConfidenceLabel(context.ConfidenceScore)</MudText>
-                        <MudText Typo="Typo.caption" Class="settings-muted">@BridgeSummary(context)</MudText>
-                    </MudStack>
-                </MudTd>
-                <MudTd DataLabel="Age">
-                    <MudText Typo="Typo.body2">@RelativeAge(context.CreatedAt)</MudText>
-                </MudTd>
-                <MudTd DataLabel="Actions">
-                    <MudStack Row="true" Spacing="1">
-                        @{
-                            var target = ReviewTargetResolver.Resolve(context.MediaType, context.Trigger);
-                        }
-                        <MudButton Size="Size.Small"
-                                   Variant="Variant.Filled"
-                                   Color="Color.Warning"
-                                   Disabled="@_busyIds.Contains(context.Id)"
-                                   OnClick="@(() => OpenReviewEditorAsync(context))">
-                            @target.PrimaryActionLabel
-                        </MudButton>
-                        <MudButton Size="Size.Small"
-                                   Variant="Variant.Outlined"
-                                   Color="Color.Warning"
-                                   Disabled="@_busyIds.Contains(context.Id)"
-                                   OnClick="@(() => DismissAsync(context))">
-                            Dismiss
-                        </MudButton>
-                        @if (IsWikidataReview(context.Trigger))
-                        {
-                            <MudButton Size="Size.Small"
-                                       Variant="Variant.Outlined"
-                                       Color="Color.Default"
-                                       Disabled="@_busyIds.Contains(context.Id)"
-                                       OnClick="@(() => SkipUniverseAsync(context))">
-                                Mark Provider-Only
-                            </MudButton>
-                        }
-                    </MudStack>
-                </MudTd>
-            </RowTemplate>
-            <NoRecordsContent>
-                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="settings-review-empty">
-                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 42px; opacity: 0.44;" />
-                    <MudText Typo="Typo.subtitle2">No pending review items</MudText>
-                    <MudText Typo="Typo.body2" Class="settings-muted">The ingestion safety queue is clear.</MudText>
-                </MudStack>
-            </NoRecordsContent>
-        </MudTable>
-    </MudStack>
+    @if (_loading)
+    {
+        <AppProgressBar Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert>
+    }
+    else if (_items.Count == 0)
+    {
+        <AppEmptyState Title="No pending review items"
+                       Message="The ingestion safety queue is clear." />
+    }
+    else
+    {
+        <AppTable Class="settings-review-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Reason</th>
+                    <th>Evidence</th>
+                    <th>Age</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    var target = ReviewTargetResolver.Resolve(item.MediaType, item.Trigger);
+                    <tr>
+                        <td>
+                            <div class="settings-review-item">
+                                <div class="settings-review-cover">
+                                    @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                    {
+                                        <img src="@item.CoverUrl" alt="" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" />
+                                    }
+                                </div>
+                                <div>
+                                    <strong>@DisplayTitle(item)</strong>
+                                    <span class="settings-muted">@FirstNonBlank(item.MediaType, item.EntityType, "Unknown")</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <AppChip Text="@FormatTrigger(item.Trigger)" Tone="AppUiTone.Warning" />
+                        </td>
+                        <td>
+                            <div class="settings-review-evidence">
+                                <span>@ConfidenceLabel(item.ConfidenceScore)</span>
+                                <span class="settings-muted">@BridgeSummary(item)</span>
+                            </div>
+                        </td>
+                        <td>@RelativeAge(item.CreatedAt)</td>
+                        <td>
+                            <AppActionBar Align="AppHorizontalAlignment.Start" Class="settings-review-actions">
+                                <AppButton Label="@target.PrimaryActionLabel"
+                                           Size="AppControlSize.Compact"
+                                           ButtonStyle="AppButtonStyle.Filled"
+                                           Tone="AppUiTone.Warning"
+                                           Disabled="@_busyIds.Contains(item.Id)"
+                                           OnClick="@(() => OpenReviewEditorAsync(item))" />
+                                <AppButton Label="Dismiss"
+                                           Size="AppControlSize.Compact"
+                                           Tone="AppUiTone.Warning"
+                                           Disabled="@_busyIds.Contains(item.Id)"
+                                           OnClick="@(() => DismissAsync(item))" />
+                                @if (IsWikidataReview(item.Trigger))
+                                {
+                                    <AppButton Label="Mark Provider-Only"
+                                               Size="AppControlSize.Compact"
+                                               Disabled="@_busyIds.Contains(item.Id)"
+                                               OnClick="@(() => SkipUniverseAsync(item))" />
+                                }
+                            </AppActionBar>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </AppTable>
+    }
 </div>
 
 @code {

@@ -8,7 +8,7 @@
     {
         <div class="@StageClass(stage)" title="@L[stage.DetailKey]">
             <div class="ingestion-stage__label">@L[stage.LabelKey]</div>
-            <div class="ingestion-stage__node" style="@RingStyle(stage.RingPercent)">
+            <div class="@StageNodeClass(stage.RingPercent)">
                 <MudIcon Icon="@stage.Icon" />
             </div>
             @if (stage.Key == "retail")
@@ -37,8 +37,11 @@
     private static string StageClass(IngestionDashboardStage stage) =>
         $"ingestion-stage ingestion-stage--{stage.Key} {(stage.StatusKey == "Ingestion_StatusActive" ? "is-active" : stage.StatusKey == "Ingestion_StatusComplete" ? "is-complete" : "is-pending")}";
 
-    private static string RingStyle(double percent) =>
-        $"--stage-progress: {Math.Clamp(percent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
+    private static string StageNodeClass(double percent) =>
+        $"ingestion-stage__node ingestion-stage__node--progress-{ProgressBucket(percent)}";
+
+    private static int ProgressBucket(double percent) =>
+        (int)(Math.Round(Math.Clamp(percent, 0, 100) / 5d, MidpointRounding.AwayFromZero) * 5);
 
     private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
 }

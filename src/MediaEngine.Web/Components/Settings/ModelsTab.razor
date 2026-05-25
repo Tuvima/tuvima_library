@@ -2,79 +2,93 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-        <MudText Typo="Typo.h6">Models</MudText>
-        <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="RefreshAsync" Disabled="_loading">Refresh</MudButton>
-    </MudStack>
+    <AppPageHeader Title="Models">
+        <Actions>
+            <AppButton Label="Refresh" Size="AppControlSize.Compact" OnClick="RefreshAsync" Disabled="_loading" />
+        </Actions>
+    </AppPageHeader>
 
     @if (!string.IsNullOrWhiteSpace(_message))
     {
-        <MudAlert Severity="@_messageSeverity" Variant="Variant.Outlined" Class="mb-3">@_message</MudAlert>
+        <AppAlert Tone="@MessageTone" Class="mb-3">@_message</AppAlert>
     }
 
     @if (_loading)
     {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Rounded="false" />
+        <AppProgressBar Indeterminate="true" />
     }
     else if (_models.Count == 0)
     {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">Model status unavailable.</MudAlert>
+        <AppAlert Tone="AppUiTone.Warning">Model status unavailable.</AppAlert>
     }
     else
     {
-        <MudGrid Spacing="3">
+        <div class="models-grid">
             @foreach (var model in _models.OrderBy(m => m.Role))
             {
-                <MudItem xs="12" md="6" lg="4">
-                    <MudPaper Elevation="0" Class="tl-card pa-4">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@model.Role</MudChip>
-                            <MudChip T="string" Size="Size.Small" Color="@StateColor(model)">@StateLabel(model)</MudChip>
-                        </MudStack>
-                        <MudText Typo="Typo.subtitle2">@(!string.IsNullOrWhiteSpace(model.Description) ? model.Description : "Configured model")</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">@model.ModelFile</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Size: @FormatMb(model.SizeMB). Source: @(model.DownloadUrlHost ?? "not configured"). Required tier: @model.RequiredHardwareTier.</MudText>
+                <AppCard Class="model-card">
+                    <div class="model-card__header">
+                        <AppChip Text="@model.Role" Tone="AppUiTone.Primary" />
+                        <AppChip Text="@StateLabel(model)" Tone="@StateTone(model)" />
+                    </div>
+                    <strong class="model-card__title">@(!string.IsNullOrWhiteSpace(model.Description) ? model.Description : "Configured model")</strong>
+                    <span class="model-card__meta">@model.ModelFile</span>
+                    <span class="model-card__meta">Size: @FormatMb(model.SizeMB). Source: @(model.DownloadUrlHost ?? "not configured"). Required tier: @model.RequiredHardwareTier.</span>
 
-                        @if (model.State.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
-                        {
-                            <MudProgressLinear Value="@model.DownloadProgressPercent" Color="Color.Primary" Rounded="false" Class="mt-3" />
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@model.DownloadProgressPercent% downloaded</MudText>
-                        }
+                    @if (model.State.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <AppProgressBar Value="@model.DownloadProgressPercent" ShowValue="true" Class="mt-3" />
+                    }
 
-                        @if (!string.IsNullOrWhiteSpace(model.ErrorMessage))
-                        {
-                            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="mt-3">@model.ErrorMessage</MudAlert>
-                        }
+                    @if (!string.IsNullOrWhiteSpace(model.ErrorMessage))
+                    {
+                        <AppAlert Tone="AppUiTone.Error" Class="mt-3">@model.ErrorMessage</AppAlert>
+                    }
 
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-3">Used by enabled features: @UsedBy(model.Role)</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Memory footprint: @(model.MemoryFootprintMB > 0 ? FormatMb(model.MemoryFootprintMB) : "not loaded").</MudText>
+                    <span class="model-card__meta mt-3">Used by enabled features: @UsedBy(model.Role)</span>
+                    <span class="model-card__meta">Memory footprint: @(model.MemoryFootprintMB > 0 ? FormatMb(model.MemoryFootprintMB) : "not loaded").</span>
 
-                        @if (!model.Supported)
-                        {
-                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-3">Configured, but lifecycle endpoints do not support this role.</MudAlert>
-                        }
-                        else
-                        {
-                            <MudStack Row="true" Spacing="1" Class="mt-3" Style="flex-wrap: wrap;">
-                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Download"
-                                           Disabled="@(!CanDownload(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Download))">Download</MudButton>
-                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.Cancel"
-                                           Disabled="@(!CanCancel(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Cancel))">Cancel</MudButton>
-                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Outlined.PlayArrow"
-                                           Disabled="@(!CanLoad(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Load))">Load</MudButton>
-                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Stop"
-                                           Disabled="@(!CanUnload(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Unload))">Unload</MudButton>
-                            </MudStack>
-                        }
-                    </MudPaper>
-                </MudItem>
+                    @if (!model.Supported)
+                    {
+                        <AppAlert Tone="AppUiTone.Info" Class="mt-3">Configured, but lifecycle endpoints do not support this role.</AppAlert>
+                    }
+                    else
+                    {
+                        <AppActionBar Align="AppHorizontalAlignment.Start" Class="model-card__actions mt-3">
+                            <AppButton Label="Download"
+                                       Size="AppControlSize.Compact"
+                                       ButtonStyle="AppButtonStyle.Filled"
+                                       Tone="AppUiTone.Primary"
+                                       StartIcon="@Icons.Material.Outlined.Download"
+                                       Disabled="@(!CanDownload(model))"
+                                       OnClick="@(() => RunAction(model.Role, AiModelAction.Download))" />
+                            <AppButton Label="Cancel"
+                                       Size="AppControlSize.Compact"
+                                       Tone="AppUiTone.Warning"
+                                       StartIcon="@Icons.Material.Outlined.Cancel"
+                                       Disabled="@(!CanCancel(model))"
+                                       OnClick="@(() => RunAction(model.Role, AiModelAction.Cancel))" />
+                            <AppButton Label="Load"
+                                       Size="AppControlSize.Compact"
+                                       Tone="AppUiTone.Success"
+                                       StartIcon="@Icons.Material.Outlined.PlayArrow"
+                                       Disabled="@(!CanLoad(model))"
+                                       OnClick="@(() => RunAction(model.Role, AiModelAction.Load))" />
+                            <AppButton Label="Unload"
+                                       Size="AppControlSize.Compact"
+                                       StartIcon="@Icons.Material.Outlined.Stop"
+                                       Disabled="@(!CanUnload(model))"
+                                       OnClick="@(() => RunAction(model.Role, AiModelAction.Unload))" />
+                        </AppActionBar>
+                    }
+                </AppCard>
             }
-        </MudGrid>
+        </div>
     }
 
-    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-4">
+    <AppAlert Tone="AppUiTone.Info" Class="mt-4">
         Delete is not shown because the Engine has no public model deletion endpoint. Local model downloads do not imply cloud inference.
-    </MudAlert>
+    </AppAlert>
 </div>
 
 @code {
@@ -83,6 +97,7 @@
     private bool _loading;
     private string? _message;
     private Severity _messageSeverity = Severity.Info;
+    private AppUiTone MessageTone => ToTone(_messageSeverity);
 
     protected override async Task OnInitializedAsync() => await RefreshAsync();
 
@@ -139,12 +154,20 @@
 
     private static string StateLabel(AiModelStatusDto model) => model.Active ? "Active" : model.Loaded ? "Loaded" : model.State;
 
-    private static Color StateColor(AiModelStatusDto model) => StateLabel(model).ToLowerInvariant() switch
+    private static AppUiTone StateTone(AiModelStatusDto model) => StateLabel(model).ToLowerInvariant() switch
     {
-        "active" or "loaded" or "ready" => Color.Success,
-        "downloading" => Color.Info,
-        "error" => Color.Error,
-        _ => Color.Warning,
+        "active" or "loaded" or "ready" => AppUiTone.Success,
+        "downloading" => AppUiTone.Info,
+        "error" => AppUiTone.Error,
+        _ => AppUiTone.Warning,
+    };
+
+    private static AppUiTone ToTone(Severity severity) => severity switch
+    {
+        Severity.Success => AppUiTone.Success,
+        Severity.Warning => AppUiTone.Warning,
+        Severity.Error => AppUiTone.Error,
+        _ => AppUiTone.Info,
     };
 
     private static string FormatMb(long mb) => mb >= 1024 ? $"{mb / 1024.0:F1} GB" : $"{mb} MB";

@@ -1,0 +1,37 @@
+.ingestion-current-row__icon--progress-0 { --stage-progress: 0%; }
+.ingestion-current-row__icon--progress-5 { --stage-progress: 5%; }
+.ingestion-current-row__icon--progress-10 { --stage-progress: 10%; }
+.ingestion-current-row__icon--progress-15 { --stage-progress: 15%; }
+.ingestion-current-row__icon--progress-20 { --stage-progress: 20%; }
+.ingestion-current-row__icon--progress-25 { --stage-progress: 25%; }
+.ingestion-current-row__icon--progress-30 { --stage-progress: 30%; }
+.ingestion-current-row__icon--progress-35 { --stage-progress: 35%; }
+.ingestion-current-row__icon--progress-40 { --stage-progress: 40%; }
+.ingestion-current-row__icon--progress-45 { --stage-progress: 45%; }
+.ingestion-current-row__icon--progress-50 { --stage-progress: 50%; }
+.ingestion-current-row__icon--progress-55 { --stage-progress: 55%; }
+.ingestion-current-row__icon--progress-60 { --stage-progress: 60%; }
+.ingestion-current-row__icon--progress-65 { --stage-progress: 65%; }
+.ingestion-current-row__icon--progress-70 { --stage-progress: 70%; }
+.ingestion-current-row__icon--progress-75 { --stage-progress: 75%; }
+.ingestion-current-row__icon--progress-80 { --stage-progress: 80%; }
+.ingestion-current-row__icon--progress-85 { --stage-progress: 85%; }
+.ingestion-current-row__icon--progress-90 { --stage-progress: 90%; }
+.ingestion-current-row__icon--progress-95 { --stage-progress: 95%; }
+.ingestion-current-row__icon--progress-100 { --stage-progress: 100%; }
+
+::deep .ingestion-current-row__main.app-button {
+    justify-content: stretch;
+    min-height: 0 !important;
+    padding: 0 !important;
+    color: inherit !important;
+    text-align: left;
+}
+
+::deep .ingestion-current-row__main.app-button .mud-button-label {
+    width: 100%;
+}
+
+::deep .ingestion-current-row__progress .app-progress-bar__track {
+    height: 5px;
+}

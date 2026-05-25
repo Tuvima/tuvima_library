@@ -1,0 +1,51 @@
+.activity-retention-row,
+.activity-filter-row,
+.activity-entry-header {
+    display: flex;
+    align-items: center;
+}
+
+.activity-retention-heading,
+.activity-retention-bounds {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.activity-retention-heading span,
+.activity-retention-bounds span,
+.activity-retention-stats,
+.activity-filter-label,
+.activity-entry-time,
+.activity-entry-detail {
+    color: var(--tl-text-muted);
+}
+
+.activity-retention-heading strong {
+    color: var(--tl-text-primary);
+}
+
+.activity-timeline {
+    display: grid;
+}
+
+.activity-entry-header {
+    align-items: flex-start;
+}
+
+.activity-entry-time {
+    margin-left: auto;
+    font-size: 0.75rem;
+}
+
+.activity-entry-detail {
+    margin: 2px 0 0;
+}
+
+.activity-entry-dot--success { background: var(--tl-status-success); }
+.activity-entry-dot--primary { background: var(--tl-accent-primary); }
+.activity-entry-dot--info { background: var(--tl-status-info); }
+.activity-entry-dot--warning { background: var(--tl-status-warning); }
+.activity-entry-dot--danger { background: var(--tl-status-danger); }
+.activity-entry-dot--idle { background: var(--tl-status-idle); }

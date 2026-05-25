@@ -1,0 +1,5 @@
+.playback-delivery {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-5);
+}

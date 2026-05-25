@@ -1,0 +1,27 @@
+.offline-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.offline-action-block {
+    display: grid;
+    gap: 4px;
+    min-height: 100%;
+    padding: 12px 0;
+}
+
+.offline-action-block strong {
+    color: var(--tl-text-primary);
+}
+
+.offline-action-block span {
+    color: var(--tl-text-muted);
+    line-height: 1.45;
+}
+
+@media (max-width: 860px) {
+    .offline-actions-grid {
+        grid-template-columns: 1fr;
+    }
+}

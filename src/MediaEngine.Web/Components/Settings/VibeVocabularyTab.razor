@@ -2,54 +2,64 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-        <MudText Typo="Typo.h6">Vibe vocabulary</MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(_config is null || _saving)">Save vocabulary</MudButton>
-    </MudStack>
+    <AppPageHeader Title="Vibe vocabulary">
+        <Actions>
+            <AppButton Label="Save vocabulary"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       OnClick="SaveAsync"
+                       Disabled="@(_config is null || _saving)" />
+        </Actions>
+    </AppPageHeader>
 
-    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
+    <AppAlert Tone="AppUiTone.Info" Class="mb-3">
         Vocabulary is loaded from AI config and affects AI tagging only when the vibe tags feature is enabled. Existing items are not retagged immediately because no Local AI retag endpoint exists.
-    </MudAlert>
+    </AppAlert>
 
     @if (!string.IsNullOrWhiteSpace(_message))
     {
-        <MudAlert Severity="@_messageSeverity" Variant="Variant.Outlined" Class="mb-3">@_message</MudAlert>
+        <AppAlert Tone="@MessageTone" Class="mb-3">@_message</AppAlert>
     }
 
     @if (_config is null)
     {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI config unavailable. Vocabulary cannot be edited.</MudAlert>
+        <AppAlert Tone="AppUiTone.Warning">AI config unavailable. Vocabulary cannot be edited.</AppAlert>
     }
     else
     {
-        <MudExpansionPanels MultiExpansion="true">
+        <div class="vibe-vocabulary-grid">
             @foreach (var category in _config.VibeVocabulary.Keys.OrderBy(k => k).ToList())
             {
                 var key = category;
                 var tags = _config.VibeVocabulary[key];
-                <MudExpansionPanel Expanded="true">
-                    <TitleContent>
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudText Typo="Typo.subtitle2">@key</MudText>
-                            <MudChip T="string" Size="Size.Small">@tags.Count tags</MudChip>
-                        </MudStack>
-                    </TitleContent>
+                <AppCard Title="@key" Class="vibe-vocabulary-category">
+                    <Actions>
+                        <AppChip Text="@($"{tags.Count} tags")" />
+                    </Actions>
                     <ChildContent>
-                        <MudStack Row="true" Style="flex-wrap: wrap; gap: 8px;" Class="mb-4">
+                        <div class="vibe-vocabulary-tags">
                             @foreach (var tag in tags.ToList())
                             {
                                 var captured = tag;
-                                <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" OnClose="@(() => RemoveTag(key, captured))">@captured</MudChip>
+                                <AppChip Text="@captured"
+                                         Title="Remove tag"
+                                         Tone="AppUiTone.Primary"
+                                         OnClick="@(() => RemoveTag(key, captured))" />
                             }
-                        </MudStack>
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudTextField @bind-Value="_newTags[key]" Placeholder="New tag" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" />
-                            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => AddTag(key))">Add</MudButton>
-                        </MudStack>
+                        </div>
+                        <div class="vibe-vocabulary-add">
+                            <AppTextField Value="@_newTags[key]"
+                                          ValueChanged="@((string? value) => _newTags[key] = value ?? string.Empty)"
+                                          Placeholder="New tag"
+                                          Size="AppControlSize.Compact" />
+                            <AppButton Label="Add"
+                                       Size="AppControlSize.Compact"
+                                       OnClick="@(() => AddTag(key))" />
+                        </div>
                     </ChildContent>
-                </MudExpansionPanel>
+                </AppCard>
             }
-        </MudExpansionPanels>
+        </div>
     }
 </div>
 
@@ -59,6 +69,7 @@
     private bool _saving;
     private string? _message;
     private Severity _messageSeverity = Severity.Info;
+    private AppUiTone MessageTone => ToTone(_messageSeverity);
 
     protected override async Task OnInitializedAsync()
     {
@@ -120,4 +131,12 @@
         _message = message;
         _messageSeverity = severity;
     }
+
+    private static AppUiTone ToTone(Severity severity) => severity switch
+    {
+        Severity.Success => AppUiTone.Success,
+        Severity.Warning => AppUiTone.Warning,
+        Severity.Error => AppUiTone.Error,
+        _ => AppUiTone.Info,
+    };
 }

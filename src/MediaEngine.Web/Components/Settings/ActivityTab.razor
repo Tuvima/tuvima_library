@@ -6,91 +6,63 @@
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.Timeline" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Activity_PageTitle"]</MudText>
-    </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["Activity_PageDescription"]
-    </MudText>
+    <AppPageHeader Title="@L["Activity_PageTitle"]"
+                   Subtitle="@L["Activity_PageDescription"]" />
 
-    <MudPaper Elevation="0" Class="tl-card mb-6">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
-            <MudIcon Icon="@Icons.Material.Outlined.Schedule"
-                     Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
-            <MudText Typo="Typo.subtitle1" Class="activity-section-title">@L["Activity_RetentionPolicy"]</MudText>
-        </MudStack>
+    <AppCard Title="@L["Activity_RetentionPolicy"]" Class="mb-6">
+        <div class="activity-retention-row">
+            <div class="activity-retention-control">
+                <div class="activity-retention-heading">
+                    <span>@L["Activity_KeepEntriesFor"]</span>
+                    <strong>@_retentionDays @L["Activity_Days"]</strong>
+                </div>
+                <AppSlider @bind-Value="_retentionDays" Min="7" Max="365" Step="7" />
+                <div class="activity-retention-bounds">
+                    <span>@L["Activity_SevenDays"]</span>
+                    <span>@L["Activity_OneYear"]</span>
+                </div>
+            </div>
 
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4" Class="activity-retention-row">
-            <MudStack Class="activity-retention-control" Spacing="1">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @L["Activity_KeepEntriesFor"]
-                    </MudText>
-                    <MudText Typo="Typo.body2" Class="activity-section-title">
-                        @_retentionDays @L["Activity_Days"]
-                    </MudText>
-                </MudStack>
-                <MudSlider @bind-Value="_retentionDays"
-                           Min="7" Max="365" Step="7"
-                           Color="Color.Primary"
-                           Size="Size.Small" />
-                <MudStack Row="true" Justify="Justify.SpaceBetween">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Activity_SevenDays"]</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Activity_OneYear"]</MudText>
-                </MudStack>
-            </MudStack>
-
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Warning"
+            <AppButton Label="@(_pruning ? L["Activity_Pruning"] : L["Activity_PruneNow"])"
+                       Tone="AppUiTone.Warning"
                        StartIcon="@Icons.Material.Outlined.DeleteSweep"
                        OnClick="@PruneNowAsync"
-                       Disabled="@(_pruning || _loading)">
-                @(_pruning ? L["Activity_Pruning"] : L["Activity_PruneNow"])
-            </MudButton>
-        </MudStack>
+                       Disabled="@(_pruning || _loading)" />
+        </div>
 
         @if (_stats is not null)
         {
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-3">
+            <span class="activity-retention-stats">
                 @($"{_stats.TotalEntries:N0} activity entries retained")
-            </MudText>
+            </span>
         }
-    </MudPaper>
+    </AppCard>
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="activity-filter-row mb-4">
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="activity-filter-label">
-            @L["Activity_Filter"]
-        </MudText>
+    <div class="activity-filter-row mb-4">
+        <span class="activity-filter-label">@L["Activity_Filter"]</span>
         @foreach (var filter in _filters)
         {
-            <MudChip T="string"
-                     Color="@(_activeFilters.Contains(filter.Key) ? Color.Primary : Color.Default)"
-                     Size="Size.Small"
+            <AppChip Text="@filter.Label"
+                     Tone="@(_activeFilters.Contains(filter.Key) ? AppUiTone.Primary : AppUiTone.Neutral)"
                      OnClick="@(() => ToggleFilterAsync(filter.Key))"
-                     Class="activity-filter-chip">
-                @filter.Label
-            </MudChip>
+                     Class="activity-filter-chip" />
         }
         @if (_activeFilters.Count > 0)
         {
-            <MudChip T="string" Color="Color.Error" Size="Size.Small"
+            <AppChip Text="@L["Activity_Clear"]"
+                     Tone="AppUiTone.Error"
                      OnClick="@ClearFiltersAsync"
-                     Class="activity-filter-chip">
-                @L["Activity_Clear"]
-            </MudChip>
+                     Class="activity-filter-chip" />
         }
-    </MudStack>
+    </div>
 
     @if (_loading && _entries.Count == 0)
     {
-        <MudStack AlignItems="AlignItems.Center" Class="py-8">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
-        </MudStack>
+        <AppProgressBar Indeterminate="true" Class="py-8" />
     }
     else
     {
-        <MudStack Spacing="0">
+        <div class="activity-timeline">
             @{
                 var visible = _entries.Take(_visibleCount).ToList();
                 string? lastDate = null;
@@ -103,44 +75,31 @@
                 {
                     lastDate = dateGroup;
                     <div class="activity-date-header">
-                        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="activity-date-label">
-                            @dateGroup
-                        </MudText>
+                        <span class="activity-date-label">@dateGroup</span>
                     </div>
                 }
 
                 <div class="activity-entry">
-                    <div class="activity-entry-dot" style="@($"background: {ActionColor(entry.ActionType)};")">
+                    <div class="@ActionDotClass(entry.ActionType)">
                         <MudIcon Icon="@ActionIcon(entry.ActionType)" Class="activity-entry-icon" />
                     </div>
                     <div class="activity-entry-connector" />
                     <div class="activity-entry-content">
-                        <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2" Class="activity-entry-header">
-                            <MudText Class="activity-entry-title">
-                                @ActionLabel(entry.ActionType)
-                            </MudText>
+                        <div class="activity-entry-header">
+                            <strong class="activity-entry-title">@ActionLabel(entry.ActionType)</strong>
                             @if (!string.IsNullOrEmpty(entry.CollectionName))
                             {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Default" Class="activity-entry-chip">
-                                    @entry.CollectionName
-                                </MudChip>
+                                <AppChip Text="@entry.CollectionName" Class="activity-entry-chip" />
                             }
                             @if (!string.IsNullOrEmpty(entry.EntityType))
                             {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="activity-entry-chip">
-                                    @entry.EntityType
-                                </MudChip>
+                                <AppChip Text="@entry.EntityType" Tone="AppUiTone.Info" Class="activity-entry-chip" />
                             }
-                            <MudSpacer />
-                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="activity-entry-time">
-                                @entry.RelativeTime
-                            </MudText>
-                        </MudStack>
+                            <span class="activity-entry-time">@entry.RelativeTime</span>
+                        </div>
                         @if (!string.IsNullOrEmpty(entry.Detail))
                         {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="activity-entry-detail">
-                                @entry.Detail
-                            </MudText>
+                            <p class="activity-entry-detail">@entry.Detail</p>
                         }
                     </div>
                 </div>
@@ -148,22 +107,19 @@
 
             @if (visible.Count == 0)
             {
-                <MudAlert Severity="Severity.Info" Class="mt-2">
+                <AppAlert Tone="AppUiTone.Info" Class="mt-2">
                     @L["Activity_NoEntries"]
-                </MudAlert>
+                </AppAlert>
             }
-        </MudStack>
+        </div>
 
         @if (_entries.Count > _visibleCount)
         {
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Default"
+            <AppButton Label="@($"{L["Activity_LoadMore"]} ({_entries.Count - _visibleCount} {L["Activity_Remaining"]})")"
                        FullWidth="true"
                        Class="mt-4"
                        StartIcon="@Icons.Material.Outlined.ExpandMore"
-                       OnClick="@LoadMore">
-                @L["Activity_LoadMore"] (@(_entries.Count - _visibleCount) @L["Activity_Remaining"])
-            </MudButton>
+                       OnClick="@LoadMore" />
         }
     }
 </div>
@@ -291,15 +247,18 @@
         return localDate.ToString("MMM d, yyyy", CultureInfo.CurrentCulture);
     }
 
-    private static string ActionColor(string actionType) => actionType switch
+    private static string ActionDotClass(string actionType) =>
+        $"activity-entry-dot activity-entry-dot--{ActionTone(actionType)}";
+
+    private static string ActionTone(string actionType) => actionType switch
     {
-        "FileIngested" or "MediaAdded" or "BatchCompleted" => "var(--tl-status-success)",
-        "MetadataHydrated" or "MetadataRefreshed" or "HydrationStage1Completed" or "HydrationStage2Completed" or "HydrationStage3Completed" => "var(--tl-accent-primary)",
-        "PersonHydrated" or "CharacterEnriched" or "LocationEnriched" or "OrganizationEnriched" => "var(--tl-accent-primary)",
-        "ReviewItemResolved" or "HashVerified" or "SyncCompleted" => "var(--tl-status-info)",
-        "PathUpdated" or "SidecarUpdated" or "MetadataWrittenToFile" or "MetadataTagsWritten" => "var(--tl-status-warning)",
-        "ActivityPruned" or "MediaFailed" or "BatchFailed" or "FileQuarantined" => "var(--tl-status-danger)",
-        _ => "var(--tl-status-idle)",
+        "FileIngested" or "MediaAdded" or "BatchCompleted" => "success",
+        "MetadataHydrated" or "MetadataRefreshed" or "HydrationStage1Completed" or "HydrationStage2Completed" or "HydrationStage3Completed" => "primary",
+        "PersonHydrated" or "CharacterEnriched" or "LocationEnriched" or "OrganizationEnriched" => "primary",
+        "ReviewItemResolved" or "HashVerified" or "SyncCompleted" => "info",
+        "PathUpdated" or "SidecarUpdated" or "MetadataWrittenToFile" or "MetadataTagsWritten" => "warning",
+        "ActivityPruned" or "MediaFailed" or "BatchFailed" or "FileQuarantined" => "danger",
+        _ => "idle",
     };
 
     private static string ActionIcon(string actionType) => actionType switch

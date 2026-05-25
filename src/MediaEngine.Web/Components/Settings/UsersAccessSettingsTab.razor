@@ -1,49 +1,70 @@
 @namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-        <MudText Typo="Typo.h6">Users & Access</MudText>
-        <SettingsStatusBadge Status="SettingsStatusKind.Partial" />
-    </MudStack>
-    <MudTabs Rounded="true" Elevation="0" Color="Color.Primary" Position="Position.Top" Class="settings-tab-strip">
-        <MudTabPanel Text="Profiles & Roles" Icon="@Icons.Material.Outlined.Group">
+    <AppPageHeader Title="Users & Access">
+        <Actions>
+            <SettingsStatusBadge Status="SettingsStatusKind.Partial" />
+        </Actions>
+    </AppPageHeader>
+
+    <AppTabs Class="settings-tab-strip">
+        <AppTabPanel Text="Profiles & Roles" Icon="@Icons.Material.Outlined.Group">
             <UsersTab />
-        </MudTabPanel>
-        <MudTabPanel Text="Sign-in & Security" Icon="@Icons.Material.Outlined.AdminPanelSettings">
+        </AppTabPanel>
+        <AppTabPanel Text="Sign-in & Security" Icon="@Icons.Material.Outlined.AdminPanelSettings">
             <SecurityTab />
-        </MudTabPanel>
-        <MudTabPanel Text="API Keys" Icon="@Icons.Material.Outlined.Key">
+        </AppTabPanel>
+        <AppTabPanel Text="API Keys" Icon="@Icons.Material.Outlined.Key">
             <ApiKeysTab />
-        </MudTabPanel>
-        <MudTabPanel Text="Access Rules" Icon="@Icons.Material.Outlined.Policy">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+        </AppTabPanel>
+        <AppTabPanel Text="Access Rules" Icon="@Icons.Material.Outlined.Policy">
+            <AppCard>
+                <AppAlert Tone="AppUiTone.Warning" Class="mb-4">
                     Not connected. Local network, remote access, and rate-limit controls are read-only here until the Engine exposes persisted access-rule settings.
-                </MudAlert>
-                <MudTextField @bind-Value="_allowedNetworks" Label="Allowed local networks" Variant="Variant.Outlined" FullWidth="true" ReadOnly="true" Disabled="true" />
-                <MudSwitch T="bool" @bind-Value="_remoteAccessEnabled" Color="Color.Primary" Label="Remote access enabled" Disabled="true" />
-                <MudNumericField T="int" @bind-Value="_rateLimitPerMinute" Label="Rate limit per minute" Variant="Variant.Outlined" Min="10" Max="1000" Disabled="true" />
-                <MudNumericField T="int" @bind-Value="_streamingLimit" Label="Streaming limits" Variant="Variant.Outlined" Min="1" Max="20" Disabled="true" />
-                <MudSwitch T="bool" @bind-Value="_adminOnlyActions" Color="Color.Primary" Label="Restrict sensitive actions to admins" Disabled="true" />
-            </MudPaper>
-        </MudTabPanel>
-        <MudTabPanel Text="Sessions" Icon="@Icons.Material.Outlined.Devices">
-            <MudPaper Elevation="0" Class="tl-card pa-4">
-                <MudTable Items="_sessions" Dense="true" Hover="true">
-                    <HeaderContent><MudTh>Profile</MudTh><MudTh>Device</MudTh><MudTh>Last active</MudTh><MudTh></MudTh></HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Profile">@context.Profile</MudTd>
-                        <MudTd DataLabel="Device">@context.Device</MudTd>
-                        <MudTd DataLabel="Last active">@context.LastActive</MudTd>
-                        <MudTd><MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Disabled="true">Revoke</MudButton></MudTd>
-                    </RowTemplate>
-                </MudTable>
-                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4">
+                </AppAlert>
+                <AppForm>
+                    <AppTextField @bind-Value="_allowedNetworks" Label="Allowed local networks" ReadOnly="true" Disabled="true" />
+                    <AppSwitchRow @bind-Value="_remoteAccessEnabled" Label="Remote access enabled" Disabled="true" />
+                    <AppNumericField @bind-Value="_rateLimitPerMinute" Label="Rate limit per minute" Min="10" Max="1000" Disabled="true" />
+                    <AppNumericField @bind-Value="_streamingLimit" Label="Streaming limits" Min="1" Max="20" Disabled="true" />
+                    <AppSwitchRow @bind-Value="_adminOnlyActions" Label="Restrict sensitive actions to admins" Disabled="true" />
+                </AppForm>
+            </AppCard>
+        </AppTabPanel>
+        <AppTabPanel Text="Sessions" Icon="@Icons.Material.Outlined.Devices">
+            <AppCard>
+                <AppTable>
+                    <thead>
+                        <tr>
+                            <th>Profile</th>
+                            <th>Device</th>
+                            <th>Last active</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var session in _sessions)
+                        {
+                            <tr>
+                                <td>@session.Profile</td>
+                                <td>@session.Device</td>
+                                <td>@session.LastActive</td>
+                                <td>
+                                    <AppButton Label="Revoke"
+                                               Size="AppControlSize.Compact"
+                                               Tone="AppUiTone.Warning"
+                                               Disabled="true" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </AppTable>
+                <AppAlert Tone="AppUiTone.Info" Class="mt-4">
                     Planned. Session listing and revocation are not persisted by the Engine yet.
-                </MudAlert>
-            </MudPaper>
-        </MudTabPanel>
-    </MudTabs>
+                </AppAlert>
+            </AppCard>
+        </AppTabPanel>
+    </AppTabs>
 </div>
 
 @code {

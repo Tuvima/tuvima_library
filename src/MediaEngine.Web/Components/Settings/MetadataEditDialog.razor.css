@@ -1,0 +1,42 @@
+.metadata-edit-dialog__fields {
+    display: grid;
+    gap: 10px;
+}
+
+.metadata-edit-dialog__divider {
+    height: 1px;
+    margin: 16px 0;
+    background: var(--tl-border-subtle);
+}
+
+.metadata-edit-dialog__cover {
+    display: grid;
+    gap: 10px;
+}
+
+.metadata-edit-dialog__cover h3 {
+    margin: 0;
+    color: var(--tl-text-primary);
+    font-size: 0.92rem;
+    font-weight: 760;
+}
+
+.metadata-edit-dialog__cover-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.metadata-edit-dialog__cover-preview {
+    width: 60px;
+    height: 90px;
+    overflow: hidden;
+    border: 1px solid var(--tl-border-default);
+    border-radius: 4px;
+}
+
+.metadata-edit-dialog__cover-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}

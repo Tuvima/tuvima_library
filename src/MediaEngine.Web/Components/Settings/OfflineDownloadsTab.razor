@@ -5,85 +5,76 @@
 @inject ISnackbar Snackbar
 
 <div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.DownloadForOffline" Class="mr-2" />
-        <MudText Typo="Typo.h6">Offline Downloads</MudText>
-    </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Prepared variants for phones, tablets, and travel playback.
-    </MudText>
+    <AppPageHeader Title="Offline Downloads"
+                   Subtitle="Prepared variants for phones, tablets, and travel playback." />
 
-    <MudStack Row="true" Spacing="2" Class="mb-4">
-        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="@LoadJobsAsync">Refresh</MudButton>
-        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.DeleteSweep" OnClick="@CleanupAsync">Run cleanup</MudButton>
-    </MudStack>
+    <AppActionBar Class="mb-4">
+        <AppButton Label="Refresh" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="@LoadJobsAsync" />
+        <AppButton Label="Run cleanup" StartIcon="@Icons.Material.Outlined.DeleteSweep" OnClick="@CleanupAsync" />
+    </AppActionBar>
 
-    <MudPaper Elevation="0" Class="tl-card">
-        <MudText Typo="Typo.overline" Color="Color.Secondary">Encode Queue</MudText>
+    <AppCard Title="Encode Queue">
         @if (_loading)
         {
-            <MudProgressLinear Indeterminate="true" Class="mt-3" />
+            <AppProgressBar Indeterminate="true" />
         }
         else if (_jobs.Count == 0)
         {
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3">No encode jobs have been queued yet.</MudText>
+            <AppEmptyState Title="No encode jobs have been queued yet." />
         }
         else
         {
-            <MudTable Items="_jobs" Dense="true" Hover="true" Class="mt-3">
-                <HeaderContent>
-                    <MudTh>Asset</MudTh>
-                    <MudTh>Profile</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Progress</MudTh>
-                    <MudTh>Scheduled</MudTh>
-                    <MudTh></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>@context.AssetId</MudTd>
-                    <MudTd>@context.ProfileKey</MudTd>
-                    <MudTd>
-                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)" Variant="Variant.Outlined">@context.Status</MudChip>
-                    </MudTd>
-                    <MudTd>@context.ProgressPct.ToString("0.#")%</MudTd>
-                    <MudTd>@(context.ScheduledFor?.LocalDateTime.ToString("g") ?? "Immediate")</MudTd>
-                    <MudTd>
-                        <MudButton Size="Size.Small"
-                                   Variant="Variant.Text"
-                                   Color="Color.Warning"
-                                   Disabled="@IsTerminal(context.Status)"
-                                   OnClick="@(() => CancelAsync(context.Id))">
-                            Cancel
-                        </MudButton>
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
+            <AppTable Class="offline-downloads-table">
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th>Profile</th>
+                        <th>Status</th>
+                        <th>Progress</th>
+                        <th>Scheduled</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var job in _jobs)
+                    {
+                        <tr>
+                            <td>@job.AssetId</td>
+                            <td>@job.ProfileKey</td>
+                            <td><AppChip Text="@job.Status" Tone="@StatusTone(job.Status)" /></td>
+                            <td>@job.ProgressPct.ToString("0.#")%</td>
+                            <td>@(job.ScheduledFor?.LocalDateTime.ToString("g") ?? "Immediate")</td>
+                            <td>
+                                <AppButton Label="Cancel"
+                                           ButtonStyle="AppButtonStyle.Text"
+                                           Tone="AppUiTone.Warning"
+                                           Size="AppControlSize.Compact"
+                                           Disabled="@IsTerminal(job.Status)"
+                                           OnClick="@(() => CancelAsync(job.Id))" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </AppTable>
         }
-    </MudPaper>
+    </AppCard>
 
-    <MudPaper Elevation="0" Class="tl-card mt-4">
-        <MudText Typo="Typo.overline" Color="Color.Secondary">Prepared Variant Actions</MudText>
-        <MudGrid Class="mt-2">
-            <MudItem xs="12" md="4">
-                <div class="offline-action-block">
-                    <MudText Typo="Typo.subtitle2">Queue</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Prepare mobile versions from item detail pages or future watchlist rules.</MudText>
-                </div>
-            </MudItem>
-            <MudItem xs="12" md="4">
-                <div class="offline-action-block">
-                    <MudText Typo="Typo.subtitle2">Retry and delete</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Failed jobs and old variants are managed without touching original library files.</MudText>
-                </div>
-            </MudItem>
-            <MudItem xs="12" md="4">
-                <div class="offline-action-block">
-                    <MudText Typo="Typo.subtitle2">Download</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ready variants use range-capable Engine download URLs for clients.</MudText>
-                </div>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+    <AppCard Title="Prepared Variant Actions" Class="mt-4">
+        <div class="offline-actions-grid">
+            <div class="offline-action-block">
+                <strong>Queue</strong>
+                <span>Prepare mobile versions from item detail pages or future watchlist rules.</span>
+            </div>
+            <div class="offline-action-block">
+                <strong>Retry and delete</strong>
+                <span>Failed jobs and old variants are managed without touching original library files.</span>
+            </div>
+            <div class="offline-action-block">
+                <strong>Download</strong>
+                <span>Ready variants use range-capable Engine download URLs for clients.</span>
+            </div>
+        </div>
+    </AppCard>
 </div>
 
 @code {
@@ -117,19 +108,12 @@
         || status.Equals(EncodeJobStatuses.Failed, StringComparison.OrdinalIgnoreCase)
         || status.Equals(EncodeJobStatuses.Cancelled, StringComparison.OrdinalIgnoreCase);
 
-    private static Color StatusColor(string status) => status.ToLowerInvariant() switch
+    private static AppUiTone StatusTone(string status) => status.ToLowerInvariant() switch
     {
-        EncodeJobStatuses.Complete => Color.Success,
-        EncodeJobStatuses.Failed => Color.Error,
-        EncodeJobStatuses.Cancelled => Color.Default,
-        EncodeJobStatuses.Running => Color.Info,
-        _ => Color.Warning,
+        EncodeJobStatuses.Complete => AppUiTone.Success,
+        EncodeJobStatuses.Failed => AppUiTone.Error,
+        EncodeJobStatuses.Cancelled => AppUiTone.Neutral,
+        EncodeJobStatuses.Running => AppUiTone.Info,
+        _ => AppUiTone.Warning,
     };
 }
-
-<style>
-    .offline-action-block {
-        min-height: 100%;
-        padding: 12px 0;
-    }
-</style>

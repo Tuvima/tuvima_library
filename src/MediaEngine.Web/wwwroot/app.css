@@ -1160,29 +1160,6 @@ body {
     border-color: rgba(139, 92, 246, 0.42) !important;
 }
 
-.settings-select-menu.mud-popover,
-.settings-select-menu.mud-popover .mud-paper,
-.settings-select-menu .mud-paper,
-.settings-select-menu .mud-list,
-.mud-popover.settings-select-menu,
-.mud-popover.settings-select-menu .mud-paper,
-.mud-popover.settings-select-menu .mud-list {
-    border: 0 !important;
-    outline: 0 !important;
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32) !important;
-}
-
-.settings-select-menu .mud-list {
-    padding: 4px !important;
-}
-
-.settings-select-menu .mud-list-item {
-    min-height: 34px !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    border-radius: var(--app-radius-sm) !important;
-}
-
 .settings-admin-panel .settings-slider-block {
     display: block;
     padding: 2px 0 4px;
@@ -3686,52 +3663,6 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     min-width: 156px !important;
 }
 
-.mud-popover.settings-select-menu,
-.mud-popover.settings-select-menu .mud-paper,
-.mud-popover.settings-select-menu .mud-list,
-.settings-select-menu.mud-popover,
-.settings-select-menu.mud-popover .mud-paper,
-.settings-select-menu .mud-paper,
-.settings-select-menu .mud-list {
-    border: 0 !important;
-    outline: 0 !important;
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32) !important;
-}
-
-.mud-popover.settings-select-menu,
-.settings-select-menu.mud-popover {
-    padding: 0 !important;
-}
-
-.mud-popover.settings-select-menu .mud-paper,
-.settings-select-menu.mud-popover .mud-paper,
-.settings-select-menu .mud-paper {
-    background: var(--app-surface-2) !important;
-    border-radius: var(--app-radius-md) !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-}
-
-.settings-select-menu .mud-list {
-    padding: 4px !important;
-}
-
-.settings-select-menu .mud-list-item {
-    min-height: 32px !important;
-    height: 32px !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    border-radius: var(--app-radius-sm) !important;
-}
-
-.settings-select-menu .mud-list-item .mud-list-item-text,
-.settings-select-menu .mud-list-item .mud-typography,
-.settings-select-menu .mud-list-item .mud-list-item-text p {
-    margin: 0 !important;
-    font-size: 0.88rem !important;
-    line-height: 32px !important;
-}
-
 .app-media-type-select {
     width: 168px !important;
     min-width: 168px !important;
@@ -3936,16 +3867,24 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 .app-select__popover.mud-popover,
-.app-overflow-menu__popover.mud-popover,
-.app-select__popover .mud-paper,
-.app-overflow-menu__popover .mud-paper,
-.app-select__popover .mud-list,
-.app-overflow-menu__popover .mud-list {
+.app-overflow-menu__popover.mud-popover {
     color: var(--tl-text-primary) !important;
     background: var(--tl-bg-surface-elevated) !important;
     border: 1px solid var(--tl-border-default) !important;
     border-radius: var(--tl-radius-lg) !important;
     box-shadow: var(--tl-shadow-lg) !important;
+    overflow: hidden !important;
+}
+
+.app-select__popover .mud-paper,
+.app-overflow-menu__popover .mud-paper,
+.app-select__popover .mud-list,
+.app-overflow-menu__popover .mud-list {
+    color: inherit !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
 }
 
 .app-select__popover .mud-list,
@@ -3957,6 +3896,21 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .app-overflow-menu__popover .mud-list-item {
     min-height: 34px !important;
     border-radius: var(--tl-radius-md) !important;
+    color: var(--tl-text-secondary) !important;
+}
+
+.app-select__popover .mud-list-item:hover,
+.app-select__popover .mud-list-item:focus-visible,
+.app-overflow-menu__popover .mud-list-item:hover,
+.app-overflow-menu__popover .mud-list-item:focus-visible {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-raised) !important;
+}
+
+.app-select__popover .mud-selected-item,
+.app-overflow-menu__popover .mud-selected-item {
+    color: var(--tl-accent-primary) !important;
+    background: var(--tl-accent-primary-soft) !important;
 }
 
 .app-select__option-icon {

@@ -1,0 +1,31 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudDialog Class="@Class">
+    <DialogContent>
+        <AppDialogShell Title="@Title"
+                        Subtitle="@Subtitle"
+                        Eyebrow="@Eyebrow"
+                        Icon="@Icon"
+                        Size="@Size"
+                        OnClose="@OnClose">
+            <ChildContent>
+                @ChildContent
+            </ChildContent>
+            <FooterContent>
+                @FooterContent
+            </FooterContent>
+        </AppDialogShell>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Size { get; set; } = "Large";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+}

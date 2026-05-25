@@ -264,8 +264,8 @@ public sealed class UiShellRenderTests : TestContext
 
         Assert.Contains("Not connected. Direct Play settings are planned", source);
         Assert.Contains("Not connected. Subtitle and audio delivery settings are planned", source);
-        Assert.Contains("Label=\"Allow direct play\" Disabled=\"true\"", source);
-        Assert.Contains("Label=\"Subtitle extraction\" Disabled=\"true\"", source);
+        Assert.Matches(@"<AppSwitchRow[^>]*Label=""Allow direct play""[^>]*Disabled=""true""", source);
+        Assert.Matches(@"<AppSwitchRow[^>]*Label=""Subtitle extraction""[^>]*Disabled=""true""", source);
         Assert.DoesNotContain("TODO: Persist direct play settings", source);
         Assert.DoesNotContain("TODO: Persist subtitle and audio delivery settings", source);
     }

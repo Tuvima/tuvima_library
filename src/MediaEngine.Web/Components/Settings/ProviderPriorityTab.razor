@@ -302,33 +302,15 @@
                                            Size="AppControlSize.Compact"
                                            StartIcon="@Icons.Material.Filled.Save"
                                            OnClick="SaveDrawerAsync"
-                                           Disabled="@_drawerSaving">
-                                    @if (_drawerSaving)
-                                    {
-                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                                        @:Saving...
-                                    }
-                                    else
-                                    {
-                                        @:Save Provider
-                                    }
-                                </AppButton>
+                                           Disabled="@_drawerSaving"
+                                           Label="@(_drawerSaving ? "Saving..." : "Save Provider")" />
                                 <AppButton Tone="AppUiTone.Primary"
                                            ButtonStyle="AppButtonStyle.Filled"
                                            Size="AppControlSize.Compact"
                                            StartIcon="@Icons.Material.Outlined.Done"
                                            OnClick="@SaveAsync"
-                                           Disabled="@(_saving || _engineConfigurationUnavailable || !HasProviderChanges)">
-                                    @if (_saving)
-                                    {
-                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                                        @:Saving...
-                                    }
-                                    else
-                                    {
-                                        @:Save Changes
-                                    }
-                                </AppButton>
+                                           Disabled="@(_saving || _engineConfigurationUnavailable || !HasProviderChanges)"
+                                           Label="@(_saving ? "Saving..." : "Save Changes")" />
                             </AppActionBar>
 
                             @if (_lastProviderTests.TryGetValue(_drawerAssignment.Name, out var test))

@@ -50,7 +50,7 @@ public sealed class UiCompositionGuardrailTests
     ];
 
     private static readonly Regex RetiredCustomUiRegex =
-        new(@"<(?:AppTabs|AppPageHeader|AppSurfaceCard|AppIcon|TopBar|ProfileDropdown|LibraryToolbar)\b",
+        new(@"<(?:AppSurfaceCard|TopBar|ProfileDropdown|LibraryToolbar)\b",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex RawInteractiveHtmlRegex =

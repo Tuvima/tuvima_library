@@ -1,0 +1,18 @@
+.general-settings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-5);
+}
+
+.general-settings__avatar {
+    display: flex;
+    justify-content: center;
+}
+
+.general-settings__role {
+    display: flex;
+    align-items: center;
+    gap: var(--tl-space-2);
+    color: var(--tl-text-primary);
+    font-weight: 750;
+}

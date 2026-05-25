@@ -139,17 +139,8 @@
                        Size="AppControlSize.Compact"
                        StartIcon="@Icons.Material.Outlined.PlayArrow"
                        OnClick="@TriggerManualSweepAsync"
-                       Disabled="@(_triggering || !_stage3Enabled)">
-                @if (_triggering)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                    @:@L["Wikidata_Saving"]
-                }
-                else
-                {
-                    @:@L["Wikidata_Stage3TriggerNow"]
-                }
-            </AppButton>
+                       Disabled="@(_triggering || !_stage3Enabled)"
+                       Label="@(_triggering ? L["Wikidata_Saving"] : L["Wikidata_Stage3TriggerNow"])" />
         </div>
     </AppCard>
 
@@ -165,17 +156,8 @@
                    Size="AppControlSize.Compact"
                    StartIcon="@Icons.Material.Filled.Save"
                    OnClick="@SaveAsync"
-                   Disabled="@_saving">
-            @if (_saving)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                @:@L["Wikidata_Saving"]
-            }
-            else
-            {
-                @:@L["Wikidata_SaveConfiguration"]
-            }
-        </AppButton>
+                   Disabled="@_saving"
+                   Label="@(_saving ? L["Wikidata_Saving"] : L["Wikidata_SaveConfiguration"])" />
     </AppActionBar>
 </div>
 

@@ -1,104 +1,116 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Contracts.Settings
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
-<div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.VideoSettings" Class="mr-2" />
-        <MudText Typo="Typo.h6">Encode Settings</MudText>
-    </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        Server-side controls for scheduled encodes, HLS fallback packages, and mobile-ready variants.
-    </MudText>
+<div class="tl-page encode-settings">
+    <AppPageHeader Title="Encode Settings"
+                   Subtitle="Server-side controls for scheduled encodes, HLS fallback packages, and mobile-ready variants." />
 
-    <MudGrid Spacing="4">
-        <MudItem xs="12" lg="6">
-            <MudPaper Elevation="0" Class="tl-card">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Scheduling</MudText>
-                <MudSwitch T="bool" @bind-Value="_scheduledEncodesEnabled" Color="Color.Primary" Label="Enable scheduled encodes" Class="mt-2" />
-                <MudTextField @bind-Value="_maintenanceWindow" Label="Maintenance window" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
-                <MudNumericField T="int" @bind-Value="_maxConcurrentJobs" Label="Maximum active jobs" Min="1" Max="4" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
-                <MudSelect T="string" @bind-Value="_hardwarePreference" Label="Hardware preference" Variant="Variant.Outlined" FullWidth="true" Class="mt-3">
-                    <MudSelectItem T="string" Value="@("auto")">Auto</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("cpu")">CPU</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("gpu")">GPU when available</MudSelectItem>
-                </MudSelect>
-            </MudPaper>
-        </MudItem>
+    <div class="encode-settings__grid">
+        <AppCard Title="Scheduling">
+            <AppSwitchRow @bind-Value="_scheduledEncodesEnabled"
+                          Label="Enable scheduled encodes" />
+            <AppTextField @bind-Value="_maintenanceWindow"
+                          Label="Maintenance window" />
+            <AppNumericField @bind-Value="_maxConcurrentJobs"
+                             Label="Maximum active jobs"
+                             Min="1"
+                             Max="4" />
+            <AppSelect @bind-Value="_hardwarePreference"
+                       Label="Hardware preference"
+                       Options="@HardwareOptions" />
+        </AppCard>
 
-        <MudItem xs="12" lg="6">
-            <MudPaper Elevation="0" Class="tl-card">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Storage Policy</MudText>
-                <MudTextField @bind-Value="_variantRoot" Label="Variant cache location" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
-                <MudNumericField T="int" @bind-Value="_cacheSizeGb" Label="Cache size limit (GB)" Min="1" Max="5000" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
-                <MudNumericField T="int" @bind-Value="_retentionDays" Label="Retention days" Min="1" Max="3650" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
-                <MudSwitch T="bool" @bind-Value="_cleanupLru" Color="Color.Primary" Label="Use least-recently-used cleanup before deleting old variants" Class="mt-2" />
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
+        <AppCard Title="Storage Policy">
+            <AppTextField @bind-Value="_variantRoot"
+                          Label="Variant cache location" />
+            <AppNumericField @bind-Value="_cacheSizeGb"
+                             Label="Cache size limit (GB)"
+                             Min="1"
+                             Max="5000" />
+            <AppNumericField @bind-Value="_retentionDays"
+                             Label="Retention days"
+                             Min="1"
+                             Max="3650" />
+            <AppSwitchRow @bind-Value="_cleanupLru"
+                          Label="Use least-recently-used cleanup before deleting old variants" />
+        </AppCard>
+    </div>
 
-    <MudPaper Elevation="0" Class="tl-card mt-4">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
-            <MudText Typo="Typo.overline" Color="Color.Secondary">Profiles</MudText>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="@AddProfile">Add profile</MudButton>
-        </MudStack>
+    <AppCard Title="Profiles"
+             Class="encode-settings__profiles">
+        <Actions>
+            <AppButton Label="Add profile"
+                       StartIcon="@Icons.Material.Outlined.Add"
+                       Tone="AppUiTone.Primary"
+                       OnClick="@AddProfile" />
+        </Actions>
+        <ChildContent>
+            <AppTable>
+                <thead>
+                    <tr>
+                        <th>Profile</th>
+                        <th>Target</th>
+                        <th>Codec</th>
+                        <th>Container</th>
+                        <th>Size guidance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var profile in _settings.QualityProfiles)
+                    {
+                        <tr>
+                            <td>@profile.Name</td>
+                            <td>@profile.Resolution</td>
+                            <td>@profile.Codec / @profile.AudioCodec</td>
+                            <td>@profile.Container</td>
+                            <td>@profile.SizeGuidance</td>
+                        </tr>
+                    }
+                </tbody>
+            </AppTable>
+        </ChildContent>
+    </AppCard>
 
-        <MudTable Items="_settings.QualityProfiles" Dense="true" Hover="true">
-            <HeaderContent>
-                <MudTh>Profile</MudTh>
-                <MudTh>Target</MudTh>
-                <MudTh>Codec</MudTh>
-                <MudTh>Container</MudTh>
-                <MudTh>Size guidance</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd>@context.Name</MudTd>
-                <MudTd>@context.Resolution</MudTd>
-                <MudTd>@context.Codec / @context.AudioCodec</MudTd>
-                <MudTd>@context.Container</MudTd>
-                <MudTd>@context.SizeGuidance</MudTd>
-            </RowTemplate>
-        </MudTable>
-    </MudPaper>
-
-    <MudPaper Elevation="0" Class="tl-card mt-4">
-        <MudText Typo="Typo.overline" Color="Color.Secondary">Diagnostics</MudText>
+    <AppCard Title="Diagnostics">
         @if (_diagnostics is null)
         {
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">Diagnostics unavailable.</MudText>
+            <AppAlert Tone="AppUiTone.Info">Diagnostics unavailable.</AppAlert>
         }
         else
         {
-            <MudGrid Class="mt-2">
-                <MudItem xs="12" md="4">
-                    <MudText Typo="Typo.subtitle2">FFmpeg</MudText>
-                    <MudText Typo="Typo.body2" Color="@(_diagnostics.FFmpegAvailable ? Color.Success : Color.Warning)">
-                        @(_diagnostics.FFmpegAvailable ? "Available" : "Unavailable")
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" md="4">
-                    <MudText Typo="Typo.subtitle2">MediaInfo</MudText>
-                    <MudText Typo="Typo.body2" Color="@(_diagnostics.MediaInfoAvailable ? Color.Success : Color.Warning)">
-                        @(_diagnostics.MediaInfoAvailable ? "Available" : "Unavailable")
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" md="4">
-                    <MudText Typo="Typo.subtitle2">Active jobs</MudText>
-                    <MudText Typo="Typo.body2">@_diagnostics.ActiveJobs.Count</MudText>
-                </MudItem>
-            </MudGrid>
+            <div class="encode-settings__diagnostics">
+                <AppMetricCard Label="FFmpeg"
+                               Value="@(_diagnostics.FFmpegAvailable ? "Available" : "Unavailable")"
+                               Tone="@(_diagnostics.FFmpegAvailable ? AppStatusTone.Success : AppStatusTone.Warning)" />
+                <AppMetricCard Label="MediaInfo"
+                               Value="@(_diagnostics.MediaInfoAvailable ? "Available" : "Unavailable")"
+                               Tone="@(_diagnostics.MediaInfoAvailable ? AppStatusTone.Success : AppStatusTone.Warning)" />
+                <AppMetricCard Label="Active jobs"
+                               Value="@_diagnostics.ActiveJobs.Count.ToString()" />
+            </div>
         }
-    </MudPaper>
+    </AppCard>
 
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6" OnClick="@SaveAsync" Disabled="@_saving">
-        @(_saving ? "Saving..." : "Save Encode Settings")
-    </MudButton>
+    <AppButton Label="@(_saving ? "Saving..." : "Save Encode Settings")"
+               ButtonStyle="AppButtonStyle.Filled"
+               Tone="AppUiTone.Primary"
+               FullWidth="true"
+               Disabled="@_saving"
+               OnClick="@SaveAsync" />
 </div>
 
 @code {
+    private static readonly IReadOnlyList<AppSelectOption> HardwareOptions =
+    [
+        new("auto", "Auto"),
+        new("cpu", "CPU"),
+        new("gpu", "GPU when available"),
+    ];
+
     private TranscodingSettings _settings = new();
     private bool _saving;
     private bool _scheduledEncodesEnabled = true;

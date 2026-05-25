@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject IConfiguration Configuration
@@ -6,80 +6,71 @@
 <div class="tl-page settings-system-page">
     @if (_loading)
     {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+        <AppProgressBar Indeterminate="true" />
     }
     else
     {
         <div class="settings-system-grid">
             <div class="settings-system-cell">
-                <MudPaper Elevation="0" Class="settings-system-card tl-card-hover--quiet">
+                <AppCard Class="settings-system-card tl-card-hover--quiet">
                     <div class="settings-system-card-header">
-                        <MudText Typo="Typo.overline" Class="settings-system-eyebrow">Health</MudText>
-                        <MudText Typo="Typo.h6">Runtime status</MudText>
-                        <MudText Typo="Typo.body2" Class="settings-system-description">
+                        <div class="settings-system-eyebrow">Health</div>
+                        <h2 class="settings-system-title">Runtime status</h2>
+                        <p class="settings-system-description">
                             Current server reachability and the version reported by the engine.
-                        </MudText>
+                        </p>
                     </div>
 
                     <div class="settings-system-metric-row">
-                        <div class="settings-system-metric">
-                            <span class="settings-system-metric-label">Engine</span>
-                            <span class="settings-system-metric-value @(_status?.IsHealthy == true ? "settings-system-metric-value--healthy" : "settings-system-metric-value--warning")">
-                                @(_status?.IsHealthy == true ? "Online" : "Unavailable")
-                            </span>
-                        </div>
-                        <div class="settings-system-metric">
-                            <span class="settings-system-metric-label">Version</span>
-                            <span class="settings-system-metric-value">@(_status?.Version ?? "Unknown")</span>
-                        </div>
-                        <div class="settings-system-metric">
-                            <span class="settings-system-metric-label">Language</span>
-                            <span class="settings-system-metric-value">@(_serverGeneral?.DisplayLanguage ?? _status?.Language ?? "en")</span>
-                        </div>
+                        <AppMetricCard Label="Engine"
+                                       Value="@(_status?.IsHealthy == true ? "Online" : "Unavailable")"
+                                       Tone="@(_status?.IsHealthy == true ? AppStatusTone.Success : AppStatusTone.Warning)" />
+                        <AppMetricCard Label="Version"
+                                       Value="@(_status?.Version ?? "Unknown")" />
+                        <AppMetricCard Label="Language"
+                                       Value="@(_serverGeneral?.DisplayLanguage ?? _status?.Language ?? "en")" />
                     </div>
-                </MudPaper>
+                </AppCard>
             </div>
 
             <div class="settings-system-cell">
-                <MudPaper Elevation="0" Class="settings-system-card tl-card-hover--quiet">
+                <AppCard Class="settings-system-card tl-card-hover--quiet">
                     <div class="settings-system-card-header">
-                        <MudText Typo="Typo.overline" Class="settings-system-eyebrow">Connectivity</MudText>
-                        <MudText Typo="Typo.h6">Dashboard target</MudText>
-                        <MudText Typo="Typo.body2" Class="settings-system-description">
+                        <div class="settings-system-eyebrow">Connectivity</div>
+                        <h2 class="settings-system-title">Dashboard target</h2>
+                        <p class="settings-system-description">
                             The dashboard checks this engine endpoint for availability before system actions run.
-                        </MudText>
+                        </p>
                     </div>
 
                     <code class="settings-system-endpoint">@_engineBaseUrl</code>
 
                     @if (_status?.IsHealthy != true)
                     {
-                        <MudAlert Dense="true"
-                                  Severity="Severity.Warning"
-                                  Variant="Variant.Outlined"
+                        <AppAlert Tone="AppUiTone.Warning"
                                   Icon="@Icons.Material.Outlined.WarningAmber"
                                   Class="settings-system-warning">
                             The engine did not respond to the latest health probe. Save and maintenance actions may fail until it is reachable again.
-                        </MudAlert>
+                        </AppAlert>
                     }
-                </MudPaper>
+                </AppCard>
             </div>
         </div>
     }
 
-    <MudPaper Elevation="0" Class="settings-system-shell">
+    <AppCard Class="settings-system-shell">
         <div class="settings-system-card-header">
-            <MudText Typo="Typo.overline" Class="settings-system-eyebrow">Configuration</MudText>
-            <MudText Typo="Typo.h6">Server identity and regional defaults</MudText>
-            <MudText Typo="Typo.body2" Class="settings-system-description">
+            <div class="settings-system-eyebrow">Configuration</div>
+            <h2 class="settings-system-title">Server identity and regional defaults</h2>
+            <p class="settings-system-description">
                 Regional behavior, language preferences, and default date or time formatting for the engine.
-            </MudText>
+            </p>
         </div>
 
         <div class="settings-system-shell-body">
             <ServerGeneralTab />
         </div>
-    </MudPaper>
+    </AppCard>
 </div>
 
 @code {

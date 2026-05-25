@@ -2,36 +2,41 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-        <MudText Typo="Typo.h6">Schedule</MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(_config is null || _saving)">Save schedules</MudButton>
-    </MudStack>
+    <AppPageHeader Title="Schedule">
+        <Actions>
+            <AppButton Label="Save schedules"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       OnClick="SaveAsync"
+                       Disabled="@(_config is null || _saving)" />
+        </Actions>
+    </AppPageHeader>
 
-    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
+    <AppAlert Tone="AppUiTone.Info" Class="mb-3">
         These values are persisted in AI config. Last-run and next-run times are not shown because the Engine does not provide job-run metadata here. Schedule changes can require Engine restart or scheduler reload.
-    </MudAlert>
+    </AppAlert>
 
     @if (_progress is not null)
     {
-        <MudPaper Elevation="0" Class="tl-card pa-4 mb-3">
-            <MudText Typo="Typo.subtitle2">Enrichment progress</MudText>
-            <MudText Typo="Typo.body2">@_progress.PendingCount pending, @_progress.CompletedCount completed, @_progress.Total total.</MudText>
-            <MudProgressLinear Value="@ProgressPercent" Color="Color.Primary" Rounded="false" Class="mt-2" />
-        </MudPaper>
+        <AppCard Title="Enrichment progress"
+                 Description="@($"{_progress.PendingCount} pending, {_progress.CompletedCount} completed, {_progress.Total} total.")"
+                 Class="mb-3">
+            <AppProgressBar Value="@ProgressPercent" ShowValue="true" />
+        </AppCard>
     }
 
     @if (!string.IsNullOrWhiteSpace(_message))
     {
-        <MudAlert Severity="@_messageSeverity" Variant="Variant.Outlined" Class="mb-3">@_message</MudAlert>
+        <AppAlert Tone="@MessageTone" Class="mb-3">@_message</AppAlert>
     }
 
     @if (_config is null)
     {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">AI config unavailable. Schedule settings cannot be edited.</MudAlert>
+        <AppAlert Tone="AppUiTone.Warning">AI config unavailable. Schedule settings cannot be edited.</AppAlert>
     }
     else
     {
-        <MudSimpleTable Dense="true" Hover="true">
+        <AppTable Class="ai-schedule-table">
             <thead>
                 <tr>
                     <th>Job</th>
@@ -45,25 +50,30 @@
                 {
                     <tr>
                         <td>
-                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@job.Name</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@job.Description</MudText>
+                            <strong class="ai-schedule-table__name">@job.Name</strong>
+                            <span class="ai-schedule-table__description">@job.Description</span>
                         </td>
-                        <td><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@job.Key</MudChip></td>
+                        <td><AppChip Text="@job.Key" /></td>
                         <td>
                             @if (job.IsNumber)
                             {
-                                <MudNumericField T="int" Value="@GetScheduleInt(job.Key)" ValueChanged="@((int value) => SetSchedule(job.Key, value))" Min="1" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <AppNumericField Value="@GetScheduleInt(job.Key)"
+                                                 ValueChanged="@((int value) => SetSchedule(job.Key, value))"
+                                                 Min="1"
+                                                 Size="AppControlSize.Compact" />
                             }
                             else
                             {
-                                <MudTextField Value="@GetScheduleString(job.Key)" ValueChanged="@((string value) => SetSchedule(job.Key, value))" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <AppTextField Value="@GetScheduleString(job.Key)"
+                                              ValueChanged="@((string? value) => SetSchedule(job.Key, value ?? string.Empty))"
+                                              Size="AppControlSize.Compact" />
                             }
                         </td>
-                        <td><MudText Typo="Typo.caption">@ValidationLabel(job)</MudText></td>
+                        <td><span class="ai-schedule-table__description">@ValidationLabel(job)</span></td>
                     </tr>
                 }
             </tbody>
-        </MudSimpleTable>
+        </AppTable>
     }
 </div>
 
@@ -73,6 +83,7 @@
     private bool _saving;
     private string? _message;
     private Severity _messageSeverity = Severity.Info;
+    private AppUiTone MessageTone => ToTone(_messageSeverity);
 
     private double ProgressPercent => _progress is { Total: > 0 } ? (double)_progress.CompletedCount / _progress.Total * 100 : 0;
 
@@ -149,6 +160,14 @@
         _message = message;
         _messageSeverity = severity;
     }
+
+    private static AppUiTone ToTone(Severity severity) => severity switch
+    {
+        Severity.Success => AppUiTone.Success,
+        Severity.Warning => AppUiTone.Warning,
+        Severity.Error => AppUiTone.Error,
+        _ => AppUiTone.Info,
+    };
 
     private sealed record ScheduleJob(string Key, string Name, string Description, bool IsNumber = false);
 

@@ -4,7 +4,8 @@
       title="@Title"
       role="@Role"
       tabindex="@TabIndex"
-      @onclick="HandleClick">
+      @onclick="HandleClick"
+      @onkeydown="HandleKeyDown">
     @if (!string.IsNullOrWhiteSpace(Icon))
     {
         <MudIcon Icon="@Icon" Size="MudBlazor.Size.Small" />
@@ -46,4 +47,14 @@
 
     private Task HandleClick(MouseEventArgs _) =>
         Disabled ? Task.CompletedTask : OnClick.InvokeAsync();
+
+    private Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (Disabled || !OnClick.HasDelegate || (args.Key is not "Enter" and not " "))
+        {
+            return Task.CompletedTask;
+        }
+
+        return OnClick.InvokeAsync();
+    }
 }

@@ -1,78 +1,85 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-<MudDialog @bind-Visible="Visible" Options="_dialogOptions">
-    <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
-            Edit Metadata
-        </MudText>
-    </TitleContent>
-    <DialogContent>
-        @if (!string.IsNullOrWhiteSpace(_entityTitle))
-        {
-            <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-3">
-                @_entityTitle
-            </MudText>
-        }
 
-        @foreach (var field in _editableFields)
-        {
-            <MudTextField T="string" @bind-Value="field.Value"
-                          Label="@GetFieldDisplayName(field.Key)"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@GetFieldIcon(field.Key)"
-                          Lines="@(field.Key == "description" ? 3 : 1)" />
-        }
+<AppDialog Visible="@Visible"
+           VisibleChanged="@VisibleChanged"
+           Options="_dialogOptions"
+           Title="Edit Metadata"
+           Subtitle="@_entityTitle"
+           Icon="@Icons.Material.Filled.Edit">
+    <ChildContent>
+        <div class="metadata-edit-dialog__fields">
+            @foreach (var field in _editableFields)
+            {
+                @if (field.Key == "description")
+                {
+                    <AppTextarea Value="@field.Value"
+                                 ValueChanged="@((string? value) => field.Value = value)"
+                                 Label="@GetFieldDisplayName(field.Key)"
+                                 Lines="3" />
+                }
+                else
+                {
+                    <AppTextField Value="@field.Value"
+                                  ValueChanged="@((string? value) => field.Value = value)"
+                                  Label="@GetFieldDisplayName(field.Key)"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@GetFieldIcon(field.Key)" />
+                }
+            }
+        </div>
 
         @if (_editableFields.Count == 0)
         {
-            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                No editable fields available for this entity.
-            </MudAlert>
+            <AppAlert Tone="AppUiTone.Info">No editable fields available for this entity.</AppAlert>
         }
-<MudDivider Class="my-3" />
-        <MudText Typo="Typo.subtitle2" Class="mb-2">Cover Art</MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-            @if (_coverPreviewUrl is not null)
-            {
-                <div style="width: 60px; height: 90px; border-radius: 4px; overflow: hidden;
-                            border: 1px solid var(--mud-palette-lines-default);">
-                    <img src="@_coverPreviewUrl" alt="Cover preview"
-                         style="width: 100%; height: 100%; object-fit: cover;" />
-                </div>
-            }
-            <MudFileUpload T="IBrowserFile" Accept=".jpg,.jpeg,.png"
-                           FilesChanged="@OnCoverFileSelected"
-                           MaximumFileCount="1">
-                <CustomContent>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.CloudUpload"
-                               Size="Size.Small"
-                               OnClick="@context.OpenFilePickerAsync">
-                        @(_coverFile is null ? "Choose Image" : _coverFile.Name)
-                    </MudButton>
-                </CustomContent>
-            </MudFileUpload>
-            @if (_coverFile is not null)
-            {
-                <MudIconButton Icon="@Icons.Material.Filled.Clear"
-                               Size="Size.Small" Color="Color.Default"
-                               OnClick="@ClearCoverFile" />
-            }
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="Cancel" Color="Color.Default">Cancel</MudButton>
-        <MudButton OnClick="SaveAsync" Color="Color.Primary" Variant="Variant.Filled"
-                   Disabled="@(_saving || !(HasChanges || _coverFile is not null))">
-            @(_saving ? "Saving..." : "Save")
-        </MudButton>
-    </DialogActions>
-</MudDialog>
+
+        <div class="metadata-edit-dialog__divider"></div>
+
+        <section class="metadata-edit-dialog__cover">
+            <h3>Cover Art</h3>
+            <div class="metadata-edit-dialog__cover-row">
+                @if (_coverPreviewUrl is not null)
+                {
+                    <div class="metadata-edit-dialog__cover-preview">
+                        <img src="@_coverPreviewUrl" alt="Cover preview" />
+                    </div>
+                }
+                <MudFileUpload T="IBrowserFile" Accept=".jpg,.jpeg,.png"
+                               FilesChanged="@OnCoverFileSelected"
+                               MaximumFileCount="1">
+                    <CustomContent>
+                        <AppButton Label="@(_coverFile is null ? "Choose Image" : _coverFile.Name)"
+                                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                                   Size="AppControlSize.Compact"
+                                   OnClick="@(() => context.OpenFilePickerAsync())" />
+                    </CustomContent>
+                </MudFileUpload>
+                @if (_coverFile is not null)
+                {
+                    <AppIconButton Icon="@Icons.Material.Filled.Clear"
+                                   AriaLabel="Clear selected cover"
+                                   Tooltip="Clear selected cover"
+                                   Size="AppControlSize.Compact"
+                                   OnClick="@ClearCoverFile" />
+                }
+            </div>
+        </section>
+    </ChildContent>
+    <FooterContent>
+        <AppActionBar Align="AppHorizontalAlignment.End">
+            <AppButton Label="Cancel" OnClick="Cancel" />
+            <AppButton Label="@(_saving ? "Saving..." : "Save")"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       OnClick="SaveAsync"
+                       Disabled="@(_saving || !(HasChanges || _coverFile is not null))" />
+        </AppActionBar>
+    </FooterContent>
+</AppDialog>
 
 @code {
     [Parameter] public bool Visible { get; set; }

@@ -1,129 +1,58 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
-<div class="tl-page">
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudIcon Icon="@Icons.Material.Outlined.SpaceDashboard" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["Status_StatusDashboard"]</MudText>
-    </MudStack>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-        @L["Status_StatusDashboardDescription"]
-    </MudText>
-<MudGrid Spacing="3" Class="mb-6">
-<MudItem xs="12" sm="6" md="3">
-            <div class="app-stat-card">
-                <MudStack Spacing="1">
-                    <MudIcon Icon="@Icons.Material.Outlined.RadioButtonChecked"
-                             Class="tl-stat-icon tl-stat-icon--success" />
-                    <MudText Typo="Typo.h5" Class="tl-stat-value">
-                        12d 4h 32m
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_ServerUptime"]</MudText>
-                </MudStack>
+
+<div class="tl-page status-dashboard">
+    <AppPageHeader Title="@L["Status_StatusDashboard"]"
+                   Subtitle="@L["Status_StatusDashboardDescription"]" />
+
+    <div class="status-dashboard__metrics">
+        <AppMetricCard Label="@L["Status_ServerUptime"]"
+                       Value="12d 4h 32m"
+                       Icon="@Icons.Material.Outlined.RadioButtonChecked"
+                       Tone="AppStatusTone.Success" />
+        <AppMetricCard Label="@L["Status_TotalAssets"]"
+                       Value="2,412"
+                       Icon="@Icons.Material.Outlined.Storage"
+                       Tone="AppStatusTone.Primary" />
+        <AppMetricCard Label="@L["Status_Database"]"
+                       Value="245 MB"
+                       Icon="@Icons.Material.Outlined.SdStorage"
+                       Tone="AppStatusTone.Warning" />
+        <AppCard Class="status-dashboard__cache-card">
+            <div class="status-dashboard__cache-copy">
+                <MudIcon Icon="@Icons.Material.Outlined.Layers" />
+                <div>
+                    <span>@L["Status_GlobalCache"]</span>
+                    <strong>1.2 TB</strong>
+                </div>
             </div>
-        </MudItem>
-<MudItem xs="12" sm="6" md="3">
-            <div class="app-stat-card">
-                <MudStack Spacing="1">
-                    <MudIcon Icon="@Icons.Material.Outlined.Storage"
-                             Class="tl-stat-icon tl-stat-icon--primary" />
-                    <MudText Typo="Typo.h5" Class="tl-stat-value">
-                        2,412
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_TotalAssets"]</MudText>
-                </MudStack>
+            <AppProgressBar Value="62" ShowValue="true" Class="status-dashboard__cache-progress" />
+            <span class="status-dashboard__cache-caption">@L["Status_CacheUsed"]</span>
+        </AppCard>
+    </div>
+
+    <AppCard Title="@L["Status_EngineInformation"]">
+        <div class="status-dashboard__info-grid">
+            <div class="status-dashboard__info-item">
+                <span>@L["Status_ServerName"]</span>
+                <strong>Tuvima Library</strong>
             </div>
-        </MudItem>
-<MudItem xs="12" sm="6" md="3">
-            <div class="app-stat-card">
-                <MudStack Spacing="1">
-                    <MudIcon Icon="@Icons.Material.Outlined.SdStorage"
-                             Class="tl-stat-icon tl-stat-icon--warning" />
-                    <MudText Typo="Typo.h5" Class="tl-stat-value">
-                        245 MB
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">@L["Status_Database"]</MudText>
-                </MudStack>
+            <div class="status-dashboard__info-item">
+                <span>@L["Status_EngineUrl"]</span>
+                <code class="tl-code">http://localhost:61495</code>
             </div>
-        </MudItem>
-<MudItem xs="12" sm="6" md="3">
-            <div class="app-stat-card">
-                <MudStack Spacing="1">
-                    <MudIcon Icon="@Icons.Material.Outlined.Layers"
-                             Class="tl-stat-icon tl-stat-icon--info" />
-                    <MudText Typo="Typo.h5" Class="tl-stat-value">
-                        1.2 TB
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                        @L["Status_GlobalCache"]
-                    </MudText>
-                    <MudProgressLinear Value="62"
-                                       Color="Color.Info"
-                         Rounded="false"
-                                       Size="Size.Small"
-                                       Class="tl-progress-muted" />
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Status_CacheUsed"]</MudText>
-                </MudStack>
+            <div class="status-dashboard__info-item">
+                <span>@L["Status_Version"]</span>
+                <strong>0.1.0-dev</strong>
             </div>
-        </MudItem>
-
-    </MudGrid>
-<MudPaper Elevation="0" Class="tl-card">
-
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-            <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.subtitle1" Class="tl-text-strong">@L["Status_EngineInformation"]</MudText>
-        </MudStack>
-
-        <MudGrid Spacing="2">
-            <MudItem xs="12" sm="6">
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-kicker">
-                        @L["Status_ServerName"]
-                    </MudText>
-                    <MudText Typo="Typo.body1">Tuvima Library</MudText>
-                </MudStack>
-            </MudItem>
-            <MudItem xs="12" sm="6">
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-kicker">
-                        @L["Status_EngineUrl"]
-                    </MudText>
-                    <code class="tl-code">
-                        http://localhost:61495
-                    </code>
-                </MudStack>
-            </MudItem>
-            <MudItem xs="12" sm="6">
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-kicker">
-                        @L["Status_Version"]
-                    </MudText>
-                    <MudText Typo="Typo.body1">0.1.0-dev</MudText>
-                </MudStack>
-            </MudItem>
-            <MudItem xs="12" sm="6">
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="tl-kicker">
-                        @L["Status_AiModels"]
-                    </MudText>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="tl-wrap">
-                        <MudChip T="string" Size="Size.Small" Color="Color.Success"
-                                 Class="tl-chip-compact">
-                            text_quality  -  Active
-                        </MudChip>
-                        <MudChip T="string" Size="Size.Small" Color="Color.Info"
-                                 Class="tl-chip-compact">
-                            text_fast  -  Loaded
-                        </MudChip>
-                        <MudChip T="string" Size="Size.Small" Color="Color.Default"
-                                 Class="tl-chip-compact tl-muted">
-                            audio  -  Not Downloaded
-                        </MudChip>
-                    </MudStack>
-                </MudStack>
-            </MudItem>
-        </MudGrid>
-
-    </MudPaper>
-
+            <div class="status-dashboard__info-item">
+                <span>@L["Status_AiModels"]</span>
+                <div class="status-dashboard__chips">
+                    <AppChip Text="text_quality - Active" Tone="AppUiTone.Success" />
+                    <AppChip Text="text_fast - Loaded" Tone="AppUiTone.Info" />
+                    <AppChip Text="audio - Not Downloaded" Tone="AppUiTone.Neutral" />
+                </div>
+            </div>
+        </div>
+    </AppCard>
 </div>

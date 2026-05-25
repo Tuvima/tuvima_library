@@ -3,46 +3,37 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 
-<MudPaper Elevation="0" Class="tl-card ingestion-live library-update">
+<AppCard Class="tl-card ingestion-live library-update">
     <header class="library-update__header">
         <div class="library-update__heading">
-            <MudText Typo="Typo.h4" Class="library-update__title">Library Update</MudText>
-            <MudText Typo="Typo.body2" Class="library-update__subtitle">
+            <h2 class="library-update__title">Library Update</h2>
+            <p class="library-update__subtitle">
                 Track what Tuvima is adding, matching, and waiting for review.
-            </MudText>
-            <MudText Typo="Typo.caption" Class="library-update__timestamp">@Model.TimestampLine</MudText>
+            </p>
+            <span class="library-update__timestamp">@Model.TimestampLine</span>
         </div>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="library-update__actions">
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Default"
-                       Size="Size.Small"
+        <AppActionBar Align="AppHorizontalAlignment.End" Class="library-update__actions">
+            <AppButton Label="Refresh"
                        StartIcon="@Icons.Material.Outlined.Refresh"
                        Disabled="@Loading"
-                       OnClick="OnRefresh"
-                       aria-label="Refresh library update status">
-                Refresh
-            </MudButton>
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       Size="Size.Small"
+                       OnClick="OnRefresh" />
+            <AppButton Label="Scan Now"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
                        StartIcon="@Icons.Material.Outlined.PlayArrow"
                        Disabled="@(Loading || ScanStarting)"
-                       OnClick="OnScanNow">
-                Scan Now
-            </MudButton>
-        </MudStack>
+                       OnClick="OnScanNow" />
+        </AppActionBar>
     </header>
 
     @if (Loading && Snapshot is null)
     {
-        <MudGrid Class="library-update__skeleton">
+        <div class="library-update__skeleton">
             @for (var i = 0; i < 4; i++)
             {
-                <MudItem xs="12" sm="6" md="3">
-                    <MudSkeleton Height="94px" Animation="Animation.Wave" />
-                </MudItem>
+                <AppSkeleton Class="library-update__skeleton-card" />
             }
-        </MudGrid>
+        </div>
     }
     else
     {
@@ -82,7 +73,7 @@
         <section class="@MainStatusClass" aria-live="polite">
             <div class="library-update-status__top">
                 <div>
-                    <MudText Typo="Typo.h5" Class="library-update-status__title">@Model.Heading</MudText>
+                    <h3 class="library-update-status__title">@Model.Heading</h3>
                     <p class="library-update-status__line">@MainLineContent()</p>
                 </div>
                 <span class="@StatusPillClass">
@@ -93,15 +84,10 @@
 
             @if (Model.ShowProgress)
             {
-                <div class="@ProgressClass" style="@ProgressStyle">
-                    <div class="library-update-progress__track">
-                        <span></span>
-                    </div>
-                    @if (!Model.IsIndeterminate)
-                    {
-                        <strong>@ProgressLabel</strong>
-                    }
-                </div>
+                <AppProgressBar Value="@Model.ProgressPercent"
+                                ShowValue="@(!Model.IsIndeterminate)"
+                                Indeterminate="@Model.IsIndeterminate"
+                                Class="library-update-progress" />
             }
 
             @if (!string.IsNullOrWhiteSpace(Model.ActivityLine))
@@ -116,18 +102,14 @@
             @if (Model.PageState == LibraryUpdatePageState.Failed)
             {
                 <div class="library-update-status__failure-actions">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
+                    <AppButton Label="Try Again"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               Tone="AppUiTone.Primary"
                                StartIcon="@Icons.Material.Outlined.Replay"
-                               OnClick="OnScanNow">
-                        Try Again
-                    </MudButton>
-                    <MudButton Href="/settings/activity"
-                               Variant="Variant.Outlined"
-                               Color="Color.Default"
-                               EndIcon="@Icons.Material.Outlined.ChevronRight">
-                        View Activity
-                    </MudButton>
+                               OnClick="OnScanNow" />
+                    <AppButton Label="View Activity"
+                               Href="/settings/activity"
+                               EndIcon="@Icons.Material.Outlined.ChevronRight" />
                 </div>
             }
         </section>
@@ -135,7 +117,7 @@
         <section class="library-update-panel library-update-now">
             <span class="library-update-panel__icon is-purple"><MudIcon Icon="@PanelIcon" /></span>
             <div class="library-update-panel__body">
-                <MudText Typo="Typo.h6">@Model.PanelTitle</MudText>
+                <h3>@Model.PanelTitle</h3>
                 <p>@Model.PanelText</p>
 
                 @if (Model.PageState == LibraryUpdatePageState.Running)
@@ -190,7 +172,7 @@
         </section>
 
         <section class="library-update-steps" aria-label="Update steps">
-            <MudText Typo="Typo.subtitle1">Update steps</MudText>
+            <h3>Update steps</h3>
             <div class="library-update-stepper">
                 @foreach (var step in Model.Steps)
                 {
@@ -213,7 +195,7 @@
                 <div class="library-update-panel library-update-attention">
                     <span class="library-update-panel__icon is-amber"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></span>
                     <div class="library-update-panel__body">
-                        <MudText Typo="Typo.h6">Needs attention</MudText>
+                        <h3>Needs attention</h3>
                         <p>@FormatCount(Model.ReviewItems) items need review before they can be fully added.</p>
                         <ul class="library-update-attention__reasons">
                             @foreach (var reason in Model.AttentionReasons)
@@ -222,13 +204,12 @@
                             }
                         </ul>
                     </div>
-                    <MudButton Href="/settings/review"
-                               Variant="Variant.Filled"
-                               Color="Color.Primary"
+                    <AppButton Label="Review Items"
+                               Href="/settings/review"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               Tone="AppUiTone.Primary"
                                EndIcon="@Icons.Material.Outlined.ChevronRight"
-                               Class="library-update-attention__button">
-                        Review Items
-                    </MudButton>
+                               Class="library-update-attention__button" />
                 </div>
             }
             else if (Model.HasPriorRun || Model.PageState == LibraryUpdatePageState.Running)
@@ -236,7 +217,7 @@
                 <div class="library-update-panel library-update-clear">
                     <span class="library-update-panel__icon is-green"><MudIcon Icon="@Icons.Material.Outlined.TaskAlt" /></span>
                     <div class="library-update-panel__body">
-                        <MudText Typo="Typo.h6">No items need review</MudText>
+                        <h3>No items need review</h3>
                         <p>Tuvima has not found anything that needs a curator decision.</p>
                     </div>
                 </div>
@@ -297,7 +278,7 @@
             }
         </section>
     }
-</MudPaper>
+</AppCard>
 
 @code {
     [Parameter] public LibraryUpdateStatusViewModel? Status { get; set; }
@@ -350,9 +331,6 @@
 
     private string MainStatusClass => $"library-update-status is-{Model.PageState.ToString().ToLowerInvariant()}";
     private string StatusPillClass => $"library-update-pill is-{Model.StatusTone}";
-    private string ProgressClass => $"library-update-progress {(Model.IsIndeterminate ? "is-indeterminate" : string.Empty)}";
-    private string ProgressStyle => $"--library-update-progress: {Math.Clamp(Model.ProgressPercent, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%;";
-    private string ProgressLabel => $"{Math.Clamp(Model.ProgressPercent, 0, 100).ToString("0", CultureInfo.CurrentCulture)}%";
     private IReadOnlyList<IngestionOperationsBatchViewModel> RecentBatches => Snapshot?.RecentBatches ?? [];
     private string PanelIcon => Model.PageState == LibraryUpdatePageState.Running
         ? Icons.Material.Outlined.GraphicEq

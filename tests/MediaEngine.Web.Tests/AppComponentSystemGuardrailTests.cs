@@ -101,6 +101,21 @@ public sealed class AppComponentSystemGuardrailTests
         Assert.Contains(".app-provider-logo", appCss, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AppSelect_OwnsPopoverStylingWithoutNestedBorders()
+    {
+        var appSelect = ReadRepoFile("src/MediaEngine.Web/Components/Shared/AppSelect.razor");
+        var appCss = ReadRepoFile("src/MediaEngine.Web/wwwroot/app.css");
+
+        Assert.Contains("PopoverClass=\"@PopoverClass\"", appSelect, StringComparison.Ordinal);
+        Assert.Contains("app-select__popover", appCss, StringComparison.Ordinal);
+        Assert.Contains(".app-select__popover.mud-popover", appCss, StringComparison.Ordinal);
+        Assert.Contains(".app-select__popover .mud-paper", appCss, StringComparison.Ordinal);
+        Assert.Contains("border: 0 !important;", appCss, StringComparison.Ordinal);
+        Assert.DoesNotContain(".provider-strategy-select .mud-paper", appCss, StringComparison.Ordinal);
+        Assert.DoesNotContain("settings-select-menu .mud-paper", appCss, StringComparison.Ordinal);
+    }
+
     private static string ReadRepoFile(string relativePath)
     {
         var path = Path.Combine(RepoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));

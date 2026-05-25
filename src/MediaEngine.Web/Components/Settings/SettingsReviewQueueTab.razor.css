@@ -6,6 +6,37 @@
     gap: 1rem;
 }
 
+.settings-review-page {
+    display: grid;
+    gap: 16px;
+}
+
+.settings-review-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.settings-review-item strong,
+.settings-review-item span,
+.settings-review-evidence span {
+    display: block;
+}
+
+.settings-review-item strong {
+    color: var(--tl-text-primary);
+}
+
+.settings-review-evidence {
+    display: grid;
+    gap: 3px;
+}
+
+.settings-review-actions {
+    flex-wrap: nowrap;
+}
+
 .settings-review-cover {
     width: 46px;
     height: 58px;
