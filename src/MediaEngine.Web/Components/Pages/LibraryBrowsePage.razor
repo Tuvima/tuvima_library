@@ -1,7 +1,7 @@
 @page "/"
 @inject MediaTileComposerService MediaTiles
 @inject UIOrchestratorService Orchestrator
-@inject SetupReadinessService ReadinessService
+@inject IEngineApiClient ApiClient
 @inject UniverseStateContainer State
 @inject IWebHostEnvironment Env
 @inject IStringLocalizer<SharedStrings> L
@@ -24,21 +24,14 @@ else if (IsEmpty)
         </p>
 
         <div class="home-discovery-empty-actions">
-            <AppButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       Size="MudBlazor.Size.Large"
-                       StartIcon="@Icons.Material.Outlined.RocketLaunch"
-                       Href="/settings/setup">
-                Open setup checklist
-            </AppButton>
             <AppButton Variant="Variant.Outlined"
                        Color="Color.Default"
                        Size="MudBlazor.Size.Large"
                        StartIcon="@Icons.Material.Outlined.FolderOpen"
-                       Href="/settings/folders">
+                       Href="/settings/libraries">
                 Configure folders
             </AppButton>
-            @if (_readiness?.CanScan == true)
+            @if (_canScan)
             {
                 <AppButton Variant="Variant.Filled"
                            Color="Color.Primary"
@@ -123,7 +116,7 @@ else
     private bool _loading = true;
     private bool _seeding;
     private bool _scanStarting;
-    private SetupReadinessSnapshot? _readiness;
+    private bool _canScan;
     private DiscoveryPageViewModel _page = new() { Key = "home" };
 
     private bool IsEmpty =>
@@ -148,7 +141,11 @@ else
             _page = await MediaTiles.BuildHomeAsync();
             if (IsEmpty)
             {
-                _readiness = await ReadinessService.GetSnapshotAsync();
+                _canScan = await CanStartScanAsync();
+            }
+            else
+            {
+                _canScan = false;
             }
         }
         catch
@@ -159,7 +156,7 @@ else
                 EmptyTitle = "Your home screen is waiting for its first story.",
                 EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own."
             };
-            _readiness = await ReadinessService.GetSnapshotAsync();
+            _canScan = await CanStartScanAsync();
         }
         finally
         {
@@ -179,7 +176,7 @@ else
             if (started)
             {
                 Snackbar.Add("Scan started. Open Ingestion to watch progress.", Severity.Success);
-                _readiness = await ReadinessService.GetSnapshotAsync();
+                _canScan = false;
             }
             else
             {
@@ -191,6 +188,44 @@ else
             _scanStarting = false;
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    private async Task<bool> CanStartScanAsync()
+    {
+        try
+        {
+            var status = await Orchestrator.GetSystemStatusAsync();
+            if (status?.IsHealthy != true)
+            {
+                return false;
+            }
+
+            var folders = await Orchestrator.GetFolderSettingsAsync();
+            if (!await IsReadyFolderAsync(folders?.LibraryRoot)
+                || !await IsReadyFolderAsync(folders?.WatchDirectory))
+            {
+                return false;
+            }
+
+            var operations = await ApiClient.GetIngestionOperationsSnapshotAsync();
+            return (operations?.ActiveJobs.Count ?? 0) == 0;
+        }
+        catch
+        {
+            // Empty-state scan eligibility is best-effort; Libraries and Ingestion remain visible when the Engine cannot answer.
+            return false;
+        }
+    }
+
+    private async Task<bool> IsReadyFolderAsync(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var result = await Orchestrator.TestPathAsync(path);
+        return result is { Exists: true, HasRead: true, HasWrite: true };
     }
 
     private async Task HandleSeedLibraryAsync()

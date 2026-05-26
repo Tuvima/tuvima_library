@@ -36,7 +36,7 @@ Tuvima Library is a private, local-first story library. It watches your folders,
 
 ### Install and launch
 
-Run the Engine and Dashboard locally, confirm required paths, and open the first setup checklist.
+Run the Engine and Dashboard locally, configure library paths, and start the first scan.
 
 [Open Getting Started](tutorials/getting-started.md)
 

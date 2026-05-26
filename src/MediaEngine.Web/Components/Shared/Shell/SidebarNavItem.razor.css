@@ -220,13 +220,6 @@
     --nav-active-line: #22d3ee;
 }
 
-.sidebar-nav-item--tone-setup {
-    --nav-accent: #2ea2ff;
-    --nav-accent-bg: rgba(18, 67, 136, 0.5);
-    --nav-accent-bg-strong: rgba(28, 106, 190, 0.62);
-    --nav-active-line: #38bdf8;
-}
-
 .sidebar-nav-item--tone-ai {
     --nav-accent: #a56bff;
     --nav-accent-bg: rgba(80, 42, 150, 0.48);

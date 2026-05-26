@@ -54,8 +54,8 @@ Home only shows real data returned by the Engine. It does not invent sample medi
 
 Check:
 
-- **Settings > Setup** for folder/provider/readiness status.
-- **Settings > Libraries** for watch folder and library root paths.
+- **Settings > Libraries** for watch folder, library root paths, and path access.
+- **Settings > Providers** for provider availability and credentials.
 - **Settings > Ingestion** for active scans and recent batches.
 - **Settings > Review Queue** for items that need confirmation before they can appear in browse surfaces.
 

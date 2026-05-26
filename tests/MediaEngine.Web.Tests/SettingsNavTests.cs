@@ -58,7 +58,6 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Access, "/settings/access")]
     [InlineData(SettingsSection.ActivityLogs, "/settings/activity")]
     [InlineData(SettingsSection.Review, "/settings/review")]
-    [InlineData(SettingsSection.Setup, "/settings/setup")]
     [InlineData(SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData(SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
     public void ResolveRoute_CanonicalSegments_AreStable(SettingsSection section, string expectedRoute)
@@ -100,12 +99,12 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void ResolveRoute_ProfileSegment_IsUnknownAndFallsBackToUserOverview()
+    public void ResolveRoute_ProfileSegment_IsUnknownAndRoutesToNotFound()
     {
         var resolution = SettingsNav.ResolveRoute("profile", "Administrator");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
-        Assert.Equal("/settings", resolution.CanonicalRoute);
+        Assert.Equal("/not-found", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
         Assert.False(resolution.IsKnownRoute);
         Assert.False(resolution.RequestedSectionAllowed);
@@ -113,12 +112,12 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void ResolveRoute_DisplaySegment_IsUnknownAndFallsBackToUserOverview()
+    public void ResolveRoute_DisplaySegment_IsUnknownAndRoutesToNotFound()
     {
         var resolution = SettingsNav.ResolveRoute("display", "Administrator");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
-        Assert.Equal("/settings", resolution.CanonicalRoute);
+        Assert.Equal("/not-found", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
         Assert.False(resolution.IsKnownRoute);
         Assert.False(resolution.RequestedSectionAllowed);
@@ -172,7 +171,7 @@ public sealed class SettingsNavTests
         var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
-        Assert.Equal("/settings", resolution.CanonicalRoute);
+        Assert.Equal("/not-found", resolution.CanonicalRoute);
         Assert.False(resolution.IsKnownRoute);
         Assert.True(resolution.ShouldRedirect);
     }
@@ -204,7 +203,6 @@ public sealed class SettingsNavTests
 
         Assert.Equal([
             "Admin Overview",
-            "Setup",
             "Libraries",
             "Ingestion",
             "Providers",
@@ -241,7 +239,6 @@ public sealed class SettingsNavTests
     [InlineData("review", SettingsSection.Review, "/settings/review")]
     [InlineData("activity", SettingsSection.ActivityLogs, "/settings/activity")]
     [InlineData("activity-log", SettingsSection.ActivityLogs, "/settings/activity")]
-    [InlineData("setup", SettingsSection.Setup, "/settings/setup")]
     [InlineData("provider-tester", SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData("enrichment-tester", SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
     public void ResolveRoute_SecondaryRoutes_StillResolveForAdmins(string segment, SettingsSection expectedSection, string expectedRoute)

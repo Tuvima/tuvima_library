@@ -143,7 +143,7 @@ Default local URLs:
 - Engine: `http://localhost:61495`
 - Dashboard: `http://localhost:5016`
 
-Open the Dashboard, go to **Settings > Setup**, confirm folders/providers/readiness, then use **Scan Now** and watch progress in **Settings > Ingestion**.
+Open the Dashboard, configure folders in **Settings > Libraries**, confirm providers in **Settings > Providers**, then start a scan from Libraries and watch progress in **Settings > Ingestion**.
 
 Full walkthroughs:
 

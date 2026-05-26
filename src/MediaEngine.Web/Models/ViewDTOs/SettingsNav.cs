@@ -22,7 +22,6 @@ public enum SettingsSection
 
     ActivityLogs,
     Review,
-    Setup,
     ProviderTester,
     EnrichmentTester,
 }
@@ -102,7 +101,6 @@ public static class SettingsNav
         new(SettingsSection.Access, "admin", "access", Icons.Material.Outlined.AdminPanelSettings, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"], Status: SettingsStatusKind.Partial),
 
         new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
-        new(SettingsSection.Setup, "admin", "setup", Icons.Material.Outlined.RocketLaunch, "Setup", true, null, []),
         new(SettingsSection.ProviderTester, "admin", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal"),
         new(SettingsSection.EnrichmentTester, "admin", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal"),
     ];
@@ -114,7 +112,6 @@ public static class SettingsNav
         new("admin", "Admin Settings", Icons.Material.Outlined.AdminPanelSettings, true, true, SettingsSection.AdminOverview,
             [
                 SettingsSection.AdminOverview,
-                SettingsSection.Setup,
                 SettingsSection.Libraries,
                 SettingsSection.Ingestion,
                 SettingsSection.Providers,
@@ -267,10 +264,9 @@ public static class SettingsNav
                 RequestedSectionAllowed: false);
         }
 
-        var unknownFallback = FirstVisibleSection(role);
         return new SettingsRouteResolution(
-            unknownFallback,
-            RouteFor(unknownFallback),
+            FirstVisibleSection(role),
+            "/not-found",
             IsCanonicalRoute: false,
             IsKnownRoute: false,
             RequestedSectionAllowed: false);

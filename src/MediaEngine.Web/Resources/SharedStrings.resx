@@ -912,46 +912,6 @@
   <data name="Maintenance_Pass2Error" xml:space="preserve">
     <value>Failed to trigger Pass 2 - is the Engine running?</value>
   </data>
-  <!-- Setup Tab -->
-  <data name="Setup_PageTitle" xml:space="preserve">
-    <value>Setup checklist</value>
-  </data>
-  <data name="Setup_PageDescription" xml:space="preserve">
-    <value>Review Engine connection, folders, providers, optional Local AI status, scan state, and review work.</value>
-  </data>
-  <data name="Setup_RerunTitle" xml:space="preserve">
-    <value>Setup checklist</value>
-  </data>
-  <data name="Setup_RerunDescription" xml:space="preserve">
-    <value>Review library paths, provider readiness, and optional AI status. The guided setup checklist is planned for a later phase.</value>
-  </data>
-  <data name="Setup_RunWizard" xml:space="preserve">
-    <value>Setup checklist planned</value>
-  </data>
-  <data name="Setup_CurrentConfiguration" xml:space="preserve">
-    <value>Current Configuration</value>
-  </data>
-  <data name="Setup_ServerName" xml:space="preserve">
-    <value>Server Name</value>
-  </data>
-  <data name="Setup_Language" xml:space="preserve">
-    <value>Language</value>
-  </data>
-  <data name="Setup_LibraryRoot" xml:space="preserve">
-    <value>Library Root</value>
-  </data>
-  <data name="Setup_ConfiguredProviders" xml:space="preserve">
-    <value>Configured Providers</value>
-  </data>
-  <data name="Setup_AiModels" xml:space="preserve">
-    <value>AI Models</value>
-  </data>
-  <data name="Setup_NotDownloaded" xml:space="preserve">
-    <value>Not downloaded</value>
-  </data>
-  <data name="Setup_Reconfigure" xml:space="preserve">
-    <value>Reconfigure</value>
-  </data>
   <!-- Connectivity Tab -->
   <data name="Connectivity_Title" xml:space="preserve">
     <value>Connectivity</value>

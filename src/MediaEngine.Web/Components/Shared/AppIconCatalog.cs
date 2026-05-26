@@ -32,7 +32,6 @@ public static class AppIconCatalog
             [AppIcons.Users] = Solid("users"),
             [AppIcons.Activity] = Solid("timeline"),
             [AppIcons.Maintenance] = Solid("wrench"),
-            [AppIcons.Setup] = Solid("list-check"),
             [AppIcons.Warning] = Solid("triangle-exclamation"),
             [AppIcons.Info] = Solid("circle-info"),
             [AppIcons.Close] = Solid("xmark"),

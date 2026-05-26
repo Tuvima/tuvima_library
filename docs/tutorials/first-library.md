@@ -42,10 +42,7 @@ Supported formats are listed in [Media Types](../reference/media-types.md).
 
 ## Step 3 - Start A Scan
 
-You can start a scan from either place:
-
-- **Settings > Setup > Scan Now**
-- **Settings > Libraries > Scan saved watch folder**
+Start the first scan from **Settings > Libraries > Scan saved watch folder**.
 
 Then open **Settings > Ingestion**.
 

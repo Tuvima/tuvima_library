@@ -912,46 +912,6 @@
   <data name="Maintenance_Pass2Error" xml:space="preserve">
     <value>No se pudo iniciar la Pasada 2 - ¿está el Motor en ejecución?</value>
   </data>
-  <!-- Setup Tab -->
-  <data name="Setup_PageTitle" xml:space="preserve">
-    <value>Asistente de configuración</value>
-  </data>
-  <data name="Setup_PageDescription" xml:space="preserve">
-    <value>Revise los pasos de configuración inicial o consulte su configuración actual del servidor de un vistazo.</value>
-  </data>
-  <data name="Setup_RerunTitle" xml:space="preserve">
-    <value>Volver a ejecutar el asistente de configuración</value>
-  </data>
-  <data name="Setup_RerunDescription" xml:space="preserve">
-    <value>Vuelva a recorrer la selección de rutas de biblioteca, la configuración de proveedores y la descarga de modelos de IA. Los datos de su biblioteca existente nunca se modifican.</value>
-  </data>
-  <data name="Setup_RunWizard" xml:space="preserve">
-    <value>Ejecutar asistente</value>
-  </data>
-  <data name="Setup_CurrentConfiguration" xml:space="preserve">
-    <value>Configuración actual</value>
-  </data>
-  <data name="Setup_ServerName" xml:space="preserve">
-    <value>Nombre del servidor</value>
-  </data>
-  <data name="Setup_Language" xml:space="preserve">
-    <value>Idioma</value>
-  </data>
-  <data name="Setup_LibraryRoot" xml:space="preserve">
-    <value>Raíz de la biblioteca</value>
-  </data>
-  <data name="Setup_ConfiguredProviders" xml:space="preserve">
-    <value>Proveedores configurados</value>
-  </data>
-  <data name="Setup_AiModels" xml:space="preserve">
-    <value>Modelos de IA</value>
-  </data>
-  <data name="Setup_NotDownloaded" xml:space="preserve">
-    <value>No descargados</value>
-  </data>
-  <data name="Setup_Reconfigure" xml:space="preserve">
-    <value>Reconfigurar</value>
-  </data>
   <!-- Connectivity Tab -->
   <data name="Connectivity_Title" xml:space="preserve">
     <value>Conectividad</value>

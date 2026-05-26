@@ -89,7 +89,7 @@ public sealed class Phase3BrowseFoundationTests : TestContext
     }
 
     [Fact]
-    public async Task Home_EmptyStateShowsSetupPathWhenNoCatalog()
+    public async Task Home_EmptyStateShowsFirstLibraryPromptWhenNoCatalog()
     {
         Services.AddSingleton<IEngineApiClient>(EngineApiClientStub.Create(stub =>
         {

@@ -29,7 +29,7 @@ For large existing libraries, start with one media lane at a time. It is easier 
 3. Set the Watch Folder and Library Root.
 4. Confirm path checks show the Engine can read and write where required.
 5. Save the settings.
-6. Run **Scan saved watch folder** or return to **Settings > Setup** and use **Scan Now**.
+6. Run **Scan saved watch folder**.
 
 Open **Settings > Ingestion** to monitor progress.
 

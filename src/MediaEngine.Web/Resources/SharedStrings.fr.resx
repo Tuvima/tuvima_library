@@ -912,46 +912,6 @@
   <data name="Maintenance_Pass2Error" xml:space="preserve">
     <value>Impossible de déclencher le passage 2 - le Moteur est-il en cours d'exécution ?</value>
   </data>
-  <!-- Setup Tab -->
-  <data name="Setup_PageTitle" xml:space="preserve">
-    <value>Assistant de configuration</value>
-  </data>
-  <data name="Setup_PageDescription" xml:space="preserve">
-    <value>Consultez à nouveau les étapes de configuration initiale ou examinez votre configuration serveur actuelle en un coup d'œil.</value>
-  </data>
-  <data name="Setup_RerunTitle" xml:space="preserve">
-    <value>Relancer l'assistant de configuration</value>
-  </data>
-  <data name="Setup_RerunDescription" xml:space="preserve">
-    <value>Parcourez à nouveau la sélection du chemin de bibliothèque, la configuration des fournisseurs et le téléchargement des modèles IA. Vos données de bibliothèque existantes ne sont jamais modifiées.</value>
-  </data>
-  <data name="Setup_RunWizard" xml:space="preserve">
-    <value>Lancer l'assistant</value>
-  </data>
-  <data name="Setup_CurrentConfiguration" xml:space="preserve">
-    <value>Configuration actuelle</value>
-  </data>
-  <data name="Setup_ServerName" xml:space="preserve">
-    <value>Nom du serveur</value>
-  </data>
-  <data name="Setup_Language" xml:space="preserve">
-    <value>Langue</value>
-  </data>
-  <data name="Setup_LibraryRoot" xml:space="preserve">
-    <value>Racine de la bibliothèque</value>
-  </data>
-  <data name="Setup_ConfiguredProviders" xml:space="preserve">
-    <value>Fournisseurs configurés</value>
-  </data>
-  <data name="Setup_AiModels" xml:space="preserve">
-    <value>Modèles IA</value>
-  </data>
-  <data name="Setup_NotDownloaded" xml:space="preserve">
-    <value>Non téléchargé</value>
-  </data>
-  <data name="Setup_Reconfigure" xml:space="preserve">
-    <value>Reconfigurer</value>
-  </data>
   <!-- Connectivity Tab -->
   <data name="Connectivity_Title" xml:space="preserve">
     <value>Connectivité</value>

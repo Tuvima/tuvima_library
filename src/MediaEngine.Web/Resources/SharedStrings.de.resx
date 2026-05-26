@@ -912,46 +912,6 @@
   <data name="Maintenance_Pass2Error" xml:space="preserve">
     <value>Durchlauf 2 konnte nicht gestartet werden - läuft der Engine?</value>
   </data>
-  <!-- Setup Tab -->
-  <data name="Setup_PageTitle" xml:space="preserve">
-    <value>Einrichtungsassistent</value>
-  </data>
-  <data name="Setup_PageDescription" xml:space="preserve">
-    <value>Die anfänglichen Einrichtungsschritte erneut durchgehen oder die aktuelle Serverkonfiguration auf einen Blick überprüfen.</value>
-  </data>
-  <data name="Setup_RerunTitle" xml:space="preserve">
-    <value>Einrichtungsassistenten erneut ausführen</value>
-  </data>
-  <data name="Setup_RerunDescription" xml:space="preserve">
-    <value>Bibliothekspfadauswahl, Anbieterkonfiguration und KI-Modell-Download erneut durchführen. Ihre vorhandenen Bibliotheksdaten werden dabei nicht berührt.</value>
-  </data>
-  <data name="Setup_RunWizard" xml:space="preserve">
-    <value>Assistenten starten</value>
-  </data>
-  <data name="Setup_CurrentConfiguration" xml:space="preserve">
-    <value>Aktuelle Konfiguration</value>
-  </data>
-  <data name="Setup_ServerName" xml:space="preserve">
-    <value>Servername</value>
-  </data>
-  <data name="Setup_Language" xml:space="preserve">
-    <value>Sprache</value>
-  </data>
-  <data name="Setup_LibraryRoot" xml:space="preserve">
-    <value>Bibliotheksstamm</value>
-  </data>
-  <data name="Setup_ConfiguredProviders" xml:space="preserve">
-    <value>Konfigurierte Anbieter</value>
-  </data>
-  <data name="Setup_AiModels" xml:space="preserve">
-    <value>KI-Modelle</value>
-  </data>
-  <data name="Setup_NotDownloaded" xml:space="preserve">
-    <value>Nicht heruntergeladen</value>
-  </data>
-  <data name="Setup_Reconfigure" xml:space="preserve">
-    <value>Neu konfigurieren</value>
-  </data>
   <!-- Connectivity Tab -->
   <data name="Connectivity_Title" xml:space="preserve">
     <value>Konnektivität</value>

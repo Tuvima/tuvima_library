@@ -1,9 +1,9 @@
 ---
 title: "Getting Started"
-summary: "Install Tuvima Library, launch the local Engine and Dashboard, and run the first setup checks."
+summary: "Install Tuvima Library, launch the local Engine and Dashboard, and configure the first library paths."
 audience: "user"
 category: "tutorial"
-product_area: "setup"
+product_area: "library configuration"
 tags:
   - "install"
   - "onboarding"
@@ -93,22 +93,7 @@ http://localhost:5016
 
 If your Engine runs on a different URL, set `TUVIMA_ENGINE_URL` before starting the Dashboard.
 
-## Step 5 - Run The Setup Checklist
-
-In the Dashboard, open **Settings > Setup**.
-
-The checklist verifies:
-
-- Engine connection
-- folder readiness
-- provider readiness
-- optional Local AI status
-- scan state
-- pending Review Queue work
-
-This is the current first-run path. A richer guided wizard is still outstanding, so the checklist is intentionally honest about partial or unavailable areas.
-
-## Step 6 - Configure Folders And Scan
+## Step 5 - Configure Folders And Scan
 
 Open **Settings > Libraries**.
 
@@ -119,7 +104,7 @@ Confirm:
 - organization template
 - path read/write checks
 
-Save changes, then run **Scan Now** from Setup or **Scan saved watch folder** from Libraries. Open **Settings > Ingestion** to watch progress.
+Save changes, then run **Scan saved watch folder** from Libraries. Open **Settings > Providers** if provider credentials need attention, and open **Settings > Ingestion** to watch progress.
 
 ## Docker Alternative
 

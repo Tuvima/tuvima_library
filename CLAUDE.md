@@ -303,7 +303,7 @@ Settings at `/settings/{Section}` is the Dashboard's operational hub. It is a tw
 | **Providers** | `ProviderPriorityTab`, `WikidataConfigTab`, `UniverseSettingsTab` |
 | **Intelligence** | `ModelsTab`, `AiFeaturesTab`, `VibeVocabularyTab`, `AiScheduleTab`, `LocalAiSettingsTab` |
 | **Plugins** | `PluginSettingsTab` |
-| **Server** | `SystemTab`, `SecurityTab`, `UsersTab`, `UsersAccessSettingsTab`, `ApiKeysTab`, `ActivityTab`, `MaintenanceTab`, `SetupTab`, `ServerGeneralTab`, `ConnectivityTab`, `GeneralTab`, `UserOverviewTab` |
+| **Server** | `SystemTab`, `SecurityTab`, `UsersTab`, `UsersAccessSettingsTab`, `ApiKeysTab`, `ActivityTab`, `MaintenanceTab`, `ServerGeneralTab`, `ConnectivityTab`, `GeneralTab`, `UserOverviewTab` |
 | **Tools** | `ProviderTesterToolTab`, `EnrichmentTesterToolTab` |
 
 Supporting components used inside tabs: `ProviderCard`, `WikidataConnectionPanel`, `CuratorsDrawer`, `MetadataEditDialog`, `MediaItemEditor`, `CollectionEditCoverCompare`, `FolderBrowserDialog`, `SettingsPlaceholder`, `SettingsSectionPanel`, `SettingsStatusBadge`, `MediaRail`, `MediaRailCard`, `DictionaryRows`, `IngestionLiveDashboard`, `IngestionStageRail`, `IngestionMetricStrip`, `IngestionActivityList`, `IngestionOverallProgressBand`, `IngestionDiagnosticsPanels`, `SearchResultCard`.

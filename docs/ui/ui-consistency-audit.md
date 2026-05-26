@@ -31,7 +31,7 @@ The newest Tuvima token system should become the foundation. Existing screen cla
 
 High-impact areas:
 
-- `Components/Settings/*`: many settings tabs mix `MudTextField`, `MudSelect`, `MudNumericField`, `MudSwitch`, `MudPaper`, and inline `Style="@...Style"` strings. Examples include `ServerGeneralTab.razor`, `WikidataConfigTab.razor`, `UniverseSettingsTab.razor`, `SecurityTab.razor`, `SetupTab.razor`, and `UsersTab.razor`.
+- `Components/Settings/*`: many settings tabs mix `MudTextField`, `MudSelect`, `MudNumericField`, `MudSwitch`, `MudPaper`, and inline `Style="@...Style"` strings. Examples include `ServerGeneralTab.razor`, `WikidataConfigTab.razor`, `UniverseSettingsTab.razor`, `SecurityTab.razor`, and `UsersTab.razor`.
 - `Components/Collections/CollectionEditorShell.razor`: uses the strongest shared dialog pattern today (`AppDialogShell`, `app-dialog-field`, `app-dialog-select`, `app-artwork-picker`) but still has local rule-row and editor-specific sizing.
 - `Components/MediaEditor/SharedMediaEditorShell.razor`: contains many Mud fields and buttons with `sme-*` classes and dense custom CSS. This is a good candidate to alias onto `tl-form`, `tl-field`, and `tl-action-bar` in phases.
 - `Components/LibraryItems/InspectorSearchSection.razor` and `InspectorCoverPicker.razor`: use raw `<input>` and `<select>` controls with local classes rather than shared `tl-input`, `tl-select`, or `tl-filter-bar`.

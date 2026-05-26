@@ -152,9 +152,6 @@
                         case SettingsSection.Review:
                             <SettingsReviewQueueTab />
                             break;
-                        case SettingsSection.Setup:
-                            <SetupTab />
-                            break;
                         case SettingsSection.ProviderTester:
                             <ProviderTesterToolTab />
                             break;
@@ -409,7 +406,6 @@
         SettingsSection.Ingestion => "ingestion",
         SettingsSection.Providers => "providers",
         SettingsSection.ActivityLogs => "activity",
-        SettingsSection.Setup => "setup",
         SettingsSection.LocalAi => "ai",
         SettingsSection.Plugins => "plugins",
         SettingsSection.Delivery => "delivery",
@@ -454,7 +450,6 @@
         SettingsSection.Delivery => "Configure direct play, transcoding, generated variants, offline downloads, and delivery defaults.",
         SettingsSection.Access => "Manage profiles, roles, sign-in, API keys, HTTPS, local access, and rate limits.",
         SettingsSection.Review => "Resolve uncertain matches and keep ingestion moving.",
-        SettingsSection.Setup => "Guided configuration and readiness checks.",
         SettingsSection.ProviderTester => "Internal provider testing tool.",
         SettingsSection.EnrichmentTester => "Internal enrichment debugging tool.",
         _ => "Settings",

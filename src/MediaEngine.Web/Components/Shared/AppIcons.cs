@@ -28,7 +28,6 @@ public static class AppIcons
     public const string Users = "users";
     public const string Activity = "activity";
     public const string Maintenance = "maintenance";
-    public const string Setup = "setup";
     public const string Warning = "warning";
     public const string Info = "info";
     public const string Close = "close";

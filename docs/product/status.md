@@ -40,7 +40,7 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 
 These items are not presented as complete user workflows yet:
 
-- A full first-run wizard beyond the current Setup checklist.
+- A full first-run wizard. Current first-run work stays embedded in Libraries, Providers, Local AI, Ingestion, and Review Queue.
 - Advanced direct-play, delivery, subtitle/audio policy, and automated offline-download controls.
 - Plugin marketplace install/update flows.
 - Some Local AI job controls, deletion actions, and per-feature runtime integrations.
