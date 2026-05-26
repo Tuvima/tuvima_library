@@ -123,6 +123,7 @@ public partial class SharedMediaEditorShell
     private bool _reclassifying;
     private bool _searchingCanonical;
     private bool _artworkUrlSubmitting;
+    private bool _providerArtworkRefreshing;
     private bool _confirmDiscard;
     private bool _showQuarantineConfirm;
     private string? _dragTargetArtworkType;
@@ -161,7 +162,7 @@ public partial class SharedMediaEditorShell
         || _pendingMembershipPreview is not null
         || IsDirty
         || Request.Mode == SharedMediaEditorMode.Review;
-    protected bool IsArtworkBusy => _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
+    protected bool IsArtworkBusy => _artworkUrlSubmitting || _providerArtworkRefreshing || _artworkApplyingKeys.Count > 0;
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
     protected bool HasSeriesNavigator => false;
     protected bool ShowLegacyScopeSwitcher => false;
@@ -1479,6 +1480,77 @@ public partial class SharedMediaEditorShell
             StateHasChanged();
         }
     }
+
+    protected async Task RefreshProviderArtworkAsync()
+    {
+        var scope = ArtworkScope;
+        if (scope is null || !CanRefreshProviderArtwork(scope))
+            return;
+
+        _providerArtworkRefreshing = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ApiClient.RefreshScopeProviderArtworkAsync(EditorContextEntityId, scope.ScopeId);
+            if (result is null)
+            {
+                Snackbar.Add(ApiClient.LastError ?? "Provider artwork refresh failed.", Severity.Error);
+                return;
+            }
+
+            await RefreshArtworkStateAsync(scope.ScopeId, notifyParent: true);
+            Snackbar.Add(BuildProviderArtworkRefreshMessage(result), GetProviderArtworkRefreshSeverity(result));
+        }
+        finally
+        {
+            _providerArtworkRefreshing = false;
+            StateHasChanged();
+        }
+    }
+
+    protected bool CanRefreshProviderArtwork(MediaEditorScopeDto? scope) =>
+        IsSingleItem
+        && scope?.CanEditArtwork == true
+        && ((_selectedMediaType, scope.ScopeId) is
+            ("Movies", "item")
+            or ("TV", "series")
+            or ("TV", "season")
+            or ("TV", "episode"));
+
+    private static Severity GetProviderArtworkRefreshSeverity(ProviderArtworkRefreshDto result) =>
+        result.Success && result.DownloadedCount > 0
+            ? Severity.Success
+            : result.Success || string.Equals(result.Status, "NoImages", StringComparison.OrdinalIgnoreCase)
+                ? Severity.Info
+                : Severity.Warning;
+
+    private static string BuildProviderArtworkRefreshMessage(ProviderArtworkRefreshDto result)
+    {
+        var provider = string.IsNullOrWhiteSpace(result.ProviderName) ? "Provider" : result.ProviderName;
+        if (result.DownloadedCount > 0)
+            return $"{provider} added {result.DownloadedCount} artwork variant{(result.DownloadedCount == 1 ? string.Empty : "s")}.";
+
+        if (result.Success || string.Equals(result.Status, "NoImages", StringComparison.OrdinalIgnoreCase))
+            return $"{provider} checked; no new artwork was added.";
+
+        return $"{provider} skipped: {FormatProviderArtworkSkipReason(result.SkippedReason)}";
+    }
+
+    private static string FormatProviderArtworkSkipReason(string? reason) =>
+        reason switch
+        {
+            "missing_qid" => "confirmed Wikidata QID required.",
+            "missing_bridge_id" => "provider bridge ID required.",
+            "missing_api_key" => "Fanart.tv API key is not configured.",
+            "provider_no_result" => "provider returned no artwork.",
+            "provider_empty_response" => "provider returned an empty response.",
+            "missing_representative_asset" => "no owned file was found for this scope.",
+            "unsupported_scope" => "this scope is not supported.",
+            "missing_media_path" => "no media file path was available.",
+            null or "" => "no compatible artwork was available.",
+            _ => reason.Replace('_', ' '),
+        };
 
     protected void HandleArtworkUrlInput(ChangeEventArgs args) =>
         _artworkUrlInput = args.Value?.ToString() ?? string.Empty;

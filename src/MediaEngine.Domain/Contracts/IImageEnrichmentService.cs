@@ -1,3 +1,5 @@
+using MediaEngine.Domain.Models;
+
 namespace MediaEngine.Domain.Contracts;
 
 /// <summary>
@@ -16,5 +18,5 @@ public interface IImageEnrichmentService
     /// <param name="assetId">The media asset ID used for artwork storage and stream routes.</param>
     /// <param name="workQid">The work's confirmed Wikidata QID.</param>
     /// <param name="ct">Cancellation token.</param>
-    Task EnrichWorkImagesAsync(Guid assetId, string workQid, CancellationToken ct = default);
+    Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string workQid, CancellationToken ct = default);
 }

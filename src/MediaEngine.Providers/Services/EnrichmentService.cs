@@ -92,7 +92,7 @@ public sealed class EnrichmentService : IEnrichmentService
     {
         await _concurrency.RunAsync(
             EnrichmentWorkKind.Fanart,
-            token => _images.EnrichWorkImagesAsync(entityId, qid, token),
+            async token => await _images.EnrichWorkImagesAsync(entityId, qid, token),
             ct);
         await _concurrency.RunAsync(
             EnrichmentWorkKind.Wikidata,
@@ -124,7 +124,7 @@ public sealed class EnrichmentService : IEnrichmentService
             case EnrichmentType.Images:
                 await _concurrency.RunAsync(
                     EnrichmentWorkKind.Fanart,
-                    token => _images.EnrichWorkImagesAsync(entityId, qid, token),
+                    async token => await _images.EnrichWorkImagesAsync(entityId, qid, token),
                     ct);
                 break;
             case EnrichmentType.Fictional:

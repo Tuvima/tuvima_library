@@ -59,6 +59,13 @@
                     <strong>@FormatCount(Model.MatchedItems)</strong>
                 </div>
             </div>
+            <div class="library-update-metric is-purple">
+                <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></span>
+                <div>
+                    <span>Enrichment</span>
+                    <strong>@FormatEnrichmentValue(Model)</strong>
+                </div>
+            </div>
             <div class="library-update-metric is-amber">
                 <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></span>
                 <div>
@@ -74,7 +81,10 @@
             <div class="library-update-status__top">
                 <div>
                     <h3 class="library-update-status__title">@Model.Heading</h3>
-                    <p class="library-update-status__line">@MainLineContent()</p>
+                    @if (!Model.ShowProgress && Model.EnrichmentTotal <= 0)
+                    {
+                        <p class="library-update-status__line">@MainLineContent()</p>
+                    }
                 </div>
                 <span class="@StatusPillClass">
                     <span></span>
@@ -82,12 +92,59 @@
                 </span>
             </div>
 
-            @if (Model.ShowProgress)
+            @if (Model.ShowProgress || Model.EnrichmentTotal > 0)
             {
-                <AppProgressBar Value="@Model.ProgressPercent"
-                                ShowValue="@(!Model.IsIndeterminate)"
-                                Indeterminate="@Model.IsIndeterminate"
-                                Class="library-update-progress" />
+                <div class="library-update-progress-stack">
+                    <div class="library-update-progress-block">
+                        <span class="library-update-progress-block__icon is-blue"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span>
+                        <div class="library-update-progress-block__content">
+                            <div class="library-update-progress-block__top">
+                                <div>
+                                    <strong>File processing</strong>
+                                    <span>@FormatCount(Model.ProcessedFiles) of @FormatCount(Model.TotalFiles) files processed</span>
+                                </div>
+                                <em>@FormatPercent(FileProcessingPercent)</em>
+                            </div>
+                            <AppProgressBar Value="@FileProcessingPercent"
+                                            ShowValue="false"
+                                            Indeterminate="@Model.IsIndeterminate"
+                                            Class="library-update-progress" />
+                            <p>Files have been scanned, parsed, and registered.</p>
+                        </div>
+                    </div>
+
+                    @if (Model.EnrichmentTotal > 0)
+                    {
+                        <div class="library-update-progress-block">
+                            <span class="library-update-progress-block__icon is-purple"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></span>
+                            <div class="library-update-progress-block__content">
+                                <div class="library-update-progress-block__top">
+                                    <div>
+                                        <strong>Enrichment</strong>
+                                        <span>@FormatCount(Model.EnrichmentCompleted) of @FormatCount(Model.EnrichmentTotal) enrichment tasks complete</span>
+                                    </div>
+                                    <em>@FormatPercent(Model.EnrichmentPercent)</em>
+                                </div>
+                                <AppProgressBar Value="@Model.EnrichmentPercent"
+                                                ShowValue="false"
+                                                Class="library-update-progress is-enrichment" />
+                                @if (Model.EnrichmentStats.Count > 0)
+                                {
+                                    <div class="library-update-enrichment-chips" aria-label="Enrichment progress by task">
+                                        @foreach (var stat in Model.EnrichmentStats)
+                                        {
+                                            <span class="@EnrichmentChipClass(stat)">
+                                                <MudIcon Icon="@stat.Icon" />
+                                                <strong>@stat.Label</strong>
+                                                <em>@FormatCount(stat.CompletedCount) / @FormatCount(stat.TotalCount)</em>
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
             }
 
             @if (!string.IsNullOrWhiteSpace(Model.ActivityLine))
@@ -122,6 +179,19 @@
 
                 @if (Model.PageState == LibraryUpdatePageState.Running)
                 {
+                    @if (ActivityRows.Count > 0)
+                    {
+                        <div class="library-update-now-list">
+                            @foreach (var activity in ActivityRows)
+                            {
+                                <div class="@ActivityRowClass(activity)">
+                                    <MudIcon Icon="@ActivityIcon(activity)" />
+                                    <strong>@ActivityLabel(activity)</strong>
+                                    <span>@ActivityCurrentItem(activity)</span>
+                                </div>
+                            }
+                        </div>
+                    }
                     <div class="library-update-facts">
                         @if (!string.IsNullOrWhiteSpace(Model.CurrentItemTitle))
                         {
@@ -244,10 +314,10 @@
                                     @BatchHeader("TV Shows", Icons.Material.Outlined.Tv, "tv")
                                     @BatchHeader("Books", Icons.Material.Outlined.MenuBook, "books")
                                     @BatchHeader("Audiobooks", Icons.Material.Outlined.Headphones, "audiobooks")
+                                    @BatchHeader("Music", Icons.Material.Outlined.MusicNote, "music")
                                     @BatchHeader("Comics", Icons.Material.Outlined.AutoStories, "comics")
                                     @BatchHeader("People", Icons.Material.Outlined.Groups, "people")
                                     @BatchHeader("Review", Icons.Material.Outlined.RateReview, "review")
-                                    @BatchHeader("Failed", Icons.Material.Outlined.ErrorOutline, "failed")
                                     <span>Status</span>
                                 </div>
                                 @foreach (var batch in RecentBatches)
@@ -264,10 +334,10 @@
                                         @BatchCountChip(batch.TvShowsCount, Icons.Material.Outlined.Tv, "tv")
                                         @BatchCountChip(batch.BooksCount, Icons.Material.Outlined.MenuBook, "books")
                                         @BatchCountChip(batch.AudiobooksCount, Icons.Material.Outlined.Headphones, "audiobooks")
+                                        @BatchCountChip(batch.MusicCount, Icons.Material.Outlined.MusicNote, "music")
                                         @BatchCountChip(batch.ComicsCount, Icons.Material.Outlined.AutoStories, "comics")
                                         @BatchCountChip(batch.PeopleGeneratedCount, Icons.Material.Outlined.Groups, "people")
                                         @BatchCountChip(batch.ReviewCount, Icons.Material.Outlined.RateReview, "review")
-                                        @BatchCountChip(batch.FailedCount, Icons.Material.Outlined.ErrorOutline, "failed")
                                         <span class="@BatchStatusClass(batch.Status)">@BatchStatusLabel(batch.Status)</span>
                                     </a>
                                 }
@@ -306,7 +376,7 @@
         ?? IngestionLiveDashboardState.BuildLibraryUpdateStatus(
             Snapshot,
             Jobs,
-            CurrentActivities,
+            EffectiveCurrentActivities,
             Activities,
             PendingReviews,
             Metrics,
@@ -321,7 +391,8 @@
             Loading,
             ScanStarting,
             Error,
-            RecentBatches);
+            RecentBatches,
+            ActivityRows);
         if (string.Equals(_lastRenderSignature, signature, StringComparison.Ordinal))
             return false;
 
@@ -332,6 +403,18 @@
     private string MainStatusClass => $"library-update-status is-{Model.PageState.ToString().ToLowerInvariant()}";
     private string StatusPillClass => $"library-update-pill is-{Model.StatusTone}";
     private IReadOnlyList<IngestionOperationsBatchViewModel> RecentBatches => Snapshot?.RecentBatches ?? [];
+    private IReadOnlyList<IngestionCurrentActivityViewModel> EffectiveCurrentActivities =>
+        CurrentActivities.Count > 0 ? CurrentActivities : Snapshot?.CurrentActivities ?? [];
+    private double FileProcessingPercent => Model.TotalFiles > 0
+        ? Math.Clamp(Model.ProcessedFiles * 100d / Model.TotalFiles, 0, 100)
+        : Math.Clamp(Model.ProgressPercent, 0, 100);
+    private IReadOnlyList<IngestionCurrentActivityViewModel> ActivityRows => EffectiveCurrentActivities
+        .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
+        .OrderBy(activity => ActivitySort(activity))
+        .ThenByDescending(activity => activity.ActiveCount > 0)
+        .ThenByDescending(activity => activity.LastUpdatedTime ?? DateTimeOffset.MinValue)
+        .Take(4)
+        .ToList();
     private string PanelIcon => Model.PageState == LibraryUpdatePageState.Running
         ? Icons.Material.Outlined.GraphicEq
         : Icons.Material.Outlined.AutoAwesome;
@@ -353,9 +436,24 @@
         bool loading,
         bool scanStarting,
         string? error,
-        IReadOnlyList<IngestionOperationsBatchViewModel> recentBatches)
+        IReadOnlyList<IngestionOperationsBatchViewModel> recentBatches,
+        IReadOnlyList<IngestionCurrentActivityViewModel> activityRows)
     {
         var steps = string.Join(';', model.Steps.Select(step => $"{step.Label}:{step.Status}"));
+        var enrichment = string.Join(';', model.EnrichmentStats.Select(stat => string.Join(':',
+            stat.Key,
+            stat.CompletedCount,
+            stat.TotalCount,
+            stat.ActiveCount,
+            stat.QueuedCount)));
+        var currentActivities = string.Join(';', activityRows.Select(activity => string.Join(':',
+            activity.StageKey,
+            activity.Message,
+            activity.CurrentItem,
+            activity.ProcessedCount,
+            activity.TotalCount,
+            activity.ActiveCount,
+            activity.QueuedCount)));
         var recent = string.Join(';', recentBatches.Select(batch => string.Join(':',
             batch.BatchId,
             batch.Status,
@@ -363,10 +461,10 @@
             batch.TvShowsCount,
             batch.BooksCount,
             batch.AudiobooksCount,
+            batch.MusicCount,
             batch.ComicsCount,
             batch.PeopleGeneratedCount,
             batch.ReviewCount,
-            batch.FailedCount,
             batch.StartedAt.ToUnixTimeSeconds())));
         var reasons = string.Join(';', model.AttentionReasons.Select(reason => $"{reason.Label}:{reason.Count}"));
 
@@ -378,6 +476,9 @@
             model.TotalFiles,
             model.ProcessedFiles,
             model.MatchedItems,
+            model.EnrichmentCompleted,
+            model.EnrichmentTotal,
+            Math.Round(model.EnrichmentPercent, 1),
             model.ReviewItems,
             model.ActiveItems,
             model.QueuedItems,
@@ -391,6 +492,8 @@
             model.CurrentStep,
             model.CurrentProvider,
             steps,
+            enrichment,
+            currentActivities,
             reasons,
             recent);
     }
@@ -446,6 +549,98 @@
         batch.BatchId == Guid.Empty
             ? "/settings/activity"
             : $"/settings/activity?batchId={batch.BatchId:D}";
+
+    private static string FormatEnrichmentValue(LibraryUpdateStatusViewModel model) =>
+        model.EnrichmentTotal > 0
+            ? $"{FormatCount(model.EnrichmentCompleted)} / {FormatCount(model.EnrichmentTotal)}"
+            : FormatCount(model.EnrichmentCompleted);
+
+    private static string FormatPercent(double percent) =>
+        $"{Math.Clamp(percent, 0, 100).ToString("0", CultureInfo.CurrentCulture)}%";
+
+    private static string EnrichmentChipClass(LibraryUpdateEnrichmentStatViewModel stat) =>
+        $"library-update-enrichment-chip is-{stat.Tone}";
+
+    private static string ActivityRowClass(IngestionCurrentActivityViewModel activity) =>
+        $"library-update-now-row is-{ActivityTone(activity)}";
+
+    private static string ActivityIcon(IngestionCurrentActivityViewModel activity)
+    {
+        var value = ActivityKey(activity);
+        if (value.Contains("art") || value.Contains("cover"))
+            return Icons.Material.Outlined.ImageSearch;
+        if (value.Contains("people") || value.Contains("cast"))
+            return Icons.Material.Outlined.Groups;
+        if (value.Contains("relationship") || value.Contains("series") || value.Contains("universe"))
+            return Icons.Material.Outlined.Hub;
+        if (value.Contains("retail") || value.Contains("identity") || value.Contains("match") || value.Contains("wikidata") || value.Contains("qid"))
+            return Icons.Material.Outlined.Link;
+        if (value.Contains("description") || value.Contains("summary"))
+            return Icons.Material.Outlined.Article;
+        if (value.Contains("scan") || value.Contains("read") || value.Contains("parse"))
+            return Icons.Material.Outlined.FolderOpen;
+
+        return Icons.Material.Outlined.AutoAwesome;
+    }
+
+    private static string ActivityLabel(IngestionCurrentActivityViewModel activity)
+    {
+        var value = ActivityKey(activity);
+        if (value.Contains("art") || value.Contains("cover"))
+            return "Artwork lookup";
+        if (value.Contains("people") || value.Contains("cast"))
+            return "People enrichment";
+        if (value.Contains("relationship") || value.Contains("series") || value.Contains("universe"))
+            return "Relationships";
+        if (value.Contains("retail") || value.Contains("identity") || value.Contains("match") || value.Contains("wikidata") || value.Contains("qid"))
+            return "Identity match";
+        if (value.Contains("description") || value.Contains("summary"))
+            return "Descriptions";
+
+        return FirstNonBlank(activity.Message, activity.Detail, "Worker activity");
+    }
+
+    private static string ActivityCurrentItem(IngestionCurrentActivityViewModel activity) =>
+        FirstNonBlank(
+            activity.CurrentItem,
+            activity.CurrentBatch?.ActiveItems.FirstOrDefault(),
+            activity.SampleItems.FirstOrDefault(),
+            activity.Detail,
+            activity.Source,
+            "Working");
+
+    private static string ActivityTone(IngestionCurrentActivityViewModel activity)
+    {
+        var value = ActivityKey(activity);
+        if (value.Contains("art") || value.Contains("cover"))
+            return "pink";
+        if (value.Contains("people") || value.Contains("cast"))
+            return "amber";
+        if (value.Contains("relationship") || value.Contains("series") || value.Contains("universe"))
+            return "green";
+        if (value.Contains("retail") || value.Contains("identity") || value.Contains("match") || value.Contains("wikidata") || value.Contains("qid"))
+            return "blue";
+        return "purple";
+    }
+
+    private static int ActivitySort(IngestionCurrentActivityViewModel activity)
+    {
+        var value = ActivityKey(activity);
+        if (value.Contains("art") || value.Contains("cover"))
+            return 10;
+        if (value.Contains("people") || value.Contains("cast"))
+            return 20;
+        if (value.Contains("relationship") || value.Contains("series") || value.Contains("universe"))
+            return 30;
+        if (value.Contains("description") || value.Contains("summary"))
+            return 40;
+        if (value.Contains("retail") || value.Contains("identity") || value.Contains("match") || value.Contains("wikidata") || value.Contains("qid"))
+            return 50;
+        return 90;
+    }
+
+    private static string ActivityKey(IngestionCurrentActivityViewModel activity) =>
+        FirstNonBlank(activity.StageKey, activity.Message, activity.Detail).ToLowerInvariant();
 
     private static RenderFragment BatchHeader(string label, string icon, string tone) => builder =>
     {

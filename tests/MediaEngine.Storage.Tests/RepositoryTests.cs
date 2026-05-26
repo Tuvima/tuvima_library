@@ -581,6 +581,39 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task IdentityJob_ReclaimStuckJobsAsync_RecoversFailedStage3EnhancerCandidates()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var canonicalRepo = new CanonicalValueRepository(_db);
+        var entityId = Guid.NewGuid();
+        var job = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Movies),
+            Pass = "Quick",
+            State = IdentityJobState.Failed.ToString(),
+            LastError = "Stuck intermediate state exceeded retry limit",
+        };
+        await repo.CreateAsync(job);
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = "wikidata_qid", Value = "Q123", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = "tmdb_movie_id", Value = "123", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var reclaimed = await repo.ReclaimStuckJobsAsync(TimeSpan.FromMinutes(5));
+        var recovered = await repo.GetByIdAsync(job.Id);
+
+        Assert.Equal(1, reclaimed);
+        Assert.NotNull(recovered);
+        Assert.Equal(IdentityJobState.QidResolved.ToString(), recovered!.State);
+        Assert.Equal(0, recovered.AttemptCount);
+        Assert.Equal("Recovered for Stage 3 artwork/enhancer retry", recovered.LastError);
+    }
+
+    [Fact]
     public async Task ApiKey_InsertAndFindByHash()
     {
         var repo = new ApiKeyRepository(_db);

@@ -483,6 +483,8 @@ public interface IEngineApiClient
     /// <summary>GET /metadata/{entityId}/artwork/{scopeId} — load exact artwork for one editor scope.</summary>
     Task<ArtworkEditorDto?> GetScopeArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);
 
+    Task<ProviderArtworkRefreshDto?> RefreshScopeProviderArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);
+
     /// <summary>POST /metadata/{entityId}/artwork/{assetType} — upload typed artwork for a media asset.</summary>
     Task<bool> UploadEntityArtworkAsync(Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
 

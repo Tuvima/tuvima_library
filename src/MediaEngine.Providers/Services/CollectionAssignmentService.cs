@@ -83,7 +83,8 @@ public sealed class CollectionAssignmentService
         if (existingCollectionId is not null)
         {
             var existingCollection = await _collectionRepo.GetByIdAsync(existingCollectionId.Value, ct);
-            if (existingCollection is not null)
+            if (existingCollection is not null
+                && string.Equals(existingCollection.WikidataQid, parentQid, StringComparison.OrdinalIgnoreCase))
             {
                 await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
 
@@ -92,6 +93,16 @@ public sealed class CollectionAssignmentService
                     workId,
                     existingCollectionId);
                 return;
+            }
+
+            if (existingCollection is not null)
+            {
+                _logger.LogInformation(
+                    "CollectionAssignment: work {WorkId} is assigned to broader collection '{CollectionName}' ({ExistingQid}) but immediate shelf is {ParentQid}; reassigning",
+                    workId,
+                    existingCollection.DisplayName,
+                    existingCollection.WikidataQid,
+                    parentQid);
             }
         }
 

@@ -23,6 +23,7 @@ public sealed class UniverseStateContainer
     private IngestionProgressEvent?    _ingestionProgress;
     private BatchProgressEvent?        _batchProgress;
     private UniverseEnrichmentProgressEvent? _universeEnrichmentProgress;
+    private DateTimeOffset?            _universeEnrichmentProgressReceivedAt;
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
     private string[]?                  _activeLaneMediaTypes;
     private readonly List<PersonEnrichedEvent> _personUpdates = [];
@@ -63,6 +64,7 @@ public sealed class UniverseStateContainer
     /// </summary>
     public BatchProgressEvent?              BatchProgress               => _batchProgress;
     public UniverseEnrichmentProgressEvent? UniverseEnrichmentProgress  => _universeEnrichmentProgress;
+    public DateTimeOffset?                  UniverseEnrichmentProgressReceivedAt => _universeEnrichmentProgressReceivedAt;
 
     public IReadOnlyList<PersonEnrichedEvent> RecentPersonUpdates        => _personUpdates;
 
@@ -215,6 +217,7 @@ public sealed class UniverseStateContainer
     public void PushUniverseEnrichmentProgress(UniverseEnrichmentProgressEvent ev)
     {
         _universeEnrichmentProgress = ev;
+        _universeEnrichmentProgressReceivedAt = DateTimeOffset.UtcNow;
 
         PushActivity(new ActivityEntry(
             DateTimeOffset.UtcNow,

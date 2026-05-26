@@ -1,5 +1,7 @@
 .ingestion-operations {
     color: #edf2ff;
+    display: grid;
+    gap: 18px;
 }
 
 ::deep .library-update {
@@ -90,7 +92,7 @@
 
 ::deep .library-update__metrics {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
     margin-bottom: 12px;
 }
@@ -298,6 +300,165 @@
     animation: library-update-indeterminate 1.6s ease-in-out infinite;
 }
 
+::deep .library-update-progress-stack {
+    display: grid;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+::deep .library-update-progress-block {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 14px;
+    min-width: 0;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(176, 190, 255, 0.12);
+}
+
+::deep .library-update-progress-block:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+::deep .library-update-progress-block__icon {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+}
+
+::deep .library-update-progress-block__icon.is-blue {
+    color: #74b8ff;
+    background: rgba(59, 130, 246, 0.20);
+}
+
+::deep .library-update-progress-block__icon.is-purple {
+    color: #b794ff;
+    background: rgba(124, 92, 255, 0.22);
+}
+
+::deep .library-update-progress-block__icon .mud-icon-root {
+    width: 24px;
+    height: 24px;
+    font-size: 24px;
+}
+
+::deep .library-update-progress-block__content {
+    min-width: 0;
+}
+
+::deep .library-update-progress-block__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+::deep .library-update-progress-block__top strong,
+::deep .library-update-progress-block__top span {
+    display: block;
+}
+
+::deep .library-update-progress-block__top strong {
+    color: #f8fbff;
+    font-size: 1rem;
+    font-weight: 780;
+}
+
+::deep .library-update-progress-block__top span,
+::deep .library-update-progress-block p {
+    color: rgba(226, 232, 255, 0.72);
+}
+
+::deep .library-update-progress-block__top em {
+    flex: 0 0 auto;
+    color: rgba(241, 245, 255, 0.82);
+    font-style: normal;
+    font-weight: 760;
+}
+
+::deep .library-update-progress-block .library-update-progress {
+    margin: 10px 0 8px;
+}
+
+::deep .library-update-progress-block p {
+    margin: 0;
+}
+
+::deep .library-update-progress.is-enrichment .library-update-progress__track span {
+    background: linear-gradient(90deg, #a78bfa, #ec4899);
+    box-shadow: 0 0 20px rgba(167, 139, 250, 0.38);
+}
+
+::deep .library-update-enrichment-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+::deep .library-update-enrichment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    max-width: 100%;
+    padding: 5px 10px;
+    border: 1px solid rgba(176, 190, 255, 0.11);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+::deep .library-update-enrichment-chip .mud-icon-root {
+    width: 17px;
+    height: 17px;
+    font-size: 17px;
+}
+
+::deep .library-update-enrichment-chip strong,
+::deep .library-update-enrichment-chip em {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+::deep .library-update-enrichment-chip strong {
+    color: #f8fbff;
+    font-weight: 740;
+}
+
+::deep .library-update-enrichment-chip em {
+    color: rgba(226, 232, 255, 0.74);
+    font-style: normal;
+    font-weight: 700;
+}
+
+::deep .library-update-enrichment-chip.is-pink {
+    color: #f472b6;
+    background: rgba(236, 72, 153, 0.13);
+}
+
+::deep .library-update-enrichment-chip.is-amber {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.13);
+}
+
+::deep .library-update-enrichment-chip.is-green {
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.13);
+}
+
+::deep .library-update-enrichment-chip.is-blue {
+    color: #60a5fa;
+    background: rgba(59, 130, 246, 0.13);
+}
+
+::deep .library-update-enrichment-chip.is-purple {
+    color: #a78bfa;
+    background: rgba(124, 92, 255, 0.13);
+}
+
 ::deep .library-update-status__activity,
 ::deep .library-update-status__secondary {
     margin: 0;
@@ -340,6 +501,7 @@
     border-radius: 999px;
 }
 
+::deep .library-update-panel h3,
 ::deep .library-update-panel h6 {
     color: #f8fbff;
     font-weight: 760;
@@ -376,6 +538,57 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+::deep .library-update-now-list {
+    display: grid;
+    overflow: hidden;
+    margin-bottom: 14px;
+    border: 1px solid rgba(176, 190, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(10, 18, 43, 0.46);
+}
+
+::deep .library-update-now-row {
+    display: grid;
+    grid-template-columns: 28px minmax(116px, 0.8fr) minmax(0, 1.2fr);
+    gap: 10px;
+    align-items: center;
+    min-height: 42px;
+    padding: 8px 10px;
+    border-top: 1px solid rgba(176, 190, 255, 0.10);
+}
+
+::deep .library-update-now-row:first-child {
+    border-top: 0;
+}
+
+::deep .library-update-now-row .mud-icon-root {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+}
+
+::deep .library-update-now-row strong,
+::deep .library-update-now-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .library-update-now-row strong {
+    color: #f8fbff;
+    font-size: 0.86rem;
+}
+
+::deep .library-update-now-row span {
+    color: rgba(241, 245, 255, 0.86);
+}
+
+::deep .library-update-now-row.is-pink .mud-icon-root { color: #f472b6; }
+::deep .library-update-now-row.is-amber .mud-icon-root { color: #fbbf24; }
+::deep .library-update-now-row.is-green .mud-icon-root { color: #34d399; }
+::deep .library-update-now-row.is-blue .mud-icon-root { color: #60a5fa; }
+::deep .library-update-now-row.is-purple .mud-icon-root { color: #a78bfa; }
 
 ::deep .library-update-attention {
     grid-template-columns: 48px minmax(0, 1fr) minmax(156px, auto);
@@ -1140,7 +1353,7 @@
 
 ::deep .library-update-batch-grid {
     display: grid;
-    min-width: 900px;
+    min-width: 960px;
 }
 
 ::deep .library-update-batch-grid__head,
@@ -1244,6 +1457,11 @@
 
 ::deep .library-update-batch-count.is-audiobooks { background: rgba(244, 63, 94, 0.15); }
 
+::deep .library-update-batch-head-chip.is-music,
+::deep .library-update-batch-count.is-music { color: #2dd4bf; }
+
+::deep .library-update-batch-count.is-music { background: rgba(20, 184, 166, 0.15); }
+
 ::deep .library-update-batch-head-chip.is-comics,
 ::deep .library-update-batch-count.is-comics { color: #f472b6; }
 
@@ -1338,6 +1556,22 @@
 
     ::deep .library-update__actions .mud-button-root {
         flex: 1 1 150px;
+    }
+
+    ::deep .library-update-progress-block {
+        grid-template-columns: 1fr;
+    }
+
+    ::deep .library-update-progress-block__top {
+        display: grid;
+    }
+
+    ::deep .library-update-now-row {
+        grid-template-columns: 28px minmax(0, 1fr);
+    }
+
+    ::deep .library-update-now-row span {
+        grid-column: 2;
     }
 
     ::deep .library-update__metrics,

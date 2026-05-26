@@ -186,6 +186,45 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         Assert.Empty(cut.FindAll(".tl-detail-hero-brand-badge img"));
     }
 
+    [Fact]
+    public void DetailHero_UsesDenseTitleSizingForLongWatchRenderedTitles()
+    {
+        var model = new DetailPageViewModel
+        {
+            Id = "movie-1",
+            EntityType = DetailEntityType.Movie,
+            PresentationContext = DetailPresentationContext.Watch,
+            Title = "Star Wars: Episode V - The Empire Strikes Back",
+            Artwork = new ArtworkSet
+            {
+                HeroArtwork = new HeroArtworkViewModel
+                {
+                    HasImage = true,
+                    Mode = HeroArtworkMode.BackdropWithRenderedTitle,
+                    Url = "/images/backdrops/empire.jpg",
+                },
+            },
+        };
+
+        using var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<DetailHero>(1);
+            builder.AddAttribute(2, "Model", model);
+            builder.CloseComponent();
+        });
+
+        var hero = cut.Find(".tl-detail-hero");
+        Assert.Contains("tl-detail-hero--title-dense", hero.GetAttribute("class"));
+        Assert.Equal(model.Title, cut.Find(".tl-detail-hero__copy h1").TextContent);
+
+        var styles = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src/MediaEngine.Web/Components/Details/DetailPage.razor.css"));
+        Assert.Contains("tl-detail-hero--title-dense .tl-detail-hero__copy h1", styles);
+    }
+
     [Theory]
     [MemberData(nameof(EditableMediaTypeData))]
     public void DetailHero_PutsEditInWorkingOverflowMenuForEditableMediaTypes(DetailEntityType entityType)

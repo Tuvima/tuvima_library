@@ -761,7 +761,20 @@
                                                  @ondragover:preventDefault="true"
                                                  @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
                                             <div class="sme-artwork-gallery-heading">
-                                                <h3>@GetArtworkGalleryTitle(slot)</h3>
+                                                <div class="sme-artwork-gallery-heading-row">
+                                                    <h3>@GetArtworkGalleryTitle(slot)</h3>
+                                                    @if (CanRefreshProviderArtwork(ArtworkScope))
+                                                    {
+                                                        <AppButton Variant="Variant.Outlined"
+                                                                   Color="Color.Inherit"
+                                                                   Class="sme-inline-btn sme-provider-art-refresh"
+                                                                   Disabled="@IsArtworkBusy"
+                                                                   OnClick="RefreshProviderArtworkAsync">
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Sync" Class="tl-u-font-size-18px" />
+                                                            <span>@(_providerArtworkRefreshing ? "Refreshing" : "Refresh Provider Art")</span>
+                                                        </AppButton>
+                                                    }
+                                                </div>
                                             </div>
 
                                             <div class="sme-artwork-gallery sme-artwork-gallery--@slot.PreviewClass">

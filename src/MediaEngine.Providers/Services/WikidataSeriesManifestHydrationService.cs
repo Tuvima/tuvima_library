@@ -230,6 +230,13 @@ public sealed class WikidataSeriesManifestHydrationService
 
             if (collectionId is not null)
             {
+                var relationships = await _collectionRepo.GetRelationshipsAsync(collectionId.Value, ct).ConfigureAwait(false);
+                var seriesRelationship = relationships.FirstOrDefault(r =>
+                    string.Equals(r.RelType, "series", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(r.RelQid));
+                if (seriesRelationship is not null)
+                    return (seriesRelationship.RelQid, seriesRelationship.RelLabel);
+
                 var collection = await _collectionRepo.GetByIdAsync(collectionId.Value, ct).ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(collection?.WikidataQid))
                     return (collection.WikidataQid, collection.DisplayName);
@@ -250,16 +257,6 @@ public sealed class WikidataSeriesManifestHydrationService
             var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
             if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
                 return true;
-        }
-
-        if (context.MediaType is MediaType.Movies or MediaType.TV)
-        {
-            foreach (var key in new[] { "franchise_qid", "fictional_universe_qid" })
-            {
-                var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
-                if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
-                    return true;
-            }
         }
 
         foreach (var key in new[] { "series" })

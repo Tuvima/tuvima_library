@@ -168,6 +168,7 @@ public sealed class IngestionOperationsBatchViewModel
     [JsonPropertyName("tv_shows_count")] public int TvShowsCount { get; set; }
     [JsonPropertyName("books_count")] public int BooksCount { get; set; }
     [JsonPropertyName("audiobooks_count")] public int AudiobooksCount { get; set; }
+    [JsonPropertyName("music_count")] public int MusicCount { get; set; }
     [JsonPropertyName("comics_count")] public int ComicsCount { get; set; }
     [JsonPropertyName("registered_count")] public int RegisteredCount { get; set; }
     [JsonPropertyName("review_count")] public int ReviewCount { get; set; }

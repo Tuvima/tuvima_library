@@ -702,6 +702,52 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
+        // -- POST /metadata/{entityId}/artwork/{scopeId}/refresh-provider ---
+        group.MapPost("/{entityId:guid}/artwork/{scopeId}/refresh-provider", async (
+            Guid entityId,
+            string scopeId,
+            ICanonicalValueRepository canonicalRepo,
+            ILibraryItemRepository libraryItemRepo,
+            IWorkRepository workRepo,
+            IImageEnrichmentService imageEnrichment,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
+            if (context is null)
+                return Results.NotFound($"Editor context for {entityId} not found.");
+
+            var scope = context.Scopes.FirstOrDefault(candidate =>
+                string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
+            if (scope is null)
+                return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+
+            if (!IsProviderArtworkRefreshSupported(scope))
+            {
+                return Results.Ok(CreateProviderArtworkRefreshEnvelope(
+                    status: "Skipped",
+                    skippedReason: "unsupported_scope",
+                    message: "Provider artwork refresh is available for movie and TV artwork scopes.",
+                    mediaType: scope.MediaType));
+            }
+
+            var target = await ResolveProviderArtworkRefreshTargetAsync(scope, canonicalRepo, workRepo, db, ct);
+            if (target.Skipped is not null)
+                return Results.Ok(target.Skipped);
+
+            var result = await imageEnrichment.EnrichWorkImagesAsync(
+                target.RepresentativeAssetId!.Value,
+                target.WorkQid!,
+                ct);
+
+            return Results.Ok(MapProviderArtworkRefreshResult(result));
+        })
+        .WithName("RefreshScopedProviderArtwork")
+        .WithSummary("Refresh provider artwork for one editor scope without rerunning full identity matching.")
+        .Produces<ProviderArtworkRefreshEnvelope>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
         // -- GET /metadata/{entityId}/artwork --------------------------------
         group.MapGet("/{entityId:guid}/artwork", async (
             Guid entityId,
@@ -2523,6 +2569,195 @@ public static partial class MetadataEndpoints
             _ => [],
         };
 
+    private static bool IsProviderArtworkRefreshSupported(EditorScopeResolution scope) =>
+        (NormalizeEditorMediaType(scope.MediaType), scope.ScopeId) is
+            ("Movies", "item")
+            or ("TV", "series")
+            or ("TV", "season")
+            or ("TV", "episode");
+
+    private static async Task<ProviderArtworkRefreshTarget> ResolveProviderArtworkRefreshTargetAsync(
+        EditorScopeResolution scope,
+        ICanonicalValueRepository canonicalRepo,
+        IWorkRepository workRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        var representativeAssetId = ResolveRepresentativeAssetIdForArtworkRefresh(scope, db);
+        if (representativeAssetId is null)
+        {
+            return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
+                status: "Skipped",
+                skippedReason: "missing_representative_asset",
+                message: "No owned media file was found for this artwork scope.",
+                mediaType: scope.MediaType));
+        }
+
+        var lineage = await workRepo.GetLineageByAssetAsync(representativeAssetId.Value, ct);
+        var qidCandidateIds = new List<Guid>();
+        if (lineage is not null && NormalizeEditorMediaType(scope.MediaType) == "TV")
+            AddCanonicalSource(qidCandidateIds, lineage.TargetForParentScope);
+        AddCanonicalSource(qidCandidateIds, scope.ArtworkOwnerEntityId);
+        AddCanonicalSource(qidCandidateIds, scope.FieldEntityId);
+        if (lineage is not null)
+            AddCanonicalSource(qidCandidateIds, lineage.TargetForSelfScope);
+        AddCanonicalSource(qidCandidateIds, representativeAssetId.Value);
+
+        var canonicalLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string? qid = null;
+        foreach (var candidateId in qidCandidateIds.Distinct())
+        {
+            foreach (var canonical in await canonicalRepo.GetByEntityAsync(candidateId, ct))
+            {
+                if (!string.IsNullOrWhiteSpace(canonical.Key)
+                    && !string.IsNullOrWhiteSpace(canonical.Value)
+                    && !canonicalLookup.ContainsKey(canonical.Key))
+                {
+                    canonicalLookup[canonical.Key] = canonical.Value;
+                }
+
+                if (qid is null
+                    && string.Equals(canonical.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase))
+                {
+                    qid = NormalizeWikidataQid(canonical.Value);
+                }
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(qid))
+        {
+            return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
+                status: "Skipped",
+                skippedReason: "missing_qid",
+                message: "This item needs a confirmed Wikidata QID before provider artwork can be refreshed.",
+                mediaType: scope.MediaType));
+        }
+
+        var bridge = ResolveProviderArtworkBridge(canonicalLookup, scope.MediaType);
+        if (bridge is null)
+        {
+            return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
+                status: "Skipped",
+                skippedReason: "missing_bridge_id",
+                message: "This item needs a provider bridge ID before Fanart.tv artwork can be refreshed.",
+                mediaType: scope.MediaType));
+        }
+
+        return new ProviderArtworkRefreshTarget(representativeAssetId, qid, null);
+    }
+
+    private static Guid? ResolveRepresentativeAssetIdForArtworkRefresh(
+        EditorScopeResolution scope,
+        IDatabaseConnection db)
+    {
+        using var conn = db.CreateConnection();
+        foreach (var candidateWorkId in new[] { scope.FieldEntityId, scope.ArtworkOwnerEntityId ?? Guid.Empty }.Distinct())
+        {
+            if (candidateWorkId == Guid.Empty)
+                continue;
+
+            var sample = GetRepresentativeAssetForWorkTree(conn, candidateWorkId);
+            if (sample?.AssetId is Guid assetId)
+                return assetId;
+        }
+
+        return null;
+    }
+
+    private static (string Key, string Value)? ResolveProviderArtworkBridge(
+        IReadOnlyDictionary<string, string> canonicals,
+        string mediaType)
+    {
+        var normalized = NormalizeEditorMediaType(mediaType);
+        if (normalized == "Movies")
+        {
+            var tmdb = FirstNonBlank(
+                GetCanonicalValue(canonicals, "tmdb_movie_id"),
+                GetCanonicalValue(canonicals, BridgeIdKeys.TmdbId));
+            return string.IsNullOrWhiteSpace(tmdb) ? null : ("tmdb_movie_id", tmdb);
+        }
+
+        if (normalized == "TV")
+        {
+            var tvdb = GetCanonicalValue(canonicals, BridgeIdKeys.TvdbId);
+            return string.IsNullOrWhiteSpace(tvdb) ? null : (BridgeIdKeys.TvdbId, tvdb);
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeWikidataQid(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var qid = value.Trim();
+        if (qid.Contains('/'))
+            qid = qid.Split('/')[^1];
+        if (qid.Contains("|||", StringComparison.Ordinal))
+            qid = qid.Split("|||", 2, StringSplitOptions.None)[0].Trim();
+        if (qid.Contains("::", StringComparison.Ordinal))
+            qid = qid.Split("::", 2, StringSplitOptions.None)[0].Trim();
+
+        return qid.Length > 1 && qid[0] is 'Q' && qid.Skip(1).All(char.IsDigit)
+            ? qid
+            : null;
+    }
+
+    private static ProviderArtworkRefreshEnvelope MapProviderArtworkRefreshResult(ImageEnrichmentResult result) =>
+        CreateProviderArtworkRefreshEnvelope(
+            result.Status,
+            result.SkippedReason,
+            result.Message,
+            result.MediaType,
+            result.BridgeKey,
+            result.BridgeId,
+            result.Endpoint,
+            result.HttpStatusCode,
+            result.DownloadedCount,
+            result.UpdatedPreferredCount,
+            result.StoredVariantCounts,
+            result.Diagnostics,
+            result.LastCheckedAt,
+            result.Provider,
+            result.ProviderName);
+
+    private static ProviderArtworkRefreshEnvelope CreateProviderArtworkRefreshEnvelope(
+        string status,
+        string? skippedReason,
+        string? message,
+        string? mediaType,
+        string? bridgeKey = null,
+        string? bridgeId = null,
+        string? endpoint = null,
+        int? httpStatusCode = null,
+        int downloadedCount = 0,
+        int updatedPreferredCount = 0,
+        IReadOnlyDictionary<string, int>? storedCounts = null,
+        IReadOnlyList<string>? diagnostics = null,
+        DateTimeOffset? lastCheckedAt = null,
+        string provider = "fanart_tv",
+        string providerName = "Fanart.tv") =>
+        new(
+            Provider: provider,
+            ProviderName: providerName,
+            Status: status,
+            Success: string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(status, "NoImages", StringComparison.OrdinalIgnoreCase),
+            Skipped: !string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase),
+            SkippedReason: skippedReason,
+            Message: message,
+            MediaType: mediaType,
+            BridgeKey: bridgeKey,
+            BridgeId: bridgeId,
+            Endpoint: endpoint,
+            HttpStatusCode: httpStatusCode,
+            DownloadedCount: downloadedCount,
+            UpdatedPreferredCount: updatedPreferredCount,
+            StoredVariantCounts: storedCounts ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+            Diagnostics: diagnostics ?? [],
+            LastCheckedAt: lastCheckedAt ?? DateTimeOffset.UtcNow);
+
     private static string GetDefaultEditorScope(EditorLaunchContext launch, IReadOnlyList<EditorScopeResolution> scopes)
     {
         var launchWorkKind = launch.WorkKind.Trim().ToLowerInvariant();
@@ -3057,6 +3292,32 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("provider_name")] string? ProviderName,
         [property: JsonPropertyName("can_delete")] bool CanDelete,
         [property: JsonPropertyName("created_at")] DateTimeOffset? CreatedAt);
+    private sealed record ProviderArtworkRefreshEnvelope(
+        [property: JsonPropertyName("provider")] string Provider,
+        [property: JsonPropertyName("provider_name")] string ProviderName,
+        [property: JsonPropertyName("status")] string Status,
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("skipped")] bool Skipped,
+        [property: JsonPropertyName("skipped_reason")] string? SkippedReason,
+        [property: JsonPropertyName("message")] string? Message,
+        [property: JsonPropertyName("media_type")] string? MediaType,
+        [property: JsonPropertyName("bridge_key")] string? BridgeKey,
+        [property: JsonPropertyName("bridge_id")] string? BridgeId,
+        [property: JsonPropertyName("endpoint")] string? Endpoint,
+        [property: JsonPropertyName("http_status_code")] int? HttpStatusCode,
+        [property: JsonPropertyName("downloaded_count")] int DownloadedCount,
+        [property: JsonPropertyName("updated_preferred_count")] int UpdatedPreferredCount,
+        [property: JsonPropertyName("stored_variant_counts")] IReadOnlyDictionary<string, int> StoredVariantCounts,
+        [property: JsonPropertyName("diagnostics")] IReadOnlyList<string> Diagnostics,
+        [property: JsonPropertyName("last_checked_at")] DateTimeOffset LastCheckedAt);
+    private sealed record ProviderArtworkRefreshTarget(
+        Guid? RepresentativeAssetId,
+        string? WorkQid,
+        ProviderArtworkRefreshEnvelope? Skipped)
+    {
+        public static ProviderArtworkRefreshTarget Skip(ProviderArtworkRefreshEnvelope envelope) =>
+            new(null, null, envelope);
+    }
     private sealed record ArtworkResolutionContext(
         Guid RequestedEntityId,
         Guid? WorkId,

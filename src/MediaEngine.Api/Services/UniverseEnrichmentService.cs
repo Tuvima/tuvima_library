@@ -358,11 +358,11 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
                 return;
             }
 
-            if (source == Stage3Source.Inline && stage3Settled)
+            if (source == Stage3Source.Inline)
             {
                 await CompleteInlineJobAsync(
                     request,
-                    hasUniversePath,
+                    hasUniversePath && stage3Settled,
                     services.JobRepository,
                     services.BatchProgress,
                     ct).ConfigureAwait(false);

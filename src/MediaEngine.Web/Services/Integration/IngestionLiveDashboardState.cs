@@ -6,6 +6,8 @@ namespace MediaEngine.Web.Services.Integration;
 
 public sealed class IngestionLiveDashboardState : IDisposable
 {
+    private static readonly TimeSpan LiveUniverseProgressFreshness = TimeSpan.FromMinutes(2);
+
     private readonly IEngineApiClient _api;
     private readonly UIOrchestratorService _orchestrator;
     private readonly UniverseStateContainer _stateContainer;
@@ -61,7 +63,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     public EngineConnectionState ConnectionState => _orchestrator.EngineConnectionState;
     public IReadOnlyList<IngestionOperationsJobViewModel> ActiveJobs => BuildActiveJobs(Snapshot, _stateContainer);
-    public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities => BuildCurrentActivities(Snapshot, ActiveJobs, Stages);
+    public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities => BuildCurrentActivities(Snapshot, ActiveJobs, Stages, _stateContainer);
     public IngestionDashboardMetrics Metrics => BuildMetrics(Snapshot, ActiveJobs);
     public IReadOnlyList<IngestionDashboardStage> Stages => BuildStages(Snapshot, ActiveJobs, Metrics.TotalFiles);
     public IngestionOverallProgress OverallProgress => BuildOverallProgress(Metrics, Stages, _stateContainer.BatchProgress);
@@ -419,11 +421,18 @@ public sealed class IngestionLiveDashboardState : IDisposable
     public static IReadOnlyList<IngestionCurrentActivityViewModel> BuildCurrentActivities(
         IngestionOperationsSnapshotViewModel? snapshot,
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
-        IReadOnlyList<IngestionDashboardStage> stages)
+        IReadOnlyList<IngestionDashboardStage> stages,
+        UniverseStateContainer? stateContainer = null)
     {
         var activities = snapshot?.CurrentActivities
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
             .ToList() ?? [];
+        var liveUniverseActivity = BuildLiveUniverseActivity(stateContainer);
+
+        if (liveUniverseActivity is not null)
+        {
+            UpsertCurrentActivity(activities, liveUniverseActivity);
+        }
 
         if (activities.Count > 0)
         {
@@ -437,6 +446,84 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Select(job => ToCurrentActivity(job, stages))
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
             .ToList();
+    }
+
+    private static IngestionCurrentActivityViewModel? BuildLiveUniverseActivity(UniverseStateContainer? stateContainer)
+    {
+        var progress = stateContainer?.UniverseEnrichmentProgress;
+        var receivedAt = stateContainer?.UniverseEnrichmentProgressReceivedAt;
+        if (progress is null || receivedAt is null)
+        {
+            return null;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (now - receivedAt.Value.ToUniversalTime() > LiveUniverseProgressFreshness)
+        {
+            return null;
+        }
+
+        var total = Math.Max(0, progress.TotalCount);
+        var currentOrdinal = total > 0
+            ? Math.Clamp(progress.ProcessedCount, 1, total)
+            : Math.Max(1, progress.ProcessedCount);
+        var completed = total > 0
+            ? Math.Max(0, currentOrdinal - 1)
+            : Math.Max(0, progress.ProcessedCount);
+        var active = 1;
+        var queued = total > 0 ? Math.Max(0, total - completed - active) : 0;
+        var percent = total > 0 ? Math.Clamp(completed * 100d / total, 0, 99) : 0;
+
+        return new IngestionCurrentActivityViewModel
+        {
+            StageKey = "relationships",
+            Message = "Series & relationships",
+            Detail = FirstNonBlank(progress.CurrentStep, "Stage 3 enrichment"),
+            CurrentItem = progress.WorkTitle,
+            Source = "Wikidata",
+            ProcessedCount = completed,
+            TotalCount = total,
+            PercentComplete = percent,
+            LastUpdatedTime = receivedAt,
+            QueuedCount = queued,
+            ActiveCount = active,
+            SampleItems = [progress.WorkTitle],
+            MetricLabel = "Current step",
+            MetricValue = FirstNonBlank(progress.CurrentStep, "Stage 3"),
+            MetricTone = "success",
+            CurrentBatch = total > 0
+                ? new IngestionActivityBatchViewModel
+                {
+                    BatchNumber = Math.Max(1, (int)Math.Ceiling(currentOrdinal / 50d)),
+                    BatchSize = Math.Min(50, Math.Max(1, total)),
+                    TotalBatches = Math.Max(1, (int)Math.Ceiling(total / 50d)),
+                    CompletedCount = completed,
+                    ActiveCount = active,
+                    PendingCount = queued,
+                    ReviewCount = 0,
+                    ActiveItems = [progress.WorkTitle],
+                    PendingPreview = [],
+                    CompletedPreview = [],
+                    ReviewPreview = [],
+                }
+                : null,
+        };
+    }
+
+    private static void UpsertCurrentActivity(
+        List<IngestionCurrentActivityViewModel> activities,
+        IngestionCurrentActivityViewModel activity)
+    {
+        var existingIndex = activities.FindIndex(existing =>
+            existing.StageKey.Equals(activity.StageKey, StringComparison.OrdinalIgnoreCase));
+
+        if (existingIndex >= 0)
+        {
+            activities[existingIndex] = activity;
+            return;
+        }
+
+        activities.Insert(0, activity);
     }
 
     public static IReadOnlyList<IngestionQueueHealthItem> BuildQueueHealth(
@@ -823,7 +910,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var processedFiles = Math.Max(0, metrics.ProcessedFiles);
         if (processedFiles == 0 && latestBatch is not null)
         {
-            processedFiles = Math.Max(0, latestBatch.RegisteredCount + latestBatch.ReviewCount + latestBatch.FailedCount);
+            processedFiles = Math.Max(0, latestBatch.RegisteredCount + latestBatch.ReviewCount);
         }
 
         if (totalFiles > 0)
@@ -863,12 +950,22 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var recentRuns = BuildRecentRuns(snapshot?.RecentBatches ?? [], now);
         var attentionReasons = BuildAttentionReasons(snapshot?.ReviewReasons ?? [], reviewItems);
         var steps = BuildLibraryUpdateSteps(pageState, activeStep, reviewItems);
+        var enrichmentStats = BuildEnrichmentStats(currentActivities, snapshot);
+        var enrichmentCompleted = enrichmentStats.Sum(stat => Math.Max(0, stat.CompletedCount));
+        var enrichmentTotal = enrichmentStats.Sum(stat => Math.Max(0, stat.TotalCount));
+        var enrichmentPercent = enrichmentTotal > 0
+            ? Math.Clamp(enrichmentCompleted * 100d / enrichmentTotal, 0, 100)
+            : 0;
 
         return new LibraryUpdateStatusViewModel(
             pageState,
             totalFiles,
             processedFiles,
             matchedItems,
+            enrichmentCompleted,
+            enrichmentTotal,
+            enrichmentPercent,
+            enrichmentStats,
             reviewItems,
             activeItems,
             queuedItems,
@@ -1212,7 +1309,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (normalized.Contains("save") || normalized.Contains("register") || normalized.Contains("organize") || normalized.Contains("write"))
             return 4;
         if (normalized.Contains("artwork") || normalized.Contains("cover") || normalized.Contains("metadata")
-            || normalized.Contains("hydrate") || normalized.Contains("enrich") || normalized.Contains("universe"))
+            || normalized.Contains("hydrate") || normalized.Contains("enrich") || normalized.Contains("universe")
+            || normalized.Contains("series") || normalized.Contains("relationship") || normalized.Contains("people")
+            || normalized.Contains("cast"))
         {
             return 3;
         }
@@ -1287,7 +1386,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             0 => "Scanning library folders",
             1 => "Reading media details",
             2 => "Matching titles and identity",
-            3 => "Checking artwork and metadata",
+            3 => "Enriching metadata and relationships",
             4 => "Saving library records",
             _ => "Checking library update",
         };
@@ -1323,7 +1422,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 0 => "Currently scanning library folders",
                 1 => "Currently reading media details",
                 2 => "Currently matching titles and identity",
-                3 => "Currently matching artwork and metadata",
+                3 => "Currently enriching artwork, people, and relationships",
                 4 => "Currently saving library records",
                 _ => "Currently updating your library",
             },
@@ -1469,7 +1568,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             ("Scanned folders", Icons.Material.Outlined.FolderOpen),
             ("Read media details", Icons.Material.Outlined.MenuBook),
             ("Matched identity", Icons.Material.Outlined.Link),
-            ("Collected artwork", Icons.Material.Outlined.ImageSearch),
+            ("Enriched metadata", Icons.Material.Outlined.AutoAwesome),
             ("Saved to library", Icons.Material.Outlined.Storage),
         };
 
@@ -1550,6 +1649,128 @@ public sealed class IngestionLiveDashboardState : IDisposable
             rows.Add(new LibraryUpdateAttentionReasonViewModel(count, label));
     }
 
+    private static IReadOnlyList<LibraryUpdateEnrichmentStatViewModel> BuildEnrichmentStats(
+        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities,
+        IngestionOperationsSnapshotViewModel? snapshot)
+    {
+        var rows = currentActivities
+            .Where(IsEnrichmentActivity)
+            .GroupBy(activity => NormalizeEnrichmentKey(activity), StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var activities = group.ToList();
+                var completed = activities.Sum(activity => Math.Max(0, activity.ProcessedCount));
+                var total = activities.Sum(activity => Math.Max(0, activity.TotalCount));
+                var active = activities.Sum(activity => Math.Max(0, activity.ActiveCount));
+                var queued = activities.Sum(activity => Math.Max(0, activity.QueuedCount));
+                var key = group.Key;
+                return new LibraryUpdateEnrichmentStatViewModel(
+                    key,
+                    EnrichmentLabel(key),
+                    EnrichmentIcon(key),
+                    EnrichmentTone(key),
+                    completed,
+                    total,
+                    active,
+                    queued,
+                    activities.Select(activity => CleanDisplayTitle(FirstNonBlank(activity.CurrentItem, activity.SampleItems.FirstOrDefault())))
+                        .Where(value => !string.IsNullOrWhiteSpace(value))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Take(3)
+                        .ToList());
+            })
+            .Where(stat => stat.TotalCount > 0 || stat.CompletedCount > 0 || stat.ActiveCount > 0)
+            .OrderBy(stat => EnrichmentSort(stat.Key))
+            .ToList();
+
+        if (rows.Count > 0)
+        {
+            return rows;
+        }
+
+        var enriched = Count(snapshot, "enriched");
+        var enrichmentTotal = Total(snapshot, "enriched", 0);
+        return enrichmentTotal > 0 || enriched > 0
+            ?
+            [
+                new LibraryUpdateEnrichmentStatViewModel(
+                    "metadata",
+                    "Metadata",
+                    Icons.Material.Outlined.AutoAwesome,
+                    "purple",
+                    enriched,
+                    Math.Max(enriched, enrichmentTotal),
+                    0,
+                    Math.Max(0, enrichmentTotal - enriched),
+                    [])
+            ]
+            : [];
+    }
+
+    private static bool IsEnrichmentActivity(IngestionCurrentActivityViewModel activity)
+    {
+        var value = FirstNonBlank(activity.StageKey, activity.Message);
+        return value.Contains("art", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("cover", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("people", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("cast", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("relationship", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("series", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("description", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("metadata", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("enrich", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeEnrichmentKey(IngestionCurrentActivityViewModel activity)
+    {
+        var value = FirstNonBlank(activity.StageKey, activity.Message).ToLowerInvariant();
+        if (value.Contains("art") || value.Contains("cover"))
+            return "artwork";
+        if (value.Contains("people") || value.Contains("cast"))
+            return "people";
+        if (value.Contains("relationship") || value.Contains("series") || value.Contains("universe"))
+            return "relationships";
+        if (value.Contains("description"))
+            return "descriptions";
+        return "metadata";
+    }
+
+    private static int EnrichmentSort(string key) => key.ToLowerInvariant() switch
+    {
+        "artwork" => 10,
+        "people" => 20,
+        "relationships" => 30,
+        "descriptions" => 40,
+        _ => 90,
+    };
+
+    private static string EnrichmentLabel(string key) => key.ToLowerInvariant() switch
+    {
+        "artwork" => "Artwork",
+        "people" => "People",
+        "relationships" => "Relationships",
+        "descriptions" => "Descriptions",
+        _ => "Metadata",
+    };
+
+    private static string EnrichmentIcon(string key) => key.ToLowerInvariant() switch
+    {
+        "artwork" => Icons.Material.Outlined.ImageSearch,
+        "people" => Icons.Material.Outlined.Groups,
+        "relationships" => Icons.Material.Outlined.Hub,
+        "descriptions" => Icons.Material.Outlined.Article,
+        _ => Icons.Material.Outlined.AutoAwesome,
+    };
+
+    private static string EnrichmentTone(string key) => key.ToLowerInvariant() switch
+    {
+        "artwork" => "pink",
+        "people" => "amber",
+        "relationships" => "green",
+        "descriptions" => "blue",
+        _ => "purple",
+    };
+
     private static IReadOnlyList<LibraryUpdateRecentItemViewModel> BuildRecentItems(
         IReadOnlyList<ActivityEntryViewModel> recentActivity,
         IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities)
@@ -1592,16 +1813,15 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Select(batch =>
             {
                 var reviewCount = Math.Max(0, batch.ReviewCount);
-                var failedCount = Math.Max(0, batch.FailedCount);
-                var statusTone = failedCount > 0
+                var statusTone = IsFailedBatchStatus(batch.Status)
                     ? "danger"
                     : reviewCount > 0 ? "warning" : IsActiveBatchStatus(batch.Status) ? "info" : "success";
                 var statusLabel = IsActiveBatchStatus(batch.Status)
                     ? "Running"
-                    : failedCount > 0 ? "Issues" : reviewCount > 0 ? "Review" : "Complete";
+                    : reviewCount > 0 ? "Review" : IsFailedBatchStatus(batch.Status) ? "Review" : "Complete";
                 var processed = batch.ProcessedFiles > 0
                     ? Math.Min(Math.Max(0, batch.ProcessedFiles), Math.Max(0, batch.TotalFiles))
-                    : Math.Min(Math.Max(0, batch.RegisteredCount + batch.ReviewCount + batch.FailedCount), Math.Max(0, batch.TotalFiles));
+                    : Math.Min(Math.Max(0, batch.RegisteredCount + batch.ReviewCount), Math.Max(0, batch.TotalFiles));
                 var title = string.IsNullOrWhiteSpace(batch.Source)
                     ? "Library update"
                     : $"{batch.Source} update";
@@ -1720,9 +1940,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
             || normalized.Contains("cover", StringComparison.OrdinalIgnoreCase)
             || normalized.Contains("metadata", StringComparison.OrdinalIgnoreCase)
             || normalized.Contains("hydrat", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains("enrich", StringComparison.OrdinalIgnoreCase))
+            || normalized.Contains("enrich", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("series", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("relationship", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("people", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("cast", StringComparison.OrdinalIgnoreCase))
         {
-            return "Checking artwork and metadata";
+            return "Enriching metadata and relationships";
         }
 
         if (normalized.Contains("wikidata", StringComparison.OrdinalIgnoreCase)
@@ -1911,6 +2135,10 @@ public sealed record LibraryUpdateStatusViewModel(
     int TotalFiles,
     int ProcessedFiles,
     int MatchedItems,
+    int EnrichmentCompleted,
+    int EnrichmentTotal,
+    double EnrichmentPercent,
+    IReadOnlyList<LibraryUpdateEnrichmentStatViewModel> EnrichmentStats,
     int ReviewItems,
     int ActiveItems,
     int QueuedItems,
@@ -1935,6 +2163,17 @@ public sealed record LibraryUpdateStatusViewModel(
     IReadOnlyList<LibraryUpdateRecentItemViewModel> RecentItems,
     IReadOnlyList<LibraryUpdateRunSummaryViewModel> RecentRuns,
     bool HasPriorRun);
+
+public sealed record LibraryUpdateEnrichmentStatViewModel(
+    string Key,
+    string Label,
+    string Icon,
+    string Tone,
+    int CompletedCount,
+    int TotalCount,
+    int ActiveCount,
+    int QueuedCount,
+    IReadOnlyList<string> SampleItems);
 
 public sealed record LibraryUpdateStepViewModel(
     string Label,

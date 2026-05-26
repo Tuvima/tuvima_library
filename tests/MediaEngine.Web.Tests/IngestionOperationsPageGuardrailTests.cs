@@ -5,6 +5,7 @@ using MediaEngine.Web.Services.Integration;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
+using System.Runtime.CompilerServices;
 
 namespace MediaEngine.Web.Tests;
 
@@ -19,6 +20,7 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionLiveDashboard", source, StringComparison.Ordinal);
+        Assert.Contains("<IngestionActivityList", source, StringComparison.Ordinal);
         Assert.Contains("Status=\"Dashboard.LibraryUpdateStatus\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldRender", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("BuildRenderSignature", dashboardSource, StringComparison.Ordinal);
@@ -377,6 +379,74 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_MergesLiveUniverseProgressIntoCurrentActivities()
+    {
+        var state = new UniverseStateContainer();
+        state.PushUniverseEnrichmentProgress(new UniverseEnrichmentProgressEvent(
+            "Q17738",
+            "Star Wars: Episode IV - A New Hope",
+            ProcessedCount: 71,
+            TotalCount: 77,
+            CurrentStep: "Enhancers"));
+
+        var activities = IngestionLiveDashboardState.BuildCurrentActivities(
+            new IngestionOperationsSnapshotViewModel(),
+            [],
+            [],
+            state);
+
+        var activity = Assert.Single(activities);
+        Assert.Equal("relationships", activity.StageKey);
+        Assert.Equal("Series & relationships", activity.Message);
+        Assert.Equal("Star Wars: Episode IV - A New Hope", activity.CurrentItem);
+        Assert.Equal(70, activity.ProcessedCount);
+        Assert.Equal(77, activity.TotalCount);
+        Assert.Equal(1, activity.ActiveCount);
+        Assert.Equal(6, activity.QueuedCount);
+        Assert.Equal("Enhancers", activity.MetricValue);
+    }
+
+    [Fact]
+    public void LiveDashboardState_TreatsRelationshipActivityAsEnrichmentWork()
+    {
+        var activity = new IngestionCurrentActivityViewModel
+        {
+            StageKey = "relationships",
+            Message = "Series & relationships",
+            CurrentItem = "Star Wars: Episode IV - A New Hope",
+            ProcessedCount = 70,
+            TotalCount = 77,
+            PercentComplete = 91,
+            ActiveCount = 1,
+            QueuedCount = 6,
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            new IngestionOperationsSnapshotViewModel
+            {
+                Summary = new IngestionOperationsSummaryViewModel
+                {
+                    TotalItems = 77,
+                    RegisteredItems = 70,
+                    ActiveJobs = 1,
+                },
+            },
+            [],
+            [activity],
+            [],
+            [],
+            new IngestionDashboardMetrics(77, 70, 1, 0),
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(LibraryUpdatePageState.Running, status.PageState);
+        Assert.Equal("Star Wars: Episode IV - A New Hope", status.CurrentItemTitle);
+        Assert.Equal("Enriching metadata and relationships", status.CurrentStep);
+        Assert.Contains(status.Steps, step => step.Label == "Enriched metadata" && step.Status == LibraryUpdateStepStatus.InProgress);
+    }
+
+    [Fact]
     public void LiveDashboardState_MapsStagesAndMetrics()
     {
         var snapshot = new IngestionOperationsSnapshotViewModel
@@ -584,8 +654,11 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal(40, scanning.RingPercent);
     }
 
-    private static string GetRepoFilePath(string relativePath) =>
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+    private static string GetRepoFilePath(string relativePath, [CallerFilePath] string sourceFile = "")
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourceFile)!, "..", ".."));
+        return Path.GetFullPath(Path.Combine(repoRoot, relativePath));
+    }
 }
 
 public sealed class IngestionDashboardRenderTests : TestContext
@@ -780,6 +853,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
 
         Assert.Contains("Library Update", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Files Found", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Enrichment", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("File processing", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Updating your library", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("What's happening now", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Update steps", cut.Markup, StringComparison.Ordinal);
@@ -811,6 +886,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                         TvShowsCount = 1,
                         BooksCount = 3,
                         AudiobooksCount = 1,
+                        MusicCount = 1,
                         ComicsCount = 2,
                         RegisteredCount = 4,
                         ReviewCount = 2,
@@ -831,13 +907,43 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("TV Shows", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Books", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Audiobooks", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Music", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Comics", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("People", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Review", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("href=\"/settings/activity?batchId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Queue &amp; Details", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Source", cut.Markup, StringComparison.Ordinal);
-        Assert.DoesNotContain("Enrichment", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Failed", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveDashboard_RendersEnrichmentProgressAndCurrentWorkerCard()
+    {
+        var activities = new[]
+        {
+            Activity("artwork", "Fetching artwork"),
+        };
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, new IngestionOperationsSnapshotViewModel
+            {
+                Summary = new IngestionOperationsSummaryViewModel
+                {
+                    TotalItems = 50,
+                    RegisteredItems = 31,
+                    ActiveJobs = 1,
+                },
+                CurrentActivities = activities.ToList(),
+            })
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(50, 31, 1, 0))
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 50))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("31 / 50", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("31 of 50 enrichment tasks complete", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Artwork lookup", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Neuromancer", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -922,6 +1028,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
         },
     };
 
-    private static string GetRepoFilePath(string relativePath) =>
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+    private static string GetRepoFilePath(string relativePath, [CallerFilePath] string sourceFile = "")
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourceFile)!, "..", ".."));
+        return Path.GetFullPath(Path.Combine(repoRoot, relativePath));
+    }
 }

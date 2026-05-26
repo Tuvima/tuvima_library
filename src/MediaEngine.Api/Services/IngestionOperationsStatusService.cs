@@ -1224,6 +1224,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 TvShowsCount: CountMediaTypes(mediaCounts, "TV", "TV Shows", "TvShows", "Shows"),
                 BooksCount: CountMediaTypes(mediaCounts, "Books", "Book"),
                 AudiobooksCount: CountMediaTypes(mediaCounts, "Audiobooks", "Audiobook"),
+                MusicCount: CountMediaTypes(mediaCounts, "Music", "MusicTrack", "MusicAlbum", "Album", "Song"),
                 ComicsCount: CountMediaTypes(mediaCounts, "Comics", "Comic"),
                 PeopleGeneratedCount: Count(byType, SystemActionType.PersonHydrated)
                     + Count(byType, SystemActionType.PersonMerged),
@@ -1256,16 +1257,17 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             TvShowsCount = stats?.TvShowsCount ?? 0,
             BooksCount = stats?.BooksCount ?? 0,
             AudiobooksCount = stats?.AudiobooksCount ?? 0,
+            MusicCount = stats?.MusicCount ?? 0,
             ComicsCount = stats?.ComicsCount ?? 0,
             RegisteredCount = batch.FilesIdentified,
-            ReviewCount = batch.FilesReview + batch.FilesNoMatch,
+            ReviewCount = batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed,
             FailedCount = batch.FilesFailed,
             PeopleGeneratedCount = stats?.PeopleGeneratedCount ?? 0,
             ArtworkDownloadedCount = stats?.ArtworkDownloadedCount ?? 0,
             MetadataUpdatedCount = stats?.MetadataUpdatedCount ?? 0,
             DurationSeconds = duration.TotalSeconds > 0 ? (int)Math.Round(duration.TotalSeconds) : null,
             Status = batch.Status,
-            Summary = $"{batch.FilesIdentified:N0} registered, {batch.FilesReview + batch.FilesNoMatch:N0} review, {batch.FilesFailed:N0} failed",
+            Summary = $"{batch.FilesIdentified:N0} registered, {batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed:N0} review",
         };
     }
 
@@ -1274,6 +1276,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         int TvShowsCount = 0,
         int BooksCount = 0,
         int AudiobooksCount = 0,
+        int MusicCount = 0,
         int ComicsCount = 0,
         int PeopleGeneratedCount = 0,
         int ArtworkDownloadedCount = 0,
@@ -1527,7 +1530,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             return;
 
         var category = NormalizeCategory(batch.Category);
-        if (category is "Movies" or "TV Shows" or "Books" or "Audiobooks" or "Comics")
+        if (category is "Movies" or "TV Shows" or "Books" or "Audiobooks" or "Music" or "Comics")
             mediaCounts[category] = batch.FilesTotal;
     }
 

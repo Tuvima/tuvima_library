@@ -268,6 +268,53 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         using var conn = _db.CreateConnection();
         return await conn.ExecuteAsync("""
             UPDATE identity_jobs
+            SET    state            = 'Ready',
+                   lease_owner      = NULL,
+                   lease_expires_at = NULL,
+                   last_error       = NULL,
+                   updated_at       = @now
+            WHERE  state = 'UniverseEnriching'
+              AND  EXISTS (
+                   SELECT 1
+                   FROM canonical_values cv
+                   WHERE cv.entity_id = identity_jobs.entity_id
+                     AND cv.key = 'stage3_enhanced_at'
+              );
+
+            UPDATE identity_jobs
+            SET    state            = 'QidResolved',
+                   attempt_count    = 0,
+                   next_retry_at    = NULL,
+                   lease_owner      = NULL,
+                   lease_expires_at = NULL,
+                   last_error       = 'Recovered for Stage 3 artwork/enhancer retry',
+                   updated_at       = @now
+            WHERE  state = 'Failed'
+              AND  last_error = 'Stuck intermediate state exceeded retry limit'
+              AND  EXISTS (
+                   SELECT 1
+                   FROM canonical_values cv
+                   WHERE cv.entity_id = identity_jobs.entity_id
+                     AND cv.key = 'wikidata_qid'
+                     AND cv.value IS NOT NULL
+                     AND cv.value <> ''
+              )
+              AND  EXISTS (
+                   SELECT 1
+                   FROM canonical_values cv
+                   WHERE cv.entity_id = identity_jobs.entity_id
+                     AND cv.key IN ('tmdb_id', 'tmdb_movie_id', 'tmdb_tv_id', 'tvdb_id', 'musicbrainz_id', 'musicbrainz_artist_id', 'musicbrainz_release_group_id')
+                     AND cv.value IS NOT NULL
+                     AND cv.value <> ''
+              )
+              AND  NOT EXISTS (
+                   SELECT 1
+                   FROM canonical_values cv
+                   WHERE cv.entity_id = identity_jobs.entity_id
+                     AND cv.key = 'stage3_enhanced_at'
+              );
+
+            UPDATE identity_jobs
             SET    state = CASE state
                        WHEN 'RetailSearching' THEN 'Queued'
                        WHEN 'BridgeSearching' THEN 'RetailMatched'

@@ -2,7 +2,7 @@
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Shared
 
-<AppCssElement Tag="section" Class='@($"tl-detail-hero {Presentation.HeroClass}")' Css="@Presentation.GradientStyle">
+<AppCssElement Tag="section" Class='@($"tl-detail-hero {Presentation.HeroClass} {TitleDensityClass}")' Css="@Presentation.GradientStyle">
     <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
     @if (Presentation.ShowTitleBar)
     {
@@ -154,6 +154,7 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
+    private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.IsWatchHero, Presentation.UseLogo);
     private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
     private string HeroCreditStackClass => Model.EntityType == DetailEntityType.Audiobook
         ? "tl-detail-hero-credit-stack tl-detail-hero-credit-stack--audiobook"
@@ -231,6 +232,24 @@
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static string ResolveTitleDensityClass(string title, bool isWatchHero, bool useLogo)
+    {
+        if (!isWatchHero || useLogo || string.IsNullOrWhiteSpace(title))
+            return string.Empty;
+
+        var words = title.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var normalizedLength = title.Count(character => !char.IsWhiteSpace(character));
+        var longestWordLength = words.Length == 0 ? 0 : words.Max(word => word.Trim(' ', '-', ':', ';', ',', '.', '\'').Length);
+
+        if (normalizedLength >= 42 || words.Length >= 8 || longestWordLength >= 14)
+            return "tl-detail-hero--title-dense";
+
+        if (normalizedLength >= 30 || words.Length >= 5 || longestWordLength >= 11)
+            return "tl-detail-hero--title-long";
+
+        return string.Empty;
+    }
 
     private IReadOnlyList<(string Label, string Value)> BuildHeroCreditLines()
     {

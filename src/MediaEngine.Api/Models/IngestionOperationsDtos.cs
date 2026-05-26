@@ -340,6 +340,9 @@ public sealed class IngestionOperationsBatchDto
     [JsonPropertyName("audiobooks_count")]
     public int AudiobooksCount { get; init; }
 
+    [JsonPropertyName("music_count")]
+    public int MusicCount { get; init; }
+
     [JsonPropertyName("comics_count")]
     public int ComicsCount { get; init; }
 

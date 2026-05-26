@@ -3115,6 +3115,21 @@
     font-weight: 750;
 }
 
+.sme-artwork-gallery-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+::deep .sme-provider-art-refresh .mud-button-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+}
+
 .sme-artwork-gallery-heading p {
     display: none;
 }

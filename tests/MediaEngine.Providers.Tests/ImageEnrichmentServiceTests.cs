@@ -122,7 +122,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             return ImageResponse([1, 2, 3, 4]);
         });
 
-        await service.EnrichWorkImagesAsync(movie.AssetId, "Q12345");
+        var result = await service.EnrichWorkImagesAsync(movie.AssetId, "Q12345");
 
         var coverAssets = await _entityAssets.GetByEntityAsync(movie.WorkId.ToString(), "CoverArt");
         var userCover = Assert.Single(coverAssets, asset => asset.IsUserOverride);
@@ -133,6 +133,17 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         Assert.True(clearArt.IsPreferred);
         Assert.EndsWith(".png", clearArt.LocalImagePath, StringComparison.OrdinalIgnoreCase);
         Assert.True(File.Exists(clearArt.LocalImagePath));
+
+        Assert.True(result.Success);
+        Assert.Equal("tmdb_movie_id", result.BridgeKey);
+        Assert.Equal("12345", result.BridgeId);
+        Assert.Equal(2, result.DownloadedCount);
+        Assert.Equal(1, result.StoredVariantCounts["CoverArt"]);
+        Assert.Equal(1, result.StoredVariantCounts["ClearArt"]);
+
+        var diagnostics = await _canonicals.GetByEntityAsync(movie.WorkId);
+        Assert.Contains(diagnostics, value => value.Key == "fanart_status" && value.Value == "Completed");
+        Assert.Contains(diagnostics, value => value.Key == "fanart_bridge_id" && value.Value == "12345");
     }
 
     [Fact]
@@ -301,6 +312,51 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
 
         var episodeStills = await _entityAssets.GetByEntityAsync(episode.ToString(), "EpisodeStill");
         Assert.Empty(episodeStills);
+    }
+
+    [Fact]
+    public async Task EnrichWorkImagesAsync_MissingBridgeId_ReturnsStructuredSkipAndDiagnostics()
+    {
+        var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Missing Bridge.mkv");
+
+        var service = CreateService(_ => throw new InvalidOperationException("Fanart.tv should not be called without a bridge ID."));
+
+        var result = await service.EnrichWorkImagesAsync(movie.AssetId, "Q123");
+
+        Assert.True(result.Skipped);
+        Assert.Equal("missing_bridge_id", result.SkippedReason);
+        Assert.Equal("Movies", result.MediaType);
+        Assert.Equal(0, result.DownloadedCount);
+
+        var diagnostics = await _canonicals.GetByEntityAsync(movie.WorkId);
+        Assert.Contains(diagnostics, value => value.Key == "fanart_status" && value.Value == "Skipped");
+        Assert.Contains(diagnostics, value => value.Key == "fanart_skipped_reason" && value.Value == "missing_bridge_id");
+    }
+
+    [Fact]
+    public async Task EnrichWorkImagesAsync_ProviderNoResult_RecordsHttpDiagnostics()
+    {
+        var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "No Result.mkv");
+        await SeedCanonicalsAsync(movie.WorkId, ("tmdb_movie_id", "404"));
+
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            return url.Contains("/movies/404?", StringComparison.OrdinalIgnoreCase)
+                ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                : ImageResponse([1, 2, 3]);
+        });
+
+        var result = await service.EnrichWorkImagesAsync(movie.AssetId, "Q404");
+
+        Assert.True(result.Skipped);
+        Assert.Equal("NoResult", result.Status);
+        Assert.Equal("provider_no_result", result.SkippedReason);
+        Assert.Equal(404, result.HttpStatusCode);
+
+        var diagnostics = await _canonicals.GetByEntityAsync(movie.WorkId);
+        Assert.Contains(diagnostics, value => value.Key == "fanart_status" && value.Value == "NoResult");
+        Assert.Contains(diagnostics, value => value.Key == "fanart_http_status" && value.Value == "404");
     }
 
     private ImageEnrichmentService CreateService(Func<HttpRequestMessage, HttpResponseMessage> responder)

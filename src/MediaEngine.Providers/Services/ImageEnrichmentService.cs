@@ -7,6 +7,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Storage.Contracts;
@@ -140,10 +141,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     }
 
     /// <inheritdoc/>
-    public async Task EnrichWorkImagesAsync(Guid assetId, string workQid, CancellationToken ct = default)
+    public async Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string workQid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(workQid);
+        var checkedAt = DateTimeOffset.UtcNow;
 
         var context = await ResolveImageWorkContextAsync(assetId, ct);
         if (string.IsNullOrWhiteSpace(context.MediaFilePath))
@@ -151,7 +153,14 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             _logger.LogWarning(
                 "[IMAGE-ENRICH] Asset {AssetId} has no media file path — skipping sidecar artwork enrichment",
                 assetId);
-            return;
+            var skipped = CreateFanartResult(
+                "Skipped",
+                checkedAt,
+                mediaType: null,
+                skippedReason: "missing_media_path",
+                message: "No media file path is available for artwork storage.");
+            await PersistFanartDiagnosticsAsync(context, skipped, ct);
+            return skipped;
         }
 
         _logger.LogInformation(
@@ -171,14 +180,24 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         var musicBrainzArtistId = GetCanonical(canonicalLookup, BridgeIdKeys.MusicBrainzId, "musicbrainz_artist_id");
         var musicBrainzReleaseGroupId = GetCanonical(canonicalLookup, BridgeIdKeys.MusicBrainzReleaseGroupId);
         var mediaTypeStr = GetCanonical(canonicalLookup, MetadataFieldConstants.MediaTypeField);
+        var fanartRequest = ResolveFanartRequest(
+            tmdbId,
+            tvdbId,
+            musicBrainzArtistId,
+            musicBrainzReleaseGroupId,
+            mediaTypeStr);
 
-        if (tmdbId is null
-            && tvdbId is null
-            && musicBrainzArtistId is null
-            && musicBrainzReleaseGroupId is null)
+        if (fanartRequest is null)
         {
+            var skipped = CreateFanartResult(
+                "Skipped",
+                checkedAt,
+                mediaType: ResolveLikelyFanartMediaType(mediaTypeStr, tmdbId, tvdbId, musicBrainzArtistId, musicBrainzReleaseGroupId),
+                skippedReason: "missing_bridge_id",
+                message: "No Fanart.tv bridge identifier was available.");
+            await PersistFanartDiagnosticsAsync(context, skipped, ct);
             _logger.LogDebug("[IMAGE-ENRICH] No bridge IDs for Fanart.tv — skipping work {WorkQid}", workQid);
-            return;
+            return skipped;
         }
 
         // ── Step 2: Resolve API key ──
@@ -187,71 +206,125 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
         if (string.IsNullOrEmpty(apiKey))
         {
+            var skipped = CreateFanartResult(
+                "Skipped",
+                checkedAt,
+                fanartRequest.MediaType,
+                fanartRequest.BridgeKey,
+                fanartRequest.BridgeId,
+                fanartRequest.Endpoint,
+                skippedReason: "missing_api_key",
+                message: "Fanart.tv API key is not configured.");
             _logger.LogWarning("[IMAGE-ENRICH] No Fanart.tv API key configured — skipping");
-            return;
+            await PersistFanartDiagnosticsAsync(context, skipped, ct);
+            return skipped;
         }
 
         // ── Step 3: Call Fanart.tv API ──
-        var (json, resolvedMediaType) = await CallFanartApiAsync(
-            tmdbId,
-            tvdbId,
-            musicBrainzArtistId,
-            musicBrainzReleaseGroupId,
-            mediaTypeStr,
+        var apiResult = await CallFanartApiAsync(
+            fanartRequest,
             apiKey,
             fanartConfig?.Name,
             ct);
-        if (json is null)
-            return;
+        if (apiResult.Json is null)
+        {
+            var missed = CreateFanartResult(
+                apiResult.Status,
+                checkedAt,
+                apiResult.MediaType,
+                apiResult.BridgeKey,
+                apiResult.BridgeId,
+                apiResult.Endpoint,
+                apiResult.HttpStatusCode,
+                skippedReason: apiResult.SkippedReason,
+                message: apiResult.Message);
+            await PersistFanartDiagnosticsAsync(context, missed, ct);
+            return missed;
+        }
 
         // ── Step 4: Parse response and download work-level assets ──
-        if (FieldMappings.TryGetValue(resolvedMediaType, out var mappings))
+        var storedCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var updatedPreferredCount = 0;
+        if (FieldMappings.TryGetValue(apiResult.MediaType, out var mappings))
         {
             foreach (var mapping in mappings)
             {
-                await ProcessImageArrayAsync(
-                    json,
+                var processed = await ProcessImageArrayAsync(
+                    apiResult.Json,
                     mapping.JsonFields,
                     mapping.Type,
                     context.CanonicalEntityId,
                     workQid,
                     mapping.UpdatePreferred,
                     ct);
+                AddStoredCount(storedCounts, mapping.Type, processed.StoredCount);
+                updatedPreferredCount += processed.UpdatedPreferredCount;
             }
         }
 
-        if (string.Equals(resolvedMediaType, "TV", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(apiResult.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
         {
-            await ProcessSeasonScopedImageArrayAsync(
-                json,
+            var seasonPosters = await ProcessSeasonScopedImageArrayAsync(
+                apiResult.Json,
                 TvSeasonPosterFields,
                 AssetType.SeasonPoster,
                 context.CanonicalEntityId,
                 workQid,
                 ct);
-            await ProcessSeasonScopedImageArrayAsync(
-                json,
+            AddStoredCount(storedCounts, AssetType.SeasonPoster, seasonPosters.StoredCount);
+            updatedPreferredCount += seasonPosters.UpdatedPreferredCount;
+
+            var seasonThumbs = await ProcessSeasonScopedImageArrayAsync(
+                apiResult.Json,
                 TvSeasonThumbFields,
                 AssetType.SeasonThumb,
                 context.CanonicalEntityId,
                 workQid,
                 ct);
-            await ProcessEpisodeScopedImageArrayAsync(
-                json,
+            AddStoredCount(storedCounts, AssetType.SeasonThumb, seasonThumbs.StoredCount);
+            updatedPreferredCount += seasonThumbs.UpdatedPreferredCount;
+
+            var episodeStills = await ProcessEpisodeScopedImageArrayAsync(
+                apiResult.Json,
                 TvEpisodeStillFields,
                 AssetType.EpisodeStill,
                 context.CanonicalEntityId,
                 workQid,
                 ct);
+            AddStoredCount(storedCounts, AssetType.EpisodeStill, episodeStills.StoredCount);
+            updatedPreferredCount += episodeStills.UpdatedPreferredCount;
         }
 
         // ── Steps 5–6: Character art matching ──
-        if (CharacterArtFields.TryGetValue(resolvedMediaType, out var charField))
+        if (CharacterArtFields.TryGetValue(apiResult.MediaType, out var charField))
         {
-            await MatchVerifiedCharacterArtAsync(json, charField, workQid, ct);
+            await MatchVerifiedCharacterArtAsync(apiResult.Json, charField, workQid, ct);
         }
 
-        _logger.LogInformation("[IMAGE-ENRICH] Image enrichment complete for asset {AssetId} ({WorkQid})", assetId, workQid);
+        var downloadedCount = storedCounts.Values.Sum();
+        var result = CreateFanartResult(
+            downloadedCount > 0 || updatedPreferredCount > 0 ? "Completed" : "NoImages",
+            checkedAt,
+            apiResult.MediaType,
+            apiResult.BridgeKey,
+            apiResult.BridgeId,
+            apiResult.Endpoint,
+            apiResult.HttpStatusCode,
+            message: downloadedCount > 0
+                ? $"Stored {downloadedCount} Fanart.tv artwork variant(s)."
+                : "Fanart.tv returned no new compatible artwork variants.",
+            storedCounts: storedCounts,
+            updatedPreferredCount: updatedPreferredCount);
+
+        await PersistFanartDiagnosticsAsync(context, result, ct);
+
+        _logger.LogInformation(
+            "[IMAGE-ENRICH] Image enrichment complete for asset {AssetId} ({WorkQid}); stored {StoredCount} variant(s)",
+            assetId,
+            workQid,
+            downloadedCount);
+
+        return result;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -366,7 +439,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     /// distinct variants for the role, and marks the highest-ranked image as
     /// preferred. Returns the preferred local file path if successful.
     /// </summary>
-    private async Task<string?> ProcessImageArrayAsync(
+    private async Task<ImageAssetProcessingResult> ProcessImageArrayAsync(
         JsonNode json,
         IReadOnlyList<string> jsonFields,
         AssetType assetType,
@@ -382,13 +455,13 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 "[IMAGE-ENRICH] No {JsonFields} images returned for {WorkQid}",
                 string.Join(", ", jsonFields),
                 workQid);
-            return null;
+            return ImageAssetProcessingResult.Empty;
         }
 
         return await ProcessRankedImagesAsync(imageNodes, assetType, ownerEntityId, workQid, updatePreferred, ct);
     }
 
-    private async Task ProcessSeasonScopedImageArrayAsync(
+    private async Task<ImageAssetProcessingResult> ProcessSeasonScopedImageArrayAsync(
         JsonNode json,
         IReadOnlyList<string> jsonFields,
         AssetType assetType,
@@ -398,8 +471,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var imageNodes = ResolveImageNodes(json, jsonFields);
         if (imageNodes.Count == 0)
-            return;
+            return ImageAssetProcessingResult.Empty;
 
+        var aggregate = ImageAssetProcessingResult.Empty;
         foreach (var seasonGroup in imageNodes
                      .Select(node => new
                      {
@@ -421,17 +495,20 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 continue;
             }
 
-            await ProcessRankedImagesAsync(
+            var processed = await ProcessRankedImagesAsync(
                 seasonGroup.Select(entry => entry.Node),
                 assetType,
                 seasonWorkId.Value,
                 workQid,
                 updatePreferred: true,
                 ct);
+            aggregate = aggregate.Add(processed);
         }
+
+        return aggregate;
     }
 
-    private async Task<bool> ProcessEpisodeScopedImageArrayAsync(
+    private async Task<ImageAssetProcessingResult> ProcessEpisodeScopedImageArrayAsync(
         JsonNode json,
         IReadOnlyList<string> jsonFields,
         AssetType assetType,
@@ -441,10 +518,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var imageNodes = ResolveImageNodes(json, jsonFields);
         if (imageNodes.Count == 0)
-            return false;
+            return ImageAssetProcessingResult.Empty;
 
         var seasonCache = new Dictionary<int, Guid?>();
-        var storedAny = false;
+        var aggregate = ImageAssetProcessingResult.Empty;
         foreach (var episodeGroup in imageNodes
                      .Select(node => new
                      {
@@ -488,20 +565,20 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 continue;
             }
 
-            var localPath = await ProcessRankedImagesAsync(
+            var processed = await ProcessRankedImagesAsync(
                 episodeGroup.Select(entry => entry.Node),
                 assetType,
                 episodeWorkId.Value,
                 workQid,
                 updatePreferred: true,
                 ct);
-            storedAny |= !string.IsNullOrWhiteSpace(localPath);
+            aggregate = aggregate.Add(processed);
         }
 
-        return storedAny;
+        return aggregate;
     }
 
-    private async Task<string?> ProcessRankedImagesAsync(
+    private async Task<ImageAssetProcessingResult> ProcessRankedImagesAsync(
         IEnumerable<JsonNode?> imageNodes,
         AssetType assetType,
         Guid ownerEntityId,
@@ -519,9 +596,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             .ToList();
 
         if (rankedImages.Count == 0)
-            return null;
+            return ImageAssetProcessingResult.Empty;
 
         var existingVariants = (await _assetRepo.GetByEntityAsync(ownerEntityId.ToString(), assetType.ToString(), ct)).ToList();
+        var currentPreferredId = existingVariants.FirstOrDefault(asset => asset.IsPreferred)?.Id;
+        var storedCount = 0;
         EntityAsset? preferredVariant = updatePreferred
             ? existingVariants.FirstOrDefault(asset => asset.IsPreferred && asset.IsUserOverride)
             : null;
@@ -575,6 +654,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             ArtworkVariantHelper.StampMetadataAndRenditions(variant, _assetPaths);
             await _assetRepo.UpsertAsync(variant, ct);
             existingVariants.Add(variant);
+            storedCount++;
 
             if (updatePreferred && preferredVariant is null)
                 preferredVariant = variant;
@@ -588,9 +668,12 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
         if (!updatePreferred)
         {
-            return existingVariants
+            return new ImageAssetProcessingResult(
+                existingVariants
                 .FirstOrDefault(asset => asset.IsPreferred)
-                ?.LocalImagePath;
+                ?.LocalImagePath,
+                storedCount,
+                UpdatedPreferredCount: 0);
         }
 
         preferredVariant ??= existingVariants
@@ -600,8 +683,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             .FirstOrDefault();
 
         if (preferredVariant is null)
-            return null;
+            return new ImageAssetProcessingResult(null, storedCount, UpdatedPreferredCount: 0);
 
+        var preferredChanged = currentPreferredId != preferredVariant.Id;
         await _assetRepo.SetPreferredAsync(preferredVariant.Id, ct);
         await UpsertPreferredArtworkCanonicalAsync(ownerEntityId, preferredVariant, ct);
         if (_assetExportService is not null)
@@ -611,7 +695,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 preferredVariant.AssetTypeValue,
                 ct);
 
-        return preferredVariant.LocalImagePath;
+        return new ImageAssetProcessingResult(
+            preferredVariant.LocalImagePath,
+            storedCount,
+            preferredChanged ? 1 : 0);
     }
 
     private async Task UpsertPreferredArtworkCanonicalAsync(
@@ -730,6 +817,130 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         string.IsNullOrWhiteSpace(mediaFilePath)
             ? null
             : Path.GetDirectoryName(mediaFilePath);
+
+    private static FanartRequest? ResolveFanartRequest(
+        string? tmdbId,
+        string? tvdbId,
+        string? musicBrainzArtistId,
+        string? musicBrainzReleaseGroupId,
+        string? mediaTypeStr)
+    {
+        if (IsMovieType(mediaTypeStr))
+            return string.IsNullOrWhiteSpace(tmdbId)
+                ? null
+                : new FanartRequest("Movies", "tmdb_movie_id", tmdbId.Trim(), $"{FanartBaseUrl}/movies/{tmdbId.Trim()}");
+
+        if (IsTvType(mediaTypeStr))
+            return string.IsNullOrWhiteSpace(tvdbId)
+                ? null
+                : new FanartRequest("TV", BridgeIdKeys.TvdbId, tvdbId.Trim(), $"{FanartBaseUrl}/tv/{tvdbId.Trim()}");
+
+        if (IsMusicType(mediaTypeStr))
+        {
+            if (!string.IsNullOrWhiteSpace(musicBrainzArtistId))
+                return new FanartRequest("Music", "musicbrainz_artist_id", musicBrainzArtistId.Trim(), $"{FanartBaseUrl}/music/{musicBrainzArtistId.Trim()}");
+
+            return string.IsNullOrWhiteSpace(musicBrainzReleaseGroupId)
+                ? null
+                : new FanartRequest("Music", BridgeIdKeys.MusicBrainzReleaseGroupId, musicBrainzReleaseGroupId.Trim(), $"{FanartBaseUrl}/music/albums/{musicBrainzReleaseGroupId.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(tvdbId))
+            return new FanartRequest("TV", BridgeIdKeys.TvdbId, tvdbId.Trim(), $"{FanartBaseUrl}/tv/{tvdbId.Trim()}");
+
+        if (!string.IsNullOrWhiteSpace(tmdbId))
+            return new FanartRequest("Movies", "tmdb_movie_id", tmdbId.Trim(), $"{FanartBaseUrl}/movies/{tmdbId.Trim()}");
+
+        if (!string.IsNullOrWhiteSpace(musicBrainzArtistId))
+            return new FanartRequest("Music", "musicbrainz_artist_id", musicBrainzArtistId.Trim(), $"{FanartBaseUrl}/music/{musicBrainzArtistId.Trim()}");
+
+        return string.IsNullOrWhiteSpace(musicBrainzReleaseGroupId)
+            ? null
+            : new FanartRequest("Music", BridgeIdKeys.MusicBrainzReleaseGroupId, musicBrainzReleaseGroupId.Trim(), $"{FanartBaseUrl}/music/albums/{musicBrainzReleaseGroupId.Trim()}");
+    }
+
+    private static string? ResolveLikelyFanartMediaType(
+        string? mediaTypeStr,
+        string? tmdbId,
+        string? tvdbId,
+        string? musicBrainzArtistId,
+        string? musicBrainzReleaseGroupId)
+    {
+        if (IsMovieType(mediaTypeStr))
+            return "Movies";
+        if (IsTvType(mediaTypeStr))
+            return "TV";
+        if (IsMusicType(mediaTypeStr))
+            return "Music";
+        if (!string.IsNullOrWhiteSpace(tvdbId))
+            return "TV";
+        if (!string.IsNullOrWhiteSpace(tmdbId))
+            return "Movies";
+        if (!string.IsNullOrWhiteSpace(musicBrainzArtistId) || !string.IsNullOrWhiteSpace(musicBrainzReleaseGroupId))
+            return "Music";
+        return null;
+    }
+
+    private async Task<FanartApiResult> CallFanartApiAsync(
+        FanartRequest request,
+        string apiKey,
+        string? clientName,
+        CancellationToken ct)
+    {
+        var url = $"{request.Endpoint}?api_key={apiKey}";
+        try
+        {
+            using var client = _httpFactory.CreateClient(
+                string.IsNullOrWhiteSpace(clientName) ? FanartProviderConfigName : clientName);
+            var response = await client.GetAsync(url, ct);
+            var statusCode = (int)response.StatusCode;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "[IMAGE-ENRICH] Fanart.tv returned {Status} for {Url}",
+                    response.StatusCode,
+                    url.Replace(apiKey, "***", StringComparison.Ordinal));
+
+                return new FanartApiResult(
+                    null,
+                    request.MediaType,
+                    request.BridgeKey,
+                    request.BridgeId,
+                    request.Endpoint,
+                    statusCode,
+                    response.StatusCode == System.Net.HttpStatusCode.NotFound ? "NoResult" : "Error",
+                    response.StatusCode == System.Net.HttpStatusCode.NotFound ? "provider_no_result" : "provider_http_error",
+                    $"Fanart.tv returned {(int)response.StatusCode} {response.ReasonPhrase}.");
+            }
+
+            var json = await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct);
+            return new FanartApiResult(
+                json,
+                request.MediaType,
+                request.BridgeKey,
+                request.BridgeId,
+                request.Endpoint,
+                statusCode,
+                json is null ? "NoResult" : "Completed",
+                json is null ? "provider_empty_response" : null,
+                json is null ? "Fanart.tv returned an empty response." : null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "[IMAGE-ENRICH] Fanart.tv call failed");
+            return new FanartApiResult(
+                null,
+                request.MediaType,
+                request.BridgeKey,
+                request.BridgeId,
+                request.Endpoint,
+                null,
+                "Error",
+                "provider_call_failed",
+                ex.Message);
+        }
+    }
 
     /// <summary>
     /// Matches Fanart.tv character art images against fictional entities
@@ -1121,6 +1332,165 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ordinal = 0;
         return false;
     }
+
+    private static void AddStoredCount(Dictionary<string, int> counts, AssetType assetType, int count)
+    {
+        if (count <= 0)
+            return;
+
+        var key = assetType.ToString();
+        counts[key] = counts.TryGetValue(key, out var existing) ? existing + count : count;
+    }
+
+    private static ImageEnrichmentResult CreateFanartResult(
+        string status,
+        DateTimeOffset checkedAt,
+        string? mediaType,
+        string? bridgeKey = null,
+        string? bridgeId = null,
+        string? endpoint = null,
+        int? httpStatusCode = null,
+        string? skippedReason = null,
+        string? message = null,
+        IReadOnlyDictionary<string, int>? storedCounts = null,
+        int updatedPreferredCount = 0)
+    {
+        var counts = storedCounts is null
+            ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, int>(storedCounts, StringComparer.OrdinalIgnoreCase);
+
+        return new ImageEnrichmentResult
+        {
+            Provider = "fanart_tv",
+            ProviderName = "Fanart.tv",
+            Status = status,
+            SkippedReason = skippedReason,
+            Message = message,
+            MediaType = mediaType,
+            BridgeKey = bridgeKey,
+            BridgeId = bridgeId,
+            Endpoint = endpoint,
+            HttpStatusCode = httpStatusCode,
+            DownloadedCount = counts.Values.Sum(),
+            UpdatedPreferredCount = updatedPreferredCount,
+            StoredVariantCounts = counts,
+            LastCheckedAt = checkedAt,
+            Diagnostics = BuildFanartDiagnostics(status, skippedReason, message, httpStatusCode),
+        };
+    }
+
+    private static IReadOnlyList<string> BuildFanartDiagnostics(
+        string status,
+        string? skippedReason,
+        string? message,
+        int? httpStatusCode)
+    {
+        var diagnostics = new List<string> { $"status={status}" };
+        if (!string.IsNullOrWhiteSpace(skippedReason))
+            diagnostics.Add($"reason={skippedReason}");
+        if (httpStatusCode.HasValue)
+            diagnostics.Add($"http={httpStatusCode.Value}");
+        if (!string.IsNullOrWhiteSpace(message))
+            diagnostics.Add(message);
+        return diagnostics;
+    }
+
+    private async Task PersistFanartDiagnosticsAsync(
+        ImageWorkContext context,
+        ImageEnrichmentResult result,
+        CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var entityIds = new[] { context.CanonicalEntityId, context.SelfEntityId, context.AssetId }
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        var values = new List<CanonicalValue>();
+        foreach (var entityId in entityIds)
+        {
+            AddDiagnostic(values, entityId, "fanart_provider", result.Provider, now);
+            AddDiagnostic(values, entityId, "fanart_status", result.Status, now);
+            AddDiagnostic(values, entityId, "fanart_last_checked_at", result.LastCheckedAt.ToString("O", CultureInfo.InvariantCulture), now);
+            AddDiagnostic(values, entityId, "fanart_downloaded_count", result.DownloadedCount.ToString(CultureInfo.InvariantCulture), now);
+            AddDiagnostic(values, entityId, "fanart_updated_preferred_count", result.UpdatedPreferredCount.ToString(CultureInfo.InvariantCulture), now);
+            AddDiagnostic(values, entityId, "fanart_variant_counts_json", JsonSerializer.Serialize(result.StoredVariantCounts), now);
+            AddDiagnostic(values, entityId, "fanart_media_type", result.MediaType, now);
+            AddDiagnostic(values, entityId, "fanart_bridge_key", result.BridgeKey, now);
+            AddDiagnostic(values, entityId, "fanart_bridge_id", result.BridgeId, now);
+            AddDiagnostic(values, entityId, "fanart_endpoint", result.Endpoint, now);
+            AddDiagnostic(values, entityId, "fanart_http_status", result.HttpStatusCode?.ToString(CultureInfo.InvariantCulture), now);
+            AddDiagnostic(values, entityId, "fanart_skipped_reason", result.SkippedReason, now);
+            AddDiagnostic(values, entityId, "fanart_message", result.Message, now);
+
+            foreach (var (assetType, count) in result.StoredVariantCounts)
+            {
+                AddDiagnostic(
+                    values,
+                    entityId,
+                    $"fanart_{NormalizeDiagnosticKey(assetType)}_count",
+                    count.ToString(CultureInfo.InvariantCulture),
+                    now);
+            }
+        }
+
+        if (values.Count > 0)
+            await _canonicalRepo.UpsertBatchAsync(values, ct);
+    }
+
+    private static void AddDiagnostic(
+        List<CanonicalValue> values,
+        Guid entityId,
+        string key,
+        string? value,
+        DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        values.Add(new CanonicalValue
+        {
+            EntityId = entityId,
+            Key = key,
+            Value = value,
+            LastScoredAt = now,
+            WinningProviderId = WellKnownProviders.FanartTv,
+        });
+    }
+
+    private static string NormalizeDiagnosticKey(string value) =>
+        new(value.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '_').ToArray());
+
+    private sealed record ImageAssetProcessingResult(
+        string? PreferredLocalPath,
+        int StoredCount,
+        int UpdatedPreferredCount)
+    {
+        public static readonly ImageAssetProcessingResult Empty = new(null, 0, 0);
+
+        public ImageAssetProcessingResult Add(ImageAssetProcessingResult other) =>
+            new(
+                other.PreferredLocalPath ?? PreferredLocalPath,
+                StoredCount + other.StoredCount,
+                UpdatedPreferredCount + other.UpdatedPreferredCount);
+    }
+
+    private sealed record FanartRequest(
+        string MediaType,
+        string BridgeKey,
+        string BridgeId,
+        string Endpoint);
+
+    private sealed record FanartApiResult(
+        JsonNode? Json,
+        string MediaType,
+        string BridgeKey,
+        string BridgeId,
+        string Endpoint,
+        int? HttpStatusCode,
+        string Status,
+        string? SkippedReason,
+        string? Message);
 
     private sealed record ImageWorkContext(
         Guid AssetId,

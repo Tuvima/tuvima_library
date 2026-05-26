@@ -6156,6 +6156,62 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<ProviderArtworkRefreshDto?> RefreshScopeProviderArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default)
+    {
+        try
+        {
+            var encodedScope = Uri.EscapeDataString(scopeId);
+            using var response = await _http.PostAsJsonAsync(
+                $"/metadata/{entityId}/artwork/{encodedScope}/refresh-provider",
+                new { },
+                ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning(
+                    "POST /metadata/{EntityId}/artwork/{ScopeId}/refresh-provider returned {Status}: {Detail}",
+                    entityId,
+                    scopeId,
+                    (int)response.StatusCode,
+                    detail);
+                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+                return null;
+            }
+
+            var raw = await response.Content.ReadFromJsonAsync<ProviderArtworkRefreshRaw>(ct);
+            return raw is null
+                ? null
+                : new ProviderArtworkRefreshDto
+                {
+                    Provider = raw.Provider ?? "fanart_tv",
+                    ProviderName = raw.ProviderName ?? "Fanart.tv",
+                    Status = raw.Status ?? string.Empty,
+                    Success = raw.Success,
+                    Skipped = raw.Skipped,
+                    SkippedReason = raw.SkippedReason,
+                    Message = raw.Message,
+                    MediaType = raw.MediaType,
+                    BridgeKey = raw.BridgeKey,
+                    BridgeId = raw.BridgeId,
+                    Endpoint = raw.Endpoint,
+                    HttpStatusCode = raw.HttpStatusCode,
+                    DownloadedCount = raw.DownloadedCount,
+                    UpdatedPreferredCount = raw.UpdatedPreferredCount,
+                    StoredVariantCounts = new Dictionary<string, int>(raw.StoredVariantCounts, StringComparer.OrdinalIgnoreCase),
+                    Diagnostics = raw.Diagnostics,
+                    LastCheckedAt = raw.LastCheckedAt,
+                };
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/{EntityId}/artwork/{ScopeId}/refresh-provider failed", entityId, scopeId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     public async Task TriggerUniverseEnrichmentAsync(CancellationToken ct = default)
     {
         try
@@ -6316,6 +6372,27 @@ public sealed class EngineApiClient : IEngineApiClient
         [JsonPropertyName("provider_name")] public string? ProviderName { get; set; }
         [JsonPropertyName("can_delete")] public bool CanDelete { get; set; }
         [JsonPropertyName("created_at")] public DateTimeOffset? CreatedAt { get; set; }
+    }
+
+    private sealed class ProviderArtworkRefreshRaw
+    {
+        [JsonPropertyName("provider")] public string? Provider { get; set; }
+        [JsonPropertyName("provider_name")] public string? ProviderName { get; set; }
+        [JsonPropertyName("status")] public string? Status { get; set; }
+        [JsonPropertyName("success")] public bool Success { get; set; }
+        [JsonPropertyName("skipped")] public bool Skipped { get; set; }
+        [JsonPropertyName("skipped_reason")] public string? SkippedReason { get; set; }
+        [JsonPropertyName("message")] public string? Message { get; set; }
+        [JsonPropertyName("media_type")] public string? MediaType { get; set; }
+        [JsonPropertyName("bridge_key")] public string? BridgeKey { get; set; }
+        [JsonPropertyName("bridge_id")] public string? BridgeId { get; set; }
+        [JsonPropertyName("endpoint")] public string? Endpoint { get; set; }
+        [JsonPropertyName("http_status_code")] public int? HttpStatusCode { get; set; }
+        [JsonPropertyName("downloaded_count")] public int DownloadedCount { get; set; }
+        [JsonPropertyName("updated_preferred_count")] public int UpdatedPreferredCount { get; set; }
+        [JsonPropertyName("stored_variant_counts")] public Dictionary<string, int> StoredVariantCounts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        [JsonPropertyName("diagnostics")] public List<string> Diagnostics { get; set; } = [];
+        [JsonPropertyName("last_checked_at")] public DateTimeOffset LastCheckedAt { get; set; }
     }
 
     // -- Library Preferences -----------------------------------------------------

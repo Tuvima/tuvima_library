@@ -341,7 +341,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void DetailComposer_SeriesPlacementDoesNotUseFranchiseDirectlyButHydratorAllowsMovieFranchises()
+    public void DetailComposer_SeriesPlacementDoesNotUseFranchiseDirectlyAndHydratorPrefersImmediateSeries()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
         var hydratorSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/WikidataSeriesManifestHydrationService.cs"));
@@ -355,8 +355,11 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("IsManifestItemInMediaScope", source);
         Assert.Contains("MediaType.Movies", hydratorSource);
         Assert.Contains("MediaType.Comics", hydratorSource);
-        Assert.Contains("context.MediaType is MediaType.Movies or MediaType.TV", hydratorSource);
-        Assert.Contains("\"franchise_qid\"", hydratorSource);
+        Assert.Contains("\"series_qid\"", hydratorSource);
+        Assert.Contains("RelType, \"series\"", hydratorSource);
+        Assert.DoesNotContain("context.MediaType is MediaType.Movies or MediaType.TV", hydratorSource);
+        Assert.DoesNotContain("\"franchise_qid\"", hydratorSource);
+        Assert.DoesNotContain("\"fictional_universe_qid\"", hydratorSource);
         Assert.Contains("LooksLikeEditionOrTranslation", hydratorSource);
     }
 

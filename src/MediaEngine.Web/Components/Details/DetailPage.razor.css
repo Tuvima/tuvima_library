@@ -1878,6 +1878,36 @@
     text-transform: uppercase;
 }
 
+::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy {
+    max-width: min(52rem, 56vw);
+    gap: 0.56rem;
+    transform: translateY(clamp(1.1rem, 3vh, 2.6rem));
+}
+
+::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy h1 {
+    font-size: clamp(3.7rem, 6.25vw, 7rem);
+    line-height: 0.89;
+}
+
+::deep .tl-detail-hero--watch.tl-detail-hero--title-dense .tl-detail-hero__copy {
+    max-width: min(58rem, 60vw);
+    gap: 0.48rem;
+    transform: translateY(clamp(0rem, 1.4vh, 1.2rem));
+}
+
+::deep .tl-detail-hero--watch.tl-detail-hero--title-dense .tl-detail-hero__copy h1 {
+    font-size: clamp(2.85rem, 5.1vw, 5.9rem);
+    line-height: 0.91;
+}
+
+::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__tagline,
+::deep .tl-detail-hero--watch.tl-detail-hero--title-dense .tl-detail-hero__tagline {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
 ::deep .tl-detail-hero__tagline {
     order: 5;
     margin: 0;
@@ -4341,6 +4371,22 @@
 
     ::deep .tl-detail-hero--watch .tl-detail-hero__copy h1 {
         font-size: clamp(3rem, 17vw, 5.6rem);
+    }
+
+    ::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy,
+    ::deep .tl-detail-hero--watch.tl-detail-hero--title-dense .tl-detail-hero__copy {
+        gap: 0.5rem;
+        transform: none;
+    }
+
+    ::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy h1 {
+        font-size: clamp(2.25rem, 11.8vw, 4.2rem);
+        line-height: 0.95;
+    }
+
+    ::deep .tl-detail-hero--watch.tl-detail-hero--title-dense .tl-detail-hero__copy h1 {
+        font-size: clamp(1.95rem, 9.8vw, 3.35rem);
+        line-height: 0.98;
     }
 
     ::deep .tl-detail-hero--watch .tl-detail-hero__logo {
