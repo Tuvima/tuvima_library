@@ -1,4 +1,5 @@
 using Bunit;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Web.Components.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
@@ -447,6 +448,43 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_DoesNotTreatPartialIdleWorkerAsRunning()
+    {
+        var activity = new IngestionCurrentActivityViewModel
+        {
+            StageKey = "relationships",
+            Message = "Series & relationships",
+            CurrentItem = "The Empire Strikes Back",
+            ProcessedCount = 2,
+            TotalCount = 3,
+            PercentComplete = 67,
+            ActiveCount = 0,
+            QueuedCount = 1,
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            new IngestionOperationsSnapshotViewModel
+            {
+                Summary = new IngestionOperationsSummaryViewModel
+                {
+                    TotalItems = 3,
+                    RegisteredItems = 2,
+                },
+            },
+            [],
+            [activity],
+            [],
+            [],
+            new IngestionDashboardMetrics(3, 2, 0, 0),
+            null,
+            DateTimeOffset.UtcNow.AddMinutes(-10),
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(LibraryUpdatePageState.Idle, status.PageState);
+        Assert.False(status.ShowProgress);
+    }
+
+    [Fact]
     public void LiveDashboardState_MapsStagesAndMetrics()
     {
         var snapshot = new IngestionOperationsSnapshotViewModel
@@ -688,10 +726,12 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.ReviewReasons, reasons)
             .Add(component => component.ReviewTotal, 4));
 
-        Assert.Contains("Artwork retrieval", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Missing Artwork", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Artwork worker", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Working now", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("ingestion-activity-shell", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Worker activity details", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Workers", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Problem buckets", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Recent engine activity", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Review Queue", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ingestion-review-preview", cut.Markup, StringComparison.Ordinal);
     }
@@ -784,11 +824,10 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("People &amp; cast enrichment", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Metadata validation", cut.Markup, StringComparison.Ordinal);
 
-        Assert.Contains("Current batch", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("1 of 2", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Pending", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Completed", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Needs attention", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Working now", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Recently completed", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Identity breakdown", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Problem buckets", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("ingestion-current-row__batch", cut.Markup, StringComparison.Ordinal);
     }
 
@@ -806,11 +845,143 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("Artwork retrieval", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Artwork worker", cut.Markup, StringComparison.Ordinal);
 
         cut.FindAll(".ingestion-current-row__main")[1].Click();
 
-        Assert.Contains("People and cast enrichment", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("People and cast worker", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ActivityList_ShowsIdleForIncompleteWorkerWithoutActiveItems()
+    {
+        var activities = new[]
+        {
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "relationships",
+                Message = "Series & relationships",
+                Detail = "Building series graph",
+                ProcessedCount = 2,
+                TotalCount = 3,
+                PercentComplete = 67,
+                ActiveCount = 0,
+                QueuedCount = 1,
+                LastUpdatedTime = DateTimeOffset.UtcNow.AddMinutes(-10),
+                SampleItems = ["The Empire Strikes Back"],
+                CurrentBatch = new IngestionActivityBatchViewModel
+                {
+                    CompletedPreview = ["A New Hope", "The Empire Strikes Back"],
+                },
+            },
+        };
+
+        var cut = RenderComponent<IngestionActivityList>(parameters => parameters
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Idle", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("A New Hope", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("The Empire Strikes Back", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("67%</span>", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ActivityList_UsesWorkerSpecificRecentActivityItems()
+    {
+        var activities = new[]
+        {
+            Activity("artwork", "Fetching artwork"),
+        };
+        var recent = Enumerable.Range(1, 12)
+            .Select(index => new ActivityEntryViewModel
+            {
+                ActionType = SystemActionType.CoverArtSaved,
+                Detail = $"Cover art saved for Artwork Item {index}.",
+                OccurredAt = DateTimeOffset.UtcNow.AddMinutes(-index).ToString("O"),
+            })
+            .ToArray();
+
+        var cut = RenderComponent<IngestionActivityList>(parameters => parameters
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Activities, recent));
+
+        Assert.Contains("Artwork Item 1", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Artwork Item 10", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Artwork Item 11", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Full activity", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("href=\"/settings/activity\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ActivityList_ShowsArtworkAssetCountsFromWorkerPreview()
+    {
+        var activities = new[]
+        {
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "artwork",
+                Message = "Fetching artwork",
+                Detail = "Retrieving covers and posters from providers.",
+                ProcessedCount = 1,
+                TotalCount = 1,
+                PercentComplete = 100,
+                ActiveCount = 0,
+                QueuedCount = 0,
+                LastUpdatedTime = DateTimeOffset.UtcNow.AddMinutes(-5),
+                SampleItems = ["Shawshank Redemption - 7"],
+                CurrentBatch = new IngestionActivityBatchViewModel
+                {
+                    CompletedPreview = ["Shawshank Redemption - 7"],
+                },
+            },
+        };
+
+        var cut = RenderComponent<IngestionActivityList>(parameters => parameters
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Shawshank Redemption - 7", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ActivityList_ExtractsQuotedPeopleActivityTitles()
+    {
+        var activities = new[]
+        {
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "people",
+                Message = "People & cast enrichment",
+                Detail = "Enriching cast and people.",
+                ProcessedCount = 1,
+                TotalCount = 1,
+                PercentComplete = 100,
+                ActiveCount = 0,
+                QueuedCount = 0,
+                LastUpdatedTime = DateTimeOffset.UtcNow.AddMinutes(-5),
+            },
+        };
+        var recent = new[]
+        {
+            new ActivityEntryViewModel
+            {
+                ActionType = SystemActionType.PersonHydrated,
+                Detail = "Person \"Carrie Fisher\" enriched from Wikidata",
+                OccurredAt = DateTimeOffset.UtcNow.AddMinutes(-1).ToString("O"),
+            },
+        };
+
+        var cut = RenderComponent<IngestionActivityList>(parameters => parameters
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Activities, recent));
+
+        Assert.Contains("Carrie Fisher", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Wikidata</span>", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -821,6 +992,21 @@ public sealed class IngestionDashboardRenderTests : TestContext
 
         Assert.DoesNotContain("CurrentRows.Take(3)", source, StringComparison.Ordinal);
         Assert.DoesNotContain(".Where(activity => !string.IsNullOrWhiteSpace(activity.Message))\r\n            .Take(3)", stateSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IngestionOperationsStatusService_UsesDomainSpecificWorkerPreviewSources()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("ReadArtworkWorkerRowsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ReadSeriesWorkerRowsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ReadPeopleWorkerRowsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ArtworkAssetCount", source, StringComparison.Ordinal);
+        Assert.Contains("entity_assets", source, StringComparison.Ordinal);
+        Assert.Contains("person_media_links", source, StringComparison.Ordinal);
+        Assert.Contains("series_manifest_hydrations", source, StringComparison.Ordinal);
+        Assert.Contains("displayRows", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -6,6 +6,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 using ProviderConfig = MediaEngine.Storage.Models.ProviderConfiguration;
 
@@ -51,6 +52,23 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         nameof(IdentityJobState.Ready),
         nameof(IdentityJobState.ReadyWithoutUniverse),
         nameof(IdentityJobState.Completed),
+    ];
+    private static readonly string[] RelationshipActivityTypes =
+    [
+        SystemActionType.CollectionAssigned,
+        SystemActionType.CollectionCreated,
+        SystemActionType.CollectionMerged,
+        SystemActionType.NarrativeRootResolved,
+        SystemActionType.RelationshipDiscovered,
+        SystemActionType.UniverseXmlUpdated,
+    ];
+    private static readonly string[] PeopleActivityTypes =
+    [
+        SystemActionType.PersonHydrated,
+        SystemActionType.PersonMerged,
+        SystemActionType.CharacterEnriched,
+        SystemActionType.LocationEnriched,
+        SystemActionType.OrganizationEnriched,
     ];
     // Wikidata and artwork batches can legitimately spend many minutes in one
     // leased state before per-item finalisation updates the row. Keep those rows
@@ -500,7 +518,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 END,
                 lj.updated_at DESC
             LIMIT @limit;
-            """, new { batchId = batchId.ToString(), states = CurrentActivityStates, limit = 3 });
+            """, new { batchId = batchId.ToString(), states = CurrentActivityStates, limit = 10 });
 
         return rows
             .Select(row => ToCurrentActivity(row, stages))
@@ -576,6 +594,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 (SELECT COUNT(DISTINCT person_id) FROM person_media_links) AS PersonCount,
                 (SELECT COUNT(*) FROM review_queue WHERE status = 'Pending') AS IssueCount;
             """) ?? new ActivityMetricCounts();
+        var artworkRows = await ReadArtworkWorkerRowsAsync(conn, batchId);
+        var seriesRows = await ReadSeriesWorkerRowsAsync(conn, batchId);
+        var peopleRows = await ReadPeopleWorkerRowsAsync(conn, batchId);
 
         var result = new List<IngestionCurrentActivityDto>
         {
@@ -599,7 +620,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 reviewStates: [..RetailReviewStates, ..RetailNoMatchStates, nameof(IdentityJobState.Failed)],
                 metricLabel: "Artwork found",
                 metricValue: metrics.ArtworkCount.ToString("N0"),
-                metricTone: "info"),
+                metricTone: "info",
+                displayRows: artworkRows),
             BuildTaskActivity(
                 "wikidata",
                 "Linking Wikidata QIDs",
@@ -637,7 +659,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 reviewStates: [],
                 metricLabel: "Links created",
                 metricValue: metrics.RelationshipCount.ToString("N0"),
-                metricTone: "success"),
+                metricTone: "success",
+                displayRows: seriesRows),
             BuildTaskActivity(
                 "people",
                 "People & cast enrichment",
@@ -656,12 +679,271 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 reviewStates: [],
                 metricLabel: "People resolved",
                 metricValue: metrics.PersonCount.ToString("N0"),
-                metricTone: "warning"),
+                metricTone: "warning",
+                displayRows: peopleRows),
         };
 
         return result
             .Where(activity => activity.TotalCount > 0 || activity.ActiveCount > 0 || activity.ProcessedCount > 0)
             .ToList();
+    }
+
+    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadArtworkWorkerRowsAsync(SqliteConnection conn, Guid batchId)
+    {
+        var rows = (await conn.QueryAsync<CurrentActivityRow>("""
+            WITH latest_jobs AS (
+                SELECT
+                    entity_id,
+                    state,
+                    media_type,
+                    updated_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entity_id
+                        ORDER BY updated_at DESC, created_at DESC
+                    ) AS rn
+                FROM identity_jobs
+                WHERE ingestion_run_id = @batchId
+            )
+            SELECT
+                lj.entity_id AS EntityId,
+                lj.state AS State,
+                lj.media_type AS MediaType,
+                lj.updated_at AS UpdatedAt,
+                ma.file_path_root AS SourcePath,
+                COALESCE(
+                    (
+                        SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = lj.entity_id
+                          AND cv.key IN ('title', 'episode_title')
+                          AND cv.value IS NOT NULL
+                          AND cv.value <> ''
+                        ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = w.id
+                          AND cv.key = 'title'
+                          AND cv.value IS NOT NULL
+                          AND cv.value <> ''
+                        LIMIT 1
+                    ),
+                    ''
+                ) AS Title,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.entity_type = 'Work'
+                      AND ea.entity_id = COALESCE(gp.id, p.id, w.id)
+                      AND COALESCE(ea.asset_class, 'Artwork') = 'Artwork'
+                ) AS ArtworkAssetCount
+            FROM latest_jobs lj
+            LEFT JOIN media_assets ma ON ma.id = lj.entity_id
+            LEFT JOIN editions e ON e.id = ma.edition_id
+            LEFT JOIN works w ON w.id = e.work_id
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            WHERE lj.rn = 1
+            ORDER BY lj.updated_at DESC;
+            """, new { batchId = batchId.ToString() })).AsList();
+
+        return rows;
+    }
+
+    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadSeriesWorkerRowsAsync(SqliteConnection conn, Guid batchId)
+    {
+        var batchRows = (await conn.QueryAsync<WorkerItemRow>("""
+            WITH batch_assets AS (
+                SELECT DISTINCT entity_id
+                FROM identity_jobs
+                WHERE ingestion_run_id = @batchId
+                  AND entity_id IS NOT NULL
+                  AND entity_id <> ''
+            ),
+            batch_collections AS (
+                SELECT DISTINCT
+                    COALESCE(c.display_name, c.name, c.wikidata_qid) AS Title,
+                    NULL AS Detail,
+                    COALESCE(c.created_at, datetime('now')) AS UpdatedAt
+                FROM batch_assets ba
+                JOIN media_assets ma ON ma.id = ba.entity_id
+                JOIN editions e ON e.id = ma.edition_id
+                JOIN works w ON w.id = e.work_id
+                JOIN collections c ON c.id = w.collection_id
+                WHERE COALESCE(c.display_name, c.name, c.wikidata_qid) IS NOT NULL
+                  AND COALESCE(c.display_name, c.name, c.wikidata_qid) <> ''
+            ),
+            activity_collections AS (
+                SELECT DISTINCT
+                    collection_name AS Title,
+                    detail AS Detail,
+                    occurred_at AS UpdatedAt
+                FROM system_activity
+                WHERE ingestion_run_id = @batchId
+                  AND action_type IN @actionTypes
+            )
+            SELECT Title, Detail, MAX(UpdatedAt) AS UpdatedAt
+            FROM (
+                SELECT * FROM batch_collections
+                UNION ALL
+                SELECT * FROM activity_collections
+            )
+            WHERE COALESCE(Title, Detail) IS NOT NULL
+              AND COALESCE(Title, Detail) <> ''
+            GROUP BY COALESCE(Title, Detail)
+            ORDER BY MAX(UpdatedAt) DESC
+            LIMIT 10;
+            """, new { batchId = batchId.ToString(), actionTypes = RelationshipActivityTypes })).AsList();
+
+        if (batchRows.Count > 0)
+        {
+            return ToCompletedWorkerRows(batchRows, "Series");
+        }
+
+        var fallbackRows = (await conn.QueryAsync<WorkerItemRow>("""
+            SELECT
+                COALESCE(smh.series_label, c.display_name, c.name, smh.series_qid) AS Title,
+                NULL AS Detail,
+                COALESCE(smh.last_hydrated_at, smh.updated_at, smh.created_at) AS UpdatedAt
+            FROM series_manifest_hydrations smh
+            LEFT JOIN collections c ON c.id = smh.collection_id
+            WHERE COALESCE(smh.series_label, c.display_name, c.name, smh.series_qid) IS NOT NULL
+              AND COALESCE(smh.series_label, c.display_name, c.name, smh.series_qid) <> ''
+            ORDER BY COALESCE(smh.last_hydrated_at, smh.updated_at, smh.created_at) DESC
+            LIMIT 10;
+            """)).AsList();
+
+        return ToCompletedWorkerRows(fallbackRows, "Series");
+    }
+
+    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadPeopleWorkerRowsAsync(SqliteConnection conn, Guid batchId)
+    {
+        var batchRows = (await conn.QueryAsync<WorkerItemRow>("""
+            WITH batch_assets AS (
+                SELECT DISTINCT entity_id
+                FROM identity_jobs
+                WHERE ingestion_run_id = @batchId
+                  AND entity_id IS NOT NULL
+                  AND entity_id <> ''
+            ),
+            batch_people AS (
+                SELECT DISTINCT
+                    p.name AS Title,
+                    NULL AS Detail,
+                    COALESCE(p.enriched_at, p.created_at) AS UpdatedAt
+                FROM batch_assets ba
+                JOIN person_media_links pml ON pml.media_asset_id = ba.entity_id
+                JOIN persons p ON p.id = pml.person_id
+                WHERE p.name IS NOT NULL
+                  AND p.name <> ''
+            ),
+            activity_people AS (
+                SELECT DISTINCT
+                    collection_name AS Title,
+                    detail AS Detail,
+                    occurred_at AS UpdatedAt
+                FROM system_activity
+                WHERE ingestion_run_id = @batchId
+                  AND action_type IN @actionTypes
+            )
+            SELECT Title, Detail, MAX(UpdatedAt) AS UpdatedAt
+            FROM (
+                SELECT * FROM batch_people
+                UNION ALL
+                SELECT * FROM activity_people
+            )
+            WHERE COALESCE(Title, Detail) IS NOT NULL
+              AND COALESCE(Title, Detail) <> ''
+            GROUP BY COALESCE(Title, Detail)
+            ORDER BY MAX(UpdatedAt) DESC
+            LIMIT 10;
+            """, new { batchId = batchId.ToString(), actionTypes = PeopleActivityTypes })).AsList();
+
+        if (batchRows.Count > 0)
+        {
+            return ToCompletedWorkerRows(batchRows, "Person");
+        }
+
+        var fallbackRows = (await conn.QueryAsync<WorkerItemRow>("""
+            SELECT
+                name AS Title,
+                NULL AS Detail,
+                COALESCE(enriched_at, created_at) AS UpdatedAt
+            FROM persons
+            WHERE name IS NOT NULL
+              AND name <> ''
+            ORDER BY COALESCE(enriched_at, created_at) DESC
+            LIMIT 10;
+            """)).AsList();
+
+        return ToCompletedWorkerRows(fallbackRows, "Person");
+    }
+
+    private static IReadOnlyList<CurrentActivityRow> ToCompletedWorkerRows(
+        IEnumerable<WorkerItemRow> rows,
+        string mediaType)
+    {
+        var result = new List<CurrentActivityRow>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            var title = CleanWorkerItemTitle(row.Title, row.Detail);
+            if (string.IsNullOrWhiteSpace(title) || !seen.Add(title))
+            {
+                continue;
+            }
+
+            result.Add(new CurrentActivityRow
+            {
+                EntityId = title,
+                State = nameof(IdentityJobState.Ready),
+                MediaType = mediaType,
+                UpdatedAt = row.UpdatedAt,
+                Title = title,
+            });
+            if (result.Count >= 10)
+            {
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    private static string CleanWorkerItemTitle(string? title, string? detail)
+    {
+        var value = FirstNonBlank(title, ExtractQuotedTitle(detail), detail);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        value = value.Trim();
+        return value.Length <= 100 ? value : value[..100].TrimEnd();
+    }
+
+    private static string? ExtractQuotedTitle(string? detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail))
+        {
+            return null;
+        }
+
+        var firstQuote = detail.IndexOf('"');
+        if (firstQuote < 0)
+        {
+            return null;
+        }
+
+        var secondQuote = detail.IndexOf('"', firstQuote + 1);
+        if (secondQuote <= firstQuote + 1)
+        {
+            return null;
+        }
+
+        return detail[(firstQuote + 1)..secondQuote].Trim();
     }
 
     private static IngestionCurrentActivityDto BuildTaskActivity(
@@ -677,7 +959,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IReadOnlyCollection<string> reviewStates,
         string metricLabel,
         string metricValue,
-        string metricTone)
+        string metricTone,
+        IReadOnlyList<CurrentActivityRow>? displayRows = null)
     {
         var relevant = rows
             .Where(row => ContainsState(relevantStates, row.State))
@@ -687,14 +970,24 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var active = relevant.Where(row => IsFreshActive(row, activeStates)).ToList();
         var completed = relevant.Where(row => ContainsState(completedStates, row.State)).ToList();
         var review = relevant.Where(row => ContainsState(reviewStates, row.State)).ToList();
+        var displayRelevant = displayRows is { Count: > 0 }
+            ? displayRows
+                .Where(row => ContainsState(relevantStates, row.State))
+                .OrderBy(row => TaskSort(row, activeStates, completedStates, reviewStates))
+                .ThenByDescending(row => ParseDate(row.UpdatedAt))
+                .ToList()
+            : relevant;
+        var displayActive = displayRelevant.Where(row => IsFreshActive(row, activeStates)).ToList();
         var progress = ResolveActivityProgress(progressStageKey, stages);
         var total = Math.Max(progress.Total, relevant.Count);
         var processed = Math.Clamp(Math.Max(progress.Count, completed.Count + review.Count), 0, Math.Max(0, total));
         var queued = Math.Max(0, total - processed - active.Count);
-        var samples = active.Count > 0 ? active : relevant.Where(row => !ContainsState(completedStates, row.State)).Take(8).ToList();
+        var samples = active.Count > 0
+            ? (displayActive.Count > 0 ? displayActive : displayRelevant.Take(10).ToList())
+            : displayRelevant.Where(row => !ContainsState(completedStates, row.State)).Take(8).ToList();
         if (samples.Count == 0)
         {
-            samples = relevant.Take(8).ToList();
+            samples = displayRelevant.Take(8).ToList();
         }
         var currentItem = samples.Select(DisplayActivityItem).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
@@ -711,11 +1004,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             LastUpdatedTime = LatestUpdated(relevant),
             QueuedCount = queued,
             ActiveCount = active.Count,
-            SampleItems = samples.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
+            SampleItems = samples.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Take(10).ToList(),
             MetricLabel = metricLabel,
             MetricValue = metricValue,
             MetricTone = metricTone,
-            CurrentBatch = BuildCurrentBatch(relevant, activeStates, completedStates, reviewStates),
+            CurrentBatch = BuildCurrentBatch(displayRelevant, activeStates, completedStates, reviewStates),
         };
     }
 
@@ -761,10 +1054,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ActiveCount = active.Count,
             PendingCount = pending.Count,
             ReviewCount = review.Count,
-            ActiveItems = active.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(6).ToList(),
-            CompletedPreview = completed.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(6).ToList(),
-            PendingPreview = pending.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(6).ToList(),
-            ReviewPreview = review.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(6).ToList(),
+            ActiveItems = active.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(10).ToList(),
+            CompletedPreview = completed.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(10).ToList(),
+            PendingPreview = pending.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(10).ToList(),
+            ReviewPreview = review.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(10).ToList(),
         };
     }
 
@@ -825,7 +1118,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     }
 
     private static string DisplayActivityItem(CurrentActivityRow row) =>
-        FirstNonBlank(row.Title, ShortPath(row.SourcePath), row.MediaType, "Current file");
+        FormatArtworkAssetCount(
+            FirstNonBlank(row.Title, ShortPath(row.SourcePath), row.MediaType, "Current file"),
+            row.ArtworkAssetCount);
+
+    private static string FormatArtworkAssetCount(string title, int? artworkAssetCount) =>
+        artworkAssetCount.HasValue && !string.IsNullOrWhiteSpace(title)
+            ? $"{title} - {artworkAssetCount.Value.ToString("N0", System.Globalization.CultureInfo.CurrentCulture)}"
+            : title;
 
     private static List<IngestionReviewReasonDto> BuildReviewReasons(
         IReadOnlyList<ReviewCountRow> reviewRows,
@@ -1038,6 +1338,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             TotalCount = total,
             PercentComplete = total > 0 ? Math.Clamp(processed * 100d / total, 0, 100) : 0,
             LastUpdatedTime = ParseDate(row.UpdatedAt),
+            QueuedCount = total > 0 ? Math.Max(0, total - processed - 1) : 0,
+            ActiveCount = 1,
+            SampleItems = [currentItem],
         };
     }
 
@@ -1069,6 +1372,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             TotalCount = total,
             PercentComplete = total > 0 ? Math.Clamp(processed * 100d / total, 0, 100) : Math.Clamp(job.PercentComplete, 0, 100),
             LastUpdatedTime = job.LastUpdatedTime,
+            QueuedCount = total > 0 ? Math.Max(0, total - processed - 1) : 0,
+            ActiveCount = 1,
+            SampleItems = [item],
         };
     }
 
@@ -1463,10 +1769,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         progress.Total > 0 && progress.Count < progress.Total;
 
     private static bool IsActiveActivity(IngestionCurrentActivityDto activity) =>
-        activity.ActiveCount > 0
-        || activity.QueuedCount > 0
-        || (activity.TotalCount > 0 && activity.ProcessedCount < activity.TotalCount)
-        || (activity.PercentComplete > 0 && activity.PercentComplete < 100);
+        activity.ActiveCount > 0;
 
     private static string ResolveHealthLabel(int review, int providerWarnings, int failedJobs, int activeJobs)
     {
@@ -1595,6 +1898,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public string? UpdatedAt { get; set; }
         public string? SourcePath { get; set; }
         public string? Title { get; set; }
+        public int? ArtworkAssetCount { get; set; }
+    }
+
+    private sealed class WorkerItemRow
+    {
+        public string? Title { get; init; }
+        public string? Detail { get; init; }
+        public string? UpdatedAt { get; init; }
     }
 
     private sealed class ActivityMetricCounts

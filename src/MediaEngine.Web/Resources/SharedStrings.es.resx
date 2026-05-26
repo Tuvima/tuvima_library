@@ -1539,7 +1539,7 @@
     <value>Pending</value>
   </data>
   <data name="Ingestion_CurrentActivity" xml:space="preserve">
-    <value>Current activity</value>
+    <value>Workers</value>
   </data>
   <data name="Ingestion_NoActiveWork" xml:space="preserve">
     <value>No active ingestion work</value>

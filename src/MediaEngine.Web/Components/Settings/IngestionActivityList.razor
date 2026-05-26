@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
 @using System.Text.RegularExpressions
+@using MediaEngine.Domain.Enums
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IStringLocalizer<SharedStrings> L
@@ -8,200 +9,155 @@
 <details class="ingestion-activity-shell">
     <summary class="ingestion-activity-shell__summary">
         <span class="ingestion-activity-shell__icon">
-            <MudIcon Icon="@Icons.Material.Outlined.Tune" />
+            <MudIcon Icon="@Icons.Material.Outlined.Engineering" />
         </span>
         <span class="ingestion-activity-shell__copy">
-            <strong>Worker activity details</strong>
-            <span>Inspect live worker queues, task batches, and recent engine events.</span>
+            <strong>Workers</strong>
+            <span>Background enrichment workers and the latest items they touched.</span>
         </span>
         <span class="ingestion-activity-shell__meta">
-            <span>@ActivitySummary</span>
-            <span>@ReviewSummary</span>
+            <span>@RunningWorkerSummary</span>
+            <span>@IdleWorkerSummary</span>
         </span>
         <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Class="ingestion-activity-shell__chevron" />
     </summary>
 
     <section class="ingestion-activity-grid">
         <div class="ingestion-current">
-        <div class="ingestion-current__header">
-            <div>
-                <MudText Typo="Typo.subtitle2">@L["Ingestion_CurrentActivity"]</MudText>
-                <span>What the engine is working on right now</span>
-            </div>
-            <div class="ingestion-current__actions">
-                <span class="ingestion-current__live">Live updates</span>
-                <AppButton Href="/settings/activity" Size="AppControlSize.Compact" Label="View all activity" />
-            </div>
-        </div>
-
-        @if (CurrentRows.Count == 0)
-        {
-            <div class="ingestion-current__empty">
-                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+            <div class="ingestion-current__header">
                 <div>
-                    <strong>@L["Ingestion_NoActiveWork"]</strong>
-                    <span>@L["Ingestion_WatchedFoldersMonitored"]</span>
+                    <MudText Typo="Typo.subtitle2">@L["Ingestion_CurrentActivity"]</MudText>
+                    <span>Worker status with current and recently completed items.</span>
+                </div>
+                <div class="ingestion-current__actions">
+                    <span class="ingestion-current__live">Live updates</span>
+                    <AppButton Href="/settings/activity" Size="AppControlSize.Compact" Label="View activity history" />
                 </div>
             </div>
-        }
-        else
-        {
-            @foreach (var row in CurrentRows)
+
+            @if (CurrentRows.Count == 0)
             {
-                <article class="ingestion-current-row @row.StageClass">
-                    <AppButton ButtonStyle="AppButtonStyle.Ghost"
-                               FullWidth="true"
-                               Class="@CurrentRowButtonClass(row)"
-                               OnClick="@(() => SelectRow(row.Key))">
-                        <span class="@ProgressIconClass(row.Percent)">
-                            <MudIcon Icon="@row.Icon" />
-                        </span>
-                        <span class="ingestion-current-row__copy">
-                            <strong>@row.Message</strong>
-                            <span>@row.Detail</span>
-                            <small>@row.QueueSummary</small>
-                        </span>
-                        <span class="ingestion-current-row__work">
-                            <span class="ingestion-current-row__counts">@row.Counts</span>
-                            <span class="ingestion-current-row__bar">
-                                <AppProgressBar Value="@row.Percent" Class="ingestion-current-row__progress" />
-                                <span>@row.Percent.ToString("0", CultureInfo.CurrentCulture)%</span>
-                            </span>
-                            @if (row.Percent < 100 && row.SampleItems.Count > 0)
-                            {
-                                <span class="ingestion-current-row__chips">
-                                    @foreach (var item in row.SampleItems.Take(3))
-                                    {
-                                        <span>@item</span>
-                                    }
-                                    @if (row.SampleItems.Count > 3)
-                                    {
-                                        <span>+@((row.SampleItems.Count - 3).ToString("N0", CultureInfo.CurrentCulture)) more</span>
-                                    }
-                                </span>
-                            }
-                        </span>
-                        <span class="ingestion-current-row__metric @row.MetricToneCss">
-                            <small>@row.MetricLabel</small>
-                            <strong>@row.MetricValue</strong>
-                        </span>
-                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
-                    </AppButton>
-                </article>
+                <div class="ingestion-current__empty">
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+                    <div>
+                        <strong>No workers are running</strong>
+                        <span>The Engine is monitoring watched folders and waiting for new work.</span>
+                    </div>
+                </div>
             }
-        }
-    </div>
-
-    <aside class="ingestion-activity-detail">
-        @if (SelectedRow is null)
-        {
-            <div class="ingestion-activity-detail__empty">
-                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
-                <div>
-                    <strong>No active library work</strong>
-                    <span>The Engine is monitoring watched folders and waiting for new activity.</span>
-                </div>
-            </div>
-        }
-        else
-        {
-            var detail = BuildDetail(SelectedRow);
-            <div class="ingestion-activity-detail__header">
-                <div>
-                    <MudText Typo="Typo.subtitle2">@detail.Title</MudText>
-                    <span>@detail.Subtitle</span>
-                </div>
-                <strong>@SelectedRow.Percent.ToString("0", CultureInfo.CurrentCulture)% complete</strong>
-            </div>
-
-            <div class="ingestion-activity-detail__metrics">
-                @foreach (var metric in detail.Metrics)
+            else
+            {
+                @foreach (var row in CurrentRows)
                 {
-                    <div class="@metric.CssClass">
-                        <MudIcon Icon="@metric.Icon" />
-                        <span>@metric.Label</span>
-                        <strong>@metric.Value</strong>
-                    </div>
-                }
-            </div>
-
-            @if (detail.Breakdown.Count > 0)
-            {
-                <div class="ingestion-activity-detail__section">
-                    <strong>@detail.BreakdownTitle</strong>
-                    <div class="ingestion-activity-detail__breakdown">
-                        @foreach (var item in detail.Breakdown)
-                        {
-                            <div>
-                                <span>@item.Label</span>
-                                <strong>@item.Value</strong>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-
-            @if (detail.WorkGroups.Count > 0)
-            {
-                <div class="ingestion-activity-detail__section">
-                    <strong>@detail.WorkTitle</strong>
-                    <div class="ingestion-activity-detail__work-groups">
-                        @foreach (var group in detail.WorkGroups)
-                        {
-                            <div class="ingestion-activity-detail__work-group">
-                                <strong>@group.Label</strong>
-                                @if (group.Items.Count == 0)
+                    <article class="ingestion-current-row @row.StageClass">
+                        <AppButton ButtonStyle="AppButtonStyle.Ghost"
+                                   FullWidth="true"
+                                   Class="@CurrentRowButtonClass(row)"
+                                   OnClick="@(() => SelectRow(row.Key))">
+                            <span class="@ProgressIconClass(row.Percent)">
+                                <MudIcon Icon="@row.Icon" />
+                            </span>
+                            <span class="ingestion-current-row__copy">
+                                <strong>@row.Message</strong>
+                                <span>@row.DetailLine</span>
+                                <small>@row.QueueSummary</small>
+                            </span>
+                            <span class="ingestion-current-row__work">
+                                <span class="ingestion-current-row__counts">@row.Counts</span>
+                                @if (row.ShowProgress)
                                 {
-                                    <span>None right now</span>
+                                    <span class="ingestion-current-row__bar">
+                                        <AppProgressBar Value="@row.Percent" Class="ingestion-current-row__progress" />
+                                        <span>@row.Percent.ToString("0", CultureInfo.CurrentCulture)%</span>
+                                    </span>
                                 }
                                 else
                                 {
-                                    @foreach (var item in group.Items.Take(5))
-                                    {
-                                        <span>@item</span>
-                                    }
+                                    <span class="ingestion-current-row__status @row.StatusCss">@row.StatusLabel</span>
                                 }
-                            </div>
-                        }
-                    </div>
-                </div>
+                            </span>
+                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
+                        </AppButton>
+                    </article>
+                }
             }
+        </div>
 
-            @if (detail.Problems.Count > 0)
+        <aside class="ingestion-activity-detail">
+            @if (SelectedRow is null)
             {
-                <div class="ingestion-activity-detail__section">
-                    <strong>Problem buckets</strong>
-                    <div class="ingestion-activity-detail__problems">
-                        @foreach (var problem in detail.Problems)
-                        {
-                            <a href="/settings/review" class="@problem.CssClass">
-                                <MudIcon Icon="@problem.Icon" />
-                                <span>@problem.Label</span>
-                                <strong>@problem.Count.ToString("N0", CultureInfo.CurrentCulture)</strong>
-                            </a>
-                        }
+                <div class="ingestion-activity-detail__empty">
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+                    <div>
+                        <strong>No worker selected</strong>
+                        <span>Select a worker to see what it is working on and what it finished recently.</span>
                     </div>
                 </div>
             }
+            else
+            {
+                var detail = BuildDetail(SelectedRow);
+                <div class="ingestion-activity-detail__header">
+                    <div>
+                        <MudText Typo="Typo.subtitle2">@detail.Title</MudText>
+                        <span>@detail.Subtitle</span>
+                    </div>
+                    <AppButton Href="@detail.ActivityHref"
+                               Size="AppControlSize.Compact"
+                               ButtonStyle="AppButtonStyle.Outlined"
+                               StartIcon="@Icons.Material.Outlined.History"
+                               Label="Full activity" />
+                </div>
 
-            @if (RecentActivityItems.Count > 0)
-            {
-                <div class="ingestion-activity-detail__section">
-                    <strong>Recent engine activity</strong>
-                    <div class="ingestion-activity-detail__events">
-                        @foreach (var item in RecentActivityItems.Take(5))
-                        {
-                            <span>@DisplayRecentActivity(item)</span>
-                        }
+                @if (detail.WorkingItems.Count == 0 && detail.CompletedItems.Count == 0)
+                {
+                    <div class="ingestion-worker-list-empty">
+                        <MudIcon Icon="@Icons.Material.Outlined.HourglassEmpty" />
+                        <span>No item-level worker history has been reported yet.</span>
                     </div>
-                </div>
+                }
+                else
+                {
+                    @if (detail.WorkingItems.Count > 0)
+                    {
+                        <div class="ingestion-activity-detail__section">
+                            <strong>Working now</strong>
+                            <ol class="ingestion-worker-items">
+                                @foreach (var item in detail.WorkingItems)
+                                {
+                                    <li>
+                                        <span>@item.Label</span>
+                                        <small>@item.Meta</small>
+                                    </li>
+                                }
+                            </ol>
+                        </div>
+                    }
+
+                    @if (detail.CompletedItems.Count > 0)
+                    {
+                        <div class="ingestion-activity-detail__section">
+                            <strong>Recently completed</strong>
+                            <ol class="ingestion-worker-items">
+                                @foreach (var item in detail.CompletedItems)
+                                {
+                                    <li>
+                                        <span>@item.Label</span>
+                                        <small>@item.Meta</small>
+                                    </li>
+                                }
+                            </ol>
+                        </div>
+                    }
+                }
             }
-        }
         </aside>
     </section>
 </details>
 
 @code {
+    private static readonly TimeSpan CompletedWorkerFreshness = TimeSpan.FromMinutes(2);
+
     [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
     [Parameter] public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities { get; set; } = [];
     [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
@@ -212,16 +168,27 @@
 
     private string? _selectedRowKey;
 
-    private string ActivitySummary => CurrentRows.Count switch
+    private string RunningWorkerSummary
     {
-        0 => "No active workers",
-        1 => "1 worker task",
-        var count => $"{count.ToString("N0", CultureInfo.CurrentCulture)} worker tasks",
-    };
+        get
+        {
+            var count = CurrentRows.Count(row => row.IsRunning);
+            return count == 1
+                ? "1 running"
+                : $"{count.ToString("N0", CultureInfo.CurrentCulture)} running";
+        }
+    }
 
-    private string ReviewSummary => ReviewTotal > 0
-        ? $"{ReviewTotal.ToString("N0", CultureInfo.CurrentCulture)} review"
-        : "No review blockers";
+    private string IdleWorkerSummary
+    {
+        get
+        {
+            var count = CurrentRows.Count(row => !row.IsRunning);
+            return count == 1
+                ? "1 idle"
+                : $"{count.ToString("N0", CultureInfo.CurrentCulture)} idle";
+        }
+    }
 
     protected override void OnParametersSet()
     {
@@ -235,7 +202,7 @@
         if (string.IsNullOrWhiteSpace(_selectedRowKey) || rows.All(row => !row.Key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase)))
         {
             _selectedRowKey = rows
-                .FirstOrDefault(row => row.Percent < 100)?.Key
+                .FirstOrDefault(row => row.IsRunning)?.Key
                 ?? rows[0].Key;
         }
     }
@@ -265,126 +232,173 @@
         }
     }
 
-    private IReadOnlyList<IngestionReviewReasonViewModel> TopReasons =>
-        ReviewReasons
-            .Where(reason => reason.Count > 0)
-            .OrderByDescending(reason => reason.Count)
-            .Take(3)
-            .ToList();
-
     private CurrentRow? SelectedRow =>
         CurrentRows.FirstOrDefault(row => row.Key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase))
         ?? CurrentRows.FirstOrDefault();
 
-    private IReadOnlyList<ActivityEntryViewModel> RecentActivityItems =>
+    private WorkerDetail BuildDetail(CurrentRow row)
+    {
+        var key = DetailStageKey(row.Key);
+        var workingItems = BuildWorkingItems(row);
+        var completedItems = BuildCompletedItems(row, key);
+        var subtitle = row.IsRunning
+            ? $"{row.ActiveCount.ToString("N0", CultureInfo.CurrentCulture)} active - {row.Counts}"
+            : $"Idle - last update {row.Updated}";
+
+        return new WorkerDetail(
+            WorkerTitle(key),
+            subtitle,
+            ActivityHref(key),
+            workingItems,
+            completedItems);
+    }
+
+    private IReadOnlyList<WorkerItem> BuildWorkingItems(CurrentRow row)
+    {
+        if (!row.IsRunning)
+        {
+            return [];
+        }
+
+        return DistinctWorkerItems(
+            EnumerateLabels(row.Batch?.ActiveItems, "Active item")
+                .Concat(EnumerateLabels(row.SampleItems, "Current item")))
+            .Take(10)
+            .ToList();
+    }
+
+    private IReadOnlyList<WorkerItem> BuildCompletedItems(CurrentRow row, string key)
+    {
+        var activityItems = RecentActivityItemsForWorker(key);
+        var batchItems = EnumerateLabels(row.Batch?.CompletedPreview, "Completed");
+        var idleSamples = row.IsRunning
+            ? []
+            : EnumerateLabels(row.SampleItems, row.Percent >= 100 ? "Completed" : "Last seen");
+
+        var ordered = key.Equals("artwork", StringComparison.OrdinalIgnoreCase)
+            ? activityItems.Concat(batchItems).Concat(idleSamples)
+            : batchItems.Concat(activityItems).Concat(idleSamples);
+
+        return DistinctWorkerItems(ordered)
+            .Take(10)
+            .ToList();
+    }
+
+    private IReadOnlyList<WorkerItem> RecentActivityItemsForWorker(string workerKey) =>
         Activities
-            .Where(activity => !string.IsNullOrWhiteSpace(DisplayRecentActivity(activity)))
-            .Take(5)
+            .Where(activity => ActivityMatchesWorker(workerKey, activity.ActionType))
+            .Select(activity => new WorkerItem(
+                FirstNonBlank(
+                    activity.RichData?.Title,
+                    activity.ReviewData?.Title,
+                    activity.CollectionName,
+                    ExtractTitleFromDetail(activity.Detail),
+                    FormatTrigger(activity.ActionType)),
+                activity.RelativeTime))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Label))
+            .Take(10)
             .ToList();
 
-    private ActivityDetail BuildDetail(CurrentRow row)
+    private static IEnumerable<WorkerItem> EnumerateLabels(IReadOnlyList<string>? labels, string meta)
     {
-        var activeValue = row.Percent >= 100
-            ? "Complete"
-            : row.Batch is null
-                ? row.MetricValue
-                : row.Batch.ActiveCount.ToString("N0", CultureInfo.CurrentCulture);
-        var metrics = new List<DetailMetric>
+        if (labels is null)
         {
-            new("Processed", row.Counts, Icons.Material.Outlined.TaskAlt, "is-info"),
-            new(row.Percent >= 100 ? "State" : "Active", activeValue, row.Percent >= 100 ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Autorenew, row.Percent >= 100 ? "is-success" : "is-warning"),
-            new(row.MetricLabel, row.MetricValue, row.Icon, row.MetricToneCss),
-        };
+            yield break;
+        }
 
-        var breakdown = row.Batch is null
-            ? new List<DetailItem>
+        foreach (var label in labels)
+        {
+            if (!string.IsNullOrWhiteSpace(label))
             {
-                new("Queued", row.QueueSummary),
-                new("Updated", row.Updated),
+                yield return new WorkerItem(label, meta);
             }
-            : new List<DetailItem>
-            {
-                new("Current batch", $"{row.Batch.BatchNumber.ToString("N0", CultureInfo.CurrentCulture)} of {row.Batch.TotalBatches.ToString("N0", CultureInfo.CurrentCulture)}"),
-                new("Completed", row.Batch.CompletedCount.ToString("N0", CultureInfo.CurrentCulture)),
-                new("Pending", row.Batch.PendingCount.ToString("N0", CultureInfo.CurrentCulture)),
-                new("Needs attention", row.Batch.ReviewCount.ToString("N0", CultureInfo.CurrentCulture)),
-            };
-
-        return DetailStageKey(row.Key) switch
-        {
-            "artwork" => new(
-                "Artwork retrieval",
-                "Covers, posters, thumbnails, and provider image checks for this batch.",
-                "Artwork breakdown",
-                "Items being checked",
-                metrics,
-                breakdown,
-                WorkGroups(row),
-                ProblemBuckets(["missing_artwork", "provider_failures", "metadata_conflicts"])),
-            "wikidata" => new(
-                "Wikidata identity linking",
-                "Canonical QID matching, ambiguous identity checks, and unresolved bridge IDs.",
-                "Identity breakdown",
-                "Works in identity matching",
-                metrics,
-                breakdown,
-                WorkGroups(row),
-                ProblemBuckets(["missing_wikidata", "low_confidence", "metadata_conflicts"])),
-            "relationships" => new(
-                "Series and relationships",
-                "Series links, collection relationships, and universe graph updates.",
-                "Relationship breakdown",
-                "Works affecting relationships",
-                metrics,
-                breakdown,
-                WorkGroups(row),
-                ProblemBuckets(["duplicates", "metadata_conflicts", "missing_wikidata"])),
-            "people" => new(
-                "People and cast enrichment",
-                "Authors, narrators, cast, crew, and character links for active works.",
-                "People breakdown",
-                "Active works",
-                metrics,
-                breakdown,
-                WorkGroups(row),
-                ProblemBuckets(["metadata_conflicts", "missing_wikidata", "provider_failures"])),
-            _ => new(
-                "Library updates",
-                "Current Engine work, recent events, and issues scoped to this activity.",
-                "Batch breakdown",
-                "Active items",
-                metrics,
-                breakdown,
-                WorkGroups(row),
-                ProblemBuckets(["metadata_conflicts", "provider_failures", "low_confidence"])),
-        };
+        }
     }
 
-    private static IReadOnlyList<DetailWorkGroup> WorkGroups(CurrentRow row)
+    private static IReadOnlyList<WorkerItem> DistinctWorkerItems(IEnumerable<WorkerItem> items)
     {
-        if (row.Batch is null)
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<WorkerItem>();
+        foreach (var item in items)
         {
-            return row.SampleItems.Count == 0
-                ? []
-                : [new DetailWorkGroup(row.Percent >= 100 ? "Recent items" : "Current focus", row.SampleItems)];
+            var label = item.Label.Trim();
+            if (label.Length == 0 || !seen.Add(label))
+            {
+                continue;
+            }
+
+            result.Add(item with { Label = label });
         }
 
-        if (row.Percent >= 100)
-        {
-            return
-            [
-                new DetailWorkGroup("Completed", row.Batch.CompletedPreview),
-                new DetailWorkGroup("Needs attention", row.Batch.ReviewPreview),
-            ];
-        }
-
-        return
-        [
-            new DetailWorkGroup("Working now", row.Batch.ActiveItems),
-            new DetailWorkGroup("Pending", row.Batch.PendingPreview),
-            new DetailWorkGroup("Needs attention", row.Batch.ReviewPreview),
-        ];
+        return result;
     }
+
+    private static bool ActivityMatchesWorker(string workerKey, string? actionType) =>
+        workerKey switch
+        {
+            "artwork" => IsAction(actionType, SystemActionType.CoverArtSaved, SystemActionType.HeroBannerGenerated),
+            "wikidata" => IsAction(
+                actionType,
+                SystemActionType.BridgeSyncUpdated,
+                SystemActionType.HydrationStage1Completed,
+                SystemActionType.HydrationStage2Completed,
+                SystemActionType.MetadataHydrated,
+                SystemActionType.UniverseMatchRecovered),
+            "relationships" => IsAction(
+                actionType,
+                SystemActionType.CollectionAssigned,
+                SystemActionType.CollectionCreated,
+                SystemActionType.CollectionMerged,
+                SystemActionType.NarrativeRootResolved,
+                SystemActionType.RelationshipDiscovered,
+                SystemActionType.UniverseXmlUpdated),
+            "people" => IsAction(
+                actionType,
+                SystemActionType.PersonHydrated,
+                SystemActionType.PersonMerged,
+                SystemActionType.CharacterEnriched,
+                SystemActionType.LocationEnriched,
+                SystemActionType.OrganizationEnriched),
+            _ => false,
+        };
+
+    private static bool IsAction(string? actionType, params string[] allowed) =>
+        !string.IsNullOrWhiteSpace(actionType)
+        && allowed.Contains(actionType, StringComparer.OrdinalIgnoreCase);
+
+    private static string? ExtractTitleFromDetail(string? detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail))
+        {
+            return null;
+        }
+
+        var cleaned = detail.Trim();
+        var quotedTitle = Regex.Match(cleaned, "\"([^\"]+)\"");
+        if (quotedTitle.Success)
+        {
+            return quotedTitle.Groups[1].Value.Trim();
+        }
+
+        var match = Regex.Match(cleaned, @"(?:for|to|from)\s+(.+?)(?:[.]$|$)", RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            return match.Groups[1].Value.Trim();
+        }
+
+        return cleaned.Length <= 80 ? cleaned : null;
+    }
+
+    private static string WorkerTitle(string key) => key switch
+    {
+        "artwork" => "Artwork worker",
+        "wikidata" => "Wikidata QID worker",
+        "relationships" => "Series and relationships worker",
+        "people" => "People and cast worker",
+        _ => "Library worker",
+    };
+
+    private static string ActivityHref(string key) => "/settings/activity";
 
     private static string DetailStageKey(string? stageKey) => stageKey?.ToLowerInvariant() switch
     {
@@ -395,64 +409,14 @@
         _ => "scanning",
     };
 
-    private IReadOnlyList<ProblemBucket> ProblemBuckets(IReadOnlyList<string> keys)
-    {
-        var selected = ReviewReasons
-            .Where(reason => reason.Count > 0 && keys.Contains(reason.Key, StringComparer.OrdinalIgnoreCase))
-            .OrderByDescending(reason => reason.Count)
-            .Select(reason => new ProblemBucket(
-                reason.Label,
-                reason.Count,
-                ProblemIcon(reason.Key),
-                $"is-{ProblemTone(reason.Key)}"))
-            .ToList();
+    private sealed record WorkerItem(string Label, string? Meta);
 
-        return selected.Count > 0
-            ? selected
-            : TopReasons.Select(reason => new ProblemBucket(reason.Label, reason.Count, ProblemIcon(reason.Key), $"is-{ProblemTone(reason.Key)}")).ToList();
-    }
-
-    private static string ProblemIcon(string key) => key.ToLowerInvariant() switch
-    {
-        "missing_artwork" => Icons.Material.Outlined.ImageNotSupported,
-        "missing_wikidata" => Icons.Material.Outlined.TravelExplore,
-        "provider_failures" => Icons.Material.Outlined.SyncProblem,
-        "metadata_conflicts" => Icons.Material.Outlined.Rule,
-        "duplicates" => Icons.Material.Outlined.ContentCopy,
-        "low_confidence" => Icons.Material.Outlined.ReportProblem,
-        _ => Icons.Material.Outlined.Info,
-    };
-
-    private static string ProblemTone(string key) => key.ToLowerInvariant() switch
-    {
-        "provider_failures" => "danger",
-        "missing_artwork" or "metadata_conflicts" => "warning",
-        _ => "info",
-    };
-
-    private static string DisplayRecentActivity(ActivityEntryViewModel item) =>
-        FirstNonBlank(item.Detail, item.RichData?.Title, item.ReviewData?.Title, FormatTrigger(item.ActionType));
-
-    private sealed record DetailMetric(string Label, string Value, string Icon, string ToneCss)
-    {
-        public string CssClass => $"ingestion-activity-detail__metric {ToneCss}";
-    }
-
-    private sealed record DetailItem(string Label, string Value);
-
-    private sealed record DetailWorkGroup(string Label, IReadOnlyList<string> Items);
-
-    private sealed record ProblemBucket(string Label, int Count, string Icon, string CssClass);
-
-    private sealed record ActivityDetail(
+    private sealed record WorkerDetail(
         string Title,
         string Subtitle,
-        string BreakdownTitle,
-        string WorkTitle,
-        IReadOnlyList<DetailMetric> Metrics,
-        IReadOnlyList<DetailItem> Breakdown,
-        IReadOnlyList<DetailWorkGroup> WorkGroups,
-        IReadOnlyList<ProblemBucket> Problems);
+        string ActivityHref,
+        IReadOnlyList<WorkerItem> WorkingItems,
+        IReadOnlyList<WorkerItem> CompletedItems);
 
     private sealed record CurrentRow(
         string Key,
@@ -461,22 +425,43 @@
         string Source,
         string Counts,
         string Updated,
+        DateTimeOffset? LastUpdatedTime,
         string Icon,
         double Percent,
         Color Color,
         string QueueSummary,
         IReadOnlyList<string> SampleItems,
+        int ActiveCount,
+        int QueuedCount,
         string MetricLabel,
         string MetricValue,
         string MetricToneCss,
         string StageClass,
         IngestionActivityBatchViewModel? Batch)
     {
+        public bool IsRunning => ActiveCount > 0;
+
+        public bool IsRecentlyComplete =>
+            !IsRunning
+            && Percent >= 100
+            && LastUpdatedTime.HasValue
+            && DateTimeOffset.UtcNow - LastUpdatedTime.Value.ToUniversalTime() <= CompletedWorkerFreshness;
+
+        public bool ShowProgress => IsRunning || IsRecentlyComplete;
+
+        public string StatusLabel => IsRunning ? "Running" : IsRecentlyComplete ? "Complete" : "Idle";
+
+        public string StatusCss => IsRunning ? "is-running" : IsRecentlyComplete ? "is-complete" : "is-idle";
+
+        public string DetailLine => IsRunning
+            ? FirstNonBlank(Detail, "Working")
+            : $"Idle - last update {Updated}";
+
         public static CurrentRow FromActivity(IngestionCurrentActivityViewModel activity)
         {
             var percent = Math.Clamp(activity.PercentComplete, 0, 100);
-            var activeCount = percent >= 100 ? 0 : activity.ActiveCount;
-            var queuedCount = percent >= 100 ? 0 : activity.QueuedCount;
+            var activeCount = Math.Max(0, activity.ActiveCount);
+            var queuedCount = activeCount > 0 ? Math.Max(0, activity.QueuedCount) : 0;
             return new CurrentRow(
                 FirstNonBlank(activity.StageKey, activity.Message),
                 FirstNonBlank(activity.Message, "Processing files"),
@@ -484,11 +469,14 @@
                 ShortPath(activity.Source),
                 FormatCounts(activity.ProcessedCount, activity.TotalCount),
                 FormatUpdated(activity.LastUpdatedTime),
+                activity.LastUpdatedTime,
                 StageIcon(activity.StageKey),
                 percent,
                 StageColor(activity.StageKey),
                 FormatQueue(queuedCount, activeCount),
                 activity.SampleItems,
+                activeCount,
+                queuedCount,
                 FirstNonBlank(activity.MetricLabel, "Active"),
                 FirstNonBlank(activity.MetricValue, activeCount.ToString("N0", CultureInfo.CurrentCulture)),
                 ToMetricToneCss(activity.MetricTone),
@@ -505,6 +493,11 @@
                 ? Math.Clamp(count * 100d / total, 0, 100)
                 : Math.Clamp(job.PercentComplete, 0, 100);
             var stageKey = stage?.Key ?? ResolveStageKey(job.CurrentStage);
+            var isRunning = job.Status.Equals("running", StringComparison.OrdinalIgnoreCase)
+                || job.Status.Equals("processing", StringComparison.OrdinalIgnoreCase)
+                || job.Status.Equals("active", StringComparison.OrdinalIgnoreCase);
+            var activeCount = isRunning ? 1 : 0;
+            var queuedCount = isRunning ? Math.Max(0, total - count) : 0;
             return new CurrentRow(
                 stageKey,
                 StageMessage(stageKey),
@@ -512,13 +505,16 @@
                 ShortPath(job.SourceFolder),
                 FormatCounts(count, total),
                 FormatUpdated(job.LastUpdatedTime),
+                job.LastUpdatedTime,
                 StageIcon(stageKey),
                 percent,
                 StageColor(stageKey),
-                FormatQueue(Math.Max(0, total - count), 1),
+                FormatQueue(queuedCount, activeCount),
                 [FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running")],
+                activeCount,
+                queuedCount,
                 "Active",
-                "1",
+                activeCount.ToString("N0", CultureInfo.CurrentCulture),
                 "is-info",
                 $"is-{NormalizeStageClass(stageKey)}",
                 null);
@@ -561,12 +557,14 @@
 
         private static string FormatQueue(int queued, int active)
         {
-            if (queued <= 0 && active <= 0)
+            if (active <= 0)
             {
-                return "No files currently waiting in this task";
+                return "No active item";
             }
 
-            return $"{queued.ToString("N0", CultureInfo.CurrentCulture)} queued  -  {active.ToString("N0", CultureInfo.CurrentCulture)} active";
+            return queued > 0
+                ? $"{active.ToString("N0", CultureInfo.CurrentCulture)} active - {queued.ToString("N0", CultureInfo.CurrentCulture)} queued"
+                : $"{active.ToString("N0", CultureInfo.CurrentCulture)} active";
         }
 
         private static string ToMetricToneCss(string? tone) => tone?.ToLowerInvariant() switch
@@ -587,12 +585,6 @@
             _ => "scanning",
         };
     }
-
-    private static string DisplayReviewTitle(ReviewItemViewModel item) =>
-        FirstNonBlank(item.EntityTitle, item.Detail, item.MediaType, "Review item");
-
-    private static string ReviewDetail(ReviewItemViewModel item) =>
-        FirstNonBlank(FormatTrigger(item.Trigger), item.Detail, "Needs review");
 
     private static string FormatTrigger(string? value)
     {

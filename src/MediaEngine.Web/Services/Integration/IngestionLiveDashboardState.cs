@@ -1365,10 +1365,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         && activity.QueuedCount <= 0;
 
     private static bool IsActiveActivity(IngestionCurrentActivityViewModel activity) =>
-        activity.ActiveCount > 0
-        || activity.QueuedCount > 0
-        || (activity.TotalCount > 0 && activity.ProcessedCount < activity.TotalCount)
-        || (activity.PercentComplete > 0 && activity.PercentComplete < 100);
+        activity.ActiveCount > 0;
 
     private static string ResolveCurrentStepLabel(
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
