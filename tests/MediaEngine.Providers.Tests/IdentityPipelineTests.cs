@@ -181,6 +181,17 @@ public sealed class IdentityPipelineTests
 
     // ── Retail scoring outcome thresholds ────────────────────────────────────
 
+    [Fact]
+    public void RetailMatchWorker_RespectsDisabledProviderConfiguration()
+    {
+        var source = ReadRepoSource(@"src\MediaEngine.Providers\Workers\RetailMatchWorker.cs");
+
+        Assert.Contains("providerConfigByName", source, StringComparison.Ordinal);
+        Assert.Contains("!providerConfig.Enabled", source, StringComparison.Ordinal);
+        Assert.Contains("IsProviderEnabled(\"apple_api\")", source, StringComparison.Ordinal);
+        Assert.Contains("tmdbConfig is { Enabled: false }", source, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(0.90, "AutoAccepted")]
     [InlineData(0.89, "Ambiguous")]
@@ -205,5 +216,27 @@ public sealed class IdentityPipelineTests
             outcome = "Rejected";
 
         Assert.Equal(expectedOutcome, outcome);
+    }
+
+    private static string ReadRepoSource(
+        string relativePath,
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")
+    {
+        var directory = !string.IsNullOrWhiteSpace(sourceFile)
+            ? new DirectoryInfo(Path.GetDirectoryName(sourceFile)!)
+            : new DirectoryInfo(Directory.GetCurrentDirectory());
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            directory = directory.Parent;
+
+        if (directory is null)
+        {
+            directory = new DirectoryInfo(AppContext.BaseDirectory);
+            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+                directory = directory.Parent;
+        }
+
+        var root = directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+        return File.ReadAllText(Path.Combine(root, relativePath));
     }
 }

@@ -411,7 +411,7 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task IdentityJob_CreateAsync_IgnoresDuplicateRetryTerminalJobForSameEntityAndPass()
+    public async Task IdentityJob_CreateAsync_AllowsRetryAfterTerminalReviewState()
     {
         var repo = new IdentityJobRepository(_db);
         var entityId = Guid.NewGuid();
@@ -440,7 +440,7 @@ public sealed class RepositoryTests : IDisposable
         var queued = await repo.GetByStateAsync(IdentityJobState.Queued, 10);
 
         Assert.Single(noMatch, j => j.EntityId == entityId && j.Pass == "Quick");
-        Assert.DoesNotContain(queued, j => j.EntityId == entityId && j.Pass == "Quick");
+        Assert.Single(queued, j => j.EntityId == entityId && j.Pass == "Quick");
     }
 
     [Fact]

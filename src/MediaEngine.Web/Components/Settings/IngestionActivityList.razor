@@ -5,8 +5,24 @@
 @using MediaEngine.Web.Services.Integration
 @inject IStringLocalizer<SharedStrings> L
 
-<section class="ingestion-activity-grid">
-    <div class="ingestion-current">
+<details class="ingestion-activity-shell">
+    <summary class="ingestion-activity-shell__summary">
+        <span class="ingestion-activity-shell__icon">
+            <MudIcon Icon="@Icons.Material.Outlined.Tune" />
+        </span>
+        <span class="ingestion-activity-shell__copy">
+            <strong>Worker activity details</strong>
+            <span>Inspect live worker queues, task batches, and recent engine events.</span>
+        </span>
+        <span class="ingestion-activity-shell__meta">
+            <span>@ActivitySummary</span>
+            <span>@ReviewSummary</span>
+        </span>
+        <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Class="ingestion-activity-shell__chevron" />
+    </summary>
+
+    <section class="ingestion-activity-grid">
+        <div class="ingestion-current">
         <div class="ingestion-current__header">
             <div>
                 <MudText Typo="Typo.subtitle2">@L["Ingestion_CurrentActivity"]</MudText>
@@ -181,8 +197,9 @@
                 </div>
             }
         }
-    </aside>
-</section>
+        </aside>
+    </section>
+</details>
 
 @code {
     [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
@@ -194,6 +211,17 @@
     [Parameter] public int ReviewTotal { get; set; }
 
     private string? _selectedRowKey;
+
+    private string ActivitySummary => CurrentRows.Count switch
+    {
+        0 => "No active workers",
+        1 => "1 worker task",
+        var count => $"{count.ToString("N0", CultureInfo.CurrentCulture)} worker tasks",
+    };
+
+    private string ReviewSummary => ReviewTotal > 0
+        ? $"{ReviewTotal.ToString("N0", CultureInfo.CurrentCulture)} review"
+        : "No review blockers";
 
     protected override void OnParametersSet()
     {

@@ -1864,18 +1864,22 @@ public partial class SharedMediaEditorShell
         var links = BuildRetailIdentityLinks(provider, providerId);
 
         if (!string.IsNullOrWhiteSpace(providerId) && links.Count == 0)
-            chips.Add(providerId!);
+            chips.Add(FormatRetailIdentifierChip(providerId!));
+
+        var hasProvider = !string.IsNullOrWhiteSpace(provider);
 
         return new MatchCardDisplay(
-            Badge: !string.IsNullOrWhiteSpace(provider) ? provider : "No retail match",
+            Badge: hasProvider ? provider : !string.IsNullOrWhiteSpace(providerId) ? "Retail identifier" : "No retail match",
             Title: title,
             Creator: creator,
             Year: year,
             CoverUrl: CurrentCoverUrl,
             Chips: chips,
             Links: links,
-            Note: !string.IsNullOrWhiteSpace(provider)
+            Note: hasProvider
                 ? "This file is currently matched to the retail provider record shown below."
+                : !string.IsNullOrWhiteSpace(providerId)
+                    ? "This file has a local retail identifier, but no confirmed retail provider match yet."
                 : "This file does not have a confirmed retail provider match yet.");
     }
 
@@ -1980,10 +1984,26 @@ public partial class SharedMediaEditorShell
             return "musicbrainz";
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("asin")))
             return "apple_api";
-        if (!string.IsNullOrWhiteSpace(GetBaselineValue("isbn")))
-            return "open_library";
 
         return null;
+    }
+
+    private string FormatRetailIdentifierChip(string providerItemId)
+    {
+        if (string.Equals(providerItemId, GetBaselineValue("isbn"), StringComparison.OrdinalIgnoreCase))
+            return $"ISBN: {providerItemId}";
+        if (string.Equals(providerItemId, GetBaselineValue("asin"), StringComparison.OrdinalIgnoreCase))
+            return $"ASIN: {providerItemId}";
+        if (string.Equals(providerItemId, GetBaselineValue("tmdb_id"), StringComparison.OrdinalIgnoreCase))
+            return $"TMDB: {providerItemId}";
+        if (string.Equals(providerItemId, GetBaselineValue("imdb_id"), StringComparison.OrdinalIgnoreCase))
+            return $"IMDB: {providerItemId}";
+        if (string.Equals(providerItemId, GetBaselineValue("comicvine_id"), StringComparison.OrdinalIgnoreCase))
+            return $"ComicVine: {providerItemId}";
+        if (string.Equals(providerItemId, GetBaselineValue("musicbrainz_id"), StringComparison.OrdinalIgnoreCase))
+            return $"MusicBrainz: {providerItemId}";
+
+        return providerItemId;
     }
 
     protected IReadOnlyList<string> BuildCandidateChips(RetailCandidateDto candidate)
@@ -2116,7 +2136,7 @@ public partial class SharedMediaEditorShell
                 ReviewItemId = Request.ReviewItemId,
             });
 
-        await FinishMatchActionAsync(response, "Wikidata identity replaced; canonical fields refreshed.");
+        await FinishMatchActionAsync(response, "Wikidata identity replaced; enrichment queued.");
     }
 
     protected async Task MarkWikidataMissingAsync()

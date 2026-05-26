@@ -121,6 +121,33 @@ public sealed class ItemEndpointRouteTests
         Assert.Contains("shouldSearchUniverse", source, StringComparison.Ordinal);
     }
 
-    private static string GetRepoFilePath(string relativePath) =>
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+    [Fact]
+    public void ItemCanonicalEndpoints_ManualWikidataReplacementQueuesAssetEnrichment()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+
+        Assert.DoesNotContain("pipeline.RunSynchronousAsync(new HarvestRequest", source, StringComparison.Ordinal);
+        Assert.Contains("await pipeline.EnqueueAsync(new HarvestRequest", source, StringComparison.Ordinal);
+        Assert.Contains("EntityId = context.AssetId", source, StringComparison.Ordinal);
+        Assert.Contains("MediaType = ToMediaType(context.MediaType)", source, StringComparison.Ordinal);
+        Assert.Contains("IsUserResolution = true", source, StringComparison.Ordinal);
+        Assert.Contains("Wikidata identity replaced; enrichment queued.", source, StringComparison.Ordinal);
+    }
+
+    private static string GetRepoFilePath(
+        string relativePath,
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")
+    {
+        var directory = !string.IsNullOrWhiteSpace(sourceFile)
+            ? new DirectoryInfo(Path.GetDirectoryName(sourceFile)!)
+            : new DirectoryInfo(Directory.GetCurrentDirectory());
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            directory = directory.Parent;
+
+        if (directory is not null)
+            return Path.GetFullPath(Path.Combine(directory.FullName, relativePath));
+
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+    }
 }

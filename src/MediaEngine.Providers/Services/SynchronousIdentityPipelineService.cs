@@ -72,7 +72,21 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
         await _jobRepo.CreateAsync(job, ct);
 
         if (!string.IsNullOrWhiteSpace(job.ResolvedQid))
+        {
             await _jobRepo.SetResolvedQidAsync(job.Id, job.ResolvedQid, ct);
+
+            if (request.IsUserResolution && _bridgeWorker is not null)
+            {
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.Wikidata,
+                    token => _bridgeWorker.FetchAndPersistPropertiesAsync(
+                        request.EntityId,
+                        job.ResolvedQid,
+                        job.MediaType,
+                        token),
+                    ct);
+            }
+        }
 
         _logger.LogInformation(
             "Enqueued identity job {JobId} for entity {EntityId} ({MediaType}) at state {State}",

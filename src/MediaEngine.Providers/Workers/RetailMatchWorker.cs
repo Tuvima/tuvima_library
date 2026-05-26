@@ -331,6 +331,26 @@ public sealed class RetailMatchWorker
         var appleProvider = _providers.FirstOrDefault(p =>
             string.Equals(p.Name, "apple_api", StringComparison.OrdinalIgnoreCase));
 
+        if (!IsProviderEnabled("apple_api") || appleProvider is null)
+        {
+            _logger.LogInformation(
+                "Music: Apple provider is disabled or unavailable; falling back to generic retail matching for {TrackCount} queued track(s)",
+                orderedGroupJobs.Count);
+
+            foreach (var job in orderedGroupJobs)
+            {
+                try { await ProcessJobAsync(job, ct); }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogError(ex,
+                        "RetailMatchWorker generic music fallback failed for {EntityId}", job.EntityId);
+                    await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, ex.Message, ct);
+                }
+            }
+
+            return;
+        }
+
         if (orderedGroupJobs.Count == 1)
         {
             _logger.LogInformation(
@@ -831,6 +851,24 @@ public sealed class RetailMatchWorker
             string.Equals(p.Name, "tmdb", StringComparison.OrdinalIgnoreCase));
 
         var tmdbApiKey = tmdbConfig?.HttpClient?.ApiKey;
+        if (tmdbConfig is { Enabled: false })
+        {
+            _logger.LogInformation(
+                "RetailMatchWorker: TMDB provider disabled; falling back to generic retail matching for {Count} TV job(s)",
+                groupJobs.Count);
+
+            foreach (var job in groupJobs)
+            {
+                try { await ProcessJobAsync(job, ct); }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, ex.Message, ct);
+                }
+            }
+
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(tmdbApiKey))
         {
             _logger.LogWarning(
@@ -1846,6 +1884,9 @@ public sealed class RetailMatchWorker
 
         // Get ranked providers for this media type
         var providerConfigs = _configLoader.LoadAllProviders();
+        var providerConfigByName = providerConfigs
+            .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         var rankedProviders = pipeline.Providers.Count > 0
             ? pipeline.Providers.OrderBy(p => p.Rank).Select(p => p.Name).ToList()
             : providerConfigs.Select(p => p.Name).ToList();
@@ -1868,6 +1909,16 @@ public sealed class RetailMatchWorker
         foreach (var providerName in rankedProviders)
         {
             providerRank++;
+            if (providerConfigByName.TryGetValue(providerName, out var providerConfig)
+                && !providerConfig.Enabled)
+            {
+                _logger.LogDebug(
+                    "RetailMatchWorker: skipping disabled provider {Provider} for entity {EntityId}",
+                    providerName,
+                    job.EntityId);
+                continue;
+            }
+
             var provider = _providers.FirstOrDefault(p =>
                 string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
 
@@ -2137,5 +2188,13 @@ public sealed class RetailMatchWorker
         return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
             ? lineage.TargetForParentScope
             : assetId;
+    }
+
+    private bool IsProviderEnabled(string providerName)
+    {
+        var providerConfig = _configLoader.LoadAllProviders()
+            .FirstOrDefault(p => string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
+
+        return providerConfig?.Enabled ?? true;
     }
 }

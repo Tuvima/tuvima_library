@@ -339,12 +339,40 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("OpenBatchEditorAsync", browse, StringComparison.Ordinal);
     }
 
-    private static string ReadSource(string relativePath) =>
-        File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
-
-    private static string FindRepoRoot()
+    [Fact]
+    public void SharedEditor_DoesNotLabelBareIsbnAsOpenLibraryMatch()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var start = code.IndexOf("private string? InferProviderNameFromIdentifierFields()", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+
+        var end = code.IndexOf("private string FormatRetailIdentifierChip", start, StringComparison.Ordinal);
+        Assert.True(end > start);
+
+        var method = code[start..end];
+        Assert.DoesNotContain("GetBaselineValue(\"isbn\")", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("return \"open_library\"", method, StringComparison.Ordinal);
+        Assert.Contains("ISBN: {providerItemId}", code, StringComparison.Ordinal);
+    }
+
+    private static string ReadSource(
+        string relativePath,
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "") =>
+        File.ReadAllText(Path.Combine(FindRepoRoot(sourceFile), relativePath));
+
+    private static string FindRepoRoot(string sourceFile)
+    {
+        var directory = !string.IsNullOrWhiteSpace(sourceFile)
+            ? new DirectoryInfo(Path.GetDirectoryName(sourceFile)!)
+            : new DirectoryInfo(Directory.GetCurrentDirectory());
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            directory = directory.Parent;
+
+        if (directory is not null)
+            return directory.FullName;
+
+        directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
             directory = directory.Parent;
 

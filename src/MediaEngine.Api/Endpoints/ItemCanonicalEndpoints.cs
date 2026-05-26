@@ -725,7 +725,7 @@ public static class ItemCanonicalEndpoints
             var fieldsApplied = 0;
             var message = action switch
             {
-                "replace" => "Wikidata identity replaced; canonical fields refreshed.",
+                "replace" => "Wikidata identity replaced; enrichment queued.",
                 "clear" => "Wikidata identity cleared; retail match kept.",
                 "mark_missing" => "Retail match kept; Wikidata marked missing.",
                 "reject" => "Wikidata identity rejected; retail match kept.",
@@ -768,14 +768,15 @@ public static class ItemCanonicalEndpoints
                 {
                     var canonicals = await canonicalRepo.GetByEntityAsync(workId, ct);
                     var hints = canonicals.ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-                    await pipeline.RunSynchronousAsync(new HarvestRequest
+                    await pipeline.EnqueueAsync(new HarvestRequest
                     {
-                        EntityId = workId,
+                        EntityId = context.AssetId,
                         EntityType = EntityType.MediaAsset,
-                        MediaType = MediaType.Unknown,
+                        MediaType = ToMediaType(context.MediaType),
                         Hints = hints,
                         PreResolvedQid = qid,
                         SuppressReviewCreation = true,
+                        IsUserResolution = true,
                     }, ct);
                 }
             }

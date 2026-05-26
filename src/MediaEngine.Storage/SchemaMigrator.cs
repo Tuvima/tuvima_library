@@ -2744,22 +2744,24 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_identity_jobs_lease ON identity_jobs (state, lease_expires_at);
 
             DELETE FROM identity_jobs AS older
-            WHERE older.state NOT IN ('Completed', 'Failed')
+            WHERE older.state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
               AND EXISTS (
                   SELECT 1
                   FROM   identity_jobs AS newer
                   WHERE  newer.entity_id = older.entity_id
                     AND  newer.pass = older.pass
-                    AND  newer.state NOT IN ('Completed', 'Failed')
+                    AND  newer.state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
                     AND (
                              newer.updated_at > older.updated_at
                           OR (newer.updated_at = older.updated_at AND newer.rowid > older.rowid)
                         )
               );
 
+            DROP INDEX IF EXISTS ux_identity_jobs_entity_pass_active;
+
             CREATE UNIQUE INDEX IF NOT EXISTS ux_identity_jobs_entity_pass_active
                 ON identity_jobs (entity_id, pass)
-                WHERE state NOT IN ('Completed', 'Failed');
+                WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview');
 
             CREATE TABLE IF NOT EXISTS retail_match_candidates (
                 id                    TEXT PRIMARY KEY,

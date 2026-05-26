@@ -690,6 +690,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
 
         Assert.Contains("Artwork retrieval", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Missing Artwork", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("ingestion-activity-shell", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Worker activity details", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Review Queue", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ingestion-review-preview", cut.Markup, StringComparison.Ordinal);
     }
