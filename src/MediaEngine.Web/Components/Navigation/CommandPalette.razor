@@ -72,7 +72,7 @@
                 i.Label.Contains(value, StringComparison.OrdinalIgnoreCase));
 
         return results.Select(r => new PaletteItem(
-            Label:    r.Title,
+            Label:    BuildTitle(r),
             Href:     MediaNavigation.ForSearchResult(r),
             Icon:     MediaIcon(r.MediaType),
             Color:    MediaColor(r.MediaType),
@@ -128,11 +128,80 @@
 
     private static string BuildSubtitle(SearchResultViewModel r)
     {
+        if (IsTv(r.MediaType))
+        {
+            var tvParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(r.ShowName)) tvParts.Add(r.ShowName);
+            var episode = FormatSeasonEpisode(r.SeasonNumber, r.EpisodeNumber);
+            if (!string.IsNullOrWhiteSpace(episode)) tvParts.Add(episode);
+            return string.Join("  -  ", tvParts);
+        }
+
+        if (IsComic(r.MediaType))
+        {
+            var comicParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(r.Series)) comicParts.Add(r.Series);
+            var issue = FormatIssue(r.SeriesPosition);
+            if (!string.IsNullOrWhiteSpace(issue)) comicParts.Add(issue);
+            if (!string.IsNullOrWhiteSpace(r.Author)) comicParts.Add(r.Author);
+            return string.Join("  -  ", comicParts);
+        }
+
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(r.Author)) parts.Add(r.Author);
         if (!string.IsNullOrEmpty(r.CollectionDisplayName)) parts.Add($"in {r.CollectionDisplayName}");
         return string.Join("  -  ", parts);
     }
+
+    private static bool IsTv(string? mediaType)
+        => mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true
+            || mediaType?.Contains("television", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static bool IsComic(string? mediaType)
+        => mediaType?.Contains("comic", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static string? FormatSeasonEpisode(string? seasonNumber, string? episodeNumber)
+    {
+        if (string.IsNullOrWhiteSpace(seasonNumber) && string.IsNullOrWhiteSpace(episodeNumber))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(seasonNumber))
+            return $"Episode {episodeNumber}";
+
+        if (string.IsNullOrWhiteSpace(episodeNumber))
+            return $"Season {seasonNumber}";
+
+        return $"S{seasonNumber} E{episodeNumber}";
+    }
+
+    private static string? FormatIssue(string? seriesPosition)
+        => string.IsNullOrWhiteSpace(seriesPosition) ? null : $"Issue #{seriesPosition}";
+
+    private static string BuildTitle(SearchResultViewModel result)
+    {
+        if (IsComic(result.MediaType) && IsGeneratedComicTitle(result.Title, result.Series, result.SeriesPosition))
+            return FormatIssue(result.SeriesPosition) ?? result.Title;
+
+        return result.Title;
+    }
+
+    private static bool IsGeneratedComicTitle(string? title, string? series, string? issueNumber)
+    {
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(issueNumber))
+            return false;
+
+        var normalizedTitle = NormalizeOrdinalTitle(title);
+        var normalizedSeries = NormalizeOrdinalTitle(series);
+        var normalizedIssue = NormalizeOrdinalTitle(issueNumber);
+        return normalizedTitle == $"{normalizedSeries}{normalizedIssue}"
+            || normalizedTitle == $"{normalizedSeries}issue{normalizedIssue}"
+            || normalizedTitle == $"{normalizedSeries}no{normalizedIssue}"
+            || (normalizedTitle.StartsWith(normalizedSeries, StringComparison.OrdinalIgnoreCase)
+                && normalizedTitle.EndsWith(normalizedIssue, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NormalizeOrdinalTitle(string value)
+        => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 
     private sealed record PaletteItem(
         string  Label,

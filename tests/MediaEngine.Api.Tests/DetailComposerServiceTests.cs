@@ -315,7 +315,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void DetailComposer_SeriesPlacementUsesWikidataPositionsWithoutRowOrderFallback()
+    public void DetailComposer_SequencePlacementUsesWikidataPositionsWithoutRowOrderFallback()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
@@ -326,7 +326,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void DetailComposer_SeriesPlacementUsesKnownSeriesMembersForMissingSlots()
+    public void DetailComposer_SequencePlacementUsesKnownSeriesMembersForMissingSlots()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
@@ -334,19 +334,19 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("GetItemsBySeriesQidAsync(seriesQid, ct)", source);
         Assert.Contains("MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType)", source);
         Assert.Contains("FROM series_members", source);
-        Assert.Contains("MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, workId, entityType, ct)", source);
+        Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, ExtractQid(containerId), detail.WikidataQid, workId, entityType, ct)", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
         Assert.DoesNotContain("if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))", source);
         Assert.Contains("Missing from library", source);
     }
 
     [Fact]
-    public void DetailComposer_SeriesPlacementDoesNotUseFranchiseDirectlyAndHydratorPrefersImmediateSeries()
+    public void DetailComposer_SequencePlacementDoesNotUseFranchiseDirectlyAndHydratorPrefersImmediateSeries()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
         var hydratorSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/WikidataSeriesManifestHydrationService.cs"));
 
-        Assert.Contains("ResolveSeriesPlacementOptions(detail, entityType)", source);
+        Assert.Contains("ResolveSequenceContainerOptions(detail, entityType)", source);
         Assert.Contains("current_work.collection_id AS CollectionId", source);
         Assert.Contains("w.collection_id = current.CollectionId", source);
         Assert.DoesNotContain("key IN ('series', 'franchise')", source);

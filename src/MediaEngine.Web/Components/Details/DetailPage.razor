@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Details
+@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Models.ViewDTOs
@@ -27,24 +27,24 @@
             {
                 <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
                                                                  OnTabRequested="SetActiveTabAsync"
-                                                                 OnSeriesSelected="HandleSeriesSelectedAsync" />
+                                                                 OnContainerSelected="HandleContainerSelectedAsync" />
             }
             else if (CurrentActiveTab is "episodes")
             {
                 <EpisodesTab Groups="Model.MediaGroups" />
             }
-            else if (CurrentActiveTab is "series")
+            else if (CurrentActiveTab is "sequence")
             {
-                @if (Model.SeriesPlacement is not null)
+                @if (Model.SequencePlacement is not null)
                 {
-                    <SeriesPlacementPanel Placement="Model.SeriesPlacement" OnSeriesSelected="HandleSeriesSelectedAsync" />
+                    <SequencePlacementPanel Placement="Model.SequencePlacement" OnContainerSelected="HandleContainerSelectedAsync" />
                 }
                 else
                 {
                     <ChildrenListTab Groups="Model.MediaGroups" />
                 }
             }
-            else if (CurrentActiveTab is "tracks" or "items" or "media" or "works" or "albums")
+            else if (CurrentActiveTab is "tracks" or "items" or "issues" or "media" or "works" or "albums")
             {
                 @if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
                 {
@@ -113,12 +113,12 @@
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
 
-    private async Task HandleSeriesSelectedAsync(SeriesOptionViewModel option)
+    private async Task HandleContainerSelectedAsync(SequenceContainerOptionViewModel option)
     {
-        if (Model is null || string.IsNullOrWhiteSpace(option.SeriesId) || !Guid.TryParse(Model.Id, out var id))
+        if (Model is null || string.IsNullOrWhiteSpace(option.ContainerId) || !Guid.TryParse(Model.Id, out var id))
             return;
 
-        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, id, Model.PresentationContext, option.SeriesId);
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, id, Model.PresentationContext, option.ContainerId);
         if (updated is not null)
             Model = updated;
     }

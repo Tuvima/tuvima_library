@@ -209,6 +209,77 @@ public sealed class AdapterFallbackTests
     // ── Config loading ───────────────────────────────────────────────────────
 
     [Fact]
+    public async Task ComicVine_FetchAsync_PrefersExactSeriesAndIssue_WhenIssueTitleDiffers()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var issueResponse = """
+            {
+              "results": [
+                {
+                  "name": "2 of 6",
+                  "issue_number": "2",
+                  "id": 111,
+                  "cover_date": "2012-10-01",
+                  "volume": { "name": "Before Watchmen: Nite Owl" },
+                  "image": { "original_url": "https://example.test/before-watchmen.jpg" }
+                },
+                {
+                  "name": "Two Riders Were Approaching...",
+                  "issue_number": "2",
+                  "id": 222,
+                  "cover_date": "1986-10-01",
+                  "volume": { "name": "Watchmen" },
+                  "image": { "original_url": "https://example.test/watchmen-2.jpg" }
+                },
+                {
+                  "name": "Watchmen",
+                  "issue_number": "1",
+                  "id": 184079,
+                  "cover_date": "2005-01-01",
+                  "volume": { "name": "Absolute Watchmen" },
+                  "image": { "original_url": "https://example.test/absolute-watchmen.jpg" }
+                }
+              ]
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(_ => JsonResponse(issueResponse)));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Watchmen #2",
+            Author = "Alan Moore",
+            Series = "Watchmen",
+            Year = "1986",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Watchmen",
+                [MetadataFieldConstants.SeriesPosition] = "2",
+            },
+        });
+
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Title
+            && c.Value == "Two Riders Were Approaching...");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Series
+            && c.Value == "Watchmen");
+        Assert.Contains(claims, c => c.Key == "issue_number" && c.Value == "2");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "222");
+        Assert.DoesNotContain(claims, c => c.Value == "Absolute Watchmen");
+    }
+
+    [Fact]
     public async Task Tmdb_MovieSearch_StoresShortDescriptionButDoesNotSetGenericLanguage()
     {
         var config = LoadExampleConfig("tmdb");

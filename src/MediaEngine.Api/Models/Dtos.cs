@@ -70,7 +70,7 @@ public sealed class CreateApiKeyResponse
     public string Role { get; init; } = AppRoles.Administrator;
 
     /// <summary>
-    /// The API key plaintext. Shown exactly once — store it now; it cannot be retrieved again.
+    /// The API key plaintext. Shown exactly once â€” store it now; it cannot be retrieved again.
     /// </summary>
     [JsonPropertyName("key")]
     public string Key { get; init; } = string.Empty;
@@ -141,6 +141,21 @@ public sealed class SearchResultDto
     [JsonPropertyName("collection_display_name")]
     public string CollectionDisplayName { get; init; } = string.Empty;
 
+    [JsonPropertyName("series")]
+    public string? Series { get; init; }
+
+    [JsonPropertyName("series_position")]
+    public string? SeriesPosition { get; init; }
+
+    [JsonPropertyName("show_name")]
+    public string? ShowName { get; init; }
+
+    [JsonPropertyName("season_number")]
+    public string? SeasonNumber { get; init; }
+
+    [JsonPropertyName("episode_number")]
+    public string? EpisodeNumber { get; init; }
+
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 }
@@ -202,7 +217,7 @@ public sealed class CollectionDto
 }
 
 /// <summary>
-/// DTO for the GET /collections/parents endpoint — franchise-level parent collections (Universes).
+/// DTO for the GET /collections/parents endpoint â€” franchise-level parent collections (Universes).
 /// Uses snake_case JSON names compatible with the Dashboard's CollectionRaw deserialiser.
 /// </summary>
 public sealed class ParentCollectionDto
@@ -240,7 +255,7 @@ public sealed class ParentCollectionDto
     [JsonPropertyName("total_works")]
     public int TotalWorks { get; init; }
 
-    /// <summary>Empty works list — parent collections aggregate through children, not direct works.</summary>
+    /// <summary>Empty works list â€” parent collections aggregate through children, not direct works.</summary>
     [JsonPropertyName("works")]
     public List<WorkDto> Works { get; init; } = [];
 }

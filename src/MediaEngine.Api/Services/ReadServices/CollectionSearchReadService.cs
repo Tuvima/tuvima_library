@@ -32,8 +32,10 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                     w.collection_id AS CollectionId,
                     w.media_type AS MediaType,
                     COALESCE(
-                        title_asset.value,
+                        issue_title.value,
+                        issue_title_work.value,
                         episode_title.value,
+                        title_asset.value,
                         title_work.value,
                         original_title.value,
                         'Work ' || substr(w.id, 1, 8)
@@ -52,6 +54,28 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                         substr(COALESCE(w.collection_id, w.id), 1, 8)
                     ) AS CollectionDisplayName,
                     COALESCE(
+                        series_asset.value,
+                        series_work.value,
+                        series_root.value,
+                        c.display_name
+                    ) AS Series,
+                    COALESCE(
+                        issue_asset.value,
+                        issue_work.value,
+                        series_position_asset.value,
+                        series_position_work.value,
+                        CASE WHEN w.ordinal IS NOT NULL THEN CAST(w.ordinal AS TEXT) END
+                    ) AS SeriesPosition,
+                    COALESCE(
+                        show_root.value,
+                        show_work.value,
+                        show_asset.value,
+                        root_title.value,
+                        CASE WHEN w.media_type IN ('TV', 'Television') THEN c.display_name END
+                    ) AS ShowName,
+                    COALESCE(season_asset.value, season_work.value) AS SeasonNumber,
+                    COALESCE(episode_asset.value, episode_work.value) AS EpisodeNumber,
+                    COALESCE(
                         cover_asset.value,
                         cover_url_asset.value,
                         cover_work.value,
@@ -66,11 +90,30 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                 FROM works w
                 INNER JOIN editions e ON e.work_id = w.id
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
+                LEFT JOIN works parent ON parent.id = w.parent_work_id
+                LEFT JOIN works grandparent ON grandparent.id = parent.parent_work_id
                 LEFT JOIN collections c ON c.id = w.collection_id
                 LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ma.id AND title_asset.key = 'title'
+                LEFT JOIN canonical_values issue_title ON issue_title.entity_id = ma.id AND issue_title.key = 'issue_title'
                 LEFT JOIN canonical_values episode_title ON episode_title.entity_id = ma.id AND episode_title.key = 'episode_title'
                 LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
+                LEFT JOIN canonical_values issue_title_work ON issue_title_work.entity_id = w.id AND issue_title_work.key = 'issue_title'
                 LEFT JOIN canonical_values original_title ON original_title.entity_id = w.id AND original_title.key = 'original_title'
+                LEFT JOIN canonical_values series_asset ON series_asset.entity_id = ma.id AND series_asset.key = 'series'
+                LEFT JOIN canonical_values series_work ON series_work.entity_id = w.id AND series_work.key = 'series'
+                LEFT JOIN canonical_values series_root ON series_root.entity_id = COALESCE(grandparent.id, parent.id, w.id) AND series_root.key = 'series'
+                LEFT JOIN canonical_values series_position_asset ON series_position_asset.entity_id = ma.id AND series_position_asset.key = 'series_position'
+                LEFT JOIN canonical_values series_position_work ON series_position_work.entity_id = w.id AND series_position_work.key = 'series_position'
+                LEFT JOIN canonical_values issue_asset ON issue_asset.entity_id = ma.id AND issue_asset.key = 'issue_number'
+                LEFT JOIN canonical_values issue_work ON issue_work.entity_id = w.id AND issue_work.key = 'issue_number'
+                LEFT JOIN canonical_values show_asset ON show_asset.entity_id = ma.id AND show_asset.key = 'show_name'
+                LEFT JOIN canonical_values show_work ON show_work.entity_id = w.id AND show_work.key = 'show_name'
+                LEFT JOIN canonical_values show_root ON show_root.entity_id = COALESCE(grandparent.id, parent.id, w.id) AND show_root.key = 'show_name'
+                LEFT JOIN canonical_values root_title ON root_title.entity_id = COALESCE(grandparent.id, parent.id, w.id) AND root_title.key = 'title'
+                LEFT JOIN canonical_values season_asset ON season_asset.entity_id = ma.id AND season_asset.key = 'season_number'
+                LEFT JOIN canonical_values season_work ON season_work.entity_id = w.id AND season_work.key = 'season_number'
+                LEFT JOIN canonical_values episode_asset ON episode_asset.entity_id = ma.id AND episode_asset.key = 'episode_number'
+                LEFT JOIN canonical_values episode_work ON episode_work.entity_id = w.id AND episode_work.key = 'episode_number'
                 LEFT JOIN canonical_values author_asset ON author_asset.entity_id = ma.id AND author_asset.key = 'author'
                 LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ma.id AND artist_asset.key = 'artist'
                 LEFT JOIN canonical_values director_asset ON director_asset.entity_id = ma.id AND director_asset.key = 'director'
@@ -101,6 +144,11 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                    Title,
                    Author,
                    CollectionDisplayName,
+                   Series,
+                   SeriesPosition,
+                   ShowName,
+                   SeasonNumber,
+                   EpisodeNumber,
                    CoverUrl
             FROM matched
             WHERE RowNumber = 1
@@ -116,6 +164,11 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
             Author = row.Author,
             MediaType = row.MediaType ?? string.Empty,
             CollectionDisplayName = row.CollectionDisplayName ?? string.Empty,
+            Series = row.Series,
+            SeriesPosition = row.SeriesPosition,
+            ShowName = row.ShowName,
+            SeasonNumber = row.SeasonNumber,
+            EpisodeNumber = row.EpisodeNumber,
             CoverUrl = row.CoverUrl,
         }).ToList();
     }
@@ -127,5 +180,10 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
         string Title,
         string? Author,
         string? CollectionDisplayName,
+        string? Series,
+        string? SeriesPosition,
+        string? ShowName,
+        string? SeasonNumber,
+        string? EpisodeNumber,
         string? CoverUrl);
 }

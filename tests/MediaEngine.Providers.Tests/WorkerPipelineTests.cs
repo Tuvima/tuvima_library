@@ -450,6 +450,87 @@ public sealed class WorkerPipelineTests
     }
 
     [Fact]
+    public async Task RetailMatchWorker_ComicSeriesAndIssueAnchor_WhenIssueTitleDiffers()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Comics",
+            State = "Queued",
+        });
+
+        var provider = new StubExternalMetadataProvider
+        {
+            Name = "comicvine",
+            ProviderId = providerId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Two Riders Were Approaching...", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Series, "Watchmen", 0.95),
+                new ProviderClaim(MetadataFieldConstants.SeriesPosition, "2", 0.95),
+                new ProviderClaim("issue_number", "2", 0.95),
+                new ProviderClaim(BridgeIdKeys.ComicVineId, "222", 0.95),
+            ],
+        };
+
+        var configLoader = new StubConfigurationLoader();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Watchmen #2", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Author, Value = "Alan Moore", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Series, Value = "Watchmen", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.SeriesPosition, Value = "2", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            new[] { provider },
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                configLoader,
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Equal("Two Riders Were Approaching...", candidate.Title);
+        Assert.Contains("\"series_matches\":true", candidate.ScoreBreakdownJson);
+        Assert.Contains("\"issue_matches\":true", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
     public async Task RetailMatchWorker_MusicExactSingleTrack_AllowsAutoAcceptWithoutTrackNumber()
     {
         var entityId = Guid.NewGuid();

@@ -73,7 +73,7 @@ The Dashboard is organized by user experience, not by a separate media managemen
 
 - **Home** is discovery and overview.
 - **Read**, **Watch**, and **Listen** are the media lanes where users browse and experience their library.
-- Lane-level groups are **shelves**: book series in Read, film/TV series in Watch, albums and audio series in Listen. A single shelf must stay visible in its lane and must not be duplicated as a top-level Collections tile.
+- Lane-level groups are **shelves**: book series and comic volumes in Read, film series and TV shows in Watch, albums and audio series in Listen. A single shelf must stay visible in its lane and must not be duplicated as a top-level Collections tile.
 - **Collections** are broader rollups only when a shared series/franchise/universe relationship connects multiple shelves. Multiple formats of one work, such as ebook plus audiobook, are variants and do not create a collection by themselves.
 - **Search** is cross-library discovery.
 - **Detail pages** are where users view an item and fix/edit that item inline.

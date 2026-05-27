@@ -159,7 +159,7 @@ Query-resolved collections store their predicates in the `rule_json` column. Mat
 
 ## ContentGroup Collections - Created at Ingestion
 
-ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic series. They are created **during ingestion** by `MediaEntityChainFactory`, not during Wikidata enrichment - so they work immediately when files are scanned.
+ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic volumes. They are created **during ingestion** by `MediaEntityChainFactory`, not during Wikidata enrichment - so they work immediately when files are scanned.
 
 When a file is ingested:
 1. The processor extracts grouping metadata (show name, album name, series name).
@@ -181,7 +181,7 @@ These collections power the **container views** in the Read, Watch, Listen, and 
 | Music | Album name (+ artist) | Track number ascending | "OK Computer - Radiohead" |
 | Books | Series name (+ author) | Sequence index ascending | "Dune Novels - Frank Herbert" |
 | Audiobooks | Series name (+ author) | Sequence index ascending | "First Law - Joe Abercrombie" |
-| Comics | Series name | Issue number ascending | "Saga - Brian K. Vaughan" |
+| Comics | Volume name | Issue number ascending | "Saga - Brian K. Vaughan" |
 | Movies | Film series name | Release year ascending | "The Matrix film series" |
 
 ---

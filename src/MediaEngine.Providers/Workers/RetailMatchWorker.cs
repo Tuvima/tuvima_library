@@ -1605,6 +1605,40 @@ public sealed class RetailMatchWorker
         return match.Success ? match.Value : null;
     }
 
+    private static CandidateExtendedMetadata BuildCandidateExtendedMetadata(
+        IReadOnlyList<ProviderClaim> claims)
+    {
+        static string? First(IReadOnlyList<ProviderClaim> claims, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                var value = claims.FirstOrDefault(c =>
+                    string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+
+            return null;
+        }
+
+        var genre = First(claims, MetadataFieldConstants.Genre);
+
+        return new CandidateExtendedMetadata
+        {
+            Description = First(claims, MetadataFieldConstants.Description),
+            Publisher = First(claims, MetadataFieldConstants.PublisherField, "publisher"),
+            Genres = string.IsNullOrWhiteSpace(genre)
+                ? null
+                : genre.Split(',', ';', '|')
+                    .Select(part => part.Trim())
+                    .Where(part => part.Length > 0)
+                    .ToArray(),
+            Language = First(claims, "language"),
+            Series = First(claims, MetadataFieldConstants.Series),
+            IssueNumber = First(claims, "issue_number", MetadataFieldConstants.SeriesPosition, "issue"),
+        };
+    }
+
     private static (double StructuralBonus, Dictionary<string, object?> Evidence) ComputeSingleItemStructuralSignal(
         MediaType mediaType,
         IReadOnlyDictionary<string, string> fileHints,
@@ -1972,10 +2006,12 @@ public sealed class RetailMatchWorker
 
                 var (structuralBonus, structuralEvidence) = ComputeSingleItemStructuralSignal(
                     mediaType, hints, claims);
+                var extendedMetadata = BuildCandidateExtendedMetadata(claims);
 
                 // Score candidate
                 var retailScore = _retailScoring.ScoreCandidate(
                     hints, candidateTitle, candidateAuthor, candidateYear, mediaType,
+                    extendedMetadata: extendedMetadata,
                     structuralBonus: structuralBonus);
 
                 var decision = _candidateScorer.EvaluateDecision(

@@ -310,8 +310,8 @@ public static class LibraryColumnDefinitions
         Checkbox(),
         CoverThumb(),
         TitleColumn("Issue"),
-        new() { Key = "series",   Label = "Series", Width = "auto", Sortable = true, SortKey = "series",          RenderType = ColumnRenderType.Text, PropertyName = "Series" },
-        new() { Key = "issue_no", Label = "#",      Width = "50px", Sortable = true, SortKey = "series_position", RenderType = ColumnRenderType.Text, PropertyName = "SeriesPosition", Align = "center" },
+        new() { Key = "series",   Label = "Volume", Width = "auto", Sortable = true, SortKey = "series",          RenderType = ColumnRenderType.Text, PropertyName = "Series" },
+        new() { Key = "issue_no", Label = "Issue",  Width = "64px", Sortable = true, SortKey = "series_position", RenderType = ColumnRenderType.Text, PropertyName = "SeriesPosition", Align = "center" },
         new() { Key = "author",   Label = "Writer", Width = "auto", Sortable = true, SortKey = "author",          RenderType = ColumnRenderType.ClickableText, PropertyName = "Author" },
         new() { Key = "year",     Label = "Year",   Width = "70px", Sortable = true, SortKey = "year",            RenderType = ColumnRenderType.Text, PropertyName = "Year", Align = "center" },
         new() { Key = "format",   Label = "Format", Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
@@ -401,7 +401,7 @@ public static class LibraryColumnDefinitions
     private static List<LibraryColumnDef> ComicSeriesContainerColumns() =>
     [
         Checkbox(),
-        new() { Key = "container", Label = "Series",   Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "container", Label = "Volume",   Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
         new() { Key = "writer",    Label = "Writer",    Width = "auto", Sortable = true, SortKey = "creator",    RenderType = ColumnRenderType.Text, PropertyName = "Creator" },
         new() { Key = "issues",    Label = "Issues",    Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
     ];

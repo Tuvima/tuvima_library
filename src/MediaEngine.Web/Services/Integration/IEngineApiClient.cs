@@ -121,14 +121,14 @@ public interface IEngineApiClient
         DetailEntityType entityType,
         Guid id,
         DetailPresentationContext context = DetailPresentationContext.Default,
-        string? seriesId = null,
+        string? containerId = null,
         CancellationToken ct = default);
 
-    Task<bool> SetDefaultSeriesAsync(
+    Task<bool> SetDefaultSequenceAsync(
         DetailEntityType entityType,
         Guid id,
-        string seriesId,
-        string? seriesTitle = null,
+        string containerId,
+        string? containerTitle = null,
         CancellationToken ct = default);
 
     /// <summary>POST /ingestion/scan — dry-run scan of a directory path.</summary>

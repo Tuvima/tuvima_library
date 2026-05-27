@@ -255,7 +255,7 @@ public static class MediaTypeFieldCatalog
 
     private static readonly SearchableField[] ComicSearchableFields =
     [
-        new(MetadataFieldConstants.Series, "Series", IsDefault: true),
+        new(MetadataFieldConstants.Series, "Volume", IsDefault: true),
         new(MetadataFieldConstants.Title, "Title"),
         new(MetadataFieldConstants.SeriesPosition, "Issue #"),
         new(MetadataFieldConstants.Author, "Writer"),

@@ -170,6 +170,13 @@ public class ClaimScopeCatalogTests
             ClaimScopeCatalog.GetScope(MetadataFieldConstants.Title, MediaType.Comics));
     }
 
+    [Fact]
+    public void Comics_ComicVineId_RoutesToIssue()
+    {
+        Assert.Equal(ClaimScope.Self,
+            ClaimScopeCatalog.GetScope(BridgeIdKeys.ComicVineId, MediaType.Comics));
+    }
+
     // ── Companion QID suffix handling ────────────────────────────────────
 
     [Fact]

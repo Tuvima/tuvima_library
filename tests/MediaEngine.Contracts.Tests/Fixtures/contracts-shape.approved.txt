@@ -96,7 +96,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   MultiFormatState: MediaEngine.Contracts.Details.MultiFormatState | nullability=not-null | accessors=get,init
   ReadingListeningSync: MediaEngine.Contracts.Details.ReadingListeningSyncViewModel | nullability=nullable | accessors=get,init
   SyncCapability: MediaEngine.Contracts.Details.ReadingListeningSyncCapabilityViewModel | nullability=nullable | accessors=get,init
-  SeriesPlacement: MediaEngine.Contracts.Details.SeriesPlacementViewModel | nullability=nullable | accessors=get,init
+  SequencePlacement: MediaEngine.Contracts.Details.SequencePlacementViewModel | nullability=nullable | accessors=get,init
   Metadata: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MetadataPill> | nullability=not-null | accessors=get,init
   PrimaryActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
   SecondaryActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
@@ -279,47 +279,63 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.RelationshipGroup
   Title: System.String | nullability=not-null | accessors=get,init
   Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.RelatedEntityChip> | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SeriesItemViewModel
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceContainerOptionViewModel
+  ContainerId: System.String | nullability=not-null | accessors=get,init
+  ContainerTitle: System.String | nullability=not-null | accessors=get,init
+  IsSelected: System.Boolean | nullability=not-null | accessors=get,init
+  IsDefault: System.Boolean | nullability=not-null | accessors=get,init
+  MediaScope: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceGroupViewModel
+  Key: System.String | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SequenceItemViewModel> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceItemViewModel
   Id: System.String | nullability=not-null | accessors=get,init
   EntityType: MediaEngine.Contracts.Details.DetailEntityType | nullability=not-null | accessors=get,init
   Title: System.String | nullability=not-null | accessors=get,init
   ArtworkUrl: System.String | nullability=nullable | accessors=get,init
   PositionNumber: System.Int32? | nullability=nullable | accessors=get,init
   PositionLabel: System.String | nullability=nullable | accessors=get,init
+  PositionText: System.String | nullability=nullable | accessors=get,init
+  GroupKey: System.String | nullability=nullable | accessors=get,init
+  GroupTitle: System.String | nullability=nullable | accessors=get,init
   IsCurrent: System.Boolean | nullability=not-null | accessors=get,init
   IsOwned: System.Boolean | nullability=not-null | accessors=get,init
   ProgressState: MediaEngine.Contracts.Details.LibraryProgressState | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SeriesOptionViewModel
-  SeriesId: System.String | nullability=not-null | accessors=get,init
-  SeriesTitle: System.String | nullability=not-null | accessors=get,init
-  IsSelected: System.Boolean | nullability=not-null | accessors=get,init
-  IsDefault: System.Boolean | nullability=not-null | accessors=get,init
-  MediaScope: System.String | nullability=nullable | accessors=get,init
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceOrderingType
 
-MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SeriesOrderingType
-
-MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SeriesPlacementViewModel
-  SeriesId: System.String | nullability=not-null | accessors=get,init
-  SeriesTitle: System.String | nullability=not-null | accessors=get,init
-  SelectedSeriesId: System.String | nullability=not-null | accessors=get,init
-  CanChooseSeries: System.Boolean | nullability=not-null | accessors=get,init
-  CanSetDefaultSeries: System.Boolean | nullability=not-null | accessors=get,init
-  AvailableSeries: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SeriesOptionViewModel> | nullability=not-null | accessors=get,init
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequencePlacementViewModel
+  ContainerId: System.String | nullability=not-null | accessors=get,init
+  ContainerTitle: System.String | nullability=not-null | accessors=get,init
+  SelectedContainerId: System.String | nullability=not-null | accessors=get,init
+  CanChooseContainer: System.Boolean | nullability=not-null | accessors=get,init
+  CanSetDefaultContainer: System.Boolean | nullability=not-null | accessors=get,init
+  AvailableContainers: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SequenceContainerOptionViewModel> | nullability=not-null | accessors=get,init
   UniverseId: System.String | nullability=nullable | accessors=get,init
   UniverseTitle: System.String | nullability=nullable | accessors=get,init
+  ContainerLabel: System.String | nullability=not-null | accessors=get,init
+  ItemLabel: System.String | nullability=not-null | accessors=get,init
+  ItemPluralLabel: System.String | nullability=not-null | accessors=get,init
+  GroupLabel: System.String | nullability=nullable | accessors=get,init
+  CurrentGroupKey: System.String | nullability=nullable | accessors=get,init
   PositionNumber: System.Int32? | nullability=nullable | accessors=get,init
   TotalKnownItems: System.Int32? | nullability=nullable | accessors=get,init
   PositionLabel: System.String | nullability=nullable | accessors=get,init
-  OrderingType: MediaEngine.Contracts.Details.SeriesOrderingType | nullability=not-null | accessors=get,init
-  PreviousItem: MediaEngine.Contracts.Details.SeriesItemViewModel | nullability=nullable | accessors=get,init
-  CurrentItem: MediaEngine.Contracts.Details.SeriesItemViewModel | nullability=not-null | accessors=get,init
-  NextItem: MediaEngine.Contracts.Details.SeriesItemViewModel | nullability=nullable | accessors=get,init
-  OrderedItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SeriesItemViewModel> | nullability=not-null | accessors=get,init
+  PositionText: System.String | nullability=nullable | accessors=get,init
+  PositionSummary: System.String | nullability=nullable | accessors=get,init
+  OrderingType: MediaEngine.Contracts.Details.SequenceOrderingType | nullability=not-null | accessors=get,init
+  PreviousItem: MediaEngine.Contracts.Details.SequenceItemViewModel | nullability=nullable | accessors=get,init
+  CurrentItem: MediaEngine.Contracts.Details.SequenceItemViewModel | nullability=not-null | accessors=get,init
+  NextItem: MediaEngine.Contracts.Details.SequenceItemViewModel | nullability=nullable | accessors=get,init
+  OrderedItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SequenceItemViewModel> | nullability=not-null | accessors=get,init
+  Groups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SequenceGroupViewModel> | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SetDefaultSeriesRequest
-  SeriesId: System.String | nullability=not-null | accessors=get,init
-  SeriesTitle: System.String | nullability=nullable | accessors=get,init
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SetDefaultSequenceRequest
+  ContainerId: System.String | nullability=not-null | accessors=get,init
+  ContainerTitle: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SyncCapabilityState
 

@@ -98,6 +98,12 @@ public sealed class CandidateExtendedMetadata
     /// <summary>Language code from the retail result.</summary>
     public string? Language { get; init; }
 
+    /// <summary>Series, show, volume, or other container title from the retail result.</summary>
+    public string? Series { get; init; }
+
+    /// <summary>Issue number from the retail result for comic issue matching.</summary>
+    public string? IssueNumber { get; init; }
+
     /// <summary>
     /// Cover art perceptual hash similarity against the file's embedded cover art (0.0–1.0),
     /// or <c>null</c> if not computed (no embedded cover, no candidate cover URL, or hash unavailable).

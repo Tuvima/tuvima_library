@@ -22,7 +22,7 @@ public sealed class DetailPageViewModel
     public MultiFormatState MultiFormatState { get; init; } = MultiFormatState.SingleFormat;
     public ReadingListeningSyncViewModel? ReadingListeningSync { get; init; }
     public ReadingListeningSyncCapabilityViewModel? SyncCapability { get; init; }
-    public SeriesPlacementViewModel? SeriesPlacement { get; init; }
+    public SequencePlacementViewModel? SequencePlacement { get; init; }
 
     public IReadOnlyList<MetadataPill> Metadata { get; init; } = [];
     public IReadOnlyList<DetailAction> PrimaryActions { get; init; } = [];
@@ -235,52 +235,68 @@ public sealed class PersonRelatedLink
     public string? Route { get; init; }
 }
 
-public sealed class SeriesPlacementViewModel
+public sealed class SequencePlacementViewModel
 {
-    public string SeriesId { get; init; } = string.Empty;
-    public string SeriesTitle { get; init; } = string.Empty;
-    public string SelectedSeriesId { get; init; } = string.Empty;
-    public bool CanChooseSeries { get; init; }
-    public bool CanSetDefaultSeries { get; init; }
-    public IReadOnlyList<SeriesOptionViewModel> AvailableSeries { get; init; } = [];
+    public string ContainerId { get; init; } = string.Empty;
+    public string ContainerTitle { get; init; } = string.Empty;
+    public string SelectedContainerId { get; init; } = string.Empty;
+    public bool CanChooseContainer { get; init; }
+    public bool CanSetDefaultContainer { get; init; }
+    public IReadOnlyList<SequenceContainerOptionViewModel> AvailableContainers { get; init; } = [];
     public string? UniverseId { get; init; }
     public string? UniverseTitle { get; init; }
+    public string ContainerLabel { get; init; } = "Series";
+    public string ItemLabel { get; init; } = "Item";
+    public string ItemPluralLabel { get; init; } = "Items";
+    public string? GroupLabel { get; init; }
+    public string? CurrentGroupKey { get; init; }
     public int? PositionNumber { get; init; }
     public int? TotalKnownItems { get; init; }
     public string? PositionLabel { get; init; }
-    public SeriesOrderingType OrderingType { get; init; } = SeriesOrderingType.LibraryOrder;
-    public SeriesItemViewModel? PreviousItem { get; init; }
-    public SeriesItemViewModel CurrentItem { get; init; } = new();
-    public SeriesItemViewModel? NextItem { get; init; }
-    public IReadOnlyList<SeriesItemViewModel> OrderedItems { get; init; } = [];
+    public string? PositionText { get; init; }
+    public string? PositionSummary { get; init; }
+    public SequenceOrderingType OrderingType { get; init; } = SequenceOrderingType.LibraryOrder;
+    public SequenceItemViewModel? PreviousItem { get; init; }
+    public SequenceItemViewModel CurrentItem { get; init; } = new();
+    public SequenceItemViewModel? NextItem { get; init; }
+    public IReadOnlyList<SequenceItemViewModel> OrderedItems { get; init; } = [];
+    public IReadOnlyList<SequenceGroupViewModel> Groups { get; init; } = [];
 }
 
-public sealed class SeriesOptionViewModel
+public sealed class SequenceContainerOptionViewModel
 {
-    public string SeriesId { get; init; } = string.Empty;
-    public string SeriesTitle { get; init; } = string.Empty;
+    public string ContainerId { get; init; } = string.Empty;
+    public string ContainerTitle { get; init; } = string.Empty;
     public bool IsSelected { get; init; }
     public bool IsDefault { get; init; }
     public string? MediaScope { get; init; }
 }
 
-public sealed class SetDefaultSeriesRequest
+public sealed class SetDefaultSequenceRequest
 {
-    public string SeriesId { get; init; } = string.Empty;
-    public string? SeriesTitle { get; init; }
+    public string ContainerId { get; init; } = string.Empty;
+    public string? ContainerTitle { get; init; }
 }
 
-public enum SeriesOrderingType
+public enum SequenceOrderingType
 {
     PublicationOrder,
     ReleaseOrder,
     StoryOrder,
     LibraryOrder,
     IssueNumber,
+    EpisodeNumber,
     VolumeNumber
 }
 
-public sealed class SeriesItemViewModel
+public sealed class SequenceGroupViewModel
+{
+    public string Key { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public IReadOnlyList<SequenceItemViewModel> Items { get; init; } = [];
+}
+
+public sealed class SequenceItemViewModel
 {
     public string Id { get; init; } = string.Empty;
     public DetailEntityType EntityType { get; init; }
@@ -288,6 +304,9 @@ public sealed class SeriesItemViewModel
     public string? ArtworkUrl { get; init; }
     public int? PositionNumber { get; init; }
     public string? PositionLabel { get; init; }
+    public string? PositionText { get; init; }
+    public string? GroupKey { get; init; }
+    public string? GroupTitle { get; init; }
     public bool IsCurrent { get; init; }
     public bool IsOwned { get; init; }
     public LibraryProgressState ProgressState { get; init; } = LibraryProgressState.Unknown;

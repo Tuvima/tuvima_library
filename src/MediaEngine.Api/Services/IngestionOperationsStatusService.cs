@@ -607,7 +607,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 "retail",
                 rows,
                 stages,
-                activeStates: [nameof(IdentityJobState.RetailSearching)],
+                activeStates: [
+                    nameof(IdentityJobState.RetailSearching),
+                    nameof(IdentityJobState.Hydrating),
+                ],
                 relevantStates: [
                     nameof(IdentityJobState.Queued),
                     nameof(IdentityJobState.RetailSearching),
@@ -668,7 +671,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 "enrichment",
                 rows,
                 stages,
-                activeStates: [nameof(IdentityJobState.UniverseEnriching)],
+                activeStates: [
+                    nameof(IdentityJobState.Hydrating),
+                    nameof(IdentityJobState.UniverseEnriching),
+                ],
                 relevantStates: [
                     nameof(IdentityJobState.QidResolved),
                     nameof(IdentityJobState.Hydrating),

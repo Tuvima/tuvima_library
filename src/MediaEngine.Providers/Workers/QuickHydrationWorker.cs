@@ -115,6 +115,7 @@ public sealed class QuickHydrationWorker
     internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Hydrating, ct: ct);
+        await EmitBatchProgressAsync(job.IngestionRunId, ct).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(job.ResolvedQid))
         {
@@ -143,6 +144,7 @@ public sealed class QuickHydrationWorker
             job.EntityId);
 
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);
+        await EmitBatchProgressAsync(job.IngestionRunId, ct).ConfigureAwait(false);
 
         // Assign the work to a ContentGroup collection based on Wikidata relationships
         // (series, franchise, fictional_universe). Must run after enrichment
@@ -164,6 +166,7 @@ public sealed class QuickHydrationWorker
             .ConfigureAwait(false);
 
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.UniverseEnriching, ct: ct);
+        await EmitBatchProgressAsync(job.IngestionRunId, ct).ConfigureAwait(false);
         await _universeEnrichment.QueueInlineAsync(
             new UniverseEnrichmentRequest(
                 job.Id,
@@ -182,6 +185,16 @@ public sealed class QuickHydrationWorker
             job.ResolvedQid,
             job.MediaType,
             job.EntityId);
+    }
+
+    private async Task EmitBatchProgressAsync(Guid? ingestionRunId, CancellationToken ct)
+    {
+        if (_batchProgress is null || !ingestionRunId.HasValue)
+        {
+            return;
+        }
+
+        await _batchProgress.EmitProgressAsync(ingestionRunId.Value, isFinal: false, ct).ConfigureAwait(false);
     }
 
     private async Task<string> BuildUniverseBatchKeyAsync(

@@ -7,6 +7,7 @@ public sealed class DisplayCardBuilder
     public DisplayCardDto FromWork(DisplayWorkRow row, string context, DisplayJourneyRow? progress)
     {
         var mediaKind = DisplayMediaRules.NormalizeDisplayKind(row.MediaType);
+        var title = DisplayTitleFor(mediaKind, row.Title, row.Series, row.SeriesPosition);
         var action = PrimaryAction(row.AssetId, row.WorkId, row.CollectionId, mediaKind, progress?.ProgressPct);
         var progressDto = progress is null ? null : ToProgress(progress, action);
         return new DisplayCardDto(
@@ -16,9 +17,9 @@ public sealed class DisplayCardBuilder
             CollectionId: row.CollectionId,
             MediaType: mediaKind,
             GroupingType: "work",
-            Title: row.Title,
-            Subtitle: CreatorFor(row),
-            Facts: BuildFacts(mediaKind, row.Title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album),
+            Title: title,
+            Subtitle: SubtitleFor(mediaKind, CreatorFor(row), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
+            Facts: BuildFacts(mediaKind, title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
@@ -33,6 +34,7 @@ public sealed class DisplayCardBuilder
     public DisplayCardDto FromJourney(DisplayJourneyRow row, string context)
     {
         var mediaKind = DisplayMediaRules.NormalizeDisplayKind(row.MediaType);
+        var title = DisplayTitleFor(mediaKind, row.Title, row.Series, row.SeriesPosition);
         var action = PrimaryAction(row.AssetId, row.WorkId, row.CollectionId, mediaKind, row.ProgressPct);
         return new DisplayCardDto(
             Id: row.WorkId,
@@ -41,9 +43,9 @@ public sealed class DisplayCardBuilder
             CollectionId: row.CollectionId,
             MediaType: mediaKind,
             GroupingType: "work",
-            Title: row.Title,
-            Subtitle: FirstNonBlank(row.Author, row.Artist, row.Series),
-            Facts: BuildFacts(mediaKind, row.Title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album),
+            Title: title,
+            Subtitle: SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
+            Facts: BuildFacts(mediaKind, title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
@@ -92,7 +94,7 @@ public sealed class DisplayCardBuilder
             MediaType: mediaKind,
             GroupingType: "collection",
             Title: title,
-            Subtitle: $"{works.Count} titles",
+            Subtitle: CollectionCountLabel(mediaKind, works.Count),
             Facts: CollectionFacts(mediaKind, works.Count, representative.Genre),
             Artwork: ArtworkFor(representative),
             PreferredShape: CollectionShape(lane, mediaKind, representative),
@@ -199,8 +201,8 @@ public sealed class DisplayCardBuilder
             ParseInt(row.BackgroundHeightPx),
             row.AccentColor);
 
-    private static IReadOnlyList<string> BuildFacts(string mediaKind, string title, string? year, string? genre, string? author, string? artist, string? narrator, string? series, string? season, string? episode, string? track, string? album)
-        => DisplayFactBuilder.Build(mediaKind, title, year, genre, author, artist, narrator, series, season, episode, track, album);
+    private static IReadOnlyList<string> BuildFacts(string mediaKind, string title, string? year, string? genre, string? author, string? artist, string? narrator, string? series, string? seriesPosition, string? showName, string? season, string? episode, string? track, string? album)
+        => DisplayFactBuilder.Build(mediaKind, title, year, genre, author, artist, narrator, series, seriesPosition, showName, season, episode, track, album);
 
     private static string PreferredShape(string mediaType, string? backgroundUrl, string? bannerUrl, string? squareUrl)
     {
@@ -260,9 +262,22 @@ public sealed class DisplayCardBuilder
 
     private static IReadOnlyList<string> CollectionFacts(string mediaKind, int count, string? genre)
     {
-        var facts = new List<string> { $"{count} titles" };
+        var facts = new List<string> { CollectionCountLabel(mediaKind, count) };
         facts.AddRange(DisplayMediaRules.SplitValues(genre).Where(value => !string.Equals(value, mediaKind, StringComparison.OrdinalIgnoreCase)).Take(2));
         return facts;
+    }
+
+    private static string CollectionCountLabel(string mediaKind, int count)
+    {
+        var noun = mediaKind switch
+        {
+            "TV" => count == 1 ? "episode" : "episodes",
+            "Comic" => count == 1 ? "issue" : "issues",
+            "Music" => count == 1 ? "track" : "tracks",
+            _ => count == 1 ? "title" : "titles",
+        };
+
+        return $"{count} {noun}";
     }
 
     private static string ContinueLabel(string mediaKind) => mediaKind switch
@@ -275,6 +290,73 @@ public sealed class DisplayCardBuilder
 
     private static string? CreatorFor(DisplayWorkRow row) =>
         FirstNonBlank(row.Author, row.Artist, row.Director, row.Narrator);
+
+    private static string? SubtitleFor(
+        string mediaKind,
+        string? creator,
+        string? series,
+        string? seriesPosition,
+        string? showName,
+        string? season,
+        string? episode)
+    {
+        if (mediaKind == "TV")
+        {
+            return string.Join(" - ", new[] { showName, FormatSeasonEpisode(season, episode) }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        }
+
+        if (mediaKind == "Comic")
+        {
+            return string.Join(" - ", new[] { series, FormatIssue(seriesPosition), creator }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        }
+
+        return FirstNonBlank(creator, series);
+    }
+
+    private static string? FormatSeasonEpisode(string? season, string? episode)
+    {
+        if (string.IsNullOrWhiteSpace(season) && string.IsNullOrWhiteSpace(episode))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(season))
+            return $"Episode {episode}";
+
+        if (string.IsNullOrWhiteSpace(episode))
+            return $"Season {season}";
+
+        return $"S{season} E{episode}";
+    }
+
+    private static string? FormatIssue(string? seriesPosition)
+        => string.IsNullOrWhiteSpace(seriesPosition) ? null : $"Issue #{seriesPosition}";
+
+    private static string DisplayTitleFor(string mediaKind, string title, string? series, string? seriesPosition)
+    {
+        if (mediaKind == "Comic" && IsGeneratedComicTitle(title, series, seriesPosition))
+        {
+            return FormatIssue(seriesPosition) ?? title;
+        }
+
+        return title;
+    }
+
+    private static bool IsGeneratedComicTitle(string? title, string? series, string? issueNumber)
+    {
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(issueNumber))
+            return false;
+
+        var normalizedTitle = NormalizeOrdinalTitle(title);
+        var normalizedSeries = NormalizeOrdinalTitle(series);
+        var normalizedIssue = NormalizeOrdinalTitle(issueNumber);
+        return normalizedTitle == $"{normalizedSeries}{normalizedIssue}"
+            || normalizedTitle == $"{normalizedSeries}issue{normalizedIssue}"
+            || normalizedTitle == $"{normalizedSeries}no{normalizedIssue}"
+            || (normalizedTitle.StartsWith(normalizedSeries, StringComparison.OrdinalIgnoreCase)
+                && normalizedTitle.EndsWith(normalizedIssue, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NormalizeOrdinalTitle(string value)
+        => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));

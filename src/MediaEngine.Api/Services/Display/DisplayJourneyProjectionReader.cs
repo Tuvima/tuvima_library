@@ -23,13 +23,15 @@ public sealed class DisplayJourneyProjectionReader
                 w.media_type AS MediaType,
                 us.progress_pct AS ProgressPct,
                 us.last_accessed AS LastAccessed,
-                COALESCE(cv_title_a.value, cv_title_w.value, 'Untitled') AS Title,
+                COALESCE(cv_issue_title_a.value, cv_issue_title_w.value, cv_title_a.value, cv_title_w.value, 'Untitled') AS Title,
                 cv_author_w.value AS Author,
                 cv_artist_w.value AS Artist,
                 cv_album_w.value AS Album,
                 cv_year_w.value AS Year,
                 cv_genre_w.value AS Genre,
                 cv_series_w.value AS Series,
+                COALESCE(cv_issue_a.value, cv_issue_w.value, cv_series_position_a.value) AS SeriesPosition,
+                cv_show_w.value AS ShowName,
                 cv_narrator_w.value AS Narrator,
                 COALESCE(cv_cover_a.value, cv_cover_item.value, cv_cover_w.value) AS CoverUrl,
                 COALESCE(
@@ -121,12 +123,18 @@ public sealed class DisplayJourneyProjectionReader
             LEFT JOIN works gpw ON gpw.id = pw.parent_work_id
             LEFT JOIN canonical_values cv_title_a ON cv_title_a.entity_id = ma.id AND cv_title_a.key = 'title'
             LEFT JOIN canonical_values cv_title_w ON cv_title_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_title_w.key = 'title'
+            LEFT JOIN canonical_values cv_issue_title_a ON cv_issue_title_a.entity_id = ma.id AND cv_issue_title_a.key = 'issue_title'
+            LEFT JOIN canonical_values cv_issue_title_w ON cv_issue_title_w.entity_id = w.id AND cv_issue_title_w.key = 'issue_title'
             LEFT JOIN canonical_values cv_author_w ON cv_author_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_author_w.key = 'author'
             LEFT JOIN canonical_values cv_artist_w ON cv_artist_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_artist_w.key = 'artist'
             LEFT JOIN canonical_values cv_album_w ON cv_album_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_album_w.key = 'album'
             LEFT JOIN canonical_values cv_year_w ON cv_year_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_year_w.key IN ('release_year', 'year')
             LEFT JOIN canonical_values cv_genre_w ON cv_genre_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_genre_w.key = 'genre'
             LEFT JOIN canonical_values cv_series_w ON cv_series_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_series_w.key = 'series'
+            LEFT JOIN canonical_values cv_series_position_a ON cv_series_position_a.entity_id = ma.id AND cv_series_position_a.key = 'series_position'
+            LEFT JOIN canonical_values cv_issue_a ON cv_issue_a.entity_id = ma.id AND cv_issue_a.key = 'issue_number'
+            LEFT JOIN canonical_values cv_issue_w ON cv_issue_w.entity_id = w.id AND cv_issue_w.key = 'issue_number'
+            LEFT JOIN canonical_values cv_show_w ON cv_show_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_show_w.key = 'show_name'
             LEFT JOIN canonical_values cv_narrator_w ON cv_narrator_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_narrator_w.key = 'narrator'
             LEFT JOIN canonical_values cv_cover_a ON cv_cover_a.entity_id = ma.id AND cv_cover_a.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values cv_square_a ON cv_square_a.entity_id = ma.id AND cv_square_a.key IN ('square_url', 'square')

@@ -13,4 +13,9 @@ public sealed class SearchResultViewModel
     public string? Author         { get; init; }
     public string  MediaType      { get; init; } = string.Empty;
     public string  CollectionDisplayName { get; init; } = string.Empty;
+    public string? Series { get; init; }
+    public string? SeriesPosition { get; init; }
+    public string? ShowName { get; init; }
+    public string? SeasonNumber { get; init; }
+    public string? EpisodeNumber { get; init; }
 }

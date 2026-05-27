@@ -2,10 +2,12 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Domain;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace MediaEngine.Providers.Services;
 
@@ -236,10 +238,16 @@ public sealed class SearchService : ISearchService
                     Description = c.Description,
                     Genres = c.ExtraFields.TryGetValue("genre", out var g) ? [g] : null,
                     Language = c.ExtraFields.GetValueOrDefault("language"),
+                    Series = c.ExtraFields.GetValueOrDefault(MetadataFieldConstants.Series),
+                    IssueNumber = c.ExtraFields.GetValueOrDefault("issue_number")
+                        ?? c.ExtraFields.GetValueOrDefault(MetadataFieldConstants.SeriesPosition)
+                        ?? c.ExtraFields.GetValueOrDefault("issue"),
                 };
+                var structuralBonus = ComputeRetailSearchStructuralBonus(mediaType, fileHints, extMeta);
                 var scores = _retailScoring.ScoreCandidate(
                     fileHints, c.Title, c.Author, c.Year, mediaType,
-                    extendedMetadata: extMeta);
+                    extendedMetadata: extMeta,
+                    structuralBonus: structuralBonus);
 
                 c.MatchScores = ToFieldMatchResult(scores);
                 c.CompositeScore = scores.CompositeScore;
@@ -613,6 +621,69 @@ public sealed class SearchService : ISearchService
             }
         }
         return hints;
+    }
+
+    private static double ComputeRetailSearchStructuralBonus(
+        MediaType mediaType,
+        IReadOnlyDictionary<string, string> fileHints,
+        CandidateExtendedMetadata candidate)
+    {
+        if (mediaType != MediaType.Comics)
+            return 0.0;
+
+        var fileSeries = fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
+        var fileIssue = fileHints.GetValueOrDefault("issue_number")
+            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.SeriesPosition)
+            ?? fileHints.GetValueOrDefault("issue");
+
+        if (string.IsNullOrWhiteSpace(fileSeries)
+            || string.IsNullOrWhiteSpace(fileIssue)
+            || string.IsNullOrWhiteSpace(candidate.Series)
+            || string.IsNullOrWhiteSpace(candidate.IssueNumber))
+        {
+            return 0.0;
+        }
+
+        return AreEquivalentSearchText(fileSeries, candidate.Series)
+            && AreEquivalentOrdinals(fileIssue, candidate.IssueNumber)
+            ? 0.35
+            : 0.0;
+    }
+
+    private static bool AreEquivalentSearchText(string left, string right)
+        => string.Equals(NormalizeSearchText(left), NormalizeSearchText(right), StringComparison.Ordinal);
+
+    private static string NormalizeSearchText(string value)
+    {
+        var chars = value
+            .Replace("&", " and ", StringComparison.Ordinal)
+            .ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
+            .ToArray();
+
+        return string.Join(' ', new string(chars)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static bool AreEquivalentOrdinals(string left, string right)
+    {
+        if (int.TryParse(ExtractLeadingDigits(left), out var leftNumber)
+            && int.TryParse(ExtractLeadingDigits(right), out var rightNumber))
+        {
+            return leftNumber == rightNumber;
+        }
+
+        return string.Equals(left.TrimStart('0'), right.TrimStart('0'), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ExtractLeadingDigits(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var match = Regex.Match(value.Trim(), @"^\D*0*(\d+)");
+        return match.Success ? match.Groups[1].Value : string.Empty;
     }
 
     private (string Language, string Country) GetConfiguredLocale()

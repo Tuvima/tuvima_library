@@ -102,6 +102,8 @@ public sealed class DisplayJourneyRow : IDisplayArtworkRow
     public string? Year { get; set; }
     public string? Genre { get; set; }
     public string? Series { get; set; }
+    public string? SeriesPosition { get; set; }
+    public string? ShowName { get; set; }
     public string? Narrator { get; set; }
     public string? SeasonNumber { get; set; }
     public string? EpisodeNumber { get; set; }

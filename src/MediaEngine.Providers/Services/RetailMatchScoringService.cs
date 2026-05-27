@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -58,6 +59,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         var fileTitle = mediaType == MediaType.TV
             ? (fileHints.GetValueOrDefault("episode_title") ?? fileHints.GetValueOrDefault("title"))
             : fileHints.GetValueOrDefault("title");
+        var comicIssueIdentityMatches = IsExactComicIssueIdentity(fileHints, extendedMetadata);
+        var fileTitleIsComicIssueLabel = mediaType == MediaType.Comics
+            && IsGeneratedComicIssueLabel(fileTitle, fileHints);
 
         if (MediaEngine.Domain.Services.PlaceholderTitleDetector.IsPlaceholder(fileTitle))
         {
@@ -75,9 +79,15 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 
         if (!string.IsNullOrWhiteSpace(fileTitle) && !string.IsNullOrWhiteSpace(candidateTitle))
         {
-            titleScore = AreEquivalentComparableText(fileTitle, candidateTitle)
+            titleScore = comicIssueIdentityMatches && fileTitleIsComicIssueLabel
+                ? 1.0
+                : AreEquivalentComparableText(fileTitle, candidateTitle)
                 ? 1.0
                 : _fuzzy.ComputeTokenSetRatio(fileTitle, candidateTitle);
+        }
+        else if (comicIssueIdentityMatches && fileTitleIsComicIssueLabel)
+        {
+            titleScore = 1.0;
         }
 
         // ── Author score ─────────────────────────────────────────────────
@@ -267,6 +277,78 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 
         var match = System.Text.RegularExpressions.Regex.Match(value, @"\b\d{4}\b");
         return match.Success ? match.Value : null;
+    }
+
+    private static bool IsExactComicIssueIdentity(
+        IReadOnlyDictionary<string, string> fileHints,
+        CandidateExtendedMetadata? extendedMetadata)
+    {
+        if (extendedMetadata is null)
+            return false;
+
+        var fileSeries = fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
+        var candidateSeries = extendedMetadata.Series;
+        if (string.IsNullOrWhiteSpace(fileSeries) || string.IsNullOrWhiteSpace(candidateSeries))
+            return false;
+
+        var fileIssue = GetComicIssueHint(fileHints);
+        var candidateIssue = extendedMetadata.IssueNumber;
+        if (string.IsNullOrWhiteSpace(fileIssue) || string.IsNullOrWhiteSpace(candidateIssue))
+            return false;
+
+        return AreEquivalentComparableText(fileSeries, candidateSeries)
+            && AreEquivalentOrdinals(fileIssue, candidateIssue);
+    }
+
+    private static string? GetComicIssueHint(IReadOnlyDictionary<string, string> fileHints)
+        => fileHints.GetValueOrDefault("issue_number")
+            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.SeriesPosition)
+            ?? fileHints.GetValueOrDefault("issue");
+
+    private static bool AreEquivalentOrdinals(string left, string right)
+    {
+        if (int.TryParse(ExtractLeadingDigits(left), out var leftNumber)
+            && int.TryParse(ExtractLeadingDigits(right), out var rightNumber))
+        {
+            return leftNumber == rightNumber;
+        }
+
+        return string.Equals(left.TrimStart('0'), right.TrimStart('0'), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsGeneratedComicIssueLabel(
+        string? title,
+        IReadOnlyDictionary<string, string> fileHints)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        var series = fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
+        var issue = GetComicIssueHint(fileHints);
+        if (string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(issue))
+            return false;
+
+        var normalizedTitle = NormalizeComparableText(
+            Regex.Replace(title, @"\(\d{4}\)\s*$", string.Empty));
+        var normalizedSeries = NormalizeComparableText(series);
+        if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
+            return false;
+
+        if (!int.TryParse(ExtractLeadingDigits(issue), out var issueNumber))
+            return false;
+
+        var pattern = $"^{Regex.Escape(normalizedSeries)}\\s+(?:issue\\s+|no\\s+|number\\s+)?0*{issueNumber}$";
+        return Regex.IsMatch(normalizedTitle, pattern, RegexOptions.IgnoreCase);
+    }
+
+    private static string ExtractLeadingDigits(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var match = Regex.Match(value.Trim(), @"^\D*0*(\d+)");
+        return match.Success ? match.Groups[1].Value : string.Empty;
     }
 
     private static bool AreEquivalentComparableText(string left, string right)

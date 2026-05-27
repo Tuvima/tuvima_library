@@ -380,6 +380,55 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_MergesBatchProgressIntoCurrentActivities()
+    {
+        var state = new UniverseStateContainer();
+        var batchId = Guid.NewGuid();
+        state.PushBatchProgress(new BatchProgressEvent(
+            batchId,
+            FilesTotal: 12,
+            FilesProcessed: 8,
+            FilesIdentified: 8,
+            FilesReview: 0,
+            FilesNoMatch: 0,
+            FilesFailed: 0,
+            ProgressPercent: 67,
+            EstimatedSecondsRemaining: 30,
+            IsComplete: false,
+            RecentTitles: ["Something"],
+            CurrentStage: "Hydrating metadata",
+            FilesQueued: 3,
+            FilesActive: 1,
+            CurrentFileTitle: "Moonage Daydream",
+            LifecycleStage: "Hydrating"));
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            CurrentActivities =
+            [
+                new IngestionCurrentActivityViewModel
+                {
+                    StageKey = "relationships",
+                    Message = "Series & relationships",
+                    CurrentItem = "Old activity",
+                    ProcessedCount = 2,
+                    TotalCount = 3,
+                    PercentComplete = 67,
+                },
+            ],
+        };
+        var activeJobs = IngestionLiveDashboardState.BuildActiveJobs(snapshot, state);
+        var stages = IngestionLiveDashboardState.BuildStages(snapshot, activeJobs, 12);
+
+        var activities = IngestionLiveDashboardState.BuildCurrentActivities(snapshot, activeJobs, stages, state);
+
+        var activity = Assert.Single(activities, item => item.StageKey == "relationships");
+        Assert.Equal("Moonage Daydream", activity.CurrentItem);
+        Assert.Equal("Hydrating metadata", activity.Detail);
+        Assert.Equal(1, activity.ActiveCount);
+        Assert.Equal(3, activity.QueuedCount);
+    }
+
+    [Fact]
     public void LiveDashboardState_MergesLiveUniverseProgressIntoCurrentActivities()
     {
         var state = new UniverseStateContainer();
@@ -482,6 +531,21 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Equal(LibraryUpdatePageState.Idle, status.PageState);
         Assert.False(status.ShowProgress);
+    }
+
+    [Fact]
+    public void IngestionRealtimeProgress_ReflectsQuickHydrationTransitions()
+    {
+        var workerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\QuickHydrationWorker.cs"));
+        var progressSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\BatchProgressService.cs"));
+        var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
+        var operationsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("EmitBatchProgressAsync(job.IngestionRunId", workerSource, StringComparison.Ordinal);
+        Assert.Contains("\"UniverseEnriching\"", progressSource, StringComparison.Ordinal);
+        Assert.Contains("\"Hydrating\" => \"Hydrating metadata\"", progressSource, StringComparison.Ordinal);
+        Assert.Contains("BuildLiveBatchActivity", stateSource, StringComparison.Ordinal);
+        Assert.Contains("nameof(IdentityJobState.Hydrating)", operationsSource, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -427,7 +427,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var activities = snapshot?.CurrentActivities
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
             .ToList() ?? [];
+        var liveBatchActivity = BuildLiveBatchActivity(stateContainer, activeJobs, stages);
         var liveUniverseActivity = BuildLiveUniverseActivity(stateContainer);
+
+        if (liveBatchActivity is not null)
+        {
+            UpsertCurrentActivity(activities, liveBatchActivity);
+        }
 
         if (liveUniverseActivity is not null)
         {
@@ -446,6 +452,47 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Select(job => ToCurrentActivity(job, stages))
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
             .ToList();
+    }
+
+    private static IngestionCurrentActivityViewModel? BuildLiveBatchActivity(
+        UniverseStateContainer? stateContainer,
+        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IReadOnlyList<IngestionDashboardStage> stages)
+    {
+        var batch = stateContainer?.BatchProgress;
+        if (batch is not { IsComplete: false })
+        {
+            return null;
+        }
+
+        var job = activeJobs.FirstOrDefault(candidate => candidate.JobId == batch.BatchId)
+            ?? new IngestionOperationsJobViewModel
+            {
+                JobId = batch.BatchId,
+                JobType = "Ingestion batch",
+                MediaType = "Mixed",
+                SourceFolder = "Watch folders",
+                CurrentStage = FirstNonBlank(batch.CurrentStage, batch.LifecycleStage, "Processing"),
+                CurrentItem = FirstNonBlank(batch.CurrentFileTitle, batch.RecentTitles?.FirstOrDefault()),
+                ProcessedCount = batch.FilesProcessed,
+                TotalCount = batch.FilesTotal,
+                PercentComplete = batch.ProgressPercent,
+                Status = "running",
+                LastUpdatedTime = DateTimeOffset.UtcNow,
+            };
+
+        var activity = ToCurrentActivity(job, stages);
+        if (activity.StageKey.Equals("enrichment", StringComparison.OrdinalIgnoreCase))
+        {
+            activity.StageKey = "relationships";
+            activity.Message = "Series & relationships";
+            activity.Detail = FirstNonBlank(batch.CurrentStage, activity.Detail, "Stage 3 enrichment");
+        }
+
+        activity.ActiveCount = Math.Max(activity.ActiveCount, Math.Max(0, batch.FilesActive));
+        activity.QueuedCount = Math.Max(activity.QueuedCount, Math.Max(0, batch.FilesQueued));
+        activity.LastUpdatedTime = DateTimeOffset.UtcNow;
+        return activity;
     }
 
     private static IngestionCurrentActivityViewModel? BuildLiveUniverseActivity(UniverseStateContainer? stateContainer)

@@ -708,6 +708,11 @@ public sealed class EngineApiClient : IEngineApiClient
                 Author         = r.Author,
                 MediaType      = r.MediaType,
                 CollectionDisplayName = r.CollectionDisplayName,
+                Series = r.Series,
+                SeriesPosition = r.SeriesPosition,
+                ShowName = r.ShowName,
+                SeasonNumber = r.SeasonNumber,
+                EpisodeNumber = r.EpisodeNumber,
             }).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
@@ -1094,15 +1099,15 @@ public sealed class EngineApiClient : IEngineApiClient
         DetailEntityType entityType,
         Guid id,
         DetailPresentationContext context = DetailPresentationContext.Default,
-        string? seriesId = null,
+        string? containerId = null,
         CancellationToken ct = default)
     {
         try
         {
             var entity = Uri.EscapeDataString(entityType.ToString().ToLowerInvariant());
             var ctx = Uri.EscapeDataString(context.ToString().ToLowerInvariant());
-            var seriesQuery = string.IsNullOrWhiteSpace(seriesId) ? string.Empty : $"&seriesId={Uri.EscapeDataString(seriesId)}";
-            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/details/{entity}/{id:D}?context={ctx}{seriesQuery}", ct);
+            var containerQuery = string.IsNullOrWhiteSpace(containerId) ? string.Empty : $"&containerId={Uri.EscapeDataString(containerId)}";
+            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/details/{entity}/{id:D}?context={ctx}{containerQuery}", ct);
             return detail is null ? null : NormalizeDetailArtwork(detail);
         }
         catch (OperationCanceledException) { return null; }
@@ -1113,26 +1118,26 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<bool> SetDefaultSeriesAsync(
+    public async Task<bool> SetDefaultSequenceAsync(
         DetailEntityType entityType,
         Guid id,
-        string seriesId,
-        string? seriesTitle = null,
+        string containerId,
+        string? containerTitle = null,
         CancellationToken ct = default)
     {
         try
         {
             var entity = Uri.EscapeDataString(entityType.ToString().ToLowerInvariant());
             var response = await _http.PutAsJsonAsync(
-                $"/api/details/{entity}/{id:D}/series-default",
-                new SetDefaultSeriesRequest { SeriesId = seriesId, SeriesTitle = seriesTitle },
+                $"/api/details/{entity}/{id:D}/sequence-default",
+                new SetDefaultSequenceRequest { ContainerId = containerId, ContainerTitle = containerTitle },
                 ct);
             return response.IsSuccessStatusCode;
         }
         catch (OperationCanceledException) { return false; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PUT /api/details/{EntityType}/{Id}/series-default failed", entityType, id);
+            _logger.LogWarning(ex, "PUT /api/details/{EntityType}/{Id}/sequence-default failed", entityType, id);
             return false;
         }
     }
@@ -4437,7 +4442,7 @@ public sealed class EngineApiClient : IEngineApiClient
             MultiFormatState = detail.MultiFormatState,
             ReadingListeningSync = detail.ReadingListeningSync,
             SyncCapability = detail.SyncCapability,
-            SeriesPlacement = NormalizeSeriesPlacement(detail.SeriesPlacement),
+            SequencePlacement = NormalizeSequencePlacement(detail.SequencePlacement),
             Metadata = detail.Metadata,
             PrimaryActions = detail.PrimaryActions,
             SecondaryActions = detail.SecondaryActions,
@@ -4545,33 +4550,49 @@ public sealed class EngineApiClient : IEngineApiClient
         SourceId = credit.SourceId,
     };
 
-    private SeriesPlacementViewModel? NormalizeSeriesPlacement(SeriesPlacementViewModel? placement)
+    private SequencePlacementViewModel? NormalizeSequencePlacement(SequencePlacementViewModel? placement)
         => placement is null
             ? null
-            : new SeriesPlacementViewModel
+            : new SequencePlacementViewModel
             {
-                SeriesId = placement.SeriesId,
-                SeriesTitle = placement.SeriesTitle,
+                ContainerId = placement.ContainerId,
+                ContainerTitle = placement.ContainerTitle,
+                SelectedContainerId = placement.SelectedContainerId,
+                CanChooseContainer = placement.CanChooseContainer,
+                CanSetDefaultContainer = placement.CanSetDefaultContainer,
+                AvailableContainers = placement.AvailableContainers,
                 UniverseId = placement.UniverseId,
                 UniverseTitle = placement.UniverseTitle,
+                ContainerLabel = placement.ContainerLabel,
+                ItemLabel = placement.ItemLabel,
+                ItemPluralLabel = placement.ItemPluralLabel,
+                GroupLabel = placement.GroupLabel,
+                CurrentGroupKey = placement.CurrentGroupKey,
                 PositionNumber = placement.PositionNumber,
                 TotalKnownItems = placement.TotalKnownItems,
                 PositionLabel = placement.PositionLabel,
+                PositionText = placement.PositionText,
+                PositionSummary = placement.PositionSummary,
                 OrderingType = placement.OrderingType,
-                SelectedSeriesId = placement.SelectedSeriesId,
-                CanChooseSeries = placement.CanChooseSeries,
-                CanSetDefaultSeries = placement.CanSetDefaultSeries,
-                AvailableSeries = placement.AvailableSeries,
-                PreviousItem = NormalizeSeriesItem(placement.PreviousItem),
-                CurrentItem = NormalizeSeriesItem(placement.CurrentItem) ?? new SeriesItemViewModel(),
-                NextItem = NormalizeSeriesItem(placement.NextItem),
-                OrderedItems = placement.OrderedItems.Select(NormalizeSeriesItem).OfType<SeriesItemViewModel>().ToList(),
+                PreviousItem = NormalizeSequenceItem(placement.PreviousItem),
+                CurrentItem = NormalizeSequenceItem(placement.CurrentItem) ?? new SequenceItemViewModel(),
+                NextItem = NormalizeSequenceItem(placement.NextItem),
+                OrderedItems = placement.OrderedItems.Select(NormalizeSequenceItem).OfType<SequenceItemViewModel>().ToList(),
+                Groups = placement.Groups.Select(NormalizeSequenceGroup).ToList(),
             };
 
-    private SeriesItemViewModel? NormalizeSeriesItem(SeriesItemViewModel? item)
+    private SequenceGroupViewModel NormalizeSequenceGroup(SequenceGroupViewModel group)
+        => new()
+        {
+            Key = group.Key,
+            Title = group.Title,
+            Items = group.Items.Select(NormalizeSequenceItem).OfType<SequenceItemViewModel>().ToList(),
+        };
+
+    private SequenceItemViewModel? NormalizeSequenceItem(SequenceItemViewModel? item)
         => item is null
             ? null
-            : new SeriesItemViewModel
+            : new SequenceItemViewModel
             {
                 Id = item.Id,
                 EntityType = item.EntityType,
@@ -4579,6 +4600,9 @@ public sealed class EngineApiClient : IEngineApiClient
                 ArtworkUrl = NormalizeOptionalUrl(item.ArtworkUrl),
                 PositionNumber = item.PositionNumber,
                 PositionLabel = item.PositionLabel,
+                PositionText = item.PositionText,
+                GroupKey = item.GroupKey,
+                GroupTitle = item.GroupTitle,
                 IsCurrent = item.IsCurrent,
                 IsOwned = item.IsOwned,
                 ProgressState = item.ProgressState,
@@ -5079,7 +5103,12 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("title")]            string  Title,
         [property: JsonPropertyName("author")]           string? Author,
         [property: JsonPropertyName("media_type")]       string  MediaType,
-        [property: JsonPropertyName("collection_display_name")] string  CollectionDisplayName);
+        [property: JsonPropertyName("collection_display_name")] string  CollectionDisplayName,
+        [property: JsonPropertyName("series")]           string? Series,
+        [property: JsonPropertyName("series_position")]  string? SeriesPosition,
+        [property: JsonPropertyName("show_name")]        string? ShowName,
+        [property: JsonPropertyName("season_number")]    string? SeasonNumber,
+        [property: JsonPropertyName("episode_number")]   string? EpisodeNumber);
 
     private sealed record ApiKeyRaw(
         [property: JsonPropertyName("id")]         Guid           Id,

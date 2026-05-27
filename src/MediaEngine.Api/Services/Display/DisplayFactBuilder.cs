@@ -11,6 +11,8 @@ public static class DisplayFactBuilder
         string? artist = null,
         string? narrator = null,
         string? series = null,
+        string? seriesPosition = null,
+        string? showName = null,
         string? season = null,
         string? episode = null,
         string? track = null,
@@ -23,11 +25,16 @@ public static class DisplayFactBuilder
                 AddFact(facts, year, title);
                 break;
             case "TV":
+                AddFact(facts, showName, title);
                 AddFact(facts, year, title);
                 AddFact(facts, FormatEpisode(season, episode), title);
                 break;
-            case "Book":
             case "Comic":
+                AddFact(facts, series, title);
+                AddFact(facts, FormatIssue(seriesPosition), title);
+                AddFact(facts, author, title);
+                break;
+            case "Book":
                 AddFact(facts, author, title);
                 break;
             case "Audiobook":
@@ -85,6 +92,11 @@ public static class DisplayFactBuilder
 
     private static string? FormatEpisode(string? season, string? episode) =>
         !string.IsNullOrWhiteSpace(season) && !string.IsNullOrWhiteSpace(episode)
-            ? $"S{season}:E{episode}"
+            ? $"S{season} E{episode}"
             : null;
+
+    private static string? FormatIssue(string? seriesPosition) =>
+        string.IsNullOrWhiteSpace(seriesPosition)
+            ? null
+            : $"Issue #{seriesPosition}";
 }

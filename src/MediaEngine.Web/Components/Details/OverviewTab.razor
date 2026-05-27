@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Details
+@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
 <div class="tl-detail-tab-panel @(Model.EntityType == DetailEntityType.Person ? null : "tl-media-overview-panel")">
@@ -135,10 +135,10 @@
                 </div>
             </div>
 
-            @if (Model.SeriesPlacement is not null)
+            @if (Model.SequencePlacement is not null)
             {
                 <div class="tl-media-overview-card__series">
-                    <SeriesPlacementPanel Placement="Model.SeriesPlacement" OnSeriesSelected="OnSeriesSelected" Compact="true" />
+                    <SequencePlacementPanel Placement="Model.SequencePlacement" OnContainerSelected="OnContainerSelected" Compact="true" />
                 </div>
             }
             else if (MoreLikeThisItems.Count > 0)
@@ -178,7 +178,7 @@
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
     [Parameter] public EventCallback<string> OnTabRequested { get; set; }
-    [Parameter] public EventCallback<SeriesOptionViewModel> OnSeriesSelected { get; set; }
+    [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
 
     private bool _creditsExpanded;
 

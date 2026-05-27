@@ -436,7 +436,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 if (resultNode is null)
                     continue;
 
-                var item = ExtractSearchResultItem(resultNode, request.MediaType, request.Title, strategy);
+                var item = ExtractSearchResultItem(resultNode, request, strategy);
                 if (item is not null)
                     items.Add(item);
             }
@@ -462,18 +462,17 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     /// using the configured field mappings. Looks for title, description, year,
     /// cover/thumbnail, and a provider item ID.
     /// <para>
-    /// The <paramref name="query"/> is used to compute a per-result match score via
-    /// word-overlap similarity so that the first result is not always scored identically
-    /// to the tenth. The confidence reflects how well the result matches the search terms.
+    /// The lookup request is used to compute a per-result match score so that the first
+    /// result is not always scored identically to the tenth. For comics, series and issue
+    /// number are stronger identity signals than issue-title text.
     /// </para>
     /// </summary>
     private SearchResultItem? ExtractSearchResultItem(
         System.Text.Json.Nodes.JsonNode resultNode,
-        MediaType mediaType = MediaType.Unknown,
-        string? query = null,
+        ProviderLookupRequest request,
         SearchStrategyConfig? strategy = null)
     {
-        var filteredMappings = FilterMappingsByMediaType(_config.FieldMappings, mediaType);
+        var filteredMappings = FilterMappingsByMediaType(_config.FieldMappings, request.MediaType);
         if (filteredMappings.Count == 0)
             return null;
 
@@ -583,7 +582,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         // title (and author) match the original search query.
         // This ensures result 1 scores higher than result 8 when the provider
         // returns them in relevance order but with identical field weights.
-        var confidence = ComputeQueryMatchScore(query, title, author);
+        var confidence = ComputeSearchResultConfidence(request, title, author, extraFields);
 
         _logger.LogInformation(
             "{Provider}: extracted result Title='{Title}' Author='{Author}' Year='{Year}' " +
@@ -621,6 +620,35 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     /// </list>
     /// </para>
     /// </summary>
+    private static double ComputeSearchResultConfidence(
+        ProviderLookupRequest request,
+        string title,
+        string? author,
+        IReadOnlyDictionary<string, string> extraFields)
+    {
+        if (request.MediaType == MediaType.Comics)
+        {
+            var fileSeries = request.Series ?? request.Hints?.GetValueOrDefault(MetadataFieldConstants.Series);
+            var fileIssue = GetComicIssueHint(request);
+            var candidateSeries = extraFields.GetValueOrDefault(MetadataFieldConstants.Series);
+            var candidateIssue = extraFields.GetValueOrDefault("issue_number")
+                ?? extraFields.GetValueOrDefault(MetadataFieldConstants.SeriesPosition)
+                ?? extraFields.GetValueOrDefault("issue");
+
+            if (!string.IsNullOrWhiteSpace(fileSeries)
+                && !string.IsNullOrWhiteSpace(fileIssue)
+                && !string.IsNullOrWhiteSpace(candidateSeries)
+                && !string.IsNullOrWhiteSpace(candidateIssue)
+                && AreEquivalentComicText(fileSeries, candidateSeries)
+                && AreEquivalentComicOrdinals(fileIssue, candidateIssue))
+            {
+                return 1.0;
+            }
+        }
+
+        return ComputeQueryMatchScore(request.Title, title, author);
+    }
+
     private static double ComputeQueryMatchScore(string? query, string? title, string? author)
     {
         if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(title))
@@ -702,7 +730,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 var cachedJson = JsonNode.Parse(cached.ResponseJson);
                 if (cachedJson is not null)
                 {
-                    var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
+                    var resultNode = NavigateToResult(cachedJson, strategy, request);
                     if (resultNode is not null)
                         return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
                             .ConfigureAwait(false);
@@ -781,7 +809,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     var cachedJson = JsonNode.Parse(refreshed.ResponseJson);
                     if (cachedJson is not null)
                     {
-                        var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
+                        var resultNode = NavigateToResult(cachedJson, strategy, request);
                         if (resultNode is not null)
                             return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
                                 .ConfigureAwait(false);
@@ -820,7 +848,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 return [];
 
             // Navigate to result object.
-            var resultObj = NavigateToResult(json, strategy, request.Title, request.Author);
+            var resultObj = NavigateToResult(json, strategy, request);
             if (resultObj is null)
                 return [];
 
@@ -870,6 +898,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (string.IsNullOrWhiteSpace(candidateTitle))
             return true;
 
+        if (request.MediaType == MediaType.Comics && ComicClaimsMatchRequest(claims, request))
+            return true;
+
         var titleScore = ComputeWordOverlap(
             CleanTitleForSearch(request.Title) ?? request.Title,
             CleanTitleForSearch(candidateTitle) ?? candidateTitle);
@@ -894,6 +925,31 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             authorScore);
 
         return false;
+    }
+
+    private static bool ComicClaimsMatchRequest(
+        IReadOnlyList<ProviderClaim> claims,
+        ProviderLookupRequest request)
+    {
+        var fileSeries = request.Series
+            ?? request.Hints?.GetValueOrDefault(MetadataFieldConstants.Series);
+        var fileIssue = GetComicIssueHint(request);
+        if (string.IsNullOrWhiteSpace(fileSeries) || string.IsNullOrWhiteSpace(fileIssue))
+            return false;
+
+        var candidateSeries = claims.FirstOrDefault(c =>
+            string.Equals(c.Key, MetadataFieldConstants.Series, StringComparison.OrdinalIgnoreCase))?.Value;
+        var candidateIssue = claims.FirstOrDefault(c =>
+                string.Equals(c.Key, "issue_number", StringComparison.OrdinalIgnoreCase))?.Value
+            ?? claims.FirstOrDefault(c =>
+                string.Equals(c.Key, MetadataFieldConstants.SeriesPosition, StringComparison.OrdinalIgnoreCase))?.Value
+            ?? claims.FirstOrDefault(c =>
+                string.Equals(c.Key, "issue", StringComparison.OrdinalIgnoreCase))?.Value;
+
+        return !string.IsNullOrWhiteSpace(candidateSeries)
+            && !string.IsNullOrWhiteSpace(candidateIssue)
+            && AreEquivalentComicText(fileSeries, candidateSeries)
+            && AreEquivalentComicOrdinals(fileIssue, candidateIssue);
     }
 
     private async Task<IReadOnlyList<ProviderClaim>> EnrichClaimsWithTmdbDetailsAsync(
@@ -1373,8 +1429,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     // -- Result navigation ---------------------------------------------------
 
     private static JsonNode? NavigateToResult(
-        JsonNode json, SearchStrategyConfig strategy,
-        string? queryTitle = null, string? queryAuthor = null)
+        JsonNode json,
+        SearchStrategyConfig strategy,
+        ProviderLookupRequest request)
     {
         // If no results_path, treat the whole response as the result.
         if (string.IsNullOrEmpty(strategy.ResultsPath))
@@ -1391,11 +1448,15 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         // Strategy: prefer author-matched results. If no author match, fall back
         // to title-only matching (handles pen names where the listed author on
         // the retailer differs from the embedded author).
-        if (!string.IsNullOrWhiteSpace(queryTitle))
+        var comicIssueResult = TrySelectComicIssueResult(arr, request);
+        if (comicIssueResult is not null)
+            return comicIssueResult;
+
+        if (!string.IsNullOrWhiteSpace(request.Title))
         {
             // Clean the query title for matching — strip "(YYYY)" and "SxxExx" so
             // word-overlap scoring isn't penalised by filename-derived suffixes.
-            var cleanedQueryTitle = CleanTitleForSearch(queryTitle) ?? queryTitle;
+            var cleanedQueryTitle = CleanTitleForSearch(request.Title) ?? request.Title;
 
             var titlePaths  = new[] { "trackName", "collectionName", "title", "name", "issue", "series.name", "series", "volumeName" };
             var authorPaths = new[] { "artistName", "author", "authors", "creator" };
@@ -1428,8 +1489,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 if (string.IsNullOrWhiteSpace(bestNodeTitle)) continue;
 
                 var titleScore  = bestTitleScore;
-                var authorScore = !string.IsNullOrWhiteSpace(queryAuthor) && !string.IsNullOrWhiteSpace(nodeAuthor)
-                    ? ComputeWordOverlap(queryAuthor, nodeAuthor)
+                var authorScore = !string.IsNullOrWhiteSpace(request.Author) && !string.IsNullOrWhiteSpace(nodeAuthor)
+                    ? ComputeWordOverlap(request.Author, nodeAuthor)
                     : 0.0;
 
                 scored.Add((node, titleScore, authorScore));
@@ -1460,6 +1521,94 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         var index = Math.Clamp(strategy.ResultIndex, 0, arr.Count - 1);
         return arr[index];
+    }
+
+    private static JsonNode? TrySelectComicIssueResult(JsonArray arr, ProviderLookupRequest request)
+    {
+        if (request.MediaType != MediaType.Comics)
+            return null;
+
+        var fileSeries = request.Series
+            ?? request.Hints?.GetValueOrDefault(MetadataFieldConstants.Series);
+        var fileIssue = GetComicIssueHint(request);
+        if (string.IsNullOrWhiteSpace(fileSeries) || string.IsNullOrWhiteSpace(fileIssue))
+            return null;
+
+        var cleanedQueryTitle = !string.IsNullOrWhiteSpace(request.Title)
+            ? CleanTitleForSearch(request.Title) ?? request.Title
+            : fileSeries;
+        var scored = new List<(JsonNode Node, double Score)>();
+
+        foreach (var node in arr)
+        {
+            if (node is null)
+                continue;
+
+            var candidateSeries = ExtractFirstString(node,
+                ["volume.name", "series.name", "series", "volumeName", "volume"]);
+            var candidateIssue = ExtractFirstString(node,
+                ["issue_number", "issueNumber", "number", "issue"]);
+
+            if (string.IsNullOrWhiteSpace(candidateSeries)
+                || string.IsNullOrWhiteSpace(candidateIssue)
+                || !AreEquivalentComicText(fileSeries, candidateSeries)
+                || !AreEquivalentComicOrdinals(fileIssue, candidateIssue))
+            {
+                continue;
+            }
+
+            var candidateTitle = ExtractFirstString(node, ["name", "title", "issue"]);
+            var titleScore = string.IsNullOrWhiteSpace(candidateTitle)
+                ? 0.0
+                : ComputeWordOverlap(cleanedQueryTitle, candidateTitle);
+            scored.Add((node, 1.0 + titleScore * 0.01));
+        }
+
+        return scored
+            .OrderByDescending(item => item.Score)
+            .Select(item => item.Node)
+            .FirstOrDefault();
+    }
+
+    private static string? GetComicIssueHint(ProviderLookupRequest request)
+        => request.Hints?.GetValueOrDefault("issue_number")
+            ?? request.Hints?.GetValueOrDefault(MetadataFieldConstants.SeriesPosition)
+            ?? request.Hints?.GetValueOrDefault("issue");
+
+    private static bool AreEquivalentComicText(string left, string right)
+        => string.Equals(NormalizeComicText(left), NormalizeComicText(right), StringComparison.Ordinal);
+
+    private static string NormalizeComicText(string value)
+    {
+        var chars = StripDiacritics(value)
+            .Replace("&", " and ", StringComparison.Ordinal)
+            .ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
+            .ToArray();
+
+        return string.Join(' ', new string(chars)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static bool AreEquivalentComicOrdinals(string left, string right)
+    {
+        if (int.TryParse(ExtractLeadingDigits(left), out var leftNumber)
+            && int.TryParse(ExtractLeadingDigits(right), out var rightNumber))
+        {
+            return leftNumber == rightNumber;
+        }
+
+        return string.Equals(left.TrimStart('0'), right.TrimStart('0'), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ExtractLeadingDigits(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var match = Regex.Match(value.Trim(), @"^\D*0*(\d+)");
+        return match.Success ? match.Groups[1].Value : string.Empty;
     }
 
     /// <summary>

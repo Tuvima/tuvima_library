@@ -20,6 +20,7 @@ public sealed class BatchProgressService
         "BridgeSearching",
         "QidResolved",
         "Hydrating",
+        "UniverseEnriching",
     ];
 
     private readonly IIngestionBatchRepository _batchRepo;
@@ -126,7 +127,7 @@ public sealed class BatchProgressService
                     COALESCE(SUM(CASE WHEN js.state = 'BridgeSearching' THEN 1 ELSE 0 END), 0) AS BridgeSearching,
                     COALESCE(SUM(CASE WHEN js.state = 'QidResolved' THEN 1 ELSE 0 END), 0) AS QidResolved,
                     COALESCE(SUM(CASE WHEN js.state = 'Hydrating' THEN 1 ELSE 0 END), 0) AS Hydrating,
-                    0 AS UniverseEnriching
+                    COALESCE(SUM(CASE WHEN js.state = 'UniverseEnriching' THEN 1 ELSE 0 END), 0) AS UniverseEnriching
                 FROM job_states js
                 LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
                 """,
@@ -315,7 +316,13 @@ public sealed class BatchProgressService
         if (completed)
             return "Complete";
 
-        if (snapshot.BridgeSearching > 0 || snapshot.QidResolved > 0 || snapshot.Hydrating > 0)
+        if (snapshot.UniverseEnriching > 0)
+            return "Enriching";
+
+        if (snapshot.Hydrating > 0)
+            return "Hydrating";
+
+        if (snapshot.BridgeSearching > 0 || snapshot.QidResolved > 0)
             return "ResolvingUniverse";
 
         if (snapshot.RetailSearching > 0 || snapshot.RetailMatched > 0 || snapshot.RetailMatchedNeedsReview > 0)
@@ -335,6 +342,8 @@ public sealed class BatchProgressService
         lifecycleStage switch
         {
             "ResolvingUniverse" => "Resolving universe",
+            "Hydrating" => "Hydrating metadata",
+            "Enriching" => "Enrichment",
             "Identifying" => "Identifying",
             "Review" => "Review",
             "Queued" => "Queued",

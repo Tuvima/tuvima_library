@@ -261,7 +261,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-media-overview-card__top", source);
         Assert.Contains("tl-media-overview-card__summary", source);
         Assert.Contains("tl-media-overview-card__credits", source);
-        Assert.Contains("SeriesPlacementPanel", source);
+        Assert.Contains("SequencePlacementPanel", source);
         Assert.Contains("Compact=\"true\"", source);
         Assert.Contains("MoreLikeThisItems", source);
         Assert.Contains("IsRecommendationGroup", source);
@@ -354,31 +354,31 @@ public sealed class UnifiedDetailComponentTests
     {
         var source = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
 
-        Assert.Contains("NormalizeSeriesPlacement", source);
-        Assert.Contains("NormalizeSeriesItem", source);
+        Assert.Contains("NormalizeSequencePlacement", source);
+        Assert.Contains("NormalizeSequenceItem", source);
         Assert.Contains("NormalizeHeroArtwork", source);
         Assert.Contains("ImageUrl = NormalizeOptionalUrl(credit.ImageUrl)", source);
     }
 
     [Fact]
-    public void SeriesPlacementPanel_DoesNotRenderViewAllLink()
+    public void SequencePlacementPanel_DoesNotRenderViewAllLink()
     {
-        var source = ReadSource("src/MediaEngine.Web/Components/Details/SeriesPlacementPanel.razor");
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.Contains("<h2>@SeriesTitleDisplay</h2>", source);
+        Assert.Contains("<h2>@ContainerTitleDisplay</h2>", source);
         Assert.Contains("[Parameter] public bool Compact { get; set; }", source);
         Assert.Contains("tl-series-placement--compact", source);
-        Assert.Contains("@(Compact ? SeriesTitleDisplay : \"Series\")", source);
+        Assert.Contains("@(Compact ? ContainerTitleDisplay : Placement.ContainerLabel)", source);
         Assert.Contains("item.IsCurrent && !Compact", source);
         Assert.DoesNotContain("Part of", source);
-        Assert.Contains("TitleCaseDisplay(Placement.SeriesTitle)", source);
+        Assert.Contains("TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel)", source);
         Assert.Contains("VisibleItems", source);
         Assert.Contains("tl-series-carousel__arrow", source);
         Assert.Contains("MudChart T=\"double\"", source);
         Assert.Contains("ChartType=\"ChartType.Donut\"", source);
-        Assert.Contains("ChartSeries=\"@SeriesDonutSeries\"", source);
-        Assert.Contains("ChartLabels=\"@SeriesDonutLabels\"", source);
+        Assert.Contains("ChartSeries=\"@SequenceDonutSeries\"", source);
+        Assert.Contains("ChartLabels=\"@SequenceDonutLabels\"", source);
         Assert.DoesNotContain("View all", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("View Full Series", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("tl-series-view-all", source, StringComparison.OrdinalIgnoreCase);
@@ -388,11 +388,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Current position", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("tl-series-item__current-badge", source);
         Assert.Contains("tl-series-item__node", source);
-        Assert.Contains("SeriesItemRoute(item)", source);
+        Assert.Contains("SequenceItemRoute(item)", source);
         Assert.Contains("href=\"@route\"", source);
-        Assert.Contains("private int TotalItems => Placement.OrderedItems.Count", source);
+        Assert.Contains("private int TotalItems => ActiveItems.Count", source);
         Assert.Contains("tl-series-placement--long", source);
-        Assert.Contains("LongSeriesThreshold = 9", source);
+        Assert.Contains("LongSequenceThreshold = 9", source);
         Assert.DoesNotContain("tl-series-item__owned-badge", source);
         Assert.DoesNotContain("Icons.Material.Filled.Check\" Size=\"Size.Small\"", source);
         Assert.Contains("ItemNoun", source);

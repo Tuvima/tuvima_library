@@ -50,10 +50,25 @@ public sealed class DisplayFactBuilderTests
             title: "Pilot",
             year: "2008",
             genre: "Crime",
+            showName: "Breaking Bad",
             season: "1",
             episode: "1");
 
-        Assert.Equal(["2008", "S1:E1", "Crime"], facts);
+        Assert.Equal(["Breaking Bad", "2008", "S1 E1", "Crime"], facts);
+    }
+
+    [Fact]
+    public void ComicFacts_UseVolumeAndIssue()
+    {
+        var facts = DisplayFactBuilder.Build(
+            mediaKind: "Comic",
+            title: "Absent Friends",
+            author: "Alan Moore",
+            series: "Watchmen",
+            seriesPosition: "2",
+            genre: "Superhero");
+
+        Assert.Equal(["Watchmen", "Issue #2", "Alan Moore", "Superhero"], facts);
     }
 
     [Fact]

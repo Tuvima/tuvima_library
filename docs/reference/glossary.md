@@ -111,7 +111,7 @@ The exception workflow for blocked, uncertain, low-confidence, or unresolved ite
 ## S
 
 **Series**  
-A lane-level shelf, such as a book series in Read, a film series or TV show in Watch, or an album/audio series in Listen.
+A lane-level shelf, such as a book series in Read, a film series in Watch, or an album/audio series in Listen. Comics use volume/issue wording on user-facing surfaces even when the stored metadata field is still `series`.
 
 **Shelf**  
 An immediate browse group inside a media lane. A single shelf does not automatically create a Collections tile.

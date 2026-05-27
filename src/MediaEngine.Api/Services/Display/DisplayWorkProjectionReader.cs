@@ -50,7 +50,11 @@ public sealed class DisplayWorkProjectionReader
                 RootWorkId,
                 AssetId,
                 COALESCE(CreatedAt, CURRENT_TIMESTAMP) AS CreatedAt,
-                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'title' LIMIT 1),
+                COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'issue_title' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'issue_title' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'episode_title' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'episode_title' LIMIT 1),
+                         (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'title' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'title' LIMIT 1),
                          'Untitled') AS Title,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('author', 'creator') LIMIT 1) AS Author,
@@ -59,11 +63,18 @@ public sealed class DisplayWorkProjectionReader
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('release_year', 'year') LIMIT 1) AS Year,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'genre' LIMIT 1) AS Genre,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'series' LIMIT 1) AS Series,
-                (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'series_position' LIMIT 1) AS SeriesPosition,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'issue_number' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'issue_number' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'series_position' LIMIT 1)
+                ) AS SeriesPosition,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'narrator' LIMIT 1) AS Narrator,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1) AS Director,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'network' LIMIT 1) AS Network,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'show_name' LIMIT 1) AS ShowName,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'show_name' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'title' LIMIT 1)
+                ) AS ShowName,
                 (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'season_number' LIMIT 1) AS SeasonNumber,
                 (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'episode_number' LIMIT 1) AS EpisodeNumber,
                 (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'track_number' LIMIT 1) AS TrackNumber,

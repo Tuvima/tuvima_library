@@ -47,6 +47,7 @@ public static class ClaimScopeCatalog
         new(StringComparer.OrdinalIgnoreCase)
         {
             // Container bridge IDs — only meaningful at the album/show/series level.
+            // ComicVine is overridden for Comics because issue search returns issue IDs.
             [BridgeIdKeys.AppleMusicCollectionId]    = ClaimScope.Parent,
             [BridgeIdKeys.AppleArtistId]             = ClaimScope.Parent,
             [BridgeIdKeys.MusicBrainzId]             = ClaimScope.Parent,
@@ -107,6 +108,7 @@ public static class ClaimScopeCatalog
             },
             [MediaType.Comics] = new(StringComparer.OrdinalIgnoreCase)
             {
+                [BridgeIdKeys.ComicVineId]        = ClaimScope.Self,
                 [MetadataFieldConstants.Author]       = ClaimScope.Parent,
                 [MetadataFieldConstants.Illustrator]  = ClaimScope.Parent,
                 [MetadataFieldConstants.Genre]        = ClaimScope.Parent,

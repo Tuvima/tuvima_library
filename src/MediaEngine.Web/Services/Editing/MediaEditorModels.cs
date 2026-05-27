@@ -501,7 +501,7 @@ public static class MediaEditorSchemaCatalog
                 Field("title", "Title"),
                 Field("year", "Year"),
                 Field("description", "Description", "textarea", identity: true),
-                Field("series", "Series", identity: true),
+                Field("series", "Volume", identity: true),
                 Field("series_position", "Issue Number", identity: true),
                 Field("author", "Writer"),
                 Field("illustrator", "Artist"),
@@ -513,7 +513,7 @@ public static class MediaEditorSchemaCatalog
                 Field("comment", "Comment", "textarea")),
             Group("comic_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort Title"),
-                Field("sort_series", "Sort Series")),
+                Field("sort_series", "Sort Volume")),
         ],
     };
 

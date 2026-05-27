@@ -18,7 +18,7 @@ public static class DetailEndpoints
             string entityType,
             Guid id,
             string? context,
-            string? seriesId,
+            string? containerId,
             DetailComposerService composer,
             CancellationToken ct) =>
         {
@@ -26,7 +26,7 @@ public static class DetailEndpoints
                 return Results.BadRequest(new { message = $"Unsupported detail entity type '{entityType}'." });
 
             var presentationContext = DetailComposerService.ParseContext(context);
-            var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, seriesId);
+            var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, containerId);
             return detail is null ? Results.NotFound() : Results.Ok(detail);
         })
         .WithName("GetDetailPage")
@@ -36,10 +36,10 @@ public static class DetailEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
-        group.MapPut("/{entityType}/{id:guid}/series-default", async (
+        group.MapPut("/{entityType}/{id:guid}/sequence-default", async (
             string entityType,
             Guid id,
-            SetDefaultSeriesRequest request,
+            SetDefaultSequenceRequest request,
             DetailComposerService composer,
             ICanonicalValueRepository canonicalValues,
             CancellationToken ct) =>
@@ -47,15 +47,15 @@ public static class DetailEndpoints
             if (!DetailComposerService.TryParseEntityType(entityType, out var parsedType))
                 return Results.BadRequest(new { message = $"Unsupported detail entity type '{entityType}'." });
 
-            var seriesId = NormalizeSeriesId(request.SeriesId);
-            if (string.IsNullOrWhiteSpace(seriesId))
-                return Results.BadRequest(new { message = "A valid series QID is required." });
+            var containerId = NormalizeContainerId(request.ContainerId);
+            if (string.IsNullOrWhiteSpace(containerId))
+                return Results.BadRequest(new { message = "A valid sequence container is required." });
 
             var detail = await composer.BuildAsync(parsedType, id, DetailPresentationContext.Default, ct);
-            var matchingSeries = detail?.SeriesPlacement?.AvailableSeries.FirstOrDefault(option =>
-                string.Equals(NormalizeSeriesId(option.SeriesId), seriesId, StringComparison.OrdinalIgnoreCase));
-            if (matchingSeries is null)
-                return Results.BadRequest(new { message = "The selected series is not a valid same-media series for this item." });
+            var matchingContainer = detail?.SequencePlacement?.AvailableContainers.FirstOrDefault(option =>
+                string.Equals(NormalizeContainerId(option.ContainerId), containerId, StringComparison.OrdinalIgnoreCase));
+            if (matchingContainer is null)
+                return Results.BadRequest(new { message = "The selected container is not valid for this item." });
 
             var now = DateTimeOffset.UtcNow;
             await canonicalValues.UpsertBatchAsync(
@@ -63,18 +63,18 @@ public static class DetailEndpoints
                 new CanonicalValue
                 {
                     EntityId = id,
-                    Key = "default_series_qid",
-                    Value = seriesId,
+                    Key = "default_sequence_container_id",
+                    Value = containerId,
                     LastScoredAt = now,
                     WinningProviderId = WellKnownProviders.UserManual,
                 },
                 new CanonicalValue
                 {
                     EntityId = id,
-                    Key = "default_series_label",
-                    Value = string.IsNullOrWhiteSpace(request.SeriesTitle)
-                        ? matchingSeries.SeriesTitle
-                        : request.SeriesTitle.Trim(),
+                    Key = "default_sequence_container_label",
+                    Value = string.IsNullOrWhiteSpace(request.ContainerTitle)
+                        ? matchingContainer.ContainerTitle
+                        : request.ContainerTitle.Trim(),
                     LastScoredAt = now,
                     WinningProviderId = WellKnownProviders.UserManual,
                 },
@@ -82,8 +82,8 @@ public static class DetailEndpoints
 
             return Results.NoContent();
         })
-        .WithName("SetDetailDefaultSeries")
-        .WithSummary("Sets the global default same-media series for a work.")
+        .WithName("SetDetailDefaultSequence")
+        .WithSummary("Sets the default same-media sequence container for a work.")
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden)
@@ -92,7 +92,7 @@ public static class DetailEndpoints
         return app;
     }
 
-    private static string? NormalizeSeriesId(string? value)
+    private static string? NormalizeContainerId(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
             return null;
@@ -104,6 +104,6 @@ public static class DetailEndpoints
 
         return trimmed.Length > 1 && trimmed[0] is 'Q' && trimmed.Skip(1).All(char.IsDigit)
             ? trimmed
-            : null;
+            : trimmed;
     }
 }

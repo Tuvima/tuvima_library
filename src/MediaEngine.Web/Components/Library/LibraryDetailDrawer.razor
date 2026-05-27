@@ -1490,8 +1490,15 @@
         if (!string.IsNullOrEmpty(MediaItem.Year)) rows.Add(("Year", MediaItem.Year));
         rows.Add(("Media Type", MediaItem.MediaType));
         if (!string.IsNullOrEmpty(MediaItem.Genre)) rows.Add(("Genre", MediaItem.Genre));
-        if (!string.IsNullOrEmpty(MediaItem.Series))
+        if (MediaItem.MediaType == "Comics")
+        {
+            if (!string.IsNullOrEmpty(MediaItem.Series)) rows.Add(("Volume", MediaItem.Series));
+            if (!string.IsNullOrEmpty(MediaItem.SeriesPosition)) rows.Add(("Issue", MediaItem.SeriesPosition));
+        }
+        else if (MediaItem.MediaType != "TV" && !string.IsNullOrEmpty(MediaItem.Series))
+        {
             rows.Add(("Series", MediaItem.Series + (!string.IsNullOrEmpty(MediaItem.SeriesPosition) ? $" #{MediaItem.SeriesPosition}" : "")));
+        }
         if (!string.IsNullOrEmpty(MediaItem.UniverseName)) rows.Add(("Universe", MediaItem.UniverseName));
         if (MediaItem.MediaType == "Music")
         {
@@ -1889,7 +1896,7 @@
             "Books" => [("book_identity", "Book"), ("series", "Series")],
             "Movies" => [("movie_identity", "Movie")],
             "TV" => [("show_episode", "Show / Episode"), ("show", "Show")],
-            "Comics" => [("series", "Series"), ("issue", "Issue")],
+            "Comics" => [("series", "Volume"), ("issue", "Issue")],
             _ => [("book_identity", "Identity")],
         };
 
@@ -2193,6 +2200,4 @@
     }
 
 }
-
-
 

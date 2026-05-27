@@ -1,0 +1,346 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Services.Integration
+@using System.Globalization
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+
+<section class="tl-series-placement @PanelClass">
+    <div class="tl-series-header">
+        <div>
+            <div class="tl-series-eyebrow">
+                <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
+                <span>@(Compact ? ContainerTitleDisplay : Placement.ContainerLabel)</span>
+                @if (Compact)
+                {
+                    <small>@PositionSummary</small>
+                }
+            </div>
+            @if (!Compact)
+            {
+                <h2>@ContainerTitleDisplay</h2>
+            }
+            @if (Placement.CanChooseContainer)
+            {
+                <div class="tl-series-selector">
+                    @foreach (var option in Placement.AvailableContainers)
+                    {
+                        <AppNativeButton Type="button" Class='@($"tl-series-selector__option {(option.IsSelected ? " is-selected" : null)}")' Disabled="@option.IsSelected" OnClick="() => SelectContainerAsync(option)">
+                            @option.ContainerTitle
+                        </AppNativeButton>
+                    }
+                </div>
+            }
+            @if (ShowGroupSelector)
+            {
+                <label class="tl-series-selector">
+                    <span class="sr-only">@Placement.GroupLabel</span>
+                    <AppNativeSelect Value="@SelectedGroupKey" OnChange="SelectGroup">
+                        @foreach (var group in VisibleGroups)
+                        {
+                            <option value="@group.Key">@group.Title</option>
+                        }
+                    </AppNativeSelect>
+                </label>
+            }
+        </div>
+
+        <div class="tl-series-position-summary" aria-label="@PositionSummary">
+            <div class="tl-series-position-summary__donut">
+                <MudChart T="double"
+                          ChartType="ChartType.Donut"
+                          ChartSeries="@SequenceDonutSeries"
+                          ChartLabels="@SequenceDonutLabels"
+                          ChartOptions="@SequenceDonutOptions"
+                          Width="8.8rem"
+                          Height="8.8rem" />
+                <div class="tl-series-position-summary__center">
+                    <span class="tl-series-position-summary__number">@CurrentPositionText</span>
+                    <span class="tl-series-position-summary__total">of @TotalItems</span>
+                </div>
+            </div>
+            <div class="tl-series-position-summary__label">@PositionSummaryLabel</div>
+            <div class="tl-series-owned-chip">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                <span>@OwnedCount owned</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tl-series-carousel">
+        <AppIconButton Class="@LeftArrowClass"
+                       Icon="@Icons.Material.Outlined.ChevronLeft"
+                       Size="Size.Large"
+                       aria-label="@($"Previous {Placement.ItemPluralLabel.ToLowerInvariant()}")"
+                       Disabled="@(!CanPageLeft)"
+                       OnClick="PageLeft" />
+        <AppCssElement Tag="div" Class="tl-series-strip" Css="@SequenceGridStyle" aria-label="@($"{Placement.ContainerTitle} order")">
+            @foreach (var item in VisibleItems)
+            {
+                var route = SequenceItemRoute(item);
+                if (route is not null)
+                {
+                    <a class="@SequenceItemClass(item)" href="@route" aria-label="Open @SequenceItemTitle(item)">
+                        @SequenceItemContent(item)
+                    </a>
+                }
+                else
+                {
+                    <article class="@SequenceItemClass(item)">
+                        @SequenceItemContent(item)
+                    </article>
+                }
+            }
+        </AppCssElement>
+        <AppIconButton Class="@RightArrowClass"
+                       Icon="@Icons.Material.Outlined.ChevronRight"
+                       Size="Size.Large"
+                       aria-label="@($"More {Placement.ItemPluralLabel.ToLowerInvariant()}")"
+                       Disabled="@(!CanPageRight)"
+                       OnClick="PageRight" />
+    </div>
+
+    <div class="tl-series-owned-summary">
+        <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
+        <span>@OwnedCount owned</span>
+        <span class="tl-series-owned-summary__dot" aria-hidden="true"></span>
+        <span>@MissingCount missing</span>
+        @if (ShowSetDefault)
+        {
+            <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSequenceAsync">
+                Set as default
+            </AppNativeButton>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public SequencePlacementViewModel Placement { get; set; } = default!;
+    [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
+    [Parameter] public bool Compact { get; set; }
+
+    private const int LongSequenceThreshold = 9;
+    private const int WindowSize = 7;
+    private string? _placementKey;
+    private string? _selectedGroupKey;
+    private int _windowCenterIndex;
+    private bool _canCurateSequence;
+    private bool _settingDefault;
+
+    private string PanelClass => $"{MediaShapeClass}{(IsLongSequence ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
+    private string MediaShapeClass => Placement.CurrentItem.EntityType switch
+    {
+        DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-series-panel--square",
+        _ => "tl-series-panel--portrait",
+    };
+
+    private IReadOnlyList<SequenceGroupViewModel> VisibleGroups =>
+        Placement.Groups.Count > 0
+            ? Placement.Groups.Where(group => group.Items.Count > 0).ToList()
+            : [new SequenceGroupViewModel { Key = "all", Title = Placement.ItemPluralLabel, Items = Placement.OrderedItems }];
+
+    private bool ShowGroupSelector => VisibleGroups.Count > 1 && !string.IsNullOrWhiteSpace(Placement.GroupLabel);
+
+    private string? SelectedGroupKey
+    {
+        get
+        {
+            if (VisibleGroups.Count == 0)
+                return null;
+
+            if (!string.IsNullOrWhiteSpace(_selectedGroupKey) && VisibleGroups.Any(group => group.Key == _selectedGroupKey))
+                return _selectedGroupKey;
+
+            _selectedGroupKey = !string.IsNullOrWhiteSpace(Placement.CurrentGroupKey)
+                && VisibleGroups.Any(group => group.Key == Placement.CurrentGroupKey)
+                    ? Placement.CurrentGroupKey
+                    : VisibleGroups[0].Key;
+
+            return _selectedGroupKey;
+        }
+    }
+
+    private SequenceGroupViewModel? ActiveGroup
+        => SelectedGroupKey is null
+            ? null
+            : VisibleGroups.FirstOrDefault(group => group.Key == SelectedGroupKey);
+
+    private IReadOnlyList<SequenceItemViewModel> ActiveItems
+        => ShowGroupSelector
+            ? ActiveGroup?.Items ?? []
+            : Placement.OrderedItems;
+
+    private bool IsLongSequence => ActiveItems.Count >= LongSequenceThreshold;
+    private int OwnedCount => ActiveItems.Count(item => item.IsOwned);
+    private int MissingCount => Math.Max(0, ActiveItems.Count - OwnedCount);
+    private int TotalItems => ActiveItems.Count;
+    private string CurrentPositionText => FirstNonBlank(
+        Placement.PositionText,
+        Placement.CurrentItem.PositionText,
+        Placement.PositionLabel,
+        Placement.CurrentItem.PositionLabel,
+        Placement.PositionNumber?.ToString(CultureInfo.InvariantCulture),
+        Placement.CurrentItem.PositionNumber?.ToString(CultureInfo.InvariantCulture),
+        SequenceNumber(Placement.CurrentItem),
+        "?")!;
+    private string PositionSummary => FirstNonBlank(
+        Placement.PositionSummary,
+        TotalItems > 0 ? $"{CurrentPositionText} of {TotalItems} in {LowerContainerLabel}" : null,
+        ContainerTitleDisplay)!;
+    private string ContainerTitleDisplay => TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel);
+    private string LowerContainerLabel => FirstNonBlank(Placement.ContainerLabel, "sequence")!.ToLowerInvariant();
+    private string PositionSummaryLabel => ShowGroupSelector && ActiveGroup is not null ? $"In {ActiveGroup.Title}" : $"In {LowerContainerLabel}";
+    private string SequenceGridStyle => $"--series-count:{Math.Max(1, VisibleItems.Count)};";
+    private int VisibleCount => ActiveItems.Count <= WindowSize ? ActiveItems.Count : WindowSize;
+    private int WindowStart => Math.Clamp(_windowCenterIndex - (VisibleCount / 2), 0, Math.Max(0, ActiveItems.Count - VisibleCount));
+    private IReadOnlyList<SequenceItemViewModel> VisibleItems => ActiveItems.Skip(WindowStart).Take(VisibleCount).ToList();
+    private bool CanPageLeft => WindowStart > 0;
+    private bool CanPageRight => WindowStart + VisibleCount < ActiveItems.Count;
+    private string LeftArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--left{(CanPageLeft ? string.Empty : " is-hidden")}";
+    private string RightArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--right{(CanPageRight ? string.Empty : " is-hidden")}";
+    private bool ShowSetDefault => _canCurateSequence && Placement.CanSetDefaultContainer && !string.IsNullOrWhiteSpace(Placement.SelectedContainerId);
+    private List<ChartSeries<double>> SequenceDonutSeries =>
+    [
+        new() { Name = Placement.ItemPluralLabel, Data = new ChartData<double>([Math.Max(OwnedCount, 0), Math.Max(MissingCount, 0)]) },
+    ];
+    private string[] SequenceDonutLabels => ["Owned", "Missing"];
+    private DonutChartOptions SequenceDonutOptions { get; } = new()
+    {
+        ShowLegend = false,
+        ShowToolTips = false,
+        DonutRingRatio = 0.42,
+        ChartPalette = ["#3F94F6", "#5E43D6"],
+    };
+    private string MissingIcon => Placement.CurrentItem.EntityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => Icons.Material.Outlined.Movie,
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => Icons.Material.Outlined.Album,
+        _ => Icons.Material.Outlined.MenuBook,
+    };
+    private string ItemNoun => FirstNonBlank(Placement.ItemLabel, "Item")!;
+    private string CurrentItemBadge => $"This {ItemNoun.ToLowerInvariant()}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{Placement.ContainerId}:{Placement.CurrentItem.Id}:{Placement.OrderedItems.Count}:{Placement.Groups.Count}";
+        if (!string.Equals(key, _placementKey, StringComparison.Ordinal))
+        {
+            _placementKey = key;
+            _selectedGroupKey = Placement.CurrentGroupKey;
+            _windowCenterIndex = Math.Max(0, ActiveItems.ToList().FindIndex(item => item.IsCurrent));
+        }
+
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        _canCurateSequence = profile?.Role is "Administrator" or "Curator";
+    }
+
+    private void SelectGroup(ChangeEventArgs args)
+    {
+        var value = args.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        _selectedGroupKey = value;
+        _windowCenterIndex = Math.Max(0, ActiveItems.ToList().FindIndex(item => item.IsCurrent));
+    }
+
+    private void PageLeft()
+        => _windowCenterIndex = Math.Max(0, _windowCenterIndex - Math.Max(1, VisibleCount - 2));
+
+    private void PageRight()
+        => _windowCenterIndex = Math.Min(Math.Max(0, ActiveItems.Count - 1), _windowCenterIndex + Math.Max(1, VisibleCount - 2));
+
+    private Task SelectContainerAsync(SequenceContainerOptionViewModel option)
+    {
+        return option.IsSelected ? Task.CompletedTask : OnContainerSelected.InvokeAsync(option);
+    }
+
+    private async Task SetDefaultSequenceAsync()
+    {
+        if (_settingDefault || string.IsNullOrWhiteSpace(Placement.SelectedContainerId) || !Guid.TryParse(Placement.CurrentItem.Id, out var workId))
+            return;
+
+        _settingDefault = true;
+        try
+        {
+            await ApiClient.SetDefaultSequenceAsync(Placement.CurrentItem.EntityType, workId, Placement.SelectedContainerId, Placement.ContainerTitle);
+        }
+        finally
+        {
+            _settingDefault = false;
+        }
+    }
+
+    private string SequenceItemTitle(SequenceItemViewModel item)
+        => FirstNonBlank(item.Title, $"{ItemNoun} {SequenceNumber(item)}")!;
+
+    private string SequenceItemClass(SequenceItemViewModel item)
+        => $"tl-series-item{(item.IsCurrent ? " is-current" : string.Empty)}{(item.IsOwned ? " is-owned" : " is-missing")}{(SequenceItemRoute(item) is not null ? " is-clickable" : string.Empty)}";
+
+    private string? SequenceItemRoute(SequenceItemViewModel item)
+    {
+        if (!item.IsOwned || item.IsCurrent || !Guid.TryParse(item.Id, out var id))
+            return null;
+
+        return $"/details/{ToRouteEntityType(item.EntityType)}/{id:D}?context={ContextKey(item.EntityType)}";
+    }
+
+    private RenderFragment SequenceItemContent(SequenceItemViewModel item) => @<text>
+        <div class="tl-series-item__position">
+            <span class="tl-series-item__node">@SequenceNumber(item)</span>
+        </div>
+
+        <div class="tl-series-item__art">
+            @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+            {
+                <img src="@item.ArtworkUrl" alt="@item.Title" />
+            }
+            else
+            {
+                <div class="tl-series-item__missing-art" aria-label="Missing from library">
+                    <MudIcon Icon="@MissingIcon" Size="Size.Large" />
+                    <span>Not in library</span>
+                </div>
+            }
+            @if (item.IsCurrent && !Compact)
+            {
+                <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
+            }
+        </div>
+        <div class="tl-series-item__title">@SequenceItemTitle(item)</div>
+    </text>;
+
+    private static string ToRouteEntityType(DetailEntityType entityType)
+        => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();
+
+    private static string ContextKey(DetailEntityType entityType) => entityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries or DetailEntityType.Work => "read",
+        _ => "default",
+    };
+
+    private static string SequenceNumber(SequenceItemViewModel item)
+        => FirstNonBlank(
+            item.PositionText,
+            item.PositionLabel,
+            item.PositionNumber?.ToString(CultureInfo.InvariantCulture),
+            "?")!;
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+    private static string TitleCaseDisplay(string? value, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return fallback;
+
+        var textInfo = CultureInfo.CurrentCulture.TextInfo;
+        return string.Join(' ', value.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => word.Length == 0 || word.All(char.IsUpper)
+                ? word
+                : textInfo.ToTitleCase(word)));
+    }
+}

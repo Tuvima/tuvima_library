@@ -211,7 +211,7 @@ public sealed class DetailHeroPresentation
         DetailEntityType.MovieSeries => "Movie Series",
         DetailEntityType.BookSeries => "Book Series",
         DetailEntityType.ComicIssue => "Comic",
-        DetailEntityType.ComicSeries => "Comics",
+        DetailEntityType.ComicSeries => "Comic Volume",
         DetailEntityType.MusicAlbum => "Album",
         DetailEntityType.MusicArtist => "Artist",
         DetailEntityType.MusicTrack => "Track",

@@ -50,7 +50,7 @@ public sealed class DetailComposerService
         Guid id,
         DetailPresentationContext context,
         CancellationToken ct = default,
-        string? selectedSeriesId = null)
+        string? selectedContainerId = null)
     {
         var isAdminView = context is DetailPresentationContext.Admin;
 
@@ -61,7 +61,7 @@ public sealed class DetailComposerService
                 or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(id, entityType, context, isAdminView, ct),
             DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, ct),
             DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, ct),
-            _ => await BuildWorkAsync(id, entityType, context, isAdminView, selectedSeriesId, ct),
+            _ => await BuildWorkAsync(id, entityType, context, isAdminView, selectedContainerId, ct),
         };
     }
 
@@ -125,7 +125,7 @@ public sealed class DetailComposerService
         DetailEntityType requestedType,
         DetailPresentationContext context,
         bool isAdminView,
-        string? selectedSeriesId,
+        string? selectedContainerId,
         CancellationToken ct)
     {
         var detail = await _libraryItems.GetDetailAsync(workId, ct);
@@ -177,13 +177,13 @@ public sealed class DetailComposerService
         var contributors = await BuildWorkContributorsAsync(workId, detail, entityType, ct);
         var characters = BuildCharacterGroupsFromCast(contributors.CastCredits);
         var contributorGroups = await BuildContributorGroupsAsync(workId, detail, entityType, contributors.CastCredits, values, ct);
-        var seriesPlacement = await BuildSeriesPlacementAsync(workId, detail, entityType, selectedSeriesId, ct);
+        var sequencePlacement = await BuildSequencePlacementAsync(workId, detail, entityType, selectedContainerId, ct);
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, ct);
         var longDescription = ResolveLongDescription(detail.Description, values, entityType);
         var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, entityType, ct);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
         var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
-        var relationships = BuildRelationshipStrip(detail, seriesPlacement);
+        var relationships = BuildRelationshipStrip(detail, sequencePlacement);
 
         return new DetailPageViewModel
         {
@@ -197,11 +197,7 @@ public sealed class DetailComposerService
                 ContainerMode = IsCanonicalContainerEntity(entityType) ? "Canonical" : "Singular",
                 InitialTab = "details",
             },
-            Title = !string.IsNullOrWhiteSpace(displayTitle)
-                ? displayTitle
-                : entityType == DetailEntityType.TvEpisode
-                ? FirstNonBlank(detail.EpisodeTitle, GetValue(values, MetadataFieldConstants.EpisodeTitle), detail.Title, detail.FileName, "Untitled")
-                : FirstNonBlank(detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled"),
+            Title = ResolveWorkDisplayTitle(displayTitle, detail, values, entityType),
             Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
             Tagline = heroSummary,
             Description = longDescription,
@@ -215,7 +211,7 @@ public sealed class DetailComposerService
             OwnedFormats = ownedFormats,
             MultiFormatState = multiFormatState,
             SyncCapability = BuildSyncCapability(workId, ownedFormats, multiFormatState),
-            SeriesPlacement = seriesPlacement,
+            SequencePlacement = sequencePlacement,
             Metadata = BuildMetadataPills(detail, entityType, values, ownedFormats),
             PrimaryActions = BuildPrimaryActions(workId, entityType, context, ownedFormats, heroProgress),
             SecondaryActions = BuildSecondaryActions(workId, entityType, ownedFormats),
@@ -225,7 +221,7 @@ public sealed class DetailComposerService
             CharacterGroups = characters,
             PreviewCharacters = characters.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = relationships,
-            Tabs = BuildTabs(entityType, context, isAdminView, seriesPlacement is not null, HasUniverseRelationship(relationships)),
+            Tabs = BuildTabs(entityType, context, isAdminView, sequencePlacement is not null, HasUniverseRelationship(relationships)),
             MediaGroups = mediaGroups,
             IdentityStatus = ResolveIdentityStatus(detail.WikidataQid, detail.Status, detail.Confidence),
             LibraryStatus = LibraryStatus.Owned,
@@ -282,7 +278,7 @@ public sealed class DetailComposerService
         var collectionValues = await LoadCanonicalMapAsync(collectionId, ct);
         var rootWorkId = await LoadCollectionRootWorkIdAsync(
             collectionId,
-            requireRootWithChildren: entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum or DetailEntityType.MovieSeries or DetailEntityType.BookSeries,
+            requireRootWithChildren: entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum or DetailEntityType.MovieSeries or DetailEntityType.BookSeries or DetailEntityType.ComicSeries,
             ct);
         var works = await LoadCollectionWorksAsync(collectionId, rootWorkId, ct);
         if (entityType == DetailEntityType.Collection)
@@ -1095,31 +1091,32 @@ public sealed class DetailComposerService
             : [new CharacterGroupViewModel { Title = "Characters", GroupType = CharacterGroupType.MainCharacters, Characters = characters }];
     }
 
-    private async Task<SeriesPlacementViewModel?> BuildSeriesPlacementAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, string? requestedSeriesId, CancellationToken ct)
+    private async Task<SequencePlacementViewModel?> BuildSequencePlacementAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, string? requestedContainerId, CancellationToken ct)
     {
-        var availableSeries = ResolveSeriesPlacementOptions(detail, entityType);
-        if (availableSeries.Count == 0)
+        var labels = ResolveSequenceLabels(entityType);
+        var availableContainers = ResolveSequenceContainerOptions(detail, entityType);
+        if (availableContainers.Count == 0)
         {
-            var localSeries = await ResolveLocalSeriesOptionAsync(workId, entityType, detail.MediaType, ct);
-            if (localSeries is null)
+            var localContainer = await ResolveLocalSequenceContainerOptionAsync(workId, entityType, detail.MediaType, ct);
+            if (localContainer is null)
             {
                 return null;
             }
 
-            availableSeries = [localSeries];
+            availableContainers = [localContainer];
         }
 
-        var defaultSeriesQid = ExtractQid(GetDetailCanonicalValue(detail, "default_series_qid"));
-        var requestedQid = ExtractQid(requestedSeriesId);
-        var selectedSeries = availableSeries.FirstOrDefault(option =>
+        var defaultContainerId = ExtractQid(GetDetailCanonicalValue(detail, "default_sequence_container_id"));
+        var requestedQid = ExtractQid(requestedContainerId);
+        var selectedContainer = availableContainers.FirstOrDefault(option =>
             !string.IsNullOrWhiteSpace(requestedQid)
-            && string.Equals(option.SeriesId, requestedQid, StringComparison.OrdinalIgnoreCase))
-            ?? availableSeries.FirstOrDefault(option =>
-            !string.IsNullOrWhiteSpace(defaultSeriesQid)
-            && string.Equals(option.SeriesId, defaultSeriesQid, StringComparison.OrdinalIgnoreCase))
-            ?? availableSeries[0];
-        var seriesTitle = selectedSeries.SeriesTitle;
-        var seriesQid = ExtractQid(selectedSeries.SeriesId);
+            && string.Equals(option.ContainerId, requestedQid, StringComparison.OrdinalIgnoreCase))
+            ?? availableContainers.FirstOrDefault(option =>
+            !string.IsNullOrWhiteSpace(defaultContainerId)
+            && string.Equals(option.ContainerId, defaultContainerId, StringComparison.OrdinalIgnoreCase))
+            ?? availableContainers[0];
+        var containerTitle = selectedContainer.ContainerTitle;
+        var containerId = ExtractQid(selectedContainer.ContainerId) ?? selectedContainer.ContainerId;
 
         using var conn = _db.CreateConnection();
         var rawRows = await conn.QueryAsync(new CommandDefinition(
@@ -1134,7 +1131,11 @@ public sealed class DetailComposerService
             )
             SELECT CAST(w.id AS TEXT) AS WorkId,
                    CAST(COALESCE(
-                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('title', 'episode_title') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'issue_title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'issue_title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'episode_title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'episode_title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'title' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'title' LIMIT 1),
                        'Untitled') AS TEXT) AS Title,
                    CAST(w.media_type AS TEXT) AS MediaType,
@@ -1144,6 +1145,12 @@ public sealed class DetailComposerService
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('series_position', 'issue_number') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('series_position', 'ordinal') LIMIT 1),
                        CASE WHEN w.ordinal IS NOT NULL THEN CAST(w.ordinal AS TEXT) END) AS TEXT) AS PositionLabel,
+                   CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'season_number' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'season_number' LIMIT 1)) AS TEXT) AS SeasonLabel,
+                   CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'episode_number' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'episode_number' LIMIT 1)) AS TEXT) AS EpisodeLabel,
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url', 'cover') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url', 'cover') LIMIT 1)) AS TEXT) AS ArtworkUrl
@@ -1176,53 +1183,69 @@ public sealed class DetailComposerService
             new
             {
                 workId = workId.ToString("D"),
-                series = seriesTitle,
+                series = containerTitle,
                 mediaFilter = SeriesMediaFilter(entityType, detail.MediaType),
                 wikidataProviderId = WellKnownProviders.Wikidata.ToString(),
             },
             cancellationToken: ct));
-        var rows = rawRows.Select(row => new SeriesRow(
+        var rows = rawRows.Select(row => new SequenceRow(
             StringValue(row.WorkId) ?? string.Empty,
             StringValue(row.Title) ?? "Untitled",
             StringValue(row.MediaType),
             StringValue(row.PositionLabel),
+            StringValue(row.SeasonLabel),
+            StringValue(row.EpisodeLabel),
             StringValue(row.ArtworkUrl))).ToList();
 
         var items = rows.Select(row =>
         {
             var rowWorkId = Guid.TryParse(row.WorkId, out var parsed) ? parsed : Guid.Empty;
-            var positionNumber = TryParseSeriesPosition(row.PositionLabel);
-            return new SeriesItemViewModel
+            var positionLabel = ResolveSequencePositionLabel(entityType, row.PositionLabel, row.EpisodeLabel);
+            var positionNumber = TryParseSeriesPosition(positionLabel);
+            var group = ResolveSequenceGroup(entityType, row.SeasonLabel);
+            return new SequenceItemViewModel
             {
                 Id = row.WorkId,
                 EntityType = entityType,
-                Title = row.Title,
+                Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
                 ArtworkUrl = row.ArtworkUrl,
                 PositionNumber = positionNumber,
-                PositionLabel = positionNumber?.ToString(CultureInfo.InvariantCulture) ?? row.PositionLabel,
+                PositionLabel = positionNumber?.ToString(CultureInfo.InvariantCulture) ?? positionLabel,
+                PositionText = FormatSequencePositionText(entityType, positionLabel, positionNumber),
+                GroupKey = group.Key,
+                GroupTitle = group.Title,
                 IsCurrent = rowWorkId == workId,
                 IsOwned = true,
                 ProgressState = LibraryProgressState.Unknown,
             };
         }).ToList();
-        items = await MergeSeriesManifestPlaceholdersAsync(items, seriesQid, detail.WikidataQid, workId, entityType, ct);
+        items = await MergeSequenceManifestPlaceholdersAsync(items, ExtractQid(containerId), detail.WikidataQid, workId, entityType, ct);
 
         if (!items.Any(item => item.IsCurrent))
         {
-            items.Add(new SeriesItemViewModel
+            var fallbackPositionLabel = entityType == DetailEntityType.TvEpisode
+                ? FirstText(detail.EpisodeNumber, GetDetailCanonicalValue(detail, MetadataFieldConstants.EpisodeNumber))
+                : detail.SeriesPosition;
+            var fallbackPositionNumber = TryParseSeriesPosition(fallbackPositionLabel);
+            var fallbackGroup = ResolveSequenceGroup(entityType, FirstText(detail.SeasonNumber, GetDetailCanonicalValue(detail, MetadataFieldConstants.SeasonNumber)));
+            items.Add(new SequenceItemViewModel
             {
                 Id = workId.ToString("D"),
                 EntityType = entityType,
                 Title = detail.Title,
                 ArtworkUrl = detail.CoverUrl,
-                PositionLabel = detail.SeriesPosition,
-                PositionNumber = TryParseSeriesPosition(detail.SeriesPosition),
+                PositionLabel = fallbackPositionLabel,
+                PositionNumber = fallbackPositionNumber,
+                PositionText = FormatSequencePositionText(entityType, fallbackPositionLabel, fallbackPositionNumber),
+                GroupKey = fallbackGroup.Key,
+                GroupTitle = fallbackGroup.Title,
                 IsCurrent = true,
                 IsOwned = true,
             });
         }
 
-        items = SortSeriesItems(items);
+        items = NormalizeSequenceItems(items, entityType);
+        items = SortSequenceItems(items);
         if (items.Count <= 1)
         {
             return null;
@@ -1230,32 +1253,46 @@ public sealed class DetailComposerService
 
         var currentIndex = Math.Max(0, items.FindIndex(i => i.IsCurrent));
         var current = items[currentIndex];
-        return new SeriesPlacementViewModel
+        var groups = BuildSequenceGroups(items, labels.ItemPluralLabel);
+        return new SequencePlacementViewModel
         {
-            SeriesId = seriesQid ?? seriesTitle,
-            SeriesTitle = seriesTitle,
-            SelectedSeriesId = seriesQid ?? seriesTitle,
-            CanChooseSeries = availableSeries.Count > 1,
-            CanSetDefaultSeries = availableSeries.Count > 1 && !string.Equals(selectedSeries.SeriesId, defaultSeriesQid, StringComparison.OrdinalIgnoreCase),
-            AvailableSeries = availableSeries.Select(option => new SeriesOptionViewModel
+            ContainerId = containerId,
+            ContainerTitle = containerTitle,
+            SelectedContainerId = containerId,
+            CanChooseContainer = availableContainers.Count > 1,
+            CanSetDefaultContainer = availableContainers.Count > 1 && !string.Equals(selectedContainer.ContainerId, defaultContainerId, StringComparison.OrdinalIgnoreCase),
+            AvailableContainers = availableContainers.Select(option => new SequenceContainerOptionViewModel
             {
-                SeriesId = option.SeriesId,
-                SeriesTitle = option.SeriesTitle,
+                ContainerId = option.ContainerId,
+                ContainerTitle = option.ContainerTitle,
                 MediaScope = option.MediaScope,
-                IsSelected = string.Equals(option.SeriesId, selectedSeries.SeriesId, StringComparison.OrdinalIgnoreCase),
-                IsDefault = !string.IsNullOrWhiteSpace(defaultSeriesQid)
-                    && string.Equals(option.SeriesId, defaultSeriesQid, StringComparison.OrdinalIgnoreCase),
+                IsSelected = string.Equals(option.ContainerId, selectedContainer.ContainerId, StringComparison.OrdinalIgnoreCase),
+                IsDefault = !string.IsNullOrWhiteSpace(defaultContainerId)
+                    && string.Equals(option.ContainerId, defaultContainerId, StringComparison.OrdinalIgnoreCase),
             }).ToList(),
             UniverseId = detail.UniverseSummary?.UniverseQid,
             UniverseTitle = detail.UniverseSummary?.UniverseName,
+            ContainerLabel = labels.ContainerLabel,
+            ItemLabel = labels.ItemLabel,
+            ItemPluralLabel = labels.ItemPluralLabel,
+            GroupLabel = labels.GroupLabel,
+            CurrentGroupKey = current.GroupKey ?? groups.FirstOrDefault()?.Key,
             PositionNumber = current.PositionNumber,
             TotalKnownItems = items.Count,
-            PositionLabel = BuildSeriesPositionLabel(entityType, current.PositionNumber, items.Count, seriesTitle),
-            OrderingType = entityType is DetailEntityType.ComicIssue ? SeriesOrderingType.IssueNumber : SeriesOrderingType.LibraryOrder,
+            PositionLabel = current.PositionLabel,
+            PositionText = current.PositionText,
+            PositionSummary = BuildSequencePositionSummary(entityType, current, items.Count, containerTitle, labels),
+            OrderingType = entityType switch
+            {
+                DetailEntityType.TvEpisode => SequenceOrderingType.EpisodeNumber,
+                DetailEntityType.ComicIssue => SequenceOrderingType.IssueNumber,
+                _ => SequenceOrderingType.LibraryOrder,
+            },
             PreviousItem = currentIndex > 0 ? items[currentIndex - 1] : null,
             CurrentItem = current,
             NextItem = currentIndex < items.Count - 1 ? items[currentIndex + 1] : null,
             OrderedItems = items,
+            Groups = groups,
         };
     }
 
@@ -1670,54 +1707,54 @@ public sealed class DetailComposerService
             _ => "Other",
         };
 
-    private static IReadOnlyList<SeriesOptionViewModel> ResolveSeriesPlacementOptions(LibraryItemDetail detail, DetailEntityType entityType)
+    private static IReadOnlyList<SequenceContainerOptionViewModel> ResolveSequenceContainerOptions(LibraryItemDetail detail, DetailEntityType entityType)
     {
         var mediaScope = SeriesMediaFilter(entityType, detail.MediaType);
-        var options = new List<SeriesOptionViewModel>();
+        var options = new List<SequenceContainerOptionViewModel>();
         var seriesTitle = FirstText(detail.Series, GetDetailCanonicalValue(detail, MetadataFieldConstants.Series));
-        var defaultSeriesQid = ExtractQid(GetDetailCanonicalValue(detail, "default_series_qid"));
-        var defaultSeriesTitle = FirstText(GetDetailCanonicalValue(detail, "default_series_label"), GetDetailCanonicalValue(detail, "default_series"));
+        var defaultContainerId = ExtractQid(GetDetailCanonicalValue(detail, "default_sequence_container_id"));
+        var defaultContainerTitle = GetDetailCanonicalValue(detail, "default_sequence_container_label");
 
-        AddSeriesOption(options, defaultSeriesQid, defaultSeriesTitle, mediaScope);
-        AddSeriesOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "series_qid"), seriesTitle, mediaScope);
-        AddSeriesOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "part_of_the_series_qid"), seriesTitle, mediaScope);
-        AddSeriesOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "part_of_series_qid"), seriesTitle, mediaScope);
+        AddSequenceContainerOption(options, defaultContainerId, defaultContainerTitle, mediaScope);
+        AddSequenceContainerOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "series_qid"), seriesTitle, mediaScope);
+        AddSequenceContainerOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "part_of_the_series_qid"), seriesTitle, mediaScope);
+        AddSequenceContainerOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "part_of_series_qid"), seriesTitle, mediaScope);
 
         if (options.Count == 0 && !string.IsNullOrWhiteSpace(seriesTitle))
         {
-            AddSeriesOption(options, seriesTitle, seriesTitle, mediaScope);
+            AddSequenceContainerOption(options, seriesTitle, seriesTitle, mediaScope);
         }
 
         return options;
     }
 
-    private static void AddSeriesOptionFromCanonicalQid(List<SeriesOptionViewModel> options, string? rawQidValue, string? title, string mediaScope)
+    private static void AddSequenceContainerOptionFromCanonicalQid(List<SequenceContainerOptionViewModel> options, string? rawQidValue, string? title, string mediaScope)
     {
         var parsed = ParseQidLabel(rawQidValue);
-        AddSeriesOption(options, parsed.Qid, FirstText(title, parsed.Label), mediaScope);
+        AddSequenceContainerOption(options, parsed.Qid, FirstText(title, parsed.Label), mediaScope);
     }
 
-    private static void AddSeriesOption(List<SeriesOptionViewModel> options, string? seriesId, string? title, string mediaScope)
+    private static void AddSequenceContainerOption(List<SequenceContainerOptionViewModel> options, string? containerId, string? title, string mediaScope)
     {
-        if (string.IsNullOrWhiteSpace(seriesId))
+        if (string.IsNullOrWhiteSpace(containerId))
         {
             return;
         }
 
-        if (options.Any(option => string.Equals(option.SeriesId, seriesId, StringComparison.OrdinalIgnoreCase)))
+        if (options.Any(option => string.Equals(option.ContainerId, containerId, StringComparison.OrdinalIgnoreCase)))
         {
             return;
         }
 
-        options.Add(new SeriesOptionViewModel
+        options.Add(new SequenceContainerOptionViewModel
         {
-            SeriesId = seriesId.Trim(),
-            SeriesTitle = FirstText(title, seriesId) ?? "Series",
+            ContainerId = containerId.Trim(),
+            ContainerTitle = FirstText(title, containerId) ?? "Series",
             MediaScope = mediaScope,
         });
     }
 
-    private async Task<SeriesOptionViewModel?> ResolveLocalSeriesOptionAsync(Guid workId, DetailEntityType entityType, string mediaType, CancellationToken ct)
+    private async Task<SequenceContainerOptionViewModel?> ResolveLocalSequenceContainerOptionAsync(Guid workId, DetailEntityType entityType, string mediaType, CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
@@ -1748,10 +1785,10 @@ public sealed class DetailComposerService
         }
 
         var qid = ExtractQid(StringValue(row?.SeriesQid));
-        return new SeriesOptionViewModel
+        return new SequenceContainerOptionViewModel
         {
-            SeriesId = qid ?? title,
-            SeriesTitle = title,
+            ContainerId = qid ?? title,
+            ContainerTitle = title,
             MediaScope = SeriesMediaFilter(entityType, mediaType),
         };
     }
@@ -1759,8 +1796,8 @@ public sealed class DetailComposerService
     private static string? GetDetailCanonicalValue(LibraryItemDetail detail, string key)
         => detail.CanonicalValues.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
-    private async Task<List<SeriesItemViewModel>> MergeSeriesManifestPlaceholdersAsync(
-        IReadOnlyList<SeriesItemViewModel> items,
+    private async Task<List<SequenceItemViewModel>> MergeSequenceManifestPlaceholdersAsync(
+        IReadOnlyList<SequenceItemViewModel> items,
         string? seriesQid,
         string? currentWorkQid,
         Guid currentWorkId,
@@ -1787,7 +1824,7 @@ public sealed class DetailComposerService
             return MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType);
         }
 
-        return await MergeLegacySeriesMemberPlaceholdersAsync(items, seriesQid, entityType, ct);
+        return await MergeLegacySequenceMemberPlaceholdersAsync(items, seriesQid, entityType, ct);
     }
 
     private static List<SeriesManifestItemRecord> BuildConnectedManifestSubset(
@@ -1845,8 +1882,8 @@ public sealed class DetailComposerService
             .ToList();
     }
 
-    private static List<SeriesItemViewModel> MergeManifestItems(
-        IReadOnlyList<SeriesItemViewModel> items,
+    private static List<SequenceItemViewModel> MergeManifestItems(
+        IReadOnlyList<SequenceItemViewModel> items,
         IReadOnlyList<SeriesManifestItemRecord> manifestItems,
         string? currentWorkQid,
         Guid currentWorkId,
@@ -1909,7 +1946,7 @@ public sealed class DetailComposerService
                 continue;
             }
 
-            merged.Add(new SeriesItemViewModel
+            merged.Add(new SequenceItemViewModel
             {
                 Id = $"missing-{manifestItem.ItemQid}",
                 EntityType = entityType,
@@ -1928,7 +1965,7 @@ public sealed class DetailComposerService
     }
 
     private static bool TryApplyManifestPositionToOwnedItemByTitle(
-        List<SeriesItemViewModel> items,
+        List<SequenceItemViewModel> items,
         string normalizedTitle,
         int? position,
         string? rawOrdinal)
@@ -1947,7 +1984,7 @@ public sealed class DetailComposerService
             return true;
         }
 
-        items[index] = new SeriesItemViewModel
+        items[index] = new SequenceItemViewModel
         {
             Id = item.Id,
             EntityType = item.EntityType,
@@ -1955,6 +1992,9 @@ public sealed class DetailComposerService
             ArtworkUrl = item.ArtworkUrl,
             PositionNumber = item.PositionNumber ?? position,
             PositionLabel = FirstNonBlank(item.PositionLabel, position?.ToString(CultureInfo.InvariantCulture), rawOrdinal),
+            PositionText = item.PositionText,
+            GroupKey = item.GroupKey,
+            GroupTitle = item.GroupTitle,
             IsCurrent = item.IsCurrent,
             IsOwned = item.IsOwned,
             ProgressState = item.ProgressState,
@@ -1963,7 +2003,7 @@ public sealed class DetailComposerService
     }
 
     private static bool TryApplyManifestPositionToOwnedItem(
-        List<SeriesItemViewModel> items,
+        List<SequenceItemViewModel> items,
         SeriesManifestItemRecord manifestItem,
         int? position,
         Guid currentWorkId)
@@ -1982,7 +2022,7 @@ public sealed class DetailComposerService
             return true;
         }
 
-        items[index] = new SeriesItemViewModel
+        items[index] = new SequenceItemViewModel
         {
             Id = item.Id,
             EntityType = item.EntityType,
@@ -1990,6 +2030,9 @@ public sealed class DetailComposerService
             ArtworkUrl = item.ArtworkUrl,
             PositionNumber = item.PositionNumber ?? position,
             PositionLabel = FirstNonBlank(item.PositionLabel, position?.ToString(CultureInfo.InvariantCulture), manifestItem.RawOrdinal),
+            PositionText = item.PositionText,
+            GroupKey = item.GroupKey,
+            GroupTitle = item.GroupTitle,
             IsCurrent = item.IsCurrent,
             IsOwned = item.IsOwned,
             ProgressState = item.ProgressState,
@@ -2047,8 +2090,8 @@ public sealed class DetailComposerService
     private static bool ContainsAny(string value, params string[] needles)
         => needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
 
-    private async Task<List<SeriesItemViewModel>> MergeLegacySeriesMemberPlaceholdersAsync(
-        IReadOnlyList<SeriesItemViewModel> items,
+    private async Task<List<SequenceItemViewModel>> MergeLegacySequenceMemberPlaceholdersAsync(
+        IReadOnlyList<SequenceItemViewModel> items,
         string seriesQid,
         DetailEntityType entityType,
         CancellationToken ct)
@@ -2080,7 +2123,7 @@ public sealed class DetailComposerService
                 continue;
             }
 
-            merged.Add(new SeriesItemViewModel
+            merged.Add(new SequenceItemViewModel
             {
                 Id = $"missing-{seriesQid}-{position.Value}",
                 EntityType = entityType,
@@ -2098,8 +2141,8 @@ public sealed class DetailComposerService
             .ToList();
     }
 
-    private static List<SeriesItemViewModel> AddMissingSeriesPlaceholders(
-        IReadOnlyList<SeriesItemViewModel> items,
+    private static List<SequenceItemViewModel> AddMissingSequencePlaceholders(
+        IReadOnlyList<SequenceItemViewModel> items,
         DetailEntityType entityType)
     {
         var numbered = items
@@ -2117,7 +2160,7 @@ public sealed class DetailComposerService
         }
 
         var max = numbered.Keys.Max();
-        var filled = new List<SeriesItemViewModel>(max);
+        var filled = new List<SequenceItemViewModel>(max);
         for (var position = 1; position <= max; position++)
         {
             if (numbered.TryGetValue(position, out var existing))
@@ -2126,7 +2169,7 @@ public sealed class DetailComposerService
                 continue;
             }
 
-            filled.Add(new SeriesItemViewModel
+            filled.Add(new SequenceItemViewModel
             {
                 Id = $"missing-{position}",
                 EntityType = entityType,
@@ -2142,9 +2185,10 @@ public sealed class DetailComposerService
         return filled;
     }
 
-    private static List<SeriesItemViewModel> SortSeriesItems(IEnumerable<SeriesItemViewModel> items)
+    private static List<SequenceItemViewModel> SortSequenceItems(IEnumerable<SequenceItemViewModel> items)
         => items
-            .OrderBy(item => item.PositionNumber ?? int.MaxValue)
+            .OrderBy(item => TryParseSeriesPosition(item.GroupKey?.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase)) ?? int.MaxValue)
+            .ThenBy(item => item.PositionNumber ?? int.MaxValue)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -2357,6 +2401,7 @@ public sealed class DetailComposerService
         {
             DetailEntityType.TvShow or DetailEntityType.TvSeason => ["show_name", "title", "display_title"],
             DetailEntityType.TvEpisode => ["episode_title", "title", "display_title"],
+            DetailEntityType.ComicIssue => ["issue_title", "title", "display_title"],
             DetailEntityType.MusicAlbum => ["album", "title", "display_title"],
             DetailEntityType.MusicTrack => ["title", "display_title"],
             DetailEntityType.BookSeries or DetailEntityType.ComicSeries => ["series", "title", "display_title"],
@@ -2964,6 +3009,8 @@ public sealed class DetailComposerService
             DetailEntityType.Movie => ["overview", "cast", "details"],
             DetailEntityType.MovieSeries when hasUniverse => ["overview", "media", "cast", "universe", "details"],
             DetailEntityType.MovieSeries => ["overview", "media", "cast", "details"],
+            DetailEntityType.TvEpisode when hasSeries && hasUniverse => ["overview", "sequence", "cast", "characters", "universe", "details"],
+            DetailEntityType.TvEpisode when hasSeries => ["overview", "sequence", "cast", "characters", "details"],
             DetailEntityType.TvEpisode when hasUniverse => ["overview", "cast", "characters", "universe", "details"],
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "details"],
             DetailEntityType.Book or DetailEntityType.Audiobook when hasUniverse => ["overview", "credits", "universe", "details"],
@@ -2972,8 +3019,12 @@ public sealed class DetailComposerService
             DetailEntityType.BookSeries => ["overview", "works", "credits", "details"],
             DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "details"],
             DetailEntityType.Work => ["overview", "credits", "formats", "details"],
+            DetailEntityType.ComicIssue when hasSeries && hasUniverse => ["overview", "sequence", "credits", "universe", "editions", "details"],
+            DetailEntityType.ComicIssue when hasSeries => ["overview", "sequence", "credits", "editions", "details"],
             DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "editions", "details"],
             DetailEntityType.ComicIssue => ["overview", "credits", "editions", "details"],
+            DetailEntityType.ComicSeries when hasUniverse => ["overview", "issues", "credits", "universe", "details"],
+            DetailEntityType.ComicSeries => ["overview", "issues", "credits", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "credits", "related", "details"],
             DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicArtist when context == DetailPresentationContext.Listen => ["overview", "albums", "tracks", "appears-on", "credits", "related", "details"],
@@ -3375,6 +3426,74 @@ public sealed class DetailComposerService
         };
     }
 
+    private static string ResolveWorkDisplayTitle(
+        string? displayTitle,
+        LibraryItemDetail detail,
+        IReadOnlyDictionary<string, string> values,
+        DetailEntityType entityType)
+    {
+        if (entityType == DetailEntityType.TvEpisode)
+        {
+            return FirstNonBlank(displayTitle, detail.EpisodeTitle, GetValue(values, MetadataFieldConstants.EpisodeTitle), detail.Title, detail.FileName, "Untitled");
+        }
+
+        if (entityType == DetailEntityType.ComicIssue)
+        {
+            var issueTitle = FirstNonBlank(GetValue(values, "issue_title"), displayTitle);
+            if (!IsGeneratedComicIssueTitle(issueTitle, detail, values))
+            {
+                return FirstNonBlank(issueTitle, detail.Title, detail.FileName, "Untitled");
+            }
+
+            if (!IsGeneratedComicIssueTitle(detail.Title, detail, values))
+            {
+                return FirstNonBlank(detail.Title, detail.FileName, "Untitled");
+            }
+
+            var issueNumber = FirstNonBlank(GetValue(values, "issue_number"), detail.SeriesPosition, GetValue(values, MetadataFieldConstants.SeriesPosition));
+            return FirstNonBlank(FormatIssue(issueNumber), detail.FileName, "Untitled");
+        }
+
+        return FirstNonBlank(displayTitle, detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled");
+    }
+
+    private static bool IsGeneratedComicIssueTitle(string? title, LibraryItemDetail detail, IReadOnlyDictionary<string, string> values)
+    {
+        var series = FirstNonBlank(detail.Series, GetValue(values, MetadataFieldConstants.Series));
+        var issueNumber = FirstNonBlank(GetValue(values, "issue_number"), detail.SeriesPosition, GetValue(values, MetadataFieldConstants.SeriesPosition));
+        return IsGeneratedComicIssueTitle(title, series, issueNumber);
+    }
+
+    private static bool IsGeneratedComicIssueTitle(string? title, string? series, string? issueNumber)
+    {
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(issueNumber))
+        {
+            return false;
+        }
+
+        var normalizedTitle = NormalizeOrdinalTitle(title);
+        var normalizedSeries = NormalizeOrdinalTitle(series);
+        var normalizedIssue = NormalizeOrdinalTitle(issueNumber);
+        return normalizedTitle == $"{normalizedSeries}{normalizedIssue}"
+            || normalizedTitle == $"{normalizedSeries}issue{normalizedIssue}"
+            || normalizedTitle == $"{normalizedSeries}no{normalizedIssue}"
+            || (normalizedTitle.StartsWith(normalizedSeries, StringComparison.OrdinalIgnoreCase)
+                && normalizedTitle.EndsWith(normalizedIssue, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolveSequenceItemTitle(DetailEntityType entityType, string title, string containerTitle, string? positionLabel)
+    {
+        if (entityType == DetailEntityType.ComicIssue && IsGeneratedComicIssueTitle(title, containerTitle, positionLabel))
+        {
+            return FirstNonBlank(FormatIssue(positionLabel), title);
+        }
+
+        return title;
+    }
+
+    private static string NormalizeOrdinalTitle(string value)
+        => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+
     private static string? BuildSubtitle(
         LibraryItemDetail detail,
         DetailEntityType entityType,
@@ -3392,21 +3511,21 @@ public sealed class DetailComposerService
             DetailEntityType.Audiobook => FirstNonBlank(detail.Narrator, detail.Author),
             DetailEntityType.Movie => FirstNonBlank(detail.Director, GetValue(values, "studio"), detail.Year, "Movie"),
             DetailEntityType.MusicTrack => string.Join(" â€¢ ", new[] { detail.Artist, GetValue(values, "album") }.Where(s => !string.IsNullOrWhiteSpace(s))),
-            DetailEntityType.ComicIssue => FirstNonBlank(detail.Writer, detail.Illustrator, detail.Author),
+            DetailEntityType.ComicIssue => string.Join(" - ", new[] { detail.Series, FormatIssue(detail.SeriesPosition), FirstNonBlank(detail.Writer, detail.Illustrator, detail.Author) }.Where(s => !string.IsNullOrWhiteSpace(s))),
             DetailEntityType.TvEpisode => string.Join(" • ", new[] { detail.ShowName, FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber) }.Where(s => !string.IsNullOrWhiteSpace(s))),
             _ => FormatEntityType(entityType),
         };
     }
 
-    private static IReadOnlyList<RelationshipGroup> BuildRelationshipStrip(LibraryItemDetail detail, SeriesPlacementViewModel? series)
+    private static IReadOnlyList<RelationshipGroup> BuildRelationshipStrip(LibraryItemDetail detail, SequencePlacementViewModel? sequence)
     {
         var groups = new List<RelationshipGroup>();
-        if (series is not null)
+        if (sequence is not null)
         {
             groups.Add(new RelationshipGroup
             {
-                Title = "Series",
-                Items = [new RelatedEntityChip { Id = series.SeriesId, EntityType = RelatedEntityType.Series, Label = series.SeriesTitle }],
+                Title = sequence.ContainerLabel,
+                Items = [new RelatedEntityChip { Id = sequence.ContainerId, EntityType = RelatedEntityType.Series, Label = sequence.ContainerTitle }],
             });
         }
 
@@ -3467,8 +3586,18 @@ public sealed class DetailComposerService
         [
             ApplyMediaGroupCompletion(new MediaGroupingViewModel
             {
-                Key = entityType == DetailEntityType.MusicAlbum ? "tracks" : "items",
-                Title = entityType == DetailEntityType.MusicAlbum ? "Tracks" : "Items",
+                Key = entityType switch
+                {
+                    DetailEntityType.MusicAlbum => "tracks",
+                    DetailEntityType.ComicSeries => "issues",
+                    _ => "items",
+                },
+                Title = entityType switch
+                {
+                    DetailEntityType.MusicAlbum => "Tracks",
+                    DetailEntityType.ComicSeries => "Issues",
+                    _ => "Items",
+                },
                 Items = works.Select(ToMediaItem).ToList(),
             })
         ];
@@ -4125,6 +4254,11 @@ public sealed class DetailComposerService
             return FirstNonBlank(GetValue(values, "album_artist"), GetValue(values, "artist"), works.Select(w => w.Artist).FirstOrDefault(a => !string.IsNullOrWhiteSpace(a)), "Album")!;
         }
 
+        if (entityType == DetailEntityType.ComicSeries)
+        {
+            return $"Comic Volume - {works.Count} issue{(works.Count == 1 ? "" : "s")}";
+        }
+
         var types = works.Select(w => FormatEntityType(InferMediaItemEntityType(w))).Distinct(StringComparer.OrdinalIgnoreCase).Take(3);
         return $"{FormatEntityType(entityType)} • {works.Count} item{(works.Count == 1 ? "" : "s")} • {string.Join(", ", types)}";
     }
@@ -4493,21 +4627,130 @@ public sealed class DetailComposerService
         return CanonicalIdentityStatus.ProviderMatched;
     }
 
-    private static string? BuildSeriesPositionLabel(DetailEntityType type, int? position, int total, string seriesTitle)
+    private static SequenceLabels ResolveSequenceLabels(DetailEntityType type) => type switch
     {
-        if (!position.HasValue)
+        DetailEntityType.TvEpisode or DetailEntityType.TvSeason or DetailEntityType.TvShow =>
+            new("Show", "Episode", "Episodes", "Season"),
+        DetailEntityType.ComicIssue or DetailEntityType.ComicSeries =>
+            new("Volume", "Issue", "Issues", null),
+        DetailEntityType.Movie or DetailEntityType.MovieSeries =>
+            new("Movie Series", "Movie", "Movies", null),
+        DetailEntityType.Audiobook =>
+            new("Series", "Audiobook", "Audiobooks", null),
+        _ => new("Series", "Book", "Books", null),
+    };
+
+    private static string? ResolveSequencePositionLabel(DetailEntityType type, string? positionLabel, string? episodeLabel)
+        => type == DetailEntityType.TvEpisode
+            ? FirstText(episodeLabel, positionLabel)
+            : positionLabel;
+
+    private static (string? Key, string? Title) ResolveSequenceGroup(DetailEntityType type, string? rawGroup)
+    {
+        if (type is not (DetailEntityType.TvEpisode or DetailEntityType.TvSeason or DetailEntityType.TvShow))
+        {
+            return (null, null);
+        }
+
+        var value = FirstText(rawGroup, "1")!;
+        var normalized = NormalizeSequenceOrdinal(value);
+        return ($"season-{normalized}", $"Season {normalized}");
+    }
+
+    private static string? FormatSequencePositionText(DetailEntityType type, string? rawPosition, int? position)
+    {
+        var value = position?.ToString(CultureInfo.InvariantCulture) ?? NormalizeSequenceOrdinal(rawPosition);
+        if (string.IsNullOrWhiteSpace(value))
         {
             return null;
         }
 
-        var prefix = type switch
+        return type == DetailEntityType.TvEpisode ? $"E{value}" : value;
+    }
+
+    private static string NormalizeSequenceOrdinal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
         {
-            DetailEntityType.Movie => "Movie",
-            DetailEntityType.Audiobook => "Audiobook",
-            DetailEntityType.ComicIssue => "Issue",
-            _ => "Book",
-        };
-        return $"{prefix} {position} of {total} in {seriesTitle}";
+            return string.Empty;
+        }
+
+        var trimmed = value.Trim();
+        return int.TryParse(trimmed.TrimStart('0'), out var parsed)
+            ? parsed.ToString(CultureInfo.InvariantCulture)
+            : trimmed;
+    }
+
+    private static List<SequenceItemViewModel> NormalizeSequenceItems(IEnumerable<SequenceItemViewModel> items, DetailEntityType entityType)
+        => items.Select(item =>
+        {
+            var positionText = item.PositionText ?? FormatSequencePositionText(entityType, item.PositionLabel, item.PositionNumber);
+            var group = string.IsNullOrWhiteSpace(item.GroupKey) && string.IsNullOrWhiteSpace(item.GroupTitle)
+                ? ResolveSequenceGroup(entityType, null)
+                : (item.GroupKey, item.GroupTitle);
+            return new SequenceItemViewModel
+            {
+                Id = item.Id,
+                EntityType = item.EntityType,
+                Title = item.Title,
+                ArtworkUrl = item.ArtworkUrl,
+                PositionNumber = item.PositionNumber,
+                PositionLabel = item.PositionLabel,
+                PositionText = positionText,
+                GroupKey = group.Item1,
+                GroupTitle = group.Item2,
+                IsCurrent = item.IsCurrent,
+                IsOwned = item.IsOwned,
+                ProgressState = item.ProgressState,
+            };
+        }).ToList();
+
+    private static IReadOnlyList<SequenceGroupViewModel> BuildSequenceGroups(IReadOnlyList<SequenceItemViewModel> items, string fallbackTitle)
+    {
+        var grouped = items
+            .GroupBy(item => item.GroupKey ?? "all", StringComparer.OrdinalIgnoreCase)
+            .Select(group => new SequenceGroupViewModel
+            {
+                Key = group.Key,
+                Title = group.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.GroupTitle))?.GroupTitle ?? fallbackTitle,
+                Items = group.ToList(),
+            })
+            .OrderBy(group => TryParseSeriesPosition(group.Key.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase)) ?? int.MaxValue)
+            .ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return grouped.Count == 0
+            ? [new SequenceGroupViewModel { Key = "all", Title = fallbackTitle, Items = items }]
+            : grouped;
+    }
+
+    private static string? BuildSequencePositionSummary(
+        DetailEntityType type,
+        SequenceItemViewModel current,
+        int total,
+        string containerTitle,
+        SequenceLabels labels)
+    {
+        if (type == DetailEntityType.TvEpisode)
+        {
+            var season = current.GroupTitle;
+            var episode = FirstText(current.PositionText, current.PositionLabel, current.PositionNumber?.ToString(CultureInfo.InvariantCulture));
+            return string.Join(", ", new[] { season, string.IsNullOrWhiteSpace(episode) ? null : $"Episode {episode.TrimStart('E')}" }
+                .Where(value => !string.IsNullOrWhiteSpace(value))) + $" in {containerTitle}";
+        }
+
+        var position = FirstText(current.PositionText, current.PositionLabel, current.PositionNumber?.ToString(CultureInfo.InvariantCulture));
+        if (string.IsNullOrWhiteSpace(position))
+        {
+            return null;
+        }
+
+        if (type == DetailEntityType.TvEpisode && !string.IsNullOrWhiteSpace(current.GroupTitle))
+        {
+            return $"{labels.ItemLabel} {position} in {current.GroupTitle} of {containerTitle}";
+        }
+
+        return $"{labels.ItemLabel} {position} of {total} in {containerTitle}";
     }
 
     private static string? FormatSeasonEpisode(string? season, string? episode)
@@ -4529,6 +4772,9 @@ public sealed class DetailComposerService
 
         return $"S{season} E{episode}";
     }
+
+    private static string? FormatIssue(string? position)
+        => string.IsNullOrWhiteSpace(position) ? null : $"Issue #{position}";
 
     private static DetailEntityType MapMediaTypeToEntityType(string? mediaType)
     {
@@ -4637,7 +4883,7 @@ public sealed class DetailComposerService
         DetailEntityType.MovieSeries => "Movie Series",
         DetailEntityType.BookSeries => "Book Series",
         DetailEntityType.ComicIssue => "Comic Issue",
-        DetailEntityType.ComicSeries => "Comic Series",
+        DetailEntityType.ComicSeries => "Comic Volume",
         DetailEntityType.MusicAlbum => "Album",
         DetailEntityType.MusicArtist => "Artist",
         _ => entityType.ToString(),
@@ -4645,9 +4891,10 @@ public sealed class DetailComposerService
 
     private static string ToTabLabel(string key) => key switch
     {
-        "people" => "Cast",
-        "media" => "Media in Library",
-        "movies-tv" => "Movies & TV",
+            "people" => "Cast",
+            "media" => "Media in Library",
+            "sequence" => "Order",
+            "movies-tv" => "Movies & TV",
         "appears-on" => "Appears On",
         _ => string.Join(" ", key.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(word => char.ToUpperInvariant(word[0]) + word[1..])),
     };
@@ -4970,7 +5217,16 @@ public sealed class DetailComposerService
     }
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator, double? ProgressPct);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
-    private sealed record SeriesRow(string WorkId, string Title, string? MediaType, string? PositionLabel, string? ArtworkUrl);
+    private sealed record SequenceLabels(string ContainerLabel, string ItemLabel, string ItemPluralLabel, string? GroupLabel);
+
+    private sealed record SequenceRow(
+        string WorkId,
+        string Title,
+        string? MediaType,
+        string? PositionLabel,
+        string? SeasonLabel,
+        string? EpisodeLabel,
+        string? ArtworkUrl);
     private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? Artist, bool IsExplicit, string? Quality, double? ProgressPercent, bool HasAsset, string? Ownership, bool IsCatalogOnly, string? ArtworkUrl, string? BackgroundUrl)
     {
         public bool IsOwned =>
