@@ -326,6 +326,13 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         LoadFile<LibrariesConfiguration>(LibrariesFileName) ?? new();
 
     /// <inheritdoc/>
+    public void SaveLibraries(LibrariesConfiguration config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        SaveFile(LibrariesFileName, config);
+    }
+
+    /// <inheritdoc/>
     public PipelineConfiguration LoadPipelines()
     {
         var pipelines = LoadFile<Dictionary<string, MediaTypePipeline>>(PipelinesFileName);

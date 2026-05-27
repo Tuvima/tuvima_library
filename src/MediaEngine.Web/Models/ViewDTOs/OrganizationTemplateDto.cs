@@ -8,4 +8,5 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// </summary>
 public sealed record OrganizationTemplateDto(
     [property: JsonPropertyName("template")] string Template,
-    [property: JsonPropertyName("preview")]  string? Preview);
+    [property: JsonPropertyName("preview")]  string? Preview,
+    [property: JsonPropertyName("templates")] Dictionary<string, string>? Templates = null);

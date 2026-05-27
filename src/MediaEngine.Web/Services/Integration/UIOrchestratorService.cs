@@ -369,6 +369,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default)
         => _api.GetLibrariesAsync(ct);
 
+    /// <summary>Saves per-library config (source paths, ReadOnly, writeback).</summary>
+    public Task<List<LibraryFolderDto>?> UpdateLibrariesAsync(List<LibraryFolderDto> libraries, CancellationToken ct = default)
+        => _api.UpdateLibrariesAsync(libraries, ct);
+
     /// <summary>Saves updated folder paths to the Engine manifest and hot-swaps the file watcher.</summary>
     public Task<bool> UpdateFolderSettingsAsync(FolderSettingsDto settings, CancellationToken ct = default)
         => _api.UpdateFolderSettingsAsync(settings, ct);
@@ -484,7 +488,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     /// <summary>Triggers a re-scan of the Watch Folder, feeding all files into the pipeline.</summary>
     public Task<bool> TriggerRescanAsync(CancellationToken ct = default)
-        => _api.TriggerRescanAsync(ct);
+        => _api.TriggerRescanAsync(ct: ct);
 
     // -- Hydration ----------------------------------------------------------
 
@@ -845,7 +849,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     /// <summary>Saves a new file organization template. Returns the result with preview, or null on failure.</summary>
     public Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(string template, CancellationToken ct = default)
-        => _api.UpdateOrganizationTemplateAsync(template, ct);
+        => _api.UpdateOrganizationTemplateAsync(template, ct: ct);
+
+    /// <summary>Saves default and per-media-type file organization templates.</summary>
+    public Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(
+        string template,
+        Dictionary<string, string>? templates,
+        CancellationToken ct = default)
+        => _api.UpdateOrganizationTemplateAsync(template, templates, ct);
 
     // -- LibraryItem ------------------------------------------------------------
 

@@ -55,4 +55,15 @@ public interface IFileWatcher : IDisposable
     /// <exception cref="ObjectDisposedException">Thrown if the watcher has been disposed.</exception>
     /// <exception cref="DirectoryNotFoundException">Thrown when <paramref name="path"/> does not exist.</exception>
     void UpdateDirectory(string path, bool includeSubdirectories = true);
+
+    /// <summary>
+    /// Atomically replaces the currently watched directories with
+    /// <paramref name="paths"/>.
+    /// </summary>
+    void UpdateDirectories(IEnumerable<string> paths, bool includeSubdirectories = true)
+    {
+        var firstPath = paths.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
+        if (!string.IsNullOrWhiteSpace(firstPath))
+            UpdateDirectory(firstPath, includeSubdirectories);
+    }
 }

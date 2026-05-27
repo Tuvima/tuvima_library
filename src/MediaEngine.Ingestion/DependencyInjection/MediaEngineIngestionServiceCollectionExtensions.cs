@@ -92,13 +92,22 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         {
             string? envWatch = Environment.GetEnvironmentVariable("TUVIMA_WATCH_FOLDER");
             string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
-            if (!string.IsNullOrWhiteSpace(envWatch)) opts.WatchDirectory = envWatch;
+            if (!string.IsNullOrWhiteSpace(envWatch))
+            {
+                opts.WatchDirectory = envWatch;
+                opts.WatchDirectories = [envWatch];
+            }
             if (!string.IsNullOrWhiteSpace(envLibrary)) opts.LibraryRoot = envLibrary;
 
             try
             {
                 CoreConfiguration core = configLoader.LoadCore();
-                if (!string.IsNullOrWhiteSpace(core.WatchDirectory)) opts.WatchDirectory = core.WatchDirectory;
+                var watchDirectories = core.EffectiveWatchDirectories;
+                if (watchDirectories.Count > 0)
+                {
+                    opts.WatchDirectories = watchDirectories;
+                    opts.WatchDirectory = watchDirectories[0];
+                }
                 if (!string.IsNullOrWhiteSpace(core.LibraryRoot))
                 {
                     opts.LibraryRoot = core.LibraryRoot;

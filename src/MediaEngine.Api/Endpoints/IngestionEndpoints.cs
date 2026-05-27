@@ -152,22 +152,43 @@ public static class IngestionEndpoints
         // ── POST /ingestion/rescan ──────────────────────────────────────────────
 
         group.MapPost("/rescan", async (
+            RescanRequest? request,
             IIngestionEngine           engine,
             IOptions<IngestionOptions> opts,
             CancellationToken ct) =>
         {
-            var watchDir = opts.Value.WatchDirectory;
+            var includeSubdirectories = request?.IncludeSubdirectories ?? opts.Value.IncludeSubdirectories;
+            var requestedRoot = request?.RootPath;
 
-            if (string.IsNullOrWhiteSpace(watchDir))
+            if (!string.IsNullOrWhiteSpace(requestedRoot))
+            {
+                if (!Directory.Exists(requestedRoot))
+                    return Results.BadRequest($"Watch directory does not exist: {requestedRoot}");
+
+                await engine.ScanDirectory(requestedRoot, includeSubdirectories, ct);
+
+                return Results.Accepted(value: new { message = "Rescan triggered. Files will be processed shortly.", paths_scanned = 1 });
+            }
+
+            var watchDirs = opts.Value.EffectiveWatchDirectories;
+            if (watchDirs.Count == 0)
                 return Results.BadRequest(
                     "Watch directory is not configured. Set Ingestion:WatchDirectory first.");
 
-            if (!Directory.Exists(watchDir))
-                return Results.BadRequest($"Watch directory does not exist: {watchDir}");
+            var scanned = 0;
+            foreach (var watchDir in watchDirs)
+            {
+                if (!Directory.Exists(watchDir))
+                    continue;
 
-            await engine.ScanDirectory(watchDir, opts.Value.IncludeSubdirectories, ct);
+                await engine.ScanDirectory(watchDir, includeSubdirectories, ct);
+                scanned++;
+            }
 
-            return Results.Accepted(value: new { message = "Rescan triggered. Files will be processed shortly." });
+            if (scanned == 0)
+                return Results.BadRequest("No configured watch directories exist on disk.");
+
+            return Results.Accepted(value: new { message = "Rescan triggered. Files will be processed shortly.", paths_scanned = scanned });
         })
         .WithName("TriggerRescan")
         .WithSummary(

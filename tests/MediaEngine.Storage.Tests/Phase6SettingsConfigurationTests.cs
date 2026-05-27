@@ -12,6 +12,7 @@ public sealed class Phase6SettingsConfigurationTests
         Assert.Contains("SavePipelines", source, StringComparison.Ordinal);
         Assert.Contains("SaveHydration", source, StringComparison.Ordinal);
         Assert.Contains("SaveTranscoding", source, StringComparison.Ordinal);
+        Assert.Contains("SaveLibraries", source, StringComparison.Ordinal);
     }
 
     [Fact]

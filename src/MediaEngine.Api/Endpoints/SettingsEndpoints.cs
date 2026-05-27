@@ -6,6 +6,8 @@ using MediaEngine.Domain.Enums;
 using ProviderHealthRecord = MediaEngine.Domain.Entities.ProviderHealthRecord;
 using MediaEngine.Domain.Events;
 using MediaEngine.Ingestion.Contracts;
+using MediaEngine.Ingestion.Models;
+using MediaEngine.Ingestion.Services;
 using MediaEngine.Providers;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
@@ -131,6 +133,7 @@ public static class SettingsEndpoints
             return Results.Ok(new FolderSettingsResponse
             {
                 WatchDirectory = core.WatchDirectory,
+                WatchDirectories = [.. core.EffectiveWatchDirectories],
                 LibraryRoot    = core.LibraryRoot,
             });
         })
@@ -152,12 +155,21 @@ public static class SettingsEndpoints
         {
             var logger = loggerFactory.CreateLogger("MediaEngine.Api.Endpoints.SettingsEndpoints");
 
+            var requestedWatchDirectories = request.WatchDirectories is not null
+                ? CleanPaths(request.WatchDirectories)
+                : (!string.IsNullOrWhiteSpace(request.WatchDirectory)
+                    ? CleanPaths([request.WatchDirectory])
+                    : null);
+
             // Path traversal validation.
-            if (!string.IsNullOrWhiteSpace(request.WatchDirectory))
+            if (requestedWatchDirectories is not null)
             {
-                var err = PathValidator.Validate(request.WatchDirectory);
-                if (err is not null)
-                    return Results.BadRequest(new { error = err });
+                foreach (var watchDirectory in requestedWatchDirectories)
+                {
+                    var err = PathValidator.Validate(watchDirectory);
+                    if (err is not null)
+                        return Results.BadRequest(new { error = err });
+                }
             }
             if (!string.IsNullOrWhiteSpace(request.LibraryRoot))
             {
@@ -167,10 +179,13 @@ public static class SettingsEndpoints
             }
             var core = configLoader.LoadCore();
 
-            if (!string.IsNullOrWhiteSpace(request.WatchDirectory))
-                core.WatchDirectory = request.WatchDirectory;
+            if (requestedWatchDirectories is not null)
+            {
+                core.WatchDirectories = requestedWatchDirectories;
+                core.WatchDirectory = requestedWatchDirectories.FirstOrDefault() ?? string.Empty;
+            }
 
-            if (!string.IsNullOrWhiteSpace(request.LibraryRoot))
+            if (request.LibraryRoot is not null)
                 core.LibraryRoot = request.LibraryRoot;
 
             configLoader.SaveCore(core);
@@ -178,28 +193,33 @@ public static class SettingsEndpoints
             // Hot-swap the FileSystemWatcher when the watch directory is provided and accessible.
             // Wrapped in try/catch because the watcher may not have been started yet in the
             // API process — the config save is the durable side-effect that matters.
-            if (!string.IsNullOrWhiteSpace(request.WatchDirectory)
-                && Directory.Exists(request.WatchDirectory))
+            var existingWatchDirectories = core.EffectiveWatchDirectories
+                .Where(Directory.Exists)
+                .ToList();
+            if (requestedWatchDirectories is not null && existingWatchDirectories.Count > 0)
             {
                 try
                 {
-                    fileWatcher.UpdateDirectory(request.WatchDirectory);
+                    fileWatcher.UpdateDirectories(existingWatchDirectories);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Watcher hot-swap failed for {WatchDirectory}; saved configuration remains active", request.WatchDirectory);
+                    logger.LogWarning(ex, "Watcher hot-swap failed for {WatchDirectories}; saved configuration remains active", string.Join(", ", existingWatchDirectories));
                 }
 
                 // Scan existing files in the new watch directory so files that were
                 // already present before the hot-swap are picked up.  Duplicates are
                 // harmless — the pipeline's hash check short-circuits them.
-                try
+                foreach (var watchDirectory in existingWatchDirectories)
                 {
-                    await ingestionEngine.ScanDirectory(request.WatchDirectory, ct: ct);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Initial scan failed for updated watch directory {WatchDirectory}", request.WatchDirectory);
+                    try
+                    {
+                        await ingestionEngine.ScanDirectory(watchDirectory, ct: ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Initial scan failed for updated watch directory {WatchDirectory}", watchDirectory);
+                    }
                 }
             }
 
@@ -224,19 +244,87 @@ public static class SettingsEndpoints
         grp.MapGet("/libraries", (IConfigurationLoader configLoader) =>
         {
             var libs = configLoader.LoadLibraries();
-            return Results.Ok(libs.Libraries.Select(l => new
-            {
-                name         = l.Category,
-                media_types  = l.MediaTypes,
-                source_path  = l.SourcePath,
-                source_paths = l.SourcePaths ?? new List<string>(),
-                read_only    = l.ReadOnly,
-                writeback_override = l.WritebackOverride,
-                notes        = l.Notes,
-            }));
+            return Results.Ok(libs.Libraries.Select(ToLibraryFolderSettingsDto));
         })
         .WithName("GetLibraries")
         .WithSummary("Returns configured library folders (source paths, ReadOnly, writeback) from config/libraries.json.")
+        .RequireAdmin();
+
+        grp.MapPut("/libraries", (UpdateLibrariesRequest request, IConfigurationLoader configLoader) =>
+        {
+            if (request.Libraries.Count == 0)
+                return Results.BadRequest(new { error = "At least one library is required." });
+
+            var mappedLibraries = new List<LibraryFolderConfig>(request.Libraries.Count);
+            var overlapEntries = new List<LibraryFolderEntry>(request.Libraries.Count);
+
+            foreach (var library in request.Libraries)
+            {
+                var category = library.Name.Trim();
+                if (string.IsNullOrWhiteSpace(category))
+                    return Results.BadRequest(new { error = "Library name cannot be empty." });
+
+                var sourcePaths = CleanPaths(library.SourcePaths.Count > 0
+                    ? library.SourcePaths
+                    : (string.IsNullOrWhiteSpace(library.SourcePath) ? [] : [library.SourcePath]));
+
+                foreach (var sourcePath in sourcePaths)
+                {
+                    var err = PathValidator.Validate(sourcePath);
+                    if (err is not null)
+                        return Results.BadRequest(new { error = err });
+                }
+
+                var mediaTypes = library.MediaTypes
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var config = new LibraryFolderConfig
+                {
+                    Category = category,
+                    MediaTypes = mediaTypes,
+                    SourcePath = sourcePaths.FirstOrDefault() ?? string.Empty,
+                    SourcePaths = sourcePaths,
+                    LibraryRoot = library.LibraryRoot ?? string.Empty,
+                    IntakeMode = string.IsNullOrWhiteSpace(library.IntakeMode) ? "watch" : library.IntakeMode.Trim(),
+                    IncludeSubdirectories = library.IncludeSubdirectories,
+                    ReadOnly = library.ReadOnly,
+                    WritebackOverride = library.WritebackOverride,
+                    Notes = library.Notes,
+                };
+
+                mappedLibraries.Add(config);
+                if (mediaTypes.Count > 0)
+                {
+                    overlapEntries.Add(new LibraryFolderEntry
+                    {
+                        SourcePath = config.SourcePath,
+                        SourcePaths = sourcePaths,
+                    });
+                }
+            }
+
+            try
+            {
+                LibraryFolderResolver.ValidateNoOverlap(overlapEntries);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+
+            var current = configLoader.LoadLibraries();
+            current.Libraries = mappedLibraries;
+            configLoader.SaveLibraries(current);
+
+            return Results.Ok(current.Libraries.Select(ToLibraryFolderSettingsDto));
+        })
+        .WithName("UpdateLibraries")
+        .WithSummary("Saves configured library folders to config/libraries.json.")
+        .Produces<IEnumerable<LibraryFolderSettingsDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── POST /settings/test-path ────────────────────────────────────────────
@@ -1322,6 +1410,27 @@ public static class SettingsEndpoints
             DownSince            = healthRecord?.DownSince?.ToString("o"),
         };
     }
+
+    private static List<string> CleanPaths(IEnumerable<string> paths) =>
+        paths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static LibraryFolderSettingsDto ToLibraryFolderSettingsDto(LibraryFolderConfig library) => new()
+    {
+        Name = library.Category,
+        MediaTypes = library.MediaTypes,
+        SourcePath = library.SourcePath,
+        SourcePaths = library.SourcePaths ?? [],
+        LibraryRoot = library.LibraryRoot,
+        IntakeMode = library.IntakeMode,
+        IncludeSubdirectories = library.IncludeSubdirectories,
+        ReadOnly = library.ReadOnly,
+        WritebackOverride = library.WritebackOverride,
+        Notes = library.Notes,
+    };
 
     private static string ResolveMetadataLanguage(CoreConfiguration core) =>
         string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata.Trim();

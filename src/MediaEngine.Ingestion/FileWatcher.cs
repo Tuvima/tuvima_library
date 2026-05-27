@@ -111,6 +111,10 @@ public sealed class FileWatcher : IFileWatcher
 
     /// <inheritdoc/>
     public void UpdateDirectory(string path, bool includeSubdirectories = true)
+        => UpdateDirectories([path], includeSubdirectories);
+
+    /// <inheritdoc/>
+    public void UpdateDirectories(IEnumerable<string> paths, bool includeSubdirectories = true)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -130,9 +134,14 @@ public sealed class FileWatcher : IFileWatcher
         }
         _watchers.Clear();
 
-        // Wire the new directory.  AddDirectory() subscribes the same handlers
-        // and appends the new watcher to _watchers.
-        AddDirectory(path, includeSubdirectories);
+        foreach (var path in paths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            // Wire the new directory. AddDirectory() subscribes the same handlers
+            // and appends the new watcher to _watchers.
+            AddDirectory(path, includeSubdirectories);
+        }
 
         // Resume immediately if the watcher was running before the swap.
         if (_running)

@@ -397,6 +397,15 @@ public sealed class ScanRequest
     public string? RootPath { get; init; }
 }
 
+public sealed class RescanRequest
+{
+    [JsonPropertyName("root_path")]
+    public string? RootPath { get; init; }
+
+    [JsonPropertyName("include_subdirectories")]
+    public bool? IncludeSubdirectories { get; init; }
+}
+
 public sealed class ScanResponse
 {
     [JsonPropertyName("operations")]
@@ -505,6 +514,9 @@ public sealed class FolderSettingsResponse
     [JsonPropertyName("watch_directory")]
     public string WatchDirectory { get; init; } = string.Empty;
 
+    [JsonPropertyName("watch_directories")]
+    public List<string> WatchDirectories { get; init; } = [];
+
     [JsonPropertyName("library_root")]
     public string LibraryRoot { get; init; } = string.Empty;
 
@@ -515,8 +527,50 @@ public sealed class UpdateFoldersRequest
     [JsonPropertyName("watch_directory")]
     public string? WatchDirectory { get; init; }
 
+    [JsonPropertyName("watch_directories")]
+    public List<string>? WatchDirectories { get; init; }
+
     [JsonPropertyName("library_root")]
     public string? LibraryRoot { get; init; }
+}
+
+public sealed class LibraryFolderSettingsDto
+{
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("media_types")]
+    public List<string> MediaTypes { get; init; } = [];
+
+    [JsonPropertyName("source_path")]
+    public string? SourcePath { get; init; }
+
+    [JsonPropertyName("source_paths")]
+    public List<string> SourcePaths { get; init; } = [];
+
+    [JsonPropertyName("library_root")]
+    public string? LibraryRoot { get; init; }
+
+    [JsonPropertyName("intake_mode")]
+    public string IntakeMode { get; init; } = "watch";
+
+    [JsonPropertyName("include_subdirectories")]
+    public bool IncludeSubdirectories { get; init; } = true;
+
+    [JsonPropertyName("read_only")]
+    public bool ReadOnly { get; init; }
+
+    [JsonPropertyName("writeback_override")]
+    public bool? WritebackOverride { get; init; }
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; init; }
+}
+
+public sealed class UpdateLibrariesRequest
+{
+    [JsonPropertyName("libraries")]
+    public List<LibraryFolderSettingsDto> Libraries { get; init; } = [];
 }
 
 // -- GET /settings/server-general ----------------------------------------------

@@ -40,6 +40,25 @@ public sealed class CoreConfiguration
     public string WatchDirectory { get; set; } = string.Empty;
 
     /// <summary>
+    /// Directories monitored for new files. The legacy <see cref="WatchDirectory"/>
+    /// remains the first/default entry for older callers and config files.
+    /// </summary>
+    [JsonPropertyName("watch_directories")]
+    public List<string> WatchDirectories { get; set; } = [];
+
+    /// <summary>
+    /// Normalized watch directory list, falling back to <see cref="WatchDirectory"/>
+    /// when older config files do not contain <c>watch_directories</c>.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<string> EffectiveWatchDirectories =>
+        WatchDirectories.Count > 0
+            ? WatchDirectories.Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
+            : (string.IsNullOrWhiteSpace(WatchDirectory) ? [] : [WatchDirectory]);
+
+    /// <summary>
     /// Organised media library root.
     /// Overrides <c>appsettings.json:Ingestion:LibraryRoot</c> at startup.
     /// </summary>

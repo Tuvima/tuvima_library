@@ -65,8 +65,8 @@ public sealed class FolderHealthService : BackgroundService
     {
         var opts = _options.CurrentValue;
 
-        if (!string.IsNullOrWhiteSpace(opts.WatchDirectory))
-            await CheckAndBroadcastAsync(opts.WatchDirectory, ct);
+        foreach (var watchDirectory in opts.EffectiveWatchDirectories)
+            await CheckAndBroadcastAsync(watchDirectory, ct);
 
         if (!string.IsNullOrWhiteSpace(opts.LibraryRoot))
             await CheckAndBroadcastAsync(opts.LibraryRoot, ct);

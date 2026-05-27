@@ -4296,6 +4296,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     background: var(--tl-gradient-primary);
 }
 
+.app-segmented-control__item:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 .app-skeleton {
     min-height: var(--app-control-height, var(--tl-control-height-md));
     border-radius: var(--tl-control-radius);

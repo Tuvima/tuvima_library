@@ -278,7 +278,7 @@ public interface IEngineApiClient
     Task<List<WatchFolderFileViewModel>> GetWatchFolderAsync(CancellationToken ct = default);
 
     /// <summary>POST /ingestion/rescan — trigger re-processing of Watch Folder files.</summary>
-    Task<bool> TriggerRescanAsync(CancellationToken ct = default);
+    Task<bool> TriggerRescanAsync(string? rootPath = null, bool? includeSubdirectories = null, CancellationToken ct = default);
 
     // ── Settings (/settings) ──────────────────────────────────────────────────
 
@@ -293,6 +293,9 @@ public interface IEngineApiClient
 
     /// <summary>GET /settings/libraries — per-library config (source paths, ReadOnly, writeback override).</summary>
     Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/libraries — save per-library folder config.</summary>
+    Task<List<LibraryFolderDto>?> UpdateLibrariesAsync(List<LibraryFolderDto> libraries, CancellationToken ct = default);
 
     /// <summary>PUT /settings/folders — save paths to manifest and hot-swap the FileSystemWatcher.</summary>
     Task<bool> UpdateFolderSettingsAsync(FolderSettingsDto settings, CancellationToken ct = default);
@@ -337,10 +340,16 @@ public interface IEngineApiClient
 
     /// <summary>GET /settings/organization-template — current file organization template + preview.</summary>
     Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(CancellationToken ct = default);
-    Task<OrganizationTemplateDto?> PreviewOrganizationTemplateAsync(string template, CancellationToken ct = default);
+    Task<OrganizationTemplateDto?> PreviewOrganizationTemplateAsync(
+        string template,
+        Dictionary<string, string>? templates = null,
+        CancellationToken ct = default);
 
     /// <summary>PUT /settings/organization-template — save a new file organization template.</summary>
-    Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(string template, CancellationToken ct = default);
+    Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(
+        string template,
+        Dictionary<string, string>? templates = null,
+        CancellationToken ct = default);
 
     // ── Activity log (/activity) ────────────────────────────────────────────────
 

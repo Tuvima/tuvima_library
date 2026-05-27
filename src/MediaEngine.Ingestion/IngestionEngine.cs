@@ -250,19 +250,23 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         // -- Step 3: Start watching + initial scan ------------------------
-        if (!string.IsNullOrWhiteSpace(_options.WatchDirectory))
+        var watchDirectories = _options.EffectiveWatchDirectories;
+        if (watchDirectories.Count > 0)
         {
-            try
+            foreach (var watchDirectory in watchDirectories)
             {
-                _watcher.AddDirectory(_options.WatchDirectory, _options.IncludeSubdirectories);
-                _logger.LogInformation("Watching: {Path}", _options.WatchDirectory);
-            }
-            catch (DirectoryNotFoundException)
-            {
-                _logger.LogWarning(
-                    "IngestionEngine: Watch directory does not exist: {Path}. " +
-                    "Create the directory or update the path in Settings.",
-                    _options.WatchDirectory);
+                try
+                {
+                    _watcher.AddDirectory(watchDirectory, _options.IncludeSubdirectories);
+                    _logger.LogInformation("Watching: {Path}", watchDirectory);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    _logger.LogWarning(
+                        "IngestionEngine: Watch directory does not exist: {Path}. " +
+                        "Create the directory or update the path in Settings.",
+                        watchDirectory);
+                }
             }
         }
         else
@@ -283,10 +287,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // them through the normal debounce ? hash ? duplicate-check ? process flow.
         // After reconciliation, orphaned records are cleaned, so files in the
         // watch folder are treated as genuinely new — no false duplicate skips.
-        if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
-            && Directory.Exists(_options.WatchDirectory))
+        foreach (var watchDirectory in watchDirectories.Where(Directory.Exists))
         {
-            await ScanExistingFilesAsync(_options.WatchDirectory, _options.IncludeSubdirectories, stoppingToken)
+            await ScanExistingFilesAsync(watchDirectory, _options.IncludeSubdirectories, stoppingToken)
                 .ConfigureAwait(false);
         }
 
@@ -342,10 +345,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Re-scan the watch directory for files that were already present before
         // the watcher started.  This covers the post-wipe restart scenario where
         // files are seeded into the watch folder and then the engine is restarted.
-        if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
-            && Directory.Exists(_options.WatchDirectory))
+        foreach (var watchDirectory in _options.EffectiveWatchDirectories.Where(Directory.Exists))
         {
-            _ = ScanExistingFilesAsync(_options.WatchDirectory, _options.IncludeSubdirectories, CancellationToken.None)
+            _ = ScanExistingFilesAsync(watchDirectory, _options.IncludeSubdirectories, CancellationToken.None)
                 .ContinueWith(
                     task => _logger.LogError(task.Exception, "Initial scan failed after IIngestionEngine.Start"),
                     CancellationToken.None,

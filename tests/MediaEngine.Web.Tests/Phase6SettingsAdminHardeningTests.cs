@@ -31,12 +31,31 @@ public sealed class Phase6SettingsAdminHardeningTests
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LibrariesTab.razor");
 
+        Assert.Contains("File Organization", source, StringComparison.Ordinal);
+        Assert.Contains("<AppTabs ActivePanelIndex", source, StringComparison.Ordinal);
+        Assert.Contains("settings-tab-strip settings-file-org-tabs", source, StringComparison.Ordinal);
+        Assert.Contains("Global Library Root", source, StringComparison.Ordinal);
+        Assert.Contains("IsGlobalTab", source, StringComparison.Ordinal);
+        Assert.Contains("Import Folders", source, StringComparison.Ordinal);
+        Assert.Contains("IsImportFoldersTab", source, StringComparison.Ordinal);
+        Assert.Contains("Folders for @activeLibrary.Label", source, StringComparison.Ordinal);
+        Assert.Contains("StructureModeRecommended", source, StringComparison.Ordinal);
+        Assert.Contains("StructureModeCustom", source, StringComparison.Ordinal);
+        Assert.Contains("StructureModeNone", source, StringComparison.Ordinal);
+        Assert.Contains("Recommended", source, StringComparison.Ordinal);
+        Assert.Contains("Custom", source, StringComparison.Ordinal);
+        Assert.Contains("None", source, StringComparison.Ordinal);
+        Assert.Contains("Tuvima will index these files in place", source, StringComparison.Ordinal);
         Assert.Contains("Engine unavailable - path could not be checked.", source, StringComparison.Ordinal);
         Assert.Contains("Watcher hot-swap was requested", source, StringComparison.Ordinal);
         Assert.Contains("A rescan is recommended", source, StringComparison.Ordinal);
         Assert.Contains("PreviewOrganizationTemplateAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Scan saved watch folder", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateLibrariesAsync", source, StringComparison.Ordinal);
         Assert.Contains("Disabled=\"@(_savingFolders || _engineUnavailable || !HasUnsavedChanges)\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Global Paths &amp; Watch Folders", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Class=\"file-org-tabs\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Year + Title", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Title (Year)", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -634,12 +634,16 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // -- POST /ingestion/rescan ----------------------------------------------
 
-    public async Task<bool> TriggerRescanAsync(CancellationToken ct = default)
+    public async Task<bool> TriggerRescanAsync(
+        string? rootPath = null,
+        bool? includeSubdirectories = null,
+        CancellationToken ct = default)
     {
         const string endpoint = "POST /ingestion/rescan";
         try
         {
-            var resp = await _http.PostAsJsonAsync("/ingestion/rescan", new { }, ct);
+            var body = new { root_path = rootPath, include_subdirectories = includeSubdirectories };
+            var resp = await _http.PostAsJsonAsync("/ingestion/rescan", body, ct);
             if (!resp.IsSuccessStatusCode)
             {
                 await RecordHttpFailureAsync(endpoint, resp, ct);
@@ -1337,13 +1341,47 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<LibraryFolderDto>?> UpdateLibrariesAsync(
+        List<LibraryFolderDto> libraries,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { libraries };
+            var resp = await _http.PutAsJsonAsync("/settings/libraries", body, ct);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning(
+                    "PUT /settings/libraries returned {Status}: {Detail}",
+                    (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+                return null;
+            }
+
+            return await resp.Content.ReadFromJsonAsync<List<LibraryFolderDto>>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/libraries failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     public async Task<bool> UpdateFolderSettingsAsync(
         FolderSettingsDto settings,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { watch_directory = settings.WatchDirectory, library_root = settings.LibraryRoot };
+            var body = new
+            {
+                watch_directory = settings.WatchDirectory,
+                watch_directories = settings.EffectiveWatchDirectories,
+                library_root = settings.LibraryRoot,
+            };
             var resp = await _http.PutAsJsonAsync("/settings/folders", body, ct);
 
             if (!resp.IsSuccessStatusCode)
@@ -1699,11 +1737,13 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     public async Task<OrganizationTemplateDto?> PreviewOrganizationTemplateAsync(
-        string template, CancellationToken ct = default)
+        string template,
+        Dictionary<string, string>? templates = null,
+        CancellationToken ct = default)
     {
         try
         {
-            var body = new { template };
+            var body = new { template, templates };
             var resp = await _http.PostAsJsonAsync("/settings/organization-template/preview", body, ct);
 
             if (!resp.IsSuccessStatusCode)
@@ -1727,11 +1767,13 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     public async Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(
-        string template, CancellationToken ct = default)
+        string template,
+        Dictionary<string, string>? templates = null,
+        CancellationToken ct = default)
     {
         try
         {
-            var body = new { template };
+            var body = new { template, templates };
             var resp = await _http.PutAsJsonAsync("/settings/organization-template", body, ct);
 
             if (!resp.IsSuccessStatusCode)

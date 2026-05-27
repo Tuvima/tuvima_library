@@ -18,14 +18,15 @@ All configuration lives in the `config/` directory as individual JSON files grou
 
 ## config/core.json
 
-Core Engine settings. Restart required for changes to take effect.
+Core Engine settings. Most changes are read at startup, but Settings > Libraries can save folder changes and ask the running Engine to hot-swap watch folders.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `schema_version` | string | `"2.0"` | Config schema version. Used for migration compatibility checks. |
 | `database_path` | string | `".data/database/library.db"` | Path to the SQLite database file. Relative paths resolve from `data_root`. |
 | `data_root` | string | `""` | Root directory for all internal Engine storage (`.data/`). Must be set before first run. |
-| `watch_directory` | string | `""` | Legacy single-directory watch. Prefer `config/libraries.json` for multi-folder setups. |
+| `watch_directory` | string | `""` | Legacy single-directory global intake folder. The Settings UI keeps this set to the first `watch_directories` entry for compatibility. |
+| `watch_directories` | string[] | `[]` | Global intake/drop folders watched for new files before media-type routing. If empty, the Engine falls back to `watch_directory`. |
 | `library_root` | string | `""` | Root directory where the Engine places organized media after promotion. |
 | `organization_template` | string | - | Default file organization template. Tokens: `{Category}`, `{Title}`, `{Qid}`, `{Ext}`. |
 | `organization_templates` | object | - | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |
@@ -179,7 +180,7 @@ Common fields configured here: `cover`, `description`, `rating`, `narrator`, `du
 
 ## config/libraries.json
 
-Defines the Library Folders the Engine monitors. Contains a `libraries` array; each entry is one folder configuration.
+Defines typed media library folders. Contains a `libraries` array; each entry is one folder configuration. These are managed under Settings > Libraries on the File Organization screen, alongside the Global, Import Folders, and media-type tabs.
 
 | Field | Type | Description |
 |---|---|---|

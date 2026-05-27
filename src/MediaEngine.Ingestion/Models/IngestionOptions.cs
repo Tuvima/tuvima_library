@@ -81,6 +81,22 @@ public sealed class IngestionOptions
     public string WatchDirectory { get; set; } = string.Empty;
 
     /// <summary>
+    /// Directories monitored for new files. The legacy <see cref="WatchDirectory"/>
+    /// remains the first/default entry for older config and callers.
+    /// </summary>
+    public IReadOnlyList<string> WatchDirectories { get; set; } = [];
+
+    /// <summary>
+    /// Normalized watch directory list, falling back to <see cref="WatchDirectory"/>.
+    /// </summary>
+    public IReadOnlyList<string> EffectiveWatchDirectories =>
+        WatchDirectories.Count > 0
+            ? WatchDirectories.Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
+            : (string.IsNullOrWhiteSpace(WatchDirectory) ? [] : [WatchDirectory]);
+
+    /// <summary>
     /// Root of the organised library into which accepted files are moved.
     /// Required when <see cref="AutoOrganize"/> is <see langword="true"/>.
     /// </summary>

@@ -114,6 +114,10 @@ public interface IConfigurationLoader
     /// <summary>Load library folder definitions from <c>config/libraries.json</c>.</summary>
     LibrariesConfiguration LoadLibraries();
 
+    /// <summary>Persist library folder definitions to <c>config/libraries.json</c>.</summary>
+    void SaveLibraries(LibrariesConfiguration config) =>
+        throw new NotSupportedException("This configuration loader does not support saving library folder definitions.");
+
     // ── Field Priorities ───────────────────────────────────────────────────
 
     /// <summary>Load per-field provider priority overrides from <c>config/field_priorities.json</c>.</summary>

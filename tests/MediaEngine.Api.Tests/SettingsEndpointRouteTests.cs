@@ -40,7 +40,12 @@ public sealed class SettingsEndpointRouteTests
 
         Assert.Contains("grp.MapGet(\"/folders\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPut(\"/folders\"", source, StringComparison.Ordinal);
-        Assert.Contains("fileWatcher.UpdateDirectory", source, StringComparison.Ordinal);
+        Assert.Contains("fileWatcher.UpdateDirectories", source, StringComparison.Ordinal);
+        Assert.Contains("WatchDirectories", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapGet(\"/libraries\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapPut(\"/libraries\"", source, StringComparison.Ordinal);
+        Assert.Contains("configLoader.SaveLibraries", source, StringComparison.Ordinal);
+        Assert.Contains("LibraryFolderResolver.ValidateNoOverlap", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPost(\"/test-path\"", source, StringComparison.Ordinal);
         Assert.Contains("HasRead", source, StringComparison.Ordinal);
         Assert.Contains("HasWrite", source, StringComparison.Ordinal);

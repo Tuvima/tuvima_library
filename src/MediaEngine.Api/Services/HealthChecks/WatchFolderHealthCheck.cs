@@ -9,13 +9,14 @@ public sealed class WatchFolderHealthCheck(IOptions<IngestionOptions> options) :
     public Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context, CancellationToken cancellationToken = default)
     {
-        var watchDir = options.Value.WatchDirectory;
-        if (string.IsNullOrWhiteSpace(watchDir))
+        var watchDirs = options.Value.EffectiveWatchDirectories;
+        if (watchDirs.Count == 0)
             return Task.FromResult(HealthCheckResult.Degraded("Watch Folder is not configured."));
 
-        if (!Directory.Exists(watchDir))
-            return Task.FromResult(HealthCheckResult.Unhealthy($"Watch Folder does not exist: {watchDir}"));
+        var missing = watchDirs.Where(path => !Directory.Exists(path)).ToList();
+        if (missing.Count > 0)
+            return Task.FromResult(HealthCheckResult.Unhealthy($"Watch Folder does not exist: {string.Join(", ", missing)}"));
 
-        return Task.FromResult(HealthCheckResult.Healthy($"Watch Folder is accessible: {watchDir}"));
+        return Task.FromResult(HealthCheckResult.Healthy($"Watch Folder is accessible: {string.Join(", ", watchDirs)}"));
     }
 }

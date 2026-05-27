@@ -22,6 +22,15 @@ public sealed class LibraryFolderDto
     [JsonPropertyName("source_paths")]
     public List<string> SourcePaths { get; set; } = [];
 
+    [JsonPropertyName("library_root")]
+    public string? LibraryRoot { get; set; }
+
+    [JsonPropertyName("intake_mode")]
+    public string IntakeMode { get; set; } = "watch";
+
+    [JsonPropertyName("include_subdirectories")]
+    public bool IncludeSubdirectories { get; set; } = true;
+
     [JsonPropertyName("read_only")]
     public bool ReadOnly { get; set; }
 

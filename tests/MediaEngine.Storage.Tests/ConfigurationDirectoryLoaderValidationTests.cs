@@ -18,6 +18,80 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
+    public void CoreConfiguration_LoadsMultipleWatchDirectoriesAndLegacyFallback()
+    {
+        using var temp = TempConfig.Create();
+        var corePath = System.IO.Path.Combine(temp.Path, "core.json");
+        File.WriteAllText(corePath, """
+            {
+              "schema_version": "2.0",
+              "database_path": "library.db",
+              "server_name": "Tuvima",
+              "watch_directory": "C:\\legacy-drop",
+              "watch_directories": ["C:\\drop-a", "D:\\drop-b"]
+            }
+            """);
+
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var core = loader.LoadCore();
+
+        Assert.Equal([@"C:\drop-a", @"D:\drop-b"], core.WatchDirectories);
+        Assert.Equal([@"C:\drop-a", @"D:\drop-b"], core.EffectiveWatchDirectories);
+
+        using var legacyTemp = TempConfig.Create();
+        File.WriteAllText(System.IO.Path.Combine(legacyTemp.Path, "core.json"), """
+            {
+              "schema_version": "2.0",
+              "database_path": "library.db",
+              "server_name": "Tuvima",
+              "watch_directory": "C:\\legacy-drop"
+            }
+            """);
+
+        var legacyLoader = new ConfigurationDirectoryLoader(legacyTemp.Path);
+        Assert.Equal([@"C:\legacy-drop"], legacyLoader.LoadCore().EffectiveWatchDirectories);
+    }
+
+    [Fact]
+    public void SaveLibraries_RoundTripsMediaTypeFolderSettings()
+    {
+        using var temp = TempConfig.Create();
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var config = new LibrariesConfiguration
+        {
+            SchemaVersion = "1.0",
+            Libraries =
+            [
+                new LibraryFolderConfig
+                {
+                    Category = "Movies",
+                    MediaTypes = ["Movies"],
+                    SourcePath = @"C:\media\movies",
+                    SourcePaths = [@"C:\media\movies", @"D:\media\movies"],
+                    LibraryRoot = @"E:\Tuvima",
+                    IntakeMode = "import",
+                    IncludeSubdirectories = false,
+                    ReadOnly = true,
+                    WritebackOverride = false,
+                },
+            ],
+        };
+
+        loader.SaveLibraries(config);
+        var roundTrip = loader.LoadLibraries().Libraries.Single();
+
+        Assert.Equal("Movies", roundTrip.Category);
+        Assert.Equal(["Movies"], roundTrip.MediaTypes);
+        Assert.Equal(@"C:\media\movies", roundTrip.SourcePath);
+        Assert.Equal([@"C:\media\movies", @"D:\media\movies"], roundTrip.SourcePaths);
+        Assert.Equal(@"E:\Tuvima", roundTrip.LibraryRoot);
+        Assert.Equal("import", roundTrip.IntakeMode);
+        Assert.False(roundTrip.IncludeSubdirectories);
+        Assert.True(roundTrip.ReadOnly);
+        Assert.False(roundTrip.WritebackOverride);
+    }
+
+    [Fact]
     public void MalformedJson_FallsBackToValidBackup()
     {
         using var temp = TempConfig.Create();
